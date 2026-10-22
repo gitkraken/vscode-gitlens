@@ -1,6 +1,12 @@
 import type { Cache } from '@gitlens/git/cache.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
-import type { BranchContributionsOverview, GitBranchesSubProvider } from '@gitlens/git/providers/branches.js';
+import type {
+	BranchContributionsOverview,
+	GitBranchesSubProvider,
+	MergeTarget,
+	MergeTargetOptions,
+	MergeTargetTier,
+} from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { createRevisionRange, stripOrigin } from '@gitlens/git/utils/revision.utils.js';
 import type { BranchSortOptions } from '@gitlens/git/utils/sorting.js';
@@ -219,6 +225,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// queue, so the priority signal has no effect here. Accepted for interface compatibility.
 		options?: {
 			associatedPullRequest?: Promise<{ refs?: { base?: { branch: string } } } | undefined>;
+			getFallbackDefaultBranch?: () => Promise<string | undefined>;
 			priority?: GitCommandPriority;
 		},
 		_cancellation?: AbortSignal,
@@ -295,25 +302,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		};
 
 		try {
-			// Resolve `mergeTarget` (PR base or default branch). Only the expensive body below is
-			// cached — keyed on `${ref}|${mergeTarget}` so callers that resolve to the same target
-			// share the result, while differing targets get independent slots.
-			let mergeTarget: string | undefined;
-
-			if (options?.associatedPullRequest != null) {
-				const pr = await options.associatedPullRequest;
-				if (pr?.refs?.base != null) {
-					mergeTarget = pr.refs.base.branch;
-				}
-			}
-
-			mergeTarget ??= await this.getDefaultBranchName(repoPath);
-			if (mergeTarget == null) return undefined;
+			// Only the expensive body below is cached — keyed on `${ref}|${mergeTarget}` so callers that resolve to
+			// the same target share the result, while differing targets get independent slots.
+			const associatedPullRequest = options?.associatedPullRequest;
+			const target = await this.getMergeTarget(repoPath, ref, {
+				getAssociatedPullRequest: associatedPullRequest != null ? () => associatedPullRequest : undefined,
+				getFallbackDefaultBranch: options?.getFallbackDefaultBranch,
+				keepSelfAtTip: true,
+			});
+			if (target == null) return undefined;
 
 			// Safe to cache despite PR retargeting: the cache key includes the resolved `mergeTarget`,
 			// so a retargeted PR resolves to a fresh slot and the old entry is stale-but-unused (and
 			// TTL-evicts). The prior "no outer cache here" rationale assumed a `ref`-only key.
-			const resolvedTarget = mergeTarget;
+			const resolvedTarget = target.ref;
 			return await this.cache.getBranchOverview(repoPath, `${ref}|${resolvedTarget}`, () =>
 				fetchBody(resolvedTarget),
 			);
@@ -321,6 +323,78 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			scope?.error(ex);
 			return undefined;
 		}
+	}
+
+	/**
+	 * `preferredTarget`, then the pull request's base, then the repository's default branch, then the caller's
+	 * fallback, each with the merge base the compare API reports. A remote repository has no stored targets, reflog or
+	 * tracking refs, so the other options have nothing to act on; the default branch's own target is itself, kept only
+	 * with `keepSelfAtTip`.
+	 */
+	@debug()
+	async getMergeTarget(
+		repoPath: string,
+		branch: string,
+		options?: MergeTargetOptions,
+		_cancellation?: AbortSignal,
+	): Promise<MergeTarget | undefined> {
+		if (!branch) return undefined;
+
+		const scope = getScopedLogger();
+
+		const read = async (getName: (() => Promise<string | undefined>) | undefined): Promise<string | undefined> => {
+			try {
+				return (await getName?.())?.trim() || undefined;
+			} catch (ex) {
+				scope?.error(ex);
+				return undefined;
+			}
+		};
+		const measure = async (
+			candidate: string | undefined,
+			tier: MergeTargetTier,
+		): Promise<MergeTarget | undefined> => {
+			candidate = candidate?.trim();
+			// A ref starting with `-` would be parsed as a flag, and a branch measured against itself says nothing
+			if (!candidate || candidate.startsWith('-') || candidate === branch) return undefined;
+
+			// The candidate as-is, with the merge base the compare API reports: a remote repository has no tracking refs
+			// to weigh it against
+			return {
+				ref: candidate,
+				forkPoint: await this.provider.refs.getMergeBase(repoPath, branch, candidate),
+				tier: tier,
+			};
+		};
+
+		let target = await measure(options?.preferredTarget, 'preferred');
+		if (target != null) return target;
+
+		const getAssociatedPullRequest = options?.getAssociatedPullRequest;
+		if (getAssociatedPullRequest != null) {
+			target = await measure(
+				await read(async () => (await getAssociatedPullRequest())?.refs?.base?.branch),
+				'pr',
+			);
+			if (target != null) return target;
+		}
+
+		// The fallback can name it remote-qualified (`origin/main`), where this repository's branches are bare
+		const defaultName = stripOrigin(
+			(await read(() => this.getDefaultBranchName(repoPath))) ?? (await read(options?.getFallbackDefaultBranch)),
+		);
+		if (defaultName == null) return undefined;
+
+		if (defaultName === branch) {
+			if (!options?.keepSelfAtTip) return undefined;
+
+			return {
+				ref: defaultName,
+				forkPoint: await this.provider.refs.getMergeBase(repoPath, branch, defaultName),
+				tier: 'default',
+			};
+		}
+		return measure(defaultName, 'default');
 	}
 
 	@debug()

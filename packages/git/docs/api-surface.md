@@ -238,6 +238,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getBranches(repoPath, options?, cancellation?)`                                     | `PagedResult<GitBranch>`                   |
 | `getBranchContributionsOverview(repoPath, ref, options?, cancellation?)`             | `BranchContributionsOverview \| undefined` |
 | `getBranchesWithCommits(repoPath, shas, branch?, options?, cancellation?)`           | `string[]`                                 |
+| `getMergeTarget(repoPath, branch, options?, cancellation?)`                          | `MergeTarget \| undefined`                 |
 | `getDefaultBranchName(repoPath, remote?, options?, cancellation?)`                   | `string \| undefined`                      |
 | `createBranch?(repoPath, name, ref, options?)`                                       | `void`                                     |
 | `deleteLocalBranch?(repoPath, names, options?)`                                      | `void`                                     |

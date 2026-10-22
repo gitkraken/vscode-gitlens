@@ -1,4 +1,9 @@
-import type { Cache, ConflictDetectionCacheKey, GkConfigInvalidationTarget } from '@gitlens/git/cache.js';
+import type {
+	Cache,
+	CachedMergeTarget,
+	ConflictDetectionCacheKey,
+	GkConfigInvalidationTarget,
+} from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/branch.js';
@@ -14,6 +19,9 @@ import type {
 	GitBranchMergedStatus,
 	GitPushTarget,
 	GitPushTargetRef,
+	MergeTarget,
+	MergeTargetOptions,
+	MergeTargetTier,
 } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
@@ -115,6 +123,9 @@ function toRefPatterns(refs: ReadonlySet<string>): string[] | undefined {
 	return sum(refs, r => r.length + 1) < maxGitCliLength / 2 ? [...refs] : undefined;
 }
 
+/** The stored keys a merge target is read from: the user's pick, the detected target and its legacy key, and the recorded base */
+const storedMergeKeys = ['gk-merge-target-user', 'gk-merge-target', 'gk-target-base', 'gk-merge-base'] as const;
+
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
 	private readonly aheadBehindBySha = new LruMap<string, { ahead: number; behind: number }>(4096);
@@ -163,6 +174,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * it once
 	 */
 	private readonly _branchCreatedFrom = new LruMap<string, string | undefined>(1024);
+	/**
+	 * The branch HEAD was on when each `commonPath\0branch` was first checked out, as git wrote it, for a branch
+	 * created from `HEAD`; only found ones, since a later checkout can write one
+	 */
+	private readonly _branchCheckedOutFrom = new LruMap<string, string>(1024);
 	/** Bumped each time a key's created-from is forgotten, so a reflog read in flight across that doesn't store it */
 	private readonly _branchCreatedFromGenerations = new LruMap<string, number>(1024);
 	/**
@@ -545,6 +561,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			associatedPullRequest?: Promise<
 				{ refs?: { base?: { branch: string } }; stack?: { position: number } } | undefined
 			>;
+			getFallbackDefaultBranch?: () => Promise<string | undefined>;
 			priority?: GitCommandPriority;
 		},
 		cancellation?: AbortSignal,
@@ -631,75 +648,26 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		};
 
 		try {
-			// Resolve `mergeTarget` through Tier 1 → Tier 2 → Tier 3. The pieces of each tier are
-			// already individually cached (`getStoredMergeTargetBranchName`, `getBaseBranchName`,
-			// `getDefaultBranchName`), so this resolution path is cheap on warm caches. Only the
-			// expensive body below (`getMergeBase` + `getContributors` w/ stats + `getCommitDates`)
-			// is wrapped by `cache.getBranchOverview`, keyed on the resolved `mergeTarget` so any
-			// caller that resolves to the same target shares; differing targets get independent
-			// slots, which is the correctness constraint that previously forced the Tier 2/3 paths
-			// to bypass the cache entirely.
-			let mergeTarget: string | undefined;
+			// `getMergeTarget` caches its own answer and confirms it against what it read. Only the expensive body
+			// (`getMergeBase` + `getContributors` w/ stats + `getCommitDates`) is cached here, keyed on the resolved
+			// target so callers resolving to the same one share it
+			const associatedPullRequest = options?.associatedPullRequest;
+			const target = await this.getMergeTarget(
+				repoPath,
+				ref,
+				{
+					getAssociatedPullRequest: associatedPullRequest != null ? () => associatedPullRequest : undefined,
+					inferBase: true,
+					defaultBranch: 'remote',
+					getFallbackDefaultBranch: options?.getFallbackDefaultBranch,
+					keepSelfAtTip: true,
+					priority: priority,
+				},
+				cancellation,
+			);
+			if (target == null) return undefined;
 
-			// Tier 1: Stored merge target (user-set or previously detected from PR). A target whose
-			// branch is gone is skipped, so resolution falls through to the next tier.
-			mergeTarget = await this.getStoredMergeTargetBranchName(repoPath, ref, priorityOpts, cancellation);
-
-			// Tier 2: PR-based lookup. The branch object is only needed here (for `remoteName`),
-			// so lazy-load it on the cold path instead of paying for it on every call.
-			if (mergeTarget == null && options?.associatedPullRequest != null) {
-				const pr = await options.associatedPullRequest;
-				if (pr?.refs?.base != null) {
-					const branch = await this.getBranch(repoPath, ref, undefined, cancellation);
-					if (branch == null) return undefined;
-
-					const { remote: remoteName } = await resolveBranchRemote(
-						this.provider,
-						repoPath,
-						branch,
-						cancellation,
-					);
-
-					// A branch with no remote upstream has no remote to find the PR's base on
-					if (remoteName != null) {
-						const prTarget = `${remoteName}/${pr.refs.base.branch}`;
-						// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer),
-						// so a confirmed-gone base is skipped like a stored target.
-						const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
-							repoPath,
-							prTarget,
-							priorityOpts,
-							cancellation,
-						);
-						if (!missing) {
-							mergeTarget = prTarget;
-
-							// A stacked PR's base is the layer below it, which is deleted when the stack merges.
-							// A stored target beats every other tier for as long as its branch exists, and a merged
-							// layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps merged
-							// branches). Use it for this lookup, but don't persist it.
-							if (pr.stack == null) {
-								// Store for future reuse — turns the next call into a Tier 1 path. Skip the
-								// `branchOverviews` invalidation that the write would otherwise trigger: we're
-								// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
-								// it would just force the next caller to redo the body. (gk-merge-target writes
-								// do not affect `baseBranchName`, so no need to skip that target.)
-								void this.storeMergeTargetBranchName(repoPath, ref, prTarget, {
-									skipInvalidation: ['branchOverviews'],
-								});
-							}
-						}
-					}
-				}
-			}
-
-			// Tier 3: Base branch, then default branch.
-			mergeTarget ??= await this.getBaseBranchName(repoPath, ref, priorityOpts, cancellation);
-			mergeTarget ??= await this.getDefaultBranchName(repoPath, undefined, priorityOpts, cancellation);
-
-			if (mergeTarget == null) return undefined;
-
-			const resolvedTarget = mergeTarget;
+			const resolvedTarget = target.ref;
 			return await this.cache.getBranchOverview(
 				repoPath,
 				`${ref}|${resolvedTarget}`,
@@ -1880,38 +1848,36 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					}
 
 					if (mergeBase != null) {
-						const branch = await this.provider.refs.getSymbolicReferenceName(
+						// Only a base git confirms is gone falls through to the reflog guess. One that couldn't be checked
+						// is answered as stored, but not cached
+						const { name, missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
 							commonPath,
 							mergeBase,
 							priorityOpts,
+							signal,
 						);
-						if (branch != null) {
+						if (!missing) {
+							if (!name) {
+								cacheable.invalidate();
+								return mergeBase;
+							}
+
 							if (update) {
 								// Self-write: the value we're storing is exactly what this factory is
 								// returning, so any in-flight `branchOverviews` or `baseBranchName` entry
 								// being populated against this resolution should NOT be evicted.
-								void this.storeBaseBranchName(commonPath, ref, branch, {
+								void this.storeBaseBranchName(commonPath, ref, name, {
 									skipInvalidation: ['branchOverviews', 'baseBranchName'],
 								});
 							}
-							return branch;
+							return name;
 						}
 					}
 				} catch {}
 
-				const reflog = await this.getBaseBranchFromReflog(
-					commonPath,
-					ref,
-					{ upstream: true, priority: priority },
-					signal,
-				);
-				if (reflog.branch != null) {
-					// Self-write: see comment on the migration path above.
-					void this.storeBaseBranchName(commonPath, ref, reflog.branch, {
-						skipInvalidation: ['branchOverviews', 'baseBranchName'],
-					});
-					return reflog.branch;
-				}
+				// Never stored: Kepler shares the file, and takes a stored base for one that was recorded
+				const reflog = await this.getBaseBranchFromReflog(repoPath, commonPath, ref, priority, signal);
+				if (reflog.branch != null) return reflog.branch;
 
 				// This entry has no TTL and the `'branches'` cascade no longer clears it (a tip move can't
 				// change a base), so a failed read cached as `undefined` would read as "no base branch" for
@@ -1927,53 +1893,47 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * `failed` separates "the reflog ran and had no answer" from "the read never happened" — the caller
-	 * caches the former forever and must not cache the latter.
+	 * The branch `ref` was created from, else the branch HEAD was on when it was first checked out, each as its
+	 * upstream when it has one. `failed` separates "the reflog ran and had no answer" from "the read never happened" —
+	 * the caller caches the former forever and must not cache the latter.
 	 */
 	private async getBaseBranchFromReflog(
 		repoPath: string,
+		commonPath: string,
 		ref: string,
-		options?: { upstream: true; priority?: GitCommandPriority },
-		cancellation?: AbortSignal,
+		priority: GitCommandPriority | undefined,
+		cancellation: AbortSignal | undefined,
 	): Promise<{ branch: string | undefined; failed: boolean }> {
-		const priority = options?.priority;
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
 
 		try {
-			const createdFrom = await this.getReflogCreatedFrom(repoPath, ref, priority, cancellation);
+			const createdFrom = await this.getReflogCreatedFrom(commonPath, ref, priority, cancellation);
 			if (createdFrom == null) return { branch: undefined, failed: false };
 
 			// Check if branch created from an explicit branch
 			if (createdFrom !== 'HEAD') {
-				if (options?.upstream) {
-					const upstream = await this.getUpstreamName(repoPath, createdFrom, priorityOpts, cancellation);
-					if (upstream) return { branch: upstream, failed: false };
-				}
+				const upstream = await this.getUpstreamName(commonPath, createdFrom, priorityOpts, cancellation);
+				if (upstream) return { branch: upstream, failed: false };
 
-				const name = await this.provider.refs.getSymbolicReferenceName(repoPath, createdFrom, priorityOpts);
+				const name = await this.provider.refs.getSymbolicReferenceName(commonPath, createdFrom, priorityOpts);
 				if (name) return { branch: name, failed: false };
 			}
 
 			// Check if branch was created from HEAD
-			const entries = await this.provider.refs.getReflogEntries(
-				repoPath,
-				'HEAD',
-				{ grep: `checkout: moving from .* to ${ref.replace('refs/heads/', '')}`, priority: priority },
+			const branch = ref.replace(/^refs\/heads\//, '');
+			const source = await this.getCheckoutSource(
+				await this.getCheckoutPath(repoPath, branch, cancellation),
+				branch,
+				priority,
 				cancellation,
 			);
-			if (!entries.length) return { branch: undefined, failed: false };
+			if (source == null) return { branch: undefined, failed: false };
 
-			const match = entries.at(-1)!.message.match(/checkout: moving from ([^\s]+)\s/);
-			if (match?.length === 2) {
-				let name: string | undefined = match[1];
-				if (options?.upstream) {
-					const upstream = await this.getUpstreamName(repoPath, name, priorityOpts, cancellation);
-					if (upstream) return { branch: upstream, failed: false };
-				}
+			const upstream = await this.getUpstreamName(commonPath, source, priorityOpts, cancellation);
+			if (upstream) return { branch: upstream, failed: false };
 
-				name = await this.provider.refs.getSymbolicReferenceName(repoPath, name, priorityOpts);
-				if (name) return { branch: name, failed: false };
-			}
+			const name = await this.provider.refs.getSymbolicReferenceName(commonPath, source, priorityOpts);
+			if (name) return { branch: name, failed: false };
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
@@ -2018,16 +1978,57 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * The branch `branch` was created from, as a base for {@link getAheadOfBaseInOrder}: the name its own reflog
-	 * gives, when that is a local or remote-tracking branch in the cached ref list and not `branch` itself or its
-	 * copy on a remote (`git switch <branch>` creates it from `<remote>/<branch>`). Never the checkout history in
-	 * HEAD's reflog, which on a long-lived checkout names whatever was checked out last.
+	 * The worktree `branch` is checked out in, whose HEAD reflog holds its checkouts; else the main worktree, never the
+	 * caller's, since every worktree of the repository shares the answer
+	 */
+	private async getCheckoutPath(
+		repoPath: string,
+		branch: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		const worktreePath = findRefRecord(records, `refs/heads/${branch}`)?.worktreePath;
+		return worktreePath ? normalizePath(worktreePath) : this.cache.getCommonPath(repoPath);
+	}
+
+	/**
+	 * The branch HEAD was on when `branch` was first checked out at `repoPath` (the oldest `checkout: moving from
+	 * <name> to <branch>` in its HEAD reflog), as git wrote it. `undefined` when there is no such entry. Rejects when the
+	 * reflog can't be read.
+	 */
+	private async getCheckoutSource(
+		repoPath: string,
+		branch: string,
+		priority: GitCommandPriority | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const entries = await this.provider.refs.getReflogEntries(
+			repoPath,
+			'HEAD',
+			{ grep: `checkout: moving from .* to ${toReflogGrepLiteral(branch)}$`, priority: priority },
+			cancellation,
+		);
+
+		for (let i = entries.length - 1; i >= 0; i--) {
+			const match = /^checkout: moving from (\S+) to (.+)$/.exec(entries[i].message);
+			if (match?.[2] === branch) return match[1];
+		}
+		return undefined;
+	}
+
+	/**
+	 * The branch `branch` was created from, as a base for {@link resolveBase}: the name its own reflog gives, when that
+	 * is a local or remote-tracking branch in the cached ref list and not `branch` itself or its copy on a remote
+	 * (`git switch <branch>` creates it from `<remote>/<branch>`). Never the checkout history in HEAD's reflog, which
+	 * on a long-lived checkout names whatever was checked out last. `fromHead` when the reflog says it was created
+	 * from `HEAD`.
 	 */
 	private async getCreatedFromTarget(
 		repoPath: string,
 		branch: string,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
-	): Promise<string | undefined> {
+	): Promise<{ name: string | undefined; fromHead: boolean }> {
 		const key = this.getBranchActivityKey(repoPath, branch);
 
 		let name: string | undefined;
@@ -2041,7 +2042,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (isCancellationError(ex)) throw ex;
 
 				// Not remembered: a failed read is no answer, and a branch with no ref yet has no creation to read
-				return undefined;
+				reads.pinnable = false;
+				return { name: undefined, fromHead: false };
 			}
 			if (cancellation?.aborted) throw new CancellationError();
 
@@ -2050,11 +2052,71 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 		}
 
+		if (name === 'HEAD') return { name: undefined, fromHead: true };
+
+		return { name: await this.getListedBaseName(repoPath, name, branch, reads, cancellation), fromHead: false };
+	}
+
+	/**
+	 * For a branch its reflog says was created from `HEAD`, the branch HEAD was on when it was first checked out (see
+	 * {@link getCheckoutSource}), read in the worktree it is checked out in, else the main worktree, and kept as a base
+	 * like {@link getCreatedFromTarget}'s. Remembered once found, as the created-from name is; a reflog with no such
+	 * entry yet marks the answer for eviction on the next checkout, which may write one.
+	 */
+	private async getInferredCreatedFrom(
+		repoPath: string,
+		branch: string,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const key = this.getBranchActivityKey(repoPath, branch);
+
+		let source = this._branchCheckedOutFrom.get(key);
+		if (source == null) {
+			const generation = this._branchCreatedFromGenerations.get(key);
+			try {
+				source = await this.getCheckoutSource(
+					await this.getCheckoutPath(repoPath, branch, cancellation),
+					branch,
+					reads.priority,
+					cancellation,
+				);
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				reads.pinnable = false;
+				return undefined;
+			}
+			if (cancellation?.aborted) throw new CancellationError();
+
+			if (source == null) {
+				reads.evictOnCheckout = true;
+				return undefined;
+			}
+
+			if (this._branchCreatedFromGenerations.get(key) === generation) {
+				this._branchCheckedOutFrom.set(key, source);
+			}
+		}
+
+		return this.getListedBaseName(repoPath, source, branch, reads, cancellation);
+	}
+
+	/**
+	 * `name` as a base for `branch`: only a local or remote-tracking branch in the cached ref list — a sha, a tag or a
+	 * revision expression (`main~2`) names no `refs/heads/` or `refs/remotes/` ref — and not `branch` itself or its
+	 * copy on a remote.
+	 */
+	private async getListedBaseName(
+		repoPath: string,
+		name: string | undefined,
+		branch: string,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
 		// A ref starting with `-` would be parsed as a git flag
 		if (!name || name === 'HEAD' || name.startsWith('-')) return undefined;
 
-		// Only a listed branch: a sha, a tag or a revision expression (`main~2`) names no `refs/heads/` or
-		// `refs/remotes/` ref
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 		const fullNames =
 			name.startsWith('refs/heads/') || name.startsWith('refs/remotes/')
@@ -2062,12 +2124,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				: [`refs/heads/${name}`, `refs/remotes/${name}`];
 		let listed = false;
 		for (const fullName of fullNames) {
+			// Its appearance would change the answer, so it is depended on while absent too
+			reads.tipRefs.add(fullName);
 			if ((await this.getRefTip(repoPath, records, fullName, cancellation)) != null) {
 				listed = true;
 				break;
 			}
 		}
 		if (!listed) return undefined;
+
+		// The reflog keeps a start point as typed. A full ref is answered by its short name, as `--abbrev-ref` would,
+		// when that names the same ref: only a short name has an `@{u}` to defer to, and hosts look branches up by it
+		if (fullNames.length === 1 && records.length) {
+			const short = name.slice(name.startsWith('refs/heads/') ? 'refs/heads/'.length : 'refs/remotes/'.length);
+			if (resolveRefRecord(records, short)?.name === name) {
+				name = short;
+			}
+		}
 
 		if (await this.isSelfRef(repoPath, name, branch, cancellation)) return undefined;
 
@@ -2171,26 +2244,57 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			branch = undefined;
 		}
 
-		const dependsOn = new Set<string>(branch != null ? [`refs/heads/${branch}`] : []);
+		const reads = createBaseReads('HEAD', branch != null ? [`refs/heads/${branch}`] : [], undefined);
+		const { dependsOn } = reads;
 
-		const preferredTarget = options?.preferredTarget?.trim() || undefined;
-		if (preferredTarget == null) {
-			return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
+		const resolved = await this.resolveBase(repoPath, branch, branch, false, options, reads, cancellation);
+		if (resolved.kind === 'upstream') {
+			return withDefaultBranch(
+				await this.measureAheadOfSelfUpstream(repoPath, resolved.upstream, reads, cancellation),
+				reads.localDefault,
+			);
 		}
 
-		let target = await this.getNearestForkTarget(repoPath, branch, preferredTarget, dependsOn, cancellation);
-		if (target != null && branch != null && (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation))) {
-			target = undefined;
+		if (resolved.kind === 'none') {
+			let unborn = false;
+			// A detached HEAD always has a commit, and so does a branch the cached refs list
+			if (branch != null) {
+				try {
+					const records = await this.provider.refs.getRefs(repoPath, cancellation);
+					unborn =
+						findRefTip(records, `refs/heads/${branch}`) == null &&
+						(await this.isUnbornHead(repoPath, cancellation));
+				} catch (ex) {
+					if (isCancellationError(ex)) throw ex;
+				}
+			}
+
+			return withDefaultBranch(
+				{ base: undefined, reason: unborn ? 'unborn' : 'none', dependsOn: [...dependsOn] },
+				reads.localDefault,
+			);
 		}
 
-		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
-		if (cancellation?.aborted) throw new CancellationError();
-
-		if (target != null) {
-			return this.measureAheadOfBase(repoPath, target, 'preferred', dependsOn, cancellation);
+		// A base that is the branch itself, locally or as its copy on one of the repo's remotes, at HEAD's own commit has
+		// nothing to measure against: no base, not "0 ahead" (an up-to-date `main` targeting `origin/main`). At a different
+		// commit it stays the base, since the work ahead of it is work not yet pushed
+		if (
+			resolved.tier !== 'preferred' &&
+			branch != null &&
+			(await this.isSelfAtTip(repoPath, resolved.target.ref, branch, reads, cancellation))
+		) {
+			return withDefaultBranch(
+				{ base: undefined, reason: 'self', dependsOn: [...dependsOn] },
+				reads.localDefault,
+			);
 		}
 
-		return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
+		// Only `getMergeTarget`'s options reach the pull request and the reflog guess
+		const tier = resolved.tier as AheadOfBaseTier;
+		return withDefaultBranch(
+			await this.measureAheadOfBase(repoPath, resolved.target, tier, dependsOn, cancellation),
+			reads.localDefault,
+		);
 	}
 
 	@debug({ quiet: true, exit: true })
@@ -2419,6 +2523,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
+	 * A stamp of the common git directory's `shallow` file, by its size and mtime; `null` when the repository isn't
+	 * shallow, `undefined` when that can't be read
+	 */
+	private async getShallowStamp(repoPath: string): Promise<string | null | undefined> {
+		try {
+			const gitDir = await this.provider.config.getGitDir(repoPath);
+			const stat = await this.context.fs.stat(joinUriPath(gitDir.commonUri ?? gitDir.uri, 'shallow'));
+			return stat != null ? `${stat.size}\0${stat.mtime}` : null;
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
 	 * Reads {@link getMovedForward} from git, in `commonPath`, which holds the refs, their reflogs and the objects for
 	 * every worktree. Not bound to one caller's cancellation, since every worktree the move reached rides this one
 	 * read. `false` when the ref didn't move only forward, or reaches too much history off `newTip`'s to tell;
@@ -2586,100 +2704,571 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
+	@debug({ quiet: true, exit: true })
+	async getMergeTarget(
+		repoPath: string,
+		branch: string,
+		options?: MergeTargetOptions,
+		cancellation?: AbortSignal,
+	): Promise<MergeTarget | undefined> {
+		// A name that stands for a detached HEAD has no branch to be recorded against or to be its own target
+		if (!branch || isDetachedHead(branch)) return undefined;
+
+		const cacheKey = getMergeTargetCacheKey(branch, options);
+		let resolved = false;
+		const factory = async (
+			_commonPath: string,
+			cacheable: CacheController,
+			signal?: AbortSignal,
+		): Promise<CachedMergeTarget> => {
+			resolved = true;
+
+			const { entry, pinnable } = await this.resolveMergeTarget(
+				repoPath,
+				branch,
+				options,
+				signal ?? cancellation,
+			);
+			if (!pinnable) {
+				cacheable.invalidate();
+			}
+			return entry;
+		};
+
+		let entry = await this.cache.getMergeTarget(repoPath, cacheKey, factory, cancellation);
+		if (!resolved && !(await this.isMergeTargetCurrent(repoPath, branch, entry, options, cancellation))) {
+			this.cache.deleteMergeTarget(repoPath, cacheKey, entry);
+			entry = await this.cache.getMergeTarget(repoPath, cacheKey, factory, cancellation);
+		}
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return entry.selfAtTip && !options?.keepSelfAtTip ? undefined : entry.result;
+	}
+
 	/**
-	 * Resolves the base from the recorded candidates, then the branch it was created from or the default branch, for
-	 * {@link getAheadOfBase}
+	 * Where {@link getMergeTarget} measures `branch` from: its local branch's ref, or — for a remote-tracking branch given
+	 * by its short name (`origin/feature`) — that ref, with `selfName` its name on the remote
 	 */
-	private async getAheadOfBaseInOrder(
+	private async getMergeTargetSource(
+		repoPath: string,
+		branch: string,
+		records: readonly RefRecord[],
+		cancellation: AbortSignal | undefined,
+	): Promise<{ from: string; selfName: string; remoteBranch: boolean }> {
+		if (
+			findRefRecord(records, `refs/heads/${branch}`) != null ||
+			findRefRecord(records, `refs/remotes/${branch}`) == null
+		) {
+			return { from: `refs/heads/${branch}`, selfName: branch, remoteBranch: false };
+		}
+
+		const split = splitRemoteBranchName(branch, await this.getRemoteNames(repoPath, cancellation));
+		return { from: `refs/remotes/${branch}`, selfName: split?.[1] ?? branch, remoteBranch: true };
+	}
+
+	/** Resolves {@link getMergeTarget}'s answer with what it was read from; `pinnable` is false when it can't be confirmed later */
+	private async resolveMergeTarget(
+		repoPath: string,
+		branch: string,
+		options: MergeTargetOptions | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ entry: CachedMergeTarget; pinnable: boolean }> {
+		// Stamped before any merge base is read, so a deepening fetch landing in between leaves the answer stale
+		const [records, configKey, shallow] = await Promise.all([
+			this.provider.refs.getRefs(repoPath, cancellation),
+			tolerateRead(() => this.getAheadOfBaseConfigKey(repoPath, cancellation)),
+			this.getShallowStamp(repoPath),
+		]);
+		const { replaced } = getBaseMoveReadInputs(records);
+		const { from, selfName, remoteBranch } = await this.getMergeTargetSource(
+			repoPath,
+			branch,
+			records,
+			cancellation,
+		);
+
+		// A branch with no commit yet, or none by that name, has nothing to measure from until one of these appears
+		if (records.length && getListedTip(records, from) == null) {
+			return {
+				entry: {
+					result: undefined,
+					selfAtTip: false,
+					tips: [
+						[from, undefined],
+						[`refs/remotes/${branch}`, undefined],
+					],
+					replaced: replaced,
+					shallow: shallow ?? null,
+					configKey: configKey,
+					stored: undefined,
+					evictOnCheckout: false,
+				},
+				pinnable: configKey != null && shallow !== undefined,
+			};
+		}
+
+		const reads = createBaseReads(from, [from], options?.priority);
+		// An empty list is a failed enumeration (see `getRefTip`), with no tips to confirm the answer against later
+		reads.pinnable = records.length !== 0 && configKey != null && shallow !== undefined;
+
+		const resolved = await this.resolveBase(repoPath, branch, selfName, remoteBranch, options, reads, cancellation);
+
+		let result: MergeTarget | undefined;
+		let selfAtTip = false;
+		if (resolved.kind === 'upstream') {
+			const upstream = resolved.upstream;
+			if (upstream != null) {
+				selfAtTip = upstream.sha === (await this.getRefTip(repoPath, records, from, cancellation));
+				result = {
+					ref: upstream.ref,
+					forkPoint: selfAtTip
+						? upstream.sha
+						: await this.getForkPoint(repoPath, upstream.ref, reads, cancellation),
+					tier: 'upstream',
+				};
+			}
+		} else if (resolved.kind === 'target') {
+			result = { ref: resolved.target.ref, forkPoint: resolved.target.forkPoint, tier: resolved.tier };
+			selfAtTip =
+				resolved.tier !== 'preferred' &&
+				(await this.isSelfAtTip(repoPath, result.ref, selfName, reads, cancellation));
+		}
+
+		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer, and must not be cached
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const tips: [string, string | undefined][] = [];
+		for (const ref of new Set([...reads.dependsOn, ...reads.tipRefs])) {
+			tips.push([ref, getListedTip(records, ref)]);
+		}
+
+		return {
+			entry: {
+				result: result,
+				selfAtTip: selfAtTip,
+				tips: tips,
+				replaced: replaced,
+				shallow: shallow ?? null,
+				configKey: configKey,
+				stored: reads.stored,
+				pullRequest: reads.pullRequest,
+				localDefault: reads.localDefault,
+				remoteDefault: reads.remoteDefault,
+				fallbackDefault: reads.fallbackDefault,
+				evictOnCheckout: reads.evictOnCheckout,
+			},
+			pinnable: reads.pinnable,
+		};
+	}
+
+	/** Whether everything `entry` was read from still reads the same; while nothing changed, every read here is cached */
+	private async isMergeTargetCurrent(
+		repoPath: string,
+		branch: string,
+		entry: CachedMergeTarget,
+		options: MergeTargetOptions | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<boolean> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		if (!records.length) return false;
+
+		for (const [ref, tip] of entry.tips) {
+			if (getListedTip(records, ref) !== tip) return false;
+		}
+
+		if (getBaseMoveReadInputs(records).replaced !== entry.replaced) return false;
+		if (entry.shallow != null && (await this.getShallowStamp(repoPath)) !== entry.shallow) return false;
+
+		if ((await tolerateRead(() => this.getAheadOfBaseConfigKey(repoPath, cancellation))) !== entry.configKey) {
+			return false;
+		}
+
+		// Compared here rather than left to the gk config reconcile, which reaches a watcher-reported change only
+		// asynchronously; the gk config map itself is dropped at once
+		if (entry.stored != null) {
+			const stored = await this.readStoredMergeKeys(repoPath, branch, options?.inferBase, undefined);
+			if (stored.some((value, i) => value !== entry.stored![i])) return false;
+		}
+
+		if (entry.localDefault !== undefined) {
+			const name = await this.getLocalDefaultBranchName(repoPath, new Set(), cancellation);
+			if ((name ?? null) !== entry.localDefault) return false;
+		}
+
+		if (entry.remoteDefault != null) {
+			// Never asks the remote: once the cached answer is gone, the target is resolved again
+			const cached = this.cache.peekDefaultBranchName(repoPath, entry.remoteDefault.remote);
+			if (cached == null) return false;
+			if (((await tolerateRead(() => cached)) ?? null) !== entry.remoteDefault.name) return false;
+		}
+
+		if (entry.fallbackDefault !== undefined) {
+			const fallback = (await tolerateRead(options?.getFallbackDefaultBranch))?.trim() || undefined;
+			if ((fallback ?? null) !== entry.fallbackDefault) return false;
+		}
+
+		if (entry.pullRequest !== undefined) {
+			const getAssociatedPullRequest = options?.getAssociatedPullRequest;
+			if (getAssociatedPullRequest == null) return false;
+
+			const pr = await this.getPullRequestBaseCandidate(
+				repoPath,
+				branch,
+				getAssociatedPullRequest,
+				undefined,
+				cancellation,
+			);
+			if ((pr?.ref ?? null) !== entry.pullRequest) return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * The base `branch` is measured against from `reads.from`, in {@link getMergeTarget}'s order; `getAheadOfBase`'s
+	 * options never reach the pull request, the reflog guess or the remote. `selfName` is the name a self check
+	 * compares with: `branch`, or a remote-tracking branch's name on its remote, which has no stored targets, reflog or
+	 * upstream of its own. A `'preferred'` target is already known not to be the branch itself at `from`'s commit; any
+	 * other target isn't checked here.
+	 */
+	private async resolveBase(
 		repoPath: string,
 		branch: string | undefined,
-		skipUserTarget: boolean | undefined,
-		dependsOn: Set<string>,
+		selfName: string | undefined,
+		remoteBranch: boolean,
+		options: MergeTargetOptions | undefined,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
-	): Promise<AheadOfBase> {
-		let target: { ref: string; forkPoint: string | undefined } | undefined;
-		let tier: AheadOfBaseTier = 'default';
-		let resolvedDefault: string | null | undefined;
+	): Promise<ResolvedBase> {
+		const preferredTarget = options?.preferredTarget?.trim() || undefined;
+		if (preferredTarget != null) {
+			let target = await this.getNearestForkTarget(repoPath, branch, preferredTarget, reads, cancellation);
+			if (
+				target != null &&
+				selfName != null &&
+				(await this.isSelfAtTip(repoPath, target.ref, selfName, reads, cancellation))
+			) {
+				target = undefined;
+			}
+
+			// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
+			if (cancellation?.aborted) throw new CancellationError();
+			if (target != null) return { kind: 'target', target: target, tier: 'preferred' };
+		}
+
+		let target: ForkTarget | undefined;
+		let tier: MergeTargetTier = 'default';
 		if (branch != null) {
-			for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch, skipUserTarget)) {
-				target = await this.getNearestForkTarget(repoPath, branch, candidate.ref, dependsOn, cancellation);
-				if (target != null) {
-					tier = candidate.tier;
-					break;
-				}
+			const stored = await this.getStoredBaseTarget(repoPath, branch, remoteBranch, options, reads, cancellation);
+			if (stored != null) {
+				({ target, tier } = stored);
 			}
 		}
 
 		if (target == null) {
-			const defaultBranch = await this.getLocalDefaultBranchName(repoPath, dependsOn, cancellation);
-			resolvedDefault = defaultBranch ?? null;
-			// Before the reflog read: the default branch measures against its own upstream, even a gitflow `develop`
-			// created from `main`
+			const defaultBranch = await this.getDefaultBranchForBase(repoPath, options, reads, cancellation);
 			if (branch != null && defaultBranch === branch) {
-				return withDefaultBranch(
-					await this.measureAheadOfSelfUpstream(repoPath, branch, dependsOn, cancellation),
-					resolvedDefault,
-				);
+				// A remote-tracking default branch, with no local branch of its name, is its own base at its own commit
+				if (remoteBranch) {
+					addRefDependencies(reads.dependsOn, branch);
+					const records = await this.provider.refs.getRefs(repoPath, cancellation);
+					const tip = await this.getRefTip(repoPath, records, reads.from, cancellation);
+					if (cancellation?.aborted) throw new CancellationError();
+
+					return tip != null
+						? { kind: 'target', target: { ref: branch, forkPoint: tip }, tier: 'default' }
+						: { kind: 'none' };
+				}
+
+				// Before the reflog read: the default branch measures against its own upstream, even a gitflow
+				// `develop` created from `main`
+				return {
+					kind: 'upstream',
+					upstream: await this.getSelfUpstreamTarget(repoPath, branch, reads, cancellation),
+				};
 			}
 
 			const createdFrom =
-				branch != null ? await this.getCreatedFromTarget(repoPath, branch, cancellation) : undefined;
+				branch != null && !remoteBranch
+					? await this.getCreatedFromSource(repoPath, branch, options, reads, cancellation)
+					: undefined;
 			if (createdFrom != null) {
 				const created = await this.getCreatedFromForkTarget(
 					repoPath,
 					branch,
 					createdFrom,
 					defaultBranch,
-					dependsOn,
+					reads,
 					cancellation,
 				);
 				if (created != null) {
 					({ target, tier } = created);
 				}
 			} else {
-				target = await this.getUpstreamNearestForkTarget(
-					repoPath,
-					branch,
-					defaultBranch,
-					dependsOn,
-					cancellation,
-				);
+				target = await this.getUpstreamNearestForkTarget(repoPath, branch, defaultBranch, reads, cancellation);
 			}
 		}
 
 		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
 		if (cancellation?.aborted) throw new CancellationError();
-		if (target == null) {
-			let unborn = false;
-			// A detached HEAD always has a commit, and so does a branch the cached refs list
-			if (branch != null) {
-				try {
-					const records = await this.provider.refs.getRefs(repoPath, cancellation);
-					unborn =
-						findRefTip(records, `refs/heads/${branch}`) == null &&
-						(await this.isUnbornHead(repoPath, cancellation));
-				} catch (ex) {
-					if (isCancellationError(ex)) throw ex;
+
+		return target != null ? { kind: 'target', target: target, tier: tier } : { kind: 'none' };
+	}
+
+	/**
+	 * The first usable stored candidate, most trusted first: the user's merge target (unless `skipUserTarget`), the
+	 * detected one, the pull request's base (`getAssociatedPullRequest`, read only when neither is usable), then the
+	 * recorded base — only its stored value (and with `inferBase`, VS Code's), never `getBaseBranchName`'s reflog
+	 * guess, which on a long-lived checkout names whatever branch was last checked out from. A remote-tracking branch
+	 * has no stored keys of its own, so only its pull request's base is tried, and never recorded.
+	 */
+	private async getStoredBaseTarget(
+		repoPath: string,
+		branch: string,
+		remoteBranch: boolean,
+		options: MergeTargetOptions | undefined,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ target: ForkTarget; tier: MergeTargetTier } | undefined> {
+		let stored: readonly (string | undefined)[] = [];
+		if (!remoteBranch) {
+			stored = await this.readStoredMergeKeys(repoPath, branch, options?.inferBase, reads);
+			reads.stored = stored;
+		}
+		const [user, detected, legacyDetected, recorded, vscodeRecorded] = stored;
+
+		const tried = new Set<string>();
+		const measure = async (candidate: string | undefined): Promise<ForkTarget | undefined> => {
+			candidate = candidate?.trim();
+			if (!candidate || tried.has(candidate)) return undefined;
+
+			tried.add(candidate);
+			return this.getNearestForkTarget(repoPath, branch, candidate, reads, cancellation);
+		};
+
+		let target: ForkTarget | undefined;
+		if (!options?.skipUserTarget) {
+			target = await measure(user);
+			if (target != null) return { target: target, tier: 'user' };
+		}
+
+		target = await measure(detected ?? legacyDetected);
+		if (target != null) return { target: target, tier: 'detected' };
+
+		if (options?.getAssociatedPullRequest != null) {
+			const pr = await this.getPullRequestBaseCandidate(
+				repoPath,
+				branch,
+				options.getAssociatedPullRequest,
+				reads,
+				cancellation,
+			);
+			target = await measure(pr?.ref);
+			if (pr != null && target != null) {
+				// A stacked pull request's base is the layer below it, deleted when the stack merges, and a stored
+				// target outranks every later source for as long as its branch lingers (an unpruned remote-tracking
+				// ref). Use it for this lookup, but don't record it — nor for a remote-tracking branch, which has no keys
+				if (pr.stacked || remoteBranch) {
+					reads.pullRequest = pr.ref;
+				} else {
+					// Skips the overview's invalidation: it is about to cache its body against this same target
+					void this.storeMergeTargetBranchName(repoPath, branch, pr.ref, {
+						skipInvalidation: ['branchOverviews'],
+					});
+					// The next read finds it stored, as the detected target
+					reads.pinnable = false;
 				}
+				return { target: target, tier: 'pr' };
 			}
 
-			return withDefaultBranch(
-				{ base: undefined, reason: unborn ? 'unborn' : 'none', dependsOn: [...dependsOn] },
-				resolvedDefault,
-			);
+			reads.pullRequest = pr?.ref ?? null;
 		}
 
-		// A base that is the branch itself, locally or as its copy on one of the repo's remotes, at HEAD's own commit has
-		// nothing to measure against: no base, not "0 ahead" (an up-to-date `main` targeting `origin/main`). At a different
-		// commit it stays the base, since the work ahead of it is work not yet pushed
-		if (branch != null && (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation))) {
-			return withDefaultBranch({ base: undefined, reason: 'self', dependsOn: [...dependsOn] }, resolvedDefault);
+		target = await measure(recorded);
+		if (target != null) return { target: target, tier: 'recorded' };
+
+		if (!recorded?.trim() && vscodeRecorded?.trim()) {
+			target = await measure(vscodeRecorded);
+			if (target != null) {
+				// Self-write: VS Code's recorded base, kept as GitLens's
+				void this.storeBaseBranchName(repoPath, branch, vscodeRecorded.trim(), {
+					skipInvalidation: ['branchOverviews', 'baseBranchName'],
+				});
+				// The next read finds it stored
+				reads.pinnable = false;
+				return { target: target, tier: 'recorded' };
+			}
 		}
 
-		return withDefaultBranch(
-			await this.measureAheadOfBase(repoPath, target, tier, dependsOn, cancellation),
-			resolvedDefault,
-		);
+		return undefined;
+	}
+
+	/**
+	 * The branch's stored merge keys as read, in {@link storedMergeKeys} order, then VS Code's recorded base when
+	 * `inferBase`. A failed read is absent, and leaves `reads`' answer unpinned.
+	 */
+	private readStoredMergeKeys(
+		repoPath: string,
+		branch: string,
+		inferBase: boolean | undefined,
+		reads: BaseReads | undefined,
+	): Promise<(string | undefined)[]> {
+		const read = async (get: () => Promise<string | undefined>): Promise<string | undefined> => {
+			try {
+				return await get();
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				if (reads != null) {
+					reads.pinnable = false;
+				}
+				return undefined;
+			}
+		};
+
+		return Promise.all([
+			...storedMergeKeys.map(key =>
+				read(() => this.provider.config.getGkConfig(repoPath, `branch.${branch}.${key}`)),
+			),
+			inferBase
+				? read(() => this.provider.config.getConfig(repoPath, `branch.${branch}.vscode-merge-base`))
+				: undefined,
+		]);
+	}
+
+	/**
+	 * The pull request's base as a candidate on the branch's remote; `undefined` when there is none, the branch has no
+	 * remote, or either can't be read (which leaves `reads`' answer unpinned)
+	 */
+	private async getPullRequestBaseCandidate(
+		repoPath: string,
+		branch: string,
+		getAssociatedPullRequest: NonNullable<MergeTargetOptions['getAssociatedPullRequest']>,
+		reads: BaseReads | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ ref: string; stacked: boolean } | undefined> {
+		try {
+			const pr = await getAssociatedPullRequest();
+			const base = pr?.refs?.base?.branch?.trim();
+			if (!base) return undefined;
+
+			const ref = await this.getBranch(repoPath, branch, undefined, cancellation);
+			if (ref == null) return undefined;
+
+			// A branch with no remote upstream has no remote to find the pull request's base on
+			const { remote } = await resolveBranchRemote(this.provider, repoPath, ref, cancellation);
+			if (remote == null) return undefined;
+
+			return { ref: `${remote}/${base}`, stacked: pr?.stack != null };
+		} catch (ex) {
+			// The callback is the first caller's, so its cancellation is a failed read for a shared lookup still wanted
+			if (isCancellationError(ex) && (cancellation?.aborted ?? true)) throw ex;
+
+			if (reads != null) {
+				reads.pinnable = false;
+			}
+			return undefined;
+		}
+	}
+
+	/**
+	 * The default branch for {@link resolveBase}: {@link getLocalDefaultBranchName}; when that names none, with
+	 * `defaultBranch: 'remote'`, the default the first of those remotes reports; then `getFallbackDefaultBranch`. A
+	 * remote-qualified answer is taken as its local branch when there is one
+	 */
+	private async getDefaultBranchForBase(
+		repoPath: string,
+		options: MergeTargetOptions | undefined,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		let name = await this.getLocalDefaultBranchName(repoPath, reads.dependsOn, cancellation);
+		reads.localDefault = name ?? null;
+		if (name != null) return name;
+
+		if (options?.defaultBranch === 'remote') {
+			const [remote] = await this.getPreferredRemotes(repoPath, cancellation);
+			if (remote != null) {
+				let symref: string | undefined;
+				try {
+					symref = await this.getDefaultBranchName(
+						repoPath,
+						remote,
+						reads.priority != null ? { priority: reads.priority } : undefined,
+						cancellation,
+					);
+				} catch (ex) {
+					if (isCancellationError(ex)) throw ex;
+
+					reads.pinnable = false;
+				}
+				reads.remoteDefault = { remote: remote, name: symref ?? null };
+
+				// A remote name can hold a slash, so strip exactly the remote's own prefix
+				const local = symref?.startsWith(`${remote}/`) ? symref.slice(remote.length + 1) : undefined;
+				if (symref && local) {
+					name = await this.preferListedLocalBranch(repoPath, symref, local, reads, cancellation);
+				}
+			}
+		}
+
+		if (name == null && options?.getFallbackDefaultBranch != null) {
+			let fallback: string | undefined;
+			try {
+				fallback = (await options.getFallbackDefaultBranch())?.trim() || undefined;
+			} catch (ex) {
+				// As the pull request's callback (see `getPullRequestBaseCandidate`)
+				if (isCancellationError(ex) && (cancellation?.aborted ?? true)) throw ex;
+
+				reads.pinnable = false;
+			}
+			reads.fallbackDefault = fallback ?? null;
+			name = fallback;
+
+			// Named remote-qualified (`origin/main`) like the remote's own answer, so it too is its local branch when
+			// there is one — else the default branch itself is never recognized as such
+			const local =
+				fallback != null
+					? splitRemoteBranchName(fallback, await this.getRemoteNames(repoPath, cancellation))?.[1]
+					: undefined;
+			if (fallback != null && local) {
+				name = await this.preferListedLocalBranch(repoPath, fallback, local, reads, cancellation);
+			}
+		}
+
+		return name;
+	}
+
+	/** `local` when the cached ref list names that branch (depended on either way), else `remoteName` */
+	private async preferListedLocalBranch(
+		repoPath: string,
+		remoteName: string,
+		local: string,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<string> {
+		addRefDependencies(reads.dependsOn, local);
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		return (await this.getRefTip(repoPath, records, local, cancellation)) != null ? local : remoteName;
+	}
+
+	/**
+	 * The branch `branch` was created from (tier `'created'`); with `inferBase`, for one created from `HEAD`, the
+	 * branch HEAD was on when it was first checked out (tier `'inferred'`)
+	 */
+	private async getCreatedFromSource(
+		repoPath: string,
+		branch: string,
+		options: MergeTargetOptions | undefined,
+		reads: BaseReads,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ name: string; tier: 'created' | 'inferred' } | undefined> {
+		const createdFrom = await this.getCreatedFromTarget(repoPath, branch, reads, cancellation);
+		if (createdFrom.name != null) return { name: createdFrom.name, tier: 'created' };
+		if (!createdFrom.fromHead || !options?.inferBase) return undefined;
+
+		const inferred = await this.getInferredCreatedFrom(repoPath, branch, reads, cancellation);
+		return inferred != null ? { name: inferred, tier: 'inferred' } : undefined;
 	}
 
 	/**
@@ -2690,21 +3279,22 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private async getCreatedFromForkTarget(
 		repoPath: string,
 		branch: string | undefined,
-		createdFrom: string,
+		createdFrom: { name: string; tier: 'created' | 'inferred' },
 		defaultBranch: string | undefined,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
-	): Promise<{ target: { ref: string; forkPoint: string | undefined }; tier: AheadOfBaseTier } | undefined> {
+	): Promise<{ target: ForkTarget; tier: MergeTargetTier } | undefined> {
+		const { name } = createdFrom;
 		const skipDefault =
 			defaultBranch == null ||
-			createdFrom === defaultBranch ||
-			createdFrom === `refs/heads/${defaultBranch}` ||
-			createdFrom === `refs/remotes/${defaultBranch}`;
+			name === defaultBranch ||
+			name === `refs/heads/${defaultBranch}` ||
+			name === `refs/remotes/${defaultBranch}`;
 		const [created, fallback] = await Promise.all([
-			this.getUpstreamNearestForkTarget(repoPath, branch, createdFrom, dependsOn, cancellation),
+			this.getUpstreamNearestForkTarget(repoPath, branch, name, reads, cancellation),
 			skipDefault
 				? undefined
-				: this.getUpstreamNearestForkTarget(repoPath, branch, defaultBranch, dependsOn, cancellation),
+				: this.getUpstreamNearestForkTarget(repoPath, branch, defaultBranch, reads, cancellation),
 		]);
 		if (created == null) return fallback != null ? { target: fallback, tier: 'default' } : undefined;
 
@@ -2716,7 +3306,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		) {
 			return { target: fallback, tier: 'default' };
 		}
-		return { target: created, tier: 'created' };
+		return { target: created, tier: createdFrom.tier };
 	}
 
 	/** Counts HEAD's commits past `target` for {@link getAheadOfBase} */
@@ -2753,11 +3343,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Counts the default branch's own commits past its upstream (see {@link getSelfUpstreamTarget}) for {@link getAheadOfBase} */
 	private async measureAheadOfSelfUpstream(
 		repoPath: string,
-		branch: string,
-		dependsOn: Set<string>,
+		upstream: { ref: string; sha: string } | undefined,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 	): Promise<AheadOfBase> {
-		const upstream = await this.getSelfUpstreamTarget(repoPath, branch, dependsOn, cancellation);
+		const { dependsOn } = reads;
 		if (cancellation?.aborted) throw new CancellationError();
 		if (upstream == null) return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
 
@@ -2770,7 +3360,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		// An upstream with nothing HEAD lacks is an ancestor of HEAD, so its tip is where HEAD forked from it
 		const forkPoint =
-			counts.left === 0 ? upstream.sha : await this.getForkPoint(repoPath, upstream.ref, cancellation);
+			counts.left === 0 ? upstream.sha : await this.getForkPoint(repoPath, upstream.ref, reads, cancellation);
 		if (cancellation?.aborted) throw new CancellationError();
 
 		return {
@@ -3061,57 +3651,47 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	/** Whether `ref` names `branch` itself (see {@link isSelfRef}) and sits at HEAD's commit; tips are read only after the name matched */
-	private async isSelfAtHead(
+	/**
+	 * Whether `ref` names `selfName` itself (see {@link isSelfRef}) and sits at `reads.from`'s commit; tips are read
+	 * only after the name matched. HEAD's commit is asked of git, a branch's read from the cached ref list
+	 */
+	private async isSelfAtTip(
 		repoPath: string,
 		ref: string,
-		branch: string,
+		selfName: string,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 	): Promise<boolean> {
-		if (!(await this.isSelfRef(repoPath, ref, branch, cancellation))) return false;
+		if (!(await this.isSelfRef(repoPath, ref, selfName, cancellation))) return false;
 
-		const [refSha, headSha] = await Promise.all([
-			this.provider.refs.validateReference(repoPath, ref, undefined, cancellation),
-			this.provider.refs.validateReference(repoPath, 'HEAD', undefined, cancellation),
+		if (reads.from === 'HEAD') {
+			const [refSha, headSha] = await Promise.all([
+				this.provider.refs.validateReference(repoPath, ref, undefined, cancellation),
+				this.provider.refs.validateReference(repoPath, 'HEAD', undefined, cancellation),
+			]);
+			return refSha != null && refSha === headSha;
+		}
+
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		const [refSha, fromSha] = await Promise.all([
+			this.getRefTip(repoPath, records, ref, cancellation),
+			this.getRefTip(repoPath, records, reads.from, cancellation),
 		]);
-		return refSha != null && refSha === headSha;
+		return refSha != null && refSha === fromSha;
 	}
 
-	/**
-	 * The bases recorded against a branch, most trusted first: the user's merge target, the detected one, then the
-	 * base a launch recorded. Only the stored value of the latter — `getBaseBranchName` would fall back to a reflog
-	 * guess, which on a long-lived checkout names whatever branch was last checked out from. A failed read is absent.
-	 */
-	private async getRecordedBaseCandidates(
-		repoPath: string,
-		branch: string,
-		skipUserTarget: boolean | undefined,
-	): Promise<{ ref: string; tier: AheadOfBaseTier }[]> {
-		const tolerate = async (read: () => Promise<string | undefined>): Promise<string | undefined> => {
-			try {
-				return (await read())?.trim() || undefined;
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
-
-				return undefined;
-			}
-		};
-
-		const reads = await Promise.all([
-			skipUserTarget ? undefined : tolerate(() => this.getStoredUserMergeTargetBranchName(repoPath, branch)),
-			tolerate(() => this.getStoredDetectedMergeTargetBranchName(repoPath, branch)),
-			tolerate(() => this.provider.config.getGkConfig(repoPath, `branch.${branch}.gk-merge-base`)),
-		]);
-
-		const tiers: AheadOfBaseTier[] = ['user', 'detected', 'recorded'];
-
-		const candidates: { ref: string; tier: AheadOfBaseTier }[] = [];
-		for (const [i, ref] of reads.entries()) {
-			if (ref && !candidates.some(c => c.ref === ref)) {
-				candidates.push({ ref: ref, tier: tiers[i] });
-			}
-		}
-		return candidates;
+	/** The remotes a default branch is read from, in order: `upstream`, `origin`, then the first remote */
+	private async getPreferredRemotes(repoPath: string, cancellation: AbortSignal | undefined): Promise<string[]> {
+		const remotes = await this.getRemoteNames(repoPath, cancellation);
+		// Each in turn: a remote added after the clone (`upstream`, typically) has no `HEAD` symref until
+		// `remote set-head` writes one, and must not hide `origin`'s
+		return [
+			...new Set(
+				[remotes.find(r => r === 'upstream'), remotes.find(r => r === 'origin'), remotes.at(0)].filter(
+					r => r != null,
+				),
+			),
+		];
 	}
 
 	/**
@@ -3132,14 +3712,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return (await this.getRefTip(repoPath, records, ref, cancellation)) != null;
 		};
 
-		const remotes = await this.getRemoteNames(repoPath, cancellation);
-		// Each in turn: a remote added after the clone (`upstream`, typically) has no `HEAD` symref until
-		// `remote set-head` writes one, and must not hide `origin`'s
-		const preferred = new Set(
-			[remotes.find(r => r === 'upstream'), remotes.find(r => r === 'origin'), remotes.at(0)].filter(
-				r => r != null,
-			),
-		);
+		const preferred = await this.getPreferredRemotes(repoPath, cancellation);
 		for (const remote of preferred) {
 			dependsOn.add(`refs/remotes/${remote}/HEAD`);
 
@@ -3193,7 +3766,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private async getUpstreamContender(
 		repoPath: string,
 		base: string | undefined,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 	): Promise<string | undefined> {
 		if (!base) return undefined;
@@ -3224,9 +3797,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const contender = `upstream/${name}`;
 		const remoteRef = `refs/remotes/${contender}`;
-		if (contender === base || remoteRef === base || findRefTip(records, remoteRef) == null) return undefined;
+		if (contender === base || remoteRef === base) return undefined;
 
-		dependsOn.add(remoteRef);
+		if (findRefTip(records, remoteRef) == null) {
+			// A fetch that brings it would change the answer
+			reads.tipRefs.add(remoteRef);
+			return undefined;
+		}
+
+		reads.dependsOn.add(remoteRef);
 		return contender;
 	}
 
@@ -3235,43 +3814,43 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		branch: string | undefined,
 		candidate: string | undefined,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
-	): Promise<{ ref: string; forkPoint: string | undefined } | undefined> {
-		return this.getNearestForkTarget(repoPath, branch, candidate, dependsOn, cancellation, {
-			contender: await this.getUpstreamContender(repoPath, candidate, dependsOn, cancellation),
+	): Promise<ForkTarget | undefined> {
+		return this.getNearestForkTarget(repoPath, branch, candidate, reads, cancellation, {
+			contender: await this.getUpstreamContender(repoPath, candidate, reads, cancellation),
 		});
 	}
 
 	/**
-	 * A candidate base as the ref HEAD is measured against: the candidate or its tracking ref, whichever forked
-	 * nearer HEAD, so a stale local base defers to its upstream while one carrying unpushed work wins over it. A
+	 * A candidate base as the ref `reads.from` is measured against: the candidate or its tracking ref, whichever forked
+	 * nearer, so a stale local base defers to its upstream while one carrying unpushed work wins over it. A
 	 * `contender` other than the tracking ref is taken only when it forked strictly nearer than both, so a tie keeps
-	 * the candidate's own pick. A candidate none forks from is used as-is if it names a commit. `undefined` when the
-	 * candidate is unusable.
+	 * the candidate's own pick. A candidate none forks from is used as-is unless git confirms it names no ref: one the
+	 * cached ref list names is kept, and so is one whose check fails. `undefined` when the candidate is unusable.
 	 */
 	private async getNearestForkTarget(
 		repoPath: string,
 		branch: string | undefined,
 		candidate: string | undefined,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 		options?: { contender?: string },
-	): Promise<{ ref: string; forkPoint: string | undefined } | undefined> {
+	): Promise<ForkTarget | undefined> {
 		// A ref starting with `-` would be parsed as a git flag
 		if (!candidate || candidate.startsWith('-')) return undefined;
 		// A branch measured against itself says nothing
 		if (candidate === branch || candidate === `refs/heads/${branch}`) return undefined;
 
-		addRefDependencies(dependsOn, candidate);
+		addRefDependencies(reads.dependsOn, candidate);
 
 		const upstreamName = this.getUpstreamName(repoPath, candidate, undefined, cancellation);
 		const getUpstreamFork = async (): Promise<{ ref: string; mergeBase: string | undefined } | undefined> => {
 			const upstream = await upstreamName;
 			if (!upstream || upstream.startsWith('-')) return undefined;
 
-			addRefDependencies(dependsOn, upstream);
-			return { ref: upstream, mergeBase: await this.getForkPoint(repoPath, upstream, cancellation) };
+			addRefDependencies(reads.dependsOn, upstream);
+			return { ref: upstream, mergeBase: await this.getForkPoint(repoPath, upstream, reads, cancellation) };
 		};
 
 		const contender = options?.contender;
@@ -3287,11 +3866,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				const upstream = await upstreamName;
 				if (upstream && tip === findRefTip(records, upstream)) return undefined;
 			}
-			return this.getForkPoint(repoPath, contender, cancellation);
+			return this.getForkPoint(repoPath, contender, reads, cancellation);
 		};
 
+		// A candidate that names no ref fails its merge-base read too, which only git's word that it's missing excuses
+		const candidateReads = { from: reads.from, priority: reads.priority, pinnable: true };
 		const [candidateMergeBase, upstreamFork, contenderMergeBase] = await Promise.all([
-			this.getForkPoint(repoPath, candidate, cancellation),
+			this.getForkPoint(repoPath, candidate, candidateReads, cancellation),
 			getUpstreamFork(),
 			getContenderMergeBase(),
 		]);
@@ -3320,16 +3901,38 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		) {
 			nearest = { ref: contender, mergeBase: contenderMergeBase };
 		}
-		if (nearest != null) return { ref: nearest.ref, forkPoint: nearest.mergeBase };
+		if (nearest != null) {
+			if (!candidateReads.pinnable) {
+				reads.pinnable = false;
+			}
+			return { ref: nearest.ref, forkPoint: nearest.mergeBase };
+		}
 
-		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
-			? { ref: candidate, forkPoint: undefined }
-			: undefined;
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		if (records.length && findRefTip(records, candidate) != null) {
+			if (!candidateReads.pinnable) {
+				reads.pinnable = false;
+			}
+			return { ref: candidate, forkPoint: undefined };
+		}
+
+		// Only `missing` is git's word that it names no ref; a check that failed or timed out says nothing either way
+		const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
+			repoPath,
+			candidate,
+			reads.priority != null ? { priority: reads.priority } : undefined,
+			cancellation,
+		);
+		if (missing) return undefined;
+
+		reads.pinnable = false;
+		return { ref: candidate, forkPoint: undefined };
 	}
 
 	/**
 	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one: a failed lookup isn't
-	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read.
+	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read. The
+	 * list's own upstream isn't used: a config-only change (`git branch -u`) doesn't refresh it.
 	 */
 	private async getUpstreamName(
 		repoPath: string,
@@ -3351,9 +3954,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private async getSelfUpstreamTarget(
 		repoPath: string,
 		branch: string,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 	): Promise<{ ref: string; sha: string } | undefined> {
+		const { dependsOn } = reads;
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 
 		let upstream: string | undefined;
@@ -3408,20 +4012,58 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.provider.refs.validateReference(repoPath, name, undefined, cancellation);
 	}
 
-	/** The merge base of HEAD and `ref`, preferring git's fork-point reading of `ref`'s reflog when it has one */
+	/** Where `reads.from` forked from `ref`: git's fork-point reading of `ref`'s reflog when it has one, else their merge base */
 	private async getForkPoint(
 		repoPath: string,
 		ref: string,
+		reads: Pick<BaseReads, 'from' | 'priority' | 'pinnable'>,
 		cancellation: AbortSignal | undefined,
 	): Promise<string | undefined> {
-		const forkPoint = await this.provider.refs.getMergeBase(
-			repoPath,
-			ref,
-			'HEAD',
-			{ forkPoint: true },
-			cancellation,
-		);
-		return forkPoint ?? this.provider.refs.getMergeBase(repoPath, 'HEAD', ref, undefined, cancellation);
+		const forkPoint = await this.readMergeBase(repoPath, ref, reads.from, true, reads, cancellation);
+		return forkPoint ?? this.readMergeBase(repoPath, reads.from, ref, false, reads, cancellation);
+	}
+
+	/**
+	 * `getMergeBase`, sharing its cached and in-flight reads, but telling git's exit 1 (no common ancestor, or no fork
+	 * point) from a read that failed. Both answer `undefined`; a failed one also clears `reads.pinnable`.
+	 */
+	private async readMergeBase(
+		repoPath: string,
+		ref1: string,
+		ref2: string,
+		forkPoint: boolean,
+		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		try {
+			const result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: 'throw',
+					expectedExitCodes: [1],
+					caching: { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } },
+					...(reads.priority != null ? { priority: reads.priority } : undefined),
+				},
+				'merge-base',
+				forkPoint ? '--fork-point' : undefined,
+				ref1,
+				ref2,
+			);
+			// A run joined in flight comes back as its starter's `errors` handling made it: from `getMergeBase`, a
+			// swallowed warning resolves (and git's exit 1 rejects), so only an exit here is git's answer
+			if (result.completion.status === 'exited') {
+				if (result.exitCode === 1) return undefined;
+
+				const sha = result.stdout.split('\n')[0].trim();
+				if (sha) return sha;
+			}
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+
+		reads.pinnable = false;
+		return undefined;
 	}
 
 	/**
@@ -3507,6 +4149,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private forgetBranchCreatedFrom(repoPath: string, name: string): void {
 		const key = this.getBranchActivityKey(repoPath, name);
 		this._branchCreatedFrom.delete(key);
+		this._branchCheckedOutFrom.delete(key);
 		this._branchCreatedFromGenerations.set(key, (this._branchCreatedFromGenerations.get(key) ?? 0) + 1);
 	}
 
@@ -3843,8 +4486,7 @@ function findRefRecord(records: readonly RefRecord[], fullName: string): RefReco
 }
 
 function toPushTargetRef(records: readonly RefRecord[], ref: string): GitPushTargetRef {
-	const record = findRefRecord(records, ref);
-	return { ref: ref, sha: record != null ? record.peeledObjectname || record.objectname : undefined };
+	return { ref: ref, sha: getListedTip(records, ref) };
 }
 
 /**
@@ -3926,4 +4568,98 @@ function addRefDependencies(dependsOn: Set<string>, name: string): void {
 	dependsOn.add(`refs/tags/${name}`);
 	dependsOn.add(`refs/heads/${name}`);
 	dependsOn.add(`refs/remotes/${name}`);
+}
+
+/** A candidate base as the ref it is measured against, with where the branch forked from it */
+interface ForkTarget {
+	readonly ref: string;
+	readonly forkPoint: string | undefined;
+}
+
+/**
+ * What `resolveBase` answered: a target and the source that decided it; or, for the default branch itself, its own
+ * upstream with that upstream's tip (`undefined` when it has none), not yet measured; or nothing
+ */
+type ResolvedBase =
+	| { readonly kind: 'target'; readonly target: ForkTarget; readonly tier: MergeTargetTier }
+	| { readonly kind: 'upstream'; readonly upstream: { readonly ref: string; readonly sha: string } | undefined }
+	| { readonly kind: 'none' };
+
+/** Where a base resolution measures from, and what it read, which `getMergeTarget` keeps to confirm its answer later */
+interface BaseReads {
+	/** The ref the base is measured from: `HEAD`, or the branch's own full ref */
+	readonly from: string;
+	readonly priority: GitCommandPriority | undefined;
+	/** As `AheadOfBase.dependsOn` */
+	readonly dependsOn: Set<string>;
+	/** Further full ref names the answer depends on, which `dependsOn` leaves out because they were absent */
+	readonly tipRefs: Set<string>;
+	/** Cleared when the answer rests on a read that failed, or on rev-parse's word for a ref the ref list doesn't name */
+	pinnable: boolean;
+	/** The stored merge keys as read (see `readStoredMergeKeys`) */
+	stored?: readonly (string | undefined)[];
+	/** As `CachedMergeTarget.pullRequest` */
+	pullRequest?: string | null;
+	/** As `CachedMergeTarget.localDefault`; also `AheadOfBase.defaultBranch` */
+	localDefault?: string | null;
+	/** As `CachedMergeTarget.remoteDefault` */
+	remoteDefault?: { remote: string; name: string | null };
+	/** As `CachedMergeTarget.fallbackDefault` */
+	fallbackDefault?: string | null;
+	/** As `CachedMergeTarget.evictOnCheckout` */
+	evictOnCheckout: boolean;
+}
+
+function createBaseReads(
+	from: string,
+	dependsOn: Iterable<string>,
+	priority: GitCommandPriority | undefined,
+): BaseReads {
+	return {
+		from: from,
+		priority: priority,
+		dependsOn: new Set(dependsOn),
+		tipRefs: new Set(),
+		pinnable: true,
+		evictOnCheckout: false,
+	};
+}
+
+/**
+ * Keys a merge target by `branch` and every option that shapes the answer. `keepSelfAtTip` is applied to the cached
+ * answer instead, and `priority` doesn't change it
+ */
+function getMergeTargetCacheKey(branch: string, options: MergeTargetOptions | undefined): string {
+	const flags = [
+		options?.skipUserTarget ? 'u' : '',
+		options?.getAssociatedPullRequest != null ? 'p' : '',
+		options?.inferBase ? 'i' : '',
+		options?.defaultBranch === 'remote' ? 'r' : '',
+		options?.getFallbackDefaultBranch != null ? 'f' : '',
+	].join('');
+	return `${branch}\0${flags}\0${options?.preferredTarget?.trim() ?? ''}`;
+}
+
+/** `read`'s answer, with a failure read as none; cancellation still rejects */
+async function tolerateRead<T>(read: (() => Promise<T>) | undefined): Promise<T | undefined> {
+	if (read == null) return undefined;
+
+	try {
+		return await read();
+	} catch (ex) {
+		if (isCancellationError(ex)) throw ex;
+
+		return undefined;
+	}
+}
+
+/** `value` as a literal in `getReflogEntries`' `grep`, a basic regular expression */
+function toReflogGrepLiteral(value: string): string {
+	return value.replace(/[\\.*[\]^$]/g, '\\$&');
+}
+
+/** The tip of the full ref name `fullName` in `records`, the cached ref list; `undefined` when it isn't listed */
+function getListedTip(records: readonly RefRecord[], fullName: string): string | undefined {
+	const record = findRefRecord(records, fullName);
+	return record != null ? record.peeledObjectname || record.objectname : undefined;
 }

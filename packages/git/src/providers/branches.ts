@@ -51,6 +51,43 @@ export interface AheadOfBase {
 	readonly defaultBranch?: string | null;
 }
 
+/** Which source decided a merge target (see `getMergeTarget`): an {@link AheadOfBaseTier}, the pull request's base, or the branch HEAD was on when the branch was created */
+export type MergeTargetTier = AheadOfBaseTier | 'pr' | 'inferred';
+
+export interface MergeTarget {
+	/** The ref the branch is measured against: the chosen target or its tracking ref, whichever the branch forked from nearer */
+	readonly ref: string;
+	/** Where the branch forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
+	readonly forkPoint: string | undefined;
+	readonly tier: MergeTargetTier;
+}
+
+export interface MergeTargetOptions {
+	/** Leaves the user's merge target out: the order a merge-target picker shows as "automatic" */
+	skipUserTarget?: boolean;
+	/** A target to try before every other source, as `getAheadOfBase`'s */
+	preferredTarget?: string;
+	/**
+	 * Read only when no stored merge target is usable. Its base, on the branch's remote, is tried after the stored
+	 * targets and before the recorded base, and is stored as the detected target (never the user's) unless the pull
+	 * request is part of a stack or the branch is a remote-tracking one
+	 */
+	getAssociatedPullRequest?: () => Promise<{ refs?: { base?: { branch: string } }; stack?: unknown } | undefined>;
+	/**
+	 * Also reads VS Code's `vscode-merge-base` as the recorded base, and, for a branch its reflog says was created from
+	 * `HEAD`, takes the branch HEAD was on when it was first checked out (tier `'inferred'`). The inferred branch is
+	 * never stored
+	 */
+	inferBase?: boolean;
+	/** `'remote'` lets the default-branch read contact the remote when local refs name none; `'local'` (the default) never does */
+	defaultBranch?: 'local' | 'remote';
+	/** Asked for the default branch when git names none */
+	getFallbackDefaultBranch?: () => Promise<string | undefined>;
+	/** Answers a target that is the branch itself at the branch's own commit (including its upstream there), instead of `undefined` */
+	keepSelfAtTip?: boolean;
+	priority?: GitCommandPriority;
+}
+
 /** A ref {@link GitPushTarget} names, with its commit from the cached ref list */
 export interface GitPushTargetRef {
 	/** The full ref name: `refs/remotes/origin/main`, or `refs/heads/main` for an upstream that is a local branch */
@@ -105,10 +142,16 @@ export interface GitBranchesSubProvider {
 		},
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>>;
+	/** Measured against the branch's {@link getMergeTarget}, which reads the pull request and the reflog guess, may ask the remote for its default branch, and keeps a target that is the branch itself */
 	getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
-		options?: { associatedPullRequest?: Promise<PullRequest | undefined>; priority?: GitCommandPriority },
+		options?: {
+			associatedPullRequest?: Promise<PullRequest | undefined>;
+			/** Asked for the default branch when git names none (see {@link MergeTargetOptions.getFallbackDefaultBranch}) */
+			getFallbackDefaultBranch?: () => Promise<string | undefined>;
+			priority?: GitCommandPriority;
+		},
 		cancellation?: AbortSignal,
 	): Promise<BranchContributionsOverview | undefined>;
 	getBranchesWithCommits(
@@ -120,6 +163,30 @@ export interface GitBranchesSubProvider {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<string[]>;
+	/**
+	 * The ref `branch` (a local branch, or a remote-tracking one such as `origin/feature`) is measured against, by the
+	 * rules of {@link getAheadOfBase} but measured from the branch's own tip rather than HEAD: `preferredTarget`, the
+	 * user's merge target (unless `skipUserTarget`), the detected one, the pull request's base (`getAssociatedPullRequest`),
+	 * the recorded base, then — on the default branch — its upstream (tier `'upstream'`), else the branch the reflog
+	 * says it was created from (or, with `inferBase`, the one HEAD was on when it was first checked out: tier
+	 * `'inferred'`) unless the default branch forked strictly nearer, else the default branch. The default branch is
+	 * read from local refs; with `defaultBranch: 'remote'` the remote is asked when they name none, and
+	 * `getFallbackDefaultBranch` last. A candidate that is empty, flag-like or the branch itself falls through, as does
+	 * one git confirms is gone; one that couldn't be checked is kept. A remote-tracking branch has no stored targets,
+	 * reflog or upstream of its own (its pull request's base is still tried), and is itself as its local branch or its
+	 * copy on any remote. `undefined` for a detached HEAD or an empty name, when nothing resolves, or — unless
+	 * `keepSelfAtTip` — when the target is the branch itself at the branch's own commit.
+	 *
+	 * Answers are cached with the ref tips, stored keys and config they were read from, and a later call re-reads
+	 * only those (all cached) to confirm them, so a warm call runs no git, and a ref moving that the answer didn't
+	 * read re-measures nothing. A later call asks the pull request again only when the answer reached it and stored nothing.
+	 */
+	getMergeTarget(
+		repoPath: string,
+		branch: string,
+		options?: MergeTargetOptions,
+		cancellation?: AbortSignal,
+	): Promise<MergeTarget | undefined>;
 	getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
@@ -187,7 +254,8 @@ export interface GitBranchesSubProvider {
 	 * detached) was cut from. Candidates in trust
 	 * order: the user's merge target, the detected one, then the base recorded against the branch — only recorded bases
 	 * count, never a reflog guess. Each is measured as itself or its tracking ref, whichever forked nearer HEAD; a stale
-	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the default branch
+	 * target (one git confirms names no ref, a flag-like one, or the branch itself) falls through to the next — one that
+	 * couldn't be checked is kept, so its count rejects — and the default branch
 	 * is used when none survives: the `HEAD` symref of the `upstream` remote, else `origin`, else the first remote, as its
 	 * local branch or else the remote ref; then, in the same remote order, `<remote>/main` or `<remote>/master`, again as
 	 * the local branch or else the remote ref; then `init.defaultBranch`, `main`, `master` — from local refs only, never
