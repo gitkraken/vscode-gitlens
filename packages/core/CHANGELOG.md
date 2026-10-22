@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `bodyField` to `IssueShape` and `Issue`: the provider field `body` was read from, for providers whose issues keep it in different fields. Set on Azure DevOps work items (`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`), so a host can label the body by its field; absent for other providers and when there is no body (git, plus/integrations)
+
+### Fixed
+
+- Fixes Azure DevOps work items whose type keeps its content outside Description (Repro Steps on Agile, Scrum and CMMI Bugs, Acceptance Criteria, a custom HTML field on an inherited process) reading with no `body`. The body is now the work item's first rich text field with content: Description, then the built-in description fields, then any other `html` field from the organization's field catalog (custom fields first), in every read (lists, `getIssue`, `getIssuesBatch` and the work item search), as provider-apis converts its list rows. The catalog is read only for a work item no built-in field describes, once per organization and credential, kept for an hour; a failed read leaves the body to the built-in fields rather than failing the read. An Azure work item's etag now carries the rule its body is read by, so `getIssuesBatch` reads a row held from before in full once ([#6047](https://github.com/gitkraken/vscode-gitlens/issues/6047)) (plus/integrations)
+
 ## [0.15.6] - 2026-10-22
 
 ### Fixed

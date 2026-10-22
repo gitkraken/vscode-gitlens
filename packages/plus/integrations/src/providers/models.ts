@@ -50,6 +50,7 @@ import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {
+	IssueBodyField,
 	IssueIteration,
 	IssueProject,
 	IssueProjection,
@@ -1507,11 +1508,17 @@ export function toIssueShape(
 		body: issue.description ?? undefined,
 		// Both Jira flavors return `/rest/api/2` wiki markup for the description.
 		bodyFormat: isJiraIntegrationId(provider.id) ? 'jira-wiki' : undefined,
+		// Only when known, so a row from any other provider keeps exactly the keys it always had.
+		...(issue.descriptionField != null ? { bodyField: toIssueBodyField(issue.descriptionField) } : {}),
 		issueType: issue.type ?? undefined,
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
 	};
+}
+
+export function toIssueBodyField(field: NonNullable<ProviderIssue['descriptionField']>): IssueBodyField {
+	return { id: field.referenceName, name: field.name };
 }
 
 function toIssueIterations(issue: ProviderIssue): IssueIteration[] | undefined {
@@ -2066,6 +2073,7 @@ export function fromProviderIssue(
 		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		toIssueIterations(issue),
 		options?.projection,
+		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
 	);
 }
 

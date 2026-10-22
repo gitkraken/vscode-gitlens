@@ -1,5 +1,6 @@
-import ProviderApis, { GitIssueState } from '@gitkraken/provider-apis';
+import ProviderApis, { GitIssueState, needsAzureWorkItemHtmlFields } from '@gitkraken/provider-apis';
 import type {
+	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 	CollectionMetadata,
 	GitPullRequestState,
@@ -11,6 +12,7 @@ import type {
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -38,10 +40,12 @@ import {
 	azureWorkItemEtagFieldNames,
 	encodeAzurePathSegment,
 	fromAzureWorkItemToProviderIssue,
+	toAzureWorkItemDescriptionFields,
 } from './azure/models.js';
 import type { AzureWorkItemStatesScope } from './azure/workItemStateCategories.js';
 import {
 	AzureWorkItemStatesCache,
+	getAzureWorkItemFieldsPath,
 	getAzureWorkItemTypeStatesUrl,
 	getAzureWorkItemTypesUrl,
 } from './azure/workItemStateCategories.js';
@@ -1103,9 +1107,20 @@ export class ProvidersApi {
 			throw new Error(`Azure DevOps work item ${id} is in project '${project}', not '${scope.project}'`);
 		}
 
-		// Outside the not-found handling above: a states read that 404s says nothing about the work item, so it fails
-		// the read rather than reading as an absent work item.
-		await this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, options);
+		// Independent reads, so a cold cache costs one round trip rather than two. The catalog only for a work item
+		// that reads, and reads as this coordinate's, so neither failure above costs the request. The states read is
+		// outside the not-found handling above: one that 404s says nothing about the work item, so it fails the read
+		// rather than reading as an absent work item.
+		const [htmlFields] = await Promise.all([
+			needsAzureWorkItemHtmlFields(workItem?.fields)
+				? this.getAzureWorkItemHtmlFields(tokenWithInfo, scope.namespace, options)
+				: undefined,
+			this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, options),
+		]);
+		if (htmlFields != null) {
+			Object.assign(issue, toAzureWorkItemDescriptionFields(workItem?.fields, htmlFields));
+		}
+
 		return issue;
 	}
 
@@ -2186,6 +2201,31 @@ export class ProvidersApi {
 			).body;
 		} catch (ex) {
 			return this.handleProviderError(token, ex);
+		}
+	}
+
+	/**
+	 * The organization's rich text fields a work item's description may come from, as provider-apis reads them for
+	 * its list rows. Best-effort: `undefined` on any failure, which leaves the description to the built-in fields
+	 * rather than failing the work item. Logged for every failure, a body that isn't a catalog included.
+	 */
+	private async getAzureWorkItemHtmlFields(
+		token: TokenWithInfo,
+		namespace: string,
+		options?: { baseUrl?: string; isPAT?: boolean },
+	): Promise<AzureWorkItemHtmlField[] | undefined> {
+		const scope = this.azureStatesScope(token, namespace, '', options);
+		try {
+			return await this.azureWorkItemTypeStates.getHtmlFields(scope, () =>
+				this.readAzureStatesMetadata(
+					token,
+					`${scope.baseUrl.replace(/\/$/, '')}/${getAzureWorkItemFieldsPath(namespace)}`,
+					scope.isPAT,
+				),
+			);
+		} catch (ex) {
+			Logger.warn(`Unable to read the Azure DevOps field catalog of '${namespace}': ${String(ex)}`);
+			return undefined;
 		}
 	}
 

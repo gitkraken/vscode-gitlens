@@ -1,3 +1,5 @@
+import type { AzureWorkItemHtmlField } from '@gitkraken/provider-apis';
+import { getAzureWorkItemDescription } from '@gitkraken/provider-apis';
 import type { IssueIteration, IssueMember, IssueProjection, IssueProviderState } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -12,7 +14,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
-import { pullRequestRevision } from '../../models/integration.js';
+import { azureWorkItemDescriptionRule, pullRequestRevision } from '../../models/integration.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 import {
 	fromProviderPullRequestMergeableState,
@@ -20,6 +22,7 @@ import {
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
+	toIssueBodyField,
 } from '../models.js';
 import type { ProviderPullRequestReview } from '../pullRequestReviews.js';
 import {
@@ -177,13 +180,15 @@ export interface WorkItem {
 		'System.ChangedDate': string;
 		'System.ChangedBy': AzureUser;
 		'System.CommentCount': number;
-		'System.Description': string;
+		'System.Description'?: string;
 		'System.Title': string;
 		'Microsoft.VSTS.Common.ClosedDate': string;
 		// 'Microsoft.VSTS.Common.StateChangeDate': string;
 		// 'Microsoft.VSTS.Common.Priority': number;
 		// 'Microsoft.VSTS.Common.Severity': string;
 		// 'Microsoft.VSTS.Common.ValueArea': string;
+		// Every other field the work item has a value for, its rich text description fields among them.
+		[field: string]: unknown;
 	};
 	id: number;
 	rev: number;
@@ -751,8 +756,10 @@ export function fromAzureWorkItem(
 	project: AzureProjectDescriptor,
 	stateCategory?: AzureWorkItemStateCategory,
 	projection?: IssueProjection,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
 ): Issue {
 	const state = workItem.fields['System.State'];
+	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
 	const closedDate = parseAzureWorkItemDate(workItem.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined;
 	const normalizedState = azureWorkItemsStateCategoryToState(stateCategory, closedDate);
 	return new Issue(
@@ -774,7 +781,7 @@ export function fromAzureWorkItem(
 		undefined,
 		workItem.fields['System.CommentCount'],
 		undefined,
-		workItem.fields['System.Description'],
+		description?.value,
 		project,
 		undefined,
 		workItem.fields['System.WorkItemType'],
@@ -784,6 +791,7 @@ export function fromAzureWorkItem(
 		undefined,
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
+		description != null ? toIssueBodyField(description.field) : undefined,
 	);
 }
 
@@ -863,7 +871,6 @@ export function fromAzureWorkItemToProviderIssue(
 	const tags = fields['System.Tags'];
 	const state = fields['System.State'];
 	const type = fields['System.WorkItemType'];
-	const description = fields['System.Description'];
 	return {
 		id: id.toString(),
 		number: id.toString(),
@@ -875,7 +882,7 @@ export function fromAzureWorkItemToProviderIssue(
 		updatedDate: parseAzureWorkItemDate(fields['System.ChangedDate']),
 		url: typeof url === 'string' ? url : null,
 		assignees: assignee != null ? [assignee] : [],
-		description: typeof description === 'string' ? description : null,
+		...toAzureWorkItemDescriptionFields(fields),
 		state: typeof state === 'string' && state ? { name: state, color: null } : null,
 		type: typeof type === 'string' ? type : null,
 		iteration: toAzureWorkItemIteration(fields['System.IterationPath']),
@@ -889,6 +896,22 @@ export function fromAzureWorkItemToProviderIssue(
 			id: null,
 			name: tag.trim(),
 		})),
+	};
+}
+
+/**
+ * A work item's `description` and `descriptionField`, as provider-apis' list rows carry them: `descriptionField` only
+ * when there is a description. A catalog only adds fields to try, so this pair read with `htmlFields` can replace a
+ * row's pair read without them.
+ */
+export function toAzureWorkItemDescriptionFields(
+	fields: Readonly<Record<string, unknown>> | null | undefined,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
+): Pick<ProviderIssue, 'description' | 'descriptionField'> {
+	const description = getAzureWorkItemDescription(fields, htmlFields);
+	return {
+		description: description?.value ?? null,
+		...(description != null ? { descriptionField: description.field } : {}),
 	};
 }
 
@@ -990,6 +1013,7 @@ export function toAzureWorkItemEtagFields(
 	return {
 		state: state,
 		updatedDate: updatedDate,
+		descriptionRule: azureWorkItemDescriptionRule,
 	};
 }
 

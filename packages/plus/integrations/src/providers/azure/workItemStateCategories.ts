@@ -1,4 +1,5 @@
-import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import type { AzureWorkItemHtmlField, AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import { toAzureWorkItemHtmlFields } from '@gitkraken/provider-apis';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { AzureWorkItemStateCategory } from './models.js';
@@ -13,6 +14,11 @@ export type AzureWorkItemStatesScope = {
 	token: string;
 	isPAT: boolean;
 };
+
+/** Where an organization's (or a Server collection's) field catalog is read: fields are defined per organization. */
+export function getAzureWorkItemFieldsPath(namespace: string): string {
+	return `${encodeAzurePathSegment(namespace)}/_apis/wit/fields?api-version=6.0`;
+}
 
 export function getAzureWorkItemTypesUrl(baseUrl: string, namespace: string, project: string): string {
 	return `${baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes?api-version=6.0`;
@@ -45,6 +51,13 @@ function parseWorkItemTypes(body: unknown): string[] {
 		names.push(type.name);
 	}
 	return [...new Set(names)];
+}
+
+function parseWorkItemHtmlFields(body: unknown): AzureWorkItemHtmlField[] {
+	const fields = (body as { value?: unknown } | null)?.value;
+	if (!Array.isArray(fields)) throw new Error('Azure DevOps returned no work item fields');
+
+	return toAzureWorkItemHtmlFields(fields);
 }
 
 function parseWorkItemStates(body: unknown): WorkItemTypeStates {
@@ -80,9 +93,10 @@ function scopeKey(scope: AzureWorkItemStatesScope, type?: string): string {
 }
 
 /**
- * Workflow metadata per project, work item type and token, kept for 5 minutes. A failed read is kept for 30 seconds,
- * so the pages and per-type reads of a listing fail fast with the same error instead of each asking a failing server
- * again; the first read after that retries.
+ * Workflow metadata per project, work item type and token, kept for 5 minutes, and each organization's rich text
+ * fields per token, kept for an hour since they change only when an administrator edits a process. A failed read is
+ * kept for 30 seconds, so the pages and per-type reads of a listing fail fast with the same error instead of each
+ * asking a failing server again; the first read after that retries.
  */
 export class AzureWorkItemStatesCache {
 	private readonly types = new PromiseCache<string, PromiseSettledResult<string[]>>({
@@ -93,10 +107,33 @@ export class AzureWorkItemStatesCache {
 		createTTL: 5 * 60 * 1000,
 		capacity: 256,
 	});
+	private readonly htmlFields = new PromiseCache<string, PromiseSettledResult<AzureWorkItemHtmlField[]>>({
+		createTTL: 60 * 60 * 1000,
+		capacity: 64,
+	});
 
 	clear(): void {
 		this.types.clear();
 		this.states.clear();
+		this.htmlFields.clear();
+	}
+
+	/**
+	 * The rich text fields of the scope's organization that may stand in for a work item's description, in the order
+	 * provider-apis' `getAzureWorkItemDescription` tries them. The scope's project is ignored: fields are defined per
+	 * organization.
+	 */
+	getHtmlFields(
+		scope: Omit<AzureWorkItemStatesScope, 'project'>,
+		read: (signal?: AbortSignal) => Promise<unknown>,
+		cancellation?: AbortSignal,
+	): Promise<AzureWorkItemHtmlField[]> {
+		return this.read(
+			this.htmlFields,
+			scopeKey({ ...scope, project: '' }),
+			async signal => parseWorkItemHtmlFields(await read(signal)),
+			cancellation,
+		);
 	}
 
 	getTypes(
