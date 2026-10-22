@@ -853,6 +853,7 @@ export function fromAzureWorkItemToProviderIssue(
 	workItem: AzureWorkItemResponse,
 	namespace: string,
 	project: string,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
 ): ProviderIssue | undefined {
 	const fields = workItem.fields;
 	const id = workItem.id;
@@ -1002,7 +1003,11 @@ export function toAzureWorkItemEtagFields(
 ): IssueEtagFields {
 	const fields = workItem.fields;
 	const teamProject = fields?.['System.TeamProject'];
-	if (typeof teamProject === 'string' && teamProject.toLowerCase() !== project.toLowerCase()) {
+	if (typeof teamProject !== 'string' || !teamProject.trim()) {
+		throw new Error(`Azure DevOps work item ${String(workItem.id)} has no project`);
+	}
+
+	if (teamProject.toLowerCase() !== project.toLowerCase()) {
 		throw new Error(
 			`Azure DevOps work item ${String(workItem.id)} is in project '${teamProject}', not '${project}'`,
 		);

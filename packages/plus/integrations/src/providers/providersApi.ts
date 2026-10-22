@@ -44,6 +44,7 @@ import {
 	fromAzureWorkItemToProviderIssue,
 	toAzureWorkItemDescriptionFields,
 } from './azure/models.js';
+import { AzureWorkItemDescriptionsCache } from './azure/workItemDescriptions.js';
 import type { AzureWorkItemStatesScope } from './azure/workItemStateCategories.js';
 import {
 	AzureWorkItemStatesCache,
@@ -328,6 +329,7 @@ export class ProvidersApi {
 	constructor(
 		private readonly authenticationService: IntegrationAuthenticationService,
 		private readonly azureWorkItemTypeStates = new AzureWorkItemStatesCache(),
+		private readonly azureWorkItemDescriptions = new AzureWorkItemDescriptionsCache(),
 	) {
 		const http = authenticationService.ctx.http;
 		this.request = createProviderApiRequest((input, init) => http.fetch(input, init), http.userAgent);
@@ -1078,12 +1080,14 @@ export class ProvidersApi {
 		id: number,
 		options: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderIssue | undefined> {
-		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const { tokenWithInfo: providedToken } = await this.ensureProviderToken(tokenOptInfo);
+		const tokenWithInfo = { ...providedToken };
 		const token = tokenWithInfo.accessToken;
 
 		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		const requestOptions = { baseUrl: baseUrl, isPAT: options.isPAT ?? false };
 		const encodedProject = encodeAzurePathSegment(scope.project);
-		const resource = await this.getAzureRestResource(tokenWithInfo, scope.namespace, 'workItems', options);
+		const resource = await this.getAzureRestResource(tokenWithInfo, scope.namespace, 'workItems', requestOptions);
 		const params = new URLSearchParams({ $expand: 'Links', 'api-version': resource.apiVersion });
 		const projectPath = resource.projectScoped ? `/${encodedProject}` : '';
 		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}${projectPath}/_apis/wit/workitems/${id}?${params.toString()}`;
@@ -1092,7 +1096,7 @@ export class ProvidersApi {
 		try {
 			const result = await this.request<AzureWorkItemResponse | null>({
 				url: url,
-				headers: { Authorization: azureAuthorization(token, options.isPAT) },
+				headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
 			});
 			workItem = result.body;
 		} catch (e) {
@@ -1100,10 +1104,6 @@ export class ProvidersApi {
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
-
-		const issue =
-			workItem != null ? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project) : undefined;
-		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
 
 		// The route's project is not trusted to scope the read: work item ids are unique across the organization, and
 		// one from another project must not answer for this coordinate. Azure compares project names
@@ -1117,20 +1117,33 @@ export class ProvidersApi {
 			throw new Error(`Azure DevOps work item ${id} is in project '${project}', not '${scope.project}'`);
 		}
 
-		// Independent reads, so a cold cache costs one round trip rather than two. The catalog only for a work item
-		// that reads, and reads as this coordinate's, so neither failure above costs the request. The states read is
-		// outside the not-found handling above: one that 404s says nothing about the work item, so it fails the read
-		// rather than reading as an absent work item.
-		const [htmlFields] = await Promise.all([
-			needsAzureWorkItemHtmlFields(workItem?.fields)
-				? this.getAzureWorkItemHtmlFields(tokenWithInfo, scope.namespace, options)
-				: undefined,
-			this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, options),
-		]);
-		if (htmlFields != null) {
-			Object.assign(issue, toAzureWorkItemDescriptionFields(workItem?.fields, htmlFields));
-		}
+		const htmlFields = await this.azureWorkItemDescriptions.getFields(
+			workItem?.fields,
+			{ baseUrl: baseUrl, namespace: scope.namespace, token: token, isPAT: requestOptions.isPAT },
+			async () => {
+				const fields = await this.getAzureRestResource(
+					tokenWithInfo,
+					scope.namespace,
+					'fields',
+					requestOptions,
+				);
+				return (
+					await this.request({
+						url: `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/_apis/wit/fields?api-version=${fields.apiVersion}`,
+						headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
+					})
+				).body;
+			},
+		);
+		const issue =
+			workItem != null
+				? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project, htmlFields)
+				: undefined;
+		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
 
+		// Outside the not-found handling above: a states read that 404s says nothing about the work item, so it fails
+		// the read rather than reading as an absent work item.
+		await this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, requestOptions);
 		return issue;
 	}
 

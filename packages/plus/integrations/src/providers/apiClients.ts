@@ -2,6 +2,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { AzureDevOpsApi } from './azure/azure.js';
+import { AzureWorkItemDescriptionsCache } from './azure/workItemDescriptions.js';
 import { AzureWorkItemStatesCache } from './azure/workItemStateCategories.js';
 import type { BitbucketApi } from './bitbucket/bitbucket.js';
 import type { GitHubApi } from './github/github.js';
@@ -15,6 +16,7 @@ import type { GitLabApi } from './gitlab/gitlab.js';
  */
 export interface ApiClients {
 	readonly azureWorkItemStates: AzureWorkItemStatesCache;
+	readonly azureWorkItemDescriptions: AzureWorkItemDescriptionsCache;
 	readonly github: Promise<GitHubApi | undefined>;
 	readonly gitlab: Promise<GitLabApi | undefined>;
 	readonly bitbucket: Promise<BitbucketApi | undefined>;
@@ -28,13 +30,20 @@ export interface ApiClients {
  */
 export function createApiClients(ctx: IntegrationServiceContext, disposables: Disposable[]): ApiClients {
 	const azureWorkItemStates = new AzureWorkItemStatesCache();
+	const azureWorkItemDescriptions = new AzureWorkItemDescriptionsCache();
 	disposables.push(
 		ctx.config.onDidChange(e => {
 			if (e.httpProxy) {
 				azureWorkItemStates.clear();
+				azureWorkItemDescriptions.clear();
 			}
 		}),
-		{ dispose: () => azureWorkItemStates.clear() },
+		{
+			dispose: () => {
+				azureWorkItemStates.clear();
+				azureWorkItemDescriptions.clear();
+			},
+		},
 	);
 	let github: Promise<GitHubApi | undefined> | undefined;
 	let gitlab: Promise<GitLabApi | undefined> | undefined;
@@ -55,6 +64,7 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 
 	return {
 		azureWorkItemStates: azureWorkItemStates,
+		azureWorkItemDescriptions: azureWorkItemDescriptions,
 		get github() {
 			return (github ??= build(async () =>
 				(await import(/* webpackChunkName: "integrations" */ './github/github.js')).createGitHubApi(ctx),
@@ -77,6 +87,7 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 				(await import(/* webpackChunkName: "integrations" */ './azure/azure.js')).createAzureDevOpsApi(
 					ctx,
 					azureWorkItemStates,
+					azureWorkItemDescriptions,
 				),
 			));
 		},

@@ -78,6 +78,7 @@ import {
 	toAzureWorkItemSearchQueries,
 	toAzureWorkItemSearchWiql,
 } from './search.js';
+import { AzureWorkItemDescriptionsCache } from './workItemDescriptions.js';
 import { queryAzureWorkItemSearch } from './workItemSearch.js';
 import {
 	AzureWorkItemStatesCache,
@@ -120,6 +121,8 @@ export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 	private readonly _workItemStates: AzureWorkItemStatesCache;
 	private readonly ownsWorkItemStates: boolean;
+	private readonly _workItemDescriptions: AzureWorkItemDescriptionsCache;
+	private readonly ownsWorkItemDescriptions: boolean;
 	private readonly _forkRepositoryUrls = new PromiseCache<string, AzureForkRepositoryUrls | undefined>({
 		capacity: 100,
 		createTTL: forkRepositoryUrlCacheTtl,
@@ -138,12 +141,15 @@ export class AzureDevOpsApi implements Disposable {
 	constructor(
 		private readonly config: ProviderApiConfig,
 		workItemStates?: AzureWorkItemStatesCache,
+		workItemDescriptions?: AzureWorkItemDescriptionsCache,
 	) {
 		this.restApi = createProviderApis({
 			request: createProviderApiRequest((input, init) => config.fetch(input, init)),
 		}).azureDevOps;
 		this._workItemStates = workItemStates ?? new AzureWorkItemStatesCache();
 		this.ownsWorkItemStates = workItemStates == null;
+		this._workItemDescriptions = workItemDescriptions ?? new AzureWorkItemDescriptionsCache();
+		this.ownsWorkItemDescriptions = workItemDescriptions == null;
 		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
@@ -155,6 +161,9 @@ export class AzureDevOpsApi implements Disposable {
 		this.restApi.updateConfig({});
 		if (this.ownsWorkItemStates) {
 			this._workItemStates.clear();
+		}
+		if (this.ownsWorkItemDescriptions) {
+			this._workItemDescriptions.clear();
 		}
 		this._forkRepositoryUrls.clear();
 		this._workItemSearches.clear();
@@ -385,6 +394,15 @@ export class AzureDevOpsApi implements Disposable {
 			}
 
 			if (issueResult != null) {
+				await this.requireWorkItemProject(
+					provider,
+					token,
+					owner,
+					projectName,
+					issueResult,
+					options.baseUrl,
+					scope,
+				);
 				const issueType = issueResult.fields['System.WorkItemType'];
 				const state = issueResult.fields['System.State'];
 				const stateCategory = await this.getWorkItemStateCategory(
@@ -502,23 +520,33 @@ export class AzureDevOpsApi implements Disposable {
 		}
 
 		if (issueResult != null) {
+			await this.requireWorkItemProject(
+				provider,
+				token,
+				project.resourceName,
+				project.name,
+				issueResult,
+				options.baseUrl,
+				scope,
+			);
 			const issueType = issueResult.fields['System.WorkItemType'];
 			const state = issueResult.fields['System.State'];
-			// Independent reads, so a cold cache costs one round trip rather than two.
-			const [stateCategory, htmlFields] = await Promise.all([
-				this.getWorkItemStateCategory(
-					issueType,
-					state,
-					provider,
-					token,
-					project.resourceName,
-					project.name,
-					options,
-				),
-				needsAzureWorkItemHtmlFields(issueResult.fields)
-					? this.getWorkItemHtmlFields(provider, token, options.baseUrl, project.resourceName, scope)
-					: undefined,
-			]);
+			const stateCategory = await this.getWorkItemStateCategory(
+				issueType,
+				state,
+				provider,
+				token,
+				project.resourceName,
+				project.name,
+				options,
+			);
+			const htmlFields = await this.getWorkItemHtmlFields(
+				provider,
+				token,
+				project.resourceName,
+				options.baseUrl,
+				issueResult.fields,
+			);
 			return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point', htmlFields);
 		}
 
@@ -1031,6 +1059,14 @@ export class AzureDevOpsApi implements Disposable {
 					options,
 					cancellation,
 				);
+				const htmlFields = await this.getWorkItemHtmlFields(
+					provider,
+					token,
+					collection,
+					options.baseUrl,
+					workItem.fields,
+					cancellation,
+				);
 				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory, 'search', htmlFields));
 			}
 		}
@@ -1425,7 +1461,7 @@ export class AzureDevOpsApi implements Disposable {
 		const encodedId = encodeAzurePathSegment(id);
 		const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'workItems', '6.0');
 		const projectPath = resource.projectScoped ? `/${encodedProject}` : '';
-		const result = await this.request<WorkItem>(
+		return this.request<WorkItem>(
 			provider,
 			token,
 			baseUrl,
@@ -1433,15 +1469,70 @@ export class AzureDevOpsApi implements Disposable {
 			{ method: 'GET' },
 			scope,
 		);
-		if (
-			result != null &&
-			(typeof result.fields?.['System.TeamProject'] !== 'string' ||
-				result.fields['System.TeamProject'].toLowerCase() !== project.toLowerCase())
-		) {
-			throw new Error(`Azure DevOps work item ${id} is outside the requested project`);
+	}
+
+	private async requireWorkItemProject(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		project: string,
+		workItem: WorkItem,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+	): Promise<void> {
+		const actualProject = workItem.fields?.['System.TeamProject'];
+		if (typeof actualProject !== 'string' || !actualProject.trim()) {
+			throw new Error(`Azure DevOps work item ${workItem.id} has no project`);
 		}
 
-		return result;
+		if (actualProject.toLowerCase() === project.toLowerCase()) return;
+
+		const canonical = await this.request<{ name: string }>(
+			provider,
+			token,
+			baseUrl,
+			`${encodeAzurePathSegment(owner)}/_apis/projects/${encodeAzurePathSegment(project)}`,
+			{ method: 'GET' },
+			scope,
+		);
+		if (canonical?.name?.toLowerCase() !== actualProject.toLowerCase()) {
+			throw new Error(`Azure DevOps work item ${workItem.id} is outside the requested project`);
+		}
+	}
+
+	private getWorkItemHtmlFields(
+		provider: Provider,
+		token: TokenWithInfo,
+		namespace: string,
+		baseUrl: string,
+		fields: WorkItem['fields'],
+		cancellation?: AbortSignal,
+	): Promise<readonly AzureWorkItemHtmlField[]> {
+		const requestToken = { ...token };
+		return this._workItemDescriptions.getFields(
+			fields,
+			{ baseUrl: baseUrl, namespace: namespace, token: requestToken.accessToken, isPAT: true },
+			async signal => {
+				const resource = await this.requireRestResource(
+					provider,
+					requestToken,
+					namespace,
+					baseUrl,
+					'fields',
+					'6.0',
+				);
+				return this.request(
+					provider,
+					requestToken,
+					baseUrl,
+					`${encodeAzurePathSegment(namespace)}/_apis/wit/fields?api-version=${resource.apiVersion}`,
+					{ method: 'GET' },
+					undefined,
+					signal,
+				);
+			},
+			cancellation,
+		);
 	}
 
 	private async getRestResource(
@@ -1609,6 +1700,7 @@ export class AzureDevOpsApi implements Disposable {
 export function createAzureDevOpsApi(
 	ctx: IntegrationServiceContext,
 	workItemStates?: AzureWorkItemStatesCache,
+	workItemDescriptions?: AzureWorkItemDescriptionsCache,
 ): AzureDevOpsApi {
-	return new AzureDevOpsApi(baseProviderApiConfig(ctx), workItemStates);
+	return new AzureDevOpsApi(baseProviderApiConfig(ctx), workItemStates, workItemDescriptions);
 }

@@ -6,6 +6,7 @@ import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
 import { createIntegrationService } from '../../../integrationService.js';
 import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
+import { AzureWorkItemDescriptionsCache } from '../../azure/workItemDescriptions.js';
 import { AzureWorkItemStatesCache } from '../../azure/workItemStateCategories.js';
 import { BitbucketApi } from '../bitbucket.js';
 import type { BitbucketIssue, BitbucketPullRequest } from '../models.js';
@@ -316,6 +317,7 @@ suite('BitbucketServerIntegration.getPullRequest', () => {
 		let capturedArgs: unknown[] | undefined;
 		const apis: ApiClients = {
 			azureWorkItemStates: new AzureWorkItemStatesCache(),
+			azureWorkItemDescriptions: new AzureWorkItemDescriptionsCache(),
 			github: Promise.resolve(undefined),
 			gitlab: Promise.resolve(undefined),
 			azure: Promise.resolve(undefined),
