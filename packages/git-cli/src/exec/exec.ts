@@ -8,5 +8,12 @@ export {
 	RunError,
 	runSpawn,
 } from '@gitlens/utils/env/node/exec.js';
-export type { RunExitResult, RunOptions, RunResult } from '@gitlens/utils/env/node/exec.js';
+export type {
+	ProcessSpawner,
+	ProcessSpawnOptions,
+	RunExitResult,
+	RunOptions,
+	RunResult,
+	SpawnedProcess,
+} from '@gitlens/utils/env/node/exec.js';
 export { isWindows } from '@gitlens/utils/env/node/platform.js';
