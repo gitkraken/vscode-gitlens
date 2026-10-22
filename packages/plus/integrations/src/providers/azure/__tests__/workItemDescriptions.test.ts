@@ -84,6 +84,25 @@ suite('Azure work item description catalog', () => {
 		assert.equal((await cache.getFields(fields, scope, async () => catalog))[0].referenceName, 'Custom.Notes');
 	});
 
+	test('malformed catalog envelopes use the short failure retry policy', async () => {
+		const originalNow = Date.now;
+		let now = originalNow();
+		Date.now = () => now;
+		try {
+			for (const malformed of [null, {}, { value: null }]) {
+				const cache = new AzureWorkItemDescriptionsCache();
+				let reads = 0;
+				const read = async () => (++reads === 1 ? malformed : catalog);
+				assert.deepEqual(await cache.getFields(fields, scope, read), []);
+				now += 30_001;
+				assert.equal((await cache.getFields(fields, scope, read))[0]?.referenceName, 'Custom.Notes');
+				assert.equal(reads, 2);
+			}
+		} finally {
+			Date.now = originalNow;
+		}
+	});
+
 	test('canceling one waiter does not cancel another catalog reader', async () => {
 		const cache = new AzureWorkItemDescriptionsCache();
 		const abort = new AbortController();

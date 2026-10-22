@@ -34,7 +34,13 @@ export class AzureWorkItemDescriptionsCache {
 			return (
 				(await this.fields.getOrCreate(
 					key,
-					async (_cacheable, signal) => toAzureWorkItemHtmlFields(await read(signal)),
+					async (_cacheable, signal) => {
+						const body = await read(signal);
+						const value = (body as { value?: unknown } | null)?.value;
+						if (!Array.isArray(value)) throw new Error('Azure DevOps returned no work item field catalog');
+
+						return toAzureWorkItemHtmlFields(value);
+					},
 					{
 						cancellation: cancellation,
 						onError: error =>
