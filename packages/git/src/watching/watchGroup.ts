@@ -31,10 +31,15 @@ import {
 export interface WatchGroupHooks {
 	/**
 	 * `ref` is the full ref name (or ref directory) or pseudo-ref (`HEAD`, `ORIG_HEAD`) whose file changed, with a
-	 * trailing `.lock` stripped; `undefined` for any other `.git` file. `overflow` marks the every-kind rescan of a
-	 * watcher that dropped events, which no single write can account for.
+	 * trailing `.lock` stripped; `false` when config changed without moving refs, and `undefined` when ref movement
+	 * is unknown. `overflow` marks the every-kind rescan of a watcher that dropped events.
 	 */
-	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[], ref?: string, overflow?: boolean) => void;
+	readonly onRepoChanged: (
+		repoPath: string,
+		changes: RepositoryChange[],
+		ref?: string | false,
+		overflow?: boolean,
+	) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
 	/** The refs whose loose files a poll stats for this session, read at each poll */
@@ -466,7 +471,10 @@ export class WatchGroup implements UnifiedDisposable {
  * The ref a `.git`-relative path names: a loose ref (or ref directory) under `refs/`, or the `HEAD`/`ORIG_HEAD`
  * pseudo-refs. Git writes a ref as `<name>.lock` and renames it over `<name>`, so the lock file names the same ref.
  */
-function getChangedRef(relativePath: string): string | undefined {
+function getChangedRef(relativePath: string): string | false | undefined {
 	const ref = relativePath.endsWith('.lock') ? relativePath.substring(0, relativePath.length - 5) : relativePath;
+	// Remote config still invalidates remote and branch caches, but doesn't itself move any ref.
+	if (ref === 'config' || ref === 'config.worktree') return false;
+
 	return ref.startsWith('refs/') || ref === 'HEAD' || ref === 'ORIG_HEAD' ? ref : undefined;
 }
