@@ -636,7 +636,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		const states = await cache.getStates(coordinate, 'Task', async () => ({
 			value: [{ name: 'New', category: 'Proposed' }],
 		}));
-		assert.equal(states[0].category, 'Proposed');
+		assert.equal(states.states[0].category, 'Proposed');
 	});
 
 	test('manager list, point, etag and native presentation share one states read and invalidation', async () => {
