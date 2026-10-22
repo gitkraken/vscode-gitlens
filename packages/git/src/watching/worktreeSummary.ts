@@ -767,7 +767,7 @@ async function readSummary(
 			if (!baseKeysRead) {
 				baseKeys = await readBaseKeys(repo, branch);
 			}
-			if (!baseConfigKeyRead) {
+			if (!baseConfigKeyRead && (previous != null || (fields & baseConfigField) !== 0)) {
 				baseConfigKey = await readBaseConfigKey(repo, signal);
 			}
 			try {

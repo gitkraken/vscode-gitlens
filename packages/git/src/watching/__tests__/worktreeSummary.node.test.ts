@@ -870,7 +870,7 @@ describe('WorktreeSummaryService', () => {
 
 			await h.service.getSummary(repoPath);
 			assert.strictEqual(h.repo.counts.branch, 2, 'one-off reads are not cached');
-			assert.strictEqual(h.repo.configKeyReads, 2, 'each one-off base read captures its config inputs');
+			assert.strictEqual(h.repo.configKeyReads, 0, 'one-off reads do not retain config snapshots');
 		});
 
 		it('rejects a one-off read for an unknown repository', async () => {
