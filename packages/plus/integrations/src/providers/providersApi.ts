@@ -102,6 +102,7 @@ import {
 	getProviderResponseBodyMessage,
 	isAzureProviderId,
 	isProviderIssueNotFoundError,
+	markRequestError,
 	throwProviderError,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
@@ -338,15 +339,19 @@ export class ProvidersApi {
 			url,
 			...options
 		}: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
-			const response = await http.fetch(url, {
-				...options,
-				headers: {
-					'User-Agent': userAgent,
-					...options.headers,
-				},
-			});
+			try {
+				const response = await http.fetch(url, {
+					...options,
+					headers: {
+						'User-Agent': userAgent,
+						...options.headers,
+					},
+				});
 
-			return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
+				return await parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
+			} catch (ex) {
+				throw markRequestError(ex);
+			}
 		};
 		this.request = customFetch;
 		const providerApis = createProviderApis({ request: customFetch });

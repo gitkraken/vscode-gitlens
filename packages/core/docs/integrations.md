@@ -927,6 +927,20 @@ reauthentication prompt (`onReauthenticationRequired`): an organization's restri
 reauthenticating, and a credential the check refuses is reported by the resolution itself, as an unscoped `auth`
 warning.
 
+Two causes name a failure that isn't the credential's, so they come on a `kind: 'other'` warning instead, scoped or
+not, and need no confirmed credential:
+
+| `cause.reason`        | Means                                                                                                                                                                                                                   | Fixed by                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `unreachable`         | A transport failure (connection refused, DNS, timeout, TLS) or a `5xx` kept the provider from answering.                                                                                                                | A retry once the server is reachable again; reconnecting doesn't help.       |
+| `unexpected-response` | The provider, or a gateway in front of it, answered with a 2xx whose JSON isn't the shape the read expects (a JSON error body, `{}`, `null`), e.g. on Jira Cloud's site list, Trello's boards or Linear's organization. | A retry once the provider answers properly again; reconnecting doesn't help. |
+
+A page served instead of data keeps its own message, with no cause. `unexpected-response` is only named where the failed
+read goes through core's provider error handling. Two kinds of failure still carry the error's text and no cause: a
+scope that one of provider-apis' own fan-outs fails (GitLab issues or pull requests when core hands it several
+repositories at once, Bitbucket Data Center pull requests), and the current-user lookup a repository-scoped read makes
+to filter by the user.
+
 ### `omission` — succeeded, but withheld results
 
 `other` covers two facts with **opposite remedies**: a request that failed, and a request that succeeded while

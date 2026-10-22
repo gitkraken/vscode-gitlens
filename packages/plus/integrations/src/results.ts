@@ -4,6 +4,7 @@ import type { IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
 import { isProviderUnreachableError } from './errors.js';
+import { UnexpectedResponseError } from './providers/providerErrors.js';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -126,6 +127,10 @@ export interface ProviderWarningSelector {
  *   permission). Someone who administers it has to grant access.
  * - `conditional-access`: a Microsoft Entra Conditional Access policy blocked the request (Azure DevOps
  *   `VS403463`). Its admin has to exempt the request, e.g. by location or device.
+ * - `unexpected-response`: the provider answered, but not with data in the shape the read expects (a gateway's JSON
+ *   error on a 2xx, an empty object, `null`), so the read could not use it. Accompanies `kind: 'other'`, like
+ *   `unreachable`; a retry may succeed once the provider, or whatever answered in front of it, answers properly. A
+ *   page served instead of data keeps its own message, without this cause.
  *
  * None of these is healed by reconnecting, which is the point of naming them.
  */
@@ -133,7 +138,8 @@ export type ProviderWarningCauseReason =
 	| 'oauth-app-not-allowed'
 	| 'access-denied'
 	| 'conditional-access'
-	| 'unreachable';
+	| 'unreachable'
+	| 'unexpected-response';
 
 /** See {@link ProviderWarning.cause}. */
 export interface ProviderWarningCause {
@@ -229,8 +235,9 @@ export interface ProviderWarning {
 	 * Why the provider request failed, when the failure itself says so: see {@link ProviderWarningCauseReason}. Switch on
 	 * `reason` to recommend a fix instead of a reconnect; `message` then carries the same explanation as prose.
 	 *
-	 * `unreachable` accompanies a transport or server failure with `kind: 'other'`. Credential refusal causes are
-	 * set only on a scoped `auth` warning whose credential was confirmed first (see {@link scope}), because the
+	 * `unreachable` accompanies a transport or server failure with `kind: 'other'`, and `unexpected-response` a response
+	 * the read could not use, also with `kind: 'other'`. Credential refusal causes are set only on a scoped `auth`
+	 * warning whose credential was confirmed first (see {@link scope}), because the
 	 * refusals they name are indistinguishable from a dead credential until then: Azure DevOps answers a
 	 * third-party OAuth app its organization disallows exactly as it answers an expired token. Only Azure DevOps
 	 * reports one today. Its absence proves nothing about the cause.
@@ -530,6 +537,7 @@ export function toProviderWarning(
 		kind = 'other';
 	}
 
+	const cause = kind === 'other' ? getRequestFailureCause(ex) : undefined;
 	return {
 		providerId: providerId,
 		domain: domain,
@@ -537,8 +545,18 @@ export function toProviderWarning(
 		message: providerWarningMessage(ex),
 		kind: kind,
 		isAuth: kind === 'auth',
-		...(kind === 'other' && isProviderUnreachableError(ex) ? { cause: { reason: 'unreachable' as const } } : {}),
+		...(cause != null ? { cause: cause } : {}),
 	};
+}
+
+/**
+ * The cause a failed request's error names by itself, one that isn't the credential's (`unexpected-response` or
+ * `unreachable`), for a failure classified as no more specific than that.
+ */
+export function getRequestFailureCause(ex: unknown): ProviderWarningCause | undefined {
+	if (UnexpectedResponseError.is(ex)) return { reason: 'unexpected-response' };
+	if (isProviderUnreachableError(ex)) return { reason: 'unreachable' };
+	return undefined;
 }
 
 /**
