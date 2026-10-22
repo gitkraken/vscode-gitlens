@@ -1404,12 +1404,17 @@ export class Cache implements Disposable {
 
 	private static readonly globalConfigKey = '';
 
+	/**
+	 * Keyed by `repoPath` itself, not its common path: git reads a worktree's own `config.worktree` too, so worktrees
+	 * of one repository can see different values. A read that is the same for all of them runs from, and passes, the
+	 * common path. The same holds for {@link getConfigRegex}.
+	 */
 	getConfig(
 		repoPath: string | undefined,
 		key: string,
 		factory: () => PromiseOrValue<string | undefined>,
 	): Promise<string | undefined> {
-		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : Cache.globalConfigKey;
+		const cacheKey = repoPath ?? Cache.globalConfigKey;
 
 		const result = this.configKeys.get(cacheKey, key);
 		if (result != null) return result;
@@ -1419,12 +1424,13 @@ export class Cache implements Disposable {
 		return factoryPromise;
 	}
 
+	/** Keyed by `repoPath` itself, as {@link getConfig} is */
 	getConfigRegex(
 		repoPath: string | undefined,
 		pattern: string,
 		factory: () => PromiseOrValue<Map<string, string>>,
 	): Promise<Map<string, string>> {
-		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : Cache.globalConfigKey;
+		const cacheKey = repoPath ?? Cache.globalConfigKey;
 
 		const result = this.configPatterns.get(cacheKey, pattern);
 		if (result != null) return result;
@@ -1435,9 +1441,17 @@ export class Cache implements Disposable {
 	}
 
 	deleteConfig(repoPath: string | undefined, key: string): void {
-		const cacheKey = repoPath != null ? this.getCommonPath(repoPath) : Cache.globalConfigKey;
-		this._caches.configKeys?.delete(cacheKey, key);
-		this._caches.configPatterns?.delete(cacheKey);
+		if (repoPath == null) {
+			this._caches.configKeys?.delete(Cache.globalConfigKey, key);
+			this._caches.configPatterns?.delete(Cache.globalConfigKey);
+			return;
+		}
+
+		const commonPath = this.getCommonPath(repoPath);
+		for (const path of new Set([commonPath, repoPath, ...this.getWorktreePaths(commonPath)])) {
+			this._caches.configKeys?.delete(path, key);
+			this._caches.configPatterns?.delete(path);
+		}
 	}
 
 	/**
