@@ -6,6 +6,10 @@ import type { AzureWorkItemStateCategory } from './models.js';
 import { azureIssueStateCategory, encodeAzurePathSegment } from './models.js';
 
 type WorkItemTypeStates = readonly { name: string; category?: string }[];
+type WorkItemTypeStatesSnapshot = {
+	states: WorkItemTypeStates;
+	usesLegacyMappings: boolean;
+};
 type WorkItemStateMappings = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
 export type AzureWorkItemStatesScope = {
@@ -95,10 +99,23 @@ function parseWorkItemStates(body: unknown, allowMissingCategory = false): WorkI
 	return parsed;
 }
 
+export function resolveAzureWorkItemStateCategory(
+	snapshot: WorkItemTypeStatesSnapshot,
+	state: string,
+): AzureWorkItemStateCategory | undefined {
+	const matched = snapshot.states.find(s => s.name === state);
+	const category = matched?.category as AzureWorkItemStateCategory | undefined;
+	if ((snapshot.usesLegacyMappings || matched != null) && category == null) {
+		throw new Error(`Azure DevOps does not expose a category for work item state '${state}'`);
+	}
+
+	return category;
+}
+
 export function requireAzureWorkItemStateCategories(
-	states: WorkItemTypeStates,
+	snapshot: WorkItemTypeStatesSnapshot,
 ): NonNullable<AzureWorkItemTypeStates['types'][number]['states']> {
-	return states.map(state => {
+	return snapshot.states.map(state => {
 		if (state.category == null) throw new Error('Azure DevOps does not expose a category for this work item state');
 
 		return { name: state.name, category: state.category };
@@ -167,7 +184,7 @@ export class AzureWorkItemStatesCache {
 		createTTL: 5 * 60 * 1000,
 		capacity: 256,
 	});
-	private readonly states = new PromiseCache<string, PromiseSettledResult<WorkItemTypeStates>>({
+	private readonly states = new PromiseCache<string, PromiseSettledResult<WorkItemTypeStatesSnapshot>>({
 		createTTL: 5 * 60 * 1000,
 		capacity: 256,
 	});
@@ -225,13 +242,15 @@ export class AzureWorkItemStatesCache {
 		read: (signal?: AbortSignal) => Promise<unknown>,
 		cancellation?: AbortSignal,
 		readMappings?: (signal?: AbortSignal) => Promise<unknown>,
-	): Promise<WorkItemTypeStates> {
+	): Promise<WorkItemTypeStatesSnapshot> {
 		return this.read(
 			this.states,
 			scopeKey(scope, type),
 			async signal => {
 				const states = parseWorkItemStates(await read(signal), readMappings != null);
-				if (readMappings == null || states.every(state => state.category != null)) return states;
+				if (readMappings == null || states.every(state => state.category != null)) {
+					return { states: states, usesLegacyMappings: false };
+				}
 
 				const mappings = await this.read(
 					this.mappings,
@@ -240,7 +259,13 @@ export class AzureWorkItemStatesCache {
 					signal,
 				);
 				const mapped = mappings.get(type);
-				return states.map(state => ({ name: state.name, category: state.category ?? mapped?.get(state.name) }));
+				return {
+					states: states.map(state => ({
+						name: state.name,
+						category: state.category ?? mapped?.get(state.name),
+					})),
+					usesLegacyMappings: true,
+				};
 			},
 			cancellation,
 		);

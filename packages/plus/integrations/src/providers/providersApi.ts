@@ -32,12 +32,7 @@ import {
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type {
-	AzurePullRequest,
-	AzureWorkItemEtagRead,
-	AzureWorkItemResponse,
-	AzureWorkItemStateCategory,
-} from './azure/models.js';
+import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
 	azureIssueStateCategory,
 	azureWorkItemEtagFieldNames,
@@ -53,6 +48,7 @@ import {
 	getAzureWorkItemTypeStatesUrl,
 	getAzureWorkItemTypesUrl,
 	requireAzureWorkItemStateCategories,
+	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -2355,16 +2351,14 @@ export class ProvidersApi implements Disposable {
 			const states = issue.type ? statesByType.get(issue.type) : undefined;
 			if (states == null || issue.state == null) continue;
 
-			const matched = states.find(s => s.name === issue.state?.name);
-			const category = azureIssueStateCategory(matched?.category as AzureWorkItemStateCategory | undefined);
-			if (matched != null && category == null) {
-				categoryError ??= new Error(
-					`Azure DevOps does not expose a category for work item state '${issue.state.name}'`,
-				);
-				continue;
+			try {
+				issue.state = {
+					...issue.state,
+					category: azureIssueStateCategory(resolveAzureWorkItemStateCategory(states, issue.state.name)),
+				};
+			} catch (ex) {
+				categoryError ??= toError(ex);
 			}
-
-			issue.state = { ...issue.state, category: category };
 		}
 		const failure = results.find(r => r.status === 'rejected');
 		if (failure?.status === 'rejected') throw failure.reason;

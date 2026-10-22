@@ -86,6 +86,7 @@ import {
 	getAzureWorkItemTypeStatesPath,
 	getAzureWorkItemTypesUrl,
 	requireAzureWorkItemStateCategories,
+	resolveAzureWorkItemStateCategory,
 } from './workItemStateCategories.js';
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
@@ -738,13 +739,7 @@ export class AzureDevOpsApi implements Disposable {
 			options.baseUrl,
 			cancellation,
 		);
-		const matched = states.find(s => s.name === state);
-		const category = matched?.category;
-		if (matched != null && category == null) {
-			throw new Error(`Azure DevOps does not expose a category for work item state '${state}'`);
-		}
-
-		return category as AzureWorkItemStateCategory | undefined;
+		return resolveAzureWorkItemStateCategory(states, state);
 	}
 
 	private getWorkItemTypeStates(
