@@ -881,7 +881,7 @@ Guidelines:
 
 export const deepReview: PromptTemplate<'deep-review'> = {
 	id: 'deep-review',
-	variables: ['scopeLabel', 'diffCommand', 'files', 'endpoint', 'token', 'instructions'],
+	variables: ['scopeLabel', 'diffCommand', 'files', 'endpoint', 'token', 'priorFindings', 'instructions'],
 	template: `You are an AI coding agent performing a deep code review. Unlike a model that only sees a diff, you can read the whole repository, follow call paths, build the project and run its tests — use that.
 
 The changes under review: \${scopeLabel}
@@ -902,6 +902,8 @@ curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-
 - "lines" are 1-based line numbers in the file as it is now (the right side of the diff); omit "lines" when the finding is about the file as a whole
 - Report only findings you have verified by reading the code or running it; never speculate about code you did not open
 - Do not change any files — this is a review, not a fix
+
+\${priorFindings}
 
 When you have finished, POST {"done":true} to the same endpoint, then stop.
 

@@ -62,7 +62,32 @@ suite("deepReview — the agent's report", () => {
 				},
 			],
 		);
-		assert.deepStrictEqual(parseDeepReviewReport(undefined, 1), { findings: [], done: false });
+		assert.deepStrictEqual(parseDeepReviewReport(undefined, 1), { findings: [], notes: [], done: false });
+	});
+
+	test('an item that names a finding is a note on it, not a finding; without a comment it is nothing', () => {
+		const { findings, notes } = parseDeepReviewReport(
+			{
+				findings: [
+					{
+						findingId: ' area-1-f2 ',
+						comment: ' The caller never passes a signal, so this cannot trigger. ',
+					},
+					{ findingId: 'area-1-f3' },
+					{ findingId: 'area-1-f1', comment: 'x', title: 'Not a new finding' },
+					{ title: 'A new one' },
+				],
+			},
+			1,
+		);
+		assert.deepStrictEqual(notes, [
+			{ findingId: 'area-1-f2', text: 'The caller never passes a signal, so this cannot trigger.' },
+			{ findingId: 'area-1-f1', text: 'x' },
+		]);
+		assert.deepStrictEqual(
+			findings.map(f => f.title),
+			['A new one'],
+		);
 	});
 
 	test('tells the agent the git command that shows the scope', () => {
@@ -102,16 +127,21 @@ suite('deepReview — the report channel', () => {
 		assert.deepStrictEqual(await post({ findings: [{ title: 'one' }, { title: 'two' }] }, new URLSearchParams()), {
 			accepted: 2,
 		});
+		assert.deepStrictEqual(
+			await post({ findings: [{ findingId: 'f9', comment: 'more on it' }] }, new URLSearchParams()),
+			{ accepted: 1 },
+		);
 		assert.deepStrictEqual(await post({ findings: [{ title: 'three' }], done: true }, new URLSearchParams()), {
 			accepted: 1,
 		});
 		assert.strictEqual(routes.has(deepReviewRoute), false, 'done closes the route');
 
 		assert.deepStrictEqual(
-			changes.map(c => [c.active, c.done, c.findings.map(f => f.seq)]),
+			changes.map(c => [c.active, c.done, c.findings.map(f => f.seq), c.notes.map(n => [n.seq, n.findingId])]),
 			[
-				[true, false, [1, 2]],
-				[false, true, [1, 2, 3]],
+				[true, false, [1, 2], []],
+				[true, false, [1, 2], [[1, 'f9']]],
+				[false, true, [1, 2, 3], [[1, 'f9']]],
 			],
 		);
 		assert.strictEqual(channel.report({ findings: [{ title: 'late' }] }), 0, 'a report after close is dropped');

@@ -87,7 +87,12 @@ import {
 	isComposeInputError,
 	libraryPlanToProposedCommits,
 } from './compose/utils.js';
-import { DeepReviewChannel, deepReviewRoute, getDeepReviewDiffCommand } from './deepReview.js';
+import {
+	DeepReviewChannel,
+	deepReviewRoute,
+	getDeepReviewDiffCommand,
+	getDeepReviewPriorFindingsSection,
+} from './deepReview.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -1510,13 +1515,17 @@ export class GraphInspectServices {
 			this._deepReviewEvent.fire(channel.state);
 
 			const endpoints = getReviewDiffEndpoints(args.scope);
+			const reportEndpoint = `${endpoint}/${deepReviewRoute}`;
 			const { prompt } = await this.container.ai.getPrompt('deep-review', undefined, {
 				scopeLabel: args.scopeLabel,
 				diffCommand:
 					endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff',
 				files: args.files.join('\n'),
-				endpoint: `${endpoint}/${deepReviewRoute}`,
+				endpoint: reportEndpoint,
 				token: token,
+				priorFindings: args.priorFindings
+					? getDeepReviewPriorFindingsSection(args.priorFindings, reportEndpoint, token)
+					: undefined,
 				instructions: args.prompt,
 			});
 			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');

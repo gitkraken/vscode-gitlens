@@ -302,6 +302,9 @@ export interface DeepReviewArgs {
 	scopeLabel: string;
 	/** The checklist's files, so the agent knows the whole changeset even if the diff is large */
 	files: string[];
+	/** What an earlier review found and what the reader said about it (see `formatReviewForAgentContext`),
+	 *  so the agent builds on it instead of finding it again */
+	priorFindings?: string;
 	prompt?: string;
 }
 
@@ -319,6 +322,8 @@ export interface DeepReviewState {
 	active: boolean;
 	done: boolean;
 	findings: { seq: number; finding: AIReviewFinding }[];
+	/** What the agent added to findings that were already there, append-only like the findings */
+	notes: { seq: number; findingId: string; text: string }[];
 }
 
 export type ReviewReadingAction = 'next' | 'previous' | 'markViewed';

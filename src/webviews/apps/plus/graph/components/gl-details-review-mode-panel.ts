@@ -57,6 +57,7 @@ import {
 	formatFindingAsMarkdown,
 	formatFocusAreaAsMarkdown,
 	formatReviewAsMarkdown,
+	formatReviewForAgentContext,
 	getReviewFindingTitle,
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
@@ -126,6 +127,14 @@ export interface ReviewFindingStateDetail {
 export interface ReviewFindingNoteDetail {
 	findingId: string;
 	text: string;
+}
+
+export interface ReviewDeepReviewDetail {
+	prompt?: string;
+	scopeLabel: string;
+	files: string[];
+	/** The earlier review's findings as context (see `formatReviewForAgentContext`); absent without one */
+	priorFindings?: string;
 }
 
 export interface ReviewAnalyzeAreaDetail {
@@ -1358,12 +1367,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 	};
 
 	private handleDeepReview = (): void => {
+		// What an earlier run found goes along — every finding, open or closed, with what the reader said —
+		// so the agent adds to it rather than finding it again
+		const priorFindings = this.result
+			? formatReviewForAgentContext(this.result, this.session?.findingStates, this.session?.notes)
+			: '';
 		this.dispatchEvent(
-			new CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>('review-deep-review', {
+			new CustomEvent<ReviewDeepReviewDetail>('review-deep-review', {
 				detail: {
 					prompt: this.idleDraftLive || undefined,
 					scopeLabel: this.scopeContextLabel(),
 					files: this.readingOrder,
+					priorFindings: priorFindings || undefined,
 				},
 				bubbles: true,
 				composed: true,

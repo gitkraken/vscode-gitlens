@@ -117,6 +117,7 @@ import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
+	ReviewDeepReviewDetail,
 	ReviewFileExcludedDetail,
 	ReviewFilesViewedDetail,
 	ReviewFindingNoteDetail,
@@ -4144,12 +4145,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.runOrient(this.effectiveRepoPath, e.detail?.prompt, excludedFiles);
 			}}
 			@review-orient-clear=${() => this._workflow.review.clearOrient()}
-			@review-deep-review=${(e: CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>) =>
+			@review-deep-review=${(e: CustomEvent<ReviewDeepReviewDetail>) =>
 				void this._workflow.review.startDeepReview(
 					this.effectiveRepoPath,
 					e.detail.prompt,
 					e.detail.scopeLabel,
 					e.detail.files,
+					e.detail.priorFindings,
 				)}
 			@review-deep-review-stop=${() => this._workflow.review.stopDeepReview()}
 			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>

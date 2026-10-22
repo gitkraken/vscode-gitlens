@@ -6,6 +6,7 @@ import type {
 	AIReviewSeverity,
 } from '@gitlens/ai/models/results.js';
 import type { ReviewFindingNote } from '../../../../plus/graph/graphService.js';
+import type { ReviewFindingState } from './reviewSession.js';
 
 export interface ReviewFormatOptions {
 	scopeLabel: string;
@@ -111,6 +112,35 @@ export function formatFocusAreaAsMarkdown(
 	for (const finding of visible) {
 		lines.push('');
 		lines.push(...formatFindingLines(finding, notes?.get(finding.id)));
+	}
+	return lines.join('\n');
+}
+
+/** The findings as context for a review that comes after: every one, open or closed, with its id (so the
+ *  agent can add to it), its state and the notes on it. Plain lines, not the reader's markdown. */
+export function formatReviewForAgentContext(
+	result: AIReviewResult,
+	states: ReadonlyMap<string, ReviewFindingState> | undefined,
+	notes: ReadonlyMap<string, readonly ReviewFindingNote[]> | undefined,
+): string {
+	const lines: string[] = [];
+	for (const area of result.focusAreas) {
+		for (const finding of area.findings ?? []) {
+			const range = formatLineRange(finding.lineRange);
+			const location = finding.filePath ? `${finding.filePath}${range ? `:${range}` : ''}` : '';
+			const state = states?.get(finding.id) ?? 'open';
+			const head = [`id: ${finding.id}`, `[${severityLabel[finding.severity]}]`, state, location]
+				.filter(Boolean)
+				.join(' · ');
+			if (lines.length) {
+				lines.push('');
+			}
+			lines.push(`- ${head}`);
+			lines.push(`  ${getReviewFindingTitle(finding)} — ${finding.description.replace(/\n+/g, ' ')}`);
+			for (const note of notes?.get(finding.id) ?? []) {
+				lines.push(`  > ${noteAuthor(note.author)}: ${note.text.replace(/\n+/g, ' ')}`);
+			}
+		}
 	}
 	return lines.join('\n');
 }

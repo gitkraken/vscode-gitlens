@@ -774,10 +774,21 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			filePath: 'b.ts',
 			source: 'agent',
 		} as const;
-		controller.review.applyDeepReviewState({ active: true, done: false, findings: [{ seq: 1, finding: f1 }] });
+		controller.review.applyDeepReviewState({
+			active: true,
+			done: false,
+			findings: [{ seq: 1, finding: f1 }],
+			notes: [],
+		});
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
-		assert.deepStrictEqual(entry?.deepReview, { active: true, done: false, count: 1, seqApplied: 1 });
+		assert.deepStrictEqual(entry?.deepReview, {
+			active: true,
+			done: false,
+			count: 1,
+			seqApplied: 1,
+			notesApplied: 0,
+		});
 		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
 		assert.deepStrictEqual(
 			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)]),
@@ -791,9 +802,16 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				{ seq: 1, finding: f1 },
 				{ seq: 2, finding: f2 },
 			],
+			notes: [{ seq: 1, findingId: 'agent-1', text: 'the caller guards this' }],
 		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('agent-1')?.map(n => [n.author, n.text]),
+			[['agent', 'the caller guards this']],
+			'what the agent added to a finding lands as a note on it',
+		);
+		assert.strictEqual(entry?.deepReview?.notesApplied, 1);
 		const area = result?.focusAreas.find(a => a.id === 'agent');
 		assert.deepStrictEqual(
 			area?.findings?.map(f => f.id),
@@ -801,7 +819,13 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			'a replayed finding is not added twice',
 		);
 		assert.strictEqual(area?.severity, 'critical');
-		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
+		assert.deepStrictEqual(entry?.deepReview, {
+			active: false,
+			done: true,
+			count: 2,
+			seqApplied: 2,
+			notesApplied: 1,
+		});
 	});
 
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {

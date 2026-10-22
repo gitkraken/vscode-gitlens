@@ -1206,6 +1206,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			prompt: string | undefined,
 			scopeLabel: string,
 			files: readonly string[],
+			priorFindings?: string,
 		): Promise<void> => {
 			const scope = this.actions.state.scope.get();
 			if (!repoPath || scope == null) return;
@@ -1216,6 +1217,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				scope: scope,
 				scopeLabel: scopeLabel,
 				files: [...files],
+				priorFindings: priorFindings,
 				prompt: prompt,
 			});
 			if (!result.ok) {
@@ -1243,11 +1245,22 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (fresh.length > 0) {
 				result = { result: withAgentFindings(result?.result, fresh) };
 			}
+			// What the agent added to findings that were already there lands as notes on them
+			const notesApplied = entry?.deepReview?.notesApplied ?? 0;
+			let session = entry?.session;
+			for (const note of state.notes.filter(n => n.seq > notesApplied)) {
+				session = withFindingNote(session ?? emptyReviewSession, note.findingId, {
+					author: 'agent',
+					text: note.text,
+					at: Date.now(),
+				});
+			}
 			const deepReview = {
 				active: state.active,
 				done: state.done,
 				count: state.findings.length,
 				seqApplied: state.findings.at(-1)?.seq ?? applied,
+				notesApplied: state.notes.at(-1)?.seq ?? notesApplied,
 			};
 			if (state.done && entry?.deepReview?.done !== true) {
 				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/finished', {
@@ -1256,18 +1269,20 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 
 			const base = entry ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
+			const withSession = session != null ? { session: session } : {};
 			if (result != null && fresh.length > 0) {
 				// The merged result is the entry's result now — and a run that never happened reads as
 				// complete, the way a resumed one does, so the panel shows the findings.
 				this.registerRunningOperation({
 					...base,
+					...withSession,
 					execState: base.execState === 'generating' ? 'generating' : 'complete',
 					result: result,
 					deepReview: deepReview,
 				});
 				this.actions.resources.review.mutate(result);
 			} else {
-				this.registerRunningOperation({ ...base, deepReview: deepReview });
+				this.registerRunningOperation({ ...base, ...withSession, deepReview: deepReview });
 			}
 		},
 		/** Drops the reading plan — and the order it gave the files — back to tree order. */

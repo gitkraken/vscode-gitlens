@@ -108,6 +108,9 @@ interface DeepReviewPromptTemplateContext {
 	/** Where to POST findings, and the bearer token the request must carry */
 	endpoint: string;
 	token: string;
+	/** What an earlier review already found, with what the reader said about it — a whole section, with
+	 *  its own instructions, or nothing when no review ran before this one */
+	priorFindings?: string;
 	instructions?: string;
 }
 
