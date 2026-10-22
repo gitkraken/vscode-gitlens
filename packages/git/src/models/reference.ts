@@ -81,4 +81,12 @@ export interface RefRecord {
 	upstreamRemote?: string;
 	/** `%(upstream:remoteref)` — the ref a local branch tracks on its remote (`branch.<name>.merge`); only read where git supports it */
 	upstreamRemoteRef?: string;
+	/**
+	 * `%(push)` — the full name of a local branch's push destination as git resolves `<branch>@{push}` from
+	 * `push.default`, the push remote and its refspecs. Named even when that ref doesn't exist yet; empty when git
+	 * can't name one (no upstream under `simple`/`upstream`, `nothing`, `simple` with another push remote, or a
+	 * destination with no local tracking ref). Not always where `git push` goes: a triangular `simple` push goes like
+	 * `current`, though it is empty here
+	 */
+	push: string;
 }
