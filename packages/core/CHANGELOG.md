@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes `getGkConfig`, `getGkConfigRegex`, `getStoredDetectedMergeTargetBranchName` and `getStoredUserMergeTargetBranchName` to log at trace level rather than debug, and a gk config lookup to no longer enter (and log) the one-time `.git/gk/config` migration once it ran for the repository: they are served from the cached map, and a cold read's `git config` still logs its own line (git-cli)
+
+### Fixed
+
+- Fixes every checkout sharing a `.git/gk/config` re-reading the whole file (a `git config --get-regex` each) when the watcher reports a change to it, core's own writes included, so a branch-activity stamp reported by three checkouts read it four times. A report of a file unchanged since the cached map was read (same inode, size and change times, with the read's stat taken safely after the file's last change: 2 seconds for a filesystem keeping whole-second times, 50 ms otherwise) now keeps the map, and still diffs it against the reconcile's baseline, so a read landing between another process's write and its report doesn't lose the change; a changed file is re-read as before (git, git-cli)
+- Fixes `getAheadOfBase` spawning a failing `git rev-parse <ref>@{u}` on every read whose candidate base is a remote-tracking ref or a tag (`origin/main`, the usual default branch), since git can't cache a failed lookup: a candidate the cached ref list shows can't have an upstream is no longer asked for one, and the result is unchanged. The base a branch's reflog says it was created from is checked the same way (git-cli)
+
 ## [0.15.3] - 2026-10-21
 
 ### Fixed
