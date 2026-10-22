@@ -25,7 +25,7 @@ import type {
 	ProviderWarningOmission,
 	ProviderWarningScope,
 } from './results.js';
-import { appendDedupedWarning, providerWarningMessage } from './results.js';
+import { appendDedupedWarning, getRequestFailureCause, providerWarningMessage } from './results.js';
 
 /**
  * Re-throws an error that is a fact about the CALL rather than about one scope of a fan-out.
@@ -152,12 +152,13 @@ export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'],
 	const refusal = toProviderRefusal(ex);
 	const message =
 		refusal != null ? (refusal.detail ?? providerWarningMessage((ex as AuthenticationError).original)) : undefined;
+	const cause = kind === 'provider' ? getRequestFailureCause(ex) : undefined;
 	return {
 		scope: scope,
 		kind: kind,
 		...(message ? { message: message } : ex instanceof Error && ex.message ? { message: ex.message } : {}),
 		...(refusal != null ? { refusal: refusal } : {}),
-		...(kind === 'provider' && isProviderUnreachableError(ex) ? { cause: { reason: 'unreachable' as const } } : {}),
+		...(cause != null ? { cause: cause } : {}),
 	};
 }
 
@@ -278,6 +279,8 @@ function causeText(cause: ProviderWarningCause): string {
 			return 'a Conditional Access policy blocked the request';
 		case 'unreachable':
 			return 'the provider server could not be reached';
+		case 'unexpected-response':
+			return 'the provider returned an unexpected response';
 		default:
 			cause.reason satisfies never;
 			return 'the provider refused the request';
