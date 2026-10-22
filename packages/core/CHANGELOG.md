@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-10-22
+
 ### Added
 
 - Adds optional `refs` and `options.configConfinedToRefs` to `GitServiceHooks.repository.onChanged`: `refs` are the full ref names a write created, moved or deleted, and a ref kind with names among them is fully described by them, so a host can skip work for refs it doesn't follow; `configConfinedToRefs` says the write changed `.git/config` only in the `branch.<name>` sections of the local branches `refs` names. Siblings sharing the repository hear the names and the flag with the shared kinds. Branch create, delete, rename and upstream changes, `checkout -b`, a worktree's new branch, a commit (its branch, read from the worktree's `HEAD` before and after the run, and named only when both agree) and stash writes (`refs/stash`, by a pop only when it dropped the entry) name their refs; a host that ignores them treats every kind as unnamed, as before (git, git-cli)
@@ -844,7 +846,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...HEAD
+[0.15.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...gitkraken:releases/core/v0.15.5
 [0.15.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...gitkraken:releases/core/v0.15.4
 [0.15.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...gitkraken:releases/core/v0.15.3
 [0.15.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...gitkraken:releases/core/v0.15.2
