@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { spawn } from 'child_process';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
@@ -8,6 +9,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { CommandChanges } from '../commandClassifier.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
+import type { ProcessSpawner } from '../exec.js';
 import { run, runSpawn } from '../exec.js';
 import type { GitResultCache } from '../exec.types.js';
 import { defaultExceptionHandler, Git, GitError } from '../git.js';
@@ -1081,5 +1083,30 @@ suite('Git.stream stdin', () => {
 				out.push(chunk);
 			}
 		});
+	});
+});
+
+suite('Git options.spawn', () => {
+	test('launches git through the injected spawner for run and stream', async () => {
+		const commands: string[] = [];
+		const timeouts: (number | undefined)[] = [];
+		const spawner: ProcessSpawner = (command, args, options) => {
+			commands.push(command);
+			timeouts.push(options.timeout);
+			return spawn(command, args, options);
+		};
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await git.run({ cwd: tmpdir() }, '--version');
+		assert.deepStrictEqual(commands, ['git']);
+
+		const out: string[] = [];
+		for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 0 }, '--version')) {
+			out.push(chunk);
+		}
+
+		assert.deepStrictEqual(commands, ['git', 'git']);
+		assert.strictEqual(timeouts[1], undefined, 'a disabled (0) stream timeout reaches the spawner as none');
+		assert.ok(out.join('').startsWith('git version'));
 	});
 });

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `GitOptions.spawn`, which launches the git process of every run and stream in place of Node's `spawn` (locating git still uses `execFile`), so a host whose process is large can start git from a helper process: on Linux a spawn forks the calling process, blocking its event loop for a time that grows with its memory. Exports `ProcessSpawner`, `ProcessSpawnOptions` and `SpawnedProcess` for it (git-cli, utils)
+
 ### Fixed
 
 - Fixes a fetch that moves a remote-tracking ref making every worktree that asks for its push target re-run `rev-parse` to find its checked-out branch, one git process per worktree on top of the one shared ref list read: `getPushTarget` without a branch now takes the branch from the worktree's own `HEAD` file, so it runs no git process and is never older than the file. A repository whose `HEAD` file can't say (reftable, an unreadable file, or a branch that is a symbolic ref to another, such as a `master` kept pointing at `main`) resolves the branch with git as before (git, git-cli)

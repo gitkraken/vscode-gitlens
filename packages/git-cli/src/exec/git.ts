@@ -1,4 +1,3 @@
-import type { SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
 import { resolve as resolvePath } from 'path';
 import * as process from 'process';
@@ -48,7 +47,7 @@ import type { CommandChanges } from './commandClassifier.js';
 import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
-import type { RunOptions, RunResult } from './exec.js';
+import type { ProcessSpawner, ProcessSpawnOptions, RunOptions, RunResult } from './exec.js';
 import { endStdin, fsExists, runSpawn } from './exec.js';
 import type { GitCommandPriority, GitResult, GitRunOptions, GitSpawnOptions } from './exec.types.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './features.js';
@@ -636,6 +635,8 @@ export interface GitOptions {
 	hooks?: GitHooks;
 	/** Optional dedicated logger for git command logging */
 	logger?: LogChannel;
+	/** Launches the git process of every run and stream (not the locator's); defaults to Node's `spawn`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
+	spawn?: ProcessSpawner;
 }
 
 export interface GitHooks {
@@ -1164,6 +1165,7 @@ export class Git {
 			decode: this.options.decode,
 			env: this.buildEnv(options.env),
 			quiet: errorHandling === 'ignore',
+			spawn: this.options.spawn,
 		};
 
 		// A run fed its own stdin or per-call env is never shared: the same argv can answer differently for
@@ -1467,15 +1469,17 @@ export class Git {
 		const startEpochMs = Date.now();
 		const streamId = uniqueCounterForStream.next();
 
-		const { configs, stdin, stdinEncoding, cancellation, encoding, slownessCategory, ...opts } = options;
+		const { configs, stdin, stdinEncoding, cancellation, encoding, slownessCategory, cwd, timeout } = options;
 		const runArgs = args.filter(a => a != null);
 
-		const spawnOpts: SpawnOptions = {
+		const spawnOpts: ProcessSpawnOptions = {
 			// Unless provided, ignore stdin and leave default streams for stdout and stderr
 			stdio: [stdin ? 'pipe' : 'ignore', null, null],
-			...opts,
-			signal: cancellation,
+			cwd: cwd,
 			env: this.buildEnv(options.env),
+			// 0 disables it, which the spawner contract spells as absent
+			timeout: timeout === 0 ? undefined : timeout,
+			signal: cancellation,
 		};
 
 		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
@@ -1489,7 +1493,7 @@ export class Git {
 		}
 
 		const command = await this.path();
-		const proc = spawn(command, runArgs, spawnOpts);
+		const proc = (this.options.spawn ?? spawn)(command, runArgs, spawnOpts);
 
 		if (stdin) {
 			endStdin(proc.stdin, stdin, stdinEncoding);
@@ -1574,7 +1578,7 @@ export class Git {
 				duration,
 				duration,
 				false,
-				spawnOpts.cwd as string | undefined,
+				cwd,
 				runArgs,
 				slownessCategory,
 				startEpochMs,
