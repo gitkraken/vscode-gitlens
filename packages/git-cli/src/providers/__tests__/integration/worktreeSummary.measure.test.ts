@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -179,5 +179,245 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 			[],
 			'no config-key read after a fetch',
 		);
+	});
+});
+
+/**
+ * `.git/config` writes reaching 8 linked worktree summaries (and the main checkout's), counted the same way. Every
+ * checkout shares one listing of the config inputs to the base, read in the main checkout, and each summary keys its
+ * base on the part of it the base read consulted: the remotes, `init.defaultBranch`, conditional includes, and the
+ * tracking of the branches it depends on. Before, each checkout listed its own and keyed on every branch's tracking,
+ * so (measured on this fixture) a key-neutral write ran 9 listings (11 processes), a fetch after a write to another
+ * branch's section ran 2 or 3 processes in each linked worktree (28 in all), and a key-neutral write after one re-read
+ * every base (46 processes, 5 or 6 in each linked worktree).
+ */
+suite('WorktreeSummaryService base config key after .git/config writes (spawn count)', function () {
+	this.timeout(60000);
+
+	const worktreeCount = 8;
+	const completed: string[] = [];
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	let scratch: string;
+	let previousGlobalConfig: string | undefined;
+	let origin: string;
+	let main: TestRepo;
+	let peer: TestRepo;
+	let linked: { path: string; cleanup: () => void }[];
+	let service: GitService;
+	let subs: WorktreeSummarySubscription[];
+	let watchers: { basePath: string; fire: (e: { path: string; reason: 'change' }) => void }[];
+
+	suiteSetup(() => {
+		// A conditional include in the machine's own global config could make the config differ by checkout
+		scratch = mkdtempSync(join(tmpdir(), 'gitlens-summary-config-'));
+		const globalConfig = join(scratch, 'gitconfig');
+		writeFileSync(globalConfig, '');
+		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
+		process.env.GIT_CONFIG_GLOBAL = globalConfig;
+	});
+
+	suiteTeardown(() => {
+		if (previousGlobalConfig == null) {
+			delete process.env.GIT_CONFIG_GLOBAL;
+		} else {
+			process.env.GIT_CONFIG_GLOBAL = previousGlobalConfig;
+		}
+		rmSync(scratch, { recursive: true, force: true });
+	});
+
+	setup(async () => {
+		origin = join(scratch, `origin-${Date.now()}.git`);
+		git(scratch, 'init', '--bare', '-b', 'main', origin);
+
+		main = createTestRepo();
+		git(main.path, 'remote', 'add', 'origin', origin);
+		git(main.path, 'push', '-u', 'origin', 'main');
+		git(main.path, 'remote', 'set-head', 'origin', 'main');
+		git(main.path, 'branch', '--no-track', 'unrelated', 'origin/main');
+
+		linked = [];
+		for (let i = 0; i < worktreeCount; i++) {
+			const name = `task-${i}`;
+			git(main.path, 'branch', '--no-track', name, 'origin/main');
+			const wt = createWorktree(main.path, name);
+			linked.push(wt);
+			addCommit(wt.path, `${name}.txt`, name, `Work on ${name}`);
+		}
+		peer = cloneTestRepo(origin);
+
+		watchers = [];
+		service = createCliGitService({
+			context: { fs: fs },
+			gitOptions: { logger: countingLogger },
+			watchingProvider: {
+				createWatcher: (basePath, _pattern, onEvent) => {
+					watchers.push({ basePath: basePath, fire: onEvent });
+					return createDisposable(() => {});
+				},
+			} satisfies FileWatchingProvider,
+		});
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		subs = [];
+		for (const path of [main.path, ...linked.map(wt => wt.path)]) {
+			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+			subs.push(service.summaries!.subscribe(path, { delayMs: 10, workingTreeDelayMs: 10 }));
+			await service.summaries!.getSummary(path);
+		}
+		for (const sub of subs.slice(1)) {
+			assert.strictEqual(sub.current?.base?.ref, 'origin/main');
+		}
+		// Lets the watch group's baseline config read and any trailing start-up read finish
+		await settle(300);
+	});
+
+	teardown(() => {
+		for (const sub of subs) {
+			sub.dispose();
+		}
+		service.dispose();
+		peer.cleanup();
+		for (const wt of linked) {
+			wt.cleanup();
+		}
+		main.cleanup();
+		rmSync(origin, { recursive: true, force: true });
+	});
+
+	/** Reports a `.git/config` change as the watcher would, written by `args` from the main checkout */
+	async function writeConfig(...args: string[]): Promise<string[]> {
+		git(main.path, ...args);
+		const mark = completed.length;
+		const base = join(main.path, '.git');
+		const watcher = watchers.find(w => w.basePath === base);
+		assert.ok(watcher != null, `no watcher on ${base}`);
+		watcher.fire({ path: join(base, 'config'), reason: 'change' });
+		await settle();
+		return completed.slice(mark);
+	}
+
+	/** Waits until no git process completed for `quietMs` */
+	async function settle(quietMs: number = 300): Promise<void> {
+		let last = completed.length;
+		let lastAt = Date.now();
+		const start = lastAt;
+		while (Date.now() - start < 15000) {
+			await delay(25);
+			if (completed.length !== last) {
+				last = completed.length;
+				lastAt = Date.now();
+			} else if (Date.now() - lastAt >= quietMs) {
+				return;
+			}
+		}
+	}
+
+	function inWorktree(lines: string[], path: string): string[] {
+		const key = getRepositoryKey(path);
+		return lines.filter(m => m.includes(`[${key}]`) || m.includes(`[${path}]`));
+	}
+
+	function configListings(lines: string[]): string[] {
+		return lines.filter(m => m.includes(' --get-regexp ^(branch'));
+	}
+
+	function report(label: string, lines: string[]): void {
+		console.error(
+			`[measure] ${label}: ${lines.length} git process(es), ${linked.map(wt => inWorktree(lines, wt.path).length).join(', ')} per linked worktree, ${configListings(lines).length} config listing(s)`,
+		);
+	}
+
+	function assertOneListingInMain(lines: string[]): void {
+		const listings = configListings(lines);
+		assert.strictEqual(listings.length, 1, listings.join('\n'));
+		assert.deepStrictEqual(inWorktree(listings, main.path), listings, 'the listing runs in the main checkout');
+	}
+
+	test('a write that leaves the base inputs alone lists the config once for every checkout (was 9 listings)', async () => {
+		const spawned = await writeConfig('config', 'core.scratchkey', 'one');
+		report('key-neutral write', spawned);
+
+		assertOneListingInMain(spawned);
+		for (const wt of linked) {
+			assert.deepStrictEqual(inWorktree(spawned, wt.path), [], 'no linked worktree runs git');
+		}
+	});
+
+	test("a fetch after a write to another branch's section costs each linked worktree 1 git process (was 2 or 3)", async () => {
+		const confined = await writeConfig('config', 'branch.unrelated.remote', 'origin');
+		assert.deepStrictEqual(confined, [], 'a write confined to an unrelated branch wakes no summary');
+
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'push', 'origin', 'main');
+		const mark = completed.length;
+		await service.forRepo(main.path)!.ops!.fetch({ remote: 'origin' });
+		await settle();
+		const spawned = completed.slice(mark);
+		report('fetch after a confined write', spawned);
+
+		const tip = git(peer.path, 'rev-parse', 'HEAD');
+		for (const [i, sub] of subs.slice(1).entries()) {
+			assert.strictEqual(sub.current?.base?.sha, tip, `linked worktree ${i} follows the new tip`);
+		}
+		for (const [i, wt] of linked.entries()) {
+			const lines = inWorktree(spawned, wt.path);
+			assert.strictEqual(lines.length, 1, `linked worktree ${i} ran ${lines.join('\n')}`);
+		}
+		assertOneListingInMain(spawned);
+	});
+
+	test("a write to another branch's section, then a key-neutral write, re-reads no base (was 46 processes)", async () => {
+		const confined = await writeConfig('config', 'branch.unrelated.merge', 'refs/heads/main');
+		assert.deepStrictEqual(confined, [], 'a write confined to an unrelated branch wakes no summary');
+
+		const spawned = await writeConfig('config', 'core.scratchkey', 'two');
+		report('key-neutral write after a confined one', spawned);
+
+		assertOneListingInMain(spawned);
+		for (const wt of linked) {
+			assert.deepStrictEqual(inWorktree(spawned, wt.path), [], 'no linked worktree re-reads its base');
+		}
+	});
+
+	test('a write to the remotes still re-reads every base', async () => {
+		const spawned = await writeConfig('config', 'remote.origin.scratch', 'one');
+		report('remote write', spawned);
+
+		assertOneListingInMain(spawned);
+		for (const [i, wt] of linked.entries()) {
+			assert.ok(
+				inWorktree(spawned, wt.path).some(m => m.includes(' merge-base ')),
+				`linked worktree ${i} re-reads its base`,
+			);
+		}
+	});
+
+	test('a write confined to the section of a branch every base depends on re-reads each base', async () => {
+		// Each base is the nearer of `origin/main` and `main`, through `main`'s upstream
+		const spawned = await writeConfig('branch', '--unset-upstream', 'main');
+		report('upstream unset on the default branch', spawned);
+
+		assertOneListingInMain(spawned);
+		for (const [i, wt] of linked.entries()) {
+			assert.ok(
+				inWorktree(spawned, wt.path).some(m => m.includes(' merge-base ')),
+				`linked worktree ${i} re-reads its base`,
+			);
+			const direct = await service.forRepo(wt.path)!.branches.getAheadOfBase!(`task-${i}`);
+			assert.deepStrictEqual(subs[i + 1].current?.base, direct.base, `linked worktree ${i} matches a fresh read`);
+		}
 	});
 });

@@ -224,6 +224,17 @@ export interface GitBranchesSubProvider {
 	 */
 	getAheadOfBaseConfigKey?(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined>;
 	/**
+	 * The Git config entries {@link getAheadOfBaseConfigKey} is taken from, in Git's order with repeated keys kept: each
+	 * key as Git lists it (section and name lowercased, the subsection as written) with its value, `undefined` for a key
+	 * set without one. A worktree summary keys its base on every entry except the `branch.<name>` ones of branches its
+	 * base read didn't depend on, so another branch's tracking changing leaves its base alone. `undefined` means the
+	 * inputs could not be read.
+	 */
+	getAheadOfBaseConfigEntries?(
+		repoPath: string,
+		cancellation?: AbortSignal,
+	): Promise<readonly (readonly [key: string, value: string | undefined])[] | undefined>;
+	/**
 	 * Re-measures `previous`, a `getAheadOfBase` answer for `branch` read with HEAD at `previous.head`, after a write
 	 * moved `moved` (full ref names from `previous.dependsOn`), without resolving the base again. It answers only when
 	 * that provably equals a fresh `getAheadOfBase`: HEAD is still at `previous.head`, the refs that moved are the base's

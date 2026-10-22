@@ -147,6 +147,12 @@ type BaseKeys = readonly [string | undefined, string | undefined, string | undef
 
 const noBaseKeys: BaseKeys = [undefined, undefined, undefined];
 
+/**
+ * The provider's Git config inputs to the base as one read found them: its entries (see
+ * `getAheadOfBaseConfigEntries`), or the opaque key of a provider without them
+ */
+type BaseConfig = readonly (readonly [key: string, value: string | undefined])[] | string;
+
 interface ReadResult {
 	readonly summary: WorktreeSummary;
 	readonly baseKeys: BaseKeys | undefined;
@@ -173,6 +179,10 @@ interface SummaryEntry {
 	value: WorktreeSummary | undefined;
 	/** The stored base values as of the last base read; a `gk` config change re-reads the base only when they differ */
 	baseKeys: BaseKeys | undefined;
+	/**
+	 * The config inputs the last base read consulted, as of just before it (see {@link getBaseConfigKey}); a config
+	 * change re-reads the base only when they differ
+	 */
 	baseConfigKey: string | undefined;
 	/** The default branch the last base read resolved, for a re-measure to check; `undefined` when unknown */
 	baseDefaultBranch: string | null | undefined;
@@ -259,8 +269,10 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * base from the previous one (one count per worktree when it only moved forward); a `gk` config change
  * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
  * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
- * a `.git/config` change reads `branch` and the provider's config inputs to the base (one cached read per checkout), and
- * reads `base` only when they, the stored values, HEAD's commit or the upstream changed, unless it was confined to the
+ * a `.git/config` change reads `branch` and the provider's config inputs to the base (one cached read shared by the
+ * repository's checkouts, or one per checkout where config can differ by checkout), and reads `base` only when the
+ * inputs its last base read consulted (every branch's tracking but those of branches it didn't depend on), the stored
+ * values, HEAD's commit or the upstream changed, unless it was confined to the
  * `branch.<name>` sections of branches the summary neither is on, tracks nor bases on (its `configBranches`), which
  * reads nothing; the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and
  * branches, and the like read nothing. One run is in flight per worktree at a time, at most four per repository (the
@@ -789,18 +801,22 @@ async function readSummary(
 	let baseKeys = previousBaseKeys;
 	let baseKeysRead = false;
 	let baseConfigKey = previousBaseConfigKey;
-	let baseConfigKeyRead = false;
+	let baseConfig: BaseConfig | undefined;
+	let baseConfigRead = false;
 	let baseDefaultBranch = previousBaseDefaultBranch;
 	let baseFailed = false;
 	let baseError: unknown;
 	// A detached HEAD is measured as `undefined`; an unborn HEAD with no name has nothing to measure
 	const baseReadable = repo.branches.getAheadOfBase != null && (detached || branch != null);
 	if (fields & baseConfigField && !(fields & baseField) && baseReadable) {
-		baseConfigKey = await readBaseConfigKey(repo, signal);
-		baseConfigKeyRead = true;
+		baseConfig = await readBaseConfig(repo, signal);
+		baseConfigRead = true;
+		// Without a base read due, the branch and upstream are as before, so the inputs to compare are the ones the last
+		// base read consulted
+		const key = previous != null ? getBaseConfigKey(baseConfig, previous) : undefined;
 		if (
-			baseConfigKey == null ||
-			baseConfigKey !== previousBaseConfigKey ||
+			key == null ||
+			key !== previousBaseConfigKey ||
 			sha !== previous?.sha ||
 			!upstreamsEqual(upstream, previous?.upstream)
 		) {
@@ -826,8 +842,9 @@ async function readSummary(
 			if (!baseKeysRead) {
 				baseKeys = await readBaseKeys(repo, branch);
 			}
-			if (!baseConfigKeyRead && (previous != null || (fields & baseConfigField) !== 0)) {
-				baseConfigKey = await readBaseConfigKey(repo, signal);
+			if (!baseConfigRead && (previous != null || (fields & baseConfigField) !== 0)) {
+				baseConfig = await readBaseConfig(repo, signal);
+				baseConfigRead = true;
 			}
 			try {
 				let aheadOfBase: AheadOfBase | undefined;
@@ -844,8 +861,7 @@ async function readSummary(
 					baseKeys != null &&
 					previousBaseKeys != null &&
 					baseKeysEqual(baseKeys, previousBaseKeys) &&
-					baseConfigKey != null &&
-					baseConfigKey === previousBaseConfigKey
+					getBaseConfigKey(baseConfig, previous) === previousBaseConfigKey
 				) {
 					aheadOfBase = await repo.branches.getAheadOfBaseAfterBaseMove?.(
 						branch,
@@ -875,6 +891,7 @@ async function readSummary(
 				base = sameBranch ? previous.base : undefined;
 				dependsOn = sameBranch ? previous.baseDependsOn : emptyRefs;
 				baseKeys = undefined;
+				baseConfigRead = false;
 				baseConfigKey = undefined;
 				baseDefaultBranch = undefined;
 			}
@@ -883,20 +900,26 @@ async function readSummary(
 
 	const dirty = dirtyRead != null ? await dirtyRead : (previous?.dirty ?? false);
 
+	const summary: WorktreeSummary = {
+		repoPath: key,
+		branch: branch,
+		detached: detached,
+		sha: sha,
+		upstream: upstream,
+		ahead: ahead,
+		behind: behind,
+		dirty: dirty,
+		base: base,
+		baseDependsOn: dependsOn,
+		stale: baseFailed,
+	};
+	// Keyed on what this run's base read (or the one it kept) consulted, from the inputs read before it
+	if (baseConfigRead) {
+		baseConfigKey = getBaseConfigKey(baseConfig, summary);
+	}
+
 	return {
-		summary: {
-			repoPath: key,
-			branch: branch,
-			detached: detached,
-			sha: sha,
-			upstream: upstream,
-			ahead: ahead,
-			behind: behind,
-			dirty: dirty,
-			base: base,
-			baseDependsOn: dependsOn,
-			stale: baseFailed,
-		},
+		summary: summary,
 		baseKeys: baseKeys,
 		baseConfigKey: baseConfigKey,
 		baseDefaultBranch: baseDefaultBranch,
@@ -904,17 +927,53 @@ async function readSummary(
 	};
 }
 
-async function readBaseConfigKey(
+async function readBaseConfig(
 	repo: RepositoryService,
 	signal: AbortSignal | undefined,
-): Promise<string | undefined> {
+): Promise<BaseConfig | undefined> {
 	try {
+		if (repo.branches.getAheadOfBaseConfigEntries != null) {
+			return await repo.branches.getAheadOfBaseConfigEntries(signal);
+		}
 		return await repo.branches.getAheadOfBaseConfigKey?.(signal);
 	} catch (ex) {
 		if (isCancellationError(ex)) throw ex;
 
 		return undefined;
 	}
+}
+
+/**
+ * The key of the config inputs a base read for `value` consulted: every entry except the `branch.<name>` ones of local
+ * branches outside its {@link getConfigRelevantRefs}, which the read never resolved. So a write to another branch's
+ * section, confined (which wakes no summary but changes the inputs) or not, leaves the base alone. An opaque key is
+ * taken whole.
+ */
+function getBaseConfigKey(config: BaseConfig | undefined, value: WorktreeSummary): string | undefined {
+	if (config == null || typeof config === 'string') return config;
+
+	const branches = new Set<string>();
+	for (const ref of getConfigRelevantRefs(value)) {
+		if (ref.startsWith('refs/heads/')) {
+			branches.add(ref.substring('refs/heads/'.length));
+		}
+	}
+
+	let key = '';
+	for (const [name, entry] of config) {
+		// The subsection is everything between the first and last dot, so a branch name can hold dots
+		const last = name.lastIndexOf('.');
+		if (
+			name.startsWith('branch.') &&
+			last > 'branch.'.length &&
+			!branches.has(name.substring('branch.'.length, last))
+		) {
+			continue;
+		}
+
+		key += entry != null ? `${name}\n${entry}\0` : `${name}\0`;
+	}
+	return key;
 }
 
 /**

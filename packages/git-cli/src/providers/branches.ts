@@ -64,6 +64,7 @@ import { KeyedSequencer } from '../exec/indexLock.js';
 import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 import { resolveBranchRemote } from './branchRemote.js';
+import { isGitBooleanFalse } from './config.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
@@ -122,6 +123,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private readonly _branchCreatedFrom = new LruMap<string, string | undefined>(1024);
 	/** Bumped each time a key's created-from is forgotten, so a reflog read in flight across that doesn't store it */
 	private readonly _branchCreatedFromGenerations = new LruMap<string, number>(1024);
+	/**
+	 * The repositories (by common path) whose last config listing showed config that can differ by checkout, so a linked
+	 * checkout reads its own listing without first waiting on the main checkout's. Only a shortcut: a listing that shows
+	 * otherwise drops the repository again
+	 */
+	private readonly _configDiffersByCheckout = new Set<string>();
 
 	constructor(
 		private readonly context: GitServiceContext,
@@ -2017,28 +2024,87 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@trace()
 	getAheadOfBaseConfigKey(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
+		return this.getAheadOfBaseConfigListing(repoPath, cancellation);
+	}
+
+	@trace()
+	async getAheadOfBaseConfigEntries(
+		repoPath: string,
+		cancellation?: AbortSignal,
+	): Promise<readonly (readonly [key: string, value: string | undefined])[] | undefined> {
+		const listing = await this.getAheadOfBaseConfigListing(repoPath, cancellation);
+		return listing != null ? parseConfigListing(listing) : undefined;
+	}
+
+	/**
+	 * A checkout's listing of the config inputs to {@link getAheadOfBase}. Every checkout of a repository shares the main
+	 * checkout's, unless it shows config that can differ by checkout (see `mayConfigDifferByCheckout`); then
+	 * each linked checkout reads its own, and keeps doing so until one of its own reads shows config no longer can.
+	 */
+	private getAheadOfBaseConfigListing(
+		repoPath: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
 		return this.cache.getAheadOfBaseConfigKey(
 			repoPath,
 			async (checkoutPath, cacheable, signal) => {
-				// Include every branch's tracking mapping: a recorded candidate can resolve through its own upstream.
-				// Preserve repeated values and order, since multiple fetch refspecs can change that resolution.
-				const result = await this.git.run(
-					{ cwd: checkoutPath, cancellation: signal, expectedExitCodes: [1] },
-					'config',
-					'--null',
-					'--get-regexp',
-					'^(branch\\..*\\.(remote|merge)|remote\\..*|init\\.defaultbranch)$',
-				);
-				if (signal?.aborted) throw new CancellationError();
+				const commonPath = this.cache.getCommonPath(checkoutPath);
+				const isMain = checkoutPath === commonPath;
+				if (isMain || !this._configDiffersByCheckout.has(commonPath)) {
+					const shared = await this.cache.getAheadOfBaseConfigListing(
+						checkoutPath,
+						(path, sharedCacheable, sharedSignal) =>
+							this.readAheadOfBaseConfigListing(path, sharedCacheable, sharedSignal),
+						signal,
+					);
+					// Read in the main checkout, so it is that checkout's own
+					if (isMain) {
+						if (shared == null) {
+							cacheable.invalidate();
+						}
 
-				if (result.completion.status !== 'exited') {
-					cacheable.invalidate();
-					return undefined;
+						return shared;
+					}
+
+					if (shared != null) {
+						if (!mayConfigDifferByCheckout(shared)) return shared;
+
+						this._configDiffersByCheckout.add(commonPath);
+					}
 				}
-				return result.stdout;
+
+				const own = await this.readAheadOfBaseConfigListing(checkoutPath, cacheable, signal);
+				if (own != null && !mayConfigDifferByCheckout(own)) {
+					this._configDiffersByCheckout.delete(commonPath);
+				}
+				return own;
 			},
 			cancellation,
 		);
+	}
+
+	private async readAheadOfBaseConfigListing(
+		cwd: string,
+		cacheable: CacheController,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		// Include every branch's tracking mapping: a recorded candidate can resolve through its own upstream.
+		// Preserve repeated values and order, since multiple fetch refspecs can change that resolution. Conditional
+		// includes and `extensions.worktreeConfig` tell whether one checkout's listing holds for the others.
+		const result = await this.git.run(
+			{ cwd: cwd, cancellation: cancellation, expectedExitCodes: [1] },
+			'config',
+			'--null',
+			'--get-regexp',
+			'^(branch\\..*\\.(remote|merge)|remote\\..*|init\\.defaultbranch|includeif\\..*|extensions\\.worktreeconfig)$',
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		if (result.completion.status !== 'exited') {
+			cacheable.invalidate();
+			return undefined;
+		}
+		return result.stdout;
 	}
 
 	@debug({ exit: true })
@@ -3558,16 +3624,62 @@ function mayHaveUpstream(records: readonly RefRecord[], name: string): boolean {
 	return findRefTip(records, name) == null;
 }
 
-/**
- * Adds the full ref names a `.git/refs` watcher would report for `name`. A short name can't be told tag from local
- * from remote without a spawn, so it adds every form, including the tag git resolves it to first; a spurious one
- * only costs a recompute.
- */
 /** `answer` with the default branch its read resolved, when it consulted one (see `AheadOfBase.defaultBranch`) */
 function withDefaultBranch(answer: AheadOfBase, defaultBranch: string | null | undefined): AheadOfBase {
 	return defaultBranch !== undefined ? { ...answer, defaultBranch: defaultBranch } : answer;
 }
 
+/** Splits `git config --null --get-regexp` output into its entries, in order; a key set without a value has none */
+function parseConfigListing(listing: string): [key: string, value: string | undefined][] {
+	const entries: [key: string, value: string | undefined][] = [];
+	for (const entry of listing.split('\0')) {
+		if (!entry) continue;
+
+		const separator = entry.indexOf('\n');
+		entries.push(
+			separator < 0 ? [entry, undefined] : [entry.substring(0, separator), entry.substring(separator + 1)],
+		);
+	}
+	return entries;
+}
+
+/**
+ * Whether `listing` shows config that can differ by checkout over time: `extensions.worktreeConfig` (each checkout's
+ * `config.worktree`), or a conditional include that is neither `hasconfig:` nor `gitdir:`, since `onbranch:` follows
+ * each checkout's HEAD and an unknown condition might follow anything. A `gitdir:` include matching only some
+ * checkouts is accepted as shared: it is the common identity setup, and treating it as differing would end sharing for
+ * nearly everyone. The cost is a known gap: an edit to a file only those checkouts include goes unseen there, since
+ * nothing watches it, until a change the shared listing does see.
+ */
+function mayConfigDifferByCheckout(listing: string): boolean {
+	for (const [key, value] of parseConfigListing(listing)) {
+		if (key === 'extensions.worktreeconfig') {
+			// A key set without a value is true
+			if (value == null || !isGitBooleanFalse(value)) return true;
+
+			continue;
+		}
+		if (!key.startsWith('includeif.')) continue;
+
+		const condition = key.substring('includeif.'.length, key.lastIndexOf('.'));
+		if (
+			condition.startsWith('hasconfig:') ||
+			condition.startsWith('gitdir:') ||
+			condition.startsWith('gitdir/i:')
+		) {
+			continue;
+		}
+
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Adds the full ref names a `.git/refs` watcher would report for `name`. A short name can't be told tag from local
+ * from remote without a spawn, so it adds every form, including the tag git resolves it to first; a spurious one
+ * only costs a recompute.
+ */
 function addRefDependencies(dependsOn: Set<string>, name: string): void {
 	if (name.startsWith('refs/')) {
 		dependsOn.add(name);

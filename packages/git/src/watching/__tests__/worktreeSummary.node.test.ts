@@ -1366,6 +1366,77 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(h.repo.configKeyReads, 0);
 		});
 
+		describe('with config entries', () => {
+			/** Serves `entries`, as they stand at each read, as the provider's config entries */
+			function useConfigEntries(repo: FakeRepository, entries: Map<string, string>): void {
+				repo.service.branches.getAheadOfBaseConfigEntries = async () => {
+					repo.configKeyReads++;
+					return [...entries];
+				};
+			}
+
+			it('keys the base on the tracking of only the branches its read depended on', async () => {
+				const h = createHarness();
+				const entries = new Map([
+					['remote.origin.url', 'https://example.invalid/origin.git'],
+					['branch.main.merge', 'refs/heads/main'],
+					['branch.develop.merge', 'refs/heads/develop'],
+					['branch.unrelated.merge', 'refs/heads/main'],
+				]);
+				useConfigEntries(h.repo, entries);
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				entries.set('branch.unrelated.merge', 'refs/heads/other');
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+
+				// A write confined to it wakes nothing, and leaves no stale key for the next write to trip on
+				entries.set('branch.unrelated.merge', 'refs/heads/third');
+				assert.deepStrictEqual(
+					await readsAfter(h, () => h.session().pushRepoChanges(['config'], false, new Set(['unrelated']))),
+					none,
+				);
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+
+				for (const [name, value] of [
+					['branch.develop.merge', 'refs/heads/other'],
+					['branch.main.merge', 'refs/heads/other'],
+					['remote.origin.url', 'https://example.invalid/moved.git'],
+				] as const) {
+					entries.set(name, value);
+					assert.deepStrictEqual(
+						await readsAfter(h, () => h.push(['config'])),
+						{ ...onlyBranch, base: 1 },
+						`${name} is an input to the base`,
+					);
+				}
+			});
+
+			it('keys a new base on the refs it now depends on, from the entries read before it', async () => {
+				const h = createHarness();
+				const entries = new Map([
+					['branch.main.merge', 'refs/heads/main'],
+					['branch.release.v2.merge', 'refs/heads/main'],
+				]);
+				useConfigEntries(h.repo, entries);
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				// Not yet an input, so this changes nothing
+				entries.set('branch.release.v2.merge', 'refs/heads/develop');
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+
+				h.repo.state.baseDependsOn = ['refs/heads/develop', 'refs/heads/release.v2'];
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+
+				// The section existed for the read that came to depend on it, so its removal is a change
+				entries.delete('branch.release.v2.merge');
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			});
+		});
+
 		it('uses config snapshots for detached HEAD without reading branch-specific stored values', async () => {
 			const h = createHarness();
 			h.repo.state.detached = true;
