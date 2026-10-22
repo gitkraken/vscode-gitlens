@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.7] - 2026-10-22
+
 ### Added
 
 - Adds `bodyField` to `IssueShape` and `Issue`: the provider field `body` was read from, for providers whose issues keep it in different fields. Set on Azure DevOps work items (`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`), so a host can label the body by its field; absent for other providers and when there is no body (git, plus/integrations)
@@ -860,7 +862,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.7...HEAD
+[0.15.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...gitkraken:releases/core/v0.15.7
 [0.15.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...gitkraken:releases/core/v0.15.6
 [0.15.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...gitkraken:releases/core/v0.15.5
 [0.15.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...gitkraken:releases/core/v0.15.4
