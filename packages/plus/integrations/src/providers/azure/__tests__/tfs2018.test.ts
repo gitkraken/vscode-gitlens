@@ -112,8 +112,9 @@ function harness() {
 		if (route === '_apis/wit/workitems') return Response.json({ value: [item(), null] });
 		if (route === '_apis/identities') return Response.json({ value: [{ memberOf: ['group-descriptor'] }] });
 		if (route === '_apis/identitybatch') return Response.json({ value: [{ id: 'group-id' }] });
-		if (route === '_apis/wit/wiql' || route === `${project}/_apis/wit/wiql`)
+		if (route === '_apis/wit/wiql' || route === `${project}/_apis/wit/wiql`) {
 			return Response.json({ workItems: [{ id: 42 }] });
+		}
 		if (route === `${project}/_apis/git/repositories/repo/pullrequests/5`) {
 			return Response.json(createAzurePullRequest(url.toString(), project, 'repo'));
 		}
