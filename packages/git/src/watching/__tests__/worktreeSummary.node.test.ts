@@ -5,9 +5,11 @@ import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { MergeTargetsChangeEvent } from '../../cache.js';
+import { Cache } from '../../cache.js';
 import type { GitDir, RepositoryChange } from '../../models/repository.js';
 import type { AheadOfBaseTier } from '../../providers/branches.js';
 import type { RepositoryService } from '../../repositoryService.js';
+import type { GitResult } from '../../run.types.js';
 import type {
 	FileWatcher,
 	FileWatcherOptions,
@@ -1411,6 +1413,74 @@ describe('WorktreeSummaryService', () => {
 				'the queued config refresh captures fresh inputs',
 			);
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+		});
+
+		it('a reopened main summary cannot pair fresh config with a pre-close pending base command', async () => {
+			using cache = new Cache();
+			const h = createHarness();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			cache.registerRepoPath(fileUri('/peer'), {
+				uri: fileUri(`${repoPath}/.git/worktrees/peer`),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+			const command = 'git rev-parse main@{u}';
+			const fresh: GitResult = {
+				stdout: 'alternate/main',
+				stderr: '',
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			let releaseKey!: (value: string) => void;
+			let releaseCommand!: (value: GitResult) => void;
+			const oldKey = cache.getAheadOfBaseConfigKey(
+				repoPath,
+				() =>
+					new Promise<string>(resolve => {
+						releaseKey = resolve;
+					}),
+			);
+			const oldCommand = cache.gitResults.getOrCreate(
+				repoPath,
+				command,
+				() =>
+					new Promise<GitResult>(resolve => {
+						releaseCommand = resolve;
+					}),
+			);
+			h.repo.service.branches.getAheadOfBaseConfigKey = signal =>
+				cache.getAheadOfBaseConfigKey(repoPath, () => 'config-B', signal);
+			let baseReads = 0;
+			h.repo.service.branches.getAheadOfBase = async () => {
+				baseReads++;
+				const result = await cache.gitResults.getOrCreate(repoPath, command, async () => fresh);
+				return {
+					base: {
+						...h.repo.state.base!,
+						ref: result.stdout,
+						ahead: result.stdout === 'alternate/main' ? 1 : 2,
+					},
+					dependsOn: ['refs/heads/main'],
+				};
+			};
+			const oldSubscription = h.service.subscribe(repoPath);
+			await waitFor(() => h.repo.counts.branch === 1);
+			oldSubscription.dispose();
+			cache.unregisterRepoPath(repoPath);
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			const reopened = h.service.subscribe(repoPath);
+			const summaries: WorktreeSummary[] = [];
+			reopened.onDidChange(value => summaries.push(value));
+			await waitFor(() => baseReads === 1);
+			releaseKey('config-A');
+			releaseCommand({ ...fresh, stdout: 'origin/main' });
+			await Promise.all([oldKey, oldCommand]);
+			assert.strictEqual((await h.service.getSummary(repoPath)).base?.ref, 'alternate/main');
+			assert.strictEqual(reopened.current?.base?.ahead, 1);
+			assert.strictEqual(oldSubscription.current, undefined);
+			cache.onRepositoryChanged(repoPath, ['config']);
+			await readsAfter(h, () => h.push(['config'], false));
+			assert.strictEqual(baseReads, 1, 'equal config retains the correctly paired base');
+			assert.ok(summaries.every(value => value.base?.ref === 'alternate/main'));
 		});
 
 		it('pairs a HEAD-driven base with its config snapshot before a later config change returns to the old key', async () => {

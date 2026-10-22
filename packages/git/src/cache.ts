@@ -997,6 +997,7 @@ export class Cache implements Disposable {
 		}
 		if (previousCommonPath !== commonPath) {
 			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
+			this._caches.gitResults?.delete(normalizedPath);
 		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
 
@@ -1015,18 +1016,17 @@ export class Cache implements Disposable {
 	 * Call this when a worktree is deleted or a repo is closed so stale registry entries
 	 * and derived cache entries don't persist.
 	 *
-	 * Targeted — does NOT cascade to sibling worktrees sharing the same commonPath. The
-	 * shared commonPath entry in each shared cache is only evicted when unregistering the
-	 * last remaining worktree for that commonPath (otherwise siblings still depend on it).
-	 *
-	 * Fingerprints are hard-deleted so a reopened checkout cannot reuse pre-close evidence. Other entries use
-	 * soft-invalidate where supported so any in-flight factory/mapper keeps its abort
+	 * Targeted — does NOT cascade to sibling worktrees sharing the same commonPath. Shared caches
+	 * stay warm until the last worktree closes, except raw git results co-located with a closing main
+	 * checkout: those must retire with its config fingerprint so reopening cannot attest an old command
+	 * with new config. Detached promises keep their existing callers and abort wiring. Other entries
+	 * use soft-invalidate where supported so any in-flight factory/mapper keeps its abort
 	 * wiring intact — a caller whose signal aborts after unregister can still propagate
 	 * cancellation into the underlying work rather than leaving it orphaned. Controller-backed
 	 * entries self-evict on settle; plain `.set()`-based entries hard-delete immediately.
 	 *
-	 * Cache eviction is a no-op if `repoPath` is not registered, but the status clock is advanced
-	 * unconditionally (a fresh registration must not let a post-reopen read join a pre-close one).
+	 * The status clock advances even for an unregistered path so a fresh registration cannot join a
+	 * status read that started before it.
 	 */
 	@debug({ onlyExit: true })
 	unregisterRepoPath(repoPath: string): void {
@@ -1050,10 +1050,17 @@ export class Cache implements Disposable {
 			const cache = this._caches[key];
 			if (cache == null) continue;
 
+			if (key === 'aheadOfBaseConfigKey' || key === 'gitResults') {
+				cache.delete(repoPath);
+				if (key === 'gitResults' && isLastWorktree && repoPath !== commonPath) {
+					cache.delete(commonPath);
+				}
+				continue;
+			}
+
 			// Prefer `invalidate` so in-flight abort wiring survives until the factory settles;
 			// fall back to `delete` for plain `Map`-typed caches that don't track promises.
-			const invalidate =
-				key === 'aheadOfBaseConfigKey' ? undefined : (cache as { invalidate?: (k: string) => void }).invalidate;
+			const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
 			const evict =
 				typeof invalidate === 'function'
 					? (k: string) => invalidate.call(cache, k)
