@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import { promises as fs, statSync } from 'fs';
 import { hostname, userInfo } from 'os';
 import { env as process_env } from 'process';
 import type { Cache, GkConfigInvalidationTarget, GkReconcileOutcome } from '@gitlens/git/cache.js';
@@ -32,6 +32,71 @@ const emptyArray: readonly never[] = Object.freeze([]);
 
 /** Catch-all pattern matching every key in `.git/gk/config` for the one-shot bulk read. */
 const gkConfigAllPattern = '.';
+
+/**
+ * Maps from failed bulk reads, which a reconcile must not diff as the file's content, each to the read that produced
+ * it. Module-wide, like {@link gkConfigMapReads}: a reconcile can join a read another provider sharing its `Cache`
+ * started.
+ */
+const failedGkConfigMaps = new WeakMap<Map<string, string>, GkConfigMapRead>();
+
+/** What the bulk read behind a cached gk config map saw of `.git/gk/config` before it spawned */
+interface GkConfigMapRead {
+	/** Set as the read spawns; until then it can only see the file as it is after every change reported so far */
+	spawned: boolean;
+	path?: string;
+	/** The file's {@link getGkConfigFingerprint} taken right before the read spawned; `undefined` when untrusted */
+	fingerprint?: string;
+}
+
+/**
+ * The read behind each commonPath's cached gk config map, per `Cache`. Recorded as the read starts, which is when
+ * the cache creates the entry for it, so it always describes the entry cached now. Kept per `Cache` rather than per
+ * provider, since providers sharing a `Cache` serve each other's reads.
+ */
+const gkConfigMapReads = new WeakMap<Cache, Map<string, GkConfigMapRead>>();
+
+/** The wall clock a read's fingerprint is checked against (see {@link isGkConfigStatRacy}), exported for testing */
+export const gkConfigFingerprintClock = { now: (): number => Date.now() };
+
+const nsPerMs = 1_000_000n;
+const nsPerSecond = 1_000_000_000n;
+
+/**
+ * Whether a stat of `.git/gk/config` taken at `statTimeMs` came too soon after the file's last change to vouch for
+ * the file staying unchanged while it matches — git's "racily clean" index entries. A later write in the same tick of
+ * the filesystem's clock as that change, of the same size and given the inode the stat saw (freed by the write in
+ * between and reused), gets the same fingerprint; once the stat is a tick past the change, any later write carries a
+ * later time. Times that are whole seconds come from a filesystem that keeps no finer (ext4 with 128-byte inodes,
+ * HFS+, FAT's 2-second mtime, some network mounts), so the stat must be 2s past; otherwise 50ms covers the coarsest
+ * tick a finer clock still has (a 10ms jiffy, Windows' 15.6ms timer) and the wall clock lagging it by one. A file
+ * changed after `statTimeMs` (a clock ahead of ours) is racy too. Exported for testing.
+ */
+export function isGkConfigStatRacy(mtimeNs: bigint, ctimeNs: bigint, statTimeMs: number): boolean {
+	const changedNs = mtimeNs > ctimeNs ? mtimeNs : ctimeNs;
+	const marginNs = mtimeNs % nsPerSecond === 0n && ctimeNs % nsPerSecond === 0n ? 2n * nsPerSecond : 50n * nsPerMs;
+	return BigInt(Math.floor(statTimeMs)) * nsPerMs - changedNs < marginNs;
+}
+
+/**
+ * A stat of `.git/gk/config` that two stats share only if no write landed between them: `git config` writes a lock
+ * file and renames it over the original, so every write gives the file a new inode, and its size and times tell
+ * apart a later write that lands on a freed inode — unless that write fell in the same clock tick as the change the
+ * first stat saw, which `statTimeMs` rules out (see {@link isGkConfigStatRacy}): given the time the stat is taken,
+ * a stat that racy is `undefined`, never matching. `'absent'` when there is no file, `undefined` when it can't be
+ * stat'd.
+ */
+function getGkConfigFingerprint(path: string, statTimeMs?: number): string | undefined {
+	try {
+		const stat = statSync(path, { bigint: true, throwIfNoEntry: false });
+		if (stat == null) return 'absent';
+		if (statTimeMs != null && isGkConfigStatRacy(stat.mtimeNs, stat.ctimeNs, statTimeMs)) return undefined;
+
+		return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+	} catch {
+		return undefined;
+	}
+}
 
 /**
  * Canonicalizes a git config key for lookup against `--get-regexp` output, which git emits with the
@@ -129,9 +194,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		string,
 		{ value: string | undefined; skipKey: string; promise: Promise<void> }
 	>();
-
-	/** Maps from failed bulk reads, which a reconcile must not diff as the file's content */
-	private readonly _failedGkConfigMaps = new WeakSet<Map<string, string>>();
 
 	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
 	private readonly _gkConfigWrites = new KeyedSequencer();
@@ -377,7 +439,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return joinPaths(basePath, 'gk', 'config');
 	}
 
-	@debug()
+	@trace()
 	async getGkConfig(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined> {
 		// Served in-memory from a single bulk read of the whole `.git/gk/config` (no gk read needs `--type`).
 		// Canonicalize the key the way git does for `--get-regexp` output so subsection-less keys
@@ -386,7 +448,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return (await this.getGkConfigMap(repoPath)).get(canonicalizeGitConfigKey(key)) || undefined;
 	}
 
-	@debug()
+	@trace()
 	async getGkConfigRegex(repoPath: string, pattern: string): Promise<Map<string, string>> {
 		const all = await this.getGkConfigMap(repoPath);
 
@@ -418,29 +480,78 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	private async getGkConfigMap(repoPath: string): Promise<Map<string, string>> {
 		// Migrate BEFORE populating the cache, not inside the factory: a first-time migration calls
 		// clearCaches('gkConfig'), which would otherwise evict the in-flight gkConfigMap entry the
-		// cache wrapper synchronously stored and force a redundant bulk re-read.
-		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+		// cache wrapper synchronously stored and force a redundant bulk re-read. Checked here too, not only in the
+		// migration: every gk lookup lands here, and entering the migration logs it.
+		const commonPath = this.cache.getCommonPath(repoPath);
+		if (!this._migratedRepos.has(commonPath)) {
+			await this.migrateGkConfigFromGitConfig(commonPath);
+		}
 		return this.cache.getGkConfigMap(repoPath, async cacheable => {
-			const { map, failed } = await this.getGkConfigRegexCore(repoPath, gkConfigAllPattern);
+			const read = this.trackGkConfigMapRead(repoPath);
+			const { map, failed } = await this.getGkConfigRegexCore(repoPath, gkConfigAllPattern, read);
 			// This map has no TTL and everything gk-related reads through it, so a failed read cached as an
 			// empty map would report every branch as having no stored base or merge target for the session —
 			// and would make the section-cleanup pre-checks skip real work. Only cache a read that happened.
 			if (failed) {
 				cacheable.invalidate();
-				this._failedGkConfigMaps.add(map);
+				failedGkConfigMaps.set(map, read);
 			}
 			return map;
 		});
 	}
 
+	/** Records the read that is creating `repoPath`'s cached gk config map (see {@link gkConfigMapReads}) */
+	private trackGkConfigMapRead(repoPath: string): GkConfigMapRead {
+		let reads = gkConfigMapReads.get(this.cache);
+		if (reads == null) {
+			reads = new Map();
+			gkConfigMapReads.set(this.cache, reads);
+		}
+
+		const read: GkConfigMapRead = { spawned: false };
+		reads.set(this.cache.getCommonPath(repoPath), read);
+		return read;
+	}
+
+	/**
+	 * Hard-evicts the cached gk config map, unless `.git/gk/config` is unchanged since the read behind it stat'd the
+	 * file, or that read is yet to spawn. The stat is taken before the read, so a write landing between the two
+	 * only costs a re-read on its report, never a missed change. Returns the read it kept, if any.
+	 */
+	private evictGkConfigMapIfChanged(repoPath: string): GkConfigMapRead | undefined {
+		const read = gkConfigMapReads.get(this.cache)?.get(this.cache.getCommonPath(repoPath));
+		if (read != null) {
+			if (!read.spawned) return read;
+			if (
+				read.path != null &&
+				read.fingerprint != null &&
+				getGkConfigFingerprint(read.path) === read.fingerprint
+			) {
+				return read;
+			}
+		}
+
+		this.cache.deleteGkConfigMap(repoPath);
+		return undefined;
+	}
+
 	private async getGkConfigRegexCore(
 		repoPath: string,
 		pattern: string,
+		read: GkConfigMapRead,
 	): Promise<{ map: Map<string, string>; failed: boolean }> {
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		// No `.git/gk/config` yet is a real answer, not a failure — a repo GitLens has never written to.
-		if (!gkConfigPath) return { map: new Map(), failed: false };
+		if (!gkConfigPath) {
+			read.spawned = true;
+			// No `.git/gk/config` yet is a real answer, not a failure — a repo GitLens has never written to.
+			return { map: new Map(), failed: false };
+		}
 
+		// Taken before the spawn, never after: a write landing in between then only makes its report re-read the file.
+		// The clock is read before the stat, so the stat is no earlier than the time it's checked against.
+		read.path = gkConfigPath;
+		read.fingerprint = getGkConfigFingerprint(gkConfigPath, gkConfigFingerprintClock.now());
+		read.spawned = true;
 		const result = await this.git.run(
 			{ cwd: repoPath, errors: 'ignore', runLocally: true },
 			'config',
@@ -634,10 +745,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	/**
 	 * Reconciles a watcher-observed `'gkConfig'` change — registered with the shared `Cache` as its
-	 * gk-config reconciler (see the constructor). Re-reads the bulk map (hard-evicted by
-	 * `Cache.handleGkConfigChanged`, so this hits disk) and diffs it against `priorSnapshot` to cascade
+	 * gk-config reconciler (see the constructor). Hard-evicts the bulk map as the change is reported, unless the file
+	 * is unchanged since the map was read (see `evictGkConfigMapIfChanged`), then reads it (from disk, or the map
+	 * kept) and diffs it against `priorSnapshot` to cascade
 	 * `baseBranchName`/`branchOverviews` only for refs whose merge-relevant keys actually changed, and to evict the
-	 * branches only when a branch metadata key (another process's activity stamp) changed.
+	 * branches only when a branch metadata key (another process's activity stamp) changed. The diff runs on a kept
+	 * map too: a read can land between an external write and its report, and already hold the change.
 	 *
 	 * Serialized per commonPath: a reconcile is a read-then-diff against a single shared baseline, so
 	 * two overlapping passes would both diff against the same snapshot and the later change could fall
@@ -645,10 +758,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * diffs against the baseline the previous pass just established.
 	 *
 	 * `.git/gk/config` lives in the common dir, so the watcher delivers one event per worktree sharing it
-	 * (see `WatchGroup.onCommonEvent`). Siblings never run concurrently — the later ones fold into the
-	 * in-flight pass — but folding in arms the trailing pass, so a fan-out costs one extra read that
-	 * re-reads and diffs an unchanged file. However many siblings land while a pass is running, they
-	 * coalesce into that single trailing pass; the cost is the price of never dropping a real change.
+	 * (see `WatchGroup.onCommonEvent`), and core's own write is reported too. Siblings never run concurrently — the
+	 * later ones fold into the in-flight pass — but folding in arms the trailing pass, which re-diffs the map unless
+	 * the file changed again. However many siblings land while a pass is running, they coalesce into that single
+	 * trailing pass; the cost is the price of never dropping a real change.
 	 * Every reporting path is retained because `Repository` matches the follow-up change event on exact
 	 * path, and a sibling worktree that never receives one would sit on stale derived values.
 	 */
@@ -660,6 +773,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const inflight = this._gkConfigReconciles.get(commonPath);
 		if (inflight != null) {
+			// Now, not in the trailing pass: a read between this report and that pass must see the change, and would
+			// otherwise join the map read before it
+			this.evictGkConfigMapIfChanged(repoPath);
 			inflight.paths.set(repoPath, this.cache.getCloseGeneration(repoPath));
 			inflight.pending = true;
 			// Handed to the in-flight pass's trailing loop, so it IS being reconciled — just not by this
@@ -702,11 +818,18 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				// nothing left holding a stale derived value either.
 				if (readPath == null) return 'reconciled';
 
-				// A trailing pass must not reuse the entry the pass before it installed.
-				this.cache.deleteGkConfigMap(readPath);
-				const freshMap = await this.getGkConfigMap(readPath);
+				// Runs before this pass's first await, so a first pass decides as the change is reported; a trailing one
+				// re-checks the map the pass before it read
+				const kept = this.evictGkConfigMapIfChanged(readPath);
+				let freshMap = await this.getGkConfigMap(readPath);
+				// A kept read that failed was started before this pass, which would otherwise have read the file
+				// itself, so it gets one fresh read before the coarse fallback
+				if (kept != null && failedGkConfigMaps.get(freshMap) === kept) {
+					this.cache.deleteGkConfigMap(readPath);
+					freshMap = await this.getGkConfigMap(readPath);
+				}
 				// A failed read diffed as the file's content would remove every key it missed
-				if (this._failedGkConfigMaps.has(freshMap)) {
+				if (failedGkConfigMaps.has(freshMap)) {
 					throw new Error(`Failed to read the gk config through '${readPath}'`);
 				}
 
