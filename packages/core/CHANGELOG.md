@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes worktree summaries keeping an outdated ahead-of-base target after checkout-specific Git configuration changes. Each checkout now compares its effective configuration, including branch-conditional includes, with the configuration used for its current base.
 - Fixes a fetch announcing `remotes` to every worktree of the repository, and resetting the branch and tag caches, whether or not anything moved, so each worktree summary re-read its base after every fetch: in a Kepler daemon with ~60 worktrees one task launch cost ~490 git processes. A fetch now compares the refs it can write (its refspecs' destinations, the fetched remotes' configured destinations, symref targets included, and tags) before and after it runs, announces nothing when none moved, and otherwise names exactly what moved; a snapshot it can't read falls back to the previous announcement (git-cli)
 - Fixes deleting, creating or renaming a branch making every worktree of the repository re-read its base, since the write's `.git/config` change and the watcher's later report of it reached every subscriber; one task removal cost ~460 git processes over ~60 worktrees (git, git-cli)
 
@@ -32,8 +33,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes `getGkConfig`, `getGkConfigRegex`, `getStoredDetectedMergeTargetBranchName` and `getStoredUserMergeTargetBranchName` to log at trace level rather than debug, and a gk config lookup to no longer enter (and log) the one-time `.git/gk/config` migration once it ran for the repository: they are served from the cached map, and a cold read's `git config` still logs its own line (git-cli)
 
 ### Fixed
-
-- Fixes worktree summaries keeping an outdated ahead-of-base target after checkout-specific Git configuration changes. Each checkout now compares its effective configuration, including branch-conditional includes, with the configuration used for its current base.
 
 - Fixes Azure DevOps filtered work item searches failing across large sets of project workflows or when workflow metadata changes during pagination. Search and count queries stay within the server's query length limit, preserve its ordering, and can be canceled without interrupting other reads ([#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041)).
 - Fixes every checkout sharing a `.git/gk/config` re-reading the whole file (a `git config --get-regex` each) when the watcher reports a change to it, core's own writes included, so a branch-activity stamp reported by three checkouts read it four times. A report of a file unchanged since the cached map was read (same inode, size and change times, with the read's stat taken safely after the file's last change: 2 seconds for a filesystem keeping whole-second times, 50 ms otherwise) now keeps the map, and still diffs it against the reconcile's baseline, so a read landing between another process's write and its report doesn't lose the change; a changed file is re-read as before (git, git-cli)
