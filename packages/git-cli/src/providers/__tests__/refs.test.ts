@@ -15,7 +15,7 @@ const fieldSep = '\x1D';
 
 // Unified RefRecord fields, in mapping declaration order:
 // current, name, objectname, peeledObjectname, upstream, upstreamTracking,
-// committerDate, creatorDate, authorDate, subject
+// committerDate, creatorDate, authorDate, subject, push
 function buildRefRecord(opts: { name: string; sha: string; peeled?: string }): string {
 	const fields = [
 		'', // current
@@ -28,6 +28,7 @@ function buildRefRecord(opts: { name: string; sha: string; peeled?: string }): s
 		'', // creatorDate
 		'', // authorDate
 		'', // subject
+		'', // push
 	];
 	return fields.join(fieldSep) + fieldSep;
 }

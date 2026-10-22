@@ -12,6 +12,8 @@ import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
+	GitPushTarget,
+	GitPushTargetRef,
 } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
@@ -1391,6 +1393,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			this.getBranches(repoPath, p != null ? { paging: p } : undefined, cancellation),
 		);
 		return getLocalBranchByUpstream(remoteBranchName, branches);
+	}
+
+	@trace({ exit: true })
+	async getPushTarget(repoPath: string, branch?: string, cancellation?: AbortSignal): Promise<GitPushTarget> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		// `getRefs` answers a failed enumeration with an empty list, which says nothing about any branch
+		if (!records.length) return { known: false };
+
+		if (branch == null) {
+			const current = await this.getCurrentBranchReference(repoPath, cancellation);
+			if (current == null) return { known: false };
+			if (current.remote || isDetachedHead(current.name)) {
+				return { known: true, push: undefined, upstream: undefined };
+			}
+
+			branch = current.name;
+		}
+
+		const record = findRefRecord(records, branch.startsWith('refs/heads/') ? branch : `refs/heads/${branch}`);
+		return {
+			known: true,
+			push: record?.push ? toPushTargetRef(records, record.push) : undefined,
+			upstream: record?.upstream ? toPushTargetRef(records, record.upstream) : undefined,
+		};
 	}
 
 	/** Detects potential conflicts when applying commits onto a target branch (git rebase and cherry-pick) */
@@ -3138,7 +3164,7 @@ function parseSymbolicFullNames(stdout: string): { name: string; upstream?: stri
 	return { name: parseRefName(head).name, upstream: upstream || undefined };
 }
 
-/** Each ref list {@link findRefTip} searched, by full name: one base read looks up many names in the same cached list */
+/** Each ref list {@link findRefTip} and {@link findRefRecord} searched, by full name: one base read looks up many names in the same cached list */
 const refRecordsByName = new WeakMap<readonly RefRecord[], Map<string, RefRecord>>();
 
 /**
@@ -3146,17 +3172,7 @@ const refRecordsByName = new WeakMap<readonly RefRecord[], Map<string, RefRecord
  * `refs/heads/` before `refs/remotes/`); annotated tags peel to their commit. `undefined` when no listed ref matches.
  */
 function findRefTip(records: readonly RefRecord[], name: string): string | undefined {
-	let byName = refRecordsByName.get(records);
-	if (byName == null) {
-		byName = new Map();
-		for (const record of records) {
-			if (!byName.has(record.name)) {
-				byName.set(record.name, record);
-			}
-		}
-		refRecordsByName.set(records, byName);
-	}
-
+	const byName = getRefRecordsByName(records);
 	for (const candidate of [
 		name,
 		`refs/${name}`,
@@ -3170,6 +3186,30 @@ function findRefTip(records: readonly RefRecord[], name: string): string | undef
 	}
 
 	return undefined;
+}
+
+function getRefRecordsByName(records: readonly RefRecord[]): Map<string, RefRecord> {
+	let byName = refRecordsByName.get(records);
+	if (byName == null) {
+		byName = new Map();
+		for (const record of records) {
+			if (!byName.has(record.name)) {
+				byName.set(record.name, record);
+			}
+		}
+		refRecordsByName.set(records, byName);
+	}
+	return byName;
+}
+
+/** The record for the full ref name `fullName` in `records`, the cached ref list; no short-name resolution */
+function findRefRecord(records: readonly RefRecord[], fullName: string): RefRecord | undefined {
+	return getRefRecordsByName(records).get(fullName);
+}
+
+function toPushTargetRef(records: readonly RefRecord[], ref: string): GitPushTargetRef {
+	const record = findRefRecord(records, ref);
+	return { ref: ref, sha: record != null ? record.peeledObjectname || record.objectname : undefined };
 }
 
 /**

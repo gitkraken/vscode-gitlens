@@ -28,6 +28,8 @@ const refMapping = {
 	worktreePath: undefined,
 	upstreamRemote: undefined,
 	upstreamRemoteRef: undefined,
+	// Last, so the feature-gated fields above keep their positions in both mappings
+	push: `%(push)`,
 };
 
 const refMappingSupportsWorktreePath = {

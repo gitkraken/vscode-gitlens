@@ -7,7 +7,7 @@ const fieldSep = '\x1D';
 
 // Unified RefRecord fields, in mapping declaration order:
 // current, name, objectname, peeledObjectname, upstream, upstreamTracking,
-// committerDate, creatorDate, authorDate, subject, [worktreePath]
+// committerDate, creatorDate, authorDate, subject, [worktreePath, upstreamRemote, upstreamRemoteRef], push
 function buildRecord(fields: string[]): string {
 	return fields.join(fieldSep) + fieldSep;
 }
@@ -217,5 +217,22 @@ suite('Ref Parser Test Suite', () => {
 
 		assert.strictEqual(results.length, 1);
 		assert.strictEqual(results[0].worktreePath, '/home/user/worktree');
+	});
+
+	test('both parsers read %(push) last, after the fields only the worktree parser reads', () => {
+		const fields = ['*', 'refs/heads/main', 'abc123', '', 'refs/remotes/origin/main', '', '', '', '', ''];
+		for (const [features, gated] of [
+			[featuresWithoutWorktree, []],
+			[featuresWithWorktree, ['/home/user/worktree', 'origin', 'refs/heads/main']],
+		] as const) {
+			const parser = getRefParser(features);
+			assert.ok(parser.arguments[0].endsWith('%(push)%1D'), 'push is the last field of the format');
+
+			const [result] = [
+				...parser.parse(buildData([buildRecord([...fields, ...gated, 'refs/remotes/fork/main'])])),
+			];
+			assert.strictEqual(result.push, 'refs/remotes/fork/main');
+			assert.strictEqual(result.upstream, 'refs/remotes/origin/main');
+		}
 	});
 });
