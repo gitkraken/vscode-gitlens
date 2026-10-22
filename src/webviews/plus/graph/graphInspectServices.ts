@@ -30,7 +30,7 @@ import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
-import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
+import type { RunPromptInAgentCommandArgs, RunPromptInAgentOutcome } from '../../../commands/runPromptInAgent.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
 import { GitUri } from '../../../git/gitUri.js';
@@ -1515,13 +1515,22 @@ export class GraphInspectServices {
 				instructions: args.prompt,
 			});
 			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
-			await executeCommand('gitlens.runPromptInAgent', {
-				prompt: prompt,
-				cwd: args.repoPath,
-				mode: 'agent',
-				autoExecute: true,
-				source: 'graph',
-			} as RunPromptInAgentCommandArgs);
+			const outcome = await executeCommand<RunPromptInAgentCommandArgs, RunPromptInAgentOutcome>(
+				'gitlens.runPromptInAgent',
+				{
+					prompt: prompt,
+					cwd: args.repoPath,
+					mode: 'agent',
+					autoExecute: true,
+					source: 'graph',
+				},
+			);
+			// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
+			// no agent to report — an open channel would read as a review that never arrives
+			if (outcome !== 'dispatched') {
+				this.stopDeepReview();
+				return { ok: false, reason: outcome === 'cancelled' ? 'cancelled' : 'error' };
+			}
 			return { ok: true };
 		} catch (ex) {
 			this.stopDeepReview();

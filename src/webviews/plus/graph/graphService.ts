@@ -307,7 +307,7 @@ export interface DeepReviewArgs {
 
 export type DeepReviewStartResult =
 	| { ok: true }
-	| { ok: false; reason: 'no-agents' | 'no-channel' | 'error'; message?: string };
+	| { ok: false; reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error'; message?: string };
 
 /** Whether a deep review can start here at all: the report channel needs the local server (absent on
  *  the web) and an agent must be available to hand the changes to. */

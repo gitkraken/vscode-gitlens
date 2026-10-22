@@ -26,6 +26,11 @@ export interface RunPromptInAgentCommandArgs {
 	source?: Sources;
 }
 
+/** How a {@link RunPromptInAgentCommand} ended: the prompt reached an agent, the user backed out of the
+ *  picker, or every dispatch attempt failed (the command has already said so in a toast). A caller that
+ *  set something up for the agent — a report channel — tears it down on anything but `dispatched`. */
+export type RunPromptInAgentOutcome = 'dispatched' | 'cancelled' | 'failed';
+
 /** Runs an already-rendered prompt in an agent (IDE chat, Claude extension, or detected CLI).
  *  Resolves the descriptor as `args.agent` > persisted `gitlens.ai.defaultAgent` > picker. */
 @command()
@@ -36,15 +41,15 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		super('gitlens.runPromptInAgent');
 	}
 
-	async execute(args?: RunPromptInAgentCommandArgs): Promise<void> {
+	async execute(args?: RunPromptInAgentCommandArgs): Promise<RunPromptInAgentOutcome> {
 		if (!args?.prompt) {
 			throw new Error('Prompt is required for runPromptInAgent command');
 		}
 
 		const descriptor = await this.resolveAgent(args.agent);
-		if (descriptor == null) return;
+		if (descriptor == null) return 'cancelled';
 
-		await this.dispatch(descriptor, args);
+		return this.dispatch(descriptor, args);
 	}
 
 	private async resolveAgent(preselected: AgentDescriptor | undefined): Promise<AgentDescriptor | undefined> {
@@ -61,13 +66,17 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		return pickAgentStandalone(this.container);
 	}
 
-	private async dispatch(descriptor: AgentDescriptor, args: RunPromptInAgentCommandArgs, retries = 0): Promise<void> {
+	private async dispatch(
+		descriptor: AgentDescriptor,
+		args: RunPromptInAgentCommandArgs,
+		retries = 0,
+	): Promise<RunPromptInAgentOutcome> {
 		const result = await runAgent(descriptor, args.prompt, {
 			cwd: args.cwd,
 			autoExecute: args.autoExecute,
 			mode: args.mode,
 		});
-		if (result.success) return;
+		if (result.success) return 'dispatched';
 
 		void this.container.usage.track('action:gitlens.ai.openInAgent.dispatchFailed:happened');
 		Logger.error(
@@ -90,16 +99,15 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		const choice = await window.showWarningMessage(message, ...actions);
 
 		if (choice === retryAction) {
-			await this.dispatch(descriptor, args, retries + 1);
-			return;
+			return this.dispatch(descriptor, args, retries + 1);
 		}
 
 		if (choice === pickAnotherAction) {
 			const picked = await pickAgentStandalone(this.container);
-			if (picked != null) {
-				// Reset the budget — a different agent gets a fresh allowance.
-				await this.dispatch(picked, args);
-			}
+			// Reset the budget — a different agent gets a fresh allowance.
+			if (picked != null) return this.dispatch(picked, args);
 		}
+
+		return 'failed';
 	}
 }
