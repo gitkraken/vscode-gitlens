@@ -200,7 +200,26 @@ export interface IssueEtagFields {
 	updatedDate: Date;
 	/** Counts only when `'reactions'` is requested, and only from a row whose read fetched reactions. */
 	thumbsUpCount?: number;
+	/**
+	 * Azure DevOps only: the version of the rule a work item's body is read by ({@link azureWorkItemDescriptionRule}).
+	 * A change of rule changes the body without moving `updatedDate`, so a row read under an earlier one must not
+	 * compare unchanged.
+	 */
+	descriptionRule?: number;
 }
+
+/**
+ * {@link IssueEtagFields.descriptionRule}: the version of the rule an Azure DevOps work item's body is read by, stamped
+ * on both sides of its etag. Bumped whenever the rule changes which field a work item's body comes from, so every row
+ * a caller holds from before is read in full once. 1: the first rich text field with content (provider-apis'
+ * `getAzureWorkItemDescription`), where it used to be only Description. The rule lives in provider-apis, so a bump of
+ * that package that changes it must bump this too; the etag tests pin the rule to catch one.
+ *
+ * It can't cover a row whose read found the organization's field catalog unavailable: that row's body falls back to
+ * the built-in fields, and a cheap check, which reads no body, can't tell it from a complete one, so it stays as read
+ * until the work item changes.
+ */
+export const azureWorkItemDescriptionRule = 1;
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
