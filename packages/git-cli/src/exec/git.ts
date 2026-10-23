@@ -1521,7 +1521,13 @@ export class Git {
 						resolve();
 					} else {
 						reject(
-							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal, 'unknown'),
+							new CancelledRunError(
+								proc.spawnargs.join(' '),
+								true,
+								code ?? undefined,
+								signal,
+								proc.killed ? 'timeout' : 'unknown',
+							),
 						);
 					}
 					return;

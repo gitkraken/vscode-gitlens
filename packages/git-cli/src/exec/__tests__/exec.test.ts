@@ -1109,4 +1109,19 @@ suite('Git options.spawn', () => {
 		assert.strictEqual(timeouts[1], undefined, 'a disabled (0) stream timeout reaches the spawner as none');
 		assert.ok(out.join('').startsWith('git version'));
 	});
+
+	test("rejects a stream its own timeout killed with the 'timeout' reason", async () => {
+		const spawner: ProcessSpawner = (_command, _args, options) =>
+			spawn(execPath, nodeArgs('setTimeout(() => {}, 60000)'), options);
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, '--version')) {
+					// drain
+				}
+			},
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
 });
