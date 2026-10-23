@@ -723,6 +723,25 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		await assertRemeasured('task', answer, fetchedMain);
 	});
 
+	test('the first move of a base after a clone, which logged nothing for it, is re-measured to the fresh answer', async () => {
+		// A clone writes no reflog for `origin/main`, so the old tip is the value its first logged entry replaced
+		repo.cleanup();
+		repo = cloneTestRepo(origin);
+		startTask('task', 2);
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.ref, 'origin/main');
+
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		const tip = peerPushesMain('one');
+		const logged = git(repo.path, 'reflog', 'show', '--format=%H', originMain).split('\n');
+		assert.deepStrictEqual(logged, [tip], 'the reflog holds only the move, not the old tip');
+
+		const answer = await assertRemeasured('task', before, fetchedMain);
+		assert.strictEqual(answer.base?.sha, tip);
+		assert.strictEqual(answer.base?.ahead, 2);
+		assert.notStrictEqual(oldTip, tip);
+	});
+
 	test('a branch that landed in the base is read in full', async () => {
 		startTask('task', 1);
 		const before = await readFresh('task');
