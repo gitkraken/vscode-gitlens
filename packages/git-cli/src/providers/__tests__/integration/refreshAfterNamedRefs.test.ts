@@ -956,19 +956,25 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			assert.deepStrictEqual(announced[0].refs, ['refs/heads/other']);
 		});
 
-		test('a commit on a detached HEAD names no branch', async () => {
+		test('a commit on a detached HEAD moves no branch, so no other checkout hears of it', async () => {
 			git(linked[0].path, 'checkout', '-q', '--detach');
 			// What the watchers report for the worktree's HEAD, which the fixture's fakes never fire
 			provider.notifyChanged(linked[0].path, ['head', 'heads', 'worktrees']);
 			await settle();
 			resetObservations();
+			const announced = announcementsFor(linked[0].path);
+			const changed = nextChange(aCo);
 
 			await repoOf(linked[0].path).ops!.commit('Detached work', { allowEmpty: true });
+			const a = await changed;
 			await settle();
 
-			const events = heardBy(bCo);
-			assert.strictEqual(events.length, 1);
-			assert.ok(events[0].mayHaveChangedRef('refs/heads/feature-b'), 'any branch may have moved');
+			assert.strictEqual(announced.length, 1);
+			assert.deepStrictEqual([...announced[0].changes], ['head', 'index']);
+			assert.strictEqual(a.sha, git(linked[0].path, 'rev-parse', 'HEAD'), "the worktree's own summary moved");
+			assert.deepStrictEqual(heardBy(bCo), []);
+			assert.deepStrictEqual(heardBy(mainCo), []);
+			assert.strictEqual(readsOf(bCo), 0, 'feature-b was not recomputed');
 		});
 
 		test('a rebase onto a fetched origin/main moves the fork point and the head', async () => {

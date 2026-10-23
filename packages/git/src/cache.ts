@@ -1186,7 +1186,9 @@ export class Cache implements Disposable {
 			types.add('branch');
 		}
 
-		if (hasAny('index', 'heads', 'pausedOp')) {
+		// A detached HEAD that moved (a commit or reset without a branch) comes as `head` without `heads`, and changes
+		// what this tree compares against and the HEAD the branch and worktree lists show
+		if (hasAny('index', 'head', 'heads', 'pausedOp')) {
 			types.add('blame');
 			types.add('diff');
 			types.add('fileLog');
@@ -1204,7 +1206,7 @@ export class Cache implements Disposable {
 			types.add('worktrees');
 		}
 
-		if (hasAny('heads')) {
+		if (hasAny('head', 'heads')) {
 			types.add('branches');
 			types.add('contributors');
 			types.add('worktrees');

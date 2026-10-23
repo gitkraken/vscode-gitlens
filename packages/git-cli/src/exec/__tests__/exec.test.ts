@@ -6,10 +6,12 @@ import { execPath } from 'process';
 import * as sinon from 'sinon';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
+import type { CommandChanges } from '../commandClassifier.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
 import type { GitResultCache } from '../exec.types.js';
 import { defaultExceptionHandler, Git, GitError } from '../git.js';
+import type { HeadState } from '../headState.js';
 
 function nodeArgs(script: string): string[] {
 	return ['-e', script];
@@ -653,7 +655,12 @@ suite('Git base environment', () => {
 });
 
 suite('Git.run notify', () => {
-	type Notified = { repoPaths: readonly string[]; changes: readonly string[]; sharedPaths?: readonly string[] };
+	type Notified = {
+		repoPaths: readonly string[];
+		changes: readonly string[];
+		sharedPaths?: readonly string[];
+		named?: { readonly refs: readonly string[]; readonly configConfinedToRefs?: boolean };
+	};
 
 	function newGitWithBinder(): { git: Git; notified: Notified[] } {
 		// A nonexistent binary makes every run fail fast (ENOENT) without ever spawning a real process —
@@ -661,13 +668,16 @@ suite('Git.run notify', () => {
 		// like a success would, and much faster than a real git invocation.
 		const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
 		const notified: Notified[] = [];
-		git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
-			notified.push(
-				sharedPaths == null
-					? { repoPaths: repoPaths, changes: changes }
-					: { repoPaths: repoPaths, changes: changes, sharedPaths: sharedPaths },
-			),
-		);
+		git.bindChangeNotifier((repoPaths, changes, sharedPaths, named) => {
+			const entry: Notified = { repoPaths: repoPaths, changes: changes };
+			if (sharedPaths != null) {
+				entry.sharedPaths = sharedPaths;
+			}
+			if (named != null) {
+				entry.named = named;
+			}
+			notified.push(entry);
+		});
 		return { git: git, notified: notified };
 	}
 
@@ -695,7 +705,8 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified, [
 			{
 				repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'],
-				changes: ['config', 'heads', 'remotes', 'tags'],
+				changes: ['config', 'heads'],
+				named: { refs: ['refs/heads/x'], configConfinedToRefs: true },
 			},
 		]);
 	});
@@ -724,6 +735,28 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified[0].sharedPaths, ['/repo']);
 	});
 
+	test("notify: 'infer' classifies the argv git sees, which options.configs leads", async () => {
+		const { git, notified } = newGitWithBinder();
+		git.bindHeadReader(() => Promise.resolve({ branch: 'refs/heads/feature' }));
+
+		await git.run(
+			{ cwd: '/repo', errors: 'ignore', notify: 'infer', configs: ['-C', '/other'] },
+			'branch',
+			'-d',
+			'x',
+		);
+		// Update-refs is provably off only through the `-c` in `configs`
+		await git.run(
+			{ cwd: '/repo', errors: 'ignore', notify: 'infer', configs: ['-c', 'rebase.updateRefs=false'] },
+			'rebase',
+			'main',
+		);
+
+		assert.strictEqual(notified.length, 2);
+		assert.deepStrictEqual(notified[0].repoPaths, [normalizePath(resolve('/repo', '/other')), '/repo']);
+		assert.deepStrictEqual(notified[1].named, { refs: ['refs/heads/feature'] });
+	});
+
 	test("notify: 'infer' on a -C stash push announces only the stash to cwd", async () => {
 		const { git, notified } = newGitWithBinder();
 
@@ -734,6 +767,7 @@ suite('Git.run notify', () => {
 				repoPaths: [normalizePath(resolve('/repo', '/other'))],
 				changes: ['stash', 'index'],
 				sharedPaths: ['/repo'],
+				named: { refs: ['refs/stash'] },
 			},
 		]);
 	});
@@ -781,6 +815,218 @@ suite('Git.run notify', () => {
 		await git.run({ cwd: '/repo', errors: 'ignore' }, 'commit', '-m', 'msg');
 
 		assert.deepStrictEqual(notified, []);
+	});
+
+	suite('names', () => {
+		const otherPath = normalizePath(resolve('/repo', '/other'));
+		const moveHead: CommandChanges = {
+			changes: ['head', 'heads', 'index', 'pausedOp'],
+			sharedChanges: ['heads'],
+			movesHeadBranch: true,
+		};
+
+		/** Makes `notify: 'infer'` classify every argv as `classified`, whatever the classifier makes of it today */
+		function classifyAs(git: Git, classified: CommandChanges): void {
+			(git as unknown as { _classify: () => CommandChanges })._classify = () => classified;
+		}
+
+		/** Binds a head reader answering each read with the next of `states` (an `Error` rejects), recording it in `order` */
+		function readHeads(git: Git, order: string[], ...states: (HeadState | Error)[]): void {
+			git.bindHeadReader(path => {
+				order.push(`read ${path}`);
+				const state = states.shift();
+				return state instanceof Error ? Promise.reject(state) : Promise.resolve(state);
+			});
+		}
+
+		/** Records each spawn in `order`, so a test can tell a HEAD read before the run from one after it */
+		function recordSpawns(git: Git, order: string[]): void {
+			const inner = (git as unknown as { _runSpawn: (...a: unknown[]) => Promise<unknown> })._runSpawn;
+			(git as unknown as { _runSpawn: unknown })._runSpawn = (...a: unknown[]) => {
+				order.push('spawn');
+				return inner(...a);
+			};
+		}
+
+		test('the refs a classification names reach the binder, with its config confinement', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, {
+				changes: ['config', 'heads'],
+				sharedChanges: ['config', 'heads'],
+				refs: ['refs/heads/x'],
+				configConfinedToRefs: true,
+			});
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'branch', '-d', 'x');
+
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: ['/repo'],
+					changes: ['config', 'heads'],
+					named: { refs: ['refs/heads/x'], configConfinedToRefs: true },
+				},
+			]);
+		});
+
+		test('a -C shared-state write passes its names with both paths', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, {
+				changes: ['tags'],
+				pathOverride: '/other',
+				sharedChanges: ['tags'],
+				refs: ['refs/tags/v1'],
+			});
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'tag', 'v1');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: [otherPath, '/repo'], changes: ['tags'], named: { refs: ['refs/tags/v1'] } },
+			]);
+		});
+
+		test('a -C write with local changes passes its names with the -C target and cwd as a shared path', async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			classifyAs(git, { ...moveHead, pathOverride: '/other' });
+			readHeads(git, order, { branch: 'refs/heads/feature' }, { branch: 'refs/heads/feature' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, [`read ${otherPath}`, `read ${otherPath}`], 'HEAD is read where the run ran');
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: [otherPath],
+					changes: ['head', 'heads', 'index', 'pausedOp'],
+					sharedPaths: ['/repo'],
+					named: { refs: ['refs/heads/feature'] },
+				},
+			]);
+		});
+
+		test("a verb that moves HEAD's branch names it when HEAD was on it before and after the run", async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			classifyAs(git, moveHead);
+			readHeads(git, order, { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+			recordSpawns(git, order);
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, ['read /repo', 'spawn', 'read /repo']);
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: ['/repo'],
+					changes: ['head', 'heads', 'index', 'pausedOp'],
+					named: { refs: ['refs/heads/main'] },
+				},
+			]);
+		});
+
+		test("HEAD's branch joins the refs the classification names", async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, { ...moveHead, refs: ['refs/heads/other'] });
+			readHeads(git, [], { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified[0].named, { refs: ['refs/heads/other', 'refs/heads/main'] });
+		});
+
+		test('a detached HEAD both times moved no branch, so heads is not announced, here or to cwd', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+			readHeads(git, [], 'detached', 'detached');
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'index', 'pausedOp'] }]);
+
+			const { git: cGit, notified: cNotified } = newGitWithBinder();
+			classifyAs(cGit, { ...moveHead, pathOverride: '/other' });
+			readHeads(cGit, [], 'detached', 'detached');
+
+			await cGit.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(
+				cNotified,
+				[{ repoPaths: [otherPath], changes: ['head', 'index', 'pausedOp'] }],
+				'with no branch moved, cwd shares nothing that changed',
+			);
+		});
+
+		test('a detached HEAD both times announces nothing when a branch move was all the verb could change', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, { changes: ['heads'], sharedChanges: ['heads'], movesHeadBranch: true });
+			readHeads(git, [], 'detached', 'detached');
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, []);
+		});
+
+		test('HEAD on another branch after the run, detached on one side only, or unreadable, names nothing', async () => {
+			const cases: [HeadState | Error, HeadState | Error][] = [
+				[{ branch: 'refs/heads/main' }, { branch: 'refs/heads/other' }],
+				[{ branch: 'refs/heads/main' }, 'detached'],
+				['detached', { branch: 'refs/heads/main' }],
+				[undefined, { branch: 'refs/heads/main' }],
+				[{ branch: 'refs/heads/main' }, new Error('unreadable')],
+				[new Error('unreadable'), 'detached'],
+			];
+			for (const [before, after] of cases) {
+				const { git, notified } = newGitWithBinder();
+				classifyAs(git, moveHead);
+				readHeads(git, [], before, after);
+
+				const result = await git.run(
+					{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+					'commit',
+					'-m',
+					'msg',
+				);
+
+				assert.strictEqual(result.completion.status, 'failed', 'the run settles as it would have');
+				assert.deepStrictEqual(
+					notified,
+					[{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] }],
+					`${JSON.stringify(before)} → ${JSON.stringify(after)}`,
+				);
+			}
+		});
+
+		test('a rejecting head reader never turns a run that throws into another error', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+			readHeads(git, [], new Error('before'), new Error('after'));
+
+			await assert.rejects(
+				git.run({ cwd: '/repo', errors: 'throw', notify: 'infer' }, 'commit', '-m', 'msg'),
+				(ex: unknown) => ex instanceof Error && ex.message !== 'before' && ex.message !== 'after',
+			);
+			assert.strictEqual(notified.length, 1);
+		});
+
+		test('with no head reader bound, a branch move is announced unnamed', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] },
+			]);
+		});
+
+		test('an explicit notify array never reads HEAD', async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			readHeads(git, order, { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: ['head', 'heads'] }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, []);
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'heads'] }]);
+		});
 	});
 });
 

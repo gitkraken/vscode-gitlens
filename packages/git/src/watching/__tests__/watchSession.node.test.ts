@@ -2439,6 +2439,28 @@ describe('WatchSession', () => {
 				created.session.dispose();
 			});
 
+			it("takes a HEAD report for the echo of a detached HEAD's move, which announced head without heads", async () => {
+				const { session, received } = createSession();
+				session.noteSelfWrite(['head', 'index']);
+				session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].announced), ['head', 'heads', 'index']);
+
+				// A branch moved from outside first keeps heads unannounced
+				const outside = createSession();
+				outside.session.noteSelfWrite(['head', 'index']);
+				outside.session.pushRepoChanges(['heads'], feature);
+				outside.session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(outside.received.length, 1);
+				assert.deepStrictEqual(sorted(outside.received[0].announced), ['head', 'index']);
+				session.dispose();
+				outside.session.dispose();
+			});
+
 			it('takes a HEAD report after the debounce delay for an outside change', async () => {
 				const now = performance.now();
 				let elapsed = 0;

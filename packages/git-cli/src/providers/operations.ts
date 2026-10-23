@@ -43,9 +43,10 @@ import {
 	isRunHookFailure,
 	maxGitCliLength,
 } from '../exec/git.js';
+import type { HeadState } from '../exec/headState.js';
+import { getMovedHead, readHeadState } from '../exec/headState.js';
 import { resolveBranchRemote } from './branchRemote.js';
 import { parseGitBoolean } from './config.js';
-import { readHeadFile } from './headFile.js';
 
 /** The remotes a fetch read with their configured refspecs: one named remote, all of them, or a bare fetch's default */
 type FetchedRemotes = { remote: string } | 'all' | 'default';
@@ -162,7 +163,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			// `-b` moves only the branch it creates, and writes tracking to that branch's own config section
 			this.announceHeadChanged(
 				repoPath,
-				options?.createBranch ? `refs/heads/${options.createBranch}` : undefined,
+				options?.createBranch ? { branch: `refs/heads/${options.createBranch}` } : undefined,
 				Boolean(options?.createBranch) && mayWriteTracking(ref, options?.noTracking),
 			);
 		}
@@ -209,11 +210,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...revs);
 
 		try {
-			try {
-				await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -283,20 +282,14 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		// Read commit message from stdin via -F - to avoid shell escaping issues
 		params.push('-F', '-');
 
-		// A commit moves only the branch HEAD is on. HEAD is read on both sides of the run: a hook or an outside
-		// `git switch` that moves it meanwhile leaves the moved branch unknown, so then none is named
-		const headBranchBefore = await this.readHeadBranchRef(repoPath);
 		try {
-			try {
-				await this.git.run(
+			// A commit refused by a hook can still have restaged files, which the announcement covers too
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					{ cwd: repoPath, stdin: message, stdinEncoding: 'utf8', errors: 'throw', ...runOptions },
 					...params,
-				);
-			} finally {
-				// A commit refused by a hook can still have restaged files
-				const headBranch = await this.readHeadBranchRef(repoPath);
-				this.announceHeadChanged(repoPath, headBranch === headBranchBefore ? headBranch : undefined);
-			}
+				),
+			);
 			if (sign) {
 				// `-S` was passed and the commit succeeded, so signing is confirmed — fire the
 				// explicit-sign hook (same contract as the patch provider's `commit-tree -S` path).
@@ -736,15 +729,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(ref);
 
 		try {
-			try {
-				await this.git.run(
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					// Avoid a timeout since merges can take a long time (set to 0 to disable)
 					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
 					...args,
-				);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+				),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -1314,12 +1305,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const scope = getScopedLogger();
 
 		try {
-			await this.resetCore(repoPath, rev, options?.mode, runOptions);
+			await this.runMovingHeadBranch(repoPath, () => this.resetCore(repoPath, rev, options?.mode, runOptions));
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
-		} finally {
-			this.announceHeadChanged(repoPath);
 		}
 	}
 
@@ -1446,15 +1435,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...refs);
 
 		try {
-			try {
-				await this.git.run(
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					// Avoid a timeout since reverts can take a long time (set to 0 to disable)
 					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
 					...args,
-				);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+				),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -1514,35 +1501,48 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 	/**
 	 * Called once git has run, success or not — a rejected write can still have moved HEAD or left state behind.
-	 * `branchRef` is the full name of the one branch the write could have moved, when it knows it; `wroteTracking`
-	 * says it wrote that branch's tracking, to its own config section.
+	 * `moved` is the one branch the write could have moved, when it knows it, or `'detached'` when it moved a detached
+	 * HEAD and so no branch; `wroteTracking` says it wrote that branch's tracking, to its own config section.
 	 */
-	private announceHeadChanged(repoPath: string, branchRef?: string, wroteTracking?: boolean): void {
+	private announceHeadChanged(repoPath: string, moved?: HeadState, wroteTracking?: boolean): void {
+		if (moved === 'detached') {
+			// The worktree list carries this worktree's HEAD, which `heads` would otherwise have reset
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'index']);
+			return;
+		}
+
 		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+
 		const changes: RepositoryChange[] = wroteTracking
 			? ['config', 'head', 'heads', 'index']
 			: ['head', 'heads', 'index'];
-		if (branchRef == null) {
+		if (moved == null) {
 			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
 		} else if (wroteTracking) {
-			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [branchRef], {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [moved.branch], {
 				configConfinedToRefs: true,
 			});
 		} else {
-			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [branchRef]);
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [moved.branch]);
 		}
 	}
 
 	/**
-	 * The full name of the branch HEAD is on, from the worktree's own `HEAD` file (`ref: refs/heads/main`): read around
-	 * a write, so it names the branch that write moved, whatever a switch outside core left in the caches; no git
-	 * runs. `undefined` when HEAD is detached, unreadable, or not a branch name git allows — a reftable repository's
-	 * `HEAD` file holds the placeholder `refs/heads/.invalid`, and its real HEAD is in the tables — or names a branch
-	 * that is a symbolic ref to another, where the commit moves the target instead.
+	 * Runs a write that moves only the branch HEAD is on (or no branch, on a detached HEAD), then announces it, success
+	 * or not. HEAD is read on both sides of the run: a hook or an outside `git switch` that moves it meanwhile leaves the
+	 * moved branch unknown, so then none is named.
 	 */
-	private async readHeadBranchRef(repoPath: string): Promise<string | undefined> {
-		const head = await readHeadFile(this.context.fs, p => this.provider.config.getGitDir(p), repoPath);
-		return head.kind === 'branch' ? head.ref : undefined;
+	private async runMovingHeadBranch<T>(repoPath: string, write: () => Promise<T>): Promise<T> {
+		const before = await readHeadState(repoPath, this.context.fs, this.cache);
+		try {
+			return await write();
+		} finally {
+			this.announceHeadChanged(
+				repoPath,
+				getMovedHead(before, await readHeadState(repoPath, this.context.fs, this.cache)),
+			);
+		}
 	}
 
 	/** The caller has already announced the change — the conflict is what the failed run left behind */

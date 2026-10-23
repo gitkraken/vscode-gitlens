@@ -1,6 +1,14 @@
 import * as assert from 'assert';
 import { join } from 'node:path';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { getChangesForCommand, leadingCommand, mayWriteTracking } from '../commandClassifier.js';
+
+interface Named {
+	changes: readonly RepositoryChange[];
+	refs?: readonly string[];
+	confined?: boolean;
+	movesHeadBranch?: boolean;
+}
 
 suite('commandClassifier', () => {
 	suite('leadingCommand — readOnly', () => {
@@ -172,8 +180,8 @@ suite('commandClassifier', () => {
 
 		test("'branch -d x' changes only what every worktree sees", () => {
 			const result = getChangesForCommand(['branch', '-d', 'x']);
-			assert.deepStrictEqual(result?.changes, ['config', 'heads', 'remotes', 'tags']);
-			assert.deepStrictEqual(result?.sharedChanges, ['config', 'heads', 'remotes', 'tags']);
+			assert.deepStrictEqual(result?.changes, ['config', 'heads']);
+			assert.deepStrictEqual(result?.sharedChanges, ['config', 'heads']);
 		});
 
 		test("'branch' announces config only for a form that writes it", () => {
@@ -197,11 +205,7 @@ suite('commandClassifier', () => {
 				['branch', '--no-track', 'x', 'origin/x'],
 				['-c', 'k=v', 'branch', 'x'],
 			]) {
-				assert.deepStrictEqual(
-					getChangesForCommand(args)?.changes,
-					['heads', 'remotes', 'tags'],
-					args.join(' '),
-				);
+				assert.deepStrictEqual(getChangesForCommand(args)?.changes, ['heads'], args.join(' '));
 			}
 		});
 
@@ -248,6 +252,388 @@ suite('commandClassifier', () => {
 		test("'update-ref refs/stash' can announce stash", () => {
 			const result = getChangesForCommand(['update-ref', 'refs/stash', 'abc123']);
 			assert.ok(result?.changes.includes('stash'));
+		});
+	});
+
+	suite('getChangesForCommand — named refs', () => {
+		const sha = '0123456789abcdef0123456789abcdef01234567';
+		const sha2 = '89abcdef0123456789abcdef0123456789abcdef';
+		const sha256 = `${sha}${sha.slice(0, 24)}`;
+		const unnamedUpdateRef: RepositoryChange[] = ['head', 'heads', 'remotes', 'tags', 'stash'];
+		const unnamedBranchConfig: RepositoryChange[] = ['config', 'heads', 'remotes'];
+		const unnamedCheckout: RepositoryChange[] = ['head', 'heads', 'index'];
+		const reset: RepositoryChange[] = ['head', 'heads', 'index', 'pausedOp'];
+		const rebase: RepositoryChange[] = ['head', 'heads', 'index', 'pausedOp', 'rebase'];
+
+		function check(args: readonly string[], expected: Named | undefined): void {
+			const result = getChangesForCommand(args);
+			assert.deepStrictEqual(
+				result && {
+					changes: result.changes,
+					refs: result.refs,
+					confined: result.configConfinedToRefs,
+					movesHeadBranch: result.movesHeadBranch,
+				},
+				expected && {
+					changes: expected.changes,
+					refs: expected.refs,
+					confined: expected.confined,
+					movesHeadBranch: expected.movesHeadBranch,
+				},
+			);
+		}
+
+		function suiteOf(name: string, cases: readonly (readonly [readonly string[], Named | undefined])[]): void {
+			suite(name, () => {
+				for (const [args, expected] of cases) {
+					test(`'${args.join(' ')}'`, () => check(args, expected));
+				}
+			});
+		}
+
+		suiteOf('update-ref names the one ref it writes', [
+			[['update-ref', 'refs/heads/feat', sha], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['update-ref', 'refs/heads/feat', sha, sha2], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['update-ref', 'refs/heads/x', sha, ''], { changes: ['heads'], refs: ['refs/heads/x'] }],
+			[
+				['update-ref', '--end-of-options', 'refs/heads/feat', sha, ''],
+				{ changes: ['heads'], refs: ['refs/heads/feat'] },
+			],
+			[
+				['update-ref', '-d', '--no-deref', 'refs/heads/feat', sha],
+				{ changes: ['heads'], refs: ['refs/heads/feat'] },
+			],
+			[['update-ref', '-d', 'refs/heads/feat'], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['update-ref', '-m', 'reason', 'refs/tags/v1', sha], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[
+				['update-ref', '-mreason', 'refs/remotes/origin/x', sha],
+				{ changes: ['remotes'], refs: ['refs/remotes/origin/x'] },
+			],
+			[['update-ref', '--message=reason', 'refs/stash', sha], { changes: ['stash'], refs: ['refs/stash'] }],
+			[
+				['update-ref', '--no-deref', 'refs/remotes/origin/HEAD', sha],
+				{ changes: ['remotes'], refs: ['refs/remotes/origin/HEAD'] },
+			],
+		]);
+
+		suiteOf('update-ref of a bookkeeping ref announces nothing', [
+			[['update-ref', '-d', 'refs/undo/abc'], undefined],
+			[['update-ref', 'refs/undo/abc', sha2], undefined],
+			[['update-ref', 'refs/kepler/sync/resolved/feat', sha, ''], undefined],
+			[['update-ref', 'refs/gitkraken/x', sha], undefined],
+		]);
+
+		suiteOf('update-ref it cannot name stays unnamed', [
+			[['update-ref', 'HEAD', sha], { changes: ['head', 'heads'] }],
+			[['update-ref', 'ORIG_HEAD', sha], { changes: unnamedUpdateRef }],
+			[['update-ref', 'feat', sha], { changes: unnamedUpdateRef }],
+			// A symbolic ref moves the ref it points to
+			[['update-ref', 'refs/remotes/origin/HEAD', sha], { changes: unnamedUpdateRef }],
+			[['update-ref', 'refs/replace/abc', sha], { changes: ['heads'] }],
+			[['update-ref', 'refs/notes/commits', sha], { changes: ['heads'] }],
+			[['update-ref', '--stdin'], { changes: unnamedUpdateRef }],
+			[['update-ref', '-z', '--stdin'], { changes: unnamedUpdateRef }],
+			[['update-ref', '--batch-updates', '--stdin'], { changes: unnamedUpdateRef }],
+			[['update-ref', '--unknown', 'refs/heads/x', sha], { changes: unnamedUpdateRef }],
+			[['update-ref', '-m'], { changes: unnamedUpdateRef }],
+			[['update-ref'], { changes: unnamedUpdateRef }],
+		]);
+
+		suiteOf('branch names what it creates, deletes, renames or copies', [
+			[['branch', 'feat', sha], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['branch', 'feat'], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['branch', '-f', 'feat', 'main'], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[['branch', '--no-track', 'feat', 'origin/feat'], { changes: ['heads'], refs: ['refs/heads/feat'] }],
+			[
+				['branch', 'feat', 'origin/feat'],
+				{ changes: ['config', 'heads'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[
+				['branch', '--force', 'feat', 'refs/remotes/origin/feat'],
+				{ changes: ['config', 'heads'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[['branch', '-D', 'feat'], { changes: ['config', 'heads'], refs: ['refs/heads/feat'], confined: true }],
+			[['branch', '-d', 'feat'], { changes: ['config', 'heads'], refs: ['refs/heads/feat'], confined: true }],
+			[
+				['branch', '--delete', '-f', 'a', 'b'],
+				{ changes: ['config', 'heads'], refs: ['refs/heads/a', 'refs/heads/b'], confined: true },
+			],
+			[['branch', '-r', '-d', 'origin/x'], { changes: ['remotes'], refs: ['refs/remotes/origin/x'] }],
+			[
+				['branch', '-m', 'a', 'b'],
+				{ changes: ['config', 'heads'], refs: ['refs/heads/a', 'refs/heads/b'], confined: true },
+			],
+			[
+				['branch', '-C', 'a', 'b'],
+				{ changes: ['config', 'heads'], refs: ['refs/heads/a', 'refs/heads/b'], confined: true },
+			],
+		]);
+
+		suiteOf('branch it cannot name stays unnamed', [
+			// One name renames the current branch
+			[['branch', '-m', 'b'], { changes: unnamedBranchConfig }],
+			[['branch', '-d'], { changes: unnamedBranchConfig }],
+			[['branch', '-u', 'origin/x'], { changes: unnamedBranchConfig }],
+			[['branch', '--set-upstream-to=origin/x', 'x'], { changes: unnamedBranchConfig }],
+			[['branch', '--unset-upstream', 'x'], { changes: unnamedBranchConfig }],
+			[['branch', '--edit-description'], { changes: unnamedBranchConfig }],
+			[['branch', '-t', 'x', 'origin/x'], { changes: unnamedBranchConfig }],
+			[['branch', '--track', 'x', 'origin/x'], { changes: unnamedBranchConfig }],
+			[['branch', '--unknown', 'x'], { changes: ['heads', 'remotes'] }],
+			[['branch', 'a', 'b', 'c'], { changes: ['heads', 'remotes'] }],
+			// Git expands `@{-<n>}` and `@` wherever it takes a branch name
+			[['branch', '-d', 'a', '@{-1}'], { changes: unnamedBranchConfig }],
+			[['branch', '-r', '-d', '@{u}'], { changes: unnamedBranchConfig }],
+			[['branch', '-m', '@{-1}', 'b'], { changes: unnamedBranchConfig }],
+			[['branch', '-f', '@{-1}', 'main'], { changes: ['heads', 'remotes'] }],
+			[['branch', '@', sha], { changes: ['heads', 'remotes'] }],
+		]);
+
+		suiteOf('tag names the tags it writes', [
+			[['tag', 'v1'], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '-f', 'v1', sha], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '-d', 'v1', 'v2'], { changes: ['tags'], refs: ['refs/tags/v1', 'refs/tags/v2'] }],
+			[['tag', '--delete', 'v1'], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '-a', '-m', '-message', 'v1'], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '--message=msg', '-s', 'v1'], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '-u', 'key', '-F', 'file', 'v1', sha], { changes: ['tags'], refs: ['refs/tags/v1'] }],
+			[['tag', '--trailer', 'k: v', 'v1'], { changes: ['tags'] }],
+			[['tag', 'a', 'b', 'c'], { changes: ['tags'] }],
+		]);
+
+		suiteOf('worktree announces a branch only for an add that can create one', [
+			[['worktree', 'add', '--detach', '--force', '--end-of-options', '/wt', sha], { changes: ['worktrees'] }],
+			[['worktree', 'remove', '--force', '--end-of-options', '/wt'], { changes: ['worktrees'] }],
+			[['worktree', 'prune'], { changes: ['worktrees'] }],
+			[['worktree', 'lock', '/wt'], { changes: ['worktrees'] }],
+			[['worktree', 'unlock', '/wt'], { changes: ['worktrees'] }],
+			[['worktree', 'move', '/wt', '/wt2'], { changes: ['worktrees'] }],
+			[['worktree', 'repair'], { changes: ['worktrees'] }],
+			[['worktree', 'add', '/wt', sha], { changes: ['worktrees'] }],
+			[['worktree', 'add', '/wt', sha256], { changes: ['worktrees'] }],
+			[['worktree', 'add', '--reason', 'why', '--lock', '-d', '/wt'], { changes: ['worktrees'] }],
+			[
+				['worktree', 'add', '-b', 'feat', '/wt', sha],
+				{ changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] },
+			],
+			[['worktree', 'add', '-bfeat', '/wt'], { changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] }],
+			[
+				['worktree', 'add', '-b', 'feat', '/wt', 'origin/feat'],
+				{ changes: ['config', 'worktrees', 'heads'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[
+				['worktree', 'add', '--no-track', '-b', 'feat', '/wt', 'origin/feat'],
+				{ changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] },
+			],
+			[
+				['worktree', 'add', '--track', '-B', 'feat', '/wt', 'main'],
+				{ changes: ['config', 'worktrees', 'heads'], refs: ['refs/heads/feat'], confined: true },
+			],
+		]);
+
+		suiteOf('worktree add that may DWIM a branch stays unnamed', [
+			[['worktree', 'add', '/wt', 'main'], { changes: ['worktrees', 'heads'] }],
+			[['worktree', 'add', '/wt'], { changes: ['worktrees', 'heads'] }],
+			[['worktree', 'add', '--orphan', '-b', 'x', '/wt'], { changes: ['worktrees', 'heads'] }],
+			[['worktree', 'add', '-B', '@{-1}', '/wt', sha], { changes: ['worktrees', 'heads'] }],
+			[['worktree', 'add', '--unknown', '/wt', sha], { changes: ['worktrees', 'heads'] }],
+		]);
+
+		suiteOf('checkout and switch name only a branch they can create', [
+			[['checkout', '--detach', sha], { changes: ['head', 'index'] }],
+			[['checkout', sha], { changes: ['head', 'index'] }],
+			[['checkout', sha256], { changes: ['head', 'index'] }],
+			[['checkout', '--', '.'], { changes: ['index'] }],
+			[['checkout', sha, '--', 'a.txt'], { changes: ['index'] }],
+			[
+				['checkout', 'feat'],
+				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[
+				['checkout', 'feat', '--'],
+				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[
+				['checkout', '-b', 'feat', 'origin/feat'],
+				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[['checkout', '-b', 'feat', sha], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
+			[
+				['checkout', '-B', 'feat', 'main', '--'],
+				{ changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] },
+			],
+			[
+				['checkout', '-b', 'feat', '--no-track', 'origin/feat'],
+				{ changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] },
+			],
+			[['switch', '-c', 'feat'], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
+			[
+				['switch', '--create=feat', 'origin/feat'],
+				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+			],
+			[['switch', '-C', 'feat', sha], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
+			[['switch', '-d', sha], { changes: ['head', 'index'] }],
+			[['switch', '--detach', 'main'], { changes: ['head', 'index'] }],
+			[
+				['switch', 'feat'],
+				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+			],
+		]);
+
+		suiteOf('checkout and switch they cannot name stay unnamed', [
+			[['checkout', '-'], { changes: unnamedCheckout }],
+			[['checkout', '@{-1}'], { changes: unnamedCheckout }],
+			[['checkout', '--orphan', 'x'], { changes: unnamedCheckout }],
+			[['checkout', '-t', 'origin/x'], { changes: unnamedCheckout }],
+			[['checkout', '--track', 'origin/x'], { changes: unnamedCheckout }],
+			[['checkout', '--guess', 'x'], { changes: unnamedCheckout }],
+			[['checkout', 'a', 'b'], { changes: unnamedCheckout }],
+			[['checkout'], { changes: unnamedCheckout }],
+			[['switch', '-b', 'x'], { changes: unnamedCheckout }],
+			[['switch', '--orphan', 'x'], { changes: unnamedCheckout }],
+			[['checkout', '-B', '@{-1}', sha], { changes: unnamedCheckout }],
+			[['switch', '-C', '@{-2}'], { changes: unnamedCheckout }],
+		]);
+
+		suiteOf('HEAD-branch movers flag movesHeadBranch', [
+			[['reset', '--hard', sha], { changes: reset, movesHeadBranch: true }],
+			[['reset'], { changes: reset, movesHeadBranch: true }],
+			[['reset', sha, '--'], { changes: reset, movesHeadBranch: true }],
+			[['commit', '--no-edit'], { changes: ['head', 'heads', 'index', 'pausedOp'], movesHeadBranch: true }],
+			[
+				['merge', '--no-edit', '--no-ff', '-m', 'msg', '--end-of-options', sha],
+				{ changes: ['head', 'heads', 'index', 'pausedOp', 'merge'], movesHeadBranch: true },
+			],
+			[['merge', '--abort'], { changes: ['head', 'heads', 'index', 'pausedOp', 'merge'], movesHeadBranch: true }],
+			[
+				['cherry-pick', sha],
+				{ changes: ['head', 'heads', 'index', 'pausedOp', 'cherryPick'], movesHeadBranch: true },
+			],
+			[['revert', sha], { changes: ['head', 'heads', 'index', 'pausedOp', 'revert'], movesHeadBranch: true }],
+			[['am', 'x.patch'], { changes: ['head', 'heads', 'index', 'pausedOp'], movesHeadBranch: true }],
+			[
+				['pull'],
+				{
+					changes: [
+						'head',
+						'heads',
+						'index',
+						'remotes',
+						'tags',
+						'lastFetched',
+						'pausedOp',
+						'merge',
+						'rebase',
+					],
+				},
+			],
+		]);
+
+		suiteOf('a pathspec reset moves no ref', [
+			[['reset', '--', 'a.txt'], { changes: ['index'] }],
+			[['reset', '-q', sha, '--', 'a.txt'], { changes: ['index'] }],
+			[['reset', '-p'], { changes: ['index'] }],
+			[['reset', '--pathspec-from-file=list'], { changes: ['index'] }],
+		]);
+
+		suiteOf('rebase flags movesHeadBranch only when update-refs is provably off', [
+			[
+				[
+					'-C',
+					'/s',
+					'-c',
+					'rebase.updateRefs=false',
+					'rebase',
+					'--onto',
+					sha,
+					'--end-of-options',
+					sha2,
+					'HEAD',
+				],
+				{ changes: rebase, movesHeadBranch: true },
+			],
+			[['rebase', '--no-update-refs', 'main'], { changes: rebase, movesHeadBranch: true }],
+			[['-c', 'rebase.updaterefs=OFF', 'rebase', 'main'], { changes: rebase, movesHeadBranch: true }],
+			[['-c', 'Rebase.UpdateRefs=no', 'rebase', 'main'], { changes: rebase, movesHeadBranch: true }],
+			[['-c', 'rebase.updateRefs=0', 'rebase', 'main'], { changes: rebase, movesHeadBranch: true }],
+			[['rebase', '--update-refs', '--no-update-refs', 'main'], { changes: rebase, movesHeadBranch: true }],
+			// git writes the listed refs only when the rebase finishes
+			[['-C', '/s', 'rebase', '--abort'], { changes: rebase, movesHeadBranch: true }],
+			[['rebase', '--quit'], { changes: rebase, movesHeadBranch: true }],
+			[['-c', 'rebase.updateRefs=true', 'rebase', '--abort'], { changes: rebase, movesHeadBranch: true }],
+			// The update-refs list was fixed when the rebase started
+			[['-C', '/s', '-c', 'rebase.updateRefs=false', 'rebase', '--continue'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', 'rebase', '--skip'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', 'rebase', '--edit-todo'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--continue'], { changes: rebase }],
+			[['rebase', 'main'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', 'rebase', '--update-refs', 'main'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', '-c', 'rebase.updateRefs=true', 'rebase', 'main'], { changes: rebase }],
+			// A bare `-c key` is git's `true`
+			[['-c', 'rebase.updateRefs', 'rebase', 'main'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', 'rebase', '-i', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--exec', 'make', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--exec=make', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--exe=make', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--ex=make', 'main'], { changes: rebase }],
+			// Git takes any unique prefix of a long option, and bundles short ones
+			[['-c', 'rebase.updateRefs=false', 'rebase', '--update-ref', 'main'], { changes: rebase }],
+			[['-c', 'rebase.updateRefs=false', 'rebase', '--cont'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '--inter', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '-ri', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '-xmake', 'main'], { changes: rebase }],
+			[['rebase', '--no-update-refs', '-r', '-q', 'main'], { changes: rebase, movesHeadBranch: true }],
+		]);
+
+		suiteOf('stash names refs/stash for what moves it', [
+			[
+				['stash', 'push', '--include-untracked', '-m', 'compose backup'],
+				{ changes: ['stash', 'index'], refs: ['refs/stash'] },
+			],
+			[['stash'], { changes: ['stash', 'index'], refs: ['refs/stash'] }],
+			[['stash', '-u'], { changes: ['stash', 'index'], refs: ['refs/stash'] }],
+			[['stash', 'save', 'msg'], { changes: ['stash', 'index'], refs: ['refs/stash'] }],
+			[['stash', 'pop', '--index', 'stash@{0}'], { changes: ['stash', 'index'], refs: ['refs/stash'] }],
+			[['stash', 'drop', 'stash@{1}'], { changes: ['stash'], refs: ['refs/stash'] }],
+			[['stash', 'clear'], { changes: ['stash'], refs: ['refs/stash'] }],
+			[['stash', 'store', sha], { changes: ['stash'], refs: ['refs/stash'] }],
+			[['stash', 'apply', sha], { changes: ['index'] }],
+			[['stash', 'create'], undefined],
+			// Creates the branch from a commit, checks it out, and drops the stash once applied
+			[
+				['stash', 'branch', 'x', 'stash@{1}'],
+				{ changes: ['head', 'heads', 'index', 'stash'], refs: ['refs/heads/x', 'refs/stash'] },
+			],
+			[['stash', 'branch'], { changes: ['stash', 'index'] }],
+			[['stash', 'branch', '@{-1}', 'stash@{1}'], { changes: ['stash', 'index'] }],
+		]);
+
+		suiteOf('index-only writes are unchanged', [
+			[['read-tree', '-m', '-u', '--end-of-options', sha, sha2], { changes: ['index'] }],
+			[['clean', '-fd'], { changes: ['index'] }],
+			[['apply', '--allow-binary-replacement'], { changes: ['index'] }],
+		]);
+
+		test("a '-C'-scoped named write carries pathOverride and shares only its shared kinds", () => {
+			const branch = getChangesForCommand(['-C', '/other', 'checkout', '-b', 'feat', 'origin/feat']);
+			assert.strictEqual(branch?.pathOverride, '/other');
+			assert.deepStrictEqual(branch?.sharedChanges, ['config', 'heads']);
+			assert.deepStrictEqual(branch?.refs, ['refs/heads/feat']);
+
+			const commit = getChangesForCommand(['-C', '/other', 'commit', '--no-edit']);
+			assert.strictEqual(commit?.pathOverride, '/other');
+			assert.deepStrictEqual(commit?.sharedChanges, ['heads']);
+			assert.strictEqual(commit?.movesHeadBranch, true);
+
+			const detach = getChangesForCommand(['-C', '/other', 'checkout', '--detach', sha]);
+			assert.deepStrictEqual(detach?.sharedChanges, []);
+		});
+
+		test("leadingCommand captures each '-c' config before the verb", () => {
+			assert.deepStrictEqual(
+				leadingCommand(['-c', 'a=b', '-C', '/x', '-c', 'rebase.updateRefs=false', 'rebase']).configs,
+				['a=b', 'rebase.updateRefs=false'],
+			);
 		});
 	});
 

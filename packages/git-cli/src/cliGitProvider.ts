@@ -30,8 +30,9 @@ import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js'
 import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
-import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
+import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
 import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
+import { readHeadState } from './exec/headState.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -174,9 +175,10 @@ export class CliGitProvider implements GitProvider {
 
 		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
 		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
-		this._git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
-			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths),
+		this._git.bindChangeNotifier((repoPaths, changes, sharedPaths, named) =>
+			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths, named),
 		);
+		this._git.bindHeadReader(path => readHeadState(path, this.context.fs, this._cache));
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */
@@ -310,13 +312,14 @@ export class CliGitProvider implements GitProvider {
 	 * Each path hears the announcement once: `repoPaths` hear all of `changes`, `sharedPaths` (reset and
 	 * `onReset`-ed like `repoPaths`) and then the other registered worktrees sharing a repository with any of
 	 * them (reset like a typed write's, with no `onReset`) hear the shared part of it, see
-	 * {@link getSiblingChanges}.
+	 * {@link getSiblingChanges}. `names.refs` reach `repoPaths` whole and the others as {@link getSharedRefs}.
 	 */
 	private notifyChangedCore(
 		repoPaths: readonly string[],
 		changes: readonly RepositoryChange[],
 		options?: { cache?: readonly CachedGitTypes[] | 'all' },
 		sharedPaths?: readonly string[],
+		names?: NamedRefs,
 	): void {
 		const announcements = new Map<string, readonly RepositoryChange[]>();
 		for (const repoPath of repoPaths) {
@@ -370,8 +373,9 @@ export class CliGitProvider implements GitProvider {
 		}
 		// The host's own hook: `context.hooks.repository.onChanged` also fans out to siblings, which would
 		// announce a path a second time
+		const sharedRefs = names?.refs.length ? getSharedRefs(changes, names.refs) : undefined;
 		for (const [path, announced] of announcements) {
-			this.announceChanged(path, [...announced]);
+			this.announceChanged(path, [...announced], repoPaths.includes(path) ? names?.refs : sharedRefs, names);
 		}
 	}
 
