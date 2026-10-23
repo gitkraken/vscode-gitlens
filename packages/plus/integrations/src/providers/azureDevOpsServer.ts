@@ -467,6 +467,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			options.org,
 			isAzureWorkItemSearchFirstPage(options.cursor),
 		);
+		const viewerFor = this.getOrganizationViewers(session);
 		return azure.searchWorkItemsPage(
 			this,
 			toTokenWithInfo(this.id, session),
@@ -477,6 +478,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				projectNames: scope.projectNames,
 				workflowProjectNames: scope.projects.map(p => p.name),
 				resolveProject: name => scope.projects.find(p => sameAzureName(p.name, name)),
+				// The collection's own identity, not the server-level account's; read once for the page.
+				resolveViewer: () => viewerFor(scope.collection),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
 			},

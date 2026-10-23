@@ -110,6 +110,8 @@ interface ServerFixture {
 	workItemFields?: Node;
 	fieldCatalog?: () => Response;
 	routes?: string[];
+	/** The id the organization (Azure DevOps Server: collection) knows the account by; the profile's when omitted. */
+	orgUserId?: string;
 }
 
 /** A work item with an assignee, tags, a description and comments. */
@@ -162,7 +164,8 @@ function answerCollection(
 
 	switch (true) {
 		case route === '_apis/connectiondata': {
-			const user = { id: me, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
+			const id = fixture.orgUserId ?? me;
+			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
 			return json({ authenticatedUser: user, authorizedUser: user });
 		}
 		case route === '_apis/projects':
@@ -324,7 +327,11 @@ async function connectedServer(fixture: ServerFixture = {}): Promise<Connected> 
 
 		const atServer = segments[0] === '_apis';
 		if (segments.at(-1) === 'connectiondata') {
-			const user = { id: me, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
+			if (!atServer) {
+				fixture.routes?.push('_apis/connectiondata');
+			}
+			const id = atServer ? me : (fixture.orgUserId ?? me);
+			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
 			return Promise.resolve(
 				json({
 					authenticatedUser: user,
@@ -808,5 +815,88 @@ for (const [label, connect, searches] of [
 				connected.manager.dispose();
 			});
 		}
+	});
+}
+
+/**
+ * A work item's people carry the id its organization (Azure DevOps Server: collection) knows the account by, which can
+ * differ from the profile id (gitkraken/kepler#4291), so every read stamps the row with that identity as its `viewer`,
+ * as pull requests already are (#6032).
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Work item viewer: every ${label} read`, () => {
+		async function readAll({ manager, azure, providerId, target }: Connected): Promise<[string, IssueShape][]> {
+			const point = await azure.getIssue(projectResource, String(workItemId));
+			const account = await manager.listIssuesPage({ ...target, providerId: providerId });
+			const scoped = await manager.listIssuesPage({ ...target, providerId: providerId, repos: repos });
+			const batch = await manager.getIssuesBatch({
+				...target,
+				providerId: providerId,
+				targets: [{ key: 'issue', owner: org, repo: '', number: workItemId, project: projectName }],
+			});
+			const searched = searches
+				? await manager.searchIssuesPage({ ...target, providerId: providerId, org: org })
+				: undefined;
+
+			const rows: [string, IssueShape | undefined][] = [
+				['point', point],
+				['account', account.items[0]],
+				['repos', scoped.items[0]],
+				['batch', batch.items[0]?.issue],
+				...(searched != null ? [['search', searched.items[0]] as [string, IssueShape | undefined]] : []),
+			];
+			for (const [read, row] of rows) {
+				assert.ok(row != null, `${label} ${read}: a row`);
+			}
+
+			return rows as [string, IssueShape][];
+		}
+
+		test("stamps the organization's identity, not the profile id, read once for every read", async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				orgUserId: 'org-me',
+				workItemFields: { 'System.AssignedTo': identity('org-me') },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAll(connected)) {
+				assert.deepEqual(row.viewer, { id: 'org-me' }, read);
+				assert.ok(
+					row.assignees.some(a => a.id === row.viewer?.id),
+					`${read}: the assignee is matched by the viewer`,
+				);
+			}
+			assert.equal(
+				routes.filter(r => r === '_apis/connectiondata').length,
+				1,
+				"the organization's identity is cached, not read again per read or per row",
+			);
+
+			connected.manager.dispose();
+		});
+
+		test('leaves a work item that names no one without a viewer', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				orgUserId: 'org-me',
+				workItemFields: { 'System.CreatedBy': undefined, 'System.AssignedTo': undefined },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAll(connected)) {
+				assert.equal(row.viewer, undefined, read);
+			}
+			assert.equal(
+				routes.filter(r => r === '_apis/connectiondata').length,
+				1,
+				'only the batch read asks, alongside the work item and before it can tell whether anyone is named',
+			);
+
+			connected.manager.dispose();
+		});
 	});
 }

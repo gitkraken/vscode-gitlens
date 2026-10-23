@@ -884,9 +884,17 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			};
 		}
 
-		/** Answers the work item type states read itself, which `urls` leaves out, and every other read by `respond`. */
-		function azureRespond(runtime: FakeRuntime, respond: (url: string) => Response): { urls: string[] } {
+		/**
+		 * Answers the work item type states read and the connection data read (the user's identity in the organization,
+		 * `orgUserId`) itself, which `urls` leaves out and `identityReads` records, and every other read by `respond`.
+		 */
+		function azureRespond(
+			runtime: FakeRuntime,
+			respond: (url: string) => Response,
+			orgUserId = 'u1',
+		): { urls: string[]; identityReads: string[] } {
 			const urls: string[] = [];
+			const identityReads: string[] = [];
 			runtime.http.fetch = input => {
 				const discovery = azureRestDiscoveryResponse(input);
 				if (discovery != null) return Promise.resolve(discovery);
@@ -895,10 +903,16 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 				const states = azureWorkItemTypeStatesResponse(url);
 				if (states != null) return Promise.resolve(states);
 
+				if (/\/_apis\/connectiondata(\?|$)/i.test(url)) {
+					identityReads.push(url);
+					const user = { id: orgUserId, providerDisplayName: orgUserId };
+					return Promise.resolve(json(200, { authenticatedUser: user, authorizedUser: user }));
+				}
+
 				urls.push(url);
 				return Promise.resolve(respond(url));
 			};
-			return { urls: urls };
+			return { urls: urls, identityReads: identityReads };
 		}
 
 		function workItemId(url: string): number {

@@ -1432,8 +1432,9 @@ export abstract class GitHostIntegration<
 		if (result.error != null) return { error: result.error, duration: result.duration };
 		if (result.value == null) return { value: undefined, duration: result.duration };
 
+		const viewers = await this.getIssueViewers(result.value.values, connectionId);
 		const values = result.value.values
-			.map(issue => toIssueShape(issue, this, { projection: 'repos' }))
+			.map((issue, i) => toIssueShape(issue, this, { projection: 'repos', viewer: viewers[i] }))
 			.filter((issue): issue is IssueShape => issue != null);
 		return { value: { ...result.value, values: values }, duration: result.duration };
 	}
@@ -1891,6 +1892,16 @@ export abstract class GitHostIntegration<
 		const account = await this.getCurrentAccount({ connectionId: connectionId });
 		const viewer = account != null ? { id: account.id, username: account.username } : undefined;
 		return pullRequests.map(() => viewer);
+	}
+
+	/**
+	 * The current account as each of `issues` identifies its members, in order, where that can differ from the
+	 * account itself: what a raw row's {@link IssueShape.viewer} is set to when it's mapped. Most hosts give a person
+	 * one id, so no row gets one; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`). Never
+	 * throws: a viewer that can't be resolved leaves the row without one.
+	 */
+	getIssueViewers(issues: readonly ProviderIssue[], _connectionId?: string): Promise<({ id: string } | undefined)[]> {
+		return Promise.resolve(issues.map(() => undefined));
 	}
 
 	/**

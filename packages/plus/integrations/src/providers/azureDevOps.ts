@@ -65,6 +65,7 @@ import type {
 	ProviderApiPagedResult,
 	ProviderAzureResource,
 	ProviderHierarchyResult,
+	ProviderIssue,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepoInput,
@@ -76,6 +77,7 @@ import {
 	getProviderPullRequestIdentity,
 	isNativePullRequest,
 	IssueFilter,
+	issueNamesPeople,
 	providerPullRequestMatchesSearch,
 	providersMetadata,
 	PullRequestFilter,
@@ -529,7 +531,30 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	/**
-	 * For one read, the current user as each organization's pull requests identify them (see
+	 * Resolved per organization, which a raw work item names as its project's namespace: an organization's work items
+	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no
+	 * organization or no one to match gets no viewer, nor does one in an organization whose id can't be read.
+	 */
+	override async getIssueViewers(
+		issues: readonly ProviderIssue[],
+		connectionId?: string,
+	): Promise<({ id: string } | undefined)[]> {
+		const organizations = issues.map(i => (issueNamesPeople(i) ? i.project?.namespace || undefined : undefined));
+		if (!organizations.some(o => o != null)) return organizations.map(() => undefined);
+
+		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
+		if (session == null) return organizations.map(() => undefined);
+
+		const viewerFor = this.getOrganizationViewers(session);
+		return Promise.all(
+			organizations.map(organization =>
+				organization != null ? viewerFor(organization) : Promise.resolve(undefined),
+			),
+		);
+	}
+
+	/**
+	 * For one read, the current user as each organization's pull requests and work items identify them (see
 	 * {@link getFilterUserId}). An organization whose id can't be read resolves `undefined`, since authorship is
 	 * optional enrichment and one organization's failed lookup must not fail the read or blank the others; it is
 	 * asked once per read, as a miss isn't cached.
@@ -1102,6 +1127,8 @@ export abstract class AzureDevOpsIntegrationBase<
 			id,
 			{
 				baseUrl: this.collectionApiBaseUrl(session, matchingProject.resourceName),
+				// The organization's own identity, which its work items carry, not necessarily the account's.
+				resolveViewer: () => this.getOrganizationViewers(session)(matchingProject.resourceName),
 			},
 		);
 	}
@@ -1157,10 +1184,14 @@ export abstract class AzureDevOpsIntegrationBase<
 	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo } = this.getApiOptions(session);
+		// Not the account's own id, which an organization's work items may not carry.
+		const viewerFor = this.getOrganizationViewers(session);
 
 		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
 			if (c.project == null) throw new Error(`Azure DevOps needs a project to read work item ${c.number}`);
 
+			// Resolved alongside the read rather than after it; it never rejects.
+			const viewer = viewerFor(c.owner);
 			const issue = await api.getAzureWorkItem(
 				tokenWithInfo,
 				{ namespace: c.owner, project: c.project },
@@ -1169,7 +1200,10 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			if (issue == null) return undefined;
 
-			const shape = toIssueShape(issue, this, { projection: 'batch' });
+			const shape = toIssueShape(issue, this, {
+				projection: 'batch',
+				viewer: issueNamesPeople(issue) ? await viewer : undefined,
+			});
 			if (shape == null) {
 				throw new Error(`Azure DevOps returned work item ${c.number} without a URL or change date`);
 			}
@@ -1933,6 +1967,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		}
 
 		const { tokenWithInfo } = this.getApiOptions(session);
+		// Not the account's own id: the read filters by its name, but an organization's work items carry its own id.
+		const viewerFor = this.getOrganizationViewers(session);
 
 		// Drain one (project × filter) read fully, threading the provider's paging cursor. The scope is passed so
 		// a page-level failure preserves the already-drained prefix and records a structured failure instead of
@@ -1958,8 +1994,16 @@ export abstract class AzureDevOpsIntegrationBase<
 				20,
 				{ providerId: this.id, resourceId: p.resourceId, projectId: p.name },
 			);
+			// Only asked for a project that returned someone to match, and once per organization for the read.
+			const viewer = result.values.some(issueNamesPeople) ? await viewerFor(p.resourceName) : undefined;
 			return {
-				issues: result.values.map(i => fromProviderIssue(i, this, { project: p, projection: 'account' })),
+				issues: result.values.map(i =>
+					fromProviderIssue(i, this, {
+						project: p,
+						projection: 'account',
+						viewer: issueNamesPeople(i) ? viewer : undefined,
+					}),
+				),
 				// Azure work-item ids are organization-scoped. Include both org and project so the
 				// assigned/authored passes dedupe the same item without collapsing another org's item.
 				projectKey: `${p.resourceId}:${p.id}`,

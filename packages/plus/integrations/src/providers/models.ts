@@ -1439,7 +1439,7 @@ function getProviderIssueState(issue: ProviderIssue, providerId: ProviderReferen
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { projection?: IssueProjection },
+	options?: { projection?: IssueProjection; viewer?: { id: string } },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1514,6 +1514,7 @@ export function toIssueShape(
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
+		...(options?.viewer != null ? { viewer: options.viewer } : {}),
 	};
 }
 
@@ -1999,6 +2000,14 @@ export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): b
 }
 
 /**
+ * Whether `issue` names anyone the current account could be: its author or an assignee. A row naming no one needs no
+ * viewer, as nothing on it can be matched against one.
+ */
+export function issueNamesPeople(issue: ProviderIssue): boolean {
+	return Boolean(issue.author?.id || issue.assignees?.some(a => a.id));
+}
+
+/**
  * GitLens' own GitHub GraphQL client keys people by login, while the current account's `id` is GitHub's
  * numeric database id, so an id-only match always misses there. The login is a unique handle on every
  * GitHub row shape, so the username fallback is safe there; elsewhere `toProviderAccount` fills `username`
@@ -2023,7 +2032,7 @@ function authoredByCurrentAccount(
 export function fromProviderIssue(
 	issue: ProviderIssue,
 	integration: Integration,
-	options?: { project?: IssueProject; projection?: IssueProjection },
+	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
@@ -2074,6 +2083,7 @@ export function fromProviderIssue(
 		toIssueIterations(issue),
 		options?.projection,
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
+		options?.viewer,
 	);
 }
 
