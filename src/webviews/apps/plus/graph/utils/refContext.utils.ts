@@ -38,9 +38,14 @@ import type {
  * (see {@link toReferenceUpstream}).
  */
 
-/** Inputs the webview holds rather than the row: the currently pinned ref, if any. */
+/**
+ * Inputs the webview holds rather than the row: the currently pinned ref, if any, and whether the graph's
+ * repository has any remotes (`branchState.hasRemotes`) — per repo, so the Publish Branch / Publish
+ * Repository menus pick the right action in a multi-repo workspace.
+ */
 export interface RefContextState {
 	pinnedRefId?: string;
+	hasRemotes?: boolean;
 }
 
 /**
@@ -72,7 +77,10 @@ function toReferenceUpstream(
 
 /**
  * `gitlens:branch` + flags, in the host's order: `+current`, `+tracking`, `+worktree`/`+checkedout`,
- * `+starred`, `+ahead`, `+behind`, `+pinned`.
+ * `+starred`, `+ahead`, `+behind`, `+pinned`, `+remotes`.
+ *
+ * `+remotes` (the REPOSITORY has a remote) is distinct from `+remote` (this IS a remote branch); every
+ * `when` clause matches the latter as `\+remote\b`, so the two never collide.
  *
  * `+worktree` vs `+checkedout`: the host tests `worktreesByBranch.has(head.id)`, a map with the MAIN
  * worktree removed, then falls back to comparing against the main worktree's branch id. The wire's
@@ -102,6 +110,9 @@ export function buildBranchWebviewItem(head: GitGraphRowHead, state?: RefContext
 	}
 	if (state?.pinnedRefId != null && head.id === state.pinnedRefId) {
 		item += '+pinned';
+	}
+	if (state?.hasRemotes) {
+		item += '+remotes';
 	}
 	return item;
 }

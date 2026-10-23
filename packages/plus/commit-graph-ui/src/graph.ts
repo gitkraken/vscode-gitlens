@@ -721,6 +721,9 @@ export class GlCommitGraph extends LitElement {
 	// Branch pinned to the leftmost lane(s) (the host's pin-branch-to-edge option). Resolved to a sha and fed
 	// to the engine as `pinnedShas`; a floating "Jump to Pinned Branch" pill scrolls to it when off-screen.
 	@property({ type: Object }) pinnedRef?: GraphPinnedRef;
+	// Whether the repository has any remotes (`branchState.hasRemotes`). Only forwarded to the row adapter,
+	// which stamps it into the ref pills' context menus, so a change re-runs the row mapping.
+	@property({ type: Boolean }) hasRemotes?: boolean;
 	// Full `owner/name` of the CURRENT branch's upstream (`branchState.upstream`). Ranks that remote's
 	// pill right after the pins on every row — including the rows HEAD's own pill isn't on, which is all
 	// of them once HEAD is ahead of or behind it. See `RowRefOrder`.
@@ -1389,6 +1392,7 @@ export class GlCommitGraph extends LitElement {
 	// Pinned branch tracking + its resolved sha (the leftmost-lane pin + the jump-pill target). A change
 	// re-runs recomputeRows so the engine re-pins via `pinnedShas`.
 	private lastPinnedRef?: GraphPinnedRef;
+	private lastHasRemotes?: boolean;
 	private pinnedSha?: string;
 
 	private lastFoldingDefault?: 'none' | 'all' | 'auto';
@@ -1841,6 +1845,7 @@ export class GlCommitGraph extends LitElement {
 			idLength !== this.lastIdLength ||
 			excludeStashesChanged ||
 			pinnedChanged ||
+			this.hasRemotes !== this.lastHasRemotes ||
 			refVisibilityChanged;
 		const scopeChanged = changed.has('scope') || this.scope !== this.lastScopeRef;
 
@@ -1921,6 +1926,7 @@ export class GlCommitGraph extends LitElement {
 			this.lastIdLength = idLength;
 			this.lastExcludeStashes = excludeStashes;
 			this.lastPinnedRef = this.pinnedRef;
+			this.lastHasRemotes = this.hasRemotes;
 			this.lastIncludeOnlyRefsRef = this.includeOnlyRefs;
 			this.lastExcludeRefsForRows = this.excludeRefs;
 			this.lastExcludeTypesForRows = this.excludeTypes;
@@ -3086,7 +3092,7 @@ export class GlCommitGraph extends LitElement {
 		const state = this.engineSession.update({
 			identity: this.repoFamily ?? this.repoPath,
 			sourceRows: sourceRows,
-			toCommit: row => this.profile.rowAdapter(row, idLength, this.repoPath, this.pinnedRef?.id),
+			toCommit: row => this.profile.rowAdapter(row, idLength, this.repoPath, this.pinnedRef?.id, this.hasRemotes),
 			headSha: rows.find(row => row.heads?.some(head => head.isCurrentHead))?.sha,
 			pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
 			syntheticChildren: this.scopeAnchors.syntheticChildren,

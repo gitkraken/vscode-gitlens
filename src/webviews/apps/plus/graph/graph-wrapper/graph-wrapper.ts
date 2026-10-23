@@ -1417,6 +1417,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.excludeTypes=${graphState.excludeTypes}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			.pinnedRef=${graphState.pinnedRef}
+			.hasRemotes=${graphState.branchState?.hasRemotes}
 			.currentUpstream=${graphState.branchState?.upstream}
 			.currentBranch=${graphState.branch}
 			.scope=${graphState.scope}

@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes a push to an unreachable HTTPS remote (e.g. a mistyped host) reporting a generic error rather than that the remote could not be reached
-- Fixes the views choosing between _Publish Branch_ and _Publish Repository_ by whether any repository in the workspace has remotes &mdash; each row now follows its own repository, and a remote without a recognized host no longer counts as no remote
+- Fixes the views and the _Commit Graph_'s context menus choosing between _Publish Branch_ and _Publish Repository_ by whether any repository in the workspace has remotes &mdash; each row now follows its own repository, and a remote without a recognized host no longer counts as no remote
 - Fixes _Add Remote and Fetch_ hanging (or closing silently) when the fetch failed, leaving the remote behind &mdash; it now warns and offers _Remove Remote_
 - Fixes pressing Enter on an invalid value in a wizard input (a remote URL, a branch name) navigating away &mdash; the field now stays open with the message until the value is valid
 - Fixes _Don't Ask Again_ appearing on push confirmations it cannot skip &mdash; the no-remotes chooser, the publish step, and the behind-upstream guard

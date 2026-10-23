@@ -1253,12 +1253,25 @@ export class GraphWipService {
 		// (`buildBranchContextSuffix`), so the menus can't drift — including `+worktree`, which follows
 		// the branch's actual worktree (non-default ones only) rather than this row's secondary status.
 		const pinnedRefId = this.context.getPinnedRefId(repo.path);
+		// Per repo (cached by the provider) so the Publish Branch / Publish Repository pick is right in a
+		// multi-repo workspace. Degrades like the branch read above rather than rejecting.
+		let hasRemotes = false;
+		if (branch != null) {
+			try {
+				hasRemotes = (await repo.git.remotes.getRemotes(undefined, signal)).length > 0;
+			} catch (ex) {
+				signal?.throwIfAborted();
+				Logger.error(ex, 'graph: failed to get remotes for WIP');
+			}
+		}
+		signal?.throwIfAborted();
 		const branchContext =
 			branch != null
 				? serializeWebviewItemContext<GraphItemContext>({
 						webviewItem: buildBranchContextSuffix(branch, {
 							isCheckedOut: isSecondaryWorktree,
 							pinnedRefId: pinnedRefId,
+							hasRemotes: hasRemotes,
 						}),
 						webviewItemValue: {
 							type: 'branch',

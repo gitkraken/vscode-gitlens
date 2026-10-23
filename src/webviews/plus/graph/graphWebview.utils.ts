@@ -231,6 +231,10 @@ export async function formatRepositories(repositories: GlRepository[]): Promise<
  * worktrees — the worktree-aware derivation `GraphPanelsService` owns. Callers whose surface notion of
  * "checked out" differs from "has a worktree" (the WIP header also counts its non-primary repo rows)
  * supply it via `options.isCheckedOut`, which only feeds the `+checkedout` token.
+ *
+ * `+remotes` marks that the branch's REPOSITORY has a remote (per repo, unlike the workspace-wide
+ * `gitlens:repos:withRemotes`) so the Publish Branch / Publish Repository menus pick the right action; it
+ * never collides with `+remote` (this IS a remote branch), which every `when` clause matches as `\+remote\b`.
  */
 export function buildBranchContextSuffix(
 	branch: GitBranch,
@@ -240,6 +244,8 @@ export function buildBranchContextSuffix(
 		pinnedRefId?: string;
 		hiddenIds?: ReadonlySet<string>;
 		hiddenByRemote?: boolean;
+		/** Whether the branch's repository has any remotes — drives `+remotes`. */
+		hasRemotes?: boolean;
 	},
 ): string {
 	return `gitlens:branch${branch.remote ? '+remote' : ''}${branch.current ? '+current' : ''}${
@@ -252,7 +258,7 @@ export function buildBranchContextSuffix(
 		options.pinnedRefId != null && branch.id === options.pinnedRefId ? '+pinned' : ''
 	}${!branch.current && options.hiddenIds?.has(branch.id) ? '+hidden' : ''}${
 		options.hiddenByRemote ? '+hiddenbyremote' : ''
-	}`;
+	}${options.hasRemotes ? '+remotes' : ''}`;
 }
 
 /**

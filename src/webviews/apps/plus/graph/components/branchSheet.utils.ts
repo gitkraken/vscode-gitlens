@@ -202,10 +202,11 @@ export function resolveLiveBranchSheetContext(
 	rows: GitGraphRow[] | undefined,
 	repoPath: string | undefined,
 	pinnedRefId: string | undefined,
+	hasRemotes: boolean | undefined,
 ): GraphItemContext | undefined {
 	if (repoPath == null) return undefined;
 
-	const state = pinnedRefId != null ? { pinnedRefId: pinnedRefId } : undefined;
+	const state = pinnedRefId != null || hasRemotes ? { pinnedRefId: pinnedRefId, hasRemotes: hasRemotes } : undefined;
 
 	if (ref.refType === 'head') {
 		const head = findRowHead(rows, h => h.name === ref.name);

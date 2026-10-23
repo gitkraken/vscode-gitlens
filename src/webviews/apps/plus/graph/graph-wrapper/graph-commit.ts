@@ -64,14 +64,16 @@ function mergeSerializedContexts(individual: string, group: string): string {
  * Convert a GitLens `GitGraphRow` into the commit-graph's canonical topology + payload shape.
  * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortSha`.
  *
- * `pinnedRefId` mirrors the host's own `getPinnedRefId()` — it only participates in the ref contexts, and
- * only when they are built here rather than taken from the wire.
+ * `pinnedRefId` mirrors the host's own `getPinnedRefId()`, and `hasRemotes` the repo's
+ * `branchState.hasRemotes` — both only participate in the ref contexts, and only when they are built here
+ * rather than taken from the wire.
  */
 export function toGraphCommit(
 	row: GitGraphRow,
 	idLength = 7,
 	repoPath?: string,
 	pinnedRefId?: string,
+	hasRemotes?: boolean,
 ): GraphCommitView {
 	// refGroups carries each grouped ref's refGROUP context (the "Hide" action), keyed by ref NAME. Seed it up
 	// front so the single ref pass below can merge it onto each ref's own item context (see
@@ -110,7 +112,8 @@ export function toGraphCommit(
 	// The ref's own context is built HERE from the structured fields — the host does not serialize one,
 	// and there is no fallback left to take: a snapshot written before the fields existed is discarded by
 	// the schema-version check rather than restored half-shaped.
-	const refState = pinnedRefId != null ? { pinnedRefId: pinnedRefId } : undefined;
+	const refState =
+		pinnedRefId != null || hasRemotes ? { pinnedRefId: pinnedRefId, hasRemotes: hasRemotes } : undefined;
 	const setContext = (kind: string, name: string, serialized: string | undefined): void => {
 		if (serialized == null) return;
 

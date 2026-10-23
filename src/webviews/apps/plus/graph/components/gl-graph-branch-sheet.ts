@@ -209,6 +209,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			this._graphState?.rows,
 			this.repoPath,
 			this._graphState?.pinnedRef?.id,
+			this._graphState?.branchState?.hasRemotes,
 		);
 		const context = liveContext ?? parseBranchSheetContext(ref.context);
 		// Resolved from LIVE pin state, never the ref's open-time context — the pin can change from this sheet,
@@ -401,7 +402,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			const hasRemote =
 				head != null
 					? head.upstream != null && !head.upstream.missing
-					: context.webviewItem.includes('+tracking') || context.webviewItem.includes('+remote');
+					: context.webviewItem.includes('+tracking') || /\+remote\b/.test(context.webviewItem);
 
 			if (!hasRemote) return nothing;
 		}
