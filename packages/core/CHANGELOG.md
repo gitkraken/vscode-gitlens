@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-10-23
+
 ### Fixed
 
 - Fixes REST version and work item route failures on TFS 2018 for native issue, pull request and reviewer-group reads. Work item categories use explicit server metadata; unavailable categories keep list results partial and exact state-filtered searches unsupported ([#6048](https://github.com/gitkraken/vscode-gitlens/issues/6048)).
@@ -888,7 +890,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...HEAD
+[0.16.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...gitkraken:releases/core/v0.16.2
 [0.16.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...gitkraken:releases/core/v0.16.1
 [0.16.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.7...gitkraken:releases/core/v0.16.0
 [0.15.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...gitkraken:releases/core/v0.15.7
