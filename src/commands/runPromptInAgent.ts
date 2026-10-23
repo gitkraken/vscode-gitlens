@@ -38,7 +38,8 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 	private static readonly maxRetries = 2;
 
 	constructor(private readonly container: Container) {
-		super('gitlens.runPromptInAgent');
+		// Callers act on the outcome (Review in Repo keeps or closes its channel by it), so it must come back
+		super('gitlens.runPromptInAgent', undefined, { returnResult: true });
 	}
 
 	async execute(args?: RunPromptInAgentCommandArgs): Promise<RunPromptInAgentOutcome> {
