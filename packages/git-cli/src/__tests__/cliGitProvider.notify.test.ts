@@ -1,10 +1,14 @@
 import * as assert from 'assert';
-import { resolve } from 'node:path';
+import { promises as nodeFsPromises } from 'node:fs';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import * as sinon from 'sinon';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
+import { getIgnoredWorktreeFolderExcludes } from '@gitlens/git/watching/watcherPatterns.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
@@ -377,6 +381,499 @@ suite('CliGitProvider — what an announced change resets', () => {
 				[repoPath, ['head', 'heads', 'index', 'pausedOp']],
 				[worktreePath, ['heads']],
 			]);
+		});
+	});
+
+	suite('ignored worktree folders', () => {
+		const ignored = `${repoPath}/.git/sync-tools-worktrees/x`;
+		// Inside the git dir, but under no folder the host registered: a user's own worktree
+		const inGitDir = `${repoPath}/.git/my-worktrees/x`;
+
+		test("a worktree under a registered folder of a linked worktree's common git dir announces nothing", async () => {
+			const ownGit = new Git(locator);
+			const ownChanged: [string, RepositoryChange[]][] = [];
+			const registering = new CliGitProvider({
+				cache: cache,
+				git: ownGit,
+				locator: locator,
+				context: {
+					fs: provider.context.fs,
+					hooks: { repository: { onChanged: (path, changes) => ownChanged.push([path, changes]) } },
+				},
+				ignoredWorktreeFolders: ['sync-tools-worktrees'],
+			});
+
+			// The linked worktree's `.git` file leads to its admin entry, whose `commondir` leads to the shared git dir
+			files.set(`${worktreePath}/.git`, `gitdir: ${repoPath}/.git/worktrees/wt\n`);
+			files.set(`${repoPath}/.git/worktrees/wt/commondir`, '../..\n');
+
+			try {
+				await ownGit.run(
+					{ cwd: worktreePath, errors: 'ignore', notify: 'infer' },
+					'worktree',
+					'remove',
+					ignored,
+				);
+				assert.strictEqual(ownChanged.length, 0);
+
+				await ownGit.run(
+					{ cwd: worktreePath, errors: 'ignore', notify: 'infer' },
+					'worktree',
+					'remove',
+					inGitDir,
+				);
+				assert.ok(ownChanged.some(([path, changes]) => path === worktreePath && changes.includes('worktrees')));
+				// The common git dir doesn't exist on disk, so it has no resolved spelling
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(worktreePath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+				]);
+				assert.deepStrictEqual(registering.getIgnoredWorktreeFolders(worktreePath), ['sync-tools-worktrees']);
+			} finally {
+				registering.dispose();
+			}
+		});
+
+		test('drops a folder that is no literal path inside the common git dir, for its roots and the watcher alike', async () => {
+			const registering = new CliGitProvider({
+				git: new Git(locator),
+				locator: locator,
+				context: { fs: provider.context.fs },
+				ignoredWorktreeFolders: [
+					'/elsewhere',
+					'../outside',
+					'tools/../../outside',
+					'build-*',
+					'(refs|x)',
+					'worktrees/x',
+					'c:x',
+					'sync-tools-worktrees',
+					'refs/sync',
+				],
+			});
+			files.set(`${repoPath}/.git`, null);
+
+			try {
+				const folders = registering.getIgnoredWorktreeFolders(repoPath);
+				assert.deepStrictEqual(folders, ['sync-tools-worktrees', 'refs/sync']);
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(repoPath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+					`${repoPath}/.git/refs/sync`,
+				]);
+				// One under `refs` is still ignored, but stays watched: the `.git` watch reads every ref there
+				assert.deepStrictEqual(getIgnoredWorktreeFolderExcludes(folders), ['sync-tools-worktrees']);
+			} finally {
+				registering.dispose();
+			}
+		});
+
+		/** A provider registering sync-tools' folder, over its own cache and the suite's files, counting each fs call */
+		function createCountingProvider(): { registering: CliGitProvider; ownCache: Cache; reads: string[] } {
+			const reads: string[] = [];
+			const fs = provider.context.fs;
+			const ownCache = new Cache();
+			const registering = new CliGitProvider({
+				cache: ownCache,
+				git: new Git(locator),
+				locator: locator,
+				context: {
+					fs: {
+						readDirectory: uri => {
+							reads.push(toFsPath(uri));
+							return fs.readDirectory(uri);
+						},
+						readFile: uri => {
+							reads.push(toFsPath(uri));
+							return fs.readFile(uri);
+						},
+						stat: uri => {
+							reads.push(toFsPath(uri));
+							return fs.stat(uri);
+						},
+					},
+				},
+				ignoredWorktreeFolders: ['sync-tools-worktrees'],
+			});
+			return { registering: registering, ownCache: ownCache, reads: reads };
+		}
+
+		test('reads the roots once per common git dir, and nothing once the git dir is cached', async () => {
+			const { registering, ownCache, reads } = createCountingProvider();
+			ownCache.gitDir.set(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+			ownCache.gitDir.set(worktreePath, {
+				uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+			// The common git dir resolves to itself, so the roots are complete and kept
+			const realpath = sinon.stub(nodeFsPromises, 'realpath').callsFake(async path => String(path));
+
+			try {
+				const roots = await registering.getIgnoredWorktreeRoots(repoPath);
+				assert.deepStrictEqual(roots, [`${repoPath}/.git/sync-tools-worktrees`]);
+				assert.strictEqual(await registering.getIgnoredWorktreeRoots(repoPath), roots);
+				// A sibling worktree shares them
+				assert.strictEqual(await registering.getIgnoredWorktreeRoots(worktreePath), roots);
+				assert.deepStrictEqual(reads, []);
+				assert.strictEqual(realpath.callCount, 1);
+			} finally {
+				sinon.restore();
+				registering.dispose();
+				ownCache.dispose();
+			}
+		});
+
+		test('reads the roots of a path registered again from its new git dir', async () => {
+			const { registering, ownCache } = createCountingProvider();
+			const otherCommon = normalizePath(resolve('/test/other-repo/.git'));
+			ownCache.registerRepoPath(fileUri(worktreePath), {
+				uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+			ownCache.gitDir.set(worktreePath, {
+				uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+
+			try {
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(worktreePath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+				]);
+
+				// The worktree was removed, and the path reused by another repository's
+				ownCache.unregisterRepoPath(worktreePath);
+				ownCache.gitDir.set(worktreePath, {
+					uri: fileUri(`${otherCommon}/worktrees/wt`),
+					commonUri: fileUri(otherCommon),
+				});
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(worktreePath), [
+					`${otherCommon}/sync-tools-worktrees`,
+				]);
+			} finally {
+				registering.dispose();
+				ownCache.dispose();
+			}
+		});
+
+		test("asks git once for a bare repository's git dir, and its worktree list keeps the shared cache", async () => {
+			const bare = normalizePath(resolve('/test/bare.git'));
+			const { registering, ownCache } = createCountingProvider();
+			ownCache.registerRepoPath(fileUri(bare), { uri: fileUri(bare) });
+			// What `git rev-parse` finds for a bare repository: the repository itself is its git dir
+			const getGitDir = sinon.stub(registering.config, 'getGitDir').callsFake(path => {
+				const gitDir = { uri: fileUri(bare) };
+				ownCache.gitDir.set(path, gitDir);
+				return Promise.resolve(gitDir);
+			});
+			const listings: string[] = [];
+			sinon.stub(registering.git, 'run').callsFake((options, ...args) => {
+				if (args[0] === 'worktree') {
+					listings.push(String(options.cwd));
+					return Promise.resolve({
+						stdout: `worktree ${bare}\nbare\n\nworktree ${bare}/sync-tools-worktrees/x\nHEAD def\ndetached\n\n`,
+						stderr: undefined,
+						exitCode: 0,
+						completion: { status: 'exited', code: 0 },
+					});
+				}
+				return Promise.resolve({
+					stdout: '',
+					stderr: undefined,
+					exitCode: 0,
+					completion: { status: 'exited', code: 0 },
+				});
+			});
+
+			try {
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(bare), [
+					`${bare}/sync-tools-worktrees`,
+				]);
+				assert.strictEqual(getGitDir.callCount, 1);
+
+				const first = await registering.worktrees.getWorktrees(bare);
+				const second = await registering.worktrees.getWorktrees(bare);
+				assert.deepStrictEqual(
+					first.map(w => normalizePath(w.path)),
+					[bare],
+				);
+				assert.deepStrictEqual(
+					second.map(w => normalizePath(w.path)),
+					[bare],
+				);
+				assert.strictEqual(listings.length, 1);
+			} finally {
+				registering.dispose();
+				ownCache.dispose();
+			}
+		});
+
+		suite('when the git dir hangs', () => {
+			let clock: sinon.SinonFakeTimers;
+
+			setup(() => {
+				clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			});
+
+			teardown(() => {
+				clock.restore();
+				sinon.restore();
+			});
+
+			test('gives up on the roots after a few seconds, and reads them again next time', async () => {
+				const { registering, ownCache } = createCountingProvider();
+				ownCache.gitDir.set(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+				// A stale mount: resolving the common git dir never settles
+				const realpath = sinon.stub(nodeFsPromises, 'realpath').returns(new Promise<string>(() => {}));
+
+				try {
+					let failed = false;
+					void registering.getIgnoredWorktreeRoots(repoPath).catch(() => {
+						failed = true;
+					});
+					await clock.tickAsync(5000);
+					assert.strictEqual(failed, true);
+
+					realpath.resolves(normalizePath(resolve('/real/repo/.git')));
+					assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(repoPath), [
+						`${repoPath}/.git/sync-tools-worktrees`,
+						`${normalizePath(resolve('/real/repo/.git'))}/sync-tools-worktrees`,
+					]);
+				} finally {
+					registering.dispose();
+					ownCache.dispose();
+				}
+			});
+		});
+
+		test('serves the roots it could read when the git dir can not be resolved, and resolves it again next time', async () => {
+			const { registering, ownCache } = createCountingProvider();
+			ownCache.gitDir.set(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+			const realpath = sinon
+				.stub(nodeFsPromises, 'realpath')
+				.rejects(Object.assign(new Error('EIO'), { code: 'EIO' }));
+
+			try {
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(repoPath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+				]);
+
+				realpath.resolves(normalizePath(resolve('/real/repo/.git')));
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(repoPath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+					`${normalizePath(resolve('/real/repo/.git'))}/sync-tools-worktrees`,
+				]);
+				assert.strictEqual(realpath.callCount, 2);
+			} finally {
+				sinon.restore();
+				registering.dispose();
+				ownCache.dispose();
+			}
+		});
+
+		test('a provider that registers no folder announces every worktree write', async () => {
+			await git.run({ cwd: worktreePath, errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', ignored);
+
+			assert.ok(changed.some(([path, changes]) => path === worktreePath && changes.includes('worktrees')));
+		});
+
+		test('a provider that registers no folder answers no roots, reading nothing', async () => {
+			const reads: string[] = [];
+			const plain = new CliGitProvider({
+				git: new Git(locator),
+				locator: locator,
+				context: {
+					fs: {
+						readDirectory: uri => {
+							reads.push(toFsPath(uri));
+							return Promise.resolve([]);
+						},
+						readFile: uri => {
+							reads.push(toFsPath(uri));
+							return Promise.reject(new Error('ENOENT'));
+						},
+						stat: uri => {
+							reads.push(toFsPath(uri));
+							return Promise.resolve(undefined);
+						},
+					},
+				},
+			});
+			try {
+				assert.deepStrictEqual(await plain.getIgnoredWorktreeRoots(repoPath), []);
+				assert.deepStrictEqual(plain.getIgnoredWorktreeFolders(repoPath), []);
+				assert.deepStrictEqual(reads, []);
+			} finally {
+				plain.dispose();
+			}
+		});
+
+		test('a provider that registers no folder, sharing the Git of one that does, announces every worktree write', async () => {
+			const sharedGit = new Git(locator);
+			const plainChanged: [string, RepositoryChange[]][] = [];
+			const registering = new CliGitProvider({
+				cache: cache,
+				git: sharedGit,
+				locator: locator,
+				context: { fs: provider.context.fs },
+				ignoredWorktreeFolders: ['sync-tools-worktrees'],
+			});
+			const plain = new CliGitProvider({
+				cache: cache,
+				git: sharedGit,
+				locator: locator,
+				context: {
+					fs: provider.context.fs,
+					hooks: { repository: { onChanged: (path, changes) => plainChanged.push([path, changes]) } },
+				},
+			});
+			files.set(`${worktreePath}/.git`, `gitdir: ${repoPath}/.git/worktrees/wt\n`);
+			files.set(`${repoPath}/.git/worktrees/wt/commondir`, '../..\n');
+
+			try {
+				// The folder-registering provider, created first, would have ignored it
+				assert.deepStrictEqual(await registering.getIgnoredWorktreeRoots(worktreePath), [
+					`${repoPath}/.git/sync-tools-worktrees`,
+				]);
+				await sharedGit.run(
+					{ cwd: worktreePath, errors: 'ignore', notify: 'infer' },
+					'worktree',
+					'remove',
+					ignored,
+				);
+				assert.ok(
+					plainChanged.some(([path, changes]) => path === worktreePath && changes.includes('worktrees')),
+				);
+			} finally {
+				plain.dispose();
+				registering.dispose();
+			}
+		});
+
+		suite('through a symlink', () => {
+			let tmp: string;
+			/** The repository as the host spells it: through a symlink to `realPath` */
+			let linkPath: string;
+			/** The repository as git spells it, every symlink resolved */
+			let realPath: string;
+			let ownCache: Cache;
+			let ownChanged: [string, RepositoryChange[]][];
+
+			const nodeFs: FileSystemProvider = {
+				readDirectory: async uri =>
+					(await readdir(toFsPath(uri), { withFileTypes: true })).map(d => [d.name, d.isDirectory() ? 2 : 1]),
+				readFile: uri => readFile(toFsPath(uri)),
+				stat: async uri => {
+					try {
+						const s = await stat(toFsPath(uri));
+						return { type: s.isDirectory() ? 2 : 1, ctime: s.ctimeMs, mtime: s.mtimeMs, size: s.size };
+					} catch {
+						return undefined;
+					}
+				},
+			};
+
+			function createProvider(git: Git, localRepositories?: boolean): CliGitProvider {
+				return new CliGitProvider({
+					cache: ownCache,
+					git: git,
+					locator: locator,
+					context: {
+						fs: nodeFs,
+						hooks: { repository: { onChanged: (path, changes) => ownChanged.push([path, changes]) } },
+					},
+					ignoredWorktreeFolders: ['sync-tools-worktrees'],
+					localRepositories: localRepositories,
+				});
+			}
+
+			setup(async function () {
+				tmp = await mkdtemp(join(tmpdir(), 'gl-ignored-worktrees-'));
+				const real = join(tmp, 'real');
+				await mkdir(join(real, '.git'), { recursive: true });
+				const link = join(tmp, 'link');
+				try {
+					await symlink(real, link, 'dir');
+				} catch (ex) {
+					// Windows creates symlinks only with Developer Mode or elevation
+					if ((ex as NodeJS.ErrnoException).code === 'EPERM') {
+						this.skip();
+					}
+					throw ex;
+				}
+				linkPath = normalizePath(link);
+				realPath = normalizePath(await realpath(real));
+				ownCache = new Cache();
+				ownCache.registerRepoPath(fileUri(linkPath), { uri: fileUri(`${linkPath}/.git`) });
+				ownChanged = [];
+			});
+
+			teardown(async () => {
+				ownCache?.dispose();
+				await rm(tmp, { recursive: true, force: true });
+			});
+
+			test('gives each folder as the host spells the common git dir and as it resolves', async () => {
+				const resolving = createProvider(new Git(locator));
+				const local = new CliGitProvider({
+					git: new Git(locator),
+					locator: locator,
+					context: { fs: nodeFs },
+					ignoredWorktreeFolders: ['sync-tools-worktrees'],
+				});
+				try {
+					assert.deepStrictEqual(await resolving.getIgnoredWorktreeRoots(linkPath), [
+						`${linkPath}/.git/sync-tools-worktrees`,
+						`${realPath}/.git/sync-tools-worktrees`,
+					]);
+					// Found from the `.git` folder on disk, without a cache entry
+					assert.deepStrictEqual(await local.getIgnoredWorktreeRoots(linkPath), [
+						`${linkPath}/.git/sync-tools-worktrees`,
+						`${realPath}/.git/sync-tools-worktrees`,
+					]);
+				} finally {
+					local.dispose();
+					resolving.dispose();
+				}
+			});
+
+			test('gives only the host spelling for repositories that may not be local', async () => {
+				const remote = createProvider(new Git(locator), false);
+				try {
+					assert.deepStrictEqual(await remote.getIgnoredWorktreeRoots(linkPath), [
+						`${linkPath}/.git/sync-tools-worktrees`,
+					]);
+				} finally {
+					remote.dispose();
+				}
+			});
+
+			test('a worktree git names by its resolved path announces nothing', async () => {
+				const ownGit = new Git(locator);
+				const registering = createProvider(ownGit);
+				try {
+					await ownGit.run(
+						{ cwd: linkPath, errors: 'ignore', notify: 'infer' },
+						'worktree',
+						'remove',
+						resolve(`${realPath}/.git/sync-tools-worktrees/x`),
+					);
+					await ownGit.run(
+						{ cwd: linkPath, errors: 'ignore', notify: 'infer' },
+						'worktree',
+						'remove',
+						resolve(`${linkPath}/.git/sync-tools-worktrees/x`),
+					);
+					assert.deepStrictEqual(ownChanged, []);
+
+					await ownGit.run(
+						{ cwd: linkPath, errors: 'ignore', notify: 'infer' },
+						'worktree',
+						'remove',
+						resolve(`${realPath}/.git/my-worktrees/x`),
+					);
+					assert.deepStrictEqual(ownChanged, [[linkPath, ['worktrees']]]);
+				} finally {
+					registering.dispose();
+				}
+			});
 		});
 	});
 });

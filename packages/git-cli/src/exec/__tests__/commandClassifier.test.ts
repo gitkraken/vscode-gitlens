@@ -439,6 +439,44 @@ suite('commandClassifier', () => {
 			[['worktree', 'add', '--unknown', '/wt', sha], { changes: ['worktrees', 'heads'] }],
 		]);
 
+		suite('worktree keeps the paths of the worktrees it acts on', () => {
+			const cases: readonly (readonly [readonly string[], readonly string[] | undefined])[] = [
+				[['worktree', 'add', '--detach', '--force', '--end-of-options', '/wt', sha], ['/wt']],
+				[['worktree', 'add', '-b', 'feat', 'wt', sha], ['wt']],
+				[['worktree', 'add', '-bfeat', '/wt'], ['/wt']],
+				[['worktree', 'add', '--reason', 'why', '--lock', '-d', '/wt'], ['/wt']],
+				[['worktree', 'add', '--orphan', '-b', 'x', '/wt'], ['/wt']],
+				[['worktree', 'add', '/wt', 'main'], ['/wt']],
+				[['worktree', 'add', '--end-of-options', '-wt', sha], ['-wt']],
+				[['worktree', 'remove', '--force', '--end-of-options', '/wt'], ['/wt']],
+				[['worktree', 'remove', '-f', '-f', '/wt'], ['/wt']],
+				[['worktree', 'lock', '--reason', 'why', '/wt'], ['/wt']],
+				[['worktree', 'lock', '--reason=why', '/wt'], ['/wt']],
+				[['worktree', 'unlock', '/wt'], ['/wt']],
+				[
+					['worktree', 'move', '-f', '/wt', '/wt2'],
+					['/wt', '/wt2'],
+				],
+				[['worktree', 'add', '--unknown', '/wt', sha], undefined],
+				[['worktree', 'add', '/wt', sha, 'extra'], undefined],
+				[['worktree', 'add'], undefined],
+				[['worktree', 'remove', '/wt', '/wt2'], undefined],
+				[['worktree', 'lock', '--unknown', '/wt'], undefined],
+				[['worktree', 'move', '/wt'], undefined],
+				[['worktree', 'prune'], undefined],
+				[['worktree', 'repair', '/wt'], undefined],
+			];
+			for (const [args, expected] of cases) {
+				test(`'${args.join(' ')}'`, () => {
+					assert.deepStrictEqual(getChangesForCommand(args)?.worktreePaths, expected);
+				});
+			}
+
+			test('is never set for another verb', () => {
+				assert.strictEqual(getChangesForCommand(['branch', '-d', '/wt'])?.worktreePaths, undefined);
+			});
+		});
+
 		suiteOf('checkout and switch name only a branch they can create', [
 			[['checkout', '--detach', sha], { changes: ['head', 'index'] }],
 			[['checkout', sha], { changes: ['head', 'index'] }],

@@ -148,3 +148,99 @@ suite('WorktreesGitSubProvider.getWorktrees lock reason fallback', () => {
 		);
 	});
 });
+
+suite('WorktreesGitSubProvider.getWorktrees ignored worktrees', () => {
+	const ignored = '/repo/.git/sync-tools-worktrees/x';
+	// Inside the git dir, but under no folder the host registered: a user's own worktree
+	const inGitDir = '/repo/.git/my-worktrees/x';
+	const listing = exited(
+		`worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n${[ignored, inGitDir, '/wt']
+			.map(p => `worktree ${p}\nHEAD def\ndetached\n`)
+			.join('\n')}\n`,
+	);
+
+	/** `invalidated` counts the listings the shared cache was told not to keep */
+	function createProvider(
+		readIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[] | undefined>,
+		invalidated?: { count: number },
+	): WorktreesGitSubProvider {
+		const cache = {
+			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
+				load(
+					repoPath,
+					{
+						invalidate: () => {
+							if (invalidated != null) {
+								invalidated.count++;
+							}
+						},
+					},
+					undefined,
+				),
+		} as unknown as Cache;
+		return new WorktreesGitSubProvider(
+			{ hooks: {} } as unknown as GitServiceContext,
+			{
+				ensureSupports: () => Promise.resolve(),
+				run: () => Promise.resolve(listing),
+				supports: () => Promise.resolve(true),
+			} as unknown as Git,
+			cache,
+			{ branches: { getBranches: () => Promise.resolve({ values: [] }) } } as unknown as CliGitProviderInternal,
+			readIgnoredWorktreeRoots,
+		);
+	}
+
+	test('leaves out a worktree under an ignored folder, but not one elsewhere in the git dir', async () => {
+		const reads: string[] = [];
+		const invalidated = { count: 0 };
+		const provider = createProvider(repoPath => {
+			reads.push(repoPath);
+			return Promise.resolve(['/repo/.git/sync-tools-worktrees']);
+		}, invalidated);
+
+		const worktrees = await provider.getWorktrees('/repo');
+
+		assert.deepStrictEqual(
+			worktrees.map(w => w.path),
+			['/repo', inGitDir, '/wt'],
+		);
+		assert.deepStrictEqual(reads, ['/repo']);
+		assert.strictEqual(invalidated.count, 0);
+	});
+
+	test('lists every worktree, and keeps the list, when no folder is registered', async () => {
+		const invalidated = { count: 0 };
+		const worktrees = await createProvider(undefined, invalidated).getWorktrees('/repo');
+
+		assert.deepStrictEqual(
+			worktrees.map(w => w.path),
+			['/repo', ignored, inGitDir, '/wt'],
+		);
+		assert.strictEqual(invalidated.count, 0);
+	});
+
+	test('lists every worktree, and keeps the list, when no registered folder applies', async () => {
+		const invalidated = { count: 0 };
+		const worktrees = await createProvider(() => Promise.resolve([]), invalidated).getWorktrees('/repo');
+
+		assert.deepStrictEqual(
+			worktrees.map(w => w.path),
+			['/repo', ignored, inGitDir, '/wt'],
+		);
+		assert.strictEqual(invalidated.count, 0);
+	});
+
+	test("lists every worktree, but doesn't keep the list, when the registered folders can't be read", async () => {
+		for (const read of [() => Promise.resolve(undefined), () => Promise.reject(new Error('unreadable'))]) {
+			const invalidated = { count: 0 };
+			const worktrees = await createProvider(read, invalidated).getWorktrees('/repo');
+
+			assert.deepStrictEqual(
+				worktrees.map(w => w.path),
+				['/repo', ignored, inGitDir, '/wt'],
+			);
+			assert.strictEqual(invalidated.count, 1);
+		}
+	});
+});

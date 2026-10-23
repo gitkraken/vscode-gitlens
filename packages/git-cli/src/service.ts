@@ -34,6 +34,9 @@ export interface CliGitServiceOptions {
 	/** Use an existing Cache instance, or one will be created */
 	cache?: CliGitProviderOptions['cache'];
 
+	/** Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist */
+	ignoredWorktreeFolders?: CliGitProviderOptions['ignoredWorktreeFolders'];
+
 	/**
 	 * Filesystem watching provider. When provided, the {@link GitService}
 	 * will watch repositories for changes (file creates, edits, deletes).
@@ -75,6 +78,8 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		verifyBaseRemeasure: options.verifyBaseRemeasure,
 		// The host's file system reads the shared `.git/config` the watch service compares reports of
 		readFile: path => options.context.fs.readFile(fileUri(path)),
+		// And lists the directory the admin entries of its worktrees are in
+		readDirectory: path => options.context.fs.readDirectory(fileUri(path)),
 	});
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
@@ -83,6 +88,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		locator: locator,
 		gitOptions: options.gitOptions,
 		cache: options.cache,
+		ignoredWorktreeFolders: options.ignoredWorktreeFolders,
 	});
 
 	service.register(provider, () => true);
