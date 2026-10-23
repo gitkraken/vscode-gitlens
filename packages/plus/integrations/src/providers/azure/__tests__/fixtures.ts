@@ -174,6 +174,7 @@ export function azureRestDiscoveryResponse(input: string | URL): Response | unde
 	if (area == null) return undefined;
 
 	const definitions = [
+		['wit', 'b51fd764-e5c2-4b9b-aaf7-3395cf4bdd94', '_apis/wit/fields'],
 		['wit', '1a9c53f7-f243-4447-b110-35ef023636e4', '{project}/{team}/_apis/wit/wiql'],
 		['wit', '72c7ddf8-2cdc-4f60-90cd-ab71c14a399b', '{project}/_apis/wit/workItems/{id}'],
 		['wit', '908509b6-4248-4475-a1cd-829139ba419f', '{project}/_apis/wit/workItemsBatch'],

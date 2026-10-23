@@ -1,4 +1,4 @@
-import { GitIssueState, needsAzureWorkItemHtmlFields } from '@gitkraken/provider-apis';
+import { GitIssueState } from '@gitkraken/provider-apis';
 import type {
 	AzureDevOpsRestResource,
 	AzureDevOpsRestResourceInfo,
@@ -44,7 +44,6 @@ import { AzureWorkItemDescriptionsCache } from './azure/workItemDescriptions.js'
 import type { AzureWorkItemStatesScope } from './azure/workItemStateCategories.js';
 import {
 	AzureWorkItemStatesCache,
-	getAzureWorkItemFieldsPath,
 	getAzureWorkItemTypeStatesUrl,
 	getAzureWorkItemTypesUrl,
 	requireAzureWorkItemStateCategories,
@@ -1104,33 +1103,17 @@ export class ProvidersApi implements Disposable {
 			throw new Error(`Azure DevOps work item ${id} is in project '${project}', not '${scope.project}'`);
 		}
 
-		const htmlFields = await this.azureWorkItemDescriptions.getFields(
-			workItem?.fields,
-			{ baseUrl: baseUrl, namespace: scope.namespace, token: token, isPAT: requestOptions.isPAT },
-			async () => {
-				const fields = await this.getAzureRestResource(
-					tokenWithInfo,
-					scope.namespace,
-					'fields',
-					requestOptions,
-				);
-				return (
-					await this.request({
-						url: `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/_apis/wit/fields?api-version=${fields.apiVersion}`,
-						headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
-					})
-				).body;
-			},
-		);
 		const issue =
-			workItem != null
-				? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project, htmlFields)
-				: undefined;
+			workItem != null ? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project) : undefined;
 		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
 
-		// Outside the not-found handling above: a states read that 404s says nothing about the work item, so it fails
-		// the read rather than reading as an absent work item.
-		await this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, requestOptions);
+		// Metadata failures say nothing about the work item's existence, so keep them outside the not-found handling.
+		const [htmlFields] = await Promise.all([
+			this.getAzureWorkItemHtmlFields(tokenWithInfo, scope, workItem?.fields, requestOptions),
+			this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, requestOptions),
+		]);
+		Object.assign(issue, toAzureWorkItemDescriptionFields(workItem?.fields, htmlFields));
+
 		return issue;
 	}
 
@@ -2221,28 +2204,36 @@ export class ProvidersApi implements Disposable {
 		}
 	}
 
-	/**
-	 * The organization's rich text fields a work item's description may come from, as provider-apis reads them for
-	 * its list rows. Best-effort: `undefined` on any failure, which leaves the description to the built-in fields
-	 * rather than failing the work item. Logged for every failure, a body that isn't a catalog included.
-	 */
 	private async getAzureWorkItemHtmlFields(
-		token: TokenWithInfo,
-		namespace: string,
-		options?: { baseUrl?: string; isPAT?: boolean },
-	): Promise<AzureWorkItemHtmlField[] | undefined> {
-		const scope = this.azureStatesScope(token, namespace, '', options);
+		tokenWithInfo: TokenWithInfo,
+		scope: { namespace: string },
+		fields: AzureWorkItemResponse['fields'],
+		requestOptions: { baseUrl: string; isPAT: boolean },
+	): Promise<readonly AzureWorkItemHtmlField[]> {
+		const token = tokenWithInfo.accessToken;
+		const baseUrl = requestOptions.baseUrl;
 		try {
-			return await this.azureWorkItemTypeStates.getHtmlFields(scope, () =>
-				this.readAzureStatesMetadata(
-					token,
-					`${scope.baseUrl.replace(/\/$/, '')}/${getAzureWorkItemFieldsPath(namespace)}`,
-					scope.isPAT,
-				),
+			return await this.azureWorkItemDescriptions.getFields(
+				fields,
+				{ baseUrl: baseUrl, namespace: scope.namespace, token: token, isPAT: requestOptions.isPAT },
+				async () => {
+					const resource = await this.getAzureRestResource(
+						tokenWithInfo,
+						scope.namespace,
+						'fields',
+						requestOptions,
+					);
+					return (
+						await this.request({
+							url: `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/_apis/wit/fields?api-version=${resource.apiVersion}`,
+							headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
+						})
+					).body;
+				},
 			);
 		} catch (ex) {
-			Logger.warn(`Unable to read the Azure DevOps field catalog of '${namespace}': ${String(ex)}`);
-			return undefined;
+			Logger.warn(`Unable to read the Azure DevOps field catalog of '${scope.namespace}': ${String(ex)}`);
+			return [];
 		}
 	}
 

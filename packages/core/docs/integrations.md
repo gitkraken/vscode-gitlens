@@ -1352,20 +1352,17 @@ Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items and
 (`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before treating either
 as Markdown.
 
-An Azure DevOps work item's body is its first rich text field with content, since its type decides where the content
-lives: `System.Description`, then the built-in description fields (`Microsoft.VSTS.TCM.ReproSteps` on Agile, Scrum and
-CMMI Bugs, `Microsoft.VSTS.Common.AcceptanceCriteria`, `Microsoft.VSTS.CMMI.Symptom`), then any other `html` field
-of the organization's field catalog, custom fields first (provider-apis' `getAzureWorkItemDescription`, which every
-read applies). `bodyField` names the field (`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`) so a
-host can label the body; it is absent for other providers. The catalog is read only for a work item no built-in field
-describes, and kept for an hour per organization, credential and client (provider-apis keeps its own for list rows); when it can't be read the body falls back to the built-in
-fields.
-
-Azure work item lists, direct point reads and search hydration use the SDK's shared description selector:
-Description, Repro Steps, Acceptance Criteria and Symptom first, then additional HTML fields declared by the
-collection's field catalog. The catalog is optional; an unavailable catalog leaves the built-in fields available.
-An empty Description is preserved when no field has visible content. Direct reads share a catalog cache scoped
-to the installation, collection, credential and authentication mode, cleared on HTTP proxy changes.
+An Azure DevOps work item's body is its first rich text field with content: `System.Description`, then the built-in
+description fields (`Microsoft.VSTS.TCM.ReproSteps`, `Microsoft.VSTS.Common.AcceptanceCriteria`,
+`Microsoft.VSTS.CMMI.Symptom`), then additional HTML fields declared by the organization's field catalog, custom fields
+first. Every read uses provider-apis' shared selector. `bodyField` names the selected field
+(`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`) so a host can label the body; it is absent when no body
+is available and for other providers. The catalog is read only when no built-in field describes the work item, and
+kept for an hour per organization, credential and client (provider-apis keeps its own for list rows). An unavailable
+or malformed catalog leaves the body to the built-in fields rather than failing the work item; the caller's
+cancellation still propagates.
+An empty Description is preserved when no field has visible content. Direct reads share a catalog cache scoped to
+the installation, collection, credential and authentication mode, cleared on HTTP proxy changes.
 
 Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
 Markdown by this package.

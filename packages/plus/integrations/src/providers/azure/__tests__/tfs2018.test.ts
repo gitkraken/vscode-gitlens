@@ -1,12 +1,15 @@
 import * as assert from 'node:assert/strict';
 import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { Emitter } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationAuthenticationService } from '../../../authentication/integrationAuthenticationService.js';
 import type { TokenWithInfo } from '../../../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
 import type { ConfigChangeEvent } from '../../../context.js';
 import { AuthenticationError } from '../../../errors.js';
+import { issueEtag, issueEtagFieldsFromShape } from '../../../reads/etag.js';
 import { ProvidersApi } from '../../providersApi.js';
 import { AzureDevOpsApi } from '../azure.js';
 import { toAzureWorkItemEtagFields } from '../models.js';
@@ -89,12 +92,17 @@ function harness(allMappedStates = false) {
 	let missingProject = false;
 	let descriptionFields: Record<string, unknown> = {};
 	let catalogStatus = 200;
+	let catalogFailure: Error | undefined;
+	let title: string | undefined;
 	const item = () => {
 		const value = createWorkItem();
 		value.fields['System.TeamProject'] = itemProject;
 		value.fields['System.WorkItemType'] = 'Task';
 		value.fields['System.State'] = state;
 		Object.assign(value.fields, descriptionFields);
+		if (title != null) {
+			value.fields['System.Title'] = title;
+		}
 		if (missingProject) {
 			delete (value.fields as Partial<typeof value.fields>)['System.TeamProject'];
 		}
@@ -147,6 +155,8 @@ function harness(allMappedStates = false) {
 			return Response.json(legacyMappings);
 		}
 		if (route === '_apis/wit/fields') {
+			if (catalogFailure != null) throw catalogFailure;
+
 			return Response.json(
 				{
 					value: [
@@ -204,6 +214,12 @@ function harness(allMappedStates = false) {
 		setDescription: (fields: Record<string, unknown>, status = 200) => {
 			descriptionFields = fields;
 			catalogStatus = status;
+		},
+		setTitle: (value: string) => {
+			title = value;
+		},
+		cancelCatalog: () => {
+			catalogFailure = new CancellationError();
 		},
 		denyDiscovery: () => {
 			discoveryStatus = 401;
@@ -463,8 +479,81 @@ suite('TFS 2018 core REST compatibility', () => {
 			assert.deepEqual(point?.descriptionField, listed.values[0].descriptionField);
 			assert.equal(native?.body, listed.values[0].description);
 			assert.equal(search.values[0]?.body, listed.values[0].description);
+			const bodyField = { id: descriptionField.referenceName, name: descriptionField.name };
+			assert.deepEqual(native?.bodyField, bodyField);
+			assert.deepEqual(search.values[0]?.bodyField, bodyField);
+			assert.ok(native);
+			const [cheap] = await h.api.getAzureWorkItemsEtagFields(
+				token,
+				{ namespace: collection, project: project },
+				[42],
+				options,
+			);
+			assert.equal(
+				issueEtag(toAzureWorkItemEtagFields(cheap.workItem, project, cheap.category), []),
+				issueEtag(issueEtagFieldsFromShape(native), []),
+			);
 			const catalogReads = h.requests.filter(r => r.url.pathname.endsWith('/wit/fields'));
 			assert.equal(catalogReads.length, name === 'built-in fallback' ? 0 : 2);
+		});
+	}
+
+	test('cached catalog failures remain observable while point reads keep their fallback', async () => {
+		const h = harness();
+		h.setDescription({ 'Custom.Notes': '<p>Unverified content</p>' }, 503);
+		const logged: string[] = [];
+		const originalWarn = Logger.warn;
+		Logger.warn = (...params: unknown[]) => void logged.push(params.join(' '));
+		try {
+			for (let i = 0; i < 2; i++) {
+				const issue = await h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, {
+					baseUrl: baseUrl,
+					isPAT: true,
+				});
+				assert.ok(issue);
+				assert.notEqual(issue.description, '<p>Unverified content</p>');
+			}
+			assert.equal(logged.filter(message => message.includes('field catalog')).length, 2);
+			assert.equal(h.requests.filter(r => r.url.pathname.endsWith('/wit/fields')).length, 1);
+		} finally {
+			Logger.warn = originalWarn;
+		}
+	});
+
+	test('a catalog cancellation the caller did not request keeps the work item readable', async () => {
+		const h = harness();
+		h.setDescription({ 'Custom.Notes': '<p>Unverified content</p>' });
+		h.cancelCatalog();
+		const issue = await h.native.getIssue(
+			azureProvider,
+			token,
+			{ ...azureProject, resourceName: collection },
+			'42',
+			{ baseUrl: baseUrl },
+		);
+		assert.equal(issue?.id, '42');
+		assert.notEqual(issue?.body, '<p>Unverified content</p>');
+	});
+
+	for (const invalid of ['another project', 'missing project', 'unreadable title'] as const) {
+		test(`a point row with ${invalid} cannot trigger a catalog read`, async () => {
+			const h = harness();
+			h.setDescription({ 'Custom.Notes': '<p>Private content</p>' });
+			if (invalid === 'another project') {
+				h.setProject('Another project');
+			} else if (invalid === 'missing project') {
+				h.omitProject();
+			} else {
+				h.setTitle('');
+			}
+			await assert.rejects(
+				h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, {
+					baseUrl: baseUrl,
+					isPAT: true,
+				}),
+				/has no project|not 'Payments'|no readable work item/,
+			);
+			assert.equal(h.requests.filter(r => r.url.pathname.endsWith('/wit/fields')).length, 0);
 		});
 	}
 

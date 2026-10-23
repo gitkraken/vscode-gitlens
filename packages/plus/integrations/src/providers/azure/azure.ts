@@ -4,7 +4,6 @@ import type {
 	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 } from '@gitkraken/provider-apis';
-import { needsAzureWorkItemHtmlFields } from '@gitkraken/provider-apis';
 import * as l10n from '@vscode/l10n';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
@@ -82,7 +81,6 @@ import { AzureWorkItemDescriptionsCache } from './workItemDescriptions.js';
 import { queryAzureWorkItemSearch } from './workItemSearch.js';
 import {
 	AzureWorkItemStatesCache,
-	getAzureWorkItemFieldsPath,
 	getAzureWorkItemTypeStatesPath,
 	getAzureWorkItemTypesUrl,
 	requireAzureWorkItemStateCategories,
@@ -566,22 +564,25 @@ export class AzureDevOpsApi implements Disposable {
 			);
 			const issueType = issueResult.fields['System.WorkItemType'];
 			const state = issueResult.fields['System.State'];
-			const stateCategory = await this.getWorkItemStateCategory(
-				issueType,
-				state,
-				provider,
-				token,
-				project.resourceName,
-				project.name,
-				options,
-			);
-			const htmlFields = await this.getWorkItemHtmlFields(
-				provider,
-				token,
-				project.resourceName,
-				options.baseUrl,
-				issueResult.fields,
-			);
+			const [stateCategory, htmlFields] = await Promise.all([
+				this.getWorkItemStateCategory(
+					issueType,
+					state,
+					provider,
+					token,
+					project.resourceName,
+					project.name,
+					options,
+				),
+				this.getWorkItemHtmlFields(
+					provider,
+					token,
+					project.resourceName,
+					options.baseUrl,
+					issueResult.fields,
+					scope,
+				),
+			]);
 			return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point', htmlFields);
 		}
 
@@ -1085,9 +1086,6 @@ export class AzureDevOpsApi implements Disposable {
 				cancellation,
 			);
 			const byId = new Map((workItems?.value ?? []).filter(w => w != null).map(w => [w.id, w]));
-			const htmlFields = [...byId.values()].some(w => needsAzureWorkItemHtmlFields(w.fields))
-				? await this.getWorkItemHtmlFields(provider, token, options.baseUrl, collection, scope, cancellation)
-				: undefined;
 			for (const id of slice) {
 				// A work item deleted since the ids were queried is gone, not a failure: skipping it keeps the page
 				// honest, since it no longer matches anything.
@@ -1125,6 +1123,7 @@ export class AzureDevOpsApi implements Disposable {
 					collection,
 					options.baseUrl,
 					workItem.fields,
+					scope,
 					cancellation,
 				);
 				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory, 'search', htmlFields));
@@ -1387,44 +1386,6 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	/**
-	 * The organization's rich text fields a work item's description may come from, for a work item none of the
-	 * built-in description fields describes. Best-effort: a failed read leaves the description to those fields rather
-	 * than failing the work item, so it is `undefined` on any failure but a cancellation. Logs to the caller's `scope`,
-	 * captured before its first `await`: a scope read here, after the caller's reads, can be stale in a browser.
-	 */
-	private async getWorkItemHtmlFields(
-		provider: Provider,
-		token: TokenWithInfo,
-		baseUrl: string,
-		organization: string,
-		scope: ScopedLogger | undefined,
-		cancellation?: AbortSignal,
-	): Promise<AzureWorkItemHtmlField[] | undefined> {
-		try {
-			return await this._workItemStates.getHtmlFields(
-				{ baseUrl: baseUrl, namespace: organization, token: token.accessToken, isPAT: true },
-				signal =>
-					this.request(
-						provider,
-						token,
-						baseUrl,
-						getAzureWorkItemFieldsPath(organization),
-						{ method: 'GET' },
-						undefined,
-						signal,
-					),
-				cancellation,
-			);
-		} catch (ex) {
-			// Only the caller's own cancellation fails the read: an abort it didn't ask for is just another failure.
-			if (isCancellationError(ex) && cancellation?.aborted) throw ex;
-
-			scope?.warn(`Unable to read the Azure DevOps field catalog of '${organization}': ${ex}`);
-			return undefined;
-		}
-	}
-
-	/**
 	 * Resolves the web and HTTPS clone URLs of the fork a cross-repository pull request comes from. Every other
 	 * repository URL the model reports is rebuilt from the pull request payload; only a fork reference lacks the
 	 * project to do that, so only a fork costs a request.
@@ -1577,40 +1538,48 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	private getWorkItemHtmlFields(
+	private async getWorkItemHtmlFields(
 		provider: Provider,
 		token: TokenWithInfo,
 		namespace: string,
 		baseUrl: string,
 		fields: WorkItem['fields'],
+		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
 	): Promise<readonly AzureWorkItemHtmlField[]> {
-		const requestToken = { ...token };
-		return this._workItemDescriptions.getFields(
-			fields,
-			{ baseUrl: baseUrl, namespace: namespace, token: requestToken.accessToken, isPAT: true },
-			async signal => {
-				const resource = await this.requireRestResource(
-					provider,
-					requestToken,
-					namespace,
-					baseUrl,
-					'fields',
-					'6.0',
-					signal,
-				);
-				return this.request(
-					provider,
-					requestToken,
-					baseUrl,
-					`${encodeAzurePathSegment(namespace)}/_apis/wit/fields?api-version=${resource.apiVersion}`,
-					{ method: 'GET' },
-					undefined,
-					signal,
-				);
-			},
-			cancellation,
-		);
+		try {
+			const requestToken = { ...token };
+			return await this._workItemDescriptions.getFields(
+				fields,
+				{ baseUrl: baseUrl, namespace: namespace, token: requestToken.accessToken, isPAT: true },
+				async signal => {
+					const resource = await this.requireRestResource(
+						provider,
+						requestToken,
+						namespace,
+						baseUrl,
+						'fields',
+						'6.0',
+						signal,
+					);
+					return this.request(
+						provider,
+						requestToken,
+						baseUrl,
+						`${encodeAzurePathSegment(namespace)}/_apis/wit/fields?api-version=${resource.apiVersion}`,
+						{ method: 'GET' },
+						undefined,
+						signal,
+					);
+				},
+				cancellation,
+			);
+		} catch (ex) {
+			if (isCancellationError(ex) && cancellation?.aborted) throw ex;
+
+			scope?.warn(`Unable to read the Azure DevOps field catalog of '${namespace}': ${ex}`);
+			return [];
+		}
 	}
 
 	private async getRestResource(
