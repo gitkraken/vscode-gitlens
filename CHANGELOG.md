@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Azure DevOps repositories cloned with a legacy `https://{org}.visualstudio.com/DefaultCollection/…` remote never showing pull requests, work items or commit authors, and filling the log with `Invalid Azure repository descriptor` errors ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) &mdash; also fixes remotes that name no project (`…/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`), whose project is named after the repository
 - Fixes Azure DevOps repositories named after their project and cloned without the project segment (`…/{collection}/_git/{repo}`, as TFS 2018 offers them) never showing pull requests or commit authors ([#6000](https://github.com/gitkraken/vscode-gitlens/issues/6000))
 - Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
+- Fixes Bitbucket Cloud remotes on the new `ssh.bitbucket.org` SSH host not being recognized as Bitbucket &mdash; thanks to [PR #6062](https://github.com/gitkraken/vscode-gitlens/pull/6062) by Alexey Kotlyarov ([@koterpillar](https://github.com/koterpillar))
 
 ## [19.4.0] - 2026-10-15
 
