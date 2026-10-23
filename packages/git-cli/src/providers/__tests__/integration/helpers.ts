@@ -97,7 +97,8 @@ function createNodeFs(): FileSystemProvider {
 		},
 		readDirectory: async function (uri) {
 			const entries = readdirSync(toFsPath(uri), { withFileTypes: true });
-			return entries.map(e => [e.name, e.isDirectory() ? 2 : 1]);
+			// Flags links the way VS Code's and Kepler's listings do (`FileType.SymbolicLink`)
+			return entries.map(e => [e.name, (e.isDirectory() ? 2 : 1) | (e.isSymbolicLink() ? 64 : 0)]);
 		},
 	};
 }

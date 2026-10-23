@@ -7,7 +7,10 @@ import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 
 /**
  * What a worktree's HEAD is on: the full name of its branch (`refs/heads/main`), `'detached'`, or `undefined` when
- * unknown — unreadable, or not a branch name git allows.
+ * unknown — unreadable, not a branch name git allows, or a HEAD kept as a symlink to its branch
+ * (`core.preferSymlinkRefs`). Reading such a HEAD follows the link to the branch's object id, as a detached HEAD
+ * reads, so it is unknown when the git dir's listing flags it as a link, and `'detached'` on a host whose listing
+ * doesn't.
  */
 export type HeadState = { readonly branch: string } | 'detached' | undefined;
 
@@ -21,7 +24,9 @@ const gitFileRegex = /^gitdir:\s*(.+?)\s*$/m;
  * one `<repoPath>/.git` is or points to, so a worktree core never registered is read without spawning git either.
  * A reftable repository's `HEAD` file holds the placeholder `refs/heads/.invalid` (its real HEAD is in the tables),
  * which is no branch name git allows, so it reads as unknown, as does a branch that is a symbolic ref to another (a
- * `master` kept pointing at `main`), since git follows it and a write moves the target. Never rejects.
+ * `master` kept pointing at `main`), since git follows it and a write moves the target. An object id is detached only
+ * when the git dir's listing doesn't flag `HEAD` as a symlink (a host's `stat` may follow the link): read as detached,
+ * a symlinked HEAD would say a write on its branch moved no branch. Never rejects.
  */
 export async function readHeadState(repoPath: string, fs: FileSystemProvider, cache: Cache): Promise<HeadState> {
 	try {
@@ -32,7 +37,11 @@ export async function readHeadState(repoPath: string, fs: FileSystemProvider, ca
 
 		const decoder = new TextDecoder();
 		const head = decoder.decode(await fs.readFile(joinUriPath(gitDir.uri, 'HEAD')));
-		if (headShaRegex.test(head)) return 'detached';
+		if (headShaRegex.test(head)) {
+			const entries = await fs.readDirectory(gitDir.uri);
+			const linked = entries.some(([name, type]) => name === 'HEAD' && (type & FileType.SymbolicLink) !== 0);
+			return linked ? undefined : 'detached';
+		}
 
 		const ref = headBranchRegex.exec(head)?.[1];
 		if (ref == null || ref.split('/').some(part => part.startsWith('.'))) return undefined;
