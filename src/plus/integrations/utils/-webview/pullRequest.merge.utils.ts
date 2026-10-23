@@ -1,10 +1,38 @@
 import type { CancellationToken } from 'vscode';
 import { l10n, ProgressLocation, window } from 'vscode';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
-import { getPullRequestNumberFromUrl, getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	getPullRequestNumberFromUrl,
+	getStackedMergeCount,
+	isPullRequestInMergeQueue,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { toAbortSignal } from '../../../../system/-webview/cancellation.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+
+/**
+ * Refuses to merge a pull request that's waiting in a merge queue — the queue merges it on its own, and merging it
+ * here would fight the queue. Tells the user why and returns `true` when it blocked the merge. Callers that skip
+ * {@link confirmPullRequestMerge} (an already-confirmed merge) must still call this.
+ */
+export async function blockMergeIfQueued(pr: PullRequest): Promise<boolean> {
+	if (!isPullRequestInMergeQueue(pr)) return false;
+
+	const queueNumber = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+	const message = l10n.t('Pull Request #{number} is already in the merge queue', { number: queueNumber });
+	const queueUrl = pr.mergeQueue.url;
+	if (queueUrl != null) {
+		const openQueue = { title: l10n.t('Open Merge Queue') };
+		const choice = await window.showInformationMessage(message, openQueue);
+		if (choice === openQueue) {
+			void openUrl(queueUrl);
+		}
+	} else {
+		void window.showInformationMessage(message);
+	}
+	return true;
+}
 
 /**
  * Confirms the blast radius of merging a pull request before doing it. A stacked pull request never
@@ -13,6 +41,8 @@ import { toAbortSignal } from '../../../../system/-webview/cancellation.js';
  * cancelled.
  */
 export async function confirmPullRequestMerge(pr: PullRequest): Promise<boolean> {
+	if (await blockMergeIfQueued(pr)) return false;
+
 	const headName = pr.refs?.head?.branch;
 	const baseName = pr.refs?.base?.branch;
 

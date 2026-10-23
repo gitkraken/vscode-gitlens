@@ -1,13 +1,18 @@
+import * as l10n from '@vscode/l10n';
+import { fromNow } from '@gitlens/utils/date.js';
 import type {
 	PullRequest,
 	PullRequestComparisonRefs,
+	PullRequestMergeQueueEntry,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestShape,
 	PullRequestSortField,
 	PullRequestSorting,
 	PullRequestStackInfo,
+	PullRequestState,
 } from '../models/pullRequest.js';
+import { PullRequestMergeQueueState } from '../models/pullRequest.js';
 import { serializeMilestone } from './issueOrPullRequest.utils.js';
 import { shortenRevision } from './revision.utils.js';
 
@@ -26,8 +31,45 @@ export function getStackedMergeCount(
 
 /** Whether an open pull request is waiting in a merge queue. `false` also when the read didn't fetch the queue —
  *  check the row's `mergeQueue` field presence before treating that as "not queued". */
-export function isPullRequestInMergeQueue(pr: PullRequestShape): boolean {
+export function isPullRequestInMergeQueue<
+	T extends { readonly state?: string; readonly mergeQueue?: PullRequestMergeQueueEntry },
+>(pr: T): pr is T & { readonly mergeQueue: PullRequestMergeQueueEntry } {
 	return pr.state === 'opened' && pr.mergeQueue != null;
+}
+
+/** A pull request's state as shown to users: its provider state, except an open pull request waiting in a merge queue is `queued`. */
+export type PullRequestDisplayState = PullRequestState | 'queued';
+
+export function getPullRequestDisplayState<S extends string | undefined>(pr: {
+	readonly state: S;
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+}): S | 'queued' {
+	return isPullRequestInMergeQueue(pr) ? 'queued' : pr.state;
+}
+
+/** Describes where a queued pull request stands in its merge queue. Deliberately omits `position`, whose base (0 or 1) is unverified. */
+export function formatPullRequestMergeQueueStatus(entry: PullRequestMergeQueueEntry): string {
+	let status: string;
+	switch (entry.state) {
+		case PullRequestMergeQueueState.AwaitingChecks:
+			status = l10n.t('Queued to merge, checks running');
+			break;
+		case PullRequestMergeQueueState.Mergeable:
+			status = l10n.t('Queued to merge, next up');
+			break;
+		case PullRequestMergeQueueState.Locked:
+			// The merge is already in flight, so an estimate adds nothing
+			return l10n.t('Merging');
+		case PullRequestMergeQueueState.Unmergeable:
+			return l10n.t('Failing in the merge queue');
+		default:
+			status = l10n.t('Queued to merge');
+			break;
+	}
+
+	if (entry.estimatedTimeToMerge == null) return status;
+
+	return l10n.t('{0}, estimated to merge {1}', status, fromNow(Date.now() + entry.estimatedTimeToMerge * 1000));
 }
 
 /**

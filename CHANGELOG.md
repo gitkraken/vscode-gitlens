@@ -16,12 +16,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through rather than a one-off AI report: a checklist of the changed files tracks what you've viewed and brings back a file that changes after, reading controls step through the files in order from the diff editor, and findings and your own comments live as comment threads in the diff, where you can reply to them, dismiss them or hand them to your agent
 - Adds _Orient_ and _Review in Repo_ beside _Review Diff_ &mdash; AI becomes one lens on the review rather than a requirement for it: _Orient_ plans the order to read the files in, _Review Diff_ finds issues in the diff, and _Review in Repo_ hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review
 - Adds Asana as an issue integration &mdash; connect your Asana account from _GitLens Home_, and Asana tasks associated with your branches are shown on the _Commit Graph_
+- Adds GitHub merge queue awareness &mdash; a pull request waiting in a merge queue now shows as queued, with where it stands in the queue and when it's estimated to merge, instead of as open in hovers, views, autolinks, _Launchpad_, and the _Commit Graph_
+- Adds an _In Merge Queue_ group to _Launchpad_ &mdash; pull requests failing in the merge queue show under _Blocked_
+- Adds a `gitlens.queuedPullRequestIconColor` theme color for queued pull requests
 
 ### Changed
 
 - Changes GitLens webview colors to follow your theme more closely &mdash; banner text uses the theme's text color instead of pure white or black, the _Security_ and _System_ notification chips use the theme's warning colors instead of the Git conflict red, and autocomplete dropdowns use VS Code's suggestion colors
 - Changes the _Commit Graph_ to follow your theme more closely &mdash; the search box uses VS Code's input colors, the amend commit button uses the theme's warning colors, and info, success and warning marks use the theme's colors instead of fixed ones
 - Changes the Pro feature gates, the feature badge, the _Commit Graph_ account chip, _GitLens Settings_ → _Account_, the Welcome page and the Pro-gated view prompts to offer _Upgrade to Pro_ alongside _Reactivate Pro Trial_, so an account the server won't reactivate isn't left without a path to Pro ([#6010](https://github.com/gitkraken/vscode-gitlens/issues/6010))
+- Changes the _Commit Graph_ and _Launchpad_ to stop offering _Merge_, _Rebase Stack_, and branch-changing next steps (push, rebase or merge with the merge target, recompose) for a pull request waiting in a merge queue &mdash; the queue owns its branch until it merges or leaves the queue
 
 ### Fixed
 

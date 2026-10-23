@@ -6,9 +6,11 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { PreviousRangeComparisonUrisResult } from '@gitlens/git/providers/diff.js';
+import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
+import { fromNow } from '@gitlens/utils/date.js';
 import type { FormatOptions, RequiredTokenOptions } from '@gitlens/utils/formatter.js';
 import { Formatter } from '@gitlens/utils/formatter.js';
 import { join, map } from '@gitlens/utils/iterable.js';
@@ -87,6 +89,21 @@ function formatPullRequestState(state: PullRequest['state']): string {
 	}
 }
 
+/** Like {@link formatPullRequestState}, but describes a pull request waiting in a merge queue instead of calling it "opened". */
+function formatPullRequestDisplayState(pullRequest: PullRequest): string {
+	return isPullRequestInMergeQueue(pullRequest)
+		? formatPullRequestMergeQueueStatus(pullRequest.mergeQueue)
+		: formatPullRequestState(pullRequest.state);
+}
+
+/** The relative date {@link formatPullRequestDisplayState} is paired with: when a queued pull request joined its
+ *  merge queue, since its status reads as what happened then, otherwise the pull request's own date. */
+function formatPullRequestDisplayDateFromNow(pullRequest: PullRequest): string {
+	return isPullRequestInMergeQueue(pullRequest)
+		? fromNow(pullRequest.mergeQueue.enqueuedAt)
+		: PullRequest.formatDateFromNow(pullRequest);
+}
+
 function formatPullRequestTooltip(pullRequest: PullRequest): string {
 	const heading =
 		Container.instance.actionRunners.count('openPullRequest') === 1
@@ -95,7 +112,11 @@ function formatPullRequestTooltip(pullRequest: PullRequest): string {
 	return `${escapeMarkdownTooltip(heading)}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdownTooltip(
 		pullRequest.title,
 	)}\n${escapeMarkdownTooltip(
-		l10n.t('{0}, {1}', formatPullRequestState(pullRequest.state), PullRequest.formatDateFromNow(pullRequest)),
+		l10n.t(
+			'{0}, {1}',
+			formatPullRequestDisplayState(pullRequest),
+			formatPullRequestDisplayDateFromNow(pullRequest),
+		),
 	)}`;
 }
 
@@ -975,8 +996,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			const prLabel = l10n.t('PR #{0}', pr.id);
-			const prState = formatPullRequestState(pr.state);
-			const prDate = PullRequest.formatDateFromNow(pr);
+			const prState = formatPullRequestDisplayState(pr);
+			const prDate = formatPullRequestDisplayDateFromNow(pr);
 			if (this._options.outputFormat === 'markdown') {
 				text = `[**$(git-pull-request) ${escapeMarkdown(prLabel)}**](${createMarkdownActionCommandLink<OpenPullRequestActionContext>(
 					'openPullRequest',

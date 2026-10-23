@@ -128,6 +128,7 @@ import {
 	isSubscriptionTrialOrPaidFromState,
 } from '../../../plus/gk/utils/subscription.utils.js';
 import {
+	blockMergeIfQueued,
 	confirmPullRequestMerge,
 	mergePullRequestWithProgress,
 } from '../../../plus/integrations/utils/-webview/pullRequest.merge.utils.js';
@@ -3306,8 +3307,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const { integration, pr } = resolved;
 		// A sheet-side confirmation already named the blast radius in place; only unconfirmed callers
-		// (e.g. the branch sheet's chip) get the quick pick.
-		if (!options?.confirmed && !(await confirmPullRequestMerge(pr))) return { merged: false };
+		// (e.g. the branch sheet's chip) get the quick pick. The merge-queue block applies either way: the
+		// sheet confirmed against state the fresh read here may have overtaken.
+		if (options?.confirmed) {
+			if (await blockMergeIfQueued(pr)) return { merged: false };
+		} else if (!(await confirmPullRequestMerge(pr))) {
+			return { merged: false };
+		}
 
 		const mergeMethod = options?.mergeMethod != null ? mergeMethodsByName[options.mergeMethod] : undefined;
 

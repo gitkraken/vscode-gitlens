@@ -1,6 +1,13 @@
 import * as assert from 'assert';
-import type { PullRequestShape, PullRequestSorting } from '../../models/pullRequest.js';
-import { getPullRequestComparator, getStackedMergeCount } from '../pullRequest.utils.js';
+import type { PullRequestMergeQueueEntry, PullRequestShape, PullRequestSorting } from '../../models/pullRequest.js';
+import { PullRequestMergeQueueState } from '../../models/pullRequest.js';
+import {
+	formatPullRequestMergeQueueStatus,
+	getPullRequestComparator,
+	getPullRequestDisplayState,
+	getStackedMergeCount,
+	isPullRequestInMergeQueue,
+} from '../pullRequest.utils.js';
 
 suite('pullRequest.utils', () => {
 	suite('getStackedMergeCount', () => {
@@ -15,6 +22,99 @@ suite('pullRequest.utils', () => {
 
 		test('wholeStack counts every layer', () => {
 			assert.strictEqual(getStackedMergeCount({ position: 2, size: 4 }, { wholeStack: true }), 4);
+		});
+	});
+
+	function queueEntry(overrides?: Partial<PullRequestMergeQueueEntry>): PullRequestMergeQueueEntry {
+		return {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2020-01-01T00:00:00Z'),
+			...overrides,
+		};
+	}
+
+	suite('getPullRequestDisplayState', () => {
+		test('an open pull request with a merge queue entry is queued', () => {
+			const pr = { state: 'opened', mergeQueue: queueEntry() } as const;
+			assert.strictEqual(isPullRequestInMergeQueue(pr), true);
+			assert.strictEqual(getPullRequestDisplayState(pr), 'queued');
+		});
+
+		test('an open pull request without a merge queue entry stays opened', () => {
+			assert.strictEqual(getPullRequestDisplayState({ state: 'opened' }), 'opened');
+		});
+
+		test('a merge queue entry never overrides a non-open state', () => {
+			assert.strictEqual(getPullRequestDisplayState({ state: 'merged', mergeQueue: queueEntry() }), 'merged');
+			assert.strictEqual(getPullRequestDisplayState({ state: 'closed', mergeQueue: queueEntry() }), 'closed');
+		});
+	});
+
+	suite('formatPullRequestMergeQueueStatus', () => {
+		test('words each state', () => {
+			const status = (state: PullRequestMergeQueueState): string =>
+				formatPullRequestMergeQueueStatus(queueEntry({ state: state }));
+			assert.strictEqual(status(PullRequestMergeQueueState.Queued), 'Queued to merge');
+			assert.strictEqual(status(PullRequestMergeQueueState.AwaitingChecks), 'Queued to merge, checks running');
+			assert.strictEqual(status(PullRequestMergeQueueState.Mergeable), 'Queued to merge, next up');
+			assert.strictEqual(status(PullRequestMergeQueueState.Locked), 'Merging');
+			assert.strictEqual(status(PullRequestMergeQueueState.Unmergeable), 'Failing in the merge queue');
+		});
+
+		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000);
+
+		test('appends a future estimate for states that are still waiting', () => {
+			const text = formatPullRequestMergeQueueStatus(
+				queueEntry({ state: PullRequestMergeQueueState.Mergeable, estimatedMergeAt: inMinutes(12) }),
+			);
+			assert.match(text, /^Queued to merge, next up, estimated to merge .*12 minutes/);
+		});
+
+		test('counts the estimate down from its date rather than from each render', () => {
+			// A held entry whose estimate is now only 3 minutes off reads as 3 minutes, not as the 12 it was read with.
+			const text = formatPullRequestMergeQueueStatus(
+				queueEntry({ state: PullRequestMergeQueueState.AwaitingChecks, estimatedMergeAt: inMinutes(3) }),
+			);
+			assert.match(text, /estimated to merge .*3 minutes/);
+		});
+
+		test('takes the estimate as a timestamp, as the webviews carry it', () => {
+			const text = formatPullRequestMergeQueueStatus({
+				state: PullRequestMergeQueueState.Mergeable,
+				estimatedMergeAt: inMinutes(12).getTime(),
+			});
+			assert.match(text, /^Queued to merge, next up, estimated to merge .*12 minutes/);
+		});
+
+		test('omits an estimate already past', () => {
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus(
+					queueEntry({ state: PullRequestMergeQueueState.Mergeable, estimatedMergeAt: inMinutes(-2) }),
+				),
+				'Queued to merge, next up',
+			);
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({
+					state: PullRequestMergeQueueState.Queued,
+					estimatedMergeAt: inMinutes(-2).getTime(),
+				}),
+				'Queued to merge',
+			);
+		});
+
+		test('omits the estimate for Locked and Unmergeable', () => {
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus(
+					queueEntry({ state: PullRequestMergeQueueState.Locked, estimatedMergeAt: inMinutes(10) }),
+				),
+				'Merging',
+			);
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus(
+					queueEntry({ state: PullRequestMergeQueueState.Unmergeable, estimatedMergeAt: inMinutes(10) }),
+				),
+				'Failing in the merge queue',
+			);
 		});
 	});
 
