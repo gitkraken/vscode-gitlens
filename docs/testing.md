@@ -139,6 +139,79 @@ project's `grepInvert`, which wins over `--grep` and would make these unselectab
 Note "insiders" is overloaded: this is the **CLI's** channel. VS Code's own insiders build is a separate
 axis, driven by `VSCODE_VERSION` / `pnpm run test:e2e:insiders`.
 
+### Opt-in specs: signed-in workers (`@signed-in`)
+
+Some scenarios need a GitKraken account with cloud integrations connected (#5682, #5106). The normal sign-in
+can't run under the test host — VS Code refuses the "open external website" dialog in tests — so a worker
+signs itself in (`tests/e2e/fixtures/gkSignIn.ts`): it asks the GitKraken site for a sign-in code with the
+test account's session cookie, hands GitLens the `vscode://eamodio.gitlens/login` deep link through the
+evaluator, and waits for the account and its required integrations. The account's integrations come with it;
+no provider OAuth runs.
+
+A spec opts in with `signIn` on its worker options, the `@signed-in` tag, and a skip when no cookie is set:
+
+```ts
+const test = base.extend({
+	vscodeOptions: [{ vscodeVersion: process.env.VSCODE_VERSION ?? 'stable', signIn: true }, { scope: 'worker' }],
+});
+
+test.skip(!canSignIn(), 'GK_E2E_ACCESS_TOKEN_COOKIE is not set');
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
+
+test.describe('…', { tag: '@signed-in' }, () => {
+	test.describe.configure({ mode: 'serial', retries: 0 });
+	// …
+});
+```
+
+Without a cookie these specs skip, so the default suite is unaffected. To run them:
+
+```bash
+# Staging test account: the site's session cookie is `stagingAccessToken` (not `accessToken` — that one is
+# production's, also visible on the staging site). The staging site is behind Cloudflare Access, so pass a
+# service token (GK_E2E_CF_ACCESS_CLIENT_ID/_SECRET) or a browser's CF_Authorization. GitLens honours
+# `gitkraken.env` only in a pre-release build, so patch the version before bundling.
+pnpm run patch-pre && pnpm run bundle:e2e
+# read the secrets without echoing them or leaving them in shell history
+read -rsp 'Session cookie: ' GK_E2E_ACCESS_TOKEN_COOKIE && echo && export GK_E2E_ACCESS_TOKEN_COOKIE
+read -rsp 'CF_Authorization: ' GK_E2E_CF_AUTHORIZATION && echo && export GK_E2E_CF_AUTHORIZATION
+GK_E2E_ENV=staging pnpm exec playwright test -c tests/e2e/playwright.config.ts --grep @signed-in --project=vscode
+# patch-pre rewrites the version in package.json (and README.md) — don't commit it
+git checkout -- package.json README.md
+```
+
+| Variable                                                            | Meaning                                                                                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GK_E2E_ACCESS_TOKEN_COOKIE`                                        | the backend site's session cookie value (secret)                                                                                                       |
+| `GK_E2E_ENV`                                                        | required: `staging` or `dev` — or `production` together with `GK_E2E_ALLOW_PRODUCTION=1`; picks the site, the cookie name and GitLens' `gitkraken.env` |
+| `GK_E2E_CF_ACCESS_CLIENT_ID` / `_SECRET`, `GK_E2E_CF_AUTHORIZATION` | Cloudflare Access credential, off production only (secret)                                                                                             |
+| `E2E_REQUIRED_INTEGRATIONS`                                         | providers that must show as connected (default: GitHub, GitLab, Bitbucket, Azure DevOps; `none` checks the sign-in only)                               |
+| `E2E_REQUIRE_SIGNIN`                                                | fail instead of skip when the cookie is missing — for CI jobs that must sign in                                                                        |
+
+The MCP Start Work / Start Review spec (`mcpGitlensWritePathSignedIn.test.ts`) also needs `E2E_GITHUB_REPO_URL`,
+`E2E_GITHUB_ISSUE_URL` and `E2E_GITHUB_PR_URL`: the GitHub test repository, an open issue that belongs to the GitHub
+account bound to the test account (Start Work matches the account's own issues, it doesn't fetch the URL), and an open
+PR whose branch lives in that repository rather than a fork. Give canonical URLs without a trailing slash. They are
+public values — set them as repository variables; the spec skips without them, and fails under `E2E_REQUIRE_SIGNIN`.
+
+Mind what a sign-in costs: every worker sign-in mints a new GitLens token for the test account, and the backend
+neither expires nor revokes those tokens. Sign in only where an account is needed, don't retry signed-in specs
+(a retry starts a new worker), never sign out in a test (it is local-only), and never sign CI in to production.
+The credentials stay in the Playwright process: the harness strips `GK_E2E_*` from the editor's environment, so
+nothing the editor spawns sees them. Treat the cookie as a password: keep it out of shell history and logs, and never
+print it — the fixture's diagnostics use fixed vocabularies, and the only account detail they log is its plan labels.
+
+Two side effects to know about:
+
+- After signing in, GitLens logs the GK CLI in with the account's token (`gk auth login`). The harness gives every
+  signed-in worker its own `XDG_DATA_HOME`, so that login lands in the worker's temp dir instead of replacing your
+  machine-wide CLI login — each signed-in worker therefore downloads the CLI core once.
+- On any test error Playwright writes `error-context.md` with an ARIA snapshot — of a failed `expect` matcher's
+  target, else of the page — and no option turns it off; `trace` / `screenshot` don't affect it. The fixture waits
+  with `locator.waitFor` instead of `expect` so a failed sign-in doesn't snapshot the Account page, but an assertion
+  in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
+  artifacts unless it is scanned first.
+
 ### Login-walled forks (Cursor, Kiro)
 
 Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —
