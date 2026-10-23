@@ -13,7 +13,7 @@ import { fileUri, getRepositoryKey, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createTestRepo, createWorktree } from './helpers.js';
+import { addCommit, cloneTestRepo, createTestRepo, createWorktree, noCommitGraphWritesConfig } from './helpers.js';
 
 const fs: FileSystemProvider = {
 	readFile: async uri => readFileSync(toFsPath(uri)),
@@ -52,10 +52,11 @@ function nextChange(sub: WorktreeSummarySubscription): Promise<WorktreeSummary> 
  *
  * Before the base re-measure, each linked worktree's refresh resolved its base again with 4 processes of its own
  * (`rev-parse main@{u}`, `merge-base --fork-point` against `main` and against `origin/main`, and `rev-list
- * --left-right --count`), and the first of them also read the remotes. Now each runs 1 (`rev-list --count`), and the
- * repository's checkouts share one read of the base's reflog, one `rev-parse` of the value before its oldest entry and
- * one `rev-list` of what they reach off the new tip's history, besides the ref list and remote `HEAD` reads every
- * refresh after a fetch shares.
+ * --left-right --count`), and the first of them also read the remotes. Then each ran 1 (`rev-list --count`). Now, with
+ * git 2.41 or later, each runs none: the repository's checkouts share one read of the base's reflog, one `rev-parse` of
+ * the value before its oldest entry, one `rev-list` of what they reach off the new tip's history and one `for-each-ref`
+ * counting every local branch past the new tip, besides the ref list and remote `HEAD` reads every refresh after a
+ * fetch shares. Before 2.41 each still runs its own `rev-list --count`.
  */
 suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 	const worktreeCount = 4;
@@ -107,7 +108,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 
 		// Not the shadow-checked service: its full base reads would add to the process counts measured here
 		service = createCliGitService({
-			context: { fs: fs },
+			context: { fs: fs, config: noCommitGraphWritesConfig },
 			gitOptions: { logger: countingLogger },
 			watchingProvider: {
 				createWatcher: () => createDisposable(() => {}),
@@ -136,7 +137,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	test('a fetch moving origin/main costs each linked worktree 1 git process for its base (was 4)', async () => {
+	test('a fetch moving origin/main costs each linked worktree no git process for its base (was 4)', async () => {
 		for (const sub of subs.slice(1)) {
 			assert.strictEqual(sub.current?.base?.ref, 'origin/main');
 		}
@@ -171,8 +172,10 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
 		}
 
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		const own = (await provider.git.supports('git:for-each-ref:ahead-behind')) ? 0 : 1;
 		for (const [i, lines] of perWorktree.entries()) {
-			assert.strictEqual(lines.length, 1, `linked worktree ${i} ran ${lines.join('\n')}`);
+			assert.strictEqual(lines.length, own, `linked worktree ${i} ran ${lines.join('\n')}`);
 		}
 		// A fetch moves refs, not config, so no checkout's config-key snapshot is evicted and none is read again
 		assert.deepStrictEqual(
@@ -263,7 +266,7 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 		watchers = [];
 		// Not the shadow-checked service: its full base reads would add to the process counts measured here
 		service = createCliGitService({
-			context: { fs: fs },
+			context: { fs: fs, config: noCommitGraphWritesConfig },
 			gitOptions: { logger: countingLogger },
 			watchingProvider: {
 				createWatcher: (basePath, _pattern, onEvent) => {
@@ -358,7 +361,7 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 		}
 	});
 
-	test("a fetch after a write to another branch's section costs each linked worktree 1 git process (was 2 or 3)", async () => {
+	test("a fetch after a write to another branch's section costs each linked worktree no git process (was 2 or 3)", async () => {
 		const confined = await writeConfig('config', 'branch.unrelated.remote', 'origin');
 		assert.deepStrictEqual(confined, [], 'a write confined to an unrelated branch wakes no summary');
 
@@ -374,9 +377,12 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 		for (const [i, sub] of subs.slice(1).entries()) {
 			assert.strictEqual(sub.current?.base?.sha, tip, `linked worktree ${i} follows the new tip`);
 		}
+		// One process each before git 2.41 (see the suite above)
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		const own = (await provider.git.supports('git:for-each-ref:ahead-behind')) ? 0 : 1;
 		for (const [i, wt] of linked.entries()) {
 			const lines = inWorktree(spawned, wt.path);
-			assert.strictEqual(lines.length, 1, `linked worktree ${i} ran ${lines.join('\n')}`);
+			assert.strictEqual(lines.length, own, `linked worktree ${i} ran ${lines.join('\n')}`);
 		}
 		assertOneListingInMain(spawned);
 	});

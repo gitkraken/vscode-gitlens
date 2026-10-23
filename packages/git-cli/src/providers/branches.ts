@@ -96,18 +96,78 @@ type BranchActivityKey = (typeof branchActivityKeys)[number];
  */
 const maxOffHistoryCommits = 64;
 
+/**
+ * A base that moved only forward: the commits its reflog reaches off the new tip's history, and the commits
+ * `--fork-point` reads from that reflog besides the new tip, the old tip among them
+ */
+type BaseMovedForward = { readonly offHistory: readonly string[]; readonly logged: ReadonlySet<string> };
+
+/** Reads a `%(ahead-behind:<base>)` field, `<ahead> <behind>`; `undefined` when it isn't one */
+function parseAheadBehindField(field: string | undefined): { ahead: number; behind: number } | undefined {
+	const [ahead, behind] = (field ?? '').split(' ').map(n => parseInt(n, 10));
+	if (isNaN(ahead) || isNaN(behind)) return undefined;
+
+	return { ahead: ahead, behind: behind };
+}
+
+/** The named refs as `for-each-ref` patterns, or `undefined` when they're too many to fit one command line */
+function toRefPatterns(refs: ReadonlySet<string>): string[] | undefined {
+	return sum(refs, r => r.length + 1) < maxGitCliLength / 2 ? [...refs] : undefined;
+}
+
+/**
+ * Joins the read `key` names against `records` (a cached ref list) in `memo`, or starts it with `read`. An answer is
+ * kept as long as that list is: a ref write replaces the list, along with the refs and reflog the answer came from.
+ * `undefined`, when git couldn't say, isn't kept
+ */
+async function shareBaseMoveRead<T>(
+	memo: WeakMap<readonly RefRecord[], Map<string, Promise<T | undefined>>>,
+	records: readonly RefRecord[],
+	key: string,
+	read: () => Promise<T | undefined>,
+): Promise<T | undefined> {
+	let reads = memo.get(records);
+	if (reads == null) {
+		reads = new Map();
+		memo.set(records, reads);
+	}
+
+	let pending = reads.get(key);
+	if (pending == null) {
+		pending = read();
+		reads.set(key, pending);
+	}
+
+	const answer = await pending;
+	if (answer === undefined && reads.get(key) === pending) {
+		reads.delete(key);
+	}
+	return answer;
+}
+
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
 	private readonly aheadBehindBySha = new LruMap<string, { ahead: number; behind: number }>(4096);
 	/**
-	 * For a base that moved only forward, the commits its reflog reaches off the new tip's history (else `false`), by
-	 * `<ref>\0<oldSha>\0<newSha>`, for each cached ref list it was read against: a ref write replaces that list, along
-	 * with the reflog the answer came from. `undefined` when git couldn't say, which isn't kept. A fetch moves one base
-	 * under every worktree at once, so they share the one check, joining it while it runs
+	 * For a base that moved only forward, what its reflog reaches (else `false`), by `<ref>\0<oldSha>\0<newSha>`, for
+	 * each cached ref list it was read against. A fetch moves one base under every worktree at once, so they share the
+	 * one check, joining it while it runs
 	 */
 	private readonly baseMovedForward = new WeakMap<
 		readonly RefRecord[],
-		Map<string, Promise<readonly string[] | false | undefined>>
+		Map<string, Promise<BaseMovedForward | false | undefined>>
+	>();
+	/**
+	 * For a base that moved, the count of the commits its new tip lacks for each local branch a worktree has checked
+	 * out, by tip sha, keyed by that new tip alone for each cached ref list it was read against (which also fixes the
+	 * branches counted). The counts don't depend on the ref or where it moved from, so each worktree the move reached
+	 * finds its HEAD's count in the one read, even one whose previous answer was taken at another old tip. Only the
+	 * checked-out branches are counted: the shared walk runs until every counted branch meets the new tip, so an
+	 * unrelated old or orphan branch no worktree uses would make it deeper than any worktree's own count
+	 */
+	private readonly aheadOfMovedBase = new WeakMap<
+		readonly RefRecord[],
+		Map<string, Promise<ReadonlyMap<string, number> | undefined>>
 	>();
 	/**
 	 * When each `commonPath\0branch\0key` was last stamped by this process. Bounded: a dropped entry only costs a
@@ -2229,9 +2289,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// point can change with them; in a shallow repository it's read in full
 			if ((await this.isShallowRepository(repoPath)) !== false) return undefined;
 
-			const offHistory = await this.getMovedForward(repoPath, records, record.name, oldTip, newTip);
+			const movedForward = await this.getMovedForward(repoPath, records, record.name, oldTip, newTip);
 			if (cancellation?.aborted) throw new CancellationError();
-			if (!offHistory) return undefined;
+			if (!movedForward) return undefined;
+
+			const { offHistory, logged } = movedForward;
 
 			// HEAD's commits the new tip lacks are a subset of those the old one lacked, so the previous count, taken
 			// past the new tip, the previous fork point and the commits the reflog reaches off the new tip's history,
@@ -2240,20 +2302,41 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// `--fork-point` are one commit, which didn't move. The fork point is that commit too, being in the new tip's
 			// history, where a fork point the reflog supplied (a commit of HEAD's the base once held, its entry expired
 			// since) isn't.
-			const result = await this.git.run(
-				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
-				'rev-list',
-				'--count',
-				head,
-				'--not',
-				newTip,
-				...(base.forkPoint != null ? [base.forkPoint] : []),
-				...offHistory,
-				'--',
-			);
+			//
+			// Every worktree the move reached shares one count of each local branch's commits past the new tip alone, for
+			// the branches worktrees have checked out: one old or orphan branch no worktree uses would make the shared
+			// walk reach deeper than any worktree's own count. The old tip is in the new tip's history, so for HEAD that
+			// count is at most the previous one and at least the count above, which leaves out more: one that differs
+			// from the previous count means the count above does too. An equal one is the count above when leaving out
+			// more takes nothing more: with nothing off the new tip's history, everything the reflog holds is in it, so a
+			// fork point the reflog supplied is too, as are the old and new tips. With any other fork point (a merge base,
+			// or a commit whose reflog entry expired since), commits off the new tip's history, or a HEAD no checked-out
+			// branch points at (a detached one included), this worktree counts its own.
+			const aheadOfNewTip = (await this.getAheadOfMovedBase(repoPath, records, newTip))?.get(head);
 			if (cancellation?.aborted) throw new CancellationError();
-			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
-			if (parseInt(result.stdout.trim(), 10) !== base.ahead) return undefined;
+			if (aheadOfNewTip != null && aheadOfNewTip !== base.ahead) return undefined;
+
+			const forkPoint = base.forkPoint;
+			if (
+				aheadOfNewTip == null ||
+				offHistory.length !== 0 ||
+				(forkPoint != null && forkPoint !== oldTip && forkPoint !== newTip && !logged.has(forkPoint))
+			) {
+				const result = await this.git.run(
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+					'rev-list',
+					'--count',
+					head,
+					'--not',
+					newTip,
+					...(forkPoint != null ? [forkPoint] : []),
+					...offHistory,
+					'--',
+				);
+				if (cancellation?.aborted) throw new CancellationError();
+				if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+				if (parseInt(result.stdout.trim(), 10) !== base.ahead) return undefined;
+			}
 
 			return withDefaultBranch(
 				{ base: { ...base, sha: newTip }, dependsOn: [...previous.dependsOn] },
@@ -2297,11 +2380,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/**
 	 * For `ref` (a full name in `records`, the cached ref list) moving from `oldTip` to `newTip`, the commits its reflog
-	 * reaches off `newTip`'s history when it moved only forward: `oldTip` and every value its reflog took after it are in
-	 * `newTip`'s history. `--fork-point` reads every reflog entry, so one in between that shares more of HEAD's history
-	 * than `newTip` does (a branch's commit that landed and was force-pushed away) moves the fork point while the count
-	 * stands; an older one off `newTip`'s history may hold such a commit too, which each worktree's count checks for.
-	 * Without a reflog it reads only the tip. `undefined` when it didn't move only forward, or git can't say.
+	 * holds and those it reaches off `newTip`'s history, when it moved only forward: `oldTip` and every value its reflog
+	 * took after it are in `newTip`'s history. `--fork-point` reads every reflog entry, so one in between that shares
+	 * more of HEAD's history than `newTip` does (a branch's commit that landed and was force-pushed away) moves the fork
+	 * point while the count stands; an older one off `newTip`'s history may hold such a commit too, which each
+	 * worktree's count checks for. Without a reflog it reads only the tip. `undefined` when it didn't move only forward,
+	 * or git can't say.
 	 */
 	private async getMovedForward(
 		repoPath: string,
@@ -2309,25 +2393,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		ref: string,
 		oldTip: string,
 		newTip: string,
-	): Promise<readonly string[] | undefined> {
-		let checks = this.baseMovedForward.get(records);
-		if (checks == null) {
-			checks = new Map();
-			this.baseMovedForward.set(records, checks);
-		}
-
-		const key = `${ref}\0${oldTip}\0${newTip}`;
-		let check = checks.get(key);
-		if (check == null) {
-			check = this.readMovedForward(this.cache.getCommonPath(repoPath), ref, oldTip, newTip);
-			checks.set(key, check);
-		}
-
-		const offHistory = await check;
-		if (offHistory == null && checks.get(key) === check) {
-			checks.delete(key);
-		}
-		return offHistory || undefined;
+	): Promise<BaseMovedForward | undefined> {
+		const movedForward = await shareBaseMoveRead(
+			this.baseMovedForward,
+			records,
+			`${ref}\0${oldTip}\0${newTip}`,
+			() => this.readMovedForward(this.cache.getCommonPath(repoPath), ref, oldTip, newTip),
+		);
+		return movedForward || undefined;
 	}
 
 	/**
@@ -2341,7 +2414,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		ref: string,
 		oldTip: string,
 		newTip: string,
-	): Promise<readonly string[] | false | undefined> {
+	): Promise<BaseMovedForward | false | undefined> {
 		let since = new Set([oldTip]);
 		let logged = new Set([oldTip]);
 		try {
@@ -2400,7 +2473,89 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (off.some(sha => since.has(sha))) return false;
 
 			// Excluding these excludes everything the reflog reaches, with no more than these on a command line
-			return off;
+			return { offHistory: off, logged: logged };
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * For a base moved to `newTip`, read against `records` (the cached ref list), the count of the commits `newTip`
+	 * lacks for each local branch a worktree has checked out, by tip sha, so a detached HEAD at one of those tips finds
+	 * its count too. Only those branches are counted: the one walk runs until every counted branch meets `newTip`, so an
+	 * unrelated old or orphan branch would make it deeper than any worktree's own count, and a HEAD at a commit no
+	 * checked-out branch points at isn't in the answer. The branches derive from `records`, which the read is kept
+	 * per, so `newTip` alone keys it. `undefined` when git can't count them in one pass (before 2.41), there is no
+	 * checked-out branch or `records` can't tell which are, or git couldn't say.
+	 */
+	private getAheadOfMovedBase(
+		repoPath: string,
+		records: readonly RefRecord[],
+		newTip: string,
+	): Promise<ReadonlyMap<string, number> | undefined> {
+		return shareBaseMoveRead(this.aheadOfMovedBase, records, newTip, () =>
+			this.readAheadOfMovedBase(this.cache.getCommonPath(repoPath), records, newTip),
+		);
+	}
+
+	/**
+	 * Reads {@link getAheadOfMovedBase} from git, in `commonPath`, which holds every worktree's branches. Not bound to
+	 * one caller's cancellation, since every worktree the move reached rides this one read.
+	 */
+	private async readAheadOfMovedBase(
+		commonPath: string,
+		records: readonly RefRecord[],
+		newTip: string,
+	): Promise<ReadonlyMap<string, number> | undefined> {
+		try {
+			if (!(await this.git.supports('git:for-each-ref:ahead-behind'))) return undefined;
+
+			const checkedOut = new Set<string>();
+			for (const record of records) {
+				if (!record.name.startsWith('refs/heads/')) continue;
+
+				// Without git's `%(worktreepath)` (before 2.23) the list can't say which branches are checked out, and
+				// counting all of them is the walk this avoids, so each worktree counts its own
+				if (record.worktreePath == null) return undefined;
+
+				if (record.worktreePath) {
+					checkedOut.add(record.name);
+				}
+			}
+
+			if (!checkedOut.size) return undefined;
+
+			// A list too long for the command line is read whole and filtered
+			const patterns = toRefPatterns(checkedOut) ?? ['refs/heads'];
+
+			// `newTip` is a full sha, so no `)` can end the format atom early. for-each-ref also matches below a
+			// pattern (`refs/heads/a` matches `refs/heads/a/b`), so only the exact names are kept.
+			const result = await this.git.run(
+				{ cwd: commonPath, errors: 'ignore' },
+				'for-each-ref',
+				`--format=%(refname)%09%(objectname)%09%(ahead-behind:${newTip})`,
+				...patterns,
+			);
+			// One walk counts every checked-out branch, which a commit-graph speeds up most
+			void this.provider.maintenance?.request(commonPath, 'commit-graph');
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+
+			const aheadByTip = new Map<string, number>();
+			for (const line of result.stdout.split('\n')) {
+				if (!line) continue;
+
+				const [ref, sha, field] = line.split('\t');
+				if (!ref || !sha) return undefined;
+				if (!checkedOut.has(ref)) continue;
+
+				// git leaves the field empty for a ref that isn't at a commit, which no HEAD can be at, so it's skipped
+				// rather than costing every worktree the shared read
+				const counted = parseAheadBehindField(field);
+				if (counted == null) continue;
+
+				aheadByTip.set(sha, counted.ahead);
+			}
+			return aheadByTip;
 		} catch {
 			return undefined;
 		}
@@ -2648,10 +2803,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		let patterns: string[];
 		if (refs == null) {
 			patterns = options?.remotes ? ['refs/heads', 'refs/remotes'] : ['refs/heads'];
-		} else if (sum(refs, r => r.length + 1) < maxGitCliLength / 2) {
-			patterns = [...refs];
 		} else {
-			patterns = ['refs/heads', 'refs/remotes'];
+			patterns = toRefPatterns(refs) ?? ['refs/heads', 'refs/remotes'];
 		}
 
 		// The format atom ends at the first `)`, which a ref name may contain, so such a base is counted per branch
@@ -2671,12 +2824,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				const [ref, symref, counted] = line.split('\t');
 				if (symref || (refs != null && !refs.has(ref))) continue;
 
-				const [ahead, behind] = (counted ?? '').split(' ').map(n => parseInt(n, 10));
-				if (isNaN(ahead) || isNaN(behind)) {
+				const aheadBehind = parseAheadBehindField(counted);
+				if (aheadBehind == null) {
 					throw new Error(`Unexpected output counting the commits ahead of and behind '${base}': ${line}`);
 				}
 
-				counts.set(ref, { ahead: ahead, behind: behind });
+				counts.set(ref, aheadBehind);
 			}
 
 			return counts;
