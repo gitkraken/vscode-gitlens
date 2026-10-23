@@ -1904,6 +1904,57 @@ suite('OperationsGitSubProvider — failed writes still announce', () => {
 	});
 });
 
+suite('OperationsGitSubProvider — naming the branch a HEAD-moving write moved', () => {
+	let r: TestRepo;
+	let onChanged: sinon.SinonSpy;
+	let onReset: sinon.SinonSpy;
+
+	setup(() => {
+		onChanged = sinon.spy();
+		onReset = sinon.spy();
+		r = createTestRepo({ hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } } });
+		addCommit(r.path, 'second.txt', 'second\n', 'Second commit');
+	});
+
+	teardown(() => {
+		r.cleanup();
+	});
+
+	test('a reset on a branch names it', async () => {
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index'], ['refs/heads/main']]]);
+	});
+
+	test('a reset on a branch that is an alias for another names neither', async () => {
+		execFileSync('git', ['symbolic-ref', 'refs/heads/master', 'refs/heads/main'], { cwd: r.path, stdio: 'pipe' });
+		execFileSync('git', ['symbolic-ref', 'HEAD', 'refs/heads/master'], { cwd: r.path, stdio: 'pipe' });
+		onChanged.resetHistory();
+
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		// git follows the alias, so `main` moved, not the `master` HEAD names
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index']]]);
+	});
+
+	test('a reset on a detached HEAD moves no branch, yet resets what the worktree shows', async () => {
+		execFileSync('git', ['checkout', '-q', '--detach'], { cwd: r.path, stdio: 'pipe' });
+		const main = revParse(r.path, 'refs/heads/main');
+
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		assert.strictEqual(revParse(r.path, 'refs/heads/main'), main, 'sanity: no branch moved');
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'index']]]);
+		assert.deepStrictEqual(onReset.args, [[r.path, 'branches', 'status', 'worktrees']]);
+	});
+
+	test('a revert on a branch names it', async () => {
+		await r.provider.ops.revert(r.path, ['HEAD'], { editMessage: false });
+
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index'], ['refs/heads/main']]]);
+	});
+});
+
 suite('OperationsGitSubProvider — beforeIndexLockRetry rejection', () => {
 	test('commit rethrows the hook rejection instead of mapping it to a CommitError', async () => {
 		const r = createTestRepo();

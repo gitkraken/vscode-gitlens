@@ -44,6 +44,7 @@ import { arePathsEqual, dirname, isAbsolute, isDescendant, joinPaths, normalizeP
 import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
+import type { CommandChanges } from './commandClassifier.js';
 import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
@@ -54,6 +55,8 @@ import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './fea
 import { gitFeaturesByVersion } from './features.js';
 import type { GitQueueConfig } from './gitQueue.js';
 import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
+import type { HeadState } from './headState.js';
+import { getMovedHead } from './headState.js';
 import {
 	isConfigCommand,
 	isIndexWriteCommand,
@@ -725,6 +728,16 @@ const uniqueCounterForStream = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitRunOptions & { exitCodeOnly: true };
 
+/** What a `notify`-flagged run announces once it settles, worked out before it spawns */
+type PendingNotify =
+	/** An explicit `notify` list, announced as given */
+	| { readonly cwd: string; readonly pathOverride: string | undefined; readonly changes: readonly RepositoryChange[] }
+	/** `notify: 'infer'`'s classification, with HEAD before the run when the verb moves only HEAD's branch */
+	| { readonly cwd: string; readonly command: CommandChanges; readonly headBefore: HeadState };
+
+/** The refs a `notify`-flagged run proved it moved, as {@link Git.bindChangeNotifier} passes them on */
+export type NamedRefs = { readonly refs: readonly string[]; readonly configConfinedToRefs?: boolean };
+
 export class Git {
 	/** Map of running git commands — avoids running duplicate overlapping commands */
 	private readonly pendingCommands = new Map<
@@ -755,8 +768,13 @@ export class Git {
 				repoPaths: readonly string[],
 				changes: readonly RepositoryChange[],
 				sharedPaths?: readonly string[],
+				named?: NamedRefs,
 		  ) => void)
 		| undefined;
+	/** Bound via {@link bindHeadReader}; reads HEAD around a `notify: 'infer'` run that moves only HEAD's branch */
+	private _headReader: ((path: string) => Promise<HeadState>) | undefined;
+	/** The classifier behind `notify: 'infer'` — a field only so tests can substitute it */
+	private readonly _classify: typeof getChangesForCommand = getChangesForCommand;
 
 	constructor(
 		private readonly _locator: () => Promise<GitLocation>,
@@ -772,16 +790,28 @@ export class Git {
 	 * `repoPaths` holds more than one path only for a `-C`-scoped shared-state verb: the `-C` target, then the
 	 * caller's own `cwd`. `sharedPaths` names the paths that were not run in but share the repository, which
 	 * hear only the part of `changes` every worktree sees (the caller's `cwd`, when the verb also changed
-	 * something local to the `-C` target).
+	 * something local to the `-C` target). `named.refs`, given only when the run proved them, are the full ref
+	 * names it moved, as `repository.onChanged`'s `refs` are: `repoPaths` hear all of them, `sharedPaths` those of
+	 * the kinds they hear. `named.configConfinedToRefs` confines a `config` change to those branches' sections.
 	 */
 	bindChangeNotifier(
 		fn: (
 			repoPaths: readonly string[],
 			changes: readonly RepositoryChange[],
 			sharedPaths?: readonly string[],
+			named?: NamedRefs,
 		) => void,
 	): void {
 		this._changeNotifier = fn;
+	}
+
+	/**
+	 * Binds the reader a `notify: 'infer'` {@link run} of a verb that moves only HEAD's branch (a commit, a reset)
+	 * calls on the tree it runs in, before and after the run, to name that branch. It must not run git, and resolves
+	 * `undefined` when HEAD can't be read. With nothing bound, such a run announces its branch move unnamed.
+	 */
+	bindHeadReader(fn: (path: string) => Promise<HeadState>): void {
+		this._headReader = fn;
 	}
 
 	/**
@@ -950,10 +980,13 @@ export class Git {
 		// `notify` announces once the run settles (success, failure or cancellation), which the bare
 		// `return <promise>` paths below don't wait for; callers without it never take this branch.
 		if (options.notify != null) {
+			const pending = await this.prepareNotify(options, runArgs);
 			try {
 				return await this.run<T>({ ...options, notify: undefined }, ...args);
 			} finally {
-				this.applyNotify(options, runArgs);
+				if (pending != null) {
+					await this.applyNotify(pending);
+				}
 			}
 		}
 
@@ -1010,44 +1043,89 @@ export class Git {
 	}
 
 	/**
-	 * Applies `options.notify` once a {@link run} has settled — a no-op unless both `notify` and a
-	 * {@link bindChangeNotifier bound} notifier are present, so an unflagged caller pays nothing.
+	 * Works out, before a `notify`-flagged {@link run} spawns, what it announces once it settles — `undefined` unless
+	 * both `notify` and a {@link bindChangeNotifier bound} notifier are present, so an unflagged caller pays nothing.
+	 * A verb that moves only HEAD's branch reads HEAD here, since the run may move it.
 	 */
-	private applyNotify(options: GitRunOptions, args: readonly string[]): void {
+	private async prepareNotify(options: GitRunOptions, args: readonly string[]): Promise<PendingNotify | undefined> {
 		const notify = options.notify;
-		if (notify == null || this._changeNotifier == null || options.cwd == null) return;
+		if (notify == null || this._changeNotifier == null || options.cwd == null) return undefined;
 
+		// The argv git sees, which `options.configs` (a `-c`, or even a `-C`) leads
+		const argv = options.configs?.length ? [...options.configs, ...args] : args;
 		if (notify !== 'infer') {
 			// The caller decided exactly what changed; still resolve WHERE it changed the same way `infer`
 			// does, since the caller may have passed its own `-C` in the argv.
-			this._changeNotifier([this.resolveNotifyPath(options.cwd, leadingCommand(args).pathOverride)], notify);
+			return { cwd: options.cwd, pathOverride: leadingCommand(argv).pathOverride, changes: notify };
+		}
+
+		const command = this._classify(argv);
+		if (command == null) return undefined; // read-only or object-store-only — nothing to announce
+
+		const headBefore =
+			command.movesHeadBranch && this._headReader != null
+				? await this.readHead(this.resolveNotifyPath(options.cwd, command.pathOverride))
+				: undefined;
+		return { cwd: options.cwd, command: command, headBefore: headBefore };
+	}
+
+	/** Announces what {@link prepareNotify} worked out, once the run has settled */
+	private async applyNotify(pending: PendingNotify): Promise<void> {
+		if (!('command' in pending)) {
+			this._changeNotifier?.([this.resolveNotifyPath(pending.cwd, pending.pathOverride)], pending.changes);
 			return;
 		}
 
-		const command = getChangesForCommand(args);
-		if (command == null) return; // read-only or object-store-only — nothing to announce
+		const command = pending.command;
+		const ranIn = this.resolveNotifyPath(pending.cwd, command.pathOverride);
+		let changes = command.changes;
+		let sharedChanges = command.sharedChanges;
+		const refs = [...(command.refs ?? [])];
+		if (command.movesHeadBranch && this._headReader != null) {
+			const moved = getMovedHead(pending.headBefore, await this.readHead(ranIn));
+			if (moved === 'detached') {
+				// A detached HEAD moving moves no branch
+				changes = changes.filter(c => c !== 'heads');
+				sharedChanges = sharedChanges.filter(c => c !== 'heads');
+				// Nothing else changed, and announcing `[]` would reset everything
+				if (!changes.length) return;
+			} else if (moved != null && changes.includes('heads') && !refs.includes(moved.branch)) {
+				refs.push(moved.branch);
+			}
+		}
 
-		const ranIn = this.resolveNotifyPath(options.cwd, command.pathOverride);
+		const notifier = this._changeNotifier;
+		if (notifier == null) return;
+
+		let named: NamedRefs | undefined;
+		if (refs.length) {
+			named = command.configConfinedToRefs ? { refs: refs, configConfinedToRefs: true } : { refs: refs };
+		}
 
 		// A `-C`-scoped write also changes what the caller's own `cwd` sees when both share a `.git`: a branch,
 		// tag or stash it wrote. The target may be a worktree the cache never registered, so its eviction can't be
 		// trusted to reach `cwd`; announce the shared kinds there too, and only those. A write it can't classify
 		// (`[]`) resets both, since what it shares is unknown.
-		const cwd = normalizePath(options.cwd);
-		if (
-			command.pathOverride != null &&
-			cwd !== ranIn &&
-			(command.sharedChanges.length || !command.changes.length)
-		) {
-			if (command.sharedChanges.length === command.changes.length) {
-				this._changeNotifier([ranIn, cwd], command.changes);
+		const cwd = normalizePath(pending.cwd);
+		if (command.pathOverride != null && cwd !== ranIn && (sharedChanges.length || !changes.length)) {
+			if (sharedChanges.length === changes.length) {
+				notifier([ranIn, cwd], changes, undefined, named);
 			} else {
-				this._changeNotifier([ranIn], command.changes, [cwd]);
+				notifier([ranIn], changes, [cwd], named);
 			}
 			return;
 		}
 
-		this._changeNotifier([ranIn], command.changes);
+		notifier([ranIn], changes, undefined, named);
+	}
+
+	/** HEAD of `path` through the {@link bindHeadReader bound} reader, or `undefined` when it can't be read */
+	private async readHead(path: string): Promise<HeadState> {
+		try {
+			return await this._headReader?.(path);
+		} catch {
+			return undefined;
+		}
 	}
 
 	private resolveNotifyPath(cwd: string, pathOverride: string | undefined): string {

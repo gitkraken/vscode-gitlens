@@ -644,14 +644,16 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			} finally {
 				// The ref is already gone, so announce even if the cleanup above fails. A single combined
 				// reset/announce rather than this plus `fireReferenceChanged`'s own `'branches'`/`['heads']` —
-				// a branch delete only needs one of each.
+				// a branch delete only needs one of each. The config change is the branch's own section.
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads'], [ref], {
+					configConfinedToRefs: true,
+				});
 			}
 			return;
 		}
 
-		this.fireReferenceChanged(repoPath, ref);
+		this.fireReferenceChanged(repoPath, ref, false);
 	}
 
 	@debug()
@@ -695,11 +697,15 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			);
 		}
 
-		this.fireReferenceChanged(repoPath, ref);
+		this.fireReferenceChanged(repoPath, ref, true);
 	}
 
-	/** Announces a ref mutation to the cache and repository hooks. */
-	private fireReferenceChanged(repoPath: string, ref: string): void {
+	/**
+	 * Announces a ref mutation to the cache and repository hooks. `deref` says git followed a symbolic `ref` (no
+	 * `--no-deref`), so a remote's `HEAD` moved the branch it points to and stays unnamed.
+	 */
+	private fireReferenceChanged(repoPath: string, ref: string, deref: boolean): void {
+		const refs = deref && ref.endsWith('/HEAD') ? undefined : [ref];
 		if (ref === 'HEAD') {
 			// `update-ref HEAD` moves whatever HEAD resolves to — the checked-out branch, or a detached HEAD
 			// — which also changes what the index and working tree are compared against.
@@ -707,21 +713,22 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads']);
 		} else if (ref.startsWith('refs/heads/')) {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads'], refs);
 		} else if (ref.startsWith('refs/tags/')) {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags'], refs);
 		} else if (ref.startsWith('refs/remotes/')) {
 			// Remote-tracking branches are read through the branch and ref-tip caches, which `'branches'`
 			// clears; `'remotes'` covers only the configured remotes, which a ref write cannot change.
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes'], refs);
 		} else if (ref === 'refs/stash') {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash'], refs);
 		}
-		// A ref outside those namespaces (a consumer's own bookkeeping under `refs/<tool>/`) is visible to
-		// nothing core caches, and announcing it as an unknown change would make a host refresh everything
-		// for a write it cannot observe.
+		// A ref outside those namespaces (a consumer's own bookkeeping under `refs/<tool>/`) is in no cached ref
+		// list, and announcing it as an unknown change would make a host refresh everything for it. Only a
+		// `git log --all` walk (graph, search, contributors) sees one, when it points at a commit, so a row it
+		// adds or drops can stay stale until the next heads change.
 	}
 }

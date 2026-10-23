@@ -795,6 +795,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 					origin === 'raw' && announcement != null && this.isOwnReport(change, announcement, names, now);
 				if (announcement != null && !own) {
 					this.pendingRepoAnnounced.delete(change);
+				} else if (!pending && origin === 'raw' && this.isHeadEcho(change, names, now)) {
+					// A detached HEAD's move announces head without heads, and the HEAD file is all it wrote
+					this.pendingRepoAnnounced.set(change, { at: now, names: new Set(names) });
 				}
 				if (origin === 'unfenced') {
 					this.pendingRepoUnfencedChanges.add(change);
@@ -845,7 +848,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (names == null) return false;
 		if (isSubsetOf(names, announcement.names)) return true;
 
-		if (change !== 'heads' || names.size !== 1 || !names.has('HEAD')) return false;
+		return this.isHeadEcho(change, names, now);
+	}
+
+	/** Whether a raw `heads` report confined to `HEAD` is the echo of a write that announced `head` in time */
+	private isHeadEcho(change: RepositoryChange, names: ReadonlySet<string> | undefined, now: number): boolean {
+		if (change !== 'heads' || names?.size !== 1 || !names.has('HEAD')) return false;
 
 		const head = this.pendingRepoAnnounced.get('head');
 		return head != null && now - head.at <= this.effectiveRepoMs;

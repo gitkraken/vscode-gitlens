@@ -6,11 +6,17 @@ import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { fileUri } from '@gitlens/utils/uri.js';
+import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
+import type { CommandChanges } from '../exec/commandClassifier.js';
 import { Git } from '../exec/git.js';
 
 type PendingCommand = { cwd: string | undefined; promise: Promise<unknown> };
+/** One `repository.onChanged` call: its refs and options only when given */
+type Changed =
+	| [string, RepositoryChange[]]
+	| [string, RepositoryChange[], readonly string[]]
+	| [string, RepositoryChange[], readonly string[], { readonly configConfinedToRefs?: boolean }];
 
 suite('CliGitProvider — what an announced change resets', () => {
 	// Absolute on this platform (a drive is added on Windows), as real repository paths are: a `-C` path is
@@ -24,7 +30,9 @@ suite('CliGitProvider — what an announced change resets', () => {
 	let git: Git;
 	let provider: CliGitProvider;
 	let resets: [string, CachedGitTypes[]][];
-	let changed: [string, RepositoryChange[]][];
+	let changed: Changed[];
+	/** The files the provider's `fs` serves, by normalized path; a directory is `null` */
+	let files: Map<string, string | null>;
 
 	setup(() => {
 		cache = new Cache();
@@ -39,15 +47,41 @@ suite('CliGitProvider — what an announced change resets', () => {
 		git = new Git(locator);
 		resets = [];
 		changed = [];
+		files = new Map();
+		const fs: FileSystemProvider = {
+			readDirectory: () => Promise.resolve([]),
+			readFile: uri => {
+				const content = files.get(normalizePath(toFsPath(uri)));
+				return content != null
+					? Promise.resolve(new TextEncoder().encode(content))
+					: Promise.reject(new Error(`ENOENT: ${toFsPath(uri)}`));
+			},
+			stat: uri => {
+				const path = normalizePath(toFsPath(uri));
+				if (!files.has(path)) return Promise.resolve(undefined);
+
+				return Promise.resolve({ type: files.get(path) == null ? 2 : 1, ctime: 0, mtime: 0, size: 0 });
+			},
+		};
 		provider = new CliGitProvider({
 			cache: cache,
 			git: git,
 			locator: locator,
 			context: {
-				fs: {} as unknown as FileSystemProvider,
+				fs: fs,
 				hooks: {
 					cache: { onReset: (path, ...types) => resets.push([path, types]) },
-					repository: { onChanged: (path, changes) => changed.push([path, changes]) },
+					repository: {
+						onChanged: (path, changes, refs, options) => {
+							if (refs == null) {
+								changed.push([path, changes]);
+							} else if (options == null) {
+								changed.push([path, changes, refs]);
+							} else {
+								changed.push([path, changes, refs, options]);
+							}
+						},
+					},
 				},
 			},
 		});
@@ -199,5 +233,150 @@ suite('CliGitProvider — what an announced change resets', () => {
 			resets.map(([path]) => path),
 			[otherPath, repoPath],
 		);
+	});
+	suite('names a raw write announces', () => {
+		const moveHead: CommandChanges = {
+			changes: ['head', 'heads', 'index', 'pausedOp'],
+			sharedChanges: ['heads'],
+			movesHeadBranch: true,
+		};
+
+		/** Makes `notify: 'infer'` classify every argv as `classified`, whatever the classifier makes of it today */
+		function classifyAs(classified: CommandChanges): void {
+			(git as unknown as { _classify: () => CommandChanges })._classify = () => classified;
+		}
+
+		test('reach the path it ran in whole, and its siblings as the shared refs among them', async () => {
+			classifyAs({
+				changes: ['heads', 'index'],
+				sharedChanges: ['heads'],
+				refs: ['refs/heads/main', 'refs/tags/v1'],
+			});
+			const announced: { repoPath: string; refs?: readonly string[] }[] = [];
+			const listener = provider.onDidAnnounceChanges(e => announced.push({ repoPath: e.repoPath, refs: e.refs }));
+			try {
+				await git.run({ cwd: repoPath, errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+			} finally {
+				listener.dispose();
+			}
+
+			assert.deepStrictEqual(changed, [
+				[repoPath, ['heads', 'index'], ['refs/heads/main', 'refs/tags/v1']],
+				// `tags` isn't among the changes, so its name isn't one a sibling hears
+				[worktreePath, ['heads'], ['refs/heads/main']],
+			]);
+			assert.deepStrictEqual(announced, [
+				{ repoPath: repoPath, refs: ['refs/heads/main', 'refs/tags/v1'] },
+				{ repoPath: worktreePath, refs: ['refs/heads/main'] },
+			]);
+		});
+
+		test('reach both paths of a -C shared-state write, with its config confinement', async () => {
+			classifyAs({
+				changes: ['config', 'heads'],
+				pathOverride: worktreePath,
+				sharedChanges: ['config', 'heads'],
+				refs: ['refs/heads/x'],
+				configConfinedToRefs: true,
+			});
+
+			await git.run(
+				{ cwd: repoPath, errors: 'ignore', notify: 'infer' },
+				'-C',
+				worktreePath,
+				'branch',
+				'-d',
+				'x',
+			);
+
+			assert.deepStrictEqual(changed, [
+				[worktreePath, ['config', 'heads'], ['refs/heads/x'], { configConfinedToRefs: true }],
+				[repoPath, ['config', 'heads'], ['refs/heads/x'], { configConfinedToRefs: true }],
+			]);
+		});
+
+		test("reach a -C write's cwd as the shared refs, beside the shared part of its changes", async () => {
+			classifyAs({
+				changes: ['head', 'heads', 'index'],
+				pathOverride: worktreePath,
+				sharedChanges: ['heads'],
+				refs: ['refs/heads/feature'],
+			});
+
+			await git.run(
+				{ cwd: repoPath, errors: 'ignore', notify: 'infer' },
+				'-C',
+				worktreePath,
+				'commit',
+				'-m',
+				'msg',
+			);
+
+			assert.deepStrictEqual(changed, [
+				[worktreePath, ['head', 'heads', 'index'], ['refs/heads/feature']],
+				[repoPath, ['heads'], ['refs/heads/feature']],
+			]);
+		});
+
+		test("name the branch HEAD stayed on, read from the worktree's own HEAD file", async () => {
+			classifyAs(moveHead);
+			files.set(`${repoPath}/.git`, null);
+			files.set(`${repoPath}/.git/HEAD`, 'ref: refs/heads/main\n');
+
+			await git.run({ cwd: repoPath, errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(changed, [
+				[repoPath, ['head', 'heads', 'index', 'pausedOp'], ['refs/heads/main']],
+				[worktreePath, ['heads'], ['refs/heads/main']],
+			]);
+		});
+
+		test('a linked worktree its .git file points to is read the same way', async () => {
+			classifyAs({ ...moveHead, pathOverride: worktreePath });
+			files.set(`${worktreePath}/.git`, `gitdir: ${repoPath}/.git/worktrees/wt\n`);
+			files.set(`${repoPath}/.git/worktrees/wt/HEAD`, 'ref: refs/heads/feature\n');
+
+			await git.run(
+				{ cwd: repoPath, errors: 'ignore', notify: 'infer' },
+				'-C',
+				worktreePath,
+				'commit',
+				'-m',
+				'msg',
+			);
+
+			assert.deepStrictEqual(changed, [
+				[worktreePath, ['head', 'heads', 'index', 'pausedOp'], ['refs/heads/feature']],
+				[repoPath, ['heads'], ['refs/heads/feature']],
+			]);
+		});
+
+		test('a detached HEAD moving announces no branch move, so no sibling hears of it', async () => {
+			classifyAs(moveHead);
+			files.set(`${repoPath}/.git`, null);
+			files.set(`${repoPath}/.git/HEAD`, `${'a'.repeat(40)}\n`);
+
+			await git.run({ cwd: repoPath, errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(changed, [[repoPath, ['head', 'index', 'pausedOp']]]);
+			assert.ok(!cache.branches.has(repoPath), "the branch list shows the detached HEAD, so it's read again");
+		});
+
+		test("a reftable repository's placeholder HEAD, or none at all, leaves the branch move unnamed", async () => {
+			classifyAs(moveHead);
+			files.set(`${repoPath}/.git`, null);
+			files.set(`${repoPath}/.git/HEAD`, 'ref: refs/heads/.invalid\n');
+
+			await git.run({ cwd: repoPath, errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+			files.clear();
+			await git.run({ cwd: repoPath, errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(changed, [
+				[repoPath, ['head', 'heads', 'index', 'pausedOp']],
+				[worktreePath, ['heads']],
+				[repoPath, ['head', 'heads', 'index', 'pausedOp']],
+				[worktreePath, ['heads']],
+			]);
+		});
 	});
 });

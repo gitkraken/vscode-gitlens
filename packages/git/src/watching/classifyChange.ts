@@ -25,6 +25,8 @@ export const allWatchedRepositoryChanges: readonly RepositoryChange[] = [
 
 const classifyRegex =
 	/(index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
+/** A ref, ref directory or ref lock in a namespace {@link classifyRegex} maps (`refs/stash.lock` included) */
+const watchedRefRegex = /^refs\/(?:heads|remotes|stash|tags|replace)(?:\/|\.lock$|$)/;
 
 /**
  * Maps a path relative to a `.git` directory to the corresponding
@@ -65,6 +67,10 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 			return file === 'HEAD' || file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
 		}
 	}
+
+	// A ref outside the namespaces core reads (a tool's own, such as `refs/undo/*`) is no change, whatever words its
+	// name holds: `refs/kepler/x/fix-index` must not read as the index
+	if (relativePath.startsWith('refs/') && !watchedRefRegex.test(relativePath)) return undefined;
 
 	const match = classifyRegex.exec(relativePath);
 	if (match == null) return undefined;
