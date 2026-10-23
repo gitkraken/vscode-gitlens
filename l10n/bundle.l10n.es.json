@@ -1721,6 +1721,7 @@
 	"Enter a commit message to commit to {branch}": "Escriba un mensaje de commit para hacer commit en {branch}",
 	"Enter a name for the new branch": "Escriba un nombre para la nueva rama",
 	"Enter a name for the remote": "Escriba un nombre para el remoto",
+	"Enter a new name, or clear it to restore the default name": "Escriba un nombre nuevo o bórrelo para restaurar el nombre predeterminado",
 	"Enter a reference or commit SHA": "Escriba una referencia o un SHA de commit",
 	"Enter a remote file url to open": "Escriba una URL de archivo remota que abrir",
 	"Enter a search value": "Escriba un valor de búsqueda",

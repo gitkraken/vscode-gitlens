@@ -17686,6 +17686,18 @@
 				]
 			}
 		},
+		"gitlens.views.searchAndCompare.rename": {
+			"label": "Rename...",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b/ && !listMultiSelection",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.views.searchAndCompare.searchCommits": {
 			"label": "Search Commits...",
 			"icon": "$(search)",

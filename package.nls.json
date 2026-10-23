@@ -1124,6 +1124,7 @@
 	"command.gitlens.views.searchAndCompare.clear.title": "Clear Results",
 	"command.gitlens.views.searchAndCompare.copy.title": "Copy",
 	"command.gitlens.views.searchAndCompare.refresh.title": "Refresh",
+	"command.gitlens.views.searchAndCompare.rename.title": "Rename...",
 	"command.gitlens.views.searchAndCompare.searchCommits.title": "Search Commits...",
 	"command.gitlens.views.searchAndCompare.selectForCompare.title": "Compare References...",
 	"command.gitlens.views.searchAndCompare.setFilesLayoutToAuto.title": "View Files as Auto",
