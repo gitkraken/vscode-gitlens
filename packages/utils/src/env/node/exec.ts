@@ -446,7 +446,8 @@ export function runSpawn<T extends string | Buffer>(
 		const proc = (spawner ?? spawn)(command, args, {
 			cwd: opts.cwd,
 			env: opts.env,
-			timeout: opts.timeout,
+			// 0 disables it, which the spawner contract spells as absent
+			timeout: opts.timeout === 0 ? undefined : opts.timeout,
 			signal: cancellation,
 			stdio: ['pipe', null, null],
 		});

@@ -1482,7 +1482,7 @@ export class Git {
 			signal: cancellation,
 		};
 
-		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
+		const gitCommand = `(spawn) [${cwd}] git ${runArgs.join(' ')}`;
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -1602,30 +1602,31 @@ export class Git {
 			this.logGitCommandStart(gitCommand, streamId);
 
 			try {
-				if (proc.stdout) {
-					const enc = encoding ?? 'utf8';
-					if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
-						proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
-						for await (const chunk of proc.stdout) {
-							yield chunk;
-						}
-					} else {
-						// Non-UTF-8 encoding: collect raw buffers and decode at the end.
-						// Streaming decode is unsafe because chunk boundaries can split
-						// multi-byte sequences in the source encoding.
-						const decode = this.options.decode;
-						if (decode == null) {
-							throw new Error(
-								`Non-UTF-8 encoding '${enc}' requested for stream but no decode function configured`,
-							);
-						}
+				// Only a host spawner can leave it out; reading no output as empty would pass for a clean answer
+				if (proc.stdout == null) throw new Error(`'${command}' was spawned without a stdout pipe`);
 
-						const buffers: Buffer[] = [];
-						for await (const chunk of proc.stdout) {
-							buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-						}
-						yield await decode(Buffer.concat(buffers), { encoding: enc });
+				const enc = encoding ?? 'utf8';
+				if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
+					proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
+					for await (const chunk of proc.stdout) {
+						yield chunk;
 					}
+				} else {
+					// Non-UTF-8 encoding: collect raw buffers and decode at the end.
+					// Streaming decode is unsafe because chunk boundaries can split
+					// multi-byte sequences in the source encoding.
+					const decode = this.options.decode;
+					if (decode == null) {
+						throw new Error(
+							`Non-UTF-8 encoding '${enc}' requested for stream but no decode function configured`,
+						);
+					}
+
+					const buffers: Buffer[] = [];
+					for await (const chunk of proc.stdout) {
+						buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+					}
+					yield await decode(Buffer.concat(buffers), { encoding: enc });
 				}
 			} finally {
 				// This await MUST be in this inner finally block to ensure the child process close event completes

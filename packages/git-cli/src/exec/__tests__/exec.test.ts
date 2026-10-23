@@ -1124,4 +1124,19 @@ suite('Git options.spawn', () => {
 			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
 		);
 	});
+
+	test('rejects a stream whose spawner returned no stdout pipe rather than reading it as empty', async () => {
+		const spawner: ProcessSpawner = (command, args, options) =>
+			spawn(command, args, { ...options, stdio: ['pipe', 'ignore', 'pipe'] });
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir() }, '--version')) {
+					// drain
+				}
+			},
+			(ex: unknown) => ex instanceof Error && ex.message.includes('without a stdout pipe'),
+		);
+	});
 });
