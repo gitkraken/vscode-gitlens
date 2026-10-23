@@ -2054,7 +2054,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip=${l10n.t('Reply')}
+						tooltip=${l10n.t('Leave a Comment')}
 						aria-expanded=${this._replyingTo === finding.id ? 'true' : 'false'}
 						@click=${() => this.toggleReply(finding.id)}
 					>
@@ -2244,7 +2244,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 							<input
 								class="review-finding__reply-input"
 								type="text"
-								placeholder=${l10n.t('Reply — why it was closed, a question, a correction…')}
+								placeholder=${l10n.t('A note for the fix and the later review — why it was closed, a question, a correction…')}
 								@keydown=${(e: KeyboardEvent) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
@@ -2264,7 +2264,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 											'.review-finding__reply-input',
 										)!,
 									)}
-								>${l10n.t('Reply')}</gl-button
+								>${l10n.t('Comment')}</gl-button
 							>
 						</div>`
 					: nothing

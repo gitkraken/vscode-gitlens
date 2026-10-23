@@ -26,7 +26,17 @@ const threads = new Map<string, CommentThread>();
 const threadFindings = new WeakMap<CommentThread, string>();
 
 function getController() {
-	controller ??= comments.createCommentController(controllerId, l10n.t('GitLens Review'));
+	if (controller == null) {
+		controller = comments.createCommentController(controllerId, l10n.t('GitLens Review'));
+		// What is typed here is not an answer to anyone — it is a note kept with the finding, for the fix
+		// and the review passes that follow
+		controller.options = {
+			prompt: l10n.t('Leave a comment'),
+			placeHolder: l10n.t(
+				'A note for the fix and the later review — why it was closed, a question, a correction…',
+			),
+		};
+	}
 	return controller;
 }
 

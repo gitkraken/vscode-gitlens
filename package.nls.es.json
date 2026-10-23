@@ -609,7 +609,7 @@
 	"command.gitlens.review.reopenFinding.title": "Reabrir hallazgo",
 	"command.gitlens.review.replyAndAddress.title": "Resolver con el agente",
 	"command.gitlens.review.replyAndAskReviewer.title": "Preguntar al revisor",
-	"command.gitlens.review.replyToFinding.title": "Responder",
+	"command.gitlens.review.replyToFinding.title": "Dejar un comentario",
 	"command.gitlens.review.resolveFinding.title": "Resolver hallazgo",
 	"command.gitlens.review.sendFindingToAgent.title": "Resolver el hallazgo con el agente",
 	"command.gitlens.review.walkNext.title": "Siguiente archivo de la revisión",

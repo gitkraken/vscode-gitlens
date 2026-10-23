@@ -616,7 +616,7 @@
 	"command.gitlens.review.reopenFinding.title": "Reopen Finding",
 	"command.gitlens.review.replyAndAddress.title": "Address with Agent",
 	"command.gitlens.review.replyAndAskReviewer.title": "Ask Reviewer",
-	"command.gitlens.review.replyToFinding.title": "Reply",
+	"command.gitlens.review.replyToFinding.title": "Leave a Comment",
 	"command.gitlens.review.resolveFinding.title": "Resolve Finding",
 	"command.gitlens.review.sendFindingToAgent.title": "Address Finding with Agent",
 	"command.gitlens.review.walkNext.title": "Next File in Review",

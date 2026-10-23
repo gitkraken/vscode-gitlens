@@ -7403,7 +7403,7 @@
 			}
 		},
 		"gitlens.review.replyToFinding": {
-			"label": "Reply",
+			"label": "Leave a Comment",
 			"icon": "$(reply)",
 			"menus": {
 				"comments/commentThread/context": [

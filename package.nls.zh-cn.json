@@ -609,7 +609,7 @@
 	"command.gitlens.review.reopenFinding.title": "重新打开发现",
 	"command.gitlens.review.replyAndAddress.title": "让代理处理",
 	"command.gitlens.review.replyAndAskReviewer.title": "询问审查者",
-	"command.gitlens.review.replyToFinding.title": "回复",
+	"command.gitlens.review.replyToFinding.title": "留下评论",
 	"command.gitlens.review.resolveFinding.title": "解决发现",
 	"command.gitlens.review.sendFindingToAgent.title": "让代理处理发现",
 	"command.gitlens.review.walkNext.title": "审查中的下一个文件",
