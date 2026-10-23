@@ -1,6 +1,9 @@
 import * as assert from 'assert';
+import { execFileSync } from 'node:child_process';
+import { normalizePath } from '@gitlens/utils/path.js';
+import type { HeadState } from '../../../exec/headState.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createBranch, createTestRepo, createWorktree } from './helpers.js';
 
 /**
  * A raw `provider.git.run(...)` call bypasses every typed mutator's cache-eviction — it is the escape
@@ -43,5 +46,82 @@ suite('Raw git.run notify', () => {
 			!branches.values.some(b => b.name === 'y'),
 			'without notify, the raw branch create should NOT be visible yet — the cache is still stale',
 		);
+	});
+});
+
+suite('Raw git.run notify — naming the branch HEAD is on', () => {
+	let repo: TestRepo;
+	let wt: { path: string; cleanup: () => void };
+	let spawns: string[][];
+
+	setup(() => {
+		repo = createTestRepo();
+		createBranch(repo.path, 'feature');
+		// Added outside core, so the provider never registered it, as with Kepler's scratch worktrees
+		wt = createWorktree(repo.path, 'feature');
+
+		spawns = [];
+		const git = repo.provider.git as unknown as { _runSpawn: (...a: unknown[]) => Promise<unknown> };
+		const inner = git._runSpawn;
+		git._runSpawn = (...a: unknown[]) => {
+			spawns.push(a[1] as string[]);
+			return inner(...a);
+		};
+	});
+
+	teardown(() => {
+		wt.cleanup();
+		repo.cleanup();
+	});
+
+	function readHead(path: string): Promise<HeadState> {
+		return (repo.provider.git as unknown as { _headReader: (path: string) => Promise<HeadState> })._headReader(
+			path,
+		);
+	}
+
+	test("the provider's head reader reads an unregistered linked worktree's HEAD without running git", async () => {
+		assert.ok(!repo.provider.cache.isRegistered(wt.path), 'sanity: the worktree is unregistered');
+
+		assert.deepStrictEqual(await readHead(wt.path), { branch: 'refs/heads/feature' });
+		assert.deepStrictEqual(await readHead(repo.path), { branch: 'refs/heads/main' });
+
+		execFileSync('git', ['checkout', '-q', '--detach'], { cwd: wt.path, stdio: 'pipe' });
+		assert.strictEqual(await readHead(wt.path), 'detached');
+
+		assert.deepStrictEqual(spawns, []);
+	});
+
+	test('a -C commit into an unregistered worktree names its branch, and spawns only the commit', async () => {
+		const announced: { repoPath: string; changes: readonly string[]; refs?: readonly string[] }[] = [];
+		const listener = repo.provider.onDidAnnounceChanges(e =>
+			announced.push({ repoPath: e.repoPath, changes: e.changes, refs: e.refs }),
+		);
+		try {
+			await repo.provider.git.run(
+				{ cwd: repo.path, notify: 'infer' },
+				'-C',
+				wt.path,
+				'commit',
+				'--allow-empty',
+				'-m',
+				'Scratch work',
+			);
+		} finally {
+			listener.dispose();
+		}
+
+		assert.deepStrictEqual(
+			spawns.map(args => args.find(a => a === 'commit')),
+			['commit'],
+		);
+		assert.deepStrictEqual(announced, [
+			{
+				repoPath: normalizePath(wt.path),
+				changes: ['head', 'heads', 'index', 'pausedOp'],
+				refs: ['refs/heads/feature'],
+			},
+			{ repoPath: normalizePath(repo.path), changes: ['heads'], refs: ['refs/heads/feature'] },
+		]);
 	});
 });

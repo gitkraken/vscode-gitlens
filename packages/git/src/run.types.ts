@@ -152,6 +152,9 @@ export interface GitRunOptions {
 	 * for every existing caller. The change is announced for `cwd`, or the `-C` target, as given: run from the
 	 * repository root, since that's the path core's caches are keyed by. A `-C`-scoped verb whose effect every
 	 * worktree shares (`branch`, `fetch`, …) is announced for the caller's `cwd` too, resetting once per repository.
+	 * `'infer'` names the refs the argv proves it moved, and for a verb that moves only HEAD's branch (a commit, a
+	 * reset) reads HEAD before and after the run: on one branch both times it names that branch, detached both times
+	 * it announces no branch move.
 	 *
 	 * The announcement resets only the caches the announced kinds can have made stale, the same ones a file
 	 * watcher's change of those kinds clears, and drops the repository's pending git runs. A write `'infer'`

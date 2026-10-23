@@ -115,6 +115,20 @@ describe('classifyGitDirChange', () => {
 		assert.deepStrictEqual(classifyGitDirChange('refs/stash'), ['stash']);
 	});
 
+	it('maps a ref named like a watched file by its namespace', () => {
+		assert.deepStrictEqual(classifyGitDirChange('refs/heads/fix-index'), ['heads']);
+		assert.deepStrictEqual(classifyGitDirChange('refs/tags/config'), ['tags']);
+		assert.deepStrictEqual(classifyGitDirChange('refs/stash.lock'), ['stash']);
+	});
+
+	it("returns undefined for a ref outside the watched namespaces, whatever its name holds (a tool's own)", () => {
+		assert.strictEqual(classifyGitDirChange('refs/kepler/sync/resolved/fix-index'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/undo/config-x'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/kepler/a/HEAD'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/kepler/a/HEAD.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/heads-index'), undefined);
+	});
+
 	it('maps refs/tags/v1.0 to tags', () => {
 		assert.deepStrictEqual(classifyGitDirChange('refs/tags/v1.0'), ['tags']);
 	});
