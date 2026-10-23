@@ -922,6 +922,7 @@ curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-
 - "lines" are 1-based line numbers in the file as it is now (the right side of the diff); omit "lines" when the finding is about the file as a whole
 - Report only findings you have verified by reading the code or running it; never speculate about code you did not open
 - Do not change any files — this is a review, not a fix
+- Check every response: GitLens answers {"accepted":N} with N the findings and comments it took. Any other answer — an empty body, 401, 404 — means the review is no longer open; stop reporting and say so plainly, with the status you got
 
 \${priorFindings}
 
