@@ -9,12 +9,21 @@ import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import type { LogChannel } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createProvider, createShadowCheckedGitService, createTestRepo } from './helpers.js';
+import {
+	addCommit,
+	cloneTestRepo,
+	createProvider,
+	createShadowCheckedGitService,
+	createTestRepo,
+	createWorktree,
+	noCommitGraphWritesConfig,
+} from './helpers.js';
 import { verifyBaseRemeasure } from './shadowCheck.js';
 
 const fs: FileSystemProvider = {
@@ -1082,6 +1091,366 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
 	});
 
+	/**
+	 * A fetch moves one base under every worktree based on it, and each worktree's re-measure finds its HEAD's count in
+	 * one shared `for-each-ref` rather than running a `rev-list` of its own, unless that count can't be shown to be
+	 * the one the `rev-list` would give. Processes are told apart by the `• completed` line each logs.
+	 */
+	suite('across worktrees', () => {
+		const completed: string[] = [];
+		const logger: LogChannel = {
+			name: 'spawn-counter',
+			logLevel: 0,
+			dispose: () => {},
+			trace: () => {},
+			debug: () => {},
+			info: (msg: string) => {
+				if (msg.includes('• completed')) {
+					completed.push(msg);
+				}
+			},
+			warn: () => {},
+			error: () => {},
+		};
+
+		let worktrees: { path: string; cleanup: () => void }[];
+
+		setup(() => {
+			worktrees = [];
+		});
+
+		teardown(() => {
+			for (const wt of worktrees) {
+				wt.cleanup();
+			}
+		});
+
+		/** Branch `name` taken off `origin/main` and checked out in a linked worktree, with `commits` of its own */
+		function startWorktreeTask(name: string, commits: number): string {
+			git(repo.path, 'branch', '--no-track', name, 'origin/main');
+			const wt = createWorktree(repo.path, name);
+			worktrees.push(wt);
+			for (let i = 0; i < commits; i++) {
+				addCommit(wt.path, `${name}-${i}.txt`, `${name} ${i}`, `${name} ${i}`);
+			}
+			return wt.path;
+		}
+
+		/** A linked worktree with a detached HEAD at `rev` (by its sha, which `git worktree add` checks out detached) */
+		function addDetachedWorktree(rev: string): string {
+			const wt = createWorktree(repo.path, git(repo.path, 'rev-parse', rev));
+			worktrees.push(wt);
+			return wt.path;
+		}
+
+		/** Moves `origin/main` to `sha`, as a push (forced or not) and this checkout's fetch would */
+		function pushMain(sha: string, force?: boolean): void {
+			git(repo.path, 'push', '-q', ...(force ? ['--force'] : []), 'origin', `${sha}:refs/heads/main`);
+			git(repo.path, 'fetch', '-q', 'origin');
+		}
+
+		/** A new commit on `parent` with its tree, made without checking anything out */
+		function commitOn(parent: string, message: string): string {
+			return git(
+				repo.path,
+				'commit-tree',
+				'-p',
+				parent,
+				'-m',
+				message,
+				git(repo.path, 'rev-parse', `${parent}^{tree}`),
+			);
+		}
+
+		type Checkout = { readonly path: string; readonly branch: string | undefined };
+
+		async function readAll(checkouts: readonly Checkout[]): Promise<AheadOfBase[]> {
+			const answers: AheadOfBase[] = [];
+			for (const { path, branch } of checkouts) {
+				answers.push(await withProvider(p => p.branches.getAheadOfBase(path, branch)));
+			}
+			return answers;
+		}
+
+		/**
+		 * Re-measures every checkout's previous answer through one provider, as one repository's summaries do, and holds
+		 * each answer to a fresh full read (through the shadow check). Returns the answers, the processes the
+		 * re-measures ran and the maintenance they asked for.
+		 */
+		async function remeasureAll(
+			checkouts: readonly Checkout[],
+			previous: readonly AheadOfBase[],
+			moved: readonly string[],
+			options?: { aheadBehind?: false },
+		): Promise<{ answers: (AheadOfBase | undefined)[]; spawned: string[]; hinted: string[] }> {
+			const provider = createProvider({ gitOptions: { logger: logger } });
+			try {
+				for (const path of [repo.path, ...checkouts.map(c => c.path)]) {
+					provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+				}
+				if (options?.aheadBehind === false) {
+					const target = provider.git;
+					const supports = target.supports;
+					target.supports = feature =>
+						feature === 'git:for-each-ref:ahead-behind' ? false : supports.call(target, feature);
+				}
+				const hinted: string[] = [];
+				provider.maintenance!.request = (_path, task) => {
+					hinted.push(task);
+					return undefined;
+				};
+
+				const heads = checkouts.map(c => git(c.path, 'rev-parse', 'HEAD'));
+				const mark = completed.length;
+				const answers = await Promise.all(
+					checkouts.map(({ path, branch }, i) => {
+						const before = previous[i];
+						assert.ok(before.base != null, 'there is a base to re-measure');
+						return provider.branches.getAheadOfBaseAfterBaseMove(
+							path,
+							branch,
+							{
+								head: heads[i],
+								base: before.base,
+								dependsOn: before.dependsOn,
+								...(before.defaultBranch !== undefined
+									? { defaultBranch: before.defaultBranch }
+									: undefined),
+							},
+							moved,
+						);
+					}),
+				);
+				const spawned = completed.slice(mark);
+
+				const fresh = await readAll(checkouts);
+				for (const [i, answer] of answers.entries()) {
+					if (answer != null) {
+						verifyBaseRemeasure(answer, fresh[i]);
+					}
+				}
+				return { answers: answers, spawned: spawned, hinted: hinted };
+			} finally {
+				provider.dispose();
+			}
+		}
+
+		/** The shared counts of every local branch past a moved base */
+		function sharedCounts(spawned: readonly string[]): string[] {
+			return spawned.filter(m => m.includes(' for-each-ref ') && m.includes('%(ahead-behind:'));
+		}
+
+		/** The count `path`'s HEAD ran of its own */
+		function ownCounts(spawned: readonly string[], path: string): string[] {
+			const head = git(path, 'rev-parse', 'HEAD');
+			return spawned.filter(m => m.includes(` rev-list --count ${head} --not `));
+		}
+
+		test('a base that moved forward under several worktrees is re-measured for all of them from one count', async () => {
+			const checkouts = ['a', 'b', 'c'].map((name, i) => ({
+				path: startWorktreeTask(name, i + 1),
+				branch: name,
+			}));
+			const before = await readAll(checkouts);
+			for (const answer of before) {
+				assert.strictEqual(answer.base?.ref, 'origin/main');
+			}
+
+			peerPushesMain('one');
+			let { answers, spawned, hinted } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.deepStrictEqual(
+				answers.map(a => a?.base?.ahead),
+				[1, 2, 3],
+			);
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+			assert.deepStrictEqual(hinted, ['commit-graph'], 'the shared count asks for a commit-graph');
+
+			// And again from the re-measured answers, whose fork point is now an older entry of the base's reflog
+			const remeasured = answers.map(a => a!);
+			assert.notStrictEqual(remeasured[0].base?.forkPoint, remeasured[0].base?.sha);
+			peerPushesMain('two');
+			({ answers, spawned } = await remeasureAll(checkouts, remeasured, fetchedMain));
+			assert.ok(answers.every(a => a != null));
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test('a worktree whose branch landed in the moved base is read in full, the others re-measured', async () => {
+			const checkouts = ['a', 'b', 'c'].map(name => ({ path: startWorktreeTask(name, 1), branch: name }));
+			const before = await readAll(checkouts);
+
+			git(repo.path, 'push', '-q', 'origin', 'b');
+			git(peer.path, 'fetch', '-q', 'origin', 'b');
+			git(peer.path, 'merge', '-q', '--no-ff', '-m', 'Merge b', 'FETCH_HEAD');
+			git(peer.path, 'push', '-q', 'origin', 'main');
+			git(repo.path, 'fetch', '-q', 'origin');
+
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers[0] != null);
+			assert.strictEqual(answers[1], undefined);
+			assert.ok(answers[2] != null);
+			assert.strictEqual((await readAll([checkouts[1]]))[0].base?.ahead, 0);
+			// The shared count already differs from the previous one, so no worktree counts its own
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test("commits the base's reflog reaches off its new tip's history make each worktree count its own", async () => {
+			// The base held a commit that a force-push then left behind, before the worktrees' branches were taken off it
+			const start = git(repo.path, 'rev-parse', originMain);
+			pushMain(commitOn(start, 'Dropped'));
+			const oldTip = commitOn(start, 'Kept');
+			pushMain(oldTip, true);
+			const checkouts = ['a', 'b'].map(name => ({ path: startWorktreeTask(name, 1), branch: name }));
+			const before = await readAll(checkouts);
+			assert.strictEqual(before[0].base?.forkPoint, oldTip);
+
+			pushMain(commitOn(oldTip, 'Moved'));
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers.every(a => a != null));
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.strictEqual(ownCounts(spawned, path).length, 1, spawned.join('\n'));
+			}
+		});
+
+		test("a fork point the base's reflog no longer holds makes the worktree count its own", async () => {
+			const checkouts = [{ path: startWorktreeTask('a', 1), branch: 'a' }];
+			const forkPoint = git(repo.path, 'rev-parse', originMain);
+			peerPushesMain('one');
+			peerPushesMain('two');
+			const before = await readAll(checkouts);
+			assert.strictEqual(before[0].base?.forkPoint, forkPoint);
+
+			// Expiry drops the entries holding the fork point (`@{2}`) and the commit after it (`@{1}`), which the oldest
+			// entry left still names as the value before it; the base then only fast-forwards
+			git(repo.path, 'reflog', 'delete', `${originMain}@{2}`);
+			git(repo.path, 'reflog', 'delete', `${originMain}@{1}`);
+			peerPushesMain('three');
+
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers[0] != null);
+			assert.strictEqual(answers[0].base?.forkPoint, forkPoint);
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			assert.strictEqual(ownCounts(spawned, checkouts[0].path).length, 1, spawned.join('\n'));
+		});
+
+		test("a detached HEAD at a branch's commit uses the shared count, and one at a commit no branch points at counts its own", async () => {
+			const branched = startWorktreeTask('a', 1);
+			const atBranch = addDetachedWorktree('a');
+			const unbranched = addDetachedWorktree('a');
+			addCommit(unbranched, 'detached.txt', 'detached', 'Detached work');
+			const checkouts = [
+				{ path: branched, branch: 'a' },
+				{ path: atBranch, branch: undefined },
+				{ path: unbranched, branch: undefined },
+			];
+			const before = await readAll(checkouts);
+			for (const answer of before) {
+				assert.strictEqual(answer.base?.ref, 'origin/main');
+			}
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers.every(r => r != null));
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			assert.deepStrictEqual(ownCounts(spawned, branched), []);
+			assert.deepStrictEqual(ownCounts(spawned, atBranch), []);
+			assert.strictEqual(ownCounts(spawned, unbranched).length, 1, spawned.join('\n'));
+		});
+
+		test('a detached HEAD at the commit of a branch no worktree has checked out counts its own', async () => {
+			const branched = startWorktreeTask('a', 1);
+			const tip = commitOn(git(repo.path, 'rev-parse', originMain), 'Parked');
+			git(repo.path, 'branch', '--no-track', 'parked', tip);
+			const atParked = addDetachedWorktree(tip);
+			const checkouts = [
+				{ path: branched, branch: 'a' },
+				{ path: atParked, branch: undefined },
+			];
+			const before = await readAll(checkouts);
+			for (const answer of before) {
+				assert.strictEqual(answer.base?.ref, 'origin/main');
+			}
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers.every(r => r != null));
+			const shared = sharedCounts(spawned);
+			assert.strictEqual(shared.length, 1, spawned.join('\n'));
+			assert.ok(!shared[0].includes('refs/heads/parked'), shared[0]);
+			assert.deepStrictEqual(ownCounts(spawned, branched), []);
+			assert.strictEqual(ownCounts(spawned, atParked).length, 1, spawned.join('\n'));
+		});
+
+		test('a branch no worktree has checked out, an orphan one included, is left out of the shared count', async () => {
+			const checkouts = ['a', 'b'].map(name => ({ path: startWorktreeTask(name, 1), branch: name }));
+			// The empty tree is built into git, so the root commit needs no tree written
+			const orphan = git(repo.path, 'commit-tree', '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-m', 'Orphan');
+			git(repo.path, 'branch', '--no-track', 'gh-pages', orphan);
+			git(repo.path, 'branch', '--no-track', 'old', git(repo.path, 'rev-list', '--max-parents=0', originMain));
+			const before = await readAll(checkouts);
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.deepStrictEqual(
+				answers.map(a => a?.base?.ahead),
+				[1, 1],
+			);
+			const shared = sharedCounts(spawned);
+			assert.strictEqual(shared.length, 1, spawned.join('\n'));
+			assert.ok(shared[0].includes('refs/heads/a') && shared[0].includes('refs/heads/b'), shared[0]);
+			assert.ok(!shared[0].includes('gh-pages') && !shared[0].includes('refs/heads/old'), shared[0]);
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test('two branches at one commit share its count', async () => {
+			const a = startWorktreeTask('a', 1);
+			const b = startWorktreeTask('b', 0);
+			git(b, 'merge', '-q', '--ff-only', 'a');
+			const checkouts = [
+				{ path: a, branch: 'a' },
+				{ path: b, branch: 'b' },
+			];
+			const before = await readAll(checkouts);
+			assert.deepStrictEqual(
+				before.map(r => r.base?.ref),
+				['origin/main', 'origin/main'],
+			);
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers.every(r => r != null));
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			assert.deepStrictEqual(ownCounts(spawned, a), []);
+		});
+
+		test('git that cannot count every branch in one pass counts each worktree on its own', async () => {
+			const checkouts = ['a', 'b'].map(name => ({ path: startWorktreeTask(name, 1), branch: name }));
+			const before = await readAll(checkouts);
+
+			peerPushesMain('one');
+			const { answers, spawned, hinted } = await remeasureAll(checkouts, before, fetchedMain, {
+				aheadBehind: false,
+			});
+			assert.ok(answers.every(r => r != null));
+			assert.deepStrictEqual(sharedCounts(spawned), []);
+			for (const { path } of checkouts) {
+				assert.strictEqual(ownCounts(spawned, path).length, 1, spawned.join('\n'));
+			}
+			assert.deepStrictEqual(hinted, []);
+		});
+	});
+
 	suite('through the summary', () => {
 		let service: GitService;
 		let watchers: { basePath: string; fire: (event: FileWatchEvent) => void }[];
@@ -1091,7 +1460,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			watchers = [];
 			calls = { full: 0, remeasured: 0, answered: 0 };
 			service = createCliGitService({
-				context: { fs: fs },
+				context: { fs: fs, config: noCommitGraphWritesConfig },
 				watchingProvider: {
 					createWatcher: function (basePath, _pattern, onEvent) {
 						watchers.push({ basePath: basePath, fire: onEvent });
