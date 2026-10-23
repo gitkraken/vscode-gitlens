@@ -455,18 +455,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (this.status === 'loading') {
-			return this.renderWithChecklist(this.renderLoadingWithCancel());
+			return html`${this.renderWithChecklist(this.renderLoadingWithCancel(), l10n.t('Reviewing the diff…'))}${this.renderDeepReviewStrip()}`;
 		}
 
 		if (this.status === 'error') {
-			return this.renderWithChecklist(
+			return html`${this.renderWithChecklist(
 				renderErrorState(
 					this.errorMessage,
 					l10n.t('An error occurred during review.'),
 					'review-error-retry',
 					'review-error-back',
 				),
-			);
+			)}${this.renderDeepReviewStrip()}`;
 		}
 
 		if (this.status !== 'ready' || !this.result) return nothing;
@@ -474,21 +474,77 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// The back arrow is the main header's close button in this sub-state (see
 		// `gl-details-header.inResultsView`). The Copy + Send-to-chat actions live in an always-visible
 		// footer beneath the scrollable results so they stay reachable regardless of scroll position.
+		const open = countReviewFindingStates(this.result, this.session).open;
 		return html`${this.renderWithChecklist(
 			html`<div class="review-results scrollable">${this.renderOverview()} ${this.renderFocusAreas()}</div>`,
-		)}${this.renderReadyFooter()}${this.renderRefineInput()}`;
+			formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
+				count: open,
+			}),
+		)}${this.renderDeepReviewStrip()}${this.renderReadyFooter()}${this.renderRefineInput()}`;
+	}
+
+	/** Which of the two panes below are folded to their headers — kept across remounts of the panel, the
+	 *  way VS Code keeps a view's collapsed sections */
+	private static readonly collapsedPanes = { files: false, findings: false };
+	@state() private _filesCollapsed = GlDetailsReviewModePanel.collapsedPanes.files;
+	@state() private _findingsCollapsed = GlDetailsReviewModePanel.collapsedPanes.findings;
+
+	private togglePane(pane: 'files' | 'findings'): void {
+		if (pane === 'files') {
+			this._filesCollapsed = !this._filesCollapsed;
+			GlDetailsReviewModePanel.collapsedPanes.files = this._filesCollapsed;
+		} else {
+			this._findingsCollapsed = !this._findingsCollapsed;
+			GlDetailsReviewModePanel.collapsedPanes.findings = this._findingsCollapsed;
+		}
+	}
+
+	private renderPaneHeader(pane: 'files' | 'findings', title: string, description?: string) {
+		const collapsed = pane === 'files' ? this._filesCollapsed : this._findingsCollapsed;
+		return html`<button
+			class="review-pane-header"
+			aria-expanded=${collapsed ? 'false' : 'true'}
+			@click=${() => this.togglePane(pane)}
+		>
+			<code-icon
+				class="review-pane-header__icon"
+				icon=${collapsed ? 'chevron-right' : 'chevron-down'}
+			></code-icon>
+			<span class="review-pane-header__title">${title}</span>
+			${description ? html`<span class="review-pane-header__description">${description}</span>` : nothing}
+		</button>`;
 	}
 
 	/** The reader's checklist stays up while the AI runs and after it answers — the findings are one
-	 *  lens on the changeset, not a screen that replaces it. */
-	private renderWithChecklist(aiContent: TemplateResult) {
-		return html`${this.renderDoneCard()}
-			<gl-split-panel orientation="vertical" class="review-split" position="40">
-				<div slot="start" class="review-split__files">
-					<div class="scope-files">${this.renderFileCuration()}</div>
-				</div>
-				<div slot="end" class="review-split__ai">${aiContent}</div>
-			</gl-split-panel>`;
+	 *  lens on the changeset, not a screen that replaces it. Each half is a pane that folds to its header,
+	 *  as views do in VS Code: the other takes the height, and the divider rests until both are open.
+	 *  Folding only hides a pane's body, so the tree keeps its folders and the findings their scroll. */
+	private renderWithChecklist(aiContent: TemplateResult, findingsDescription?: string) {
+		const files = this._filesCollapsed;
+		const findings = this._findingsCollapsed;
+		const folded = files && findings ? 'both' : files ? 'files' : findings ? 'findings' : undefined;
+		const progress = getReviewProgress(this.session, this.files);
+		return html`<gl-split-panel
+			orientation="vertical"
+			class="review-split${folded != null ? ` review-split--folded review-split--folded-${folded}` : ''}"
+			position="40"
+			?disabled=${folded != null}
+		>
+			<div slot="start" class="review-split__files">
+				${this.renderPaneHeader(
+					'files',
+					l10n.t('Checklist'),
+					progress.total > 0
+						? l10n.t('{viewed}/{total} viewed', { viewed: progress.viewed, total: progress.total })
+						: undefined,
+				)}
+				<div class="scope-files review-split__body" ?hidden=${files}>${this.renderFileCuration()}</div>
+			</div>
+			<div slot="end" class="review-split__ai">
+				${this.renderPaneHeader('findings', l10n.t('Findings'), findingsDescription)}
+				<div class="review-split__body" ?hidden=${findings}>${aiContent}</div>
+			</div>
+		</gl-split-panel>`;
 	}
 
 	/** Disclosure state for the follow-up input: `undefined` follows the default (open once a
@@ -824,7 +880,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
 		return html`
-			${this.renderDoneCard()}
 			${
 				scope.type === 'wip'
 					? html`<gl-split-panel
@@ -848,6 +903,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 						</gl-split-panel>`
 					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
 			}
+			${this.renderDeepReviewStrip()}
 			${
 				this.aiEnabled
 					? html`<div class="review-input-row">
@@ -1012,12 +1068,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-
-	/** The strip above the checklist: the file being read and its steps while a review diff is active, the
-	 *  progress otherwise, and the review's ending — with a summary to take away — once every file is viewed. */
-	private renderDoneCard() {
-		return html`${this.renderDeepReviewStrip()}`;
 	}
 
 	private renderReadingOrEnding() {
@@ -1440,10 +1490,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const deep = this.deepReview;
 		if (deep == null || (!deep.active && !deep.done) || deep.purpose === 'ask') return nothing;
 
-		const count = formatPlural(
-			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
-			{ count: deep.count },
-		);
+		const count = deep.active
+			? formatPlural(l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'), {
+					count: deep.count,
+				})
+			: formatPlural(l10n.t('{count, plural, one{{count} finding} other{{count} findings}}'), {
+					count: deep.count,
+				});
 		return html`<div class="review-deep" role="status">
 			<code-icon class="review-deep__icon" icon=${deep.active ? 'loading' : 'robot'}></code-icon>
 			<span class="review-deep__text"

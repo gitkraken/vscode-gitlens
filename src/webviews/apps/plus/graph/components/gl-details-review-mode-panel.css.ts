@@ -93,8 +93,85 @@ export const reviewModePanelStyles = css`
 		overflow: hidden;
 	}
 
-	.review-split__ai {
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+	.review-split__body {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.review-split__body[hidden] {
+		display: none;
+	}
+
+	/* A folded pane is its header alone: its track sizes to it, the open pane takes the rest, and the
+	   divider rests. These declarations come from outside the split's shadow root, so they win over its
+	   own :host track sizing. */
+	.review-split--folded {
+		--gl-split-panel-divider-width: 0px;
+	}
+
+	.review-split--folded::part(divider) {
+		visibility: hidden;
+	}
+
+	.review-split--folded-files {
+		grid-template-rows: auto 0 minmax(0, 1fr);
+	}
+
+	.review-split--folded-findings {
+		grid-template-rows: minmax(0, 1fr) 0 auto;
+	}
+
+	.review-split--folded-both {
+		grid-template-rows: auto 0 auto;
+		align-content: start;
+	}
+
+	.review-split--folded-files .review-split__files,
+	.review-split--folded-findings .review-split__ai,
+	.review-split--folded-both .review-split__files,
+	.review-split--folded-both .review-split__ai {
+		height: auto;
+	}
+
+	/* VS Code's view-pane header: a slim, uppercase bar that folds its pane */
+	.review-pane-header {
+		display: flex;
+		flex: none;
+		gap: var(--gl-space-4);
+		align-items: center;
+		width: 100%;
+		height: 2.2rem;
+		padding: 0 var(--gl-space-8) 0 var(--gl-space-2);
+		font-family: inherit;
+		font-size: var(--gl-font-sm);
+		font-weight: 700;
+		color: var(--vscode-sideBarSectionHeader-foreground, inherit);
+		text-align: left;
+		text-transform: uppercase;
+		cursor: pointer;
+		background: var(--vscode-sideBarSectionHeader-background, transparent);
+		border: none;
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
+	}
+
+	.review-pane-header:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	.review-pane-header__title {
+		flex: none;
+	}
+
+	.review-pane-header__description {
+		overflow: hidden;
+		font-weight: 400;
+		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		text-transform: none;
+		white-space: nowrap;
 	}
 
 	.review-results {
@@ -301,14 +378,22 @@ export const reviewModePanelStyles = css`
 	}
 
 	/* The deep review's status strip */
+	/* Sits on top of the footer, with the actions it belongs beside */
 	.review-deep {
 		display: flex;
+		flex: none;
 		gap: var(--gl-space-6);
 		align-items: center;
-		padding: var(--gl-space-4) var(--gl-space-10);
-		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		justify-content: center;
+		padding: var(--gl-space-4) var(--gl-space-12) 0;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+	}
+
+	.review-deep + .review-footer,
+	.review-deep + .review-input-row {
+		border-top: none;
 	}
 
 	.review-deep__text {
