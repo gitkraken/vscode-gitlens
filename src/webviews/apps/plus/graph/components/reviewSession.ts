@@ -227,6 +227,7 @@ export function getReviewFileFindings(
 				}
 
 				if (counted.has(location.filePath)) continue;
+
 				counted.add(location.filePath);
 
 				if (!open) {
