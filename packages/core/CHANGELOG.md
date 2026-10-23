@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-10-23
+
 ### Fixed
 
 - Fixes a fetch that moves nothing reporting `refs/remotes/<remote>/HEAD` as changed, which refreshed every worktree whose base follows it: since git 2.48 every fetch locks that ref to check the remote's default branch, and a ref's lock file counted as a change of the ref. A branch, remote-tracking, tag or replace ref's lock no longer counts; its rename over the ref, or a `packed-refs` rewrite, does. The stash's lock still counts, since `git reflog expire` (as `gc` runs it) and `git reflog delete` rewrite its entries under it without touching the ref (git)
@@ -895,7 +897,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...HEAD
+[0.16.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...gitkraken:releases/core/v0.16.3
 [0.16.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...gitkraken:releases/core/v0.16.2
 [0.16.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...gitkraken:releases/core/v0.16.1
 [0.16.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.7...gitkraken:releases/core/v0.16.0
