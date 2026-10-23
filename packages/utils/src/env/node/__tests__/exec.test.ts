@@ -90,6 +90,20 @@ suite('runSpawn spawner Test Suite', () => {
 		assert.strictEqual(result.exitCode, direct.exitCode);
 	});
 
+	test('runSpawn hands the spawner no timeout for 0 and the given timeout otherwise', async () => {
+		const timeouts: (number | undefined)[] = [];
+		const spawner: ProcessSpawner = (command, args, options) => {
+			timeouts.push(options.timeout);
+			return spawn(command, args, options);
+		};
+		const args = ['-e', `process.stdout.write('hi')`];
+
+		await runSpawn<string>(process.execPath, args, 'utf8', { timeout: 0, spawn: spawner });
+		await runSpawn<string>(process.execPath, args, 'utf8', { timeout: 500, spawn: spawner });
+
+		assert.deepStrictEqual(timeouts, [undefined, 500]);
+	});
+
 	test('runSpawn rejects, rather than reading no output as empty, when the spawner pipes no stdout', async () => {
 		const spawner: ProcessSpawner = (command, args, options) =>
 			spawn(command, args, { ...options, stdio: ['ignore', 'ignore', 'ignore'] });
