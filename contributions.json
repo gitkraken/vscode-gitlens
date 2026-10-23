@@ -7377,12 +7377,30 @@
 			}
 		},
 		"gitlens.review.replyAndAddress": {
-			"label": "Reply & Address with Agent",
-			"icon": "$(comment-discussion-sparkle)"
+			"label": "Address with Agent",
+			"icon": "$(comment-discussion-sparkle)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review && gitlens:ai:allowed",
+						"group": "inline",
+						"order": 3
+					}
+				]
+			}
 		},
 		"gitlens.review.replyAndAskReviewer": {
-			"label": "Reply & Ask Reviewer",
-			"icon": "$(comment-discussion)"
+			"label": "Ask Reviewer",
+			"icon": "$(comment-discussion)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
 		},
 		"gitlens.review.replyToFinding": {
 			"label": "Reply",

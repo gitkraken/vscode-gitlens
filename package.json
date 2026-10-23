@@ -9646,9 +9646,10 @@
 				"enablement": "gitlens:review:reading"
 			},
 			{
-				"command": "gitlens.review.replyAndAskReviewer",
-				"title": "%command.gitlens.review.replyAndAskReviewer.title%",
-				"icon": "$(comment-discussion)"
+				"command": "gitlens.review.reopenFinding",
+				"title": "%command.gitlens.review.reopenFinding.title%",
+				"category": "%command.category%",
+				"icon": "$(issue-reopened)"
 			},
 			{
 				"command": "gitlens.review.replyAndAddress",
@@ -9656,10 +9657,9 @@
 				"icon": "$(comment-discussion-sparkle)"
 			},
 			{
-				"command": "gitlens.review.reopenFinding",
-				"title": "%command.gitlens.review.reopenFinding.title%",
-				"category": "%command.category%",
-				"icon": "$(issue-reopened)"
+				"command": "gitlens.review.replyAndAskReviewer",
+				"title": "%command.gitlens.review.replyAndAskReviewer.title%",
+				"icon": "$(comment-discussion)"
 			},
 			{
 				"command": "gitlens.review.replyToFinding",
@@ -18211,23 +18211,21 @@
 					"when": "false"
 				}
 			],
-			"comments/commentThread/additionalActions": [
-				{
-					"command": "gitlens.review.replyAndAskReviewer",
-					"when": "commentController == gitlens.review",
-					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.review.replyAndAddress",
-					"when": "commentController == gitlens.review && gitlens:ai:allowed",
-					"group": "inline@2"
-				}
-			],
 			"comments/commentThread/context": [
 				{
 					"command": "gitlens.review.replyToFinding",
 					"when": "commentController == gitlens.review",
 					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.replyAndAskReviewer",
+					"when": "commentController == gitlens.review",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.review.replyAndAddress",
+					"when": "commentController == gitlens.review && gitlens:ai:allowed",
+					"group": "inline@3"
 				}
 			],
 			"comments/commentThread/title": [
