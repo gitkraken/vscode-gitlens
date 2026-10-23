@@ -155,10 +155,11 @@ suite('deepReview — the report channel', () => {
 	test('owns the route while open, sequences what comes in, and closes itself on done', async () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s));
-		assert.ok(routes.has(deepReviewRoute), 'the route is registered on open');
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
+		assert.strictEqual(channel.route, `${deepReviewRoute}/c1`);
+		assert.ok(routes.has(channel.route), 'the route is registered on open');
 
-		const post = routes.get(deepReviewRoute)!;
+		const post = routes.get(channel.route)!;
 		assert.deepStrictEqual(await post({ findings: [{ title: 'one' }, { title: 'two' }] }, new URLSearchParams()), {
 			accepted: 2,
 		});
@@ -169,7 +170,7 @@ suite('deepReview — the report channel', () => {
 		assert.deepStrictEqual(await post({ findings: [{ title: 'three' }], done: true }, new URLSearchParams()), {
 			accepted: 1,
 		});
-		assert.strictEqual(routes.has(deepReviewRoute), false, 'done closes the route');
+		assert.strictEqual(routes.has(channel.route), false, 'done closes the route');
 
 		assert.deepStrictEqual(
 			changes.map(c => [c.run, c.anchor.repoPath]).every(([run, repo]) => run === 1 && repo === '/r'),
@@ -188,10 +189,25 @@ suite('deepReview — the report channel', () => {
 		assert.strictEqual(channel.state.findings.length, 3);
 	});
 
+	test("two channels take routes of their own, so neither takes the other's reports", async () => {
+		const { ipc, routes } = fakeIpc();
+		const a: DeepReviewState[] = [];
+		const b: DeepReviewState[] = [];
+		const first = new DeepReviewChannel(ipc, 1, anchor, s => a.push(s), 'a');
+		const second = new DeepReviewChannel(ipc, 1, { kind: 'commit', repoPath: '/r', sha: 'x' }, s => b.push(s), 'b');
+		assert.notStrictEqual(first.route, second.route);
+		await routes.get(second.route)!({ findings: [{ title: 'for b' }] }, new URLSearchParams());
+		assert.strictEqual(a.length, 0);
+		assert.deepStrictEqual(
+			b.map(s => s.findings.map(f => f.finding.title)),
+			[['for b']],
+		);
+	});
+
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s));
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
 		channel.report({ findings: [{ title: 'one' }] });
 		channel.close();
 		channel.close();

@@ -88,12 +88,7 @@ import {
 	isComposeInputError,
 	libraryPlanToProposedCommits,
 } from './compose/utils.js';
-import {
-	DeepReviewChannel,
-	deepReviewRoute,
-	getDeepReviewDiffCommand,
-	getDeepReviewPriorFindingsSection,
-} from './deepReview.js';
+import { DeepReviewChannel, getDeepReviewDiffCommand, getDeepReviewPriorFindingsSection } from './deepReview.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -1513,11 +1508,17 @@ export class GraphInspectServices {
 			const reuse = args.focus != null && this._deepReview?.state.active === true;
 			if (!reuse) {
 				this.stopDeepReview();
-				const opened = new DeepReviewChannel(this.container.ipc, ++this._deepReviewRuns, args.anchor, state => {
-					if (this._deepReview === opened) {
-						this._deepReviewEvent.fire(state);
-					}
-				});
+				const opened = new DeepReviewChannel(
+					this.container.ipc,
+					++this._deepReviewRuns,
+					args.anchor,
+					state => {
+						if (this._deepReview === opened) {
+							this._deepReviewEvent.fire(state);
+						}
+					},
+					uuid(),
+				);
 				this._deepReview = opened;
 				this._deepReviewEvent.fire(opened.state);
 			}
@@ -1528,7 +1529,7 @@ export class GraphInspectServices {
 			this._deepReviewHolds.set(channel, hold);
 
 			const endpoints = getReviewDiffEndpoints(args.scope);
-			const reportEndpoint = `${endpoint}/${deepReviewRoute}`;
+			const reportEndpoint = `${endpoint}/${channel.route}`;
 			const diffCommand =
 				endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff';
 			const { prompt } =

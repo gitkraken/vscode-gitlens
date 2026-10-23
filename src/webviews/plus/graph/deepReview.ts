@@ -4,7 +4,8 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { DeepReviewAnchor, DeepReviewState, ScopeSelection } from './graphService.js';
 
-/** The IPC route a delegated deep review reports findings to */
+/** Where a delegated deep review reports findings: each channel takes a route of its own under this,
+ *  so two graphs — or a channel left over from an earlier run — never take each other's reports */
 export const deepReviewRoute = 'review/findings';
 
 /** The slice of the IPC service the channel needs — a route it can own and the address the agent is told. */
@@ -23,17 +24,22 @@ export interface DeepReviewIpc {
 export class DeepReviewChannel {
 	private readonly _state: DeepReviewState;
 	private _route: UnifiedDisposable | undefined;
+	/** This channel's own route — the one the agent is told to POST to */
+	readonly route: string;
 
 	constructor(
 		ipc: DeepReviewIpc,
 		run: number,
 		anchor: DeepReviewAnchor,
 		private readonly onChange: (state: DeepReviewState) => void,
+		id: string,
 	) {
 		this._state = { run: run, anchor: anchor, active: true, done: false, findings: [], notes: [] };
-		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(deepReviewRoute, rq =>
+		this.route = `${deepReviewRoute}/${id}`;
+		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(this.route, rq =>
 			Promise.resolve({ accepted: this.report(rq) }),
 		);
+		Logger.debug(`DeepReview(run ${run}): open at /${this.route} for ${anchor.kind} ${anchor.repoPath}`);
 	}
 
 	get state(): DeepReviewState {
