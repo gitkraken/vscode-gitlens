@@ -159,7 +159,7 @@ export const fileTreeStyles = css`
 		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 var(--gl-space-2) var(--gl-space-4) 0;
+		padding: 0 var(--gl-space-2) var(--gl-space-4);
 	}
 
 	/* Half a checkbox in, so the rows read as the box's content rather than its continuation — list and

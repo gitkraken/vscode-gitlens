@@ -93,15 +93,34 @@ export const reviewModePanelStyles = css`
 		overflow: hidden;
 	}
 
+	/* A pane's content starts where its header's title does, with the chevron hanging to the left of
+	   both — the title sits past the header's padding, the chevron and the gap; the content's own column
+	   (the check-all box, the overview, the focus areas) is already --gl-space-12 in */
+	.review-split {
+		--review-pane-title-inset: calc(var(--gl-space-2) + 16px + var(--gl-space-4));
+	}
+
 	.review-split__body {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
 		min-height: 0;
+		padding-left: calc(var(--review-pane-title-inset) - var(--gl-space-12));
 	}
 
 	.review-split__body[hidden] {
 		display: none;
+	}
+
+	/* Inside a pane the reading strip's text and the plan's document column start on that same edge too:
+	   the strip's margin leaves --gl-space-12 to its text (margin + border + padding), and the document
+	   inset follows the strip, as it does outside the panes (the group headings' chevron sits 2px in) */
+	.review-split__body .review-walk {
+		margin-left: calc(var(--gl-space-12) - var(--gl-border-width) - var(--gl-space-10));
+	}
+
+	.review-split__body .scope-files__tree--flow {
+		--review-document-inset: calc(var(--gl-space-12) + var(--gl-space-2));
 	}
 
 	/* A folded pane is its header alone: its track sizes to it, the open pane takes the rest, and the
