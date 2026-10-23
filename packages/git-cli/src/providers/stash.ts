@@ -116,7 +116,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return result.stdout.trim() || undefined;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStash(
 		repoPath: string,
 		options?: {
@@ -208,7 +208,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return { ...stash, stashes: stashes };
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStashCommitFiles(
 		repoPath: string,
 		ref: string,

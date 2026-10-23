@@ -355,6 +355,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	}
 
 	@debug({
+		quiet: true,
 		// The seed params (`incrementalSeed`, `reachabilitySeed`, `rowsStatsSeed`) hold cached rows/stats
 		// for potentially thousands of commits — logging them via the default formatting would dump
 		// megabytes per call, so only log their presence (and key summary fields).

@@ -25,7 +25,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	@debug()
+	@debug({ quiet: true })
 	async getTag(repoPath: string, name: string, cancellation?: AbortSignal): Promise<GitTag | undefined> {
 		const {
 			values: [tag],
@@ -33,7 +33,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return tag;
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getTags(
 		repoPath: string,
 		options?: {
@@ -109,7 +109,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		return tagsResult;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getTagsWithCommit(
 		repoPath: string,
 		sha: string,

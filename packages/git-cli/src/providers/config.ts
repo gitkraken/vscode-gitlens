@@ -225,7 +225,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
 	private readonly _gkConfigWrites = new KeyedSequencer();
 
-	@trace()
+	@trace({ quiet: true })
 	getConfig(
 		repoPath: string | undefined,
 		key: GitConfigKeys,
@@ -260,7 +260,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return result.stdout.trim() || undefined;
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	getConfigRegex(
 		repoPath: string | undefined,
 		pattern: string,
@@ -277,7 +277,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * `remote.<name>.fetch`: {@link getConfigRegex} keeps only each key's last value. Cached beside it, so the same
 	 * writes and config changes clear it. Rejects when git couldn't read the configuration.
 	 */
-	@trace()
+	@trace({ quiet: true })
 	async getConfigRegexAll(repoPath: string, pattern: string): Promise<Map<string, string[]>> {
 		// Under a key no regex is spelled as, with each key's values joined by a NUL, which no value can hold
 		// Read from, and cached under, the common path, never the caller's checkout: every worktree is served this one
@@ -379,7 +379,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@gate()
-	@debug()
+	@debug({ quiet: true })
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
 
@@ -438,7 +438,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@gate()
-	@trace({ exit: r => `returned ${r}` })
+	@trace({ quiet: true, exit: r => `returned ${r}` })
 	async getDefaultWorktreePath(repoPath: string): Promise<string | undefined> {
 		const gitDir = await this.getGitDir(repoPath);
 		if (gitDir == null) return undefined;
@@ -449,6 +449,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@gate()
 	@trace({
+		quiet: true,
 		exit: r =>
 			`returned ${r.uri.toString(true)}, commonUri=${r.commonUri?.toString(true)}, parentUri=${r.parentUri?.toString(true)}`,
 	})
@@ -497,7 +498,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return joinPaths(basePath, 'gk', 'config');
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	async getGkConfig(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined> {
 		// Served in-memory from a single bulk read of the whole `.git/gk/config` (no gk read needs `--type`).
 		// Canonicalize the key the way git does for `--get-regexp` output so subsection-less keys
@@ -506,7 +507,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return (await this.getGkConfigMap(repoPath)).get(canonicalizeGitConfigKey(key)) || undefined;
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	async getGkConfigRegex(repoPath: string, pattern: string): Promise<Map<string, string>> {
 		const all = await this.getGkConfigMap(repoPath);
 
@@ -921,7 +922,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
 		// Fetch all signing-related config in one call
 		const configMap = await this.getConfigRegex(
@@ -952,7 +953,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		};
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async validateSigningSetup(repoPath: string): Promise<ValidationResult> {
 		const config = await this.getSigningConfig(repoPath);
 
