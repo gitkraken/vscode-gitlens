@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.16.4] - 2026-10-23
+
 ### Added
 
 - Adds `branches.getMergeTarget(branch, options?)`: the ref any branch, checked out or not, is measured against, by `getAheadOfBase`'s rules, so every host names the same target. It answers `{ ref, forkPoint, tier }`, where `tier` adds `'pr'` and `'inferred'` to `AheadOfBaseTier`. Beyond `skipUserTarget` and `preferredTarget` it takes a host's sources: `getAssociatedPullRequest` (read only when no stored target is usable, tried after the detected target and recorded as it unless the pull request is stacked or the branch is a remote-tracking one), `inferBase` (VS Code's `vscode-merge-base`, and for a branch created from `HEAD` the branch HEAD was on when it was first checked out, read from that branch's worktree and never stored), `defaultBranch: 'remote'` (asks the remote only when local refs name no default), `getFallbackDefaultBranch` and `keepSelfAtTip`. Answers are cached against the ref tips, stored keys and config they were read from, so a warm call runs no git and a branch moving elsewhere re-measures nothing (git, git-cli, git-github)
@@ -918,7 +920,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...HEAD
+[0.16.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...gitkraken:releases/core/v0.16.4
 [0.16.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...gitkraken:releases/core/v0.16.3
 [0.16.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...gitkraken:releases/core/v0.16.2
 [0.16.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...gitkraken:releases/core/v0.16.1
