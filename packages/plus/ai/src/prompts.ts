@@ -923,6 +923,7 @@ curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-
 - Report only findings you have verified by reading the code or running it; never speculate about code you did not open
 - Do not change any files — this is a review, not a fix
 - Check every response: GitLens answers {"accepted":N} with N the findings and comments it took. Any other answer — an empty body, 401, 404 — means the review is no longer open; stop reporting and say so plainly, with the status you got
+- The endpoint is on this machine. If your tool sandbox blocks local network access, run the request outside the sandbox; if you cannot, say so and give the findings in your answer instead
 
 \${priorFindings}
 
