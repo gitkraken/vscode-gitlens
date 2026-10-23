@@ -1446,8 +1446,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		if (branch == null) {
 			// The worktree's own HEAD file names its branch with no git process, and is as current as the file. What
-			// it can't answer (a reftable repository, or a branch that is a symbolic ref to another) falls back to resolving
-			// the reference
+			// it can't answer (a reftable repository, a branch that is a symbolic ref to another, or a HEAD kept as a
+			// symlink to its branch) falls back to resolving the reference
 			const head = await readHeadState(repoPath, this.context.fs, this.cache);
 			if (head === 'detached') return { known: true, push: undefined, upstream: undefined };
 
