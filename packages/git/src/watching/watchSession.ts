@@ -248,6 +248,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 */
 	private readonly pendingRepoAnnounced = new Map<RepositoryChange, PendingAnnouncement>();
 	/**
+	 * Refs core's writes named since the last flush, kept when an outside report makes their kind unannounced: each is
+	 * a ref a write changed, never the echo of a ref directory
+	 */
+	private readonly pendingRepoAnnouncedRefs = new Set<string>();
+	/**
 	 * For a pending `config` change, the branches (full ref names) whose sections are all that every report of it
 	 * changed; `undefined` once any report may have changed anything else
 	 */
@@ -577,14 +582,14 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 *   `config` is confined to the `branch.<name>` sections of the local branches `refs` names when
 	 *   `options.configConfinedToRefs` says so, and the event carries them (`configBranches`);
 	 * - a raw change of an announced kind is the write's own report of it only when it is provably within what the
-	 *   write announced: a ref the write named, or a config change confined to branches the write's config was confined
-	 *   to. Pending when the announcement arrives, it is replaced. Arriving later, it merges and the kind stays
-	 *   announced only within the repo debounce delay of the announcement; a window can stay pending for minutes while
-	 *   the session is suspended, and a later move of the same ref is as likely an outside one. Any other report of
-	 *   the kind is an outside change: it stays, and the kind isn't `announced`, since the host has not handled the
-	 *   outside part. A write never names `HEAD`, but a commit locks it to write its reflog, so under a write that
-	 *   announced `head`, a report of the `HEAD` file within the same delay is the write's echo, its `heads` part
-	 *   included;
+	 *   write announced: a ref the write named or a ref directory holding one, or a config change confined to branches
+	 *   the write's config was confined to. Pending when the announcement arrives, it is replaced. Arriving later, it
+	 *   merges and the kind stays announced only within the repo debounce delay of the announcement; a window can stay
+	 *   pending for minutes while the session is suspended, and a later move of the same ref is as likely an outside
+	 *   one. Any other report of the kind is an outside change: it stays, and the kind isn't `announced`, since the
+	 *   host has not handled the outside part. A write never names `HEAD`, but a commit locks it to write its reflog,
+	 *   so under a write that announced `head`, a report of the `HEAD` file within the same delay is the write's echo,
+	 *   its `heads` part included;
 	 * - a kind the write announced open (unnamed, or `config` unconfined) covers any change of the kind: raw changes
 	 *   of it still pending are replaced, since the host evicts everything of the kind after the write. One arriving
 	 *   within the repo debounce delay of the announcement, before its event fires, is taken for the write's own late
@@ -629,6 +634,17 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				for (const name of names) {
 					this.pendingRepoRefs.delete(name);
 				}
+				// Git reports the directory it creates or removes to hold the write's ref as well. Only a raw report can
+				// be that echo: a name an earlier write announced is a ref it changed, and it can sit where this write's
+				// directory is (delete `team`, then create `team/task`)
+				// Walked from each name, as a write can name many refs (a fetch) while many outside ones are pending
+				for (const name of names) {
+					for (const dir of getRefDirectories(name)) {
+						if (!this.pendingRepoAnnouncedRefs.has(dir)) {
+							this.pendingRepoRefs.delete(dir);
+						}
+					}
+				}
 				// What's left of the kind came from outside the write, so it stays, unannounced
 				if (this.hasPendingRefOfKind(change)) continue;
 			}
@@ -660,6 +676,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				for (const [kind, names] of named) {
 					for (const name of names) {
 						this.coalesceRepo([kind], name, 'announced');
+						// Only a name kept among the pending refs can be taken for a directory's echo; past the cap
+						// the kind went unnamed, which covers it, so the set stays as bounded as those refs
+						if (this.pendingRepoRefs.has(name)) {
+							this.pendingRepoAnnouncedRefs.add(name);
+						}
 					}
 				}
 			}
@@ -846,7 +867,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (now - announcement.at > this.effectiveRepoMs) return false;
 		if (announcement.names == null) return true;
 		if (names == null) return false;
-		if (isSubsetOf(names, announcement.names)) return true;
+		// A ref and a directory of the same name can't coexist, which is what lets a directory report stand for its
+		// refs; config sections `branch.team` and `branch.team/task` can
+		if (isRefChangeKind(change) ? isCoveredBy(names, announcement.names) : isSubsetOf(names, announcement.names)) {
+			return true;
+		}
 
 		return this.isHeadEcho(change, names, now);
 	}
@@ -876,6 +901,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.pendingRepoUnnamedRefKinds.clear();
 		this.pendingRepoUnfencedChanges.clear();
 		this.pendingRepoAnnounced.clear();
+		this.pendingRepoAnnouncedRefs.clear();
 		this.pendingRepoConfigBranches = undefined;
 	}
 
@@ -952,6 +978,46 @@ function getBranchRefs(refs: readonly string[] | undefined): Set<string> | undef
 		}
 	}
 	return branches;
+}
+
+/**
+ * Whether `ref` is a ref directory holding one of `names` (compared on `/` boundaries). A namespace root
+ * (`refs/heads`) or a pseudo-ref is no such directory, so a report of it is never a write's own by this rule.
+ */
+function isRefDirectoryOfAny(ref: string, names: ReadonlySet<string>): boolean {
+	if (!ref.startsWith('refs/') || getRefChangeKind(ref) == null) return false;
+
+	const prefix = `${ref}/`;
+	for (const name of names) {
+		if (name.startsWith(prefix)) return true;
+	}
+	return false;
+}
+
+/**
+ * The ref directories holding `ref`, innermost first, each of `ref`'s own kind; never a namespace root (`refs/heads`),
+ * as {@link isRefDirectoryOfAny} counts them
+ */
+function* getRefDirectories(ref: string): Iterable<string> {
+	for (let index = ref.lastIndexOf('/'); index > 0; index = ref.lastIndexOf('/', index - 1)) {
+		const dir = ref.substring(0, index);
+		if (!dir.startsWith('refs/') || getRefChangeKind(dir) == null) return;
+
+		yield dir;
+	}
+}
+
+/**
+ * Whether every name in `names` is one in `of` or a ref directory holding one; never for `undefined`, which stands for
+ * any name
+ */
+function isCoveredBy(names: ReadonlySet<string> | undefined, of: ReadonlySet<string>): boolean {
+	if (names == null) return false;
+
+	for (const name of names) {
+		if (!of.has(name) && !isRefDirectoryOfAny(name, of)) return false;
+	}
+	return true;
 }
 
 /** Whether every name in `names` is in `of`; never for `undefined`, which stands for any name */
