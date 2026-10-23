@@ -4,6 +4,7 @@ import type { ProviderRequestFunction, ProviderRequestOptions, ProviderRequestRe
 import {
 	AnonymousResponseError,
 	getProviderResponseBodyMessage,
+	markRequestError,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
 
@@ -20,11 +21,15 @@ export function createProviderApiRequest(
 	userAgent?: string,
 ): ProviderRequestFunction {
 	return async <T>({ url, ...options }: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
-		const response = await fetch(url, {
-			...options,
-			headers: { ...(userAgent != null ? { 'User-Agent': userAgent } : {}), ...options.headers },
-		});
-		return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
+		try {
+			const response = await fetch(url, {
+				...options,
+				headers: { ...(userAgent != null ? { 'User-Agent': userAgent } : {}), ...options.headers },
+			});
+			return await parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
+		} catch (ex) {
+			throw markRequestError(ex);
+		}
 	};
 }
 

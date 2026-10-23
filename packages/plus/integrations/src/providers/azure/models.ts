@@ -180,15 +180,13 @@ export interface WorkItem {
 		'System.ChangedDate': string;
 		'System.ChangedBy': AzureUser;
 		'System.CommentCount': number;
-		'System.Description'?: string;
+		'System.Description': string;
 		'System.Title': string;
 		'Microsoft.VSTS.Common.ClosedDate': string;
 		// 'Microsoft.VSTS.Common.StateChangeDate': string;
 		// 'Microsoft.VSTS.Common.Priority': number;
 		// 'Microsoft.VSTS.Common.Severity': string;
 		// 'Microsoft.VSTS.Common.ValueArea': string;
-		// Every other field the work item has a value for, its rich text description fields among them.
-		[field: string]: unknown;
 	};
 	id: number;
 	rev: number;
@@ -888,7 +886,7 @@ export function fromAzureWorkItemToProviderIssue(
 		updatedDate: parseAzureWorkItemDate(fields['System.ChangedDate']),
 		url: typeof url === 'string' ? url : null,
 		assignees: assignee != null ? [assignee] : [],
-		...toAzureWorkItemDescriptionFields(fields),
+		...toAzureWorkItemDescriptionFields(fields, htmlFields),
 		state: typeof state === 'string' && state ? { name: state, color: null } : null,
 		type: typeof type === 'string' ? type : null,
 		iteration: toAzureWorkItemIteration(fields['System.IterationPath']),
@@ -905,11 +903,6 @@ export function fromAzureWorkItemToProviderIssue(
 	};
 }
 
-/**
- * A work item's `description` and `descriptionField`, as provider-apis' list rows carry them: `descriptionField` only
- * when there is a description. A catalog only adds fields to try, so this pair read with `htmlFields` can replace a
- * row's pair read without them.
- */
 export function toAzureWorkItemDescriptionFields(
 	fields: Readonly<Record<string, unknown>> | null | undefined,
 	htmlFields?: readonly AzureWorkItemHtmlField[],
