@@ -24,6 +24,9 @@ export interface RunPromptInAgentCommandArgs {
 	mode?: ChatMode;
 	/** Telemetry source — emitted on dispatch-failure tracks for cross-surface attribution. */
 	source?: Sources;
+	/** CLI agents only: keep the CLI session under this key and send a later prompt with the same key
+	 *  into it as the next turn (see `RunAgentOptions.session`). */
+	session?: string;
 }
 
 /** How a {@link RunPromptInAgentCommand} ended: the prompt reached an agent, the user backed out of the
@@ -76,6 +79,7 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 			cwd: args.cwd,
 			autoExecute: args.autoExecute,
 			mode: args.mode,
+			session: args.session,
 		});
 		if (result.success) return 'dispatched';
 

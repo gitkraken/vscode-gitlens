@@ -1538,6 +1538,9 @@ export class GraphInspectServices {
 					mode: 'agent',
 					autoExecute: true,
 					source: 'graph',
+					// Reviews of one repository share a CLI session: the next one is the next turn of the
+					// conversation, with everything the agent learned the last time
+					session: `review:${args.repoPath}`,
 				},
 			);
 			// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
