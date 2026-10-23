@@ -15,6 +15,11 @@ export type KeplerTaskLinkOptions = {
 	/** An absolute local path, or another selector Kepler's `repo=` accepts (design doc §7). */
 	repo?: string;
 	action?: string;
+	/**
+	 * Which machine the link is for: `local`, or a VS Code remote authority such as `ssh-remote+devbox`.
+	 * Kepler ignores one it can't match and falls back to its own routing.
+	 */
+	host?: string;
 };
 
 function appendParam(params: string[], key: string, value: string | undefined): void {
@@ -39,6 +44,7 @@ export function createKeplerTaskLink(scheme: string, options: KeplerTaskLinkOpti
 	appendParam(params, 'provider', options.provider);
 	appendParam(params, 'repo', options.repo);
 	appendParam(params, 'action', options.action);
+	appendParam(params, 'host', options.host);
 
 	const query = params.join('&');
 	return query ? `${scheme}task/new?${query}` : `${scheme}task/new`;
