@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -1181,7 +1181,11 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			checkouts: readonly Checkout[],
 			previous: readonly AheadOfBase[],
 			moved: readonly string[],
-			options?: { aheadBehind?: false },
+			options?: {
+				aheadBehind?: false;
+				/** Runs after the first checkout's re-measure and before the others', which then run together */
+				between?: (provider: CliGitProvider) => Promise<void>;
+			},
 		): Promise<{ answers: (AheadOfBase | undefined)[]; spawned: string[]; hinted: string[] }> {
 			const provider = createProvider({ gitOptions: { logger: logger } });
 			try {
@@ -1200,27 +1204,39 @@ suite('Re-measuring a base after only its own ref moved', () => {
 					return undefined;
 				};
 
-				const heads = checkouts.map(c => git(c.path, 'rev-parse', 'HEAD'));
 				const mark = completed.length;
-				const answers = await Promise.all(
-					checkouts.map(({ path, branch }, i) => {
-						const before = previous[i];
-						assert.ok(before.base != null, 'there is a base to re-measure');
-						return provider.branches.getAheadOfBaseAfterBaseMove(
-							path,
-							branch,
-							{
-								head: heads[i],
-								base: before.base,
-								dependsOn: before.dependsOn,
-								...(before.defaultBranch !== undefined
-									? { defaultBranch: before.defaultBranch }
-									: undefined),
-							},
-							moved,
-						);
-					}),
-				);
+				// Each wave takes its HEADs when it starts, as `between` may commit
+				const measure = (indexes: readonly number[]): Promise<(AheadOfBase | undefined)[]> =>
+					Promise.all(
+						indexes.map(i => {
+							const { path, branch } = checkouts[i];
+							const before = previous[i];
+							assert.ok(before.base != null, 'there is a base to re-measure');
+							return provider.branches.getAheadOfBaseAfterBaseMove(
+								path,
+								branch,
+								{
+									head: git(path, 'rev-parse', 'HEAD'),
+									base: before.base,
+									dependsOn: before.dependsOn,
+									...(before.defaultBranch !== undefined
+										? { defaultBranch: before.defaultBranch }
+										: undefined),
+								},
+								moved,
+							);
+						}),
+					);
+
+				let answers: (AheadOfBase | undefined)[];
+				if (options?.between != null) {
+					const first = await measure([0]);
+					await options.between(provider);
+					const rest = await measure(checkouts.map((_, i) => i).slice(1));
+					answers = [...first, ...rest];
+				} else {
+					answers = await measure(checkouts.map((_, i) => i));
+				}
 				const spawned = completed.slice(mark);
 
 				const fresh = await readAll(checkouts);
@@ -1233,6 +1249,25 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			} finally {
 				provider.dispose();
 			}
+		}
+
+		/** Forces a fresh ref list, as a ref write between two re-measures replaces the cached one */
+		async function refListRefresh(provider: CliGitProvider): Promise<void> {
+			await provider.refs.getRefs(repo.path, undefined, { force: true });
+		}
+
+		/** The reads of whether the base only moved forward, each of which starts with the base's reflog */
+		function movedForwardReads(spawned: readonly string[]): string[] {
+			return spawned.filter(m => m.includes(' reflog show '));
+		}
+
+		/** Three checkouts `a`, `b` and `c` based on `origin/main`, with 1, 2 and 3 commits of their own, and their answers */
+		async function threeCheckouts(): Promise<{ checkouts: Checkout[]; before: AheadOfBase[] }> {
+			const checkouts = ['a', 'b', 'c'].map((name, i) => ({
+				path: startWorktreeTask(name, i + 1),
+				branch: name,
+			}));
+			return { checkouts: checkouts, before: await readAll(checkouts) };
 		}
 
 		/** The shared counts of every local branch past a moved base */
@@ -1277,6 +1312,118 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
 			for (const { path } of checkouts) {
 				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test("a branch created between two worktrees' re-measures shares the moved base's reads", async () => {
+			const { checkouts, before } = await threeCheckouts();
+			const old = git(repo.path, 'rev-parse', 'HEAD');
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+				between: async provider => {
+					git(repo.path, 'branch', 'unrelated', old);
+					await refListRefresh(provider);
+				},
+			});
+			assert.deepStrictEqual(
+				answers.map(a => a?.base?.ahead),
+				[1, 2, 3],
+			);
+			assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+			assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test("a worktree added at the moved base between two worktrees' re-measures shares its reads", async () => {
+			const { checkouts, before } = await threeCheckouts();
+			const launched = join(root, 'launched');
+
+			peerPushesMain('one');
+			try {
+				const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+					between: async provider => {
+						git(repo.path, 'worktree', 'add', '-q', '-b', 'launched', launched, 'origin/main');
+						await refListRefresh(provider);
+					},
+				});
+				assert.deepStrictEqual(
+					answers.map(a => a?.base?.ahead),
+					[1, 2, 3],
+				);
+				assert.strictEqual(sharedCounts(spawned).length, 1, spawned.join('\n'));
+				assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+				for (const { path } of checkouts) {
+					assert.deepStrictEqual(ownCounts(spawned, path), []);
+				}
+			} finally {
+				if (existsSync(launched)) {
+					git(repo.path, 'worktree', 'remove', '--force', launched);
+				}
+			}
+		});
+
+		test('a worktree whose HEAD the shared count did not cover starts another', async () => {
+			const { checkouts, before } = await threeCheckouts();
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+				between: async provider => {
+					git(checkouts[1].path, 'commit', '-q', '--allow-empty', '-m', 'X');
+					await refListRefresh(provider);
+				},
+			});
+			// `b` re-measures with the HEAD it has by then, which the first count never saw
+			assert.ok(answers[0] != null);
+			assert.strictEqual(sharedCounts(spawned).length, 2, spawned.join('\n'));
+			for (const { path } of checkouts) {
+				assert.deepStrictEqual(ownCounts(spawned, path), []);
+			}
+		});
+
+		test("a base that moved away and back between two worktrees' re-measures reads its reflog again", async () => {
+			const { checkouts, before } = await threeCheckouts();
+			const oldTip = git(repo.path, 'rev-parse', originMain);
+
+			const newTip = peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+				// A commit off the new tip's history, which the base's reflog now reaches. The ref list stays the one wave
+				// 1 read, at the same tip, so only the reflog tells
+				between: async () => {
+					git(repo.path, 'update-ref', originMain, commitOn(oldTip, 'Away'));
+					git(repo.path, 'update-ref', originMain, newTip);
+				},
+			});
+			assert.ok(answers[0] != null);
+			assert.strictEqual(movedForwardReads(spawned).length, 2, spawned.join('\n'));
+			// Wave 2 reads the reflog again and finds it reaching a commit off the new tip's history, which the
+			// re-measure declines
+			assert.deepStrictEqual(
+				answers.slice(1).map(a => a === undefined),
+				[true, true],
+			);
+		});
+
+		test("a replace ref created between two worktrees' re-measures restarts the shared reads", async () => {
+			const { checkouts, before } = await threeCheckouts();
+			const start = git(repo.path, 'rev-parse', originMain);
+			const replaced = commitOn(start, 'Replaced');
+			const replacement = commitOn(start, 'Replacement');
+
+			peerPushesMain('one');
+			try {
+				const { spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+					between: async provider => {
+						git(repo.path, 'replace', replaced, replacement);
+						await refListRefresh(provider);
+					},
+				});
+				assert.strictEqual(sharedCounts(spawned).length, 2, spawned.join('\n'));
+				assert.strictEqual(movedForwardReads(spawned).length, 2, spawned.join('\n'));
+			} finally {
+				git(repo.path, 'replace', '-d', replaced);
 			}
 		});
 
