@@ -761,6 +761,7 @@ export function fromAzureWorkItem(
 	stateCategory?: AzureWorkItemStateCategory,
 	projection?: IssueProjection,
 	htmlFields?: readonly AzureWorkItemHtmlField[],
+	viewer?: { id: string },
 ): Issue {
 	const state = workItem.fields['System.State'];
 	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
@@ -795,6 +796,7 @@ export function fromAzureWorkItem(
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
 		description != null ? toIssueBodyField(description.field) : undefined,
+		viewer,
 	);
 }
 

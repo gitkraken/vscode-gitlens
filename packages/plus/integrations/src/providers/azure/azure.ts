@@ -100,6 +100,11 @@ type WorkItemSearchOptions = {
 	workflowProjectNames?: readonly string[];
 };
 
+/** Whether `workItem` names anyone the current user could be, so its row needs a `viewer` to be matched against. */
+function workItemNamesPeople(workItem: WorkItem): boolean {
+	return workItem.fields['System.CreatedBy'] != null || workItem.fields['System.AssignedTo'] != null;
+}
+
 /** Whether Azure refused a WIQL query for matching more work items than it will return (`VS402337`). */
 function isWorkItemLimitRefusal(ex: unknown): boolean {
 	return ex instanceof RequestClientError && ex.message.includes('VS402337');
@@ -517,6 +522,8 @@ export class AzureDevOpsApi implements Disposable {
 		id: string,
 		options: {
 			baseUrl: string;
+			/** The current user as the organization's work items identify them, set as the row's `viewer`. Never rejects. */
+			resolveViewer?: () => Promise<{ id: string } | undefined>;
 		},
 	): Promise<Issue | undefined> {
 		const scope = getScopedLogger();
@@ -564,7 +571,7 @@ export class AzureDevOpsApi implements Disposable {
 			);
 			const issueType = issueResult.fields['System.WorkItemType'];
 			const state = issueResult.fields['System.State'];
-			const [stateCategory, htmlFields] = await Promise.all([
+			const [stateCategory, htmlFields, viewer] = await Promise.all([
 				this.getWorkItemStateCategory(
 					issueType,
 					state,
@@ -582,8 +589,9 @@ export class AzureDevOpsApi implements Disposable {
 					issueResult.fields,
 					scope,
 				),
+				workItemNamesPeople(issueResult) ? options.resolveViewer?.() : undefined,
 			]);
-			return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point', htmlFields);
+			return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point', htmlFields, viewer);
 		}
 
 		return undefined;
@@ -972,6 +980,9 @@ export class AzureDevOpsApi implements Disposable {
 	 * fails the page rather than being dropped or mis-attributed, since either would leave the page disagreeing with
 	 * the count of the same query; the caller refreshes its project discovery before a search so that means a
 	 * project created during the pagination.
+	 *
+	 * `resolveViewer` resolves the current user as the collection's work items identify them, set as each row's
+	 * `viewer`. It's asked only for a page with a work item that names someone, and never rejects.
 	 */
 	@trace({
 		args: (provider, token, collection) => ({
@@ -986,6 +997,7 @@ export class AzureDevOpsApi implements Disposable {
 		collection: string,
 		options: WorkItemSearchOptions & {
 			resolveProject: (name: string) => AzureProjectDescriptor | undefined;
+			resolveViewer?: () => Promise<{ id: string } | undefined>;
 			cursor?: string;
 			pageSize?: number;
 		},
@@ -1126,7 +1138,17 @@ export class AzureDevOpsApi implements Disposable {
 					scope,
 					cancellation,
 				);
-				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory, 'search', htmlFields));
+				values.push(
+					fromAzureWorkItem(
+						workItem,
+						provider,
+						project,
+						stateCategory,
+						'search',
+						htmlFields,
+						workItemNamesPeople(workItem) ? await options.resolveViewer?.() : undefined,
+					),
+				);
 			}
 		}
 

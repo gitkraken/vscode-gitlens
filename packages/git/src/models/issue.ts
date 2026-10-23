@@ -205,6 +205,15 @@ export interface IssueShape extends IssueOrPullRequest {
 	iterations?: IssueIteration[];
 	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */
 	readonly projection?: IssueProjection;
+	/**
+	 * The current account as this issue's members identify it, present only where that can differ from the account
+	 * `getCurrentAccount` returns: Azure DevOps can know one person by another id in each organization (Azure DevOps
+	 * Server: collection) than the account's, and a work item's {@link author} and {@link assignees} carry the
+	 * organization's. A consumer matching them to the current user compares against this when present, and against
+	 * the account otherwise. Absent on every other provider, and on an Azure DevOps row whose organization's identity
+	 * couldn't be read.
+	 */
+	readonly viewer?: { readonly id: string; readonly username?: string };
 }
 
 @loggable(i => i.id)
@@ -237,6 +246,7 @@ export class Issue implements IssueShape {
 		public readonly iterations?: IssueIteration[],
 		public readonly projection?: IssueProjection,
 		public readonly bodyField?: IssueBodyField,
+		public readonly viewer?: { readonly id: string; readonly username?: string },
 	) {}
 
 	static is(issue: unknown): issue is Issue {

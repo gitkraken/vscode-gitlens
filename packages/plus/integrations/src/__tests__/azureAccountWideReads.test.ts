@@ -1258,6 +1258,12 @@ async function azureWithOrganizationIdentities(failing: Set<string> = new Set())
 			return Promise.resolve([]);
 		},
 		getReposForAzureProject: () => Promise.resolve({ values: [] }),
+		// One work item per project, assigned to the user as its organization knows them.
+		getIssuesForAzureProject: (_t: unknown, namespace: string, project: string) =>
+			Promise.resolve({
+				values: [workItemIn(namespace, project, identities[namespace.toLowerCase()])],
+				paging: { more: false, cursor: '{}' },
+			}),
 		getPullRequestsForAzureProject: (
 			_t: unknown,
 			project: { namespace: string; project: string },
@@ -1280,8 +1286,9 @@ async function azureWithOrganizationIdentities(failing: Set<string> = new Set())
 			});
 		},
 	});
-	(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount = () =>
-		Promise.resolve({ id: 'profile-id' });
+	(
+		azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+	).getProviderCurrentAccount = () => Promise.resolve({ id: 'profile-id', username: 'me@example.com' });
 	(
 		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
 	).getProviderResourcesForUser = () =>
@@ -1324,6 +1331,28 @@ async function azureWithOrganizationIdentities(failing: Set<string> = new Set())
 
 function person(id: string) {
 	return { id: id, name: id, username: id, email: null, avatarUrl: null, url: null };
+}
+
+/** A work item in `namespace`/`project`, assigned to `assigneeId` when given and created by someone else. */
+function workItemIn(namespace: string, project: string, assigneeId?: string, authorId: string | null = 'someone') {
+	return {
+		id: `wi-${project}`,
+		number: '1',
+		title: `Work item in ${project}`,
+		url: `https://dev.azure.com/${namespace}/${project}/_workitems/edit/1`,
+		createdDate: new Date(0),
+		updatedDate: new Date(1),
+		closedDate: null,
+		author: authorId != null ? person(authorId) : null,
+		assignees: assigneeId != null ? [person(assigneeId)] : [],
+		labels: [],
+		repository: null,
+		project: { namespace: namespace, name: project, resourceId: null, key: null, id: null },
+		commentCount: 0,
+		upvoteCount: 0,
+		description: null,
+		type: 'Task',
+	} as unknown as ProviderIssue;
 }
 
 suite('Azure DevOps organization identities (#6032)', () => {
@@ -1534,6 +1563,56 @@ suite('Azure DevOps organization identities (#6032)', () => {
 		} finally {
 			manager.dispose();
 		}
+	});
+
+	test("stamps each account-wide work item with its organization's identity, once per organization (gitkraken/kepler#4291)", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities(new Set(['Org Two']));
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<IntegrationResult<{ values: IssueShape[] }>>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		assert.deepEqual(
+			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.assignees[0]?.id]).sort(),
+			[
+				['wi-api', undefined, 'two-id'],
+				['wi-web', 'one-id', 'one-id'],
+			],
+			"an organization whose identity can't be read keeps its work items, without a viewer",
+		);
+		assert.deepEqual(
+			lookups.sort(),
+			['Org One', 'Org Two'],
+			'one identity read per organization, though each project is drained by assignee and author',
+		);
+
+		manager.dispose();
+	});
+
+	test("resolves each work item's viewer as its organization knows the user, once per organization", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities(new Set(['Org Three']));
+		const rows = [
+			workItemIn('Org One', 'web', 'one-id'),
+			workItemIn('org two', 'api', 'someone'),
+			workItemIn('Org Two', 'api', undefined, 'two-id'),
+			// Names no one, so nothing on it can be matched.
+			workItemIn('Org One', 'web', undefined, null),
+			workItemIn('Org Three', 'ops', 'three-id'),
+		];
+
+		const viewers = await azure.getIssueViewers(rows);
+		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, undefined]);
+		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
+
+		await azure.getIssueViewers(rows);
+		assert.deepEqual(
+			lookups.sort(),
+			['Org One', 'Org Three', 'Org Three', 'org two'],
+			'only the organization whose identity failed is read again',
+		);
+
+		manager.dispose();
 	});
 
 	test('classifies a refused connection data read for its own read only, leaving the shared one raw', async () => {
