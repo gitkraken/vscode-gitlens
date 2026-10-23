@@ -316,6 +316,10 @@ export interface DeepReviewArgs {
 	 *  so the agent builds on it instead of finding it again */
 	priorFindings?: string;
 	prompt?: string;
+	/** A question or remark on one finding, for the agent to take up instead of a whole review: the
+	 *  finding as context and the reader's words. Goes into the running channel and session when there
+	 *  is one, so the answer lands in the finding's thread. */
+	focus?: { findingId: string; finding: string; question?: string };
 }
 
 export type DeepReviewStartResult =
@@ -399,7 +403,7 @@ export interface ReviewThreadsArgs {
 	items: ReviewThreadItem[];
 }
 
-export type ReviewThreadAction = 'resolve' | 'dismiss' | 'reopen' | 'sendToAgent' | 'reply';
+export type ReviewThreadAction = 'resolve' | 'dismiss' | 'reopen' | 'sendToAgent' | 'reply' | 'askReviewer' | 'address';
 
 /** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
  *  for a while applies exactly the ones it hasn't. A `reply` carries its text. */

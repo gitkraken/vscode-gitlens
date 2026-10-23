@@ -2392,8 +2392,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** {@link DetailsWorkflowHost.sendReviewFindingToAgent} */
-	sendReviewFindingToAgent(findingId: string): void {
-		this.findReviewModePanel()?.sendFindingToAgent(findingId);
+	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
+		this.findReviewModePanel()?.sendFindingToAgent(findingId, instructions);
+	}
+
+	/** {@link DetailsWorkflowHost.askReviewerAboutFinding} */
+	askReviewerAboutFinding(findingId: string, question?: string): void {
+		this.findReviewModePanel()?.askReviewer(findingId, question);
 	}
 
 	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
@@ -4152,6 +4157,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					e.detail.scopeLabel,
 					e.detail.files,
 					e.detail.priorFindings,
+					e.detail.focus,
 				)}
 			@review-deep-review-stop=${() => this._workflow.review.stopDeepReview()}
 			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>
@@ -4543,7 +4549,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const repoPath = this.effectiveRepoPath;
 		if (!repoPath) return;
 
-		const { granularity, scopeLabel, reviewMarkdown } = e.detail;
+		const { granularity, scopeLabel, reviewMarkdown, instructions } = e.detail;
 		if (!reviewMarkdown) return;
 
 		this._actions.sendTelemetryEvent('graphDetails/review/sentToAgent', { granularity: granularity });
@@ -4553,6 +4559,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			scopeLabel: scopeLabel,
 			reviewMarkdown: reviewMarkdown,
 			granularity: granularity,
+			instructions: instructions,
 		});
 	}
 

@@ -17,6 +17,7 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
 	DeepReviewState,
 	ProposedCommit,
 	QueuedTakeSide,
@@ -173,8 +174,11 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
 	readEngagedIdleDraft(): string | undefined;
-	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown. */
-	sendReviewFindingToAgent?(findingId: string): void;
+	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown.
+	 *  `instructions` is what the reader just said about it, from its thread. */
+	sendReviewFindingToAgent?(findingId: string, instructions?: string): void;
+	/** Routes a reader's question on a finding to the review agent, through the review panel. */
+	askReviewerAboutFinding?(findingId: string, question?: string): void;
 	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
@@ -1208,11 +1212,14 @@ export class DetailsWorkflowController implements ReactiveController {
 			scopeLabel: string,
 			files: readonly string[],
 			priorFindings?: string,
+			focus?: DeepReviewArgs['focus'],
 		): Promise<void> => {
 			const scope = this.actions.state.scope.get();
 			if (!repoPath || scope == null) return;
 
-			this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			if (focus == null) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			}
 			const result = await this.actions.startDeepReview({
 				repoPath: repoPath,
 				anchor: this.currentAnchor(),
@@ -1221,6 +1228,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				files: [...files],
 				priorFindings: priorFindings,
 				prompt: prompt,
+				focus: focus,
 			});
 			if (!result.ok) {
 				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/failed', { reason: result.reason });
@@ -1324,6 +1332,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (fresh.length === 0) return;
 
 			let session = entry.session ?? emptyReviewSession;
+			// Hand-offs run after the session is registered, so what they send carries the reply
+			const handOffs: (() => void)[] = [];
 			for (const { findingId, action, text } of fresh) {
 				switch (action) {
 					case 'resolve':
@@ -1336,15 +1346,22 @@ export class DetailsWorkflowController implements ReactiveController {
 						session = withFindingState(session, findingId, undefined);
 						break;
 					case 'sendToAgent':
-						this.host.sendReviewFindingToAgent?.(findingId);
+						handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId));
 						break;
 					case 'reply':
+					case 'askReviewer':
+					case 'address':
 						if (text) {
 							session = withFindingNote(session, findingId, {
 								author: 'user',
 								text: text,
 								at: Date.now(),
 							});
+						}
+						if (action === 'askReviewer') {
+							handOffs.push(() => this.host.askReviewerAboutFinding?.(findingId, text));
+						} else if (action === 'address') {
+							handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId, text));
 						}
 						break;
 				}
@@ -1354,6 +1371,9 @@ export class DetailsWorkflowController implements ReactiveController {
 				session: session,
 				threadActionsApplied: fresh.at(-1)!.seq,
 			});
+			for (const handOff of handOffs) {
+				handOff();
+			}
 		},
 		/** Folds what the host reports about the editor into the entry: the active review file, and the
 		 *  editor-made viewed marks past the ones already taken. */

@@ -56,6 +56,7 @@ import {
 import type { ReviewFormatOptions } from './reviewFormat.js';
 import {
 	formatFindingAsMarkdown,
+	formatFindingForAgentContext,
 	formatFocusAreaAsMarkdown,
 	formatReviewAsMarkdown,
 	formatReviewForAgentContext,
@@ -136,6 +137,8 @@ export interface ReviewDeepReviewDetail {
 	files: string[];
 	/** The earlier review's findings as context (see `formatReviewForAgentContext`); absent without one */
 	priorFindings?: string;
+	/** A question on one finding instead of a whole review (see `DeepReviewArgs.focus`) */
+	focus?: { findingId: string; finding: string; question?: string };
 }
 
 export interface ReviewAnalyzeAreaDetail {
@@ -147,6 +150,8 @@ export interface ReviewSendToChatDetail {
 	granularity: 'review' | 'focusArea' | 'finding';
 	scopeLabel: string;
 	reviewMarkdown: string;
+	/** What the reader asked for along with the hand-off — their reply on the finding's thread */
+	instructions?: string;
 }
 
 export interface ReviewCopiedDetail {
@@ -618,20 +623,53 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return '';
 	}
 
-	/** Send-to-Agent for one finding by id — the editor's thread action reaches the panel this way. */
-	sendFindingToAgent(findingId: string): void {
+	/** Send-to-Agent for one finding by id — the editor's thread action reaches the panel this way.
+	 *  `remark` is what the reader said on the thread along with the hand-off: the thing to act on. */
+	sendFindingToAgent(findingId: string, remark?: string): void {
+		const found = this.findFinding(findingId);
+		if (found == null) return;
+
+		const instructions = remark
+			? `The reader's latest remark on this finding, from its thread, is what to act on: "${remark}"`
+			: undefined;
+		this.handleSendToChat('finding', { area: found.area, finding: found.finding, instructions: instructions });
+	}
+
+	/** A reader's question on one finding, for the review agent: goes as a focused Review in Repo — into
+	 *  the running channel and session when there is one — with the finding and its thread as context. */
+	askReviewer(findingId: string, question?: string): void {
+		const found = this.findFinding(findingId);
+		if (found == null) return;
+
+		const context = formatFindingForAgentContext(
+			found.finding,
+			this.session?.findingStates.get(findingId),
+			this.session?.notes.get(findingId),
+		);
+		this.dispatchEvent(
+			new CustomEvent<ReviewDeepReviewDetail>('review-deep-review', {
+				detail: {
+					scopeLabel: this.scopeContextLabel(),
+					files: this.readingOrder,
+					focus: { findingId: findingId, finding: context, question: question },
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private findFinding(findingId: string): { area: AIReviewFocusArea; finding: AIReviewFinding } | undefined {
 		for (const area of this.result?.focusAreas ?? []) {
 			const finding = area.findings?.find(f => f.id === findingId);
-			if (finding != null) {
-				this.handleSendToChat('finding', { area: area, finding: finding });
-				return;
-			}
+			if (finding != null) return { area: area, finding: finding };
 		}
+		return undefined;
 	}
 
 	private handleSendToChat(
 		granularity: 'review' | 'focusArea' | 'finding',
-		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding } = {},
+		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding; instructions?: string } = {},
 	): void {
 		const reviewMarkdown = this.buildReviewMarkdown(granularity, opts);
 		if (!reviewMarkdown) return;
@@ -642,6 +680,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					granularity: granularity,
 					scopeLabel: this.scopeContextLabel(),
 					reviewMarkdown: reviewMarkdown,
+					instructions: opts.instructions,
 				},
 				bubbles: true,
 				composed: true,

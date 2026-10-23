@@ -7376,6 +7376,14 @@
 				]
 			}
 		},
+		"gitlens.review.replyAndAddress": {
+			"label": "Reply & Address with Agent",
+			"icon": "$(comment-discussion-sparkle)"
+		},
+		"gitlens.review.replyAndAskReviewer": {
+			"label": "Reply & Ask Reviewer",
+			"icon": "$(comment-discussion)"
+		},
 		"gitlens.review.replyToFinding": {
 			"label": "Reply",
 			"icon": "$(reply)",

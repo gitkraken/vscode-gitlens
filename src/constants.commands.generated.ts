@@ -1293,6 +1293,8 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.openFolderHistoryInGraph'
 	| 'gitlens.openIssueOnRemote'
 	| 'gitlens.plus.cloudIntegrations.connect'
+	| 'gitlens.review.replyAndAddress'
+	| 'gitlens.review.replyAndAskReviewer'
 	| 'gitlens.showSettingsPage!account'
 	| 'gitlens.showSettingsPage!agents'
 	| 'gitlens.showSettingsPage!ai'

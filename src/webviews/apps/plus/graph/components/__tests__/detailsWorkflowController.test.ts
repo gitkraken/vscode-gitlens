@@ -185,6 +185,14 @@ class FakeHost implements DetailsWorkflowHost {
 	}
 
 	engagedIdleDraft: string | undefined;
+	readonly handOffs: string[] = [];
+	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
+		this.handOffs.push(`address:${findingId}:${instructions ?? ''}`);
+	}
+	askReviewerAboutFinding(findingId: string, question?: string): void {
+		this.handOffs.push(`ask:${findingId}:${question ?? ''}`);
+	}
+
 	readEngagedIdleDraft(): string | undefined {
 		return this.engagedIdleDraft;
 	}
@@ -749,6 +757,41 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.orient, undefined);
 		assert.strictEqual(entry?.session?.order, undefined, 'dismissing the plan drops its order too');
+	});
+
+	test("a thread's reply records the note first, then asks the reviewer or hands the finding to the fixer", () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('r'), 'complete')]]),
+		);
+
+		controller.review.applyThreadActions({
+			actions: [
+				{ seq: 1, findingId: 'f1', action: 'reply', text: 'just a note' },
+				{ seq: 2, findingId: 'f1', action: 'askReviewer', text: 'is this reachable?' },
+				{ seq: 3, findingId: 'f2', action: 'askReviewer' },
+				{ seq: 4, findingId: 'f2', action: 'address', text: 'use the shared helper' },
+			],
+		});
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('f1')?.map(n => n.text),
+			['just a note', 'is this reachable?'],
+		);
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('f2')?.map(n => n.text),
+			['use the shared helper'],
+			'an ask with no words leaves no note',
+		);
+		assert.deepStrictEqual(host.handOffs, [
+			'ask:f1:is this reachable?',
+			'ask:f2:',
+			'address:f2:use the shared helper',
+		]);
 	});
 
 	test('a second deep review starts its counters over, and a report lands on the review it was started from', () => {

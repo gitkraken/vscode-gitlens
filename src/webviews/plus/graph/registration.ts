@@ -290,6 +290,12 @@ export function registerGraphWebviewCommands<T>(
 			runReviewThreadAction(thread, 'sendToAgent'),
 		),
 		registerCommand('gitlens.review.replyToFinding', (reply?: CommentReply) => runReviewThreadReply(reply)),
+		registerCommand('gitlens.review.replyAndAskReviewer', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'askReviewer'),
+		),
+		registerCommand('gitlens.review.replyAndAddress', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'address'),
+		),
 		{ dispose: () => disposeReviewThreads() },
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
 			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any

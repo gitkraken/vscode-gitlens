@@ -146,15 +146,25 @@ export function runReviewThreadAction(thread: CommentThread | undefined, action:
 /** The thread's reply box: the text becomes a note on the finding. It shows in the thread at once — the
  *  session's copy replaces it on the next sync with the same words — so the reply doesn't vanish while
  *  the round trip through the panel runs. */
-export function runReviewThreadReply(reply: CommentReply | undefined): void {
+export function runReviewThreadReply(
+	reply: CommentReply | undefined,
+	action: 'reply' | 'askReviewer' | 'address' = 'reply',
+): void {
 	if (reply == null) return;
 
 	const text = reply.text.trim();
 	const findingId = threadFindings.get(reply.thread);
-	if (findingId == null || !text) return;
+	if (findingId == null) return;
+	// A bare reply needs words; asking the reviewer or the fixer to take the thread up does not
+	if (!text && action === 'reply') return;
 
-	reply.thread.comments = [...reply.thread.comments, toNoteComment({ author: 'user', text: text, at: Date.now() })];
-	owner?.reviewThreadAction(findingId, 'reply', text);
+	if (text) {
+		reply.thread.comments = [
+			...reply.thread.comments,
+			toNoteComment({ author: 'user', text: text, at: Date.now() }),
+		];
+	}
+	owner?.reviewThreadAction(findingId, action, text || undefined);
 }
 
 function clearThreads(): void {

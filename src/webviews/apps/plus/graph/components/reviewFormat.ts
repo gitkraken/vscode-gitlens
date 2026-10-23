@@ -124,35 +124,40 @@ export function formatFocusAreaAsMarkdown(
 
 /** The findings as context for a review that comes after: every one, open or closed, with its id (so the
  *  agent can add to it), its state and the notes on it. Plain lines, not the reader's markdown. */
+/** One finding as context for the agent: id, severity, state, places, text and the notes on it. */
+export function formatFindingForAgentContext(
+	finding: AIReviewFinding,
+	state: ReviewFindingState | undefined,
+	notes: readonly ReviewFindingNote[] | undefined,
+): string {
+	const location = getReviewFindingLocations(finding)
+		.map(l => {
+			const range = formatLineRange(l.lineRange);
+			return `${l.filePath}${range ? `:${range}` : ''}`;
+		})
+		.join(', ');
+	const head = [`id: ${finding.id}`, `[${severityLabel[finding.severity]}]`, state ?? 'open', location]
+		.filter(Boolean)
+		.join(' · ');
+	const lines = [`- ${head}`, `  ${getReviewFindingTitle(finding)} — ${finding.description.replace(/\n+/g, ' ')}`];
+	for (const note of notes ?? []) {
+		lines.push(`  > ${noteAuthor(note.author)}: ${note.text.replace(/\n+/g, ' ')}`);
+	}
+	return lines.join('\n');
+}
+
 export function formatReviewForAgentContext(
 	result: AIReviewResult,
 	states: ReadonlyMap<string, ReviewFindingState> | undefined,
 	notes: ReadonlyMap<string, readonly ReviewFindingNote[]> | undefined,
 ): string {
-	const lines: string[] = [];
+	const blocks: string[] = [];
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
-			const location = getReviewFindingLocations(finding)
-				.map(l => {
-					const range = formatLineRange(l.lineRange);
-					return `${l.filePath}${range ? `:${range}` : ''}`;
-				})
-				.join(', ');
-			const state = states?.get(finding.id) ?? 'open';
-			const head = [`id: ${finding.id}`, `[${severityLabel[finding.severity]}]`, state, location]
-				.filter(Boolean)
-				.join(' · ');
-			if (lines.length) {
-				lines.push('');
-			}
-			lines.push(`- ${head}`);
-			lines.push(`  ${getReviewFindingTitle(finding)} — ${finding.description.replace(/\n+/g, ' ')}`);
-			for (const note of notes?.get(finding.id) ?? []) {
-				lines.push(`  > ${noteAuthor(note.author)}: ${note.text.replace(/\n+/g, ' ')}`);
-			}
+			blocks.push(formatFindingForAgentContext(finding, states?.get(finding.id), notes?.get(finding.id)));
 		}
 	}
-	return lines.join('\n');
+	return blocks.join('\n\n');
 }
 
 export function formatReviewAsMarkdown(result: AIReviewResult, options: ReviewFormatOptions): string {

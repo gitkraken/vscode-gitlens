@@ -1488,6 +1488,8 @@ export class GraphInspectServices {
 
 	@debug()
 	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		let channel: DeepReviewChannel | undefined;
+		let hold: { pending: number; served: boolean } | undefined;
 		try {
 			const endpoint = this.container.ipc.address;
 			const token = this.container.ipc.token;
@@ -1506,29 +1508,50 @@ export class GraphInspectServices {
 				return { ok: false, reason: availability.reason };
 			}
 
-			this.stopDeepReview();
-			const channel = new DeepReviewChannel(this.container.ipc, ++this._deepReviewRuns, args.anchor, state => {
-				if (this._deepReview === channel) {
-					this._deepReviewEvent.fire(state);
-				}
-			});
-			this._deepReview = channel;
-			this._deepReviewEvent.fire(channel.state);
+			// A question on one finding goes into the channel that is open — the agent's answer is a comment
+			// on the finding, and a review that may be running keeps reporting; a whole review starts afresh
+			const reuse = args.focus != null && this._deepReview?.state.active === true;
+			if (!reuse) {
+				this.stopDeepReview();
+				const opened = new DeepReviewChannel(this.container.ipc, ++this._deepReviewRuns, args.anchor, state => {
+					if (this._deepReview === opened) {
+						this._deepReviewEvent.fire(state);
+					}
+				});
+				this._deepReview = opened;
+				this._deepReviewEvent.fire(opened.state);
+			}
+			// This start holds the channel open until its prompt is handed over or fails
+			channel = this._deepReview!;
+			hold = this._deepReviewHolds.get(channel) ?? { pending: 0, served: false };
+			hold.pending++;
+			this._deepReviewHolds.set(channel, hold);
 
 			const endpoints = getReviewDiffEndpoints(args.scope);
 			const reportEndpoint = `${endpoint}/${deepReviewRoute}`;
-			const { prompt } = await this.container.ai.getPrompt('deep-review', undefined, {
-				scopeLabel: args.scopeLabel,
-				diffCommand:
-					endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff',
-				files: args.files.join('\n'),
-				endpoint: reportEndpoint,
-				token: token,
-				priorFindings: args.priorFindings
-					? getDeepReviewPriorFindingsSection(args.priorFindings, reportEndpoint, token)
-					: undefined,
-				instructions: args.prompt,
-			});
+			const diffCommand =
+				endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff';
+			const { prompt } =
+				args.focus != null
+					? await this.container.ai.getPrompt('deep-review-focus', undefined, {
+							scopeLabel: args.scopeLabel,
+							diffCommand: diffCommand,
+							finding: args.focus.finding,
+							question: args.focus.question || 'The reader asked you to look at it again.',
+							endpoint: reportEndpoint,
+							token: token,
+						})
+					: await this.container.ai.getPrompt('deep-review', undefined, {
+							scopeLabel: args.scopeLabel,
+							diffCommand: diffCommand,
+							files: args.files.join('\n'),
+							endpoint: reportEndpoint,
+							token: token,
+							priorFindings: args.priorFindings
+								? getDeepReviewPriorFindingsSection(args.priorFindings, reportEndpoint, token)
+								: undefined,
+							instructions: args.prompt,
+						});
 			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
 			const outcome = await executeCommand<RunPromptInAgentCommandArgs, RunPromptInAgentOutcome>(
 				'gitlens.runPromptInAgent',
@@ -1546,12 +1569,18 @@ export class GraphInspectServices {
 			// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
 			// no agent to report — an open channel would read as a review that never arrives
 			if (outcome !== 'dispatched') {
-				this.stopDeepReview();
+				this.releaseDeepReviewHold(channel, hold, false);
 				return { ok: false, reason: outcome === 'cancelled' ? 'cancelled' : 'error' };
 			}
+
+			this.releaseDeepReviewHold(channel, hold, true);
 			return { ok: true };
 		} catch (ex) {
-			this.stopDeepReview();
+			if (channel != null && hold != null) {
+				this.releaseDeepReviewHold(channel, hold, false);
+			} else {
+				this.stopDeepReview();
+			}
 			const message = getPresentableErrorMessage(ex);
 			void window.showWarningMessage(l10n.t('Unable to start a review in the repository: {0}', message));
 			return { ok: false, reason: 'error', message: message };
@@ -1559,6 +1588,28 @@ export class GraphInspectServices {
 	}
 
 	private _deepReviewRuns = 0;
+	/** Who is still handing a prompt over into each channel, and whether any hand-over got through: a
+	 *  channel no agent was given is closed once the last hand-over fails — not before, since a question on
+	 *  a finding may be going into the same channel as the review that opened it */
+	private readonly _deepReviewHolds = new WeakMap<DeepReviewChannel, { pending: number; served: boolean }>();
+
+	private releaseDeepReviewHold(
+		channel: DeepReviewChannel,
+		hold: { pending: number; served: boolean },
+		dispatched: boolean,
+	): void {
+		hold.pending--;
+		if (dispatched) {
+			hold.served = true;
+			return;
+		}
+
+		// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
+		// no agent to report — an open channel would read as a review that never arrives
+		if (!hold.served && hold.pending <= 0 && this._deepReview === channel) {
+			this.stopDeepReview();
+		}
+	}
 
 	/** Closes the channel; what the agent reported stays with the review. */
 	private stopDeepReview(): void {

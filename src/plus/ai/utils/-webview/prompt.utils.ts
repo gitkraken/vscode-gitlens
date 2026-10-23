@@ -8,6 +8,7 @@ import type {
 import {
 	addressReviewFindings,
 	deepReview,
+	deepReviewFocus,
 	explainChanges,
 	generateChangelog,
 	generateCommitMessage,
@@ -87,6 +88,8 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return addressReviewFindings as PromptTemplate<T>;
 		case 'deep-review':
 			return deepReview as PromptTemplate<T>;
+		case 'deep-review-focus':
+			return deepReviewFocus as PromptTemplate<T>;
 		case 'start-review-pullRequest':
 			return reviewPullRequest as PromptTemplate<T>;
 		case 'start-work-issue':

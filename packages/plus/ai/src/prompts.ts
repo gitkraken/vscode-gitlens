@@ -932,6 +932,34 @@ When you have finished, POST {"done":true} to the same endpoint, then stop.
 \${instructions}`,
 };
 
+export const deepReviewFocus: PromptTemplate<'deep-review-focus'> = {
+	id: 'deep-review-focus',
+	variables: ['scopeLabel', 'diffCommand', 'finding', 'question', 'endpoint', 'token'],
+	template: `You are an AI coding agent on a code review. The reader has a question or a remark about one finding and wants you on that — not on the whole change. You can read the repository, follow call paths and run tests; use that where it helps answer.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+
+The finding — its id, severity, state, places, text, and what has been said about it so far:
+<finding>
+\${finding}
+</finding>
+
+The reader's latest word on it: \${question}
+
+Look at the finding's places and the code they touch — the callers and callees, the tests that cover them — and answer in the finding's thread, by POSTing a comment on it to GitLens:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"findings":[{"findingId":"<the finding id>","comment":"Your answer."}]}'
+
+- Answer the reader's point first, plainly; then say what you verified and how, and what you did not
+- If the reader disputes the finding and is right, say so; if they are wrong, show the evidence
+- Report a new finding only when what you found is a defect of its own, beyond this one — as {"file":"path/relative/to/repo.ts","lines":{"start":12,"end":14},"severity":"critical","title":"Short title","description":"What is wrong, why it matters, and how to address it."} in the same "findings" array, with "severity" one of "critical", "warning", "suggestion"; a finding that holds in several places lists them all in "locations" ([{"file":…,"lines":…}, …]) with the first also in "file"/"lines"
+- Check every response: GitLens answers {"accepted":N}; anything else — an empty body, 401, 404 — means the review is no longer open, so stop and say so with the status you got
+- The endpoint is on this machine; if your tool sandbox blocks local network access, run the request outside the sandbox, or say so and give the answer in your reply instead
+- Do not change any files — this is a review, not a fix
+- Do not POST {"done":true}: the review stays open for the reader's next question`,
+};
+
 export const reviewDetail: PromptTemplate<'review-detail'> = {
 	id: 'review-detail_v2',
 	variables: ['diff', 'overview', 'message', 'focusArea', 'context', 'instructions'],
