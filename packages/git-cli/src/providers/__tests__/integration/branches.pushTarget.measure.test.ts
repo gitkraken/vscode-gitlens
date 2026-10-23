@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitPushTarget } from '@gitlens/git/providers/branches.js';
@@ -185,6 +185,30 @@ suite('BranchesGitSubProvider.getPushTarget (checked-out branch from HEAD, spawn
 			assert.strictEqual(countOthersSince(mark, 'for-each-ref'), 0, 'only the ref list is read');
 		} finally {
 			git(repo.path, 'checkout', '-q', 'main');
+		}
+	});
+
+	test('a HEAD kept as a symlink to its branch reads that branch, as git does', async function () {
+		// Creating a symlink on Windows needs a privilege test machines may not have
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+
+		// `core.preferSymlinkRefs` writes HEAD this way; reading the file follows the link to the branch's object id
+		const head = join(git(repo.path, 'rev-parse', '--absolute-git-dir'), 'HEAD');
+		try {
+			rmSync(head);
+			symlinkSync('refs/heads/main', head);
+			// A link to a packed branch dangles, and the case would pass through the fallback without reading the link
+			assert.match(readFileSync(head, 'utf-8'), /^[0-9a-f]{40,64}\s*$/, 'sanity: the link reads as an object id');
+
+			const target = await repo.provider.branches.getPushTarget(repo.path);
+			assert.ok(target.known);
+			assert.strictEqual(target.upstream?.ref, 'refs/remotes/origin/main');
+			assert.deepStrictEqual(target, await repo.provider.branches.getPushTarget(repo.path, 'main'));
+		} finally {
+			rmSync(head, { force: true });
+			writeFileSync(head, 'ref: refs/heads/main\n');
 		}
 	});
 
