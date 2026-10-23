@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-23
+
 ### Added
 
 - Adds `GitOptions.spawn`, which launches the git process of every run and stream in place of Node's `spawn` (locating git still uses `execFile`), so a host whose process is large can start git from a helper process: on Linux a spawn forks the calling process, blocking its event loop for a time that grows with its memory. Exports `ProcessSpawner`, `ProcessSpawnOptions` and `SpawnedProcess` for it (git-cli, utils)
@@ -882,7 +884,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...HEAD
+[0.16.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...gitkraken:releases/core/v0.16.1
 [0.16.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.7...gitkraken:releases/core/v0.16.0
 [0.15.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...gitkraken:releases/core/v0.15.7
 [0.15.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...gitkraken:releases/core/v0.15.6
