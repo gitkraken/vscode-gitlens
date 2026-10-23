@@ -31,6 +31,13 @@ export const fileTreeStyles = css`
 		overflow: visible;
 	}
 
+	/* In document flow a group reads like a section of the document: its summary, controls and files start
+	   where the heading's text does, with the chevron hanging to the left — the pane header's chevron
+	   (16px with --gl-space-2 either side) and the title's own --gl-space-2 inset */
+	:host([flow]) webview-pane::part(content) {
+		padding-left: calc(var(--gl-space-2) + 16px + var(--gl-space-2) + var(--gl-space-2));
+	}
+
 	/* Checkbox mode: pull the title (and its select-all checkbox) back so the checkbox's left
 	   edge sits at the content inset, aligned with the filter box and the commit box's checkbox
 	   below — the default non-collapsable title indent lands it 4px to their right. */
