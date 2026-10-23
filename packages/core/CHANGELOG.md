@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a write that creates or removes the directory holding its ref (the first `team/…` branch, say) also reaching watchers as an outside change of every branch: the watcher's report of that directory is now the write's own (git)
 - Fixes the first move of a base after a clone, or after the reflog lost the entries before it, re-measuring every worktree in full instead of in one shared read (git-cli)
 
 ## [0.16.5] - 2026-10-24
