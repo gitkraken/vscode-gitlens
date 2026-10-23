@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a fetch that moves nothing reporting `refs/remotes/<remote>/HEAD` as changed, which refreshed every worktree whose base follows it: since git 2.48 every fetch locks that ref to check the remote's default branch, and a ref's lock file counted as a change of the ref. A branch, remote-tracking, tag or replace ref's lock no longer counts; its rename over the ref, or a `packed-refs` rewrite, does. The stash's lock still counts, since `git reflog expire` (as `gc` runs it) and `git reflog delete` rewrite its entries under it without touching the ref (git)
+
 ## [0.16.2] - 2026-10-23
 
 ### Fixed

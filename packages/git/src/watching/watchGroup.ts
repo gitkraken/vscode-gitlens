@@ -611,7 +611,8 @@ function isConfigFile(relativePath: string): boolean {
 
 /**
  * The ref a `.git`-relative path names: a loose ref (or ref directory) under `refs/`, or the `HEAD`/`ORIG_HEAD`
- * pseudo-refs. Git writes a ref as `<name>.lock` and renames it over `<name>`, so the lock file names the same ref.
+ * pseudo-refs. A lock file names the ref it locks; the only ones classification lets through are the pseudo-refs' and
+ * `refs/stash.lock`.
  */
 function getChangedRef(relativePath: string): string | false | undefined {
 	const ref = relativePath.endsWith('.lock') ? relativePath.substring(0, relativePath.length - 5) : relativePath;

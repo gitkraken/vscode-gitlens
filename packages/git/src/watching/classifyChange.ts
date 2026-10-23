@@ -25,7 +25,7 @@ export const allWatchedRepositoryChanges: readonly RepositoryChange[] = [
 
 const classifyRegex =
 	/(index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
-/** A ref, ref directory or ref lock in a namespace {@link classifyRegex} maps (`refs/stash.lock` included) */
+/** A ref, ref directory or ref lock in a namespace {@link classifyRegex} maps; of the locks, only the stash's counts */
 const watchedRefRegex = /^refs\/(?:heads|remotes|stash|tags|replace)(?:\/|\.lock$|$)/;
 
 /**
@@ -70,7 +70,16 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 
 	// A ref outside the namespaces core reads (a tool's own, such as `refs/undo/*`) is no change, whatever words its
 	// name holds: `refs/kepler/x/fix-index` must not read as the index
-	if (relativePath.startsWith('refs/') && !watchedRefRegex.test(relativePath)) return undefined;
+	if (relativePath.startsWith('refs/')) {
+		if (!watchedRefRegex.test(relativePath)) return undefined;
+
+		// A ref's lock file is no change of the ref (no ref name ends in `.lock`): git renames it over the ref, which
+		// reports the ref itself, or removes it with the ref unchanged, as every fetch does with
+		// `refs/remotes/<remote>/HEAD` to check the remote's default branch. Except the stash's: its entries are its
+		// reflog (`logs/`, unwatched), which `git reflog expire` (as `gc` runs it) and `git reflog delete` rewrite under
+		// that lock alone
+		if (relativePath.endsWith('.lock') && relativePath !== 'refs/stash.lock') return undefined;
+	}
 
 	const match = classifyRegex.exec(relativePath);
 	if (match == null) return undefined;

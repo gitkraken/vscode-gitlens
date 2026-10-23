@@ -769,17 +769,32 @@ describe('WatchGroup', () => {
 			assert.strictEqual(onRepoChanged.mock.callCount(), 0);
 		});
 
-		it('names the ref a loose ref lock file stands for', () => {
+		it("reports a loose ref's write by its rename over the ref, not by its lock file", () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
 			const callbacks = makeCallbacks();
 			group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
 
 			watchers[0].fire({ path: '/repo/.git/refs/heads/main.lock', reason: 'create' });
-			watchers[0].fire({ path: '/repo/.git/refs/heads/main', reason: 'create' });
+			assert.strictEqual(callCount(callbacks.onRepoChanged), 0);
 
+			watchers[0].fire({ path: '/repo/.git/refs/heads/main', reason: 'create' });
+			watchers[0].fire({ path: '/repo/.git/refs/heads/main.lock', reason: 'delete' });
+
+			assert.strictEqual(callCount(callbacks.onRepoChanged), 1);
 			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads'], 'refs/heads/main']);
-			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 1), ['/repo', ['heads'], 'refs/heads/main']);
+			group.dispose();
+		});
+
+		it('names the stash for its lock file', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const callbacks = makeCallbacks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+			watchers[0].fire({ path: '/repo/.git/refs/stash.lock', reason: 'create' });
+
+			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['stash'], 'refs/stash']);
 			group.dispose();
 		});
 
