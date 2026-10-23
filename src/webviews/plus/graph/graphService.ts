@@ -377,7 +377,10 @@ export interface ReviewFindingNote {
 
 /** A finding as the diff editor shows it: an inline comment thread at its line. */
 export interface ReviewThreadItem {
+	/** The thread's own key — a finding with several places has a thread per place */
 	id: string;
+	/** The finding the thread shows; its actions and notes are the finding's */
+	findingId: string;
 	path: string;
 	line: number;
 	lineEnd: number;

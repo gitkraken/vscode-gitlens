@@ -11,6 +11,7 @@ import type {
 	AIReviewOrientResult,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import { redispatch } from '@gitlens/components/components/element.js';
 import {
 	boxSizingBase,
@@ -1800,7 +1801,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
 					<span class="review-area__file-count"
 						>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
-							count: area.files.length,
+							count: this.getAreaFiles(area).length,
 						})}</span
 					>
 				</button>
@@ -1811,7 +1812,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					? html`<div class="review-area__body">
 							<div class="review-area__rationale">${area.rationale}</div>
 							<div class="review-area__files">
-								${area.files.map(f => {
+								${this.getAreaFiles(area).map(f => {
 									// Split off a trailing `:line` or `:start-end` so the line range gets a
 									// muted color (it's a locator, not part of the path).
 									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
@@ -1821,9 +1822,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 									// Without a locator of its own, the link lands on the area's first finding in
 									// the file — the thread is there, not at the top
 									if (start == null) {
-										const first = area.findings?.find(
-											fi => fi.filePath === path && fi.lineRange != null,
-										);
+										const first = area.findings
+											?.flatMap(fi => getReviewFindingLocations(fi))
+											.find(l => l.filePath === path && l.lineRange != null);
 										start = first?.lineRange?.start;
 										end = first?.lineRange?.end ?? start;
 									}
@@ -2051,34 +2052,45 @@ export class GlDetailsReviewModePanel extends LitElement {
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
 			${this.renderFindingNotes(finding.id)}
-			${
-				finding.filePath
-					? html`<button
-							class="review-finding__location"
-							@click=${() =>
-								this.handleOpenFile(
-									finding.filePath!,
-									finding.lineRange?.start,
-									finding.lineRange?.end,
-								)}
-						>
-							<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
-							<span class="review-finding__location-text">${finding.filePath}</span>
-							${
-								finding.lineRange
-									? html`<span class="review-finding__location-lines"
-											>:${finding.lineRange.start}${
-												finding.lineRange.end !== finding.lineRange.start
-													? `-${finding.lineRange.end}`
-													: ''
-											}</span
-										>`
-									: nothing
-							}
-						</button>`
-					: nothing
-			}
+			${getReviewFindingLocations(finding).map(
+				location => html`<button
+					class="review-finding__location"
+					@click=${() =>
+						this.handleOpenFile(location.filePath, location.lineRange?.start, location.lineRange?.end)}
+				>
+					<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
+					<span class="review-finding__location-text">${location.filePath}</span>
+					${
+						location.lineRange
+							? html`<span class="review-finding__location-lines"
+									>:${location.lineRange.start}${
+										location.lineRange.end !== location.lineRange.start
+											? `-${location.lineRange.end}`
+											: ''
+									}</span
+								>`
+							: nothing
+					}
+				</button>`,
+			)}
 		</div>`;
+	}
+
+	/** The area's files as shown: once its findings are in, the files they point at — a file no finding
+	 *  concerns has nothing to show for being listed — in the area's own order, extras after. Before the
+	 *  findings arrive (a two-pass overview), the area's list is what there is. */
+	private getAreaFiles(area: AIReviewFocusArea): readonly string[] {
+		if (area.findings == null) return area.files;
+
+		const pointed = new Set(area.findings.flatMap(f => getReviewFindingLocations(f).map(l => l.filePath)));
+		const listed = area.files.map(f => f.match(/^(.+?)(?::\d+(?:-\d+)?)?$/)?.[1] ?? f);
+		const files = area.files.filter((_, i) => pointed.has(listed[i]));
+		for (const path of pointed) {
+			if (!listed.includes(path)) {
+				files.push(path);
+			}
+		}
+		return files;
 	}
 
 	updateFocusAreaFindings(focusAreaId: string, result: AIReviewDetailResult): void {

@@ -5,6 +5,7 @@ import type {
 	AIReviewResult,
 	AIReviewSeverity,
 } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { ReviewFindingNote } from '../../../../plus/graph/graphService.js';
 import type { ReviewFindingState } from './reviewSession.js';
 
@@ -47,11 +48,16 @@ function formatFindingLines(finding: AIReviewFinding, notes?: readonly ReviewFin
 	lines.push(`### ${severityPrefix(finding.severity)} ${getReviewFindingTitle(finding)}`);
 	lines.push('');
 	lines.push(finding.description);
-	if (finding.filePath) {
-		const range = formatLineRange(finding.lineRange);
+	const locations = getReviewFindingLocations(finding).map(l => {
+		const range = formatLineRange(l.lineRange);
+		return `${l.filePath}${range ? `:${range}` : ''}`;
+	});
+	if (locations.length === 1) {
 		lines.push('');
-		const location = `${finding.filePath}${range ? `:${range}` : ''}`;
-		lines.push(l10n.t('File: `{location}`', { location: location }));
+		lines.push(l10n.t('File: `{location}`', { location: locations[0] }));
+	} else if (locations.length > 1) {
+		lines.push('');
+		lines.push(l10n.t('Files: {locations}', { locations: locations.map(l => `\`${l}\``).join(', ') }));
 	}
 	if (notes?.length) {
 		lines.push('');
@@ -126,8 +132,12 @@ export function formatReviewForAgentContext(
 	const lines: string[] = [];
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
-			const range = formatLineRange(finding.lineRange);
-			const location = finding.filePath ? `${finding.filePath}${range ? `:${range}` : ''}` : '';
+			const location = getReviewFindingLocations(finding)
+				.map(l => {
+					const range = formatLineRange(l.lineRange);
+					return `${l.filePath}${range ? `:${range}` : ''}`;
+				})
+				.join(', ');
 			const state = states?.get(finding.id) ?? 'open';
 			const head = [`id: ${finding.id}`, `[${severityLabel[finding.severity]}]`, state, location]
 				.filter(Boolean)

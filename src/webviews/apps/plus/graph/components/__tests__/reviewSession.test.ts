@@ -190,6 +190,44 @@ suite('reviewSession — findings by file', () => {
 		});
 	});
 
+	test('a finding with several places marks each of its files once', () => {
+		const multi = {
+			overview: '',
+			mode: 'single-pass',
+			focusAreas: [
+				{
+					id: 'area',
+					label: 'Area',
+					rationale: '',
+					severity: 'warning',
+					files: [],
+					findings: [
+						{
+							id: 'm',
+							severity: 'warning',
+							title: 'copied',
+							description: '',
+							filePath: 'src/a.ts',
+							lineRange: { start: 5, end: 6 },
+							locations: [
+								{ filePath: 'src/a.ts', lineRange: { start: 5, end: 6 } },
+								{ filePath: 'src/a.ts', lineRange: { start: 50, end: 51 } },
+								{ filePath: 'src/b.ts', lineRange: { start: 9, end: 9 } },
+							],
+						},
+					],
+				},
+			],
+		} as unknown as AIReviewResult;
+		assert.deepStrictEqual(
+			[...getReviewFileFindings(multi, emptyReviewSession).entries()],
+			[
+				['src/a.ts', { open: 1, closed: 0, severity: 'warning', target: { start: 5, end: 6 } }],
+				['src/b.ts', { open: 1, closed: 0, severity: 'warning', target: { start: 9, end: 9 } }],
+			],
+		);
+	});
+
 	test('no result means no marks', () => {
 		assert.strictEqual(getReviewFileFindings(undefined, emptyReviewSession).size, 0);
 	});
@@ -245,6 +283,19 @@ suite('reviewSession — thread projection', () => {
 							filePath: 'b.ts',
 							lineRange: { start: 9, end: 9 },
 						},
+						{
+							id: 'f4',
+							severity: 'warning',
+							title: 'four',
+							description: 'd4',
+							filePath: 'a.ts',
+							lineRange: { start: 20, end: 21 },
+							locations: [
+								{ filePath: 'a.ts', lineRange: { start: 20, end: 21 } },
+								{ filePath: 'c.ts', lineRange: { start: 2, end: 2 } },
+								{ filePath: 'd.ts' },
+							],
+						},
 					],
 				},
 			],
@@ -255,6 +306,7 @@ suite('reviewSession — thread projection', () => {
 		assert.deepStrictEqual(getReviewThreadItems(result, session), [
 			{
 				id: 'f1',
+				findingId: 'f1',
 				path: 'a.ts',
 				line: 3,
 				lineEnd: 5,
@@ -265,6 +317,7 @@ suite('reviewSession — thread projection', () => {
 			},
 			{
 				id: 'f3',
+				findingId: 'f3',
 				path: 'b.ts',
 				line: 9,
 				lineEnd: 9,
@@ -273,6 +326,29 @@ suite('reviewSession — thread projection', () => {
 				description: 'd3',
 				state: 'dismissed',
 				notes: [{ author: 'user', text: 'intended', at: 7 }],
+			},
+			// One finding, a thread at each of its places that has lines — all the one finding's
+			{
+				id: 'f4',
+				findingId: 'f4',
+				path: 'a.ts',
+				line: 20,
+				lineEnd: 21,
+				severity: 'warning',
+				title: 'four',
+				description: 'd4',
+				state: 'open',
+			},
+			{
+				id: 'f4#1',
+				findingId: 'f4',
+				path: 'c.ts',
+				line: 2,
+				lineEnd: 2,
+				severity: 'warning',
+				title: 'four',
+				description: 'd4',
+				state: 'open',
 			},
 		]);
 		assert.deepStrictEqual(getReviewThreadItems(undefined, session), []);

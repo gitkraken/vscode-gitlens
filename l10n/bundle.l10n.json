@@ -1978,6 +1978,7 @@
 	"Files larger than the threshold will only be recomputed when saved. Also applies to inline blame annotations": "Files larger than the threshold will only be recomputed when saved. Also applies to inline blame annotations",
 	"Files viewed: {count}": "Files viewed: {count}",
 	"Files:": "Files:",
+	"Files: {locations}": "Files: {locations}",
 	"Fill in every required URL template so this custom remote can resolve links — it isn't saved until they're complete.": "Fill in every required URL template so this custom remote can resolve links — it isn't saved until they're complete.",
 	"Filter": "Filter",
 	"Filter Commits": "Filter Commits",

@@ -6,6 +6,7 @@ import type {
 	AIReviewFocusArea,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
@@ -91,7 +92,7 @@ export function withAgentFindings(
 		label: l10n.t('Deep review'),
 		rationale: l10n.t('Reported by your agent, which could build, test and read beyond the diff.'),
 		severity: severity,
-		files: [...new Set(findings.map(f => f.filePath).filter((p): p is string => p != null))],
+		files: [...new Set(findings.flatMap(f => getReviewFindingLocations(f).map(l => l.filePath)))],
 		findings: findings,
 	};
 	return {

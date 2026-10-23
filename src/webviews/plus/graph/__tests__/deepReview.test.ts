@@ -65,6 +65,40 @@ suite("deepReview — the agent's report", () => {
 		assert.deepStrictEqual(parseDeepReviewReport(undefined, 1), { findings: [], notes: [], done: false });
 	});
 
+	test('a finding may name several places; the first is its own file and lines', () => {
+		const { findings } = parseDeepReviewReport(
+			{
+				findings: [
+					{
+						title: 'Same guard missing',
+						file: 'src/a.ts',
+						lines: { start: 3, end: 4 },
+						locations: [
+							{ file: './src/b.ts', lines: { start: 8, end: 8 } },
+							{ file: 'src/a.ts', lines: { start: 3, end: 4 } },
+						],
+					},
+					{ title: 'Only in locations', locations: [{ file: 'src/c.ts' }] },
+				],
+			},
+			1,
+		);
+		assert.deepStrictEqual(
+			findings.map(f => [f.filePath, f.lineRange, f.locations]),
+			[
+				[
+					'src/a.ts',
+					{ start: 3, end: 4 },
+					[
+						{ filePath: 'src/a.ts', lineRange: { start: 3, end: 4 } },
+						{ filePath: 'src/b.ts', lineRange: { start: 8, end: 8 } },
+					],
+				],
+				['src/c.ts', undefined, undefined],
+			],
+		);
+	});
+
 	test('an item that names a finding is a note on it, not a finding; without a comment it is nothing', () => {
 		const { findings, notes } = parseDeepReviewReport(
 			{

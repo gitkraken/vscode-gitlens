@@ -113,7 +113,7 @@ export function setReviewThreads(
 		if (thread == null) {
 			thread = getController().createCommentThread(uri, range, []);
 			threads.set(item.id, thread);
-			threadFindings.set(thread, item.id);
+			threadFindings.set(thread, item.findingId);
 		} else if (!thread.range?.isEqual(range)) {
 			thread.range = range;
 		}

@@ -2,6 +2,12 @@ export type AISummarizedResult = { summary: string; body: string };
 
 export type AIReviewSeverity = 'critical' | 'warning' | 'suggestion';
 
+/** One place a finding holds: a file, and the lines in it when the finding is tied to lines. */
+export interface AIReviewFindingLocation {
+	readonly filePath: string;
+	readonly lineRange?: { readonly start: number; readonly end: number };
+}
+
 export interface AIReviewFinding {
 	readonly id: string;
 	readonly severity: AIReviewSeverity;
@@ -9,11 +15,24 @@ export interface AIReviewFinding {
 	/** Whether `title` is a synthetic protocol fallback and should be localized at presentation boundaries. */
 	readonly titleIsFallback?: boolean;
 	readonly description: string;
+	/** The finding's first place — see {@link locations} for all of them */
 	readonly filePath?: string;
 	readonly lineRange?: { readonly start: number; readonly end: number };
+	/** Every place the finding holds, the first being `filePath`/`lineRange` — present only when there is
+	 *  more than one (the same mistake repeated, a contract broken on both of its sides). One finding,
+	 *  marked at each place. */
+	readonly locations?: readonly AIReviewFindingLocation[];
 	/** Who produced the finding; absent = the model's own review run. `agent` = reported back by a
 	 *  delegated deep review, which could build, test and read beyond the diff. */
 	readonly source?: 'agent';
+}
+
+/** Every place a finding holds — `locations` when it has several, else its one file (none for a general remark). */
+export function getReviewFindingLocations(finding: AIReviewFinding): readonly AIReviewFindingLocation[] {
+	if (finding.locations?.length) return finding.locations;
+	if (finding.filePath == null) return [];
+
+	return [{ filePath: finding.filePath, lineRange: finding.lineRange }];
 }
 
 export interface AIReviewFocusArea {

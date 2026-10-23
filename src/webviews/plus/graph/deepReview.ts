@@ -1,6 +1,7 @@
-import type { AIReviewFinding, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewFindingLocation, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { DeepReviewAnchor, DeepReviewState, ScopeSelection } from './graphService.js';
 
 /** The IPC route a delegated deep review reports findings to */
@@ -53,6 +54,11 @@ export class DeepReviewChannel {
 			this._state.notes.push({ seq: ++noteSeq, ...note });
 		}
 		const accepted = findings.length + notes.length;
+		Logger.debug(
+			`DeepReview(run ${this._state.run}): report accepted ${findings.length} findings, ${notes.length} notes${
+				done ? ', done' : ''
+			} (${this._state.findings.length} findings so far)`,
+		);
 		if (done) {
 			this._state.done = true;
 			this.close();
@@ -67,6 +73,7 @@ export class DeepReviewChannel {
 	close(): void {
 		if (!this._state.active) return;
 
+		Logger.debug(`DeepReview(run ${this._state.run}): closed with ${this._state.findings.length} findings`);
 		this._state.active = false;
 		this._route?.dispose();
 		this._route = undefined;
@@ -87,6 +94,38 @@ function severityOf(value: unknown): AIReviewSeverity {
 function lineOf(value: unknown): number | undefined {
 	const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
 	return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
+function parseLocation(value: unknown): AIReviewFindingLocation | undefined {
+	if (value == null || typeof value !== 'object') return undefined;
+
+	const l = value as Record<string, unknown>;
+	const file = typeof l.file === 'string' ? l.file.trim().replace(/^\.\//, '') : '';
+	if (!file) return undefined;
+
+	const lines = l.lines != null && typeof l.lines === 'object' ? (l.lines as Record<string, unknown>) : undefined;
+	const start = lineOf(lines?.start);
+	const end = lineOf(lines?.end) ?? start;
+	return start != null && end != null && end >= start
+		? { filePath: file, lineRange: { start: start, end: end } }
+		: { filePath: file };
+}
+
+/** The finding's places: `file`/`lines` first, then `locations`, each place once. */
+function parseLocations(f: Record<string, unknown>): AIReviewFindingLocation[] {
+	const out: AIReviewFindingLocation[] = [];
+	const seen = new Set<string>();
+	for (const candidate of [f, ...(Array.isArray(f.locations) ? f.locations : [])]) {
+		const location = parseLocation(candidate);
+		if (location == null) continue;
+
+		const key = `${location.filePath}:${location.lineRange?.start ?? ''}-${location.lineRange?.end ?? ''}`;
+		if (seen.has(key)) continue;
+
+		seen.add(key);
+		out.push(location);
+	}
+	return out;
 }
 
 /** Reads the findings out of an agent's report — tolerant of what an agent will plausibly send, strict
@@ -117,17 +156,16 @@ export function parseDeepReviewReport(
 		const title = typeof f.title === 'string' ? f.title.trim() : '';
 		if (!title) continue;
 
-		const file = typeof f.file === 'string' ? f.file.trim().replace(/^\.\//, '') : '';
-		const lines = f.lines != null && typeof f.lines === 'object' ? (f.lines as Record<string, unknown>) : undefined;
-		const start = lineOf(lines?.start);
-		const end = lineOf(lines?.end) ?? start;
+		const locations = parseLocations(f);
+		const [first] = locations;
 		findings.push({
 			id: `agent-${seq++}`,
 			severity: severityOf(f.severity),
 			title: title,
 			description: typeof f.description === 'string' ? f.description.trim() : '',
-			filePath: file || undefined,
-			lineRange: file && start != null && end != null && end >= start ? { start: start, end: end } : undefined,
+			filePath: first?.filePath,
+			lineRange: first?.lineRange,
+			...(locations.length > 1 ? { locations: locations } : {}),
 			source: 'agent',
 		});
 	}

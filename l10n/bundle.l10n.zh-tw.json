@@ -1916,6 +1916,7 @@
 	"Files larger than the threshold will only be recomputed when saved. Also applies to inline blame annotations": "超過閾值的檔案將僅在儲存時重新計算。也適用於內聯追溯註釋",
 	"Files viewed: {count}": "已檢視的檔案：{count}",
 	"Files:": "檔案：",
+	"Files: {locations}": "檔案：{locations}",
 	"Fill in every required URL template so this custom remote can resolve links — it isn't saved until they're complete.": "填寫所有必需的 URL 模板，使此自訂遠端能夠解析連結 — 全部填寫完畢後才會儲存。",
 	"Filter": "篩選",
 	"Filter Commits": "篩選認可",

@@ -1916,6 +1916,7 @@
 	"Files larger than the threshold will only be recomputed when saved. Also applies to inline blame annotations": "Los archivos mayores que el umbral solo se volverán a calcular al guardar. También se aplica a las anotaciones de blame en línea",
 	"Files viewed: {count}": "Archivos vistos: {count}",
 	"Files:": "Archivos:",
+	"Files: {locations}": "Archivos: {locations}",
 	"Fill in every required URL template so this custom remote can resolve links — it isn't saved until they're complete.": "Rellene todas las plantillas de URL requeridas para que este remoto personalizado pueda resolver los vínculos — no se guardará hasta que estén completas.",
 	"Filter": "Filtrar",
 	"Filter Commits": "Filtrar commits",

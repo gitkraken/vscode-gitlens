@@ -1,6 +1,7 @@
 import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -1854,8 +1855,10 @@ export class GraphInspectServices {
 		const quoted = getAnnotatedNewLines(diff);
 		const paths = new Set<string>();
 		for (const f of findings) {
-			if (f.filePath != null && f.lineRange != null && quoted.has(f.filePath)) {
-				paths.add(f.filePath);
+			for (const location of getReviewFindingLocations(f)) {
+				if (location.lineRange != null && quoted.has(location.filePath)) {
+					paths.add(location.filePath);
+				}
 			}
 		}
 		if (rhs == null || !paths.size) return [...findings];
@@ -1878,17 +1881,33 @@ export class GraphInspectServices {
 			}),
 		);
 
+		const anchorLocation = (location: AIReviewFindingLocation): AIReviewFindingLocation => {
+			if (location.lineRange == null) return location;
+
+			const target = targets.get(location.filePath);
+			const lines = quoted.get(location.filePath);
+			if (target == null || lines == null) return location;
+
+			const range = reanchorLineRange(location.lineRange, lines, target);
+			if (range?.start === location.lineRange.start && range.end === location.lineRange.end) return location;
+
+			return { filePath: location.filePath, lineRange: range };
+		};
+
+		// Every place is re-pointed; the first stays the finding's own file and lines
 		return findings.map(f => {
-			if (f.filePath == null || f.lineRange == null) return f;
+			const before = getReviewFindingLocations(f);
+			if (before.length === 0) return f;
 
-			const target = targets.get(f.filePath);
-			const lines = quoted.get(f.filePath);
-			if (target == null || lines == null) return f;
+			const after = before.map(anchorLocation);
+			if (after.every((l, i) => l === before[i])) return f;
 
-			const range = reanchorLineRange(f.lineRange, lines, target);
-			if (range?.start === f.lineRange.start && range.end === f.lineRange.end) return f;
-
-			return { ...f, lineRange: range };
+			return {
+				...f,
+				filePath: after[0].filePath,
+				lineRange: after[0].lineRange,
+				...(after.length > 1 ? { locations: after } : {}),
+			};
 		});
 	}
 

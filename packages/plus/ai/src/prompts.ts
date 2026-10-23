@@ -575,7 +575,9 @@ Now, proceed with your analysis and provide a comprehensive review of the PR. Re
 };
 
 // Shared by the reviewChanges and reviewDetail templates so line-citation rules can't drift apart
-const lineCitationGuidance = `- For "lines", copy the "start" and "end" numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk. If a finding is not tied to specific lines, set "lines" to null; if not tied to a single file, set "file" to null`;
+const lineCitationGuidance = `- A finding that holds in several places — the same mistake repeated, a contract broken on both of its sides — is ONE finding: its first place goes in "file"/"lines" and every place, that one included, in "locations"; a finding with a single place sets "locations" to null
+- An area's "files" are exactly the files its findings point at; never list a file that none of the area's findings concerns
+- For "lines", copy the "start" and "end" numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk. If a finding is not tied to specific lines, set "lines" to null; if not tied to a single file, set "file" to null`;
 
 export const reviewChanges: PromptTemplate<'review-changes'> = {
 	id: 'review-changes_v2',
@@ -615,7 +617,8 @@ Produce a structured review as a single JSON object with this exact structure:
           "title": "Specific issue title",
           "description": "Clear explanation of the problem and how to address it",
           "file": "path/to/file.ts",
-          "lines": { "start": 42, "end": 45 }
+          "lines": { "start": 42, "end": 45 },
+          "locations": [{ "file": "path/to/file.ts", "lines": { "start": 42, "end": 45 } }, { "file": "path/to/other.ts", "lines": { "start": 7, "end": 9 } }]
         }
       ]
     }
@@ -641,7 +644,7 @@ Review the changes and return only the JSON object above — no other text, no c
 const reviewFindingSchema: JSONSchema = {
 	type: 'object',
 	additionalProperties: false,
-	required: ['severity', 'title', 'description', 'file', 'lines'],
+	required: ['severity', 'title', 'description', 'file', 'lines', 'locations'],
 	properties: {
 		severity: { type: 'string', enum: ['critical', 'warning', 'suggestion'] },
 		title: { type: 'string' },
@@ -652,6 +655,23 @@ const reviewFindingSchema: JSONSchema = {
 			additionalProperties: false,
 			required: ['start', 'end'],
 			properties: { start: { type: 'integer' }, end: { type: 'integer' } },
+		},
+		locations: {
+			type: ['array', 'null'],
+			items: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['file', 'lines'],
+				properties: {
+					file: { type: 'string' },
+					lines: {
+						type: ['object', 'null'],
+						additionalProperties: false,
+						required: ['start', 'end'],
+						properties: { start: { type: 'integer' }, end: { type: 'integer' } },
+					},
+				},
+			},
 		},
 	},
 };
@@ -948,7 +968,8 @@ Produce detailed findings as a single JSON object with this exact structure:
       "title": "Specific issue title",
       "description": "Clear explanation of the problem and how to address it",
       "file": "path/to/file.ts",
-      "lines": { "start": 42, "end": 45 }
+      "lines": { "start": 42, "end": 45 },
+      "locations": [{ "file": "path/to/file.ts", "lines": { "start": 42, "end": 45 } }, { "file": "path/to/other.ts", "lines": { "start": 7, "end": 9 } }]
     }
   ]
 }
