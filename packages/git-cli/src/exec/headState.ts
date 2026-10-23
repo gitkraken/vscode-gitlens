@@ -58,6 +58,25 @@ export async function readHeadState(repoPath: string, fs: FileSystemProvider, ca
 }
 
 /**
+ * The path of `repoPath`'s common git dir, without running git: the cached one, else the folder `<repoPath>/.git` is,
+ * or the shared one a linked worktree's `gitdir:` file leads to. `undefined` when it can't be read. Never rejects.
+ */
+export async function readCommonGitDir(
+	repoPath: string,
+	fs: FileSystemProvider,
+	cache: Cache,
+): Promise<string | undefined> {
+	try {
+		const gitDir = cache.gitDir.get(repoPath) ?? (await findGitDir(repoPath, fs));
+		if (gitDir == null) return undefined;
+
+		return (gitDir.commonUri ?? gitDir.uri).fsPath;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
  * The git dir `<repoPath>/.git` is: the folder itself, or the one a linked worktree's `gitdir:` file names, whose
  * `commondir` file names the repository's shared one
  */

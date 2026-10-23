@@ -774,6 +774,8 @@ export class Git {
 		| undefined;
 	/** Bound via {@link bindHeadReader}; reads HEAD around a `notify: 'infer'` run that moves only HEAD's branch */
 	private _headReader: ((path: string) => Promise<HeadState>) | undefined;
+	/** Bound via {@link bindIgnoredWorktreeRootsReader}; read before a `notify: 'infer'` worktree write */
+	private _ignoredWorktreeRootsReader: ((path: string) => Promise<readonly string[] | undefined>) | undefined;
 	/** The classifier behind `notify: 'infer'` — a field only so tests can substitute it */
 	private readonly _classify: typeof getChangesForCommand = getChangesForCommand;
 
@@ -813,6 +815,19 @@ export class Git {
 	 */
 	bindHeadReader(fn: (path: string) => Promise<HeadState>): void {
 		this._headReader = fn;
+	}
+
+	/**
+	 * Binds the reader a `notify: 'infer'` {@link run} of a worktree write calls on the tree it runs in: the absolute
+	 * folders, under that repository's common git dir, whose worktrees the host has core ignore. No worktree list shows
+	 * one, so its add, remove, lock, unlock or move announces no `worktrees` change. Each folder comes in every spelling
+	 * a path may take (as the host spells the git dir, and resolved through symlinks); a path spelled through some other
+	 * symlink keeps the change. It runs git at most once per repository (for a common git dir its files don't show),
+	 * resolves `[]` (or `undefined`) when nothing is ignored, and rejects when the folders can't be read, which keeps the
+	 * change. With nothing bound, every worktree write announces `worktrees`.
+	 */
+	bindIgnoredWorktreeRootsReader(fn: (path: string) => Promise<readonly string[] | undefined>): void {
+		this._ignoredWorktreeRootsReader = fn;
 	}
 
 	/**
@@ -1060,8 +1075,17 @@ export class Git {
 			return { cwd: options.cwd, pathOverride: leadingCommand(argv).pathOverride, changes: notify };
 		}
 
-		const command = this._classify(argv);
+		let command = this._classify(argv);
 		if (command == null) return undefined; // read-only or object-store-only — nothing to announce
+
+		if (command.worktreePaths != null && command.changes.includes('worktrees')) {
+			command = await this.withoutIgnoredWorktrees(
+				command,
+				command.worktreePaths,
+				this.resolveNotifyPath(options.cwd, command.pathOverride),
+			);
+			if (command == null) return undefined;
+		}
 
 		const headBefore =
 			command.movesHeadBranch && this._headReader != null
@@ -1118,6 +1142,37 @@ export class Git {
 		}
 
 		notifier([ranIn], changes, undefined, named);
+	}
+
+	/**
+	 * `command` without its `worktrees` change when every worktree it acts on lies under a folder whose worktrees are
+	 * ignored, read before the run while the tree it runs in surely exists; `undefined` when nothing else is left to
+	 * announce, since announcing `[]` would reset everything. Git first matches an argument against the trailing path
+	 * components of every worktree, so a relative one may name a worktree outside those folders whatever it resolves
+	 * to, and keeps the change.
+	 */
+	private async withoutIgnoredWorktrees(
+		command: CommandChanges,
+		worktreePaths: readonly string[],
+		ranIn: string,
+	): Promise<CommandChanges | undefined> {
+		const reader = this._ignoredWorktreeRootsReader;
+		if (reader == null || !worktreePaths.every(p => isAbsolute(p))) return command;
+
+		let roots: readonly string[] | undefined;
+		try {
+			roots = await reader(ranIn);
+		} catch {}
+		if (!roots?.length) return command;
+
+		// Resolved as git resolves them, so a `..` segment can't lead a path that only starts under a folder out of it
+		const resolved = worktreePaths.map(p => normalizePath(resolvePath(ranIn, p)));
+		if (!resolved.every(p => roots.some(root => isDescendant(p, root)))) return command;
+
+		const changes = command.changes.filter(c => c !== 'worktrees');
+		if (!changes.length) return undefined;
+
+		return { ...command, changes: changes, sharedChanges: command.sharedChanges.filter(c => c !== 'worktrees') };
 	}
 
 	/** HEAD of `path` through the {@link bindHeadReader bound} reader, or `undefined` when it can't be read */
