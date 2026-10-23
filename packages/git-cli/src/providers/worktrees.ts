@@ -160,7 +160,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return this.getWorktree(repoPath, w => normalizePath(w.path) === normalized, runOptions?.cancellation);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getWorktree(
 		repoPath: string,
 		predicate: (w: GitWorktree) => boolean,
@@ -169,7 +169,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return (await this.getWorktrees(repoPath, cancellation)).find(predicate);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]> {
 		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
 			l10n.t(
@@ -246,7 +246,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getWorktreesDefaultUri(repoPath: string): Uri | undefined {
 		return this.context.workspace?.getWorktreeDefaultUri?.(repoPath);
 	}

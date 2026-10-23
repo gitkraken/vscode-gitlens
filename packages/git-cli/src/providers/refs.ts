@@ -35,7 +35,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	@debug()
+	@debug({ quiet: true })
 	async checkIfCouldBeValidBranchOrTagName(repoPath: string, ref: string): Promise<boolean> {
 		try {
 			const result = await this.git.run({ cwd: repoPath, errors: 'throw' }, 'check-ref-format', '--branch', ref);
@@ -51,7 +51,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	 * is `for-each-ref`-specific and intentionally absent from the public `GitRefsSubProvider`
 	 * interface.
 	 */
-	@debug()
+	@debug({ quiet: true })
 	async getRefs(repoPath: string, cancellation?: AbortSignal, options?: { force?: boolean }): Promise<RefRecord[]> {
 		if (!repoPath) return [];
 
@@ -122,7 +122,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getRefTips(
 		repoPath: string,
 		options?: { include?: ReadonlyArray<'heads' | 'remotes' | 'tags'> },
@@ -194,7 +194,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		});
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getRefsContainingShas(
 		repoPath: string,
 		shas: ReadonlySet<string> | readonly string[],
@@ -308,7 +308,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return result;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getMergeBase(
 		repoPath: string,
 		ref1: string,
@@ -345,7 +345,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getReflogEntries(
 		repoPath: string,
 		ref: string,
@@ -380,7 +380,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return entries;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getReference(
 		repoPath: string,
 		ref: string,
@@ -425,7 +425,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return createReference(ref, repoPath, { refType: 'revision' });
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getSymbolicReferenceName(
 		repoPath: string,
 		ref: string,
@@ -441,7 +441,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	 * apart from a read that didn't complete (timeout, error, cancellation), which never reports `missing`.
 	 * Shares the same cached `rev-parse`, though only a found ref is cached: a missing one re-runs on every call.
 	 */
-	@debug()
+	@debug({ quiet: true })
 	async getSymbolicReferenceNameOrMissing(
 		repoPath: string,
 		ref: string,
@@ -484,7 +484,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		);
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -506,7 +506,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async isValidReference(
 		repoPath: string,
 		ref: string,
@@ -520,7 +520,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		);
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	async validateReference(
 		repoPath: string,
 		ref: string,

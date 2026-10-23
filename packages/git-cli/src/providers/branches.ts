@@ -179,7 +179,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBranch(
 		repoPath: string,
 		name?: string,
@@ -278,7 +278,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branch;
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getBranches(
 		repoPath: string,
 		options?: {
@@ -537,7 +537,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return result;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
@@ -714,7 +714,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBranchesWithCommits(
 		repoPath: string,
 		commits: string[],
@@ -780,7 +780,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCurrentBranchReference(
 		repoPath: string,
 		cancellation?: AbortSignal,
@@ -944,7 +944,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		);
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
@@ -1308,7 +1308,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBranchMergedStatus(
 		repoPath: string,
 		branch: GitBranchReference,
@@ -1467,7 +1467,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getLocalBranchByUpstream(
 		repoPath: string,
 		remoteBranchName: string,
@@ -1479,7 +1479,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
 
-	@trace({ exit: true })
+	@trace({ quiet: true, exit: true })
 	async getPushTarget(repoPath: string, branch?: string, cancellation?: AbortSignal): Promise<GitPushTarget> {
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 		// `getRefs` answers a failed enumeration with an empty list, which says nothing about any branch
@@ -1514,7 +1514,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Detects potential conflicts when applying commits onto a target branch (git rebase and cherry-pick) */
-	@debug()
+	@debug({ quiet: true })
 	async getPotentialApplyConflicts(
 		repoPath: string,
 		targetBranch: string,
@@ -1557,7 +1557,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Detects potential conflict when merge a branch into a target branch (git merge) */
-	@debug()
+	@debug({ quiet: true })
 	async getPotentialMergeConflicts(
 		repoPath: string,
 		branch: string,
@@ -1635,7 +1635,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/** Detects conflicts when an autostash is reapplied onto the tree an integration produced */
-	@debug()
+	@debug({ quiet: true })
 	async getPotentialStashReapplyConflicts(
 		repoPath: string,
 		ontoTreeOid: string,
@@ -1854,7 +1854,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return { status: 'clean', treeOid: currentTreeOid };
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	getBaseBranchName(
 		repoPath: string,
 		ref: string,
@@ -2074,12 +2074,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return name;
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	getAheadOfBaseConfigKey(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
 		return this.getAheadOfBaseConfigListing(repoPath, cancellation);
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	async getAheadOfBaseConfigEntries(
 		repoPath: string,
 		cancellation?: AbortSignal,
@@ -2159,7 +2159,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return result.stdout;
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getAheadOfBase(
 		repoPath: string,
 		branch: string | undefined,
@@ -2193,7 +2193,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getAheadOfBaseAfterBaseMove(
 		repoPath: string,
 		branch: string | undefined,
@@ -2811,7 +2811,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getAheadBehindCounts(
 		repoPath: string,
 		base: string,
@@ -2949,7 +2949,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return counts;
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getMergedBranches(
 		repoPath: string,
 		into: string,
@@ -3429,7 +3429,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * confirms is gone so resolution falls through to the next source. A target that couldn't be checked is kept.
 	 * The stored keys are never rewritten here: the user pick is the user's, and Kepler shares the file.
 	 */
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getStoredMergeTargetBranchName(
 		repoPath: string,
 		ref: string,
@@ -3470,7 +3470,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return missing ? undefined : name || target;
 	}
 
-	@trace({ exit: true })
+	@trace({ quiet: true, exit: true })
 	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
 			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
@@ -3478,7 +3478,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	@trace()
+	@trace({ quiet: true })
 	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
 		return target?.trim() || undefined;

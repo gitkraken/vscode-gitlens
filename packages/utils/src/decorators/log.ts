@@ -1,15 +1,11 @@
 /* oxlint-disable typescript/no-unsafe-return */
+import { getCurrentScope } from '#env/logScope.js';
 import { getParameters } from '../function.js';
 import { getDurationMilliseconds, hrtime } from '../hrtime.js';
 import type { LogLevel } from '../logger.js';
 import { customLoggableNameFns, getLoggableName, Logger } from '../logger.js';
-import {
-	createLogScope,
-	getLoggableScopeBlock,
-	getScopedLogger,
-	logScopeIdGenerator,
-	runInScope,
-} from '../logger.scoped.js';
+import type { ScopedLogger } from '../logger.scoped.js';
+import { createLogScope, getLoggableScopeBlock, logScopeIdGenerator, runInScope } from '../logger.scoped.js';
 import { isPromise } from '../promise.js';
 
 export const defaultSlowCallWarningThreshold = 1500;
@@ -31,8 +27,10 @@ interface LogOptions<T extends (...args: any[]) => any> {
 	exit?: ((result: PromiseType<ReturnType<T>>) => string) | true;
 	/** Overrides the log line prefix. Receives a {@link LogContext} and the method args. */
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
-	/** Suppresses the entry log line and only logs on exit. `{ after: N }` further suppresses exit unless duration exceeds N ms. */
+	/** Suppresses the entry log line and only logs on exit. `{ after: N }` further suppresses exit unless duration exceeds N ms, the call ran slow, or it failed. */
 	onlyExit?: true | { after: number };
+	/** Marks a read whose only work worth logging shows up as lines of its own (e.g. git commands) and that changes no state silently. When the logger sets `quietCallsUnder`, it writes no entry line up front, and logs only if it took that long, failed, ran slow, or something was logged while it ran. */
+	quiet?: true;
 	/** Controls duration timing. `false` disables timing. `{ warnAfter: N }` overrides the slow call warning threshold (default 500ms). */
 	timing?: boolean | { warnAfter: number };
 }
@@ -94,8 +92,17 @@ function log<T extends (...arg: any[]) => any>(
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
 	let onlyExit: NonNullable<LogOptions<T>['onlyExit']> | false = false;
 	let timing: NonNullable<LogOptions<T>['timing']> = true;
+	let quiet = false;
 	if (options != null) {
-		({ args: argsFn, when: whenFn, exit: exitFn, prefix: prefixFn, onlyExit = false, timing = true } = options);
+		({
+			args: argsFn,
+			when: whenFn,
+			exit: exitFn,
+			prefix: prefixFn,
+			onlyExit = false,
+			timing = true,
+			quiet = false,
+		} = options);
 	}
 
 	const slowThreshold = typeof timing === 'object' ? timing.warnAfter : defaultSlowCallWarningThreshold;
@@ -128,32 +135,34 @@ function log<T extends (...arg: any[]) => any>(
 			}
 
 			const shouldLog = Logger.enabled(logLevel);
+			const quietUnder = quiet ? Logger.quietCallsUnder : undefined;
+			const exitOnly = onlyExit !== false || quietUnder != null;
 
-			// Get parent scope
-			const parentScope = getScopedLogger();
+			const parentScope = getCurrentScope();
 			const prevScopeId = parentScope?.scopeId;
 			const scopeId = logScopeIdGenerator.next();
 
-			const instanceName = this != null ? getLoggableName(this) : undefined;
-
-			let prefix = instanceName
-				? `${getLoggableScopeBlock(scopeId, prevScopeId)} ${instanceName}.${key}`
-				: `${getLoggableScopeBlock(scopeId, prevScopeId)} ${key}`;
-
+			// A quieted call builds its default prefix on first use, since it usually writes nothing. Any other call, and any
+			// custom prefix, is built before the call runs, so it reflects state as it was when the call started
+			let prefix: string | (() => string);
 			if (prefixFn != null) {
+				const instanceName = this != null ? getLoggableName(this) : undefined;
 				prefix = prefixFn(
 					{
 						id: scopeId,
 						instance: this,
 						instanceName: instanceName ?? '',
 						name: key,
-						prefix: prefix,
+						prefix: formatPrefix(instanceName, key, scopeId, prevScopeId),
 					},
 					...args,
 				);
+			} else {
+				prefix = lazyPrefix(this, key, scopeId, prevScopeId);
+				if (quietUnder == null) {
+					prefix = prefix();
+				}
 			}
-
-			const scope = createLogScope(scopeId, prevScopeId, prefix);
 
 			// Lazy parameter formatting — deferred until first use to avoid
 			// expensive Logger.toLoggable() calls when the log won't be emitted
@@ -167,53 +176,71 @@ function log<T extends (...arg: any[]) => any>(
 				return loggableParams;
 			};
 
-			// For non-onlyExit mode, log entry immediately
-			if (!onlyExit && shouldLog) {
+			const start = timed || quietUnder != null ? hrtime() : undefined;
+
+			// A quieted call has no entry line, so when a line is first written inside it (e.g. a git command), it writes
+			// its entry then, ahead of that line, so the log still shows the cause before what it caused
+			const writeLateEntry =
+				quietUnder != null && shouldLog
+					? (scope: ScopedLogger) => {
+							const params = resolveParams();
+							const started = ` \u00b7 started ${getDurationMilliseconds(start!)}ms earlier`;
+							logFn.call(
+								Logger,
+								params ? `${scope.prefix}(${params})${started}` : `${scope.prefix}${started}`,
+							);
+						}
+					: undefined;
+
+			const scope = createLogScope(scopeId, prevScopeId, prefix, parentScope, writeLateEntry);
+
+			if (!exitOnly && shouldLog) {
 				const params = resolveParams();
-				logFn.call(Logger, params ? `${prefix}(${params})` : prefix);
+				logFn.call(Logger, params ? `${scope.prefix}(${params})` : scope.prefix);
 			}
 
-			if (onlyExit || timed || exitFn != null) {
-				const start = timed ? hrtime() : undefined;
+			if (exitOnly || timed || exitFn != null) {
+				// An async exit can run outside this call's scope (the browser tracks scope only synchronously), so the
+				// exit line marks the call directly rather than relying on the current scope. The call has returned, so
+				// this marks only its callers: it writes no late entry of its own just ahead of its exit line
+				const markLogged = (level: Exclude<LogLevel, 'off'>) => Logger.markLogged(level, scope);
 
 				const logError = (ex: unknown) => {
-					const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
+					scope.exited();
+					const duration = timed ? ` [${getDurationMilliseconds(start!)}ms]` : '';
 					const exitInfo = scope.getExitInfo();
-					if (onlyExit) {
-						const params = resolveParams();
-						Logger.error(
-							ex,
-							params ? `${prefix}(${params})` : prefix,
-							exitInfo?.details ? `failed${exitInfo.details}${duration}` : `failed${duration}`,
-						);
-					} else {
-						Logger.error(
-							ex,
-							prefix,
-							exitInfo?.details ? `failed${exitInfo.details}${duration}` : `failed${duration}`,
-						);
-					}
+					// With no entry line, the exit line carries the arguments
+					const params = exitOnly ? resolveParams() : undefined;
+					markLogged('error');
+					Logger.error(
+						ex,
+						params ? `${scope.prefix}(${params})` : scope.prefix,
+						exitInfo?.details ? `failed${exitInfo.details}${duration}` : `failed${duration}`,
+					);
 				};
 
 				const logResult = (r: any) => {
-					let duration: number | undefined;
-					let exitLogFn: typeof logFn;
-					let durationSuffix;
-					if (start != null) {
-						duration = getDurationMilliseconds(start);
-						if (duration > slowThreshold) {
-							exitLogFn = Logger.warn;
-							durationSuffix = ` [*${duration}ms] (slow)`;
-						} else {
-							exitLogFn = logFn;
-							durationSuffix = ` [${duration}ms]`;
+					scope.exited();
+					const duration = start != null ? getDurationMilliseconds(start) : undefined;
+					const slow = timed && duration! > slowThreshold;
+					const exitInfo = scope.getExitInfo();
+					const failed = exitFn == null && exitInfo.failed != null;
+
+					// Slow and failed calls always log (at warn and error); anything else only when this level is
+					// logged, and then only if the quiet-calls policy or `onlyExit.after` doesn't drop it
+					if (!slow && exitInfo.failed == null) {
+						if (!shouldLog) return;
+
+						const belowAfter =
+							typeof onlyExit === 'object' && onlyExit.after > 0 && duration! <= onlyExit.after;
+						if (quietUnder != null) {
+							if (!scope.logged && (duration! < quietUnder || belowAfter)) return;
+						} else if (belowAfter) {
+							return;
 						}
-					} else {
-						durationSuffix = '';
-						exitLogFn = logFn;
 					}
 
-					const exitInfo = scope.getExitInfo();
+					let exitLogFn: (message: string, ...params: any[]) => void = slow ? Logger.warn : logFn;
 					let exit;
 					if (exitFn != null) {
 						if (typeof exitFn === 'function') {
@@ -225,34 +252,22 @@ function log<T extends (...arg: any[]) => any>(
 						} else if (exitFn === true) {
 							exit = `returned ${Logger.toLoggable(r)}`;
 						}
-					} else if (exitInfo?.failed) {
+					} else if (failed) {
 						exit = exitInfo.failed;
 						exitLogFn = (message: string, ...params: any[]) => Logger.error(null, message, ...params);
 					} else {
 						exit = 'completed';
 					}
 
-					// Only log if: logging at this level, or slow call warning, or error
-					if (shouldLog || exitLogFn !== logFn) {
-						const params = resolveParams();
-						if (onlyExit) {
-							if (onlyExit === true || onlyExit.after === 0 || duration! > onlyExit.after) {
-								exitLogFn.call(
-									Logger,
-									params
-										? `${prefix}(${params}) ${exit}${exitInfo?.details || ''}${durationSuffix}`
-										: `${prefix} ${exit}${exitInfo?.details || ''}${durationSuffix}`,
-								);
-							}
-						} else {
-							exitLogFn.call(
-								Logger,
-								params
-									? `${prefix}(${params}) ${exit}${exitInfo?.details || ''}${durationSuffix}`
-									: `${prefix} ${exit}${exitInfo?.details || ''}${durationSuffix}`,
-							);
-						}
-					}
+					const durationSuffix = !timed ? '' : slow ? ` [*${duration}ms] (slow)` : ` [${duration}ms]`;
+					const params = resolveParams();
+					markLogged(slow ? 'warn' : failed ? 'error' : logLevel);
+					exitLogFn.call(
+						Logger,
+						params
+							? `${scope.prefix}(${params}) ${exit}${exitInfo.details || ''}${durationSuffix}`
+							: `${scope.prefix} ${exit}${exitInfo.details || ''}${durationSuffix}`,
+					);
 				};
 
 				const execute = () => {
@@ -280,6 +295,22 @@ function log<T extends (...arg: any[]) => any>(
 			return runInScope(scope, () => fn.apply(this, args));
 		};
 	};
+}
+
+/** Kept outside the decorated call so the scope, which can outlive the call, doesn't hold on to its arguments */
+function lazyPrefix(instance: unknown, key: string, scopeId: number, prevScopeId: number | undefined): () => string {
+	return () => formatPrefix(instance != null ? getLoggableName(instance) : undefined, key, scopeId, prevScopeId);
+}
+
+function formatPrefix(
+	instanceName: string | undefined,
+	key: string,
+	scopeId: number,
+	prevScopeId: number | undefined,
+): string {
+	return instanceName
+		? `${getLoggableScopeBlock(scopeId, prevScopeId)} ${instanceName}.${key}`
+		: `${getLoggableScopeBlock(scopeId, prevScopeId)} ${key}`;
 }
 
 function formatParams<T extends (...args: any[]) => any>(

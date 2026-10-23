@@ -1,3 +1,4 @@
+import { getCurrentScope } from '#env/logScope.js';
 import type { ScopedLogger } from './logger.scoped.js';
 import { padOrTruncateEnd } from './string.js';
 import type { RequireSome } from './types.js';
@@ -42,13 +43,23 @@ export interface LogChannel {
 	error(error: string | Error, ...args: any[]): void;
 }
 
+export interface LoggerOptions {
+	/**
+	 * Quiets calls decorated with `quiet: true` (reads that mostly hit a cache): no entry line, and an exit line only
+	 * when the call took at least this many milliseconds, failed, or wrote a line while it ran (e.g. ran a git command).
+	 * A quieted call that writes nothing never formats its arguments. Unset, every call logs its entry and exit.
+	 */
+	quietCallsUnder?: number;
+}
+
 const defaultSanitizeKeys = ['accessToken', 'password', 'token'];
 
 class Logger {
 	#output: LogChannel | undefined;
 	#provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
-	configure(provider: LogChannelProvider, debugging: boolean = false): void {
+	configure(provider: LogChannelProvider, debugging: boolean = false, options?: LoggerOptions): void {
+		this.#quietCallsUnder = options?.quietCallsUnder;
 		this.#provider = {
 			...provider,
 			sanitizeKeys: new Set([...defaultSanitizeKeys, ...(provider.sanitizeKeys ?? [])]),
@@ -72,6 +83,11 @@ class Logger {
 		return this.#level <= toOrderedLevel(level);
 	}
 
+	#quietCallsUnder: number | undefined;
+	get quietCallsUnder(): number | undefined {
+		return this.#quietCallsUnder;
+	}
+
 	#isDebugging = false;
 	get isDebugging(): boolean {
 		return this.#isDebugging;
@@ -90,6 +106,8 @@ class Logger {
 	trace(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	trace(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if ((this.#level === OrderedLevel.Off || this.#level > OrderedLevel.Trace) && !this.isDebugging) return;
+
+		this.#markScopeLogged(OrderedLevel.Trace, typeof scopeOrMessage === 'string' ? undefined : scopeOrMessage);
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -113,6 +131,8 @@ class Logger {
 	debug(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if ((this.#level === OrderedLevel.Off || this.#level > OrderedLevel.Debug) && !this.isDebugging) return;
 
+		this.#markScopeLogged(OrderedLevel.Debug, typeof scopeOrMessage === 'string' ? undefined : scopeOrMessage);
+
 		let message;
 		if (typeof scopeOrMessage === 'string') {
 			message = scopeOrMessage;
@@ -134,6 +154,8 @@ class Logger {
 	info(scope: ScopedLogger | undefined, message: string, ...params: any[]): void;
 	info(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if ((this.#level === OrderedLevel.Off || this.#level > OrderedLevel.Info) && !this.isDebugging) return;
+
+		this.#markScopeLogged(OrderedLevel.Info, typeof scopeOrMessage === 'string' ? undefined : scopeOrMessage);
 
 		let message;
 		if (typeof scopeOrMessage === 'string') {
@@ -157,6 +179,8 @@ class Logger {
 	warn(scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if ((this.#level === OrderedLevel.Off || this.#level > OrderedLevel.Warn) && !this.isDebugging) return;
 
+		this.#markScopeLogged(OrderedLevel.Warn, typeof scopeOrMessage === 'string' ? undefined : scopeOrMessage);
+
 		let message;
 		if (typeof scopeOrMessage === 'string') {
 			message = scopeOrMessage;
@@ -178,6 +202,11 @@ class Logger {
 	error(ex: Error | unknown, scope?: ScopedLogger, message?: string, ...params: any[]): void;
 	error(ex: Error | unknown, scopeOrMessage: ScopedLogger | string | undefined, ...params: any[]): void {
 		if ((this.#level === OrderedLevel.Off || this.#level > OrderedLevel.Error) && !this.isDebugging) return;
+
+		this.#markScopeLogged(
+			OrderedLevel.Error,
+			scopeOrMessage == null || typeof scopeOrMessage === 'string' ? undefined : scopeOrMessage,
+		);
 
 		let message;
 		if (scopeOrMessage == null || typeof scopeOrMessage === 'string') {
@@ -283,6 +312,32 @@ class Logger {
 			return `<${sanitizeKey}:${this.#provider.hash(typeof value === 'string' ? value : JSON.stringify(value))}>`;
 		}
 		return `<${sanitizeKey}>`;
+	}
+
+	/**
+	 * @internal Records that a line at `level` was written for `scope`'s call, as a line written through the logger
+	 * would; the `@log` decorator uses it for an exit line, which can run outside its call's scope
+	 */
+	markLogged(level: Exclude<LogLevel, 'off'>, scope: ScopedLogger): void {
+		if (!this.#countsAsLogged(toOrderedLevel(level))) return;
+
+		scope.markLogged();
+	}
+
+	/** Records that a line was written inside the call (and so every call above it), so a quieted call still logs its exit */
+	#markScopeLogged(level: OrderedLevel, scope: ScopedLogger | undefined): void {
+		if (!this.#countsAsLogged(level)) return;
+
+		// An explicit scope can be detached (e.g. a Stopwatch's) or belong to an outer call, so the running call is
+		// marked too. The running call goes first: when the explicit scope is one of its callers, marking it first would
+		// write the callers' late entries after the running call's own
+		getCurrentScope()?.markLogged();
+		scope?.markLogged();
+	}
+
+	/** A line only the debugger console shows (`isDebugging` bypasses the channel's level) doesn't count */
+	#countsAsLogged(level: OrderedLevel): boolean {
+		return this.#quietCallsUnder != null && this.#level !== OrderedLevel.Off && this.#level <= level;
 	}
 
 	#toLoggableParams(debugOnly: boolean, params: any[]) {
