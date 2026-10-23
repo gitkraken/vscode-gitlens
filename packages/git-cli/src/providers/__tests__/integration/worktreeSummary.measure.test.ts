@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -183,6 +183,101 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 			[],
 			'no config-key read after a fetch',
 		);
+	});
+
+	test('a fetch moving origin/main, with a branch created during the refreshes, shares one reflog read and one count (was 2 each)', async () => {
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		const launched = join(root, 'launched');
+
+		// The first re-measure runs alone; a task launch then adds a worktree and replaces the ref list before the rest
+		// start. The summaries reach the provider through each checkout's repository service, whose bound methods are
+		// the ones to wrap.
+		type Remeasure = CliGitProvider['branches']['getAheadOfBaseAfterBaseMove'] extends (
+			first: string,
+			...rest: infer Rest
+		) => infer Result
+			? (...args: Rest) => Result
+			: never;
+		const wrapped: { branches: { getAheadOfBaseAfterBaseMove: Remeasure }; original: Remeasure }[] = [];
+		const first = { started: false };
+		let release!: () => void;
+		const gate = new Promise<void>(resolve => (release = resolve));
+		const mainPath = main.path;
+		const wrap =
+			(original: Remeasure): Remeasure =>
+			async (...args) => {
+				if (first.started) {
+					await gate;
+					return original(...args);
+				}
+
+				first.started = true;
+				try {
+					const result = await original(...args);
+					git(mainPath, 'worktree', 'add', '-q', '-b', 'launched', launched, 'origin/main');
+					await provider.refs.getRefs(mainPath, undefined, { force: true });
+					return result;
+				} finally {
+					// A failed launch still lets the parked re-measures run, so the test fails on it rather than timing out
+					release();
+				}
+			};
+		for (const path of [main.path, ...linked.map(wt => wt.path)]) {
+			const branches = service.forRepo(path)!.branches as unknown as {
+				getAheadOfBaseAfterBaseMove: Remeasure;
+			};
+			const original = branches.getAheadOfBaseAfterBaseMove;
+			wrapped.push({ branches: branches, original: original });
+			branches.getAheadOfBaseAfterBaseMove = wrap(original);
+		}
+
+		try {
+			addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+			git(peer.path, 'push', 'origin', 'main');
+			const tip = git(peer.path, 'rev-parse', 'HEAD');
+
+			const changed = Promise.all(subs.slice(1).map(sub => nextChange(sub)));
+			await service.forRepo(main.path)!.ops!.fetch({ remote: 'origin' });
+			const mark = completed.length;
+			const summaries = await changed;
+			await delay(150);
+			await Promise.all(linked.map(wt => service.summaries!.getSummary(wt.path)));
+
+			assert.ok(first.started, 'the refreshes re-measured the base, and the launch ran between them');
+			for (const summary of summaries) {
+				assert.strictEqual(summary.base?.sha, tip, 'the base follows the new tip');
+				assert.strictEqual(summary.base?.ahead, 1);
+			}
+
+			const spawned = completed.slice(mark);
+			const perWorktree = linked.map(wt => {
+				const key = getRepositoryKey(wt.path);
+				return spawned.filter(m => m.includes(`[${key}]`) || m.includes(`[${wt.path}]`));
+			});
+			const reflogReads = spawned.filter(m => m.includes(' reflog show '));
+			const counts = spawned.filter(m => m.includes('%(ahead-behind:'));
+			console.error(
+				`[measure] base refresh with a branch created during the refreshes: ${reflogReads.length} reflog read(s), ${counts.length} shared count(s), ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree`,
+			);
+
+			const aheadBehind = await provider.git.supports('git:for-each-ref:ahead-behind');
+			const own = aheadBehind ? 0 : 1;
+			for (const [i, lines] of perWorktree.entries()) {
+				assert.strictEqual(lines.length, own, `linked worktree ${i} ran ${lines.join('\n')}`);
+			}
+			assert.strictEqual(reflogReads.length, 1, reflogReads.join('\n'));
+			if (aheadBehind) {
+				assert.strictEqual(counts.length, 1, counts.join('\n'));
+			}
+		} finally {
+			for (const { branches, original } of wrapped) {
+				branches.getAheadOfBaseAfterBaseMove = original;
+			}
+			release();
+			if (existsSync(launched)) {
+				git(main.path, 'worktree', 'remove', '--force', launched);
+			}
+		}
 	});
 });
 
