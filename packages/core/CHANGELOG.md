@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes the first move of a base after a clone, or after the reflog lost the entries before it, re-measuring every worktree in full instead of in one shared read (git-cli)
+
 ## [0.16.5] - 2026-10-24
 
 ### Added
