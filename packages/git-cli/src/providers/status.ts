@@ -126,7 +126,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		) as Promise<T>;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getStatus(
 		repoPath: string | undefined,
 		options?: {
@@ -208,7 +208,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return status;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStatusForFile(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -224,7 +224,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return files?.[0];
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStatusForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -331,7 +331,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	hasWorkingChanges(
 		repoPath: string,
 		options?: {
@@ -422,7 +422,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getWorkingChangesState(repoPath: string, cancellation?: AbortSignal): Promise<GitWorkingChangesState> {
 		const scope = getScopedLogger();
 
@@ -505,7 +505,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getConflictingFiles(repoPath: string, cancellation?: AbortSignal): Promise<GitConflictFile[]> {
 		const scope = getScopedLogger();
 
@@ -551,7 +551,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return false;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getUntrackedFiles(
 		repoPath: string,
 		options?: { paths?: readonly string[] },

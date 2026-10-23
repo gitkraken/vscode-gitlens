@@ -79,7 +79,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	/** `hash-object` without `-w` computes the id in the repository's format without storing anything */
-	@debug()
+	@debug({ quiet: true })
 	getEmptyTreeSha(repoPath: string): Promise<string> {
 		return this.cache.getEmptyTreeSha(repoPath, async () => {
 			const result = await this.git.run(
@@ -94,13 +94,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@gate()
-	@debug()
+	@debug({ quiet: true })
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.showContentCore<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getSubmoduleHead(repoPath: string, submodulePath: string): Promise<string | undefined> {
 		// Verify the path is a submodule (gitlink commit) in the parent tree, not just a regular directory
 		const treeEntry = await this.getTreeEntryForRevision(repoPath, submodulePath, 'HEAD');
@@ -115,7 +115,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@gate()
-	@debug()
+	@debug({ quiet: true })
 	async getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined> {
 		if (!repoPath || !path) return undefined;
 
@@ -145,7 +145,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return entry;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getTrackedFiles(
 		repoPath: string,
 		options?: { paths?: readonly string[] },
@@ -181,7 +181,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return [...files];
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getTreeForRevision(
 		repoPath: string,
 		rev: string,
@@ -321,7 +321,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		}
 	}
 
-	@debug({ args: (repoPath, shas) => ({ repoPath: repoPath, shas: `${shas.size} value(s)` }) })
+	@debug({ quiet: true, args: (repoPath, shas) => ({ repoPath: repoPath, shas: `${shas.size} value(s)` }) })
 	async resolveShas(repoPath: string, shas: ReadonlySet<string>, cancellation?: AbortSignal): Promise<Set<string>> {
 		const resolved = new Set<string>();
 		const prefixes: string[] = [];
@@ -363,7 +363,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return resolved;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async resolveRevision(
 		repoPath: string,
 		ref: string,

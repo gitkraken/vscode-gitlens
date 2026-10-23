@@ -266,7 +266,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCommit(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<GitCommit | undefined> {
 		if (isUncommitted(rev, true)) {
 			return createUncommittedChangesCommit(
@@ -283,7 +283,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return log.commits.get(rev) ?? first(log.commits.values());
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	getCommitCount(
 		repoPath: string,
 		rev: string,
@@ -336,7 +336,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		);
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async hasUnpublishedCommits(
 		repoPath: string,
 		rev: string,
@@ -422,7 +422,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return unpublished;
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getCommitDates(
 		repoPath: string,
 		rev: string,
@@ -462,6 +462,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({
+		quiet: true,
 		args: (repoPath, revs, options) => ({
 			repoPath: repoPath,
 			revs: typeof revs === 'string' ? revs : `${revs.length} value(s)`,
@@ -664,7 +665,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return options?.limit != null && shas.length > options.limit ? undefined : shas;
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	async getDiffPatchId(
 		repoPath: string,
 		from: string,
@@ -748,7 +749,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return ids;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCommitFiles(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<GitFileChange[]> {
 		const parser = getShaAndFilesAndStatsLogParser();
 		const result = await this.git.run(
@@ -782,7 +783,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return files ?? [];
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCommitForFile(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -816,7 +817,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getCommitReachability(
 		repoPath: string,
 		rev: string,
@@ -899,7 +900,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return this.cache.reachability.getOrCreate(repoPath, rev, getCore);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getIncomingActivity(
 		repoPath: string,
 		options?: IncomingActivityOptions,
@@ -984,7 +985,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		};
 	}
 
-	@debug({ exit: true })
+	@debug({ quiet: true, exit: true })
 	getInitialCommitSha(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
 		// Initial commit SHA is shared across all worktrees
 		return this.cache.getInitialCommitSha(repoPath, async commonPath => {
@@ -1009,7 +1010,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		});
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getLeftRightCommitCount(
 		repoPath: string,
 		range: GitRevisionRange,
@@ -1060,7 +1061,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return this.cache.leftRightCommitCount.getOrCreate(repoPath, cacheKey, run);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getLog(
 		repoPath: string,
 		rev?: string | undefined,
@@ -1070,7 +1071,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return this.getLogCore(repoPath, rev, options, cancellation);
 	}
 
-	@trace({ args: (repoPath, rev) => ({ repoPath: repoPath, rev: rev }), exit: true })
+	@trace({ quiet: true, args: (repoPath, rev) => ({ repoPath: repoPath, rev: rev }), exit: true })
 	private async getLogCore(
 		repoPath: string,
 		rev?: string | undefined,
@@ -1461,7 +1462,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		};
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getLogForPath(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
@@ -1659,7 +1660,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return log;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getLogShas(
 		repoPath: string,
 		rev?: string | undefined,
@@ -1769,7 +1770,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		return getCore();
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getOldestUnpushedShaForPath(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -1803,14 +1804,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async hasCommitBeenPushed(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<boolean> {
 		if (repoPath == null) return false;
 
 		return this.isAncestorOf(repoPath, rev, '@{u}', cancellation);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async isAncestorOf(repoPath: string, rev1: string, rev2: string, cancellation?: AbortSignal): Promise<boolean> {
 		if (repoPath == null) return false;
 
@@ -2039,7 +2040,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCommitSignature(repoPath: string, sha: string): Promise<CommitSignature | undefined> {
 		const scope = getScopedLogger();
 
@@ -2069,7 +2070,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async isCommitSigned(repoPath: string, sha: string): Promise<boolean> {
 		const scope = getScopedLogger();
 
@@ -2094,7 +2095,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getCommitsSshSigners(repoPath: string, shas: string[]): Promise<Map<string, SshSignedCommit>> {
 		const scope = getScopedLogger();
 

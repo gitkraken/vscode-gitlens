@@ -26,7 +26,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	@debug()
+	@debug({ quiet: true })
 	async getContributors(
 		repoPath: string,
 		rev?: string,
@@ -220,7 +220,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		});
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getContributorsLite(
 		repoPath: string,
 		rev?: string,
@@ -290,7 +290,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		});
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getContributorsStats(
 		repoPath: string,
 		options?: { merges?: boolean | 'first-parent'; since?: string },

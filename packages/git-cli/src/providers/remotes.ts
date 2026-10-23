@@ -90,7 +90,7 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 		super(context, cache, provider);
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getRemotes(
 		repoPath: string | undefined,
 		options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean },

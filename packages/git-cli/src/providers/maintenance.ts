@@ -434,7 +434,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		return parseGitBoolean(result.stdout.trim());
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getHealthSnapshot(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthSnapshot> {
 		await this.reconcilePendingConfigChanges(repoPath, cancellation);
 
@@ -597,7 +597,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		};
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getHealthDetails(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthDetails> {
 		const [commitCountResult, countObjectsResult] = await Promise.allSettled([
 			this.runQuietly(repoPath, cancellation, 'rev-list', '--count', '--all'),
@@ -617,7 +617,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	// Capabilities depend only on git version + platform, both fixed for the session — computed once.
 	private _capabilities: Promise<GitOptimizationCapability[]> | undefined;
 
-	@debug()
+	@debug({ quiet: true })
 	getCapabilities(_repoPath: string): Promise<GitOptimizationCapability[]> {
 		return (this._capabilities ??= this.getCapabilitiesCore());
 	}

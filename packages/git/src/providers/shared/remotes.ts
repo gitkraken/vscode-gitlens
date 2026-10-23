@@ -21,7 +21,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<GitRemote[]>;
 
-	@debug()
+	@debug({ quiet: true })
 	async getRemote(
 		repoPath: string | undefined,
 		name: string,
@@ -33,13 +33,13 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes.find(r => r.name === name);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getDefaultRemote(repoPath: string, cancellation?: AbortSignal): Promise<GitRemote | undefined> {
 		const remotes = await this.getRemotes(repoPath, undefined, cancellation);
 		return getDefaultRemoteOrHighlander(remotes);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getRemotesWithProviders(
 		repoPath: string,
 		options?: { sort?: boolean },
@@ -49,7 +49,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes.filter((r): r is GitRemote<RemoteProvider> => r.provider != null);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBestRemoteWithProvider(
 		repoPath: string,
 		cancellation?: AbortSignal,
@@ -58,7 +58,7 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 		return remotes[0];
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getBestRemotesWithProviders(
 		repoPath: string,
 		cancellation?: AbortSignal,

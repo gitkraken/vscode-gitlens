@@ -57,7 +57,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
-	@debug()
+	@debug({ quiet: true })
 	async getChangedFilesCount(
 		repoPath: string,
 		to?: string,
@@ -117,7 +117,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getDiff(
 		repoPath: string,
 		to: string,
@@ -185,7 +185,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		return diff;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getParsedDiff(
 		repoPath: string,
 		to: string,
@@ -204,7 +204,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		return parseGitDiff(diff.contents);
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getDiffFiles(
 		repoPath: string,
 		contents: string,
@@ -226,7 +226,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		};
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getDiffStatus(
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
@@ -310,7 +310,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getDiffTool(repoPath?: string): Promise<string | undefined> {
 		return (
 			(await this.provider.config.getConfig?.(repoPath, 'diff.guitool', { runGitLocally: true })) ??
@@ -318,7 +318,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		);
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getNextComparisonUris(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -463,7 +463,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getPreviousComparisonUris(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -658,7 +658,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getPreviousComparisonUrisForRange(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -945,7 +945,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	/** Returns parsed diff hunks for a file between two revisions. */
-	@debug()
+	@debug({ quiet: true })
 	getDiffForFile(
 		repoPath: string,
 		fileName: string,
@@ -985,7 +985,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	/** Returns parsed diff hunks comparing a file's revision with given contents via stdin. */
-	@debug()
+	@debug({ quiet: true })
 	getDiffForFileContents(
 		repoPath: string,
 		fileName: string,
@@ -1018,7 +1018,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	/** Finds the most recent commit where the given path was copied, renamed, or deleted. */
-	@debug()
+	@debug({ quiet: true })
 	async findPathStatusChanged(
 		repoPath: string,
 		pathspec: string,
