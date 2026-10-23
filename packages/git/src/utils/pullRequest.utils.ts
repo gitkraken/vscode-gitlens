@@ -30,10 +30,14 @@ export function getStackedMergeCount(
 }
 
 /** Whether an open pull request is waiting in a merge queue. `false` also when the read didn't fetch the queue —
- *  check the row's `mergeQueue` field presence before treating that as "not queued". */
-export function isPullRequestInMergeQueue<
-	T extends { readonly state?: string; readonly mergeQueue?: PullRequestMergeQueueEntry },
->(pr: T): pr is T & { readonly mergeQueue: PullRequestMergeQueueEntry } {
+ *  check the row's `mergeQueue` field presence before treating that as "not queued". Narrows to the shape's own entry
+ *  type, since webview shapes carry a serialized one, or to {@link PullRequestMergeQueueEntry} for a shape that
+ *  doesn't declare one (an `IssueOrPullRequest` that is a pull request). */
+export function isPullRequestInMergeQueue<T extends { readonly state?: string; readonly mergeQueue?: unknown }>(
+	pr: T,
+): pr is T & {
+	readonly mergeQueue: 'mergeQueue' extends keyof T ? NonNullable<T['mergeQueue']> : PullRequestMergeQueueEntry;
+} {
 	return pr.state === 'opened' && pr.mergeQueue != null;
 }
 
@@ -42,13 +46,28 @@ export type PullRequestDisplayState = PullRequestState | 'queued';
 
 export function getPullRequestDisplayState<S extends string | undefined>(pr: {
 	readonly state: S;
-	readonly mergeQueue?: PullRequestMergeQueueEntry;
+	readonly mergeQueue?: unknown;
 }): S | 'queued' {
 	return isPullRequestInMergeQueue(pr) ? 'queued' : pr.state;
 }
 
-/** Describes where a queued pull request stands in its merge queue. Deliberately omits `position`, whose base (0 or 1) is unverified. */
-export function formatPullRequestMergeQueueStatus(entry: PullRequestMergeQueueEntry): string {
+/** A pull request's {@link getPullRequestDisplayState display state} paired with its merge-queue status, which is
+ *  set only while it's queued — the pair a pull request chip renders. */
+export function getPullRequestDisplayStatus<S extends string | undefined>(pr: {
+	readonly state: S;
+	readonly mergeQueue?: Parameters<typeof formatPullRequestMergeQueueStatus>[0];
+}): { status: S | 'queued'; queueStatus: string | undefined } {
+	return isPullRequestInMergeQueue(pr)
+		? { status: 'queued', queueStatus: formatPullRequestMergeQueueStatus(pr.mergeQueue) }
+		: { status: pr.state, queueStatus: undefined };
+}
+
+/** Describes where a queued pull request stands in its merge queue. Takes only the fields it reads, and the estimate
+ *  as a date or a timestamp (ms), since webview shapes carry a serialized entry. */
+export function formatPullRequestMergeQueueStatus(entry: {
+	readonly state: PullRequestMergeQueueState;
+	readonly estimatedMergeAt?: Date | number;
+}): string {
 	let status: string;
 	switch (entry.state) {
 		case PullRequestMergeQueueState.AwaitingChecks:
@@ -67,9 +86,20 @@ export function formatPullRequestMergeQueueStatus(entry: PullRequestMergeQueueEn
 			break;
 	}
 
-	if (entry.estimatedTimeToMerge == null) return status;
+	if (entry.estimatedMergeAt == null) return status;
 
-	return l10n.t('{0}, estimated to merge {1}', status, fromNow(Date.now() + entry.estimatedTimeToMerge * 1000));
+	// An estimate already past is wrong, not late news: "estimated to merge 2 minutes ago" would only mislead
+	const estimatedMergeAt = new Date(entry.estimatedMergeAt).getTime();
+	if (Number.isNaN(estimatedMergeAt) || estimatedMergeAt <= Date.now()) return status;
+
+	return l10n.t('{0}, estimated to merge {1}', status, fromNow(estimatedMergeAt));
+}
+
+/** When a queued pull request joined its merge queue, as the clause that follows its
+ *  {@link formatPullRequestMergeQueueStatus status} — "queued 3 hours ago" — so a status that ends in an estimate
+ *  doesn't run straight into a bare date. */
+export function formatPullRequestMergeQueueEnqueuedFromNow(entry: { readonly enqueuedAt: Date | number }): string {
+	return l10n.t('queued {0}', fromNow(entry.enqueuedAt));
 }
 
 /**
@@ -298,9 +328,8 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		mergeQueue: value.mergeQueue
 			? {
 					state: value.mergeQueue.state,
-					position: value.mergeQueue.position,
 					enqueuedAt: value.mergeQueue.enqueuedAt,
-					estimatedTimeToMerge: value.mergeQueue.estimatedTimeToMerge,
+					estimatedMergeAt: value.mergeQueue.estimatedMergeAt,
 					url: value.mergeQueue.url,
 				}
 			: undefined,

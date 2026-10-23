@@ -1,13 +1,13 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeQueueEntry, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
-import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestNumberFromUrl, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -35,7 +35,24 @@ import type {
 	OverviewBranchLaunchpadItem,
 	OverviewBranchMergeTarget,
 	OverviewBranchPullRequest,
+	SerializedPullRequestMergeQueueEntry,
 } from './overviewBranches.js';
+
+/** A pull request's merge-queue entry for the webviews, or `undefined` while it isn't queued. */
+export function serializePullRequestMergeQueue(pr: {
+	readonly state?: string;
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+}): SerializedPullRequestMergeQueueEntry | undefined {
+	if (!isPullRequestInMergeQueue(pr)) return undefined;
+
+	const entry = pr.mergeQueue;
+	return {
+		state: entry.state,
+		enqueuedAt: entry.enqueuedAt.getTime(),
+		estimatedMergeAt: entry.estimatedMergeAt?.getTime(),
+		url: entry.url,
+	};
+}
 
 export async function getAutolinkIssuesInfo(
 	links: Map<string, EnrichedAutolink> | undefined,
@@ -57,6 +74,7 @@ export async function getAutolinkIssuesInfo(
 				url: issue.url,
 				state: issue.state,
 				draft: issue.type === 'pullrequest' ? (issue as PullRequestShape).isDraft : undefined,
+				mergeQueue: issue.type === 'pullrequest' ? serializePullRequestMergeQueue(issue) : undefined,
 			};
 		}),
 	);
@@ -228,6 +246,7 @@ export async function getPullRequestInfo(
 			pr.stack != null
 				? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
 				: undefined,
+		mergeQueue: serializePullRequestMergeQueue(pr),
 		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
 }

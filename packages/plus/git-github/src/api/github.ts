@@ -24,6 +24,7 @@ import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestState,
@@ -71,6 +72,7 @@ import type {
 	GitHubIssueEtagInclude,
 	GitHubIssueEtagNode,
 	GitHubIssueOrPullRequest,
+	GitHubMergeQueueEntry,
 	GitHubPagedResult,
 	GitHubPageInfo,
 	GitHubPullRequest,
@@ -84,6 +86,7 @@ import type {
 import {
 	fromGitHubIssue,
 	fromGitHubIssueOrPullRequestState,
+	fromGitHubMergeQueueEntry,
 	fromGitHubPullRequest,
 	fromGitHubPullRequestLite,
 } from '../models.js';
@@ -314,6 +317,17 @@ function gqlPullRequestStackFragmentFor(options?: { baseUrl?: string }): string 
 	return isGitHubDotCom(options) ? gqlPullRequestStackFragment : '';
 }
 
+/** A `MergeQueueEntry`'s selection, shared by the per-pull-request fragment and the per-branch queue read so both
+ *  answer the one `GitHubMergeQueueEntry` shape `fromGitHubMergeQueueEntry` maps. */
+const gqlMergeQueueEntryFields = `
+state
+enqueuedAt
+estimatedTimeToMerge
+mergeQueue {
+	url
+}
+`;
+
 /**
  * Merge-queue selection, appended alongside the stack one and for the same reason: GitHub Enterprise Server's schema
  * isn't verified to have `mergeQueueEntry`, and an unknown field fails the whole query rather than the field. Always
@@ -321,13 +335,7 @@ function gqlPullRequestStackFragmentFor(options?: { baseUrl?: string }): string 
  */
 const gqlPullRequestMergeQueueFragment = `
 mergeQueueEntry {
-	state
-	position
-	enqueuedAt
-	estimatedTimeToMerge
-	mergeQueue {
-		url
-	}
+	${gqlMergeQueueEntryFields}
 }
 `;
 
@@ -558,7 +566,8 @@ repository {
  * The change state a pull request's etag reads (see {@link GitHubPullRequestEtagNode}). Every selection is copied
  * from {@link gqlPullRequestFragment} — same arguments, same nesting — so the cheap read sees exactly the values
  * the full read maps; only a requested reviewer drops its avatar and URL, since its nullness is all the etag reads.
- * `merged` is not needed: `state` already reads `MERGED`.
+ * `merged` is not needed: `state` already reads `MERGED`. The merge-queue entry's state is added against github.com
+ * only, by {@link gqlPullRequestEtagMergeQueueFragmentFor}, as the full read adds its entry.
  */
 const gqlPullRequestEtagFragment = `
 id
@@ -568,6 +577,22 @@ isDraft
 updatedAt
 headRefOid
 `;
+
+/**
+ * The slice of {@link gqlPullRequestMergeQueueFragment} a pull request's etag reads: whether it's queued, in which
+ * state, and since when (so leaving and rejoining the queue between checks still reads as a change). Not the
+ * estimate, which GitHub recomputes as the queue moves and would fail every check of a queued pull request.
+ */
+const gqlPullRequestEtagMergeQueueFragment = `
+mergeQueueEntry {
+	state
+	enqueuedAt
+}
+`;
+
+function gqlPullRequestEtagMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
+	return isGitHubDotCom(options) ? gqlPullRequestEtagMergeQueueFragment : '';
+}
 
 /**
  * The selection each {@link GitHubPullRequestEtagInclude} adds to {@link gqlPullRequestEtagFragment}, copied from
@@ -4790,6 +4815,7 @@ export class GitHubApi {
 				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestEtagFragment}
+						${gqlPullRequestEtagMergeQueueFragmentFor(options)}
 						${includeFragments.join('')}
 					}
 				}`,
@@ -6028,6 +6054,102 @@ export class GitHubApi {
 
 			Logger.warn(scope, `Unable to list stacks for ${owner}/${repo}: ${ex}`);
 			return undefined;
+		}
+	}
+
+	/**
+	 * The merge-queue entries of the given base branches, keyed by pull request number, in one request — each
+	 * branch's queue is an alias on the one `repository` selection. For list surfaces whose pull requests arrive
+	 * through provider-apis' repository-scoped read, which selects no `mergeQueueEntry`; callers join by number.
+	 *
+	 * INTERIM: remove once provider-apis carries the merge-queue entry on its pull requests (goals S6).
+	 *
+	 * github.com only, like the `mergeQueueEntry` selection: `undefined` on GitHub Enterprise Server, whose schema
+	 * isn't verified to have `mergeQueue`, and for a repository GitHub reports not found. A branch without a queue
+	 * contributes nothing. At most the first 100 entries of each queue are read.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, branches) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branches: branches.join(','),
+		}),
+	})
+	async getMergeQueueEntriesForBranches(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return undefined;
+
+		const byNumber = new Map<number, PullRequestMergeQueueEntry>();
+		if (!branches.length) return byNumber;
+
+		type QueueEntryNode = GitHubMergeQueueEntry & { pullRequest: { number: number } | null };
+		interface QueryResult {
+			repository:
+				| Record<string, { entries: { nodes: (QueueEntryNode | null)[] | null } | null } | null>
+				| null
+				| undefined;
+		}
+
+		const params = branches.map((_, i) => `$b${i}: String!`).join('\n\t');
+		const fields = branches
+			.map(
+				(_, i) => `b${i}: mergeQueue(branch: $b${i}) {
+			entries(first: 100) {
+				nodes {
+					${gqlMergeQueueEntryFields}
+					pullRequest {
+						number
+					}
+				}
+			}
+		}`,
+			)
+			.join('\n\t\t');
+
+		const query = `query getMergeQueueEntriesForBranches(
+	$owner: String!
+	$repo: String!
+	${params}
+) {
+	repository(owner: $owner, name: $repo) {
+		${fields}
+	}
+}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl, owner: owner, repo: repo };
+		branches.forEach((branch, i) => {
+			variables[`b${i}`] = branch;
+		});
+
+		try {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, variables, scope, cancellation);
+			if (rsp?.repository == null) return undefined;
+
+			for (const queue of Object.values(rsp.repository)) {
+				for (const node of queue?.entries?.nodes ?? []) {
+					if (node?.pullRequest == null) continue;
+
+					byNumber.set(node.pullRequest.number, fromGitHubMergeQueueEntry(node));
+				}
+			}
+
+			return byNumber;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			// Silent: an enrichment of a list that already loaded mustn't prompt for re-authentication on its own.
+			throw this.handleException(ex, provider, scope, true);
 		}
 	}
 

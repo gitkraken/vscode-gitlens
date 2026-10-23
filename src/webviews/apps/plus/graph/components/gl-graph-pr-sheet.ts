@@ -7,12 +7,23 @@ import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
-import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	formatPullRequestMergeQueueStatus,
+	getPullRequestDisplayState,
+	getPullRequestDisplayStatus,
+	getStackedMergeCount,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
 import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
+import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
+import {
+	getQueuedPullRequestEntry,
+	isMergeQueueEntryFailing,
+	isPullRequestQueued,
+} from '../../shared/mergeQueue.utils.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
 import type { PullRequestSheetTarget } from './sheetStack.js';
@@ -134,6 +145,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.state--closed {
 				color: var(--vscode-gitlens-closedPullRequestIconColor);
+			}
+
+			.state--queued {
+				color: var(--vscode-gitlens-queuedPullRequestIconColor);
 			}
 
 			.state--draft {
@@ -468,6 +483,14 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				--verdict-accent: var(--vscode-gitlens-mergedPullRequestIconColor);
 			}
 
+			.verdict--queued {
+				--verdict-accent: var(--vscode-gitlens-queuedPullRequestIconColor);
+			}
+
+			.verdict--queue-failing {
+				--verdict-accent: var(--vscode-editorWarning-foreground);
+			}
+
 			.verdict__head {
 				display: flex;
 				gap: var(--gl-space-8);
@@ -707,6 +730,11 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				border-color: var(--vscode-gitlens-openPullRequestIconColor);
 			}
 
+			.stack-rail__dot--queued {
+				background: var(--vscode-gitlens-queuedPullRequestIconColor);
+				border-color: var(--vscode-gitlens-queuedPullRequestIconColor);
+			}
+
 			.stack-rail__dot--merged {
 				background: var(--vscode-gitlens-mergedPullRequestIconColor);
 				border-color: var(--vscode-gitlens-mergedPullRequestIconColor);
@@ -784,7 +812,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	private get glyph(): { icon: string; modifier: string } {
 		const pr = this.pullRequest;
-		return getAutolinkIcon('pr', pr?.state, pr?.isDraft);
+		return getAutolinkIcon('pr', pr != null ? getPullRequestDisplayState(pr) : undefined, pr?.isDraft);
 	}
 
 	/** The state token shared by the tinted icon and the subtitle's state word. */
@@ -1041,11 +1069,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		const stateLabel =
 			state === 'opened'
 				? l10n.t('Open')
-				: state === 'draft'
-					? l10n.t('Draft')
-					: state === 'merged'
-						? l10n.t('Merged')
-						: l10n.t('Closed');
+				: state === 'queued'
+					? l10n.t('In Merge Queue')
+					: state === 'draft'
+						? l10n.t('Draft')
+						: state === 'merged'
+							? l10n.t('Merged')
+							: l10n.t('Closed');
 
 		return html`<span slot="subtitle" class="subtitle">
 			<span class="subtitle__state state--${state}">${stateLabel}</span>
@@ -1469,11 +1499,20 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		if (pr.state === 'merged') return this.renderVerdictMerged(pr);
 		if (pr.state !== 'opened') return nothing;
 
+		// Ahead of every other read: while queued, merging is the queue's job and the queue owns the branch.
+		const queueEntry = getQueuedPullRequestEntry(pr);
+		if (queueEntry != null) return this.renderVerdictQueued(queueEntry);
+
 		const conflicting = pr.mergeableState === 'Conflicting' || pr.launchpad?.hasConflicts === true;
 		// Rebase is worth offering when the stack has drifted from what it targets — behind its trunk, or
 		// already conflicting with it. An up-to-date stack would replay to identical tips, so advertising
 		// the cascade there invites a run that does nothing. `undefined` is unknown, not zero: fail open.
-		const offerRebase = pr.stack != null && (pr.stack.behind == null || pr.stack.behind > 0 || conflicting);
+		// Never while any loaded layer is queued — rebasing the stack rewrites that layer's branch, which its
+		// merge queue owns. (Unloaded layers can't be checked; `layers` is the only membership the sheet has.)
+		const offerRebase =
+			pr.stack != null &&
+			(pr.stack.behind == null || pr.stack.behind > 0 || conflicting) &&
+			!this.layers?.some(l => isPullRequestQueued(l));
 
 		if (pr.isDraft) {
 			return html`<div class="verdict verdict--draft">
@@ -1502,6 +1541,32 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		return conflicting
 			? this.renderVerdictConflicting(pr, stack, impact, offerRebase)
 			: this.renderVerdictReady(pr, stack, impact, offerRebase);
+	}
+
+	/** The verdict while the pull request is queued — where it stands in the queue, with the queue one click away.
+	 *  No Merge (the queue merges it) and no Rebase Stack (the queue owns the branch). Failing reads as a warning. */
+	private renderVerdictQueued(entry: MergeQueueEntryLike) {
+		const failing = isMergeQueueEntryFailing(entry);
+		return html`<div class="verdict ${failing ? 'verdict--queue-failing' : 'verdict--queued'}">
+			<div class="verdict__head">
+				<span class="verdict__title">${l10n.t('In merge queue')}</span>
+				${
+					entry.url != null
+						? html`<span class="verdict__actions"
+								><gl-button appearance="secondary" href=${entry.url}
+									>${l10n.t('View Merge Queue')}</gl-button
+								></span
+							>`
+						: nothing
+				}
+			</div>
+			<div class="verdict__reasons">
+				<span
+					><code-icon icon=${failing ? 'warning' : 'history'}></code-icon>
+					${formatPullRequestMergeQueueStatus(entry)}</span
+				>
+			</div>
+		</div>`;
 	}
 
 	private renderVerdictReady(
@@ -1761,14 +1826,17 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		const position = layer.stack?.position;
 		const size = current.stack?.size;
 
+		const { queueStatus } = getPullRequestDisplayStatus(layer);
 		const dotClass =
 			layer.state === 'merged'
 				? 'stack-rail__dot stack-rail__dot--merged'
 				: isAnchor
 					? 'stack-rail__dot stack-rail__dot--current'
-					: currentOpen && (position ?? 0) <= currentPosition
-						? 'stack-rail__dot stack-rail__dot--landing'
-						: 'stack-rail__dot';
+					: queueStatus != null
+						? 'stack-rail__dot stack-rail__dot--queued'
+						: currentOpen && (position ?? 0) <= currentPosition
+							? 'stack-rail__dot stack-rail__dot--landing'
+							: 'stack-rail__dot';
 
 		// GitHub's stack navigator links between layers; every non-current row does the same here.
 		const interactive = !isCurrent;
@@ -1798,7 +1866,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			@click=${interactive ? activate : nothing}
 			@keydown=${interactive ? activate : nothing}
 		>
-			<span class="stack-rail__dot-col"><span class=${dotClass}></span></span>
+			<span class="stack-rail__dot-col"
+				><span class=${dotClass} title=${queueStatus ?? nothing}></span
+				>${queueStatus != null ? html`<span class="sr-only">${queueStatus}</span>` : nothing}</span
+			>
 			<span class="stack-rail__title">${layer.title}</span>
 			<span class="muted">#${layer.number}</span>
 			<span class="stack-rail__position ${isCurrent ? 'stack-rail__position--current' : ''}"

@@ -11,6 +11,7 @@ import type {
 import type {
 	PullRequest,
 	PullRequestMergeableState,
+	PullRequestMergeQueueEntry,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestState,
@@ -154,6 +155,13 @@ export interface PullRequestEtagFields {
 	 * is read in full again rather than kept without a viewer until the pull request changes.
 	 */
 	viewerUnresolved?: true;
+	/**
+	 * The pull request's merge-queue entry, as far as the etag reads it: whether it's queued, in which state and since
+	 * when, none of which moves `updatedDate`. Part of the etag whenever it is set, not an include, and set only on a
+	 * queued pull request, so every other pull request's etag is unchanged by it. Read only where the queue is
+	 * (github.com).
+	 */
+	mergeQueue?: Pick<PullRequestMergeQueueEntry, 'state' | 'enqueuedAt'>;
 }
 
 /**

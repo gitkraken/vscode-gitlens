@@ -48,7 +48,11 @@ import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
 import type { WebviewState } from '../../protocol.js';
-import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
+import type {
+	OverviewBranch,
+	OverviewRecentThreshold,
+	SerializedPullRequestMergeQueueEntry,
+} from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
 import type { TreemapMode } from '../treemap/protocol.js';
 import type { Wip, WipStats } from './detailsProtocol.js';
@@ -1243,6 +1247,8 @@ export interface GraphSidebarPullRequest {
 	/** Review decision off the PR model itself, for the same reason as {@link statusCheckRollup} —
 	 *  it must survive categorization being unavailable. */
 	reviewDecision?: PullRequestReviewDecision;
+	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
 	/** Whether the PR's head branch is what's checked out — matched by short name, so it's set for a fork
 	 *  head with no local branch too. Mirrors the deep link's own `nameWithoutRemote` test, which skips the
 	 *  switch on a match, so the row's switch affordances stand down rather than promise a no-op. */

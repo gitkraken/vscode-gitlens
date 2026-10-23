@@ -3,6 +3,7 @@ import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { IssueOrPullRequestState, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { PullRequestMergeQueueEntry } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { RemoteProviderSupportedFeatures } from '@gitlens/git/models/remoteProvider.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -175,7 +176,16 @@ export interface OverviewBranchPullRequest {
 	/** Stack membership, when this pull request is one layer of a stack. `position` is 1-based from the
 	 *  stack's base. */
 	stack?: { number: number; position: number; size: number };
+	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
 	launchpad?: Promise<OverviewBranchLaunchpadItem | undefined>;
+}
+
+/** A pull request's merge-queue entry as the webviews receive it, with its dates as timestamps (ms) like the shapes'
+ *  other dates. */
+export interface SerializedPullRequestMergeQueueEntry extends Pick<PullRequestMergeQueueEntry, 'state' | 'url'> {
+	enqueuedAt: number;
+	estimatedMergeAt?: number;
 }
 
 export interface OverviewBranchLaunchpadItem {
@@ -212,6 +222,8 @@ export interface OverviewBranchIssue {
 	state: IssueOrPullRequestState | undefined;
 	/** PR-only: draft state. */
 	draft?: boolean;
+	/** PR-only: the merge-queue entry, while it's queued. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
 	/** Stable identifier used to unassociate from a branch; populated only for manually-associated issues. */
 	entityId?: string;
 }

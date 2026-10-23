@@ -336,6 +336,10 @@ not-yet-real one of the four. */
 				color: var(--vscode-gitlens-closedPullRequestIconColor);
 			}
 
+			code-icon.tree-icon--pr-queued {
+				color: var(--vscode-gitlens-queuedPullRequestIconColor);
+			}
+
 			code-icon.tree-icon--pr-draft {
 				color: var(--vscode-descriptionForeground);
 			}

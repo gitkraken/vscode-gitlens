@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "be8dd1f31a165fa4f71b23ad55dc98269729e97a",
+	"sourceCommit": "e867386584e5cea586fb42b4edcef494a0fd87b0",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for review mode as a review session (#100) on top of the color design tokens baseline: +72.8 KiB on the entrypoint, of which +65.3 KiB is graph.js and +7.5 KiB shared.js; graph.css unchanged. The growth is feature code in the Commit Graph's Review Changes mode — the review session and its checklist (viewed marks, re-queued files, reading controls, scope presets), findings as diff comment threads with the reader's own comments and thread editing, Orient's reading plan (handed to the CLI agent when too large for the model), Review in Repo's agent channel and its hand-off status, the collapsible checklist and findings panes — and their localized messages; shared.js carries the tree view's count decoration, flow mode and reveal path the checklist uses, and the copy control's status region. Not a new dependency or a module moving between chunks. It takes the entrypoint past webpack's 3 MiB webview limit, which moved to 3.25 MiB with it (see webpack.config.mjs). Before it: the color design tokens (+14.1 KiB since the notifications bell baseline, see its commit). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for GitHub merge-queue support on top of the review-session baseline (#100): +11.7 KiB on the entrypoint, of which +8.8 KiB is graph.js and +2.9 KiB shared.js; graph.css unchanged. The growth is feature code: queued pull request state on the PR icon, chips, WIP header, branch hover, overview card, sidebar rows and PR sheet; the rule that holds Merge, Rebase Stack and branch-changing next steps while a pull request is queued (WIP empty pane, branch sheet, PR sheet, merge-target chip); the WIP pane's pausable queued-PR recheck; and their localized messages. Not a new dependency or a module moving between chunks. It left 188 bytes of headroom on the entrypoint against the review-session ceiling. Before it: review mode as a review session (+72.8 KiB, see its commit). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3218896,
-		"graph.js": 2066256,
+		"entrypoint": 3230927,
+		"graph.js": 2075314,
 		"graph.css": 165813,
-		"shared.js": 986827
+		"shared.js": 989800
 	},
 	"maximumBytes": {
-		"entrypoint": 3231184,
-		"graph.js": 2066256,
+		"entrypoint": 3243215,
+		"graph.js": 2075314,
 		"graph.css": 172694,
-		"shared.js": 990923
+		"shared.js": 993896
 	}
 }

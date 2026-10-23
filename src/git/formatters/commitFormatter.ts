@@ -6,11 +6,14 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { PreviousRangeComparisonUrisResult } from '@gitlens/git/providers/diff.js';
-import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	formatPullRequestMergeQueueEnqueuedFromNow,
+	formatPullRequestMergeQueueStatus,
+	isPullRequestInMergeQueue,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
-import { fromNow } from '@gitlens/utils/date.js';
 import type { FormatOptions, RequiredTokenOptions } from '@gitlens/utils/formatter.js';
 import { Formatter } from '@gitlens/utils/formatter.js';
 import { join, map } from '@gitlens/utils/iterable.js';
@@ -100,7 +103,7 @@ function formatPullRequestDisplayState(pullRequest: PullRequest): string {
  *  merge queue, since its status reads as what happened then, otherwise the pull request's own date. */
 function formatPullRequestDisplayDateFromNow(pullRequest: PullRequest): string {
 	return isPullRequestInMergeQueue(pullRequest)
-		? fromNow(pullRequest.mergeQueue.enqueuedAt)
+		? formatPullRequestMergeQueueEnqueuedFromNow(pullRequest.mergeQueue)
 		: PullRequest.formatDateFromNow(pullRequest);
 }
 

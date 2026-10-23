@@ -66,6 +66,9 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.viewerUnresolved) {
 		fields.viewerUnresolved = true;
 	}
+	if (pr.mergeQueue != null) {
+		fields.mergeQueue = { state: pr.mergeQueue.state, enqueuedAt: pr.mergeQueue.enqueuedAt };
+	}
 	return fields;
 }
 
@@ -123,6 +126,12 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	}
 	if (fields.viewerUnresolved) {
 		state.push('viewer-unresolved');
+	}
+	// Only while queued, so a pull request outside any queue keeps exactly the etag it always had, and joining,
+	// moving through or leaving the queue (none of which moves the update time) still reads as a change. Tagged, so
+	// it can never read as another input.
+	if (fields.mergeQueue != null) {
+		state.push(['merge-queue', fields.mergeQueue.state, timeOf(fields.mergeQueue.enqueuedAt)]);
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;

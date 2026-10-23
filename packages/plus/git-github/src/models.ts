@@ -198,9 +198,8 @@ export type GitHubMergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEAB
 /** GitHub's `MergeQueueEntry`, as GitLens selects it. */
 export interface GitHubMergeQueueEntry {
 	state: GitHubMergeQueueEntryState;
-	position: number;
 	enqueuedAt: string;
-	/** Seconds. */
+	/** Seconds from when it was read. */
 	estimatedTimeToMerge: number | null;
 	mergeQueue: { url: string } | null;
 }
@@ -313,6 +312,8 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	commits?: {
 		nodes: { commit: { statusCheckRollup: { state: GitHubPullRequestStatusCheckRollupState } | null } }[];
 	};
+	/** Always selected, but only against github.com, like the full read's. `null` when the pull request isn't queued. */
+	mergeQueueEntry?: Pick<GitHubMergeQueueEntry, 'state' | 'enqueuedAt'> | null;
 }
 
 /**
@@ -455,21 +456,27 @@ function fromGitHubPullRequestStack(pr: GitHubPullRequestLite): PullRequestStack
 
 /** Absent on GitHub Enterprise Server (never selected) and `null` when the pull request isn't queued. */
 function fromGitHubPullRequestMergeQueueEntry(pr: GitHubPullRequestLite): PullRequestMergeQueueEntry | undefined {
-	const entry = pr.mergeQueueEntry;
-	if (entry == null) return undefined;
+	return pr.mergeQueueEntry != null ? fromGitHubMergeQueueEntry(pr.mergeQueueEntry) : undefined;
+}
 
+/**
+ * The one place a GitHub `MergeQueueEntry` becomes a {@link PullRequestMergeQueueEntry}, whichever read selected it.
+ * GitHub's estimate is a duration from the moment it answered, so it's fixed to a date here, at read time, rather
+ * than added to the clock at each render, where a held entry would never count down.
+ */
+export function fromGitHubMergeQueueEntry(entry: GitHubMergeQueueEntry): PullRequestMergeQueueEntry {
 	return {
 		state: fromGitHubMergeQueueEntryState(entry.state),
-		position: entry.position,
 		enqueuedAt: new Date(entry.enqueuedAt),
-		estimatedTimeToMerge: entry.estimatedTimeToMerge ?? undefined,
+		estimatedMergeAt:
+			entry.estimatedTimeToMerge != null ? new Date(Date.now() + entry.estimatedTimeToMerge * 1000) : undefined,
 		url: entry.mergeQueue?.url,
 	};
 }
 
 /** A state GitHub adds later still means the pull request is in the queue, so it reads as Queued rather than
  *  dropping the entry, which would report a queued pull request as not queued. */
-function fromGitHubMergeQueueEntryState(state: GitHubMergeQueueEntryState): PullRequestMergeQueueState {
+export function fromGitHubMergeQueueEntryState(state: GitHubMergeQueueEntryState): PullRequestMergeQueueState {
 	switch (state) {
 		case 'AWAITING_CHECKS':
 			return PullRequestMergeQueueState.AwaitingChecks;

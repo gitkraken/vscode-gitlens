@@ -58,6 +58,16 @@ export const graphBranchSheetPaneStyles = css`
 		min-height: 2.4rem;
 	}
 
+	/* The queue status without a queue URL to open — the Merge Queue chip's footprint, not its affordances. */
+	.merge-queue-status {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 2rem;
+		height: 2rem;
+		padding: var(--gl-space-2);
+	}
+
 	.issues-chips {
 		flex: 1 1 auto;
 		min-width: 0;

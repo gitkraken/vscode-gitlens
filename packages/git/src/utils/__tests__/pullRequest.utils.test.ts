@@ -2,9 +2,11 @@ import * as assert from 'assert';
 import type { PullRequestMergeQueueEntry, PullRequestShape, PullRequestSorting } from '../../models/pullRequest.js';
 import { PullRequestMergeQueueState } from '../../models/pullRequest.js';
 import {
+	formatPullRequestMergeQueueEnqueuedFromNow,
 	formatPullRequestMergeQueueStatus,
 	getPullRequestComparator,
 	getPullRequestDisplayState,
+	getPullRequestDisplayStatus,
 	getStackedMergeCount,
 	isPullRequestInMergeQueue,
 } from '../pullRequest.utils.js';
@@ -47,6 +49,37 @@ suite('pullRequest.utils', () => {
 		test('a merge queue entry never overrides a non-open state', () => {
 			assert.strictEqual(getPullRequestDisplayState({ state: 'merged', mergeQueue: queueEntry() }), 'merged');
 			assert.strictEqual(getPullRequestDisplayState({ state: 'closed', mergeQueue: queueEntry() }), 'closed');
+		});
+	});
+
+	suite('getPullRequestDisplayStatus', () => {
+		test('a queued pull request pairs queued with its merge queue status', () => {
+			const entry = queueEntry({ state: PullRequestMergeQueueState.AwaitingChecks });
+			assert.deepStrictEqual(getPullRequestDisplayStatus({ state: 'opened', mergeQueue: entry }), {
+				status: 'queued',
+				queueStatus: formatPullRequestMergeQueueStatus(entry),
+			});
+		});
+
+		test('a pull request that is not queued keeps its state and has no queue status', () => {
+			assert.deepStrictEqual(getPullRequestDisplayStatus({ state: 'opened' }), {
+				status: 'opened',
+				queueStatus: undefined,
+			});
+			assert.deepStrictEqual(getPullRequestDisplayStatus({ state: 'merged', mergeQueue: queueEntry() }), {
+				status: 'merged',
+				queueStatus: undefined,
+			});
+		});
+	});
+
+	suite('formatPullRequestMergeQueueEnqueuedFromNow', () => {
+		test('reads as a queued clause', () => {
+			const enqueuedAt = Date.now() - 3 * 60 * 60 * 1000;
+			assert.strictEqual(
+				formatPullRequestMergeQueueEnqueuedFromNow({ enqueuedAt: enqueuedAt }),
+				'queued 3 hours ago',
+			);
 		});
 	});
 

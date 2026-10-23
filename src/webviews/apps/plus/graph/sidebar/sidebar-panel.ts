@@ -8,6 +8,7 @@ import { URI } from 'vscode-uri';
 import { getAltKeySymbol } from '@env/platform.js';
 import { scrollableBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
@@ -1975,7 +1976,7 @@ would expose the graph through fade or at the gap left by the translate). */
 			// indicator (grouping is open-only) — so the glyph is the only thing distinguishing it. Color
 			// comes with it, from GitLens's contributed pull-request colors, and draft keeps its own glyph
 			// so the distinction survives for anyone the hue doesn't reach.
-			icon: { type: 'pull-request', state: pr.state, draft: pr.isDraft },
+			icon: { type: 'pull-request', state: getPullRequestDisplayState(pr), draft: pr.isDraft },
 			description: pr.authorName,
 			decorations: [
 				// Leading, in the scanning column, so provenance reads before the title — the trailing slot stays

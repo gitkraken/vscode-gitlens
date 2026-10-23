@@ -2,6 +2,7 @@ import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api
 import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
 	fromGitHubIssueOrPullRequestState,
+	fromGitHubMergeQueueEntryState,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
@@ -13,6 +14,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -183,6 +185,13 @@ function toPullRequestEtagFields(
 		updatedDate: new Date(node.updatedAt),
 		headSha: node.headRefOid,
 	};
+
+	if (node.mergeQueueEntry != null) {
+		fields.mergeQueue = {
+			state: fromGitHubMergeQueueEntryState(node.mergeQueueEntry.state),
+			enqueuedAt: new Date(node.mergeQueueEntry.enqueuedAt),
+		};
+	}
 
 	if (etagIncludes.includes('mergeable')) {
 		fields.mergeableState =
@@ -1243,6 +1252,34 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		}
 
 		return byNumber;
+	}
+
+	/**
+	 * Merge-queue entries for the given base branches, keyed by pull request number — the same gap as
+	 * {@link getStacksByPullRequestNumber}: the repository-scoped list read comes from provider-apis, which selects no
+	 * merge queue. One request for every branch. `undefined` means unavailable (GitHub Enterprise Server, a repository
+	 * not found, or not connected); an empty map means nothing is queued.
+	 *
+	 * INTERIM: remove once provider-apis carries the merge-queue entry on its pull requests (goals S6).
+	 */
+	override async getMergeQueueEntriesByPullRequestNumber(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
+		if (session == null) return undefined;
+
+		return (await this.authenticationService.apis.github)?.getMergeQueueEntriesForBranches(
+			this,
+			toTokenWithInfo(this.id, session),
+			owner,
+			repo,
+			branches,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
 	}
 
 	/**

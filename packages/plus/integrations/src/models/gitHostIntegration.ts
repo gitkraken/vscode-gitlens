@@ -6,6 +6,7 @@ import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/m
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -499,6 +500,16 @@ export abstract class GitHostIntegration<
 		repo: string,
 		cancellation?: AbortSignal,
 	): Promise<Map<number, PullRequestStackInfo> | undefined>;
+
+	/** Merge-queue entries for the given base branches of the repository, keyed by pull request number, for rows from a
+	 *  read that selects no merge queue. Only hosts with a readable merge queue implement this (currently GitHub.com);
+	 *  `undefined` means unavailable. INTERIM: remove once provider-apis carries the entry on its rows (goals S6). */
+	getMergeQueueEntriesByPullRequestNumber?(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined>;
 
 	/** The ordered layers of the stack the given pull request belongs to, bottom to top. `undefined`
 	 *  when the host has no stacks concept, the repository isn't enrolled, or the pull request isn't
