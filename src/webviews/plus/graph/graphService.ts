@@ -337,6 +337,9 @@ export interface DeepReviewState {
 	 *  to" counters belong to one run */
 	run: number;
 	anchor: DeepReviewAnchor;
+	/** What the channel is open for: a whole review, or only a question on a finding — which leaves the
+	 *  channel open for the next question and does not read as a review running */
+	purpose: 'review' | 'ask';
 	active: boolean;
 	done: boolean;
 	findings: { seq: number; finding: AIReviewFinding }[];

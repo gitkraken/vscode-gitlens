@@ -33,8 +33,17 @@ export class DeepReviewChannel {
 		anchor: DeepReviewAnchor,
 		private readonly onChange: (state: DeepReviewState) => void,
 		id: string,
+		purpose: DeepReviewState['purpose'] = 'review',
 	) {
-		this._state = { run: run, anchor: anchor, active: true, done: false, findings: [], notes: [] };
+		this._state = {
+			run: run,
+			anchor: anchor,
+			purpose: purpose,
+			active: true,
+			done: false,
+			findings: [],
+			notes: [],
+		};
 		this.route = `${deepReviewRoute}/${id}`;
 		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(this.route, rq =>
 			Promise.resolve({ accepted: this.report(rq) }),
@@ -44,6 +53,14 @@ export class DeepReviewChannel {
 
 	get state(): DeepReviewState {
 		return { ...this._state, findings: [...this._state.findings], notes: [...this._state.notes] };
+	}
+
+	/** A whole review goes into a channel that was open only for questions: it reads as a review from now on. */
+	beginReview(): void {
+		if (!this._state.active || this._state.purpose === 'review') return;
+
+		this._state.purpose = 'review';
+		this.onChange(this.state);
 	}
 
 	/** Takes a report in: returns how many findings and notes it kept. A report after the channel closed is dropped. */

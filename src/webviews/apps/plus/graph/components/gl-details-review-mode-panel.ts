@@ -243,7 +243,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	/** The delegated deep review on this anchor, while one is open or once it reported done. */
 	@property({ attribute: false })
-	deepReview?: { active: boolean; done: boolean; count: number };
+	deepReview?: { active: boolean; done: boolean; count: number; purpose?: 'review' | 'ask' };
+
+	/** A whole review by the agent is under way — a channel open only for questions on findings is not one */
+	private get deepReviewRunning(): boolean {
+		return this.deepReview?.active === true && this.deepReview.purpose !== 'ask';
+	}
 
 	/** Whether a deep review can start here at all; unknown (`undefined`) keeps the depth offered. */
 	@property({ attribute: false })
@@ -565,10 +570,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 			<gl-button
 				appearance="secondary"
 				tooltip=${l10n.t('Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review')}
-				?disabled=${this.deepReview?.active || this.getEffectiveFileCount() === 0}
+				?disabled=${this.deepReviewRunning || this.getEffectiveFileCount() === 0}
 				@click=${this.handleDeepReview}
 			>
-				<code-icon icon=${this.deepReview?.active ? 'loading' : 'robot'} slot="prefix"></code-icon
+				<code-icon icon=${this.deepReviewRunning ? 'loading' : 'robot'} slot="prefix"></code-icon
 				>${l10n.t('Review in Repo')}
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard Findings')}</gl-button>
@@ -891,17 +896,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 											)
 										}
 										?disabled=${
-											this.deepReview?.active ||
+											this.deepReviewRunning ||
 											!hasSelectedFiles ||
 											this.deepReviewUnavailableReason != null
 										}
 										@click=${this.handleDeepReview}
 									>
 										<code-icon
-											icon=${this.deepReview?.active ? 'loading' : 'robot'}
+											icon=${this.deepReviewRunning ? 'loading' : 'robot'}
 											slot="prefix"
 										></code-icon>
-										${this.deepReview?.active ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
+										${this.deepReviewRunning ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
 									</gl-button>
 								</gl-ai-input>`,
 							)}
@@ -1433,7 +1438,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	/** The deep review's status strip — while the agent works and once it reported done. */
 	private renderDeepReviewStrip() {
 		const deep = this.deepReview;
-		if (deep == null || (!deep.active && !deep.done)) return nothing;
+		if (deep == null || (!deep.active && !deep.done) || deep.purpose === 'ask') return nothing;
 
 		const count = formatPlural(
 			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),

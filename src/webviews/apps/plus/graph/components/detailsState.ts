@@ -168,6 +168,8 @@ export type RunningOperation =
 			deepReview?: {
 				/** The channel start the counters below belong to */
 				run?: number;
+				/** Open for a whole review, or only for questions on findings (see `DeepReviewState.purpose`) */
+				purpose?: 'review' | 'ask';
 				active: boolean;
 				done: boolean;
 				count: number;

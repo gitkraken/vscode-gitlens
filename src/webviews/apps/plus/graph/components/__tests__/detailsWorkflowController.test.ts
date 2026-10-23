@@ -807,6 +807,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			purpose: 'review',
 			active: false,
 			done: true,
 			findings: [
@@ -819,6 +820,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 2,
 			anchor: anchor,
+			purpose: 'review',
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: finding('agent-3') }],
@@ -832,6 +834,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 		assert.deepStrictEqual(entry?.deepReview, {
 			run: 2,
+			purpose: 'review',
 			active: true,
 			done: false,
 			count: 1,
@@ -844,6 +847,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 2,
 			anchor: anchor,
+			purpose: 'review',
 			active: true,
 			done: false,
 			findings: [
@@ -888,6 +892,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			purpose: 'review',
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: f1 }],
@@ -897,6 +902,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
 		assert.deepStrictEqual(entry?.deepReview, {
 			run: 1,
+			purpose: 'review',
 			active: true,
 			done: false,
 			count: 1,
@@ -912,6 +918,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			purpose: 'review',
 			active: false,
 			done: true,
 			findings: [
@@ -937,6 +944,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(area?.severity, 'critical');
 		assert.deepStrictEqual(entry?.deepReview, {
 			run: 1,
+			purpose: 'review',
 			active: false,
 			done: true,
 			count: 2,

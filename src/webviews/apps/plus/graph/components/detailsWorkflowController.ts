@@ -1274,6 +1274,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 			const deepReview = {
 				run: state.run,
+				purpose: state.purpose,
 				active: state.active,
 				done: state.done,
 				count: state.findings.length,

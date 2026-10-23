@@ -1505,7 +1505,13 @@ export class GraphInspectServices {
 
 			// A question on one finding goes into the channel that is open — the agent's answer is a comment
 			// on the finding, and a review that may be running keeps reporting; a whole review starts afresh
-			const reuse = args.focus != null && this._deepReview?.state.active === true;
+			// …and a whole review goes into a channel that was open only for questions, rather than cutting
+			// off an answer that may still be coming
+			const open = this._deepReview?.state.active === true ? this._deepReview : undefined;
+			const reuse = open != null && (args.focus != null || open.state.purpose === 'ask');
+			if (reuse && args.focus == null) {
+				open.beginReview();
+			}
 			if (!reuse) {
 				this.stopDeepReview();
 				const opened = new DeepReviewChannel(
@@ -1518,6 +1524,7 @@ export class GraphInspectServices {
 						}
 					},
 					uuid(),
+					args.focus != null ? 'ask' : 'review',
 				);
 				this._deepReview = opened;
 				this._deepReviewEvent.fire(opened.state);

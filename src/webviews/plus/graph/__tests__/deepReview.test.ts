@@ -204,6 +204,19 @@ suite('deepReview — the report channel', () => {
 		);
 	});
 
+	test('a channel open for questions becomes a review when a whole review goes into it', () => {
+		const { ipc } = fakeIpc();
+		const changes: DeepReviewState[] = [];
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'q', 'ask');
+		assert.strictEqual(channel.state.purpose, 'ask');
+		channel.beginReview();
+		channel.beginReview();
+		assert.deepStrictEqual(
+			changes.map(c => c.purpose),
+			['review'],
+		);
+	});
+
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
