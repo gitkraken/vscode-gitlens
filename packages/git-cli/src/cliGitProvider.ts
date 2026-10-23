@@ -19,11 +19,13 @@ import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getRefChangeKind } from '@gitlens/git/watching/changeEvent.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
+import { sanitizeIgnoredWorktreeFolders } from '@gitlens/git/watching/watcherPatterns.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
+import { cancellable } from '@gitlens/utils/promise.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js';
@@ -32,7 +34,7 @@ import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
 import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
-import { readHeadState } from './exec/headState.js';
+import { readCommonGitDir, readHeadState } from './exec/headState.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -55,6 +57,9 @@ import { StatusGitSubProvider } from './providers/status.js';
 import { TagsGitSubProvider } from './providers/tags.js';
 import { WorktreesGitSubProvider } from './providers/worktrees.js';
 
+/** How long reading the folders whose worktrees are ignored may take before it counts as failed (a hung mount) */
+const ignoredWorktreeRootsTimeoutMs = 5000;
+
 export interface CliGitProviderOptions {
 	/** Use an existing Cache instance, or one will be created */
 	cache?: Cache;
@@ -73,6 +78,15 @@ export interface CliGitProviderOptions {
 	 * failures rather than an honest "unsupported here". Defaults to `true`.
 	 */
 	localRepositories?: boolean;
+	/**
+	 * Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist: they are left out
+	 * of worktree lists, and their add, remove, lock, unlock or move run through `notify: 'infer'`, and the watcher's
+	 * reports of their admin entries, raise no `worktrees` change. The typed worktree writes still announce one. A host
+	 * registers one for a tool's throwaway worktrees, which no host shows (sync-tools' `sync-tools-worktrees`, for one).
+	 * Nothing else is ignored, since a user may keep real worktrees anywhere, the git dir included. A folder that isn't
+	 * a literal path strictly inside the common git dir, or that lies under `worktrees`, is dropped.
+	 */
+	ignoredWorktreeFolders?: readonly string[];
 }
 
 /**
@@ -113,6 +127,9 @@ export class CliGitProvider implements GitProvider {
 	/** The host's own hooks, before the provider wraps `cache.onReset` with its own clearing */
 	private readonly _hostHooks: GitServiceContext['hooks'];
 	private readonly _localRepositories: boolean;
+	private readonly _ignoredWorktreeFolders: readonly string[];
+	/** By common git dir, the folders whose worktrees are ignored there: a common git dir never moves while it is open */
+	private readonly _ignoredWorktreeRoots = new Map<string, Promise<readonly string[]>>();
 
 	constructor(options: CliGitProviderOptions) {
 		// Every typed write announces itself through `onReset`, so the provider clears its own state there
@@ -161,6 +178,7 @@ export class CliGitProvider implements GitProvider {
 			},
 		};
 		this._localRepositories = options.localRepositories ?? true;
+		this._ignoredWorktreeFolders = sanitizeIgnoredWorktreeFolders(options.ignoredWorktreeFolders);
 		this._git =
 			options.git ??
 			new Git(options.locator, {
@@ -179,6 +197,8 @@ export class CliGitProvider implements GitProvider {
 			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths, named),
 		);
 		this._git.bindHeadReader(path => readHeadState(path, this.context.fs, this._cache));
+		// Bound even with no folder registered, so a `Git` shared with another provider never keeps that one's folders
+		this._git.bindIgnoredWorktreeRootsReader(path => this.getIgnoredWorktreeRoots(path));
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */
@@ -188,6 +208,65 @@ export class CliGitProvider implements GitProvider {
 
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
 		return this._cache.onDidChangeMergeTargets;
+	}
+
+	getIgnoredWorktreeFolders(_repoPath: string): readonly string[] {
+		return this._ignoredWorktreeFolders;
+	}
+
+	/**
+	 * `[]`, reading nothing, when no folder is registered. Read once per common git dir, since a worktree list rebuild
+	 * and every inferred worktree write ask for them; a read that fails or doesn't settle in time (a hung mount) rejects,
+	 * and isn't kept, so the next call reads again
+	 */
+	async getIgnoredWorktreeRoots(repoPath: string): Promise<readonly string[]> {
+		if (!this._ignoredWorktreeFolders.length) return [];
+
+		const commonGitDir = await cancellable(this.findCommonGitDir(repoPath), ignoredWorktreeRootsTimeoutMs);
+		let roots = this._ignoredWorktreeRoots.get(commonGitDir);
+		if (roots == null) {
+			const read = cancellable(this.readIgnoredWorktreeRoots(commonGitDir), ignoredWorktreeRootsTimeoutMs);
+			const entry = read.then(r => r.roots);
+			roots = entry;
+			this._ignoredWorktreeRoots.set(commonGitDir, entry);
+			const forget = () => {
+				if (this._ignoredWorktreeRoots.get(commonGitDir) === entry) {
+					this._ignoredWorktreeRoots.delete(commonGitDir);
+				}
+			};
+			// Roots missing the resolved spelling still serve this call, but a later one resolves again
+			void read.then(r => (r.resolved ? undefined : forget()), forget);
+		}
+		return roots;
+	}
+
+	/**
+	 * From the cached git dir, or the repository's own files, without running git; a repository whose files don't
+	 * show it (a bare one) runs git once, and the git dir it finds is cached with the repository
+	 */
+	private async findCommonGitDir(repoPath: string): Promise<string> {
+		const commonGitDir = await readCommonGitDir(repoPath, this.context.fs, this._cache);
+		if (commonGitDir != null) return commonGitDir;
+
+		const gitDir = await this.config.getGitDir(repoPath);
+		return (gitDir.commonUri ?? gitDir.uri).fsPath;
+	}
+
+	/** `resolved` is false when the common git dir's resolved spelling couldn't be read */
+	private async readIgnoredWorktreeRoots(
+		commonGitDir: string,
+	): Promise<{ readonly roots: readonly string[]; readonly resolved: boolean }> {
+		const roots = new Set(this._ignoredWorktreeFolders.map(f => normalizePath(joinPaths(commonGitDir, f))));
+		if (!this._localRepositories) return { roots: [...roots], resolved: true };
+
+		// Only the common git dir is resolved: a folder doesn't exist until its tool first makes a worktree there
+		const realCommonGitDir = await fs.realpath(commonGitDir).catch(() => undefined);
+		if (realCommonGitDir == null) return { roots: [...roots], resolved: false };
+
+		for (const folder of this._ignoredWorktreeFolders) {
+			roots.add(normalizePath(joinPaths(realCommonGitDir, folder)));
+		}
+		return { roots: [...roots], resolved: true };
 	}
 
 	getCommonPath(repoPath: string): string | undefined {
@@ -684,6 +763,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._ignoredWorktreeFolders.length ? path => this.getIgnoredWorktreeRoots(path) : undefined,
 		));
 	}
 
