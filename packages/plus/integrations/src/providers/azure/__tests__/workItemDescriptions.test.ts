@@ -56,8 +56,8 @@ suite('Azure work item description catalog', () => {
 
 				return catalog;
 			};
-			assert.deepEqual(await cache.getFields(fields, scope, read), []);
-			assert.deepEqual(await cache.getFields(fields, scope, read), []);
+			await assert.rejects(cache.getFields(fields, scope, read), /Catalog unavailable/);
+			await assert.rejects(cache.getFields(fields, scope, read), /Catalog unavailable/);
 			assert.equal(calls, 1);
 			now += 30_001;
 			assert.equal((await cache.getFields(fields, scope, read))[0].referenceName, 'Custom.Notes');
@@ -80,7 +80,7 @@ suite('Azure work item description catalog', () => {
 		);
 		cache.clear();
 		reject(new Error('Old request failed'));
-		assert.deepEqual(await pending, []);
+		await assert.rejects(pending, /Old request failed/);
 		assert.equal((await cache.getFields(fields, scope, async () => catalog))[0].referenceName, 'Custom.Notes');
 	});
 
@@ -93,7 +93,7 @@ suite('Azure work item description catalog', () => {
 				const cache = new AzureWorkItemDescriptionsCache();
 				let reads = 0;
 				const read = async () => (++reads === 1 ? malformed : catalog);
-				assert.deepEqual(await cache.getFields(fields, scope, read), []);
+				await assert.rejects(cache.getFields(fields, scope, read), /no work item field catalog/);
 				now += 30_001;
 				assert.equal((await cache.getFields(fields, scope, read))[0]?.referenceName, 'Custom.Notes');
 				assert.equal(reads, 2);

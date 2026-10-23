@@ -6,7 +6,7 @@ import { encodeAzurePathSegment } from './models.js';
 import type { AzureWorkItemStatesScope } from './workItemStateCategories.js';
 
 export class AzureWorkItemDescriptionsCache {
-	private readonly fields = new PromiseCache<string, AzureWorkItemHtmlField[] | undefined>({
+	private readonly fields = new PromiseCache<string, PromiseSettledResult<AzureWorkItemHtmlField[]>>({
 		createTTL: 60 * 60 * 1000,
 		capacity: 256,
 	});
@@ -30,30 +30,25 @@ export class AzureWorkItemDescriptionsCache {
 			scope.token,
 			scope.isPAT,
 		]);
-		try {
-			return (
-				(await this.fields.getOrCreate(
-					key,
-					async (_cacheable, signal) => {
-						const body = await read(signal);
-						const value = (body as { value?: unknown } | null)?.value;
-						if (!Array.isArray(value)) throw new Error('Azure DevOps returned no work item field catalog');
+		const result = await this.fields.getOrCreate(
+			key,
+			async (_cacheable, signal) => {
+				const body = await read(signal);
+				const value = (body as { value?: unknown } | null)?.value;
+				if (!Array.isArray(value)) throw new Error('Azure DevOps returned no work item field catalog');
 
-						return toAzureWorkItemHtmlFields(value);
-					},
-					{
-						cancellation: cancellation,
-						onError: error =>
-							isCancellationError(error) || this.fields.get(key) == null
-								? undefined
-								: { value: undefined, createTTL: 30 * 1000, suppress: true },
-					},
-				)) ?? []
-			);
-		} catch (error) {
-			if (isCancellationError(error)) throw error;
+				return { status: 'fulfilled', value: toAzureWorkItemHtmlFields(value) };
+			},
+			{
+				cancellation: cancellation,
+				onError: error =>
+					isCancellationError(error) || this.fields.get(key) == null
+						? undefined
+						: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
+			},
+		);
+		if (result.status === 'rejected') throw result.reason;
 
-			return [];
-		}
+		return result.value;
 	}
 }
