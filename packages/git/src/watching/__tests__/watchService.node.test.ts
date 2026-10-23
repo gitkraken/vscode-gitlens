@@ -503,6 +503,40 @@ describe('RepositoryWatchService', () => {
 			handleA.dispose();
 			service.dispose();
 		});
+
+		it("reports no change for a ref's lock file git removes without writing the ref", async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+			});
+
+			const globalReceived: WatcherRepoChangeEvent[] = [];
+			service.onDidChangeRepository(e => globalReceived.push(e));
+
+			const handleA = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(handleA);
+
+			const receivedA: WatcherRepoChangeEvent[] = [];
+			const subA = handleA.session.subscribe({ delayMs: 30, relevantRefs: () => ['refs/remotes/origin/HEAD'] });
+			subA.onDidChange(e => receivedA.push(e));
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+
+			// A fetch that moved nothing: it locks the remote's HEAD to check its default branch, then releases it
+			common.fire({ path: '/repo/.git/refs/remotes/origin/HEAD.lock', reason: 'create' });
+			common.fire({ path: '/repo/.git/refs/remotes/origin/HEAD.lock', reason: 'delete' });
+
+			await delay(60);
+
+			assert.strictEqual(receivedA.length, 0);
+			assert.strictEqual(globalReceived.length, 0);
+
+			subA.dispose();
+			handleA.dispose();
+			service.dispose();
+		});
 	});
 
 	describe('global onDidChangeRepository', () => {
