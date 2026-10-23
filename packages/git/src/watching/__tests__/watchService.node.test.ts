@@ -14,7 +14,7 @@ import type {
 	FileWatchEvent,
 	FileWatchingProvider,
 } from '../provider.js';
-import { dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
+import { dotGitGlobCombined, dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
 import { RepositoryWatchService } from '../watchService.js';
 
 interface MockWatcher extends FileWatcher {
@@ -535,6 +535,106 @@ describe('RepositoryWatchService', () => {
 
 			subA.dispose();
 			handleA.dispose();
+			service.dispose();
+		});
+
+		it('drops the admin entry reports of a worktree under a folder its provider ignores, in either spelling', async () => {
+			const { factory, watchers } = createMockFactory();
+			const gitdirs: Record<string, string> = {
+				'/repo/.git/worktrees/x-1/gitdir': '/repo/.git/sync-tools-worktrees/x/.git\n',
+				// Git writes the path the common git dir resolves to, through a symlink
+				'/repo/.git/worktrees/x-2/gitdir': '/private/repo/.git/sync-tools-worktrees/y/.git\n',
+				// Inside the git dir, but under no folder the provider registered: a user's own worktree
+				'/repo/.git/worktrees/mine/gitdir': '/repo/.git/my-worktrees/x/.git\n',
+			};
+			const asked: string[] = [];
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				readFile: path => {
+					const normalized = normalizePath(path);
+					if (normalized === '/repo/.git/config') {
+						return Promise.resolve(new TextEncoder().encode('[core]\n'));
+					}
+
+					const content = gitdirs[normalized];
+					return content != null
+						? Promise.resolve(new TextEncoder().encode(content))
+						: Promise.reject(new Error('ENOENT'));
+				},
+				listSubdirectories: path =>
+					normalizePath(path) === '/repo/.git/worktrees'
+						? Promise.resolve(['x-1', 'x-2', 'mine'])
+						: Promise.reject(new Error('ENOENT')),
+				getIgnoredWorktreeRoots: repoPath => {
+					asked.push(repoPath);
+					return Promise.resolve([
+						'/repo/.git/sync-tools-worktrees',
+						'/private/repo/.git/sync-tools-worktrees',
+					]);
+				},
+			});
+
+			const handleA = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(handleA);
+
+			const receivedA: WatcherRepoChangeEvent[] = [];
+			const subA = handleA.session.subscribe({ delayMs: 30 });
+			subA.onDidChange(e => receivedA.push(e));
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+			// A report arriving before the admin entries are first read is told at once
+			for (let i = 0; i < 5; i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+
+			common.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
+			common.fire({ path: '/repo/.git/worktrees/x-2/HEAD', reason: 'change' });
+			await delay(60);
+			assert.strictEqual(receivedA.length, 0);
+
+			common.fire({ path: '/repo/.git/worktrees/mine/HEAD', reason: 'change' });
+			await delay(60);
+			assert.strictEqual(receivedA.length, 1);
+			assert.deepStrictEqual(asked, ['/worktrees/A']);
+
+			subA.dispose();
+			handleA.dispose();
+			service.dispose();
+		});
+
+		it('leaves the folders its provider ignores worktrees under unwatched beneath the common git dir', () => {
+			const { factory, watchers } = createMockFactory();
+			const asked: string[] = [];
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				getIgnoredWorktreeFolders: repoPath => {
+					asked.push(repoPath);
+					return ['sync-tools-worktrees'];
+				},
+			});
+
+			const main = service.watch('/repo', standardGitDir('/repo/.git'));
+			const linked = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(main);
+			assertHandle(linked);
+			const subs = [main.session.subscribe({ delayMs: 30 }), linked.session.subscribe({ delayMs: 30 })];
+
+			const excludes = (basePath: string, pattern?: string) =>
+				watchers.find(w => w.basePath === basePath && (pattern == null || w.pattern === pattern))?.options
+					?.excludes;
+			assert.ok(excludes('/repo/.git', dotGitGlobCombined)?.includes('sync-tools-worktrees'));
+			assert.ok(excludes('/repo/.git', dotGitGlobCommon)?.includes('sync-tools-worktrees'));
+			assert.ok(!excludes('/repo/.git/worktrees/A')?.includes('sync-tools-worktrees'));
+			assert.ok(watchers.every(w => !w.options?.excludes?.includes('worktrees')));
+			assert.deepStrictEqual(asked, ['/repo']);
+
+			for (const sub of subs) {
+				sub.dispose();
+			}
+			linked.dispose();
+			main.dispose();
 			service.dispose();
 		});
 	});

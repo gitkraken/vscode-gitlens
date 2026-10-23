@@ -2,12 +2,14 @@ import * as assert from 'assert';
 import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
+import { FileType } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { WatcherRepoChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { first } from '@gitlens/utils/iterable.js';
-import { fileUri } from '@gitlens/utils/uri.js';
+import { normalizePath } from '@gitlens/utils/path.js';
+import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
 import { createCliGitService } from '../service.js';
 
@@ -149,5 +151,61 @@ suite('createCliGitService — watch bridging', () => {
 
 		registration.dispose();
 		second.dispose();
+	});
+});
+
+suite('createCliGitService — worktree admin entries', () => {
+	const repoPath = '/test/repo';
+
+	test('lists only the directories in the worktrees directory as admin entries', async () => {
+		const reads: string[] = [];
+		const fs: FileSystemProvider = {
+			readDirectory: uri =>
+				Promise.resolve(
+					normalizePath(toFsPath(uri)) === `${repoPath}/.git/worktrees`
+						? [
+								['A', FileType.Directory],
+								['.DS_Store', FileType.File],
+							]
+						: [],
+				),
+			readFile: uri => {
+				const path = normalizePath(toFsPath(uri));
+				reads.push(path);
+				return path === `${repoPath}/.git/worktrees/A/gitdir`
+					? Promise.resolve(new TextEncoder().encode('/worktrees/A/.git\n'))
+					: Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+			},
+			stat: uri =>
+				Promise.resolve(
+					normalizePath(toFsPath(uri)) === `${repoPath}/.git`
+						? { type: FileType.Directory, ctime: 0, mtime: 0, size: 0 }
+						: undefined,
+				),
+		};
+		const service = createCliGitService({
+			context: { fs: fs },
+			locator: async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }),
+			watchingProvider: { createWatcher: () => createDisposable(() => {}) },
+			ignoredWorktreeFolders: ['sync-tools-worktrees'],
+		});
+		try {
+			const handle = service.watchService!.watch(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+			assert.ok(handle != null);
+			const sub = handle.session.subscribe();
+
+			// The entries are listed and read as the watch starts, past a real `realpath` of the common git dir
+			for (let i = 0; i < 1000 && !reads.includes(`${repoPath}/.git/worktrees/A/gitdir`); i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+
+			assert.ok(reads.includes(`${repoPath}/.git/worktrees/A/gitdir`));
+			assert.ok(!reads.some(r => r.includes('.DS_Store')), `read ${reads.join(', ')}`);
+
+			sub.dispose();
+			handle.dispose();
+		} finally {
+			service.dispose();
+		}
 	});
 });

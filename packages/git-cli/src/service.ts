@@ -1,3 +1,4 @@
+import { FileType } from '@gitlens/git/context.js';
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WatchPollingOptions } from '@gitlens/git/watching/watchService.js';
@@ -33,6 +34,9 @@ export interface CliGitServiceOptions {
 
 	/** Use an existing Cache instance, or one will be created */
 	cache?: CliGitProviderOptions['cache'];
+
+	/** Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist */
+	ignoredWorktreeFolders?: CliGitProviderOptions['ignoredWorktreeFolders'];
 
 	/**
 	 * Filesystem watching provider. When provided, the {@link GitService}
@@ -75,6 +79,16 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		verifyBaseRemeasure: options.verifyBaseRemeasure,
 		// The host's file system reads the shared `.git/config` the watch service compares reports of
 		readFile: path => options.context.fs.readFile(fileUri(path)),
+		// And lists the admin entries it tells an ignored worktree's from, each a directory
+		listSubdirectories: async path => {
+			const names: string[] = [];
+			for (const [name, type] of await options.context.fs.readDirectory(fileUri(path))) {
+				if (type & FileType.Directory) {
+					names.push(name);
+				}
+			}
+			return names;
+		},
 	});
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
@@ -83,6 +97,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		locator: locator,
 		gitOptions: options.gitOptions,
 		cache: options.cache,
+		ignoredWorktreeFolders: options.ignoredWorktreeFolders,
 	});
 
 	service.register(provider, () => true);

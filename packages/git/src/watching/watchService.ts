@@ -113,6 +113,19 @@ export interface WatchServiceOptions {
 	 * `excludes` natively (`supportsExcludes`). Never called for one that doesn't. A rejection keeps the static set.
 	 */
 	readonly getIgnoredDirectories?: (repoPath: string) => Promise<readonly string[]>;
+	/**
+	 * Returns the absolute, normalized folders whose worktrees are ignored (see `GitProvider.getIgnoredWorktreeRoots`):
+	 * with a `readFile` and a `listSubdirectories`, the watcher's reports of their admin entries reach no session. Asked
+	 * once per common git dir, when its first session starts watching, and never without both. When absent, empty or
+	 * rejected, no admin entry is read.
+	 */
+	readonly getIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[]>;
+	/**
+	 * Returns the folders whose worktrees are ignored, relative to a repository's common git dir (see
+	 * `GitProvider.getIgnoredWorktreeFolders`): the `.git` watchers whose tree holds the common git dir leave
+	 * them unwatched. Asked once per common git dir, when its first session starts watching.
+	 */
+	readonly getIgnoredWorktreeFolders?: (repoPath: string) => readonly string[];
 	/** Opts into polling the watchers that report they can't be trusted. When absent, no watcher is asked. */
 	readonly polling?: WatchPollingOptions;
 	/**
@@ -122,6 +135,14 @@ export interface WatchServiceOptions {
 	 * config change concerns everyone, as before.
 	 */
 	readonly readFile?: (path: string) => Promise<Uint8Array>;
+	/**
+	 * Lists the names of a directory's subdirectories, never its files (a stray `.DS_Store` is no worktree's admin
+	 * entry); a rejection means it couldn't be listed, and one whose `code` is `ENOENT` or `FileNotFound` that the
+	 * directory isn't there. With it and a `readFile`, the admin entries of a repository's worktrees are listed and read
+	 * once as its first session starts watching, so the reports of an ignored worktree's (see
+	 * `getIgnoredWorktreeRoots`) reach no session, and the others aren't held back.
+	 */
+	readonly listSubdirectories?: (path: string) => Promise<readonly string[]>;
 }
 
 export interface WatchHooks {
@@ -207,9 +228,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private readonly defaultWorkingTreeMaxWaitMs?: number;
 	private readonly getIgnoreFilter?: (repoPath: string, gitDirPath: string) => GitIgnoreFilter | undefined;
 	private readonly getIgnoredDirectories?: (repoPath: string) => Promise<readonly string[]>;
+	private readonly getIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[]>;
+	private readonly getIgnoredWorktreeFolders?: (repoPath: string) => readonly string[];
 	private readonly provider: FileWatchingProvider;
 	private readonly poller: GitDirPoller | undefined;
 	private readonly readFile: ((path: string) => Promise<Uint8Array>) | undefined;
+	private readonly listSubdirectories: ((path: string) => Promise<readonly string[]>) | undefined;
 
 	private readonly sessionMap = new Map<string, SessionRecord>();
 	private readonly watchGroups = new Map<string, WatchGroup>();
@@ -226,7 +250,10 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.defaultWorkingTreeMaxWaitMs = options.defaultWorkingTreeMaxWaitMs;
 		this.getIgnoreFilter = options.getIgnoreFilter;
 		this.getIgnoredDirectories = options.getIgnoredDirectories;
+		this.getIgnoredWorktreeRoots = options.getIgnoredWorktreeRoots;
+		this.getIgnoredWorktreeFolders = options.getIgnoredWorktreeFolders;
 		this.readFile = options.readFile;
+		this.listSubdirectories = options.listSubdirectories;
 		if (options.polling != null) {
 			this.poller = new GitDirPoller(options.polling);
 		}
@@ -433,10 +460,22 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.poller?.resume();
 	}
 
-	private getOrCreateWatchGroup(commonGitDir: string): WatchGroup {
+	private getOrCreateWatchGroup(commonGitDir: string, repoPath: string): WatchGroup {
 		let group = this.watchGroups.get(commonGitDir);
 		if (group == null) {
-			group = new WatchGroup(commonGitDir, this.provider, this.poller, this.readFile);
+			group = new WatchGroup(
+				commonGitDir,
+				this.provider,
+				this.poller,
+				this.readFile,
+				this.listSubdirectories,
+				// Only a group that can read the admin entries waits on the folders; asking otherwise reads for nothing,
+				// and leaves a rejection unhandled
+				this.readFile != null && this.listSubdirectories != null
+					? this.getIgnoredWorktreeRoots?.(repoPath)
+					: undefined,
+				this.getIgnoredWorktreeFolders?.(repoPath),
+			);
 			this.watchGroups.set(commonGitDir, group);
 		}
 		return group;
@@ -455,7 +494,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private connectToWatchGroup(record: SessionRecord): void {
 		const { session, gitDir, watchHooks } = record;
 		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
-		const group = this.getOrCreateWatchGroup(commonGitDir);
+		const group = this.getOrCreateWatchGroup(commonGitDir, session.repoPath);
 
 		const hooks: WatchGroupHooks = {
 			onRepoChanged: (

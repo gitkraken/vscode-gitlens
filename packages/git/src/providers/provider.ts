@@ -115,6 +115,23 @@ export interface GitProvider {
 	 */
 	getCommonPath?(repoPath: string): string | undefined;
 	/**
+	 * The absolute, normalized folders under `repoPath`'s common git dir whose worktrees core acts as if didn't exist:
+	 * they are left out of worktree lists, and their add, remove, lock, unlock or move run through `notify: 'infer'`,
+	 * and the watcher's reports of their admin entries, raise no `worktrees` change (the typed worktree writes still
+	 * announce one). A host registers them, relative to the common git dir, for a tool's throwaway worktrees, which no
+	 * host shows (sync-tools' `sync-tools-worktrees`, for one). Each comes both as the common git dir is spelled and as
+	 * it resolves through symlinks, since git and such tools write resolved paths. `[]` when none is registered; rejects
+	 * when they can't be read, or not in time.
+	 */
+	getIgnoredWorktreeRoots?(repoPath: string): Promise<readonly string[]>;
+	/**
+	 * The folders of {@link getIgnoredWorktreeRoots}, relative to `repoPath`'s common git dir, as the host registered
+	 * them less any that isn't a literal path strictly inside it (see `sanitizeIgnoredWorktreeFolders`), read without
+	 * touching the disk: the watcher leaves them unwatched, unless one shares a directory the `.git` watch reads. `[]`
+	 * when none is registered.
+	 */
+	getIgnoredWorktreeFolders?(repoPath: string): readonly string[];
+	/**
 	 * Fires as the provider announces one of its own writes to the host (`hooks.repository.onChanged`), once for each
 	 * path it announces it for, sibling worktrees included — after the write finished and its caches were evicted.
 	 * `GitService` forwards it to its watch service, so the write's own file events aren't announced a second time.
