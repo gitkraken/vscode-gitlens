@@ -2014,6 +2014,83 @@ describe('WatchSession', () => {
 				session.dispose();
 			});
 
+			it("takes the report of a new ref directory pending before the announcement for the write's own", async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler');
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual([...received[0].refs], ['refs/heads/kepler/task-1']);
+				session.dispose();
+			});
+
+			it("takes the report of a ref directory arriving after the announcement for the write's own", async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler');
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/kepler', 'refs/heads/kepler/task-1']);
+				session.dispose();
+			});
+
+			it('keeps the report of a ref directory holding none of the announced refs an outside change', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['heads'], 'refs/heads/other');
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/kepler/task-1', 'refs/heads/other']);
+				session.dispose();
+			});
+
+			it('keeps the ref an earlier announcement made when a later one creates a ref beneath its name', async () => {
+				const { session, received } = createSession();
+
+				// Deleting `team` frees the name, so the next write can create `team/task`, whose directory is `team`
+				session.noteSelfWrite(['heads'], ['refs/heads/team']);
+				session.noteSelfWrite(['heads'], ['refs/heads/team/task']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/team', 'refs/heads/team/task']);
+				session.dispose();
+			});
+
+			it('keeps the ref an earlier announcement made once an outside report made its kind unannounced', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/team']);
+				session.pushRepoChanges(['heads'], 'refs/heads/other');
+				session.noteSelfWrite(['heads'], ['refs/heads/team/task']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), [
+					'refs/heads/other',
+					'refs/heads/team',
+					'refs/heads/team/task',
+				]);
+				session.dispose();
+			});
+
 			it('never replaces an injected change of the kind', async () => {
 				const { session, received } = createSession();
 
@@ -2142,6 +2219,24 @@ describe('WatchSession', () => {
 					}
 					session.dispose();
 				}
+			});
+
+			it("keeps a config report of a branch named like the directory of the write's branch an outside change", async () => {
+				const { session, received } = createSession();
+				const team = 'refs/heads/team';
+
+				// Unlike refs, the sections `branch.team` and `branch.team/task` can both exist
+				session.noteSelfWrite(['config', 'heads'], [`${team}/task`], confined);
+				session.pushRepoChanges(['config'], undefined, new Set([team]));
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.ok(received[0].changed('config'));
+				assert.ok(!received[0].announced.has('config'));
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['config']);
+				assert.deepStrictEqual(sorted(received[0].configBranches!), [team, `${team}/task`]);
+				assert.ok(received[0].mayHaveChangedConfig([team]));
+				session.dispose();
 			});
 
 			it("takes a config report of the write's branches for its own only within the debounce delay", async () => {
