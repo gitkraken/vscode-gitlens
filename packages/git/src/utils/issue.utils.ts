@@ -198,6 +198,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						startDate: iteration.startDate,
 						endDate: iteration.endDate,
 					})),
+		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
 	};
 	return serialized;
 }

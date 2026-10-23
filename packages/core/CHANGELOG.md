@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `viewer` to `IssueShape` and `Issue`: the current account as the issue's `author` and `assignees` identify it, where that can differ from the account `getCurrentAccount` returns. Set on Azure DevOps (and Azure DevOps Server) work items from every read (`listIssuesPage`, account-wide and repository-scoped, `getIssuesBatch`, `searchIssuesPage` and the point read) to the user's identity in the work item's organization (collection), read from its `ConnectionData` through the same per-credential, per-organization cache the pull request reads use, so a host matches "assigned to me" and "authored by me" correctly for accounts whose profile id differs from that identity. A work item that names no one, or whose organization's identity can't be read, gets none; absent for every other provider ([gitkraken/kepler#4291](https://github.com/gitkraken/kepler/issues/4291)) (git, plus/integrations)
+
 ## [0.16.4] - 2026-10-23
 
 ### Added

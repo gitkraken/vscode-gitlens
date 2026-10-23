@@ -815,7 +815,11 @@ suite('self-managed installation addresses through the public manager', () => {
 				targets: [{ key: 'a', owner: 'DefaultCollection', repo: 'repo', number: 7, project: 'project' }],
 			});
 			const paths = server.requests.slice(count).map(r => r.url.pathname);
-			assert.deepEqual(paths, ['/tfs/DefaultCollection/project/_apis/wit/workitems/7']);
+			// The collection's own connection data, which the row's `viewer` is read from (gitkraken/kepler#4291).
+			assert.deepEqual(paths.sort(), [
+				'/tfs/DefaultCollection/_apis/connectionData',
+				'/tfs/DefaultCollection/project/_apis/wit/workitems/7',
+			]);
 		} finally {
 			manager.dispose();
 		}
