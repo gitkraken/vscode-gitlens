@@ -65,6 +65,7 @@ import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 import { resolveBranchRemote } from './branchRemote.js';
 import { isGitBooleanFalse } from './config.js';
+import { readHeadFile } from './headFile.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
@@ -1444,13 +1445,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (!records.length) return { known: false };
 
 		if (branch == null) {
-			const current = await this.getCurrentBranchReference(repoPath, cancellation);
-			if (current == null) return { known: false };
-			if (current.remote || isDetachedHead(current.name)) {
-				return { known: true, push: undefined, upstream: undefined };
-			}
+			// The worktree's own HEAD file names its branch with no git process, and is as current as the file. What
+			// it can't answer (a reftable repository, or a branch that is a symbolic ref to another) falls back to resolving
+			// the reference
+			const head = await readHeadFile(this.context.fs, p => this.provider.config.getGitDir(p), repoPath);
+			if (head.kind === 'detached') return { known: true, push: undefined, upstream: undefined };
 
-			branch = current.name;
+			if (head.kind === 'branch') {
+				branch = head.ref;
+			} else {
+				const current = await this.getCurrentBranchReference(repoPath, cancellation);
+				if (current == null) return { known: false };
+				if (current.remote || isDetachedHead(current.name)) {
+					return { known: true, push: undefined, upstream: undefined };
+				}
+
+				branch = current.name;
+			}
 		}
 
 		const record = findRefRecord(records, branch.startsWith('refs/heads/') ? branch : `refs/heads/${branch}`);

@@ -31,7 +31,6 @@ import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath } from '@gitlens/utils/path.js';
-import { joinUriPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, PushForceOptions } from '../exec/git.js';
@@ -46,6 +45,7 @@ import {
 } from '../exec/git.js';
 import { resolveBranchRemote } from './branchRemote.js';
 import { parseGitBoolean } from './config.js';
+import { readHeadFile } from './headFile.js';
 
 /** The remotes a fetch read with their configured refspecs: one named remote, all of them, or a bare fetch's default */
 type FetchedRemotes = { remote: string } | 'all' | 'default';
@@ -1537,17 +1537,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	 * The full name of the branch HEAD is on, from the worktree's own `HEAD` file (`ref: refs/heads/main`): read around
 	 * a write, so it names the branch that write moved, whatever a switch outside core left in the caches; no git
 	 * runs. `undefined` when HEAD is detached, unreadable, or not a branch name git allows — a reftable repository's
-	 * `HEAD` file holds the placeholder `refs/heads/.invalid`, and its real HEAD is in the tables.
+	 * `HEAD` file holds the placeholder `refs/heads/.invalid`, and its real HEAD is in the tables — or names a branch
+	 * that is a symbolic ref to another, where the commit moves the target instead.
 	 */
 	private async readHeadBranchRef(repoPath: string): Promise<string | undefined> {
-		try {
-			const gitDir = await this.provider.config.getGitDir(repoPath);
-			const head = new TextDecoder().decode(await this.context.fs.readFile(joinUriPath(gitDir.uri, 'HEAD')));
-			const ref = /^ref:\s*(refs\/heads\/\S+)\s*$/.exec(head)?.[1];
-			return ref != null && !ref.split('/').some(part => part.startsWith('.')) ? ref : undefined;
-		} catch {
-			return undefined;
-		}
+		const head = await readHeadFile(this.context.fs, p => this.provider.config.getGitDir(p), repoPath);
+		return head.kind === 'branch' ? head.ref : undefined;
 	}
 
 	/** The caller has already announced the change — the conflict is what the failed run left behind */
