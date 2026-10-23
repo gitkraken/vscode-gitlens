@@ -220,7 +220,7 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.blocked?.total ?? 0;
 					if (total === 0) continue;
 
-					const reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' }[] = [];
+					const reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' | 'queue' }[] = [];
 					if (summary.blocked!.unassignedReviewers) {
 						reasons.push({
 							count: summary.blocked!.unassignedReviewers,
@@ -237,6 +237,12 @@ export class GlLaunchpadSummary extends LitElement {
 						reasons.push({
 							count: summary.blocked!.conflicts,
 							type: 'conflicts',
+						});
+					}
+					if (summary.blocked!.queueFailing) {
+						reasons.push({
+							count: summary.blocked!.queueFailing,
+							type: 'queue',
 						});
 					}
 
@@ -328,7 +334,7 @@ export class GlLaunchpadSummary extends LitElement {
 	}
 }
 
-function formatSingleBlockedReason(total: number, reason: 'reviewers' | 'checks' | 'conflicts'): string {
+function formatSingleBlockedReason(total: number, reason: 'reviewers' | 'checks' | 'conflicts' | 'queue'): string {
 	switch (reason) {
 		case 'reviewers':
 			return formatPlural(
@@ -351,12 +357,19 @@ function formatSingleBlockedReason(total: number, reason: 'reviewers' | 'checks'
 				),
 				{ count: total },
 			);
+		case 'queue':
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request is failing in the merge queue} other{{count} pull requests are failing in the merge queue}}',
+				),
+				{ count: total },
+			);
 	}
 }
 
 function formatMultipleBlockedReasons(
 	total: number,
-	reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' }[],
+	reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' | 'queue' }[],
 ): string {
 	const reasonMessages = reasons.map(reason => {
 		switch (reason.type) {
@@ -378,6 +391,13 @@ function formatMultipleBlockedReasons(
 					{
 						count: reason.count,
 					},
+				);
+			case 'queue':
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} is failing in the merge queue} other{{count} are failing in the merge queue}}',
+					),
+					{ count: reason.count },
 				);
 		}
 	});

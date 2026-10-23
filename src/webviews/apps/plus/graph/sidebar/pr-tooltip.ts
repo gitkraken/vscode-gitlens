@@ -158,6 +158,8 @@ export class GlPrTooltip extends LitElement {
 				return l10n.t('Needs Your Review');
 			case 'waiting-for-review':
 				return l10n.t('Waiting for Review');
+			case 'merge-queue':
+				return l10n.t('In Merge Queue');
 			case 'draft':
 				return l10n.t('Draft');
 			case 'other':

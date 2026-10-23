@@ -589,6 +589,7 @@ export type StoredLaunchpadGroup =
 	| 'follow-up'
 	| 'needs-review'
 	| 'waiting-for-review'
+	| 'merge-queue'
 	| 'draft'
 	| 'other'
 	| 'snoozed';

@@ -13,6 +13,7 @@ import {
 	getPullRequestIdentityFromMaybeUrl,
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
+	isPullRequestInMergeQueue,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
@@ -72,11 +73,11 @@ import { getLaunchpadItemKey, getViewerAccountKey } from './launchpadIdentity.js
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem.js';
 import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
 import {
+	getLaunchpadActionCategory,
 	launchpadActionCategories,
 	launchpadCategoryToGroupMap,
 	launchpadGroups,
 	prActionsMap,
-	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad.js';
 
 export function getSuggestedActions(
@@ -91,8 +92,9 @@ export function getSuggestedActions(
 		actions.push('start-review');
 	}
 
-	// Stacks are GitHub-only; `stack` is only ever populated for a stacked pull request there.
-	if (stack != null && stack.size > 1) {
+	// Stacks are GitHub-only; `stack` is only ever populated for a stacked pull request there. A queued pull
+	// request is held by the merge queue, so rebasing its stack would eject it (the Graph sheet withholds it too).
+	if (stack != null && stack.size > 1 && category !== 'queued' && category !== 'queue-failing') {
 		actions.push('rebase-stack');
 	}
 
@@ -135,8 +137,21 @@ type CachedLaunchpadPromise<T> = {
 };
 
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
+// Merge queues move in minutes, so a list holding a queued pull request goes stale far faster than an idle one
+const mergeQueueCacheExpiration = 1000 * 60 * 5; // 5 minutes
 const errorCacheExpiration = 1000 * 60; // 1 minute
 const inFlightReuseWindow = 1000 * 30; // 30 seconds
+
+/** Caps a pull request list's cache expiry while any of its pull requests is waiting in (or failing in) a merge queue */
+export function getPullRequestsCacheExpiresAt(
+	expiresAt: number,
+	pullRequests: readonly Pick<PullRequest, 'state' | 'mergeQueue'>[] | undefined,
+	now: number = Date.now(),
+): number {
+	if (pullRequests == null || !pullRequests.some(pr => isPullRequestInMergeQueue(pr))) return expiresAt;
+
+	return Math.min(expiresAt, now + mergeQueueCacheExpiration);
+}
 
 function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: boolean): CachedLaunchpadPromise<T> {
 	const cached: CachedLaunchpadPromise<T> = {
@@ -168,6 +183,12 @@ function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: bo
 			// and deserves the full cache window.
 			const result = value as { value?: unknown; error?: unknown } | undefined;
 			const hasValue = Array.isArray(result?.value) ? result.value.length > 0 : result?.value != null;
+			if (Array.isArray(result?.value)) {
+				cached.expiresAt = getPullRequestsCacheExpiresAt(
+					cached.expiresAt,
+					result.value as readonly Pick<PullRequest, 'state' | 'mergeQueue'>[],
+				);
+			}
 			settled(result?.error != null && !hasValue ? 'failed' : 'ok');
 		},
 		(ex: unknown) => settled(isCancellationError(ex) ? 'cancelled' : 'failed'),
@@ -588,14 +609,33 @@ export class LaunchpadProvider implements Disposable {
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 
-		if (!(await confirmPullRequestMerge(item.underlyingPullRequest))) return;
-
 		// By the pull request's own host: a self-managed id spans several, and `get(id)` alone answers with
 		// whichever was cached first, which would send this merge to a different server.
 		const integration = await this.container.integrations.get(integrationId, item.provider.domain);
 		if (integration == null) return;
 
-		await mergePullRequestWithProgress(integration, item.underlyingPullRequest);
+		// The item can be up to 30 minutes old, so confirm and merge against a fresh read of the pull request
+		// (its merge-queue and mergeability state may have moved), falling back to the cached one if the read fails
+		let pr = item.underlyingPullRequest;
+		try {
+			const { number, repository } = pr;
+			if (number != null) {
+				const fresh = await integration.getPullRequest(
+					{ key: `${repository.owner}/${repository.repo}`, owner: repository.owner, name: repository.repo },
+					String(number),
+					{ expiryOverride: true },
+				);
+				if (fresh != null && fresh.id === pr.id) {
+					pr = fresh;
+				}
+			}
+		} catch (ex) {
+			Logger.warn(`Unable to re-read pull request before merging; using the cached one: ${ex}`, 'merge');
+		}
+
+		if (!(await confirmPullRequestMerge(pr))) return;
+
+		await mergePullRequestWithProgress(integration, pr);
 		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
 		this.refresh();
 	}
@@ -947,11 +987,17 @@ export class LaunchpadProvider implements Disposable {
 			// Map from shared category label to local actionable category, and get suggested actions
 			const categorized = await Promise.allSettled(
 				actionableItems.map<Promise<LaunchpadItem>>(async item => {
-					let actionableCategory = sharedCategoryToLaunchpadActionCategoryMap.get(
+					let actionableCategory = getLaunchpadActionCategory(
 						item.suggestedActionCategory,
-					)!;
-					// category overrides
-					if (!options?.search && staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
+						item.underlyingPullRequest,
+					);
+					// category overrides — a queued pull request is moving whether or not it's stale, so the queue wins
+					if (
+						!isPullRequestInMergeQueue(item.underlyingPullRequest) &&
+						!options?.search &&
+						staleDate != null &&
+						item.updatedDate.getTime() < staleDate.getTime()
+					) {
 						actionableCategory = 'other';
 					}
 

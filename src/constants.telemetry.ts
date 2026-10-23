@@ -2841,6 +2841,7 @@ type LaunchpadGroups =
 	| 'follow-up'
 	| 'needs-review'
 	| 'waiting-for-review'
+	| 'merge-queue'
 	| 'draft'
 	| 'other'
 	| 'snoozed';

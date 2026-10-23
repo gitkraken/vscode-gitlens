@@ -54,6 +54,7 @@ import {
 } from '../../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import {
+	getMergeQueueActionCategory,
 	launchpadCategoryToGroupMap,
 	launchpadPriorityGroups,
 	sharedCategoryToLaunchpadActionCategoryMap,
@@ -1030,6 +1031,13 @@ export class GraphPanelsService {
 					} else if (item.failingCI) {
 						category = 'failed-checks';
 					}
+				}
+
+				// Last, so it outranks every demotion above: the queue's own verdict is objective, and a queued
+				// pull request isn't one you can act on as "Ready to Merge" or "Blocked" outside the queue.
+				const mergeQueueCategory = getMergeQueueActionCategory(pr);
+				if (mergeQueueCategory != null) {
+					category = mergeQueueCategory;
 				}
 
 				launchpadByPr.set(pr, {

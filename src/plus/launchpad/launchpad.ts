@@ -1,6 +1,7 @@
 import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
 import { commands, l10n, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
-import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
+import type { PullRequestMergeQueueEntry } from '@gitlens/git/models/pullRequest.js';
+import { formatPullRequestMergeQueueStatus, getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
@@ -596,7 +597,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			const author = i.author?.username;
-			const detail = getLaunchpadItemDetail(i.actionableCategory, fromNow(i.updatedDate), author);
+			const detail = getLaunchpadItemDetail(
+				i.actionableCategory,
+				fromNow(i.updatedDate),
+				author,
+				i.underlyingPullRequest.mergeQueue,
+			);
 
 			return {
 				type: 'item',
@@ -1009,6 +1015,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						detail: actionGroupMap.get(state.item.actionableCategory)![1](
 							state.item.author?.username ?? null,
 							fromNow(state.item.createdDate),
+							state.item.underlyingPullRequest.mergeQueue,
 						),
 						iconPath:
 							state.item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
@@ -1429,6 +1436,7 @@ function getLaunchpadItemInformationRows(
 	const information: (QuickPickItemOfT<LaunchpadAction> | DirectiveQuickPickItem)[] = [];
 	switch (item.actionableCategory) {
 		case 'mergeable':
+		case 'queued':
 			information.push(
 				createQuickPickSeparator(l10n.t('Status')),
 				getLaunchpadItemStatusInformation(item),
@@ -1437,6 +1445,7 @@ function getLaunchpadItemInformationRows(
 			break;
 		case 'failed-checks':
 		case 'conflicts':
+		case 'queue-failing':
 			information.push(createQuickPickSeparator(l10n.t('Status')), getLaunchpadItemStatusInformation(item));
 			break;
 		case 'unassigned-reviewers':
@@ -1563,6 +1572,7 @@ function getLaunchpadItemDetail(
 	actionCategory: LaunchpadActionCategory,
 	date: string,
 	author: string | null | undefined,
+	mergeQueue: PullRequestMergeQueueEntry | undefined,
 ): string {
 	switch (actionCategory) {
 		case 'mergeable':
@@ -1581,6 +1591,10 @@ function getLaunchpadItemDetail(
 			return author == null
 				? l10n.t('Resolve Conflicts • {date} by @unknown', { date: date })
 				: l10n.t('Resolve Conflicts • {date} by @{author}', { date: date, author: author });
+		case 'queue-failing':
+			return author == null
+				? l10n.t('Failing in Merge Queue • {date} by @unknown', { date: date })
+				: l10n.t('Failing in Merge Queue • {date} by @{author}', { date: date, author: author });
 		case 'needs-my-review':
 			return author == null
 				? l10n.t('Needs Your Review • {date} by @unknown', { date: date })
@@ -1597,6 +1611,13 @@ function getLaunchpadItemDetail(
 			return author == null
 				? l10n.t('Waiting for Review • {date} by @unknown', { date: date })
 				: l10n.t('Waiting for Review • {date} by @{author}', { date: date, author: author });
+		case 'queued': {
+			const status =
+				mergeQueue != null ? formatPullRequestMergeQueueStatus(mergeQueue) : l10n.t('Queued to merge');
+			return author == null
+				? l10n.t('{status} • {date} by @unknown', { status: status, date: date })
+				: l10n.t('{status} • {date} by @{author}', { status: status, date: date, author: author });
+		}
 		case 'draft':
 			return author == null
 				? l10n.t('Draft • {date} by @unknown', { date: date })
