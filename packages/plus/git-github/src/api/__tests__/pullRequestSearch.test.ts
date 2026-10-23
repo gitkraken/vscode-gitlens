@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestFilter, PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
@@ -58,13 +58,16 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				// that serves whatever the fixture holds passes either way, which is how the missing stack
 				// selection survived a green suite in the first place.
 				const selectsStack = query.includes('stack {');
+				const selectsMergeQueue = query.includes('mergeQueueEntry {');
 				const asSelected = (node: unknown): unknown => {
-					if (selectsStack || node == null || typeof node !== 'object') {
-						return node;
-					}
+					if (node == null || typeof node !== 'object') return node;
 
-					const { stack: _stack, stackEntry: _stackEntry, ...rest } = node as Record<string, unknown>;
-					return rest;
+					const { stack, stackEntry, mergeQueueEntry, ...rest } = node as Record<string, unknown>;
+					return {
+						...rest,
+						...(selectsStack ? { stack: stack, stackEntry: stackEntry } : {}),
+						...(selectsMergeQueue ? { mergeQueueEntry: mergeQueueEntry } : {}),
+					};
 				};
 				const data: Record<string, unknown> = {};
 				for (const key of Object.keys(variables).filter(key => key.endsWith('Search'))) {
@@ -498,6 +501,69 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		});
 
 		assert.doesNotMatch(getCalls()[0].query, /stack \{/);
+	});
+
+	// Same shape of risk as the stack selection: `mergeQueueEntry` is optional on the node type, so a facet that
+	// forgets it type-checks and silently reports a queued pull request as not queued.
+	test('selects the merge queue entry on every facet, not just the first', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: {
+				relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+				states: ['open', 'closed'],
+			},
+		});
+
+		const { query } = getCalls()[0];
+		const facets = Array.from(query.matchAll(/(\w+): search\(/g), m => m[1]);
+		assert.equal(facets.length, 4, 'two relationships x two states');
+		assert.equal(
+			(query.match(/mergeQueueEntry \{/g) ?? []).length,
+			facets.length,
+			'every facet selects the merge queue entry, or queued PRs silently read as not queued on that facet',
+		);
+	});
+
+	test('maps the selected merge queue entry onto the returned pull request', async () => {
+		const queued = {
+			...(prNode(1, '2024-01-02T00:00:00Z') as Record<string, unknown>),
+			mergeQueueEntry: {
+				state: 'QUEUED',
+				enqueuedAt: '2024-01-02T00:00:00Z',
+				estimatedTimeToMerge: null,
+				mergeQueue: { url: 'https://github.com/octo/repo/queue/main' },
+			},
+		};
+		const { config } = capture([
+			{ authorOpen: { issueCount: 2, nodes: [queued, prNode(2, '2024-01-01T00:00:00Z')] } },
+		]);
+
+		const result = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.deepEqual(result?.values[0].mergeQueue, {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2024-01-02T00:00:00Z'),
+			estimatedMergeAt: undefined,
+			url: 'https://github.com/octo/repo/queue/main',
+		});
+		assert.equal(result?.values[1].mergeQueue, undefined, 'a pull request not in the queue reports no entry');
+	});
+
+	// GitHub Enterprise Server's schema isn't verified to have `mergeQueueEntry`, and an unknown field fails the
+	// WHOLE query, so it is gated exactly like the stack selection.
+	test('omits the merge queue selection off github.com', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			baseUrl: 'https://github.acme.com/api/v3',
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.doesNotMatch(getCalls()[0].query, /mergeQueueEntry/);
 	});
 });
 

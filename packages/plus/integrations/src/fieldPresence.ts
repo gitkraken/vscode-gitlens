@@ -55,7 +55,9 @@ export type PullRequestFieldGroup =
 	/** `stack`. */
 	| 'stack'
 	/** `milestone`. */
-	| 'milestone';
+	| 'milestone'
+	/** `mergeQueue`. Only GitHub.com's is read. */
+	| 'mergeQueue';
 
 /** A group is `fetched` only when every field in it is. */
 export type IssueFieldGroup =
@@ -93,6 +95,7 @@ const pullRequestFieldGroups: readonly PullRequestFieldGroup[] = [
 	'authoredByMe',
 	'stack',
 	'milestone',
+	'mergeQueue',
 ];
 
 const issueFieldGroups: readonly IssueFieldGroup[] = [
@@ -142,8 +145,11 @@ function issuePresenceOf(
 	return presenceOf(issueFieldGroups, fetched, unavailable);
 }
 
-/** GitLens' own lite fragment (`fromGitHubPullRequestLite`). `stack` is only selected against github.com. */
-const gitHubLite = pullRequestPresenceOf(['description', 'stack', 'milestone']);
+/**
+ * GitLens' own lite fragment (`fromGitHubPullRequestLite`). `stack` and `mergeQueue` are only selected against
+ * github.com.
+ */
+const gitHubLite = pullRequestPresenceOf(['description', 'stack', 'milestone', 'mergeQueue']);
 
 /**
  * GitLens' own full fragment, which selects no reactions. The account-wide and batch reads return its rows as they
@@ -164,6 +170,7 @@ const gitHubFull = pullRequestPresenceOf([
 	'access',
 	'stack',
 	'milestone',
+	'mergeQueue',
 ]);
 
 const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldGroup> = {
@@ -202,7 +209,8 @@ const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldG
 };
 
 /**
- * GitHub Enterprise Server rejects the stack selection, so a read that carries `stack` on github.com can't here.
+ * GitHub Enterprise Server rejects the stack selection, and the merge-queue one isn't verified there, so neither is
+ * selected: a read that carries `stack` or `mergeQueue` on github.com can't here.
  * provider-apis also gates check runs on the server version, which this table can't see, so its rollup on the
  * repository-scoped read may come from commit statuses alone.
  */
@@ -211,6 +219,9 @@ const gitHubEnterprisePullRequests: PresenceTable<PullRequestProjection, PullReq
 		const enterprise: Record<PullRequestFieldGroup, FieldPresence> = { ...presence };
 		if (enterprise.stack === 'fetched') {
 			enterprise.stack = 'unavailable';
+		}
+		if (enterprise.mergeQueue === 'fetched') {
+			enterprise.mergeQueue = 'unavailable';
 		}
 		if (projection === 'repos') {
 			enterprise.checks = 'not-requested';
@@ -233,15 +244,16 @@ const gitHubIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 
 /*
  * Every other provider. None of them reads the viewer's access (`repository.accessLevel` is absent on every row),
- * resolves `authoredByMe` reliably, or has stacks, and only GitLab and Linear have milestones. provider-apis honors
- * neither `summary` nor `includeReviews` for them, so each `-summary` tag reads like its full one.
+ * resolves `authoredByMe` reliably, or has stacks, and only GitLab and Linear have milestones; none's merge queue
+ * (GitLab's merge trains included) is read yet. provider-apis honors neither `summary` nor `includeReviews` for them,
+ * so each `-summary` tag reads like its full one.
  */
 
 /**
  * GitLens' own GitLab reads: the point reads, and the free-text search. They select the description but leave it,
  * and everything else beyond the merge request's identity and refs, off the row.
  */
-const gitLabOwn = pullRequestPresenceOf([], ['stack']);
+const gitLabOwn = pullRequestPresenceOf([], ['stack', 'mergeQueue']);
 
 /**
  * provider-apis' merge request fragment and normalizer, which every other GitLab read goes through. It turns a null
@@ -262,7 +274,7 @@ function gitLabProviderApis(comments: boolean): Presence<PullRequestFieldGroup> 
 			'milestone',
 			...(comments ? (['comments'] as const) : []),
 		],
-		['stack'],
+		['stack', 'mergeQueue'],
 	);
 }
 
@@ -285,7 +297,13 @@ function gitLabPullRequestsFor(
  * Azure DevOps pull requests have no assignees (both converters fill `assignees` with the reviewers, which `reviews` and
  * `reviewRequests` already hold) and no reactions. Neither converter reads checks or counts.
  */
-const azureUnavailable: readonly PullRequestFieldGroup[] = ['assignees', 'reactions', 'stack', 'milestone'];
+const azureUnavailable: readonly PullRequestFieldGroup[] = [
+	'assignees',
+	'reactions',
+	'stack',
+	'milestone',
+	'mergeQueue',
+];
 /** Every list read: Azure truncates a listed pull request's description (to 400 characters). */
 const azureListed = pullRequestPresenceOf(['reviews', 'reviewRequests', 'mergeable'], azureUnavailable);
 /** The batch reads fetch each pull request by id, which returns the whole description. */
@@ -312,7 +330,13 @@ const azureServerPullRequests: PresenceTable<PullRequestProjection, PullRequestF
  * Bitbucket pull requests have no assignees or reactions. Neither provider-apis nor GitLens reads their build
  * statuses or mergeability: provider-apis fills a literal Mergeable, and GitLens' own converters leave it unset.
  */
-const bitbucketUnavailable: readonly PullRequestFieldGroup[] = ['assignees', 'reactions', 'stack', 'milestone'];
+const bitbucketUnavailable: readonly PullRequestFieldGroup[] = [
+	'assignees',
+	'reactions',
+	'stack',
+	'milestone',
+	'mergeQueue',
+];
 const bitbucketProviderApis = pullRequestPresenceOf(
 	['description', 'reviews', 'reviewRequests', 'comments'],
 	bitbucketUnavailable,

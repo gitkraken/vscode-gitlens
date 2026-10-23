@@ -1,11 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import { PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeQueueState, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../api/config.js';
 import { GitHubApi } from '../api/github.js';
 import type { GitHubTokenInfo } from '../api/token.js';
-import type { GitHubIssue, GitHubPullRequest, GitHubPullRequestLite } from '../models.js';
+import type { GitHubIssue, GitHubMergeQueueEntryState, GitHubPullRequest, GitHubPullRequestLite } from '../models.js';
 import { fromGitHubIssue, fromGitHubPullRequest, fromGitHubPullRequestLite } from '../models.js';
 
 /**
@@ -89,7 +89,7 @@ suite('fromGitHubIssue', () => {
  * populated. Only the last case may produce stack info.
  */
 function createPullRequestLite(
-	stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry'>,
+	stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry' | 'mergeQueueEntry'>,
 	milestone: GitHubPullRequestLite['milestone'] = null,
 ): GitHubPullRequestLite {
 	return {
@@ -235,6 +235,73 @@ function createFullPullRequest(
 		milestone: milestone,
 	};
 }
+
+/**
+ * `mergeQueueEntry` is selected only against github.com, like the stack fields, so the mapper sees it absent
+ * (Enterprise), `null` (github.com, not queued), or populated. Only the last may produce a queue entry.
+ */
+suite('fromGitHubPullRequestLite merge queue mapping', () => {
+	const queued = {
+		state: 'AWAITING_CHECKS' as GitHubMergeQueueEntryState,
+		enqueuedAt: '2026-07-30T02:00:00Z',
+		estimatedTimeToMerge: 900,
+		mergeQueue: { url: 'https://github.com/gitkraken/vscode-gitlens/queue/main' },
+	};
+
+	test('maps a queued pull request to its entry', () => {
+		const before = Date.now();
+		const pr = fromGitHubPullRequestLite(createPullRequestLite({ mergeQueueEntry: queued }), provider);
+		const after = Date.now();
+
+		// GitHub's estimate is seconds from now, fixed to a date at read time so a held entry counts down.
+		const estimatedMergeAt = pr.mergeQueue?.estimatedMergeAt?.getTime();
+		assert.ok(
+			estimatedMergeAt != null && estimatedMergeAt >= before + 900_000 && estimatedMergeAt <= after + 900_000,
+			`expected an estimate 900s after the read, got ${estimatedMergeAt}`,
+		);
+		assert.deepEqual(pr.mergeQueue, {
+			state: PullRequestMergeQueueState.AwaitingChecks,
+			enqueuedAt: new Date('2026-07-30T02:00:00Z'),
+			estimatedMergeAt: new Date(estimatedMergeAt),
+			url: 'https://github.com/gitkraken/vscode-gitlens/queue/main',
+		});
+		// Queue membership is extra data, never a state of its own.
+		assert.equal(pr.state, 'opened');
+	});
+
+	test('leaves a pull request that is not queued without an entry', () => {
+		const pr = fromGitHubPullRequestLite(createPullRequestLite({ mergeQueueEntry: null }), provider);
+
+		assert.equal(pr.mergeQueue, undefined);
+	});
+
+	test('leaves the entry off when the field was never selected (Enterprise)', () => {
+		const pr = fromGitHubPullRequestLite(createPullRequestLite(), provider);
+
+		assert.equal(pr.mergeQueue, undefined);
+	});
+
+	test('reports no estimate when GitHub has none, rather than zero', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({ mergeQueueEntry: { ...queued, estimatedTimeToMerge: null } }),
+			provider,
+		);
+
+		assert.notEqual(pr.mergeQueue, undefined);
+		assert.equal(pr.mergeQueue?.estimatedMergeAt, undefined);
+	});
+
+	test('keeps a pull request in a state GitHub adds later in the queue, as Queued', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({
+				mergeQueueEntry: { ...queued, state: 'SOMETHING_NEW' as GitHubMergeQueueEntryState },
+			}),
+			provider,
+		);
+
+		assert.equal(pr.mergeQueue?.state, PullRequestMergeQueueState.Queued);
+	});
+});
 
 /**
  * `latestReviews` is capped at 25 and `viewerLatestReview` is the escape hatch for the row a "needs my review"

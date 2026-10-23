@@ -314,6 +314,27 @@ function gqlPullRequestStackFragmentFor(options?: { baseUrl?: string }): string 
 	return isGitHubDotCom(options) ? gqlPullRequestStackFragment : '';
 }
 
+/**
+ * Merge-queue selection, appended alongside the stack one and for the same reason: GitHub Enterprise Server's schema
+ * isn't verified to have `mergeQueueEntry`, and an unknown field fails the whole query rather than the field. Always
+ * add it via `gqlPullRequestMergeQueueFragmentFor`, at every site that adds the stack selection.
+ */
+const gqlPullRequestMergeQueueFragment = `
+mergeQueueEntry {
+	state
+	position
+	enqueuedAt
+	estimatedTimeToMerge
+	mergeQueue {
+		url
+	}
+}
+`;
+
+function gqlPullRequestMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
+	return isGitHubDotCom(options) ? gqlPullRequestMergeQueueFragment : '';
+}
+
 /** One layer of a stack, as returned by the stacks REST API. Ordered bottom to top. */
 export interface GitHubStackLayer {
 	number: number;
@@ -1254,6 +1275,7 @@ export class GitHubApi {
 		pullRequest(number: $number) {
 			${gqlPullRequestLiteFragment}
 			${gqlPullRequestStackFragmentFor(options)}
+			${gqlPullRequestMergeQueueFragmentFor(options)}
 		}
 	}
 }`;
@@ -1335,6 +1357,7 @@ export class GitHubApi {
 				nodes {
 					${gqlPullRequestLiteFragment}
 					${gqlPullRequestStackFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options)}
 				}
 			}
 		}
@@ -1431,6 +1454,7 @@ export class GitHubApi {
 					nodes {
 						${gqlPullRequestLiteFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}
 			}
@@ -4075,6 +4099,7 @@ export class GitHubApi {
 				...on PullRequest {
 					${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 					${gqlPullRequestStackFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options)}
 				}
 			}
 		}
@@ -4675,6 +4700,7 @@ export class GitHubApi {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}`,
 			)
@@ -4945,6 +4971,7 @@ export class GitHubApi {
 						nodes {
 							${gqlPullRequestFragment}
 							${gqlPullRequestStackFragmentFor(options)}
+							${gqlPullRequestMergeQueueFragmentFor(options)}
 							headRepositoryOwner {
 								login
 							}
@@ -5739,6 +5766,7 @@ export class GitHubApi {
 					... on PullRequest {
 						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}
 			}`,
@@ -5902,6 +5930,7 @@ export class GitHubApi {
 			...on PullRequest {
 				${gqlPullRequestFragment}
 				${gqlPullRequestStackFragmentFor(options)}
+				${gqlPullRequestMergeQueueFragmentFor(options)}
 			}
 		}
 	}`;

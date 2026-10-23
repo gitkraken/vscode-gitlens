@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `mergeQueue` (`PullRequestMergeQueueEntry`) to pull requests read from GitHub.com, set while a pull request waits in its base branch's merge queue: its `state` (`PullRequestMergeQueueState`), `enqueuedAt`, `estimatedMergeAt` when GitHub gives an estimate (GitHub's time remaining, fixed to a date when the pull request is read, so a held entry counts down; it may be past on an entry held a while), and the queue's `url`. A queued pull request's `state` stays `opened`. Field presence gains a `mergeQueue` group, `fetched` wherever `stack` is and `unavailable` on GitHub Enterprise, which isn't asked for it, and on every other provider; absent `mergeQueue` means not queued only where that group is `fetched`. Adds `isPullRequestInMergeQueue` to tell whether an open pull request is queued. On GitHub.com a queued pull request's batch-read etag also covers its queue state and enqueue time, which GitHub changes without moving the update time, with no `etagIncludes` needed; the cheap check selects them there, and a pull request that isn't queued keeps exactly the etag it had before, under any `etagIncludes` (git, plus/git-github, plus/integrations)
+
 ## [0.33.0] - 2026-11-06
 
 ### Added

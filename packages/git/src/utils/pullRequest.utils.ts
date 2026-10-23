@@ -24,6 +24,12 @@ export function getStackedMergeCount(
 	return options?.wholeStack ? stack.size : stack.position;
 }
 
+/** Whether an open pull request is waiting in a merge queue. `false` also when the read didn't fetch the queue —
+ *  check the row's `mergeQueue` field presence before treating that as "not queued". */
+export function isPullRequestInMergeQueue(pr: PullRequestShape): boolean {
+	return pr.state === 'opened' && pr.mergeQueue != null;
+}
+
 /**
  * How each sort field is read off a {@link PullRequestShape}, for the filtered PR search, which MERGES its
  * relationship × state facets in the facade and so has to order the union itself instead of trusting the
@@ -245,6 +251,15 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 					size: value.stack.size,
 					position: value.stack.position,
 					baseRef: value.stack.baseRef,
+				}
+			: undefined,
+		mergeQueue: value.mergeQueue
+			? {
+					state: value.mergeQueue.state,
+					position: value.mergeQueue.position,
+					enqueuedAt: value.mergeQueue.enqueuedAt,
+					estimatedTimeToMerge: value.mergeQueue.estimatedTimeToMerge,
+					url: value.mergeQueue.url,
 				}
 			: undefined,
 	};

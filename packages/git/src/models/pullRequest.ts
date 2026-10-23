@@ -67,6 +67,12 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
 	readonly stack?: PullRequestStackInfo;
+	/**
+	 * The pull request's place in its base branch's merge queue. Absent means either not queued or not fetched — ask
+	 * `getPullRequestFieldPresence` (`@gitlens/integrations`) for the row's `mergeQueue` group to tell them apart.
+	 * Only GitHub.com reports one.
+	 */
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
 	/**
@@ -139,6 +145,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
 		public readonly milestone?: IssueMilestone | null,
+		public readonly mergeQueue?: PullRequestMergeQueueEntry,
 	) {}
 
 	get closed(): boolean {
@@ -179,6 +186,16 @@ export const enum PullRequestMergeableState {
 	Conflicting = 'Conflicting',
 	FailingChecks = 'FailingChecks',
 	BlockedByPolicy = 'BlockedByPolicy',
+}
+
+/** Where a queued pull request stands in its merge queue. Mirrors GitHub's `MergeQueueEntryState`. */
+export const enum PullRequestMergeQueueState {
+	Queued = 'Queued',
+	/** Waiting for its required checks to pass. */
+	AwaitingChecks = 'AwaitingChecks',
+	Mergeable = 'Mergeable',
+	Unmergeable = 'Unmergeable',
+	Locked = 'Locked',
 }
 
 export const enum PullRequestStatusCheckRollupState {
@@ -434,6 +451,21 @@ export interface PullRequestStackLayers {
 	baseRef: string;
 	/** The stack's layers, ordered bottom (closest to {@link baseRef}) to top. */
 	layers: PullRequestStackLayer[];
+}
+
+/** A pull request's entry in its base branch's merge queue. */
+export interface PullRequestMergeQueueEntry {
+	state: PullRequestMergeQueueState;
+	/** When the pull request joined the queue. */
+	enqueuedAt: Date;
+	/**
+	 * When the provider expects it to merge: its estimate of the time remaining, fixed to a date when the entry was
+	 * read, so it counts down while the entry is held rather than restarting at each render. Absent when the provider
+	 * gives none; may already be past on an entry held a while.
+	 */
+	estimatedMergeAt?: Date;
+	/** The merge queue's web URL. */
+	url?: string;
 }
 
 export interface PullRequestReviewer {

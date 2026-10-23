@@ -5,6 +5,7 @@ import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestMember,
+	PullRequestMergeQueueEntry,
 	PullRequestProjection,
 	PullRequestStackInfo,
 	PullRequestState,
@@ -12,6 +13,7 @@ import type {
 import {
 	PullRequest,
 	PullRequestMergeableState,
+	PullRequestMergeQueueState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
@@ -187,6 +189,20 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	stack?: GitHubPullRequestStack | null;
 	/** Only selected against github.com — see `stack`. */
 	stackEntry?: { position: number } | null;
+	/** Only selected against github.com — see `stack`. `null` when the pull request isn't queued. */
+	mergeQueueEntry?: GitHubMergeQueueEntry | null;
+}
+
+export type GitHubMergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED';
+
+/** GitHub's `MergeQueueEntry`, as GitLens selects it. */
+export interface GitHubMergeQueueEntry {
+	state: GitHubMergeQueueEntryState;
+	position: number;
+	enqueuedAt: string;
+	/** Seconds. */
+	estimatedTimeToMerge: number | null;
+	mergeQueue: { url: string } | null;
 }
 
 /** GitHub's stacked-pull-request object. Read-only; all stack mutations are REST-only. */
@@ -407,6 +423,7 @@ export function fromGitHubPullRequestLite(
 		undefined, // viewer
 		undefined, // viewerUnresolved
 		fromGitHubMilestone(pr.milestone),
+		fromGitHubPullRequestMergeQueueEntry(pr),
 	);
 }
 
@@ -434,6 +451,37 @@ function fromGitHubPullRequestStack(pr: GitHubPullRequestLite): PullRequestStack
 		position: pr.stackEntry.position,
 		baseRef: pr.stack.baseRefName,
 	};
+}
+
+/** Absent on GitHub Enterprise Server (never selected) and `null` when the pull request isn't queued. */
+function fromGitHubPullRequestMergeQueueEntry(pr: GitHubPullRequestLite): PullRequestMergeQueueEntry | undefined {
+	const entry = pr.mergeQueueEntry;
+	if (entry == null) return undefined;
+
+	return {
+		state: fromGitHubMergeQueueEntryState(entry.state),
+		position: entry.position,
+		enqueuedAt: new Date(entry.enqueuedAt),
+		estimatedTimeToMerge: entry.estimatedTimeToMerge ?? undefined,
+		url: entry.mergeQueue?.url,
+	};
+}
+
+/** A state GitHub adds later still means the pull request is in the queue, so it reads as Queued rather than
+ *  dropping the entry, which would report a queued pull request as not queued. */
+function fromGitHubMergeQueueEntryState(state: GitHubMergeQueueEntryState): PullRequestMergeQueueState {
+	switch (state) {
+		case 'AWAITING_CHECKS':
+			return PullRequestMergeQueueState.AwaitingChecks;
+		case 'MERGEABLE':
+			return PullRequestMergeQueueState.Mergeable;
+		case 'UNMERGEABLE':
+			return PullRequestMergeQueueState.Unmergeable;
+		case 'LOCKED':
+			return PullRequestMergeQueueState.Locked;
+		default:
+			return PullRequestMergeQueueState.Queued;
+	}
 }
 
 export function fromGitHubIssueOrPullRequestState(state: GitHubPullRequestState): PullRequestState {
@@ -643,6 +691,7 @@ export function fromGitHubPullRequest(
 		undefined, // viewer
 		undefined, // viewerUnresolved
 		fromGitHubMilestone(pr.milestone),
+		fromGitHubPullRequestMergeQueueEntry(pr),
 	);
 }
 
