@@ -57,10 +57,10 @@ catalog:
     # compiler API it needs.
     typescript: 7.0.2
     # scripts/generateTelemetryDocs.mjs drives the compiler API to expand telemetry types into docs/telemetry-events.md.
-    # 7.0 exposes no compiler API, so this pins the 7.1 nightly for its `unstable/sync` API — far faster than the
-    # 6.x JS compiler it replaced, but an unstable surface on a dated build; move to a stable 7.1 once one ships.
-    # Aliased rather than catalogued as `typescript` so the extension's own compiler is unaffected.
-    typescript-nightly: npm:typescript@7.1.0-dev.20260907.1
+    # 7.0 exposes no compiler API, so this pins the 7.1 beta for its `sync` API — far faster than the 6.x JS compiler
+    # it replaced. Aliased rather than catalogued as `typescript` so the extension's own compiler stays on stable;
+    # once a stable 7.1 ships, move `typescript` to it and drop this alias.
+    typescript-beta: npm:typescript@7.1.0-beta
     vscode-uri: 3.2.0
     yaml: 2.9.1
 
@@ -117,14 +117,28 @@ minimumReleaseAgeExclude:
     - rolldown-plugin-dts@0.28.5
     - tinyexec@1.3.1
     - tsdown@0.23.0
-    - '@typescript/typescript-darwin-arm64@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-darwin-x64@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-linux-arm64@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-linux-arm@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-linux-x64@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-win32-arm64@7.1.0-dev.20260907.1'
-    - '@typescript/typescript-win32-x64@7.1.0-dev.20260907.1'
-    - typescript@7.1.0-dev.20260907.1
+    - '@typescript/typescript-aix-ppc64@7.1.0-beta'
+    - '@typescript/typescript-android-arm64@7.1.0-beta'
+    - '@typescript/typescript-darwin-arm64@7.1.0-beta'
+    - '@typescript/typescript-darwin-x64@7.1.0-beta'
+    - '@typescript/typescript-freebsd-arm64@7.1.0-beta'
+    - '@typescript/typescript-freebsd-x64@7.1.0-beta'
+    - '@typescript/typescript-linux-arm@7.1.0-beta'
+    - '@typescript/typescript-linux-arm64@7.1.0-beta'
+    - '@typescript/typescript-linux-loong64@7.1.0-beta'
+    - '@typescript/typescript-linux-mips64el@7.1.0-beta'
+    - '@typescript/typescript-linux-ppc64@7.1.0-beta'
+    - '@typescript/typescript-linux-riscv64@7.1.0-beta'
+    - '@typescript/typescript-linux-s390x@7.1.0-beta'
+    - '@typescript/typescript-linux-x64@7.1.0-beta'
+    - '@typescript/typescript-netbsd-arm64@7.1.0-beta'
+    - '@typescript/typescript-netbsd-x64@7.1.0-beta'
+    - '@typescript/typescript-openbsd-arm64@7.1.0-beta'
+    - '@typescript/typescript-openbsd-x64@7.1.0-beta'
+    - '@typescript/typescript-sunos-x64@7.1.0-beta'
+    - '@typescript/typescript-win32-arm64@7.1.0-beta'
+    - '@typescript/typescript-win32-x64@7.1.0-beta'
+    - typescript@7.1.0-beta
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0

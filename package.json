@@ -31058,7 +31058,7 @@
 		"terser-webpack-plugin": "5.6.1",
 		"tinybench": "catalog:",
 		"typescript": "catalog:",
-		"typescript-nightly": "catalog:",
+		"typescript-beta": "catalog:",
 		"webpack": "5.111.0",
 		"webpack-bundle-analyzer": "5.3.3",
 		"webpack-cli": "7.2.3",
