@@ -85,8 +85,10 @@ export class GitService implements UnifiedDisposable {
 	private static _instance: GitService | undefined;
 
 	/**
-	 * `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch, and
-	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`).
+	 * `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch,
+	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`),
+	 * and with it `options.listSubdirectories` lets it drop the reports of ignored worktrees (see
+	 * `WatchServiceOptions.listSubdirectories`).
 	 * `options.verifyBaseRemeasure` is for tests only (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`)
 	 */
 	static createSingleton(
@@ -94,6 +96,7 @@ export class GitService implements UnifiedDisposable {
 		options?: {
 			watchPolling?: WatchPollingOptions;
 			readFile?: (path: string) => Promise<Uint8Array>;
+			listSubdirectories?: (path: string) => Promise<readonly string[]>;
 			verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 		},
 	): GitService {
@@ -105,6 +108,7 @@ export class GitService implements UnifiedDisposable {
 			watchingProvider,
 			options?.watchPolling,
 			options?.readFile,
+			options?.listSubdirectories,
 			options?.verifyBaseRemeasure,
 		);
 		GitService._instance = instance;
@@ -139,6 +143,7 @@ export class GitService implements UnifiedDisposable {
 		watchingProvider?: FileWatchingProvider,
 		watchPolling?: WatchPollingOptions,
 		readFile?: (path: string) => Promise<Uint8Array>,
+		listSubdirectories?: (path: string) => Promise<readonly string[]>,
 		verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
 	) {
 		if (watchingProvider != null) {
@@ -146,11 +151,16 @@ export class GitService implements UnifiedDisposable {
 				watchingProvider: watchingProvider,
 				polling: watchPolling,
 				readFile: readFile,
+				listSubdirectories: listSubdirectories,
 				getIgnoreFilter: (repoPath, gitDirPath) => {
 					return this.getProvider(repoPath)?.provider.getIgnoreFilter?.(repoPath, gitDirPath);
 				},
 				getIgnoredDirectories: repoPath =>
 					this.getProvider(repoPath)?.provider.getIgnoredDirectories?.(repoPath) ?? Promise.resolve([]),
+				getIgnoredWorktreeRoots: repoPath =>
+					this.getProvider(repoPath)?.provider.getIgnoredWorktreeRoots?.(repoPath) ?? Promise.resolve([]),
+				getIgnoredWorktreeFolders: repoPath =>
+					this.getProvider(repoPath)?.provider.getIgnoredWorktreeFolders?.(repoPath) ?? [],
 			});
 			this._summaries = new WorktreeSummaryService({
 				watchService: this._watchService,

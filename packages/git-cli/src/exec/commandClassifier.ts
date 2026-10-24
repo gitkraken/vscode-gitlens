@@ -392,9 +392,14 @@ export interface CommandChanges {
 	 * before and after the run to name it.
 	 */
 	movesHeadBranch?: boolean;
+	/**
+	 * The paths, as argv spells them, of the worktrees a `worktree add`, `remove`, `lock`, `unlock` or `move` acts on: a
+	 * move's source, then its destination. Unset when argv doesn't name them unambiguously.
+	 */
+	worktreePaths?: readonly string[];
 }
 
-type NamedChanges = Omit<CommandChanges, 'pathOverride' | 'sharedChanges'>;
+type NamedChanges = Omit<CommandChanges, 'pathOverride' | 'sharedChanges' | 'worktreePaths'>;
 
 const configHeadsChanges: readonly RepositoryChange[] = ['config', 'heads'];
 const headsChanges: readonly RepositoryChange[] = ['heads'];
@@ -714,6 +719,34 @@ function getWorktreeChanges(args: readonly string[]): NamedChanges | undefined {
 	return undefined;
 }
 
+const noOptions: ReadonlySet<string> = new Set();
+const worktreeForceFlags: ReadonlySet<string> = new Set(['-f', '--force']);
+const worktreeLockValued: ReadonlySet<string> = new Set(['--reason']);
+
+/** The `worktree` subcommands that act on worktrees argv names: their option tables and how many positionals they take */
+const worktreePathSubcommands: Readonly<
+	Record<string, readonly [flags: ReadonlySet<string>, valued: ReadonlySet<string>, min: number, max: number]>
+> = {
+	add: [worktreeAddFlags, worktreeAddValued, 1, 2],
+	remove: [worktreeForceFlags, noOptions, 1, 1],
+	lock: [noOptions, worktreeLockValued, 1, 1],
+	unlock: [noOptions, noOptions, 1, 1],
+	move: [worktreeForceFlags, noOptions, 2, 2],
+};
+
+/** See {@link CommandChanges.worktreePaths}; an `add`'s second positional is its commit-ish, not a path */
+function getWorktreePaths(args: readonly string[]): readonly string[] | undefined {
+	const [subcommand, ...rest] = args;
+	const spec = subcommand != null ? worktreePathSubcommands[subcommand] : undefined;
+	if (spec == null) return undefined;
+
+	const [flags, valued, min, max] = spec;
+	const positionals = parseArgs(rest, flags, valued)?.positionals;
+	if (positionals == null || positionals.length < min || positionals.length > max) return undefined;
+
+	return subcommand === 'move' ? positionals : positionals.slice(0, 1);
+}
+
 const checkoutFlags: ReadonlySet<string> = new Set([
 	'-q',
 	'--quiet',
@@ -948,10 +981,17 @@ export function getChangesForCommand(args: readonly string[]): CommandChanges | 
 			changes = changesByVerb[command.verb] ?? emptyChanges;
 		}
 	}
-	return {
+	const result: CommandChanges = {
 		...named,
 		changes: changes,
 		pathOverride: command.pathOverride,
 		sharedChanges: changes.filter(c => worktreeSharedChanges.has(c)),
 	};
+	if (command.verb === 'worktree') {
+		const worktreePaths = getWorktreePaths(command.rest);
+		if (worktreePaths != null) {
+			result.worktreePaths = worktreePaths;
+		}
+	}
+	return result;
 }

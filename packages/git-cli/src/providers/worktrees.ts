@@ -13,7 +13,7 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isWindows } from '@gitlens/utils/env/node/platform.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { basename, normalizePath } from '@gitlens/utils/path.js';
+import { basename, isDescendant, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
@@ -42,6 +42,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		private readonly git: Git,
 		private readonly cache: Cache,
 		private readonly provider: CliGitProviderInternal,
+		/**
+		 * Reads the absolute folders whose worktrees a repository's list leaves out, rejecting (or answering `undefined`)
+		 * when they can't be read; given only when folders are registered
+		 */
+		private readonly readIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[] | undefined>,
 	) {}
 
 	/**
@@ -184,6 +189,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			async (commonPath, cacheable, signal) => {
 				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
 				signal ??= cancellation;
+				// Read beside the list, which it doesn't depend on. `commonPath` is the main worktree, not the git dir,
+				// so the roots come from the repository's own git dir
+				const rootsRead = this.readIgnoredWorktreeRoots?.(repoPath).catch(() => undefined);
 				const [dataResult, branchesResult] = await Promise.allSettled([
 					this.git.run({ cwd: commonPath, cancellation: signal }, 'worktree', 'list', '--porcelain'),
 					this.provider.branches.getBranches(commonPath, undefined, signal),
@@ -202,12 +210,25 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						}
 					: undefined;
 
-				const worktrees = parseGitWorktrees(
+				let worktrees = parseGitWorktrees(
 					getSettledValue(dataResult)?.stdout,
 					commonPath,
 					getSettledValue(branchesResult)?.values ?? [],
 					getWorkspaceFolder,
 				);
+
+				if (rootsRead != null) {
+					const roots = await rootsRead;
+					if (roots == null) {
+						// The folders couldn't be read: an unfiltered list would keep ignored worktrees in the shared
+						// cache until the next change
+						cacheable.invalidate();
+					} else if (roots.length) {
+						worktrees = worktrees.filter(
+							w => !roots.some(root => isDescendant(normalizePath(w.path), root)),
+						);
+					}
+				}
 
 				// Older git prints a bare `locked` even when a reason exists; recover it from the admin dir
 				if (await this.git.supports('git:worktree:list:lock-reason')) return worktrees;

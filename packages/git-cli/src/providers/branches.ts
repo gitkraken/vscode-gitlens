@@ -2558,11 +2558,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				// A reflog that moved on since the ref list was read describes another move
 				if (entries[0].sha !== newTip) return false;
 
+				// No entry at the old tip can still mean the ref held it before its oldest entry, as after a clone, which
+				// logs nothing for a remote-tracking ref; that is checked against the value read below
 				const oldest = entries.findLastIndex(e => e.sha === oldTip);
-				if (oldest < 0) return false;
-
-				since = new Set(entries.slice(1, oldest + 1).map(e => e.sha));
+				since = new Set(entries.slice(1, oldest < 0 ? undefined : oldest + 1).map(e => e.sha));
 				logged = new Set(entries.map(e => e.sha));
+				if (oldest < 0) {
+					since.add(oldTip);
+					logged.add(oldTip);
+				}
 
 				// `--fork-point` also reads the value the ref held before its oldest entry, which no entry lists once the
 				// entries before it expired. `<ref>@{<count>}` names it; git refuses it when the oldest entry created the
@@ -2578,11 +2582,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (before.exitCode === 0) {
 					const sha = before.stdout.trim();
 					if (!sha) return undefined;
+					if (oldest < 0 && sha !== oldTip) return false;
 
 					logged.add(sha);
 				} else if (!before.stderr?.includes(' only has ')) {
 					return undefined;
-				} else if (!(await this.git.supports('git:rev-parse:reflog-oldest-old-value'))) {
+				} else if (oldest < 0 || !(await this.git.supports('git:rev-parse:reflog-oldest-old-value'))) {
 					return false;
 				}
 				logged.delete(newTip);

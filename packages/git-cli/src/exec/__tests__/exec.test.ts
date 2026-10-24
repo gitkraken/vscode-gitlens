@@ -819,6 +819,209 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified, []);
 	});
 
+	suite('ignored worktrees', () => {
+		const sha = '0123456789abcdef0123456789abcdef01234567';
+		const roots = [normalizePath(resolve('/repo/.git/sync-tools-worktrees'))];
+		const ignored = resolve('/repo/.git/sync-tools-worktrees/x');
+		// Inside the git dir, but under no folder the host registered: a user's own worktree
+		const inGitDir = resolve('/repo/.git/my-worktrees/x');
+
+		/** Binds a roots reader answering `answer` (an `Error` rejects), recording each path it reads */
+		function readIgnoredRoots(git: Git, answer: readonly string[] | undefined | Error): string[] {
+			const reads: string[] = [];
+			git.bindIgnoredWorktreeRootsReader(path => {
+				reads.push(path);
+				if (answer instanceof Error) return Promise.reject(answer);
+
+				return Promise.resolve(answer);
+			});
+			return reads;
+		}
+
+		test('adding, removing or locking a worktree under an ignored folder announces nothing', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				'--force',
+				'--end-of-options',
+				ignored,
+				sha,
+			);
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				'--force',
+				'--end-of-options',
+				ignored,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'lock', ignored);
+
+			assert.deepStrictEqual(notified, []);
+			assert.deepStrictEqual(reads, ['/repo', '/repo', '/repo']);
+		});
+
+		test('a worktree inside the git dir but under no ignored folder still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				inGitDir,
+				sha,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', inGitDir);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+			]);
+		});
+
+		test('a move announces nothing only when both ends are under an ignored folder', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'move',
+				ignored,
+				`${ignored}2`,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'move', ignored, '/wt');
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }]);
+		});
+
+		test('a relative worktree still announces worktrees, reading nothing', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, roots);
+
+			// Resolves under the ignored folder, yet git may match it to the trailing components of another worktree
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'lock',
+				'.git/sync-tools-worktrees/x',
+			);
+			await git.run({ cwd: ignored, errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', 'wt');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: [normalizePath(ignored)], changes: ['worktrees'] },
+			]);
+			assert.deepStrictEqual(reads, []);
+		});
+
+		test('adding a branch with a worktree under an ignored folder still announces the branch', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'-b',
+				'x',
+				ignored,
+				sha,
+			);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['heads'], named: { refs: ['refs/heads/x'] } },
+			]);
+		});
+
+		test('reads the ignored folders of the -C target, and tells cwd nothing either', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, [normalizePath(resolve('/other/.git/sync-tools-worktrees'))]);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'-C',
+				'/other',
+				'worktree',
+				'remove',
+				resolve('/other/.git/sync-tools-worktrees/x'),
+			);
+
+			assert.deepStrictEqual(reads, [normalizePath(resolve('/repo', '/other'))]);
+			assert.deepStrictEqual(notified, []);
+		});
+
+		test('a worktree outside every ignored folder still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				'--force',
+				'--end-of-options',
+				'/wt',
+				sha,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', '/wt');
+			// A sibling whose name only starts like the ignored folder
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				resolve('/repo/.git/sync-tools-worktreesx'),
+			);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+			]);
+		});
+
+		test('a path that leaves an ignored folder through `..` still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				`${resolve('/repo/.git/sync-tools-worktrees')}/../my-worktrees/x`,
+			);
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }]);
+		});
+
+		test('announces worktrees as before when no folder is registered or the folders are unknown', async () => {
+			for (const answer of [undefined, new Error('unreadable'), [], 'unbound'] as const) {
+				const { git, notified } = newGitWithBinder();
+				if (answer !== 'unbound') {
+					readIgnoredRoots(git, answer);
+				}
+
+				await git.run(
+					{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+					'worktree',
+					'remove',
+					'--force',
+					ignored,
+				);
+
+				assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }], String(answer));
+			}
+		});
+	});
+
 	suite('names', () => {
 		const otherPath = normalizePath(resolve('/repo', '/other'));
 		const moveHead: CommandChanges = {

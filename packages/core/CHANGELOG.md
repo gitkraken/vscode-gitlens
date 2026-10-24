@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `ignoredWorktreeFolders` to `CliGitProviderOptions` and `createCliGitService`: folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist, for a tool's throwaway worktrees (sync-tools' `sync-tools-worktrees`, say). They are matched under the common git dir as spelled and as it resolves through symlinks. They are left out of worktree lists, and adding, removing, locking, unlocking or moving one (by absolute path, in a `notify: 'infer'` run; the typed worktree writes still announce it) announces no `worktrees` change, so it no longer evicts every checkout's cached git results. The `.git` watchers leave the folders unwatched, so a throwaway checkout inside `.git` costs the watcher nothing. Nothing is ignored unless registered (git, git-cli)
+- Adds `listSubdirectories` to `GitService.createSingleton`'s options, which `createCliGitService` passes from the host's file system (directories only). With it and `readFile`, the watcher lists and reads a repository's worktree admin entries once as it starts, so an ignored worktree's reports, every HEAD move of a rebase in one included, reach no session, while a known worktree's reports are told at once without a read (git, git-cli)
+
+### Fixed
+
+- Fixes a write that creates or removes the directory holding its ref (the first `team/…` branch, say) also reaching watchers as an outside change of every branch: the watcher's report of that directory is now the write's own (git)
+- Fixes the first move of a base after a clone, or after the reflog lost the entries before it, re-measuring every worktree in full instead of in one shared read (git-cli)
+
 ## [0.16.5] - 2026-10-24
 
 ### Added
