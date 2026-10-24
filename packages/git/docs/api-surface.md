@@ -675,14 +675,15 @@ All in `remotes/`:
 
 ### Watching (`watching/`)
 
-| Export                   | Module                        | Description                             |
-| ------------------------ | ----------------------------- | --------------------------------------- |
-| `RepositoryWatchService` | `watching/watchService.js`    | Manages file watching sessions per repo |
-| `FileWatchingProvider`   | `watching/provider.js`        | Provider interface for file watching    |
-| `FileWatcherReliability` | `watching/provider.js`        | What a watcher reports it can see       |
-| `WatchPollingOptions`    | `watching/watchService.js`    | Opt-in polling of untrusted watchers    |
-| `GitIgnoreFilter`        | `watching/gitIgnoreFilter.js` | Git ignore pattern filtering            |
-| `WorktreeSummaryService` | `watching/worktreeSummary.js` | Cached, change-notifying worktree state |
+| Export                    | Module                        | Description                                 |
+| ------------------------- | ----------------------------- | ------------------------------------------- |
+| `RepositoryWatchService`  | `watching/watchService.js`    | Manages file watching sessions per repo     |
+| `FileWatchingProvider`    | `watching/provider.js`        | Provider interface for file watching        |
+| `FileWatcherReliability`  | `watching/provider.js`        | What a watcher reports it can see           |
+| `WatchPollingOptions`     | `watching/watchService.js`    | Opt-in polling of untrusted watchers        |
+| `GitIgnoreFilter`         | `watching/gitIgnoreFilter.js` | Git ignore pattern filtering                |
+| `WorktreeSummaryService`  | `watching/worktreeSummary.js` | Cached, change-notifying worktree state     |
+| `WorktreeSummarySnapshot` | `watching/worktreeSummary.js` | A summary with when its dirty flag was read |
 
 ### Parsers (`parsers/`)
 
