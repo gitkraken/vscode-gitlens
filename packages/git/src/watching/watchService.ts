@@ -735,17 +735,33 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		onEvent: (event: FileWatchEvent) => void,
 		excludes: readonly string[],
 	): { watcher: FileWatcher; reliability: FileWatcherReliability } {
+		let watcher: FileWatcher | undefined;
+		let started = false;
+		// Not given to `.git` watchers: a host places one for every checkout at startup, and each would cost a rescan
+		const onDidStart = (): void => {
+			// A watch that was live before `createWatcher` returned missed nothing
+			if (started || watcher == null) return;
+
+			started = true;
+			// The same rescan as a watch coming back, and only for the live watcher, never one already replaced or stopped
+			const entry = this.wtWatchers.get(repoPath);
+			if (entry?.watcher === watcher) {
+				entry.session.pushWorkingTreeChanges([], true);
+			}
+		};
+
 		if (this.poller == null) {
-			return {
-				watcher: this.provider.createWatcher(repoPath, '**', onEvent, { excludes: excludes }),
-				reliability: 'reliable',
-			};
+			watcher = this.provider.createWatcher(repoPath, '**', onEvent, {
+				excludes: excludes,
+				onDidStart: onDidStart,
+			});
+			return { watcher: watcher, reliability: 'reliable' };
 		}
 
-		let watcher: FileWatcher | undefined;
 		let reliability: FileWatcherReliability = 'reliable';
 		const options: FileWatcherOptions = {
 			excludes: excludes,
+			onDidStart: onDidStart,
 			onDidChangeReliability: state => {
 				if (watcher == null) {
 					reliability = state;
@@ -954,7 +970,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const previous = entry.ignoredDirectories;
 		if (previous.length === directories.length && previous.every(d => directories.includes(d))) return;
 
-		// New first, then the old one: the overlap can repeat an event (the session coalesces them), but never loses one
+		// New first, then the old one: the overlap can repeat an event (the session coalesces them), but never loses one.
+		// A provider that places its watch asynchronously leaves a gap until it goes live, which its `onDidStart` rescans
 		let created: { watcher: FileWatcher; reliability: FileWatcherReliability };
 		try {
 			created = this.createWorkingTreeWatcher(repoPath, entry.onEvent, [...workingTreeExcludes, ...directories]);
