@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.16.5] - 2026-10-24
+
 ### Added
 
 - Adds `viewer` to `IssueShape` and `Issue`: the current account as the issue's `author` and `assignees` identify it, where that can differ from the account `getCurrentAccount` returns. Set on Azure DevOps and Azure DevOps Server work items that name someone, from `listIssuesPage` (account-wide and repository-scoped), `getIssuesBatch` and the point read, and on Azure DevOps Server also from `searchIssuesPage`, to the user's identity in the work item's organization (collection). It's read from the organization's `ConnectionData`, with the same credential that read the rows, through the per-credential, per-organization cache the pull request reads use, so a host matches "assigned to me" and "authored by me" correctly for accounts whose profile id differs from that identity. A work item that names no one gets none, nor does one whose organization's identity can't be read within 10 seconds; such a row's `getIssuesBatch` etag never compares unchanged, so it's read in full again rather than kept without a viewer, and every Azure work item etag held from before this change is read in full once. Absent for every other provider ([gitkraken/kepler#4291](https://github.com/gitkraken/kepler/issues/4291)) (git, plus/integrations)
@@ -924,7 +926,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...HEAD
+[0.16.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...gitkraken:releases/core/v0.16.5
 [0.16.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...gitkraken:releases/core/v0.16.4
 [0.16.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...gitkraken:releases/core/v0.16.3
 [0.16.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...gitkraken:releases/core/v0.16.2
