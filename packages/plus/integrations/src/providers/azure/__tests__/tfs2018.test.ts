@@ -459,12 +459,13 @@ suite('TFS 2018 core REST compatibility', () => {
 				states: [GitIssueState.Open, GitIssueState.Closed],
 			});
 			const point = await h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, options);
+			// As the integration's point read asks: with the collection's own identity, which the row's people carry.
 			const native = await h.native.getIssue(
 				azureProvider,
 				token,
 				{ ...azureProject, resourceName: collection },
 				'42',
-				options,
+				{ ...options, viewer: () => Promise.resolve({ id: 'me' }) },
 			);
 			const search = await h.native.searchWorkItemsPage(azureProvider, token, collection, {
 				baseUrl: baseUrl,

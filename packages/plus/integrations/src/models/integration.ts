@@ -206,6 +206,12 @@ export interface IssueEtagFields {
 	 * compare unchanged.
 	 */
 	descriptionRule?: number;
+	/**
+	 * Azure DevOps only: the version of the rule a work item's `viewer` is set by ({@link azureWorkItemViewerRule}).
+	 * A full row that names someone but got no viewer (its organization's identity couldn't be read) leaves it out, so
+	 * it never compares unchanged and is read in full again rather than kept without one.
+	 */
+	viewerRule?: number;
 }
 
 /**
@@ -220,6 +226,13 @@ export interface IssueEtagFields {
  * until the work item changes.
  */
 export const azureWorkItemDescriptionRule = 1;
+
+/**
+ * {@link IssueEtagFields.viewerRule}: the version of the rule an Azure DevOps work item's `viewer` is set by, stamped
+ * on both sides of its etag, so every row a caller holds from before it was set is read in full once. 1: the user's
+ * identity in the work item's organization (gitkraken/kepler#4291).
+ */
+export const azureWorkItemViewerRule = 1;
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };

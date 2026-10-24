@@ -1514,7 +1514,7 @@ export function toIssueShape(
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
-		...(options?.viewer != null ? { viewer: options.viewer } : {}),
+		...(options?.viewer != null && issueNamesPeople(issue) ? { viewer: options.viewer } : {}),
 	};
 }
 
@@ -2000,10 +2000,14 @@ export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): b
 }
 
 /**
- * Whether `issue` names anyone the current account could be: its author or an assignee. A row naming no one needs no
- * viewer, as nothing on it can be matched against one.
+ * Whether `issue` names anyone the current account could be: its author or an assignee, by id. A row naming no one
+ * gets no viewer, as nothing on it can be matched against one. Takes a raw row or a mapped one, so every read decides
+ * alike.
  */
-export function issueNamesPeople(issue: ProviderIssue): boolean {
+export function issueNamesPeople(issue: {
+	readonly author?: { readonly id?: string | null } | null;
+	readonly assignees?: readonly { readonly id?: string | null }[] | null;
+}): boolean {
 	return Boolean(issue.author?.id || issue.assignees?.some(a => a.id));
 }
 
@@ -2083,7 +2087,7 @@ export function fromProviderIssue(
 		toIssueIterations(issue),
 		options?.projection,
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
-		options?.viewer,
+		issueNamesPeople(issue) ? options?.viewer : undefined,
 	);
 }
 

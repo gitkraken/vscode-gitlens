@@ -972,7 +972,8 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			const raw = await h.api.getAzureWorkItem(azureToken, scope, 1, {});
 			const [cheap] = await h.api.getAzureWorkItemsEtagFields(azureToken, scope, [1], {});
 			assert.ok(raw != null && cheap != null);
-			const full = toIssueShape(raw, azureProvider);
+			// As the batch read maps it: with the organization's own identity, which the row's people carry.
+			const full = toIssueShape(raw, azureProvider, { viewer: { id: 'me' } });
 
 			assert.equal(full?.state, closed ? 'closed' : 'opened');
 			assert.ok(full != null);

@@ -14,7 +14,11 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
-import { azureWorkItemDescriptionRule, pullRequestRevision } from '../../models/integration.js';
+import {
+	azureWorkItemDescriptionRule,
+	azureWorkItemViewerRule,
+	pullRequestRevision,
+} from '../../models/integration.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 import {
 	fromProviderPullRequestMergeableState,
@@ -22,6 +26,7 @@ import {
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
+	issueNamesPeople,
 	toIssueBodyField,
 } from '../models.js';
 import type { ProviderPullRequestReview } from '../pullRequestReviews.js';
@@ -767,7 +772,9 @@ export function fromAzureWorkItem(
 	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
 	const closedDate = parseAzureWorkItemDate(workItem.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined;
 	const normalizedState = azureWorkItemsStateCategoryToState(stateCategory, closedDate);
+	const author = fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']);
 	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
+	const assignees = assignee != null ? [assignee] : [];
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -778,8 +785,8 @@ export function fromAzureWorkItem(
 		new Date(workItem.fields['System.ChangedDate']),
 		normalizedState === 'closed',
 		normalizedState,
-		fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']),
-		assignee != null ? [assignee] : [],
+		author,
+		assignees,
 		undefined,
 		closedDate,
 		undefined,
@@ -796,7 +803,7 @@ export function fromAzureWorkItem(
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
 		description != null ? toIssueBodyField(description.field) : undefined,
-		viewer,
+		issueNamesPeople({ author: author, assignees: assignees }) ? viewer : undefined,
 	);
 }
 
@@ -1025,6 +1032,7 @@ export function toAzureWorkItemEtagFields(
 		state: state,
 		updatedDate: updatedDate,
 		descriptionRule: azureWorkItemDescriptionRule,
+		viewerRule: azureWorkItemViewerRule,
 	};
 }
 

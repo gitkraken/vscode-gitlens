@@ -971,7 +971,12 @@ export abstract class GitHostIntegration<
 		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
-		return (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
+		const value = (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
+		if (value == null) return undefined;
+
+		// The rows' viewers are only for the shapes this raw read is mapped to.
+		const { viewers: _viewers, ...result } = value;
+		return result;
 	}
 
 	/**
@@ -984,7 +989,16 @@ export abstract class GitHostIntegration<
 		repos: ProviderReposInput | SettledRepositoryScopes,
 		options?: MyIssuesForReposOptions,
 		connectionId?: string,
-	): Promise<IntegrationResult<(PagedResult<ProviderIssue> & { metadata?: CollectionMetadata }) | undefined>> {
+	): Promise<
+		IntegrationResult<
+			| (PagedResult<ProviderIssue> & {
+					metadata?: CollectionMetadata;
+					/** Each row's viewer, in order, where the provider sets one (see {@link getIssueViewers}). */
+					viewers?: ({ id: string } | undefined)[];
+			  })
+			| undefined
+		>
+	> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderIssueStates(options?.state);
@@ -1205,9 +1219,12 @@ export abstract class GitHostIntegration<
 
 				await this.confirmScopedAuthFailures(session, metadata);
 				this.resetRequestExceptionCount('getIssuesForRepos');
+				// With the session that read the rows, so a connection switched since can't lend them its identity.
+				const viewers = await this.getIssueViewers(session, data);
 				return {
 					value: {
 						values: data,
+						viewers: viewers,
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
@@ -1432,11 +1449,11 @@ export abstract class GitHostIntegration<
 		if (result.error != null) return { error: result.error, duration: result.duration };
 		if (result.value == null) return { value: undefined, duration: result.duration };
 
-		const viewers = await this.getIssueViewers(result.value.values, connectionId);
-		const values = result.value.values
-			.map((issue, i) => toIssueShape(issue, this, { projection: 'repos', viewer: viewers[i] }))
+		const { viewers, ...value } = result.value;
+		const values = value.values
+			.map((issue, i) => toIssueShape(issue, this, { projection: 'repos', viewer: viewers?.[i] }))
 			.filter((issue): issue is IssueShape => issue != null);
-		return { value: { ...result.value, values: values }, duration: result.duration };
+		return { value: { ...value, values: values }, duration: result.duration };
 	}
 
 	async getMyPullRequestsForRepos(
@@ -1895,13 +1912,16 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * The current account as each of `issues` identifies its members, in order, where that can differ from the
-	 * account itself: what a raw row's {@link IssueShape.viewer} is set to when it's mapped. Most hosts give a person
-	 * one id, so no row gets one; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`). Never
-	 * throws: a viewer that can't be resolved leaves the row without one.
+	 * The current account as each of `issues`, read with `session`, identifies its members, in order, where that can
+	 * differ from the account itself: what a raw row's {@link IssueShape.viewer} is set to when it's mapped. Only
+	 * Azure DevOps sets one, per organization (see `AzureDevOpsIntegrationBase`); `undefined` leaves every row without.
+	 * Never throws: a viewer that can't be resolved leaves the row without one.
 	 */
-	getIssueViewers(issues: readonly ProviderIssue[], _connectionId?: string): Promise<({ id: string } | undefined)[]> {
-		return Promise.resolve(issues.map(() => undefined));
+	protected getIssueViewers(
+		_session: ProviderAuthenticationSession,
+		_issues: readonly ProviderIssue[],
+	): Promise<({ id: string } | undefined)[] | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	/**
