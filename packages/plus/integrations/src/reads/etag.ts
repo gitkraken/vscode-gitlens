@@ -10,10 +10,12 @@ import type {
 } from '../models/integration.js';
 import {
 	azureWorkItemDescriptionRule,
+	azureWorkItemViewerRule,
 	issueEtagIncludes,
 	pullRequestEtagIncludes,
 	pullRequestRevision,
 } from '../models/integration.js';
+import { issueNamesPeople } from '../providers/models.js';
 
 /**
  * The etags the batch reads hand back (`getPullRequestsBatch`, `getIssuesBatch`): an opaque stamp of an item's
@@ -72,6 +74,11 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 	}
 	if (issue.provider != null && azureProviderIds.has(issue.provider.id)) {
 		fields.descriptionRule = azureWorkItemDescriptionRule;
+		// A row that names someone and has no viewer was read while its organization's identity couldn't be: it
+		// must not compare unchanged, or it would be kept without one until the work item changes.
+		if (issue.viewer != null || !issueNamesPeople(issue)) {
+			fields.viewerRule = azureWorkItemViewerRule;
+		}
 	}
 	return fields;
 }
@@ -139,6 +146,9 @@ export function issueEtag(fields: IssueEtagFields, includes: readonly IssueEtagI
 	// Only where it is set, so every other provider's etag stays exactly what it was.
 	if (fields.descriptionRule != null) {
 		state.push(fields.descriptionRule);
+	}
+	if (fields.viewerRule != null) {
+		state.push(fields.viewerRule);
 	}
 	if (covered.length === 0) return `is1:${JSON.stringify(state)}`;
 

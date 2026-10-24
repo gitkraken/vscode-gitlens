@@ -16,7 +16,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError, raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -404,6 +404,29 @@ export abstract class AzureDevOpsIntegrationBase<
 	private readonly _organizationUserIds = new PromiseCache<string, string | undefined>({ capacity: 50 });
 
 	/**
+	 * How long a read waits for the user's identity in an organization (its `ConnectionData`) before setting its rows'
+	 * viewer without it: a hung lookup must not hold up the rows it only enriches.
+	 */
+	protected organizationViewerTimeoutMs: number = 10 * 1000;
+
+	/**
+	 * The {@link getFilterUserId} lookups that outlived {@link organizationViewerTimeoutMs} and are still pending. A
+	 * read resolves no viewer for them straight away rather than waiting on the same hung request again; each is
+	 * dropped once its own request settles, never by an older one a re-sync left behind.
+	 */
+	private readonly _hungOrganizationUserIds = new Map<string, Promise<string | undefined>>();
+
+	/**
+	 * Bumped whenever the identity caches are dropped, so a lookup a re-sync left behind that times out afterwards
+	 * isn't recorded as hung: that would hide its replacement's answer until the obsolete request settles.
+	 */
+	private _organizationUserIdsGeneration = 0;
+
+	private organizationUserIdKey(session: ProviderAuthenticationSession, organization: string): string {
+		return JSON.stringify([this.discoveryKey(session), organization.toLowerCase()]);
+	}
+
+	/**
 	 * The current user's identity id in `organization` (Azure DevOps Server: the collection), which is what Azure's
 	 * creator and reviewer filters, and its pull requests' authors and reviewers, compare against. Never the
 	 * account's own id: Azure DevOps Services can know a person in an organization by an id other than their profile
@@ -415,7 +438,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		organization: string,
 	): Promise<string | undefined> {
 		return this._organizationUserIds.getOrCreate(
-			JSON.stringify([this.discoveryKey(session), organization.toLowerCase()]),
+			this.organizationUserIdKey(session, organization),
 			async cacheable => {
 				const id = await this.requestOrganizationUserId(session, organization);
 				// A response without an identity must not refuse later relationship searches from a cached miss.
@@ -488,6 +511,8 @@ export abstract class AzureDevOpsIntegrationBase<
 	override invalidateDiscoveryCaches(): void {
 		super.invalidateDiscoveryCaches();
 		this._organizationUserIds.clear();
+		this._hungOrganizationUserIds.clear();
+		this._organizationUserIdsGeneration++;
 		this._reviewerGroupIds.clear();
 	}
 
@@ -535,29 +560,26 @@ export abstract class AzureDevOpsIntegrationBase<
 	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no
 	 * organization or no one to match gets no viewer, nor does one in an organization whose id can't be read.
 	 */
-	override async getIssueViewers(
+	protected override getIssueViewers(
+		session: ProviderAuthenticationSession,
 		issues: readonly ProviderIssue[],
-		connectionId?: string,
 	): Promise<({ id: string } | undefined)[]> {
-		const organizations = issues.map(i => (issueNamesPeople(i) ? i.project?.namespace || undefined : undefined));
-		if (!organizations.some(o => o != null)) return organizations.map(() => undefined);
-
-		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
-		if (session == null) return organizations.map(() => undefined);
-
 		const viewerFor = this.getOrganizationViewers(session);
 		return Promise.all(
-			organizations.map(organization =>
-				organization != null ? viewerFor(organization) : Promise.resolve(undefined),
+			issues.map(i =>
+				issueNamesPeople(i) && i.project?.namespace
+					? viewerFor(i.project.namespace)
+					: Promise.resolve(undefined),
 			),
 		);
 	}
 
 	/**
 	 * For one read, the current user as each organization's pull requests and work items identify them (see
-	 * {@link getFilterUserId}). An organization whose id can't be read resolves `undefined`, since authorship is
-	 * optional enrichment and one organization's failed lookup must not fail the read or blank the others; it is
-	 * asked once per read, as a miss isn't cached.
+	 * {@link getFilterUserId}). An organization whose id can't be read, or not within
+	 * {@link organizationViewerTimeoutMs}, resolves `undefined`, since authorship is optional enrichment and one
+	 * organization's failed or hung lookup must not fail or hold up the read or blank the others; it is asked once per
+	 * read, as a miss isn't cached.
 	 */
 	protected getOrganizationViewers(
 		session: ProviderAuthenticationSession,
@@ -567,14 +589,42 @@ export abstract class AzureDevOpsIntegrationBase<
 			const key = organization.toLowerCase();
 			let viewer = viewers.get(key);
 			if (viewer == null) {
-				viewer = this.getFilterUserId(session, organization).then(
-					id => (id != null ? { id: id } : undefined),
-					() => undefined,
-				);
+				viewer = this.getOrganizationViewer(session, organization);
 				viewers.set(key, viewer);
 			}
 			return viewer;
 		};
+	}
+
+	/** One organization's viewer for {@link getOrganizationViewers}: bounded, never rejects. */
+	private async getOrganizationViewer(
+		session: ProviderAuthenticationSession,
+		organization: string,
+	): Promise<{ id: string } | undefined> {
+		const key = this.organizationUserIdKey(session, organization);
+		if (this._hungOrganizationUserIds.has(key)) return undefined;
+
+		const generation = this._organizationUserIdsGeneration;
+		const lookup = this.getFilterUserId(session, organization);
+		try {
+			const id = await raceWithTimeout(lookup, this.organizationViewerTimeoutMs);
+			return id != null ? { id: id } : undefined;
+		} catch (ex) {
+			if (
+				isCancellationError(ex) &&
+				generation === this._organizationUserIdsGeneration &&
+				!this._hungOrganizationUserIds.has(key)
+			) {
+				this._hungOrganizationUserIds.set(key, lookup);
+				const settled = () => {
+					if (this._hungOrganizationUserIds.get(key) === lookup) {
+						this._hungOrganizationUserIds.delete(key);
+					}
+				};
+				void lookup.then(settled, settled);
+			}
+			return undefined;
+		}
 	}
 
 	/**
@@ -1128,7 +1178,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			{
 				baseUrl: this.collectionApiBaseUrl(session, matchingProject.resourceName),
 				// The organization's own identity, which its work items carry, not necessarily the account's.
-				resolveViewer: () => this.getOrganizationViewers(session)(matchingProject.resourceName),
+				viewer: () => this.getOrganizationViewers(session)(matchingProject.resourceName),
 			},
 		);
 	}
@@ -1200,10 +1250,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			if (issue == null) return undefined;
 
-			const shape = toIssueShape(issue, this, {
-				projection: 'batch',
-				viewer: issueNamesPeople(issue) ? await viewer : undefined,
-			});
+			const shape = toIssueShape(issue, this, { projection: 'batch', viewer: await viewer });
 			if (shape == null) {
 				throw new Error(`Azure DevOps returned work item ${c.number} without a URL or change date`);
 			}
@@ -1998,11 +2045,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			const viewer = result.values.some(issueNamesPeople) ? await viewerFor(p.resourceName) : undefined;
 			return {
 				issues: result.values.map(i =>
-					fromProviderIssue(i, this, {
-						project: p,
-						projection: 'account',
-						viewer: issueNamesPeople(i) ? viewer : undefined,
-					}),
+					fromProviderIssue(i, this, { project: p, projection: 'account', viewer: viewer }),
 				),
 				// Azure work-item ids are organization-scoped. Include both org and project so the
 				// assigned/authored passes dedupe the same item without collapsing another org's item.
@@ -2160,6 +2203,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		this._projects = undefined;
 		this._accounts = undefined;
 		this._organizationUserIds.clear();
+		this._hungOrganizationUserIds.clear();
+		this._organizationUserIdsGeneration++;
 		this._reviewerGroupIds.clear();
 	}
 

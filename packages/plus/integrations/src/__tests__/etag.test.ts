@@ -333,7 +333,7 @@ suite('issueEtag', () => {
 			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 		]) {
 			const fields = issueEtagFieldsFromShape(shapeOf(providerId));
-			assert.equal(issueEtag(fields, []), 'is1:["opened",1767225600000,1]', providerId);
+			assert.equal(issueEtag(fields, []), 'is1:["opened",1767225600000,1,1]', providerId);
 			assert.notEqual(issueEtag(fields, []), issueEtag(issueBase, []), providerId);
 		}
 		for (const providerId of [GitCloudHostIntegrationId.GitHub, IssuesCloudHostIntegrationId.Jira]) {
@@ -343,6 +343,29 @@ suite('issueEtag', () => {
 				providerId,
 			);
 		}
+	});
+
+	test('an Azure DevOps work item that names someone but got no viewer never compares unchanged (gitkraken/kepler#4291)', () => {
+		const row = (viewer?: { id: string }, author?: { id: string }) =>
+			({
+				...issueBase,
+				provider: { id: GitCloudHostIntegrationId.AzureDevOps },
+				author: author,
+				assignees: [],
+				viewer: viewer,
+			}) as unknown as IssueShape;
+		// What the cheap check computes: a full row read today would carry its organization's viewer.
+		const cheap = issueEtag({ ...issueBase, descriptionRule: 1, viewerRule: 1 }, []);
+
+		assert.equal(issueEtag(issueEtagFieldsFromShape(row({ id: 'org-me' }, { id: 'org-me' })), []), cheap);
+		assert.equal(issueEtag(issueEtagFieldsFromShape(row()), []), cheap, 'a row naming no one needs no viewer');
+		assert.notEqual(
+			issueEtag(issueEtagFieldsFromShape(row(undefined, { id: 'org-me' })), []),
+			cheap,
+			"read while its organization's identity couldn't be: read in full again",
+		);
+		// A row held from before the viewer was set, under the description rule alone.
+		assert.notEqual(issueEtag({ ...issueBase, descriptionRule: 1 }, []), cheap);
 	});
 
 	/**

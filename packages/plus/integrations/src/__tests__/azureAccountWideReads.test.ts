@@ -1601,11 +1601,21 @@ suite('Azure DevOps organization identities (#6032)', () => {
 			workItemIn('Org Three', 'ops', 'three-id'),
 		];
 
-		const viewers = await azure.getIssueViewers(rows);
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+		const getIssueViewers = (
+			azure as unknown as {
+				getIssueViewers: (
+					session: ProviderAuthenticationSession,
+					issues: readonly ProviderIssue[],
+				) => Promise<({ id: string } | undefined)[]>;
+			}
+		).getIssueViewers.bind(azure);
+
+		const viewers = await getIssueViewers(session, rows);
 		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, undefined]);
 		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
 
-		await azure.getIssueViewers(rows);
+		await getIssueViewers(session, rows);
 		assert.deepEqual(
 			lookups.sort(),
 			['Org One', 'Org Three', 'Org Three', 'org two'],
