@@ -25,6 +25,8 @@ interface MockWatcher extends FileWatcher {
 	fire(event: FileWatchEvent): void;
 	/** Reports a reliability the way a provider would, after `createWatcher` returned */
 	report(state: FileWatcherReliability): void;
+	/** Reports the watch live the way a provider that places it asynchronously would */
+	start(): void;
 	disposed: boolean;
 }
 
@@ -61,6 +63,9 @@ function createMockFactory(
 					},
 					report: function (state: FileWatcherReliability): void {
 						options?.onDidChangeReliability?.(state);
+					},
+					start: function (): void {
+						options?.onDidStart?.();
 					},
 				},
 				() => {
@@ -1095,6 +1100,57 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 
+	describe('a watch placed asynchronously', () => {
+		it("rescans the working tree once as the working-tree watch goes live, and doesn't ask the .git watcher", async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultWorkingTreeDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: { paths: number; incomplete: boolean }[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push({ paths: e.paths.size, incomplete: e.incomplete }));
+
+			const gitDirWatchers = watchers.filter(w => w.basePath !== '/repo');
+			assert.ok(gitDirWatchers.length > 0);
+			for (const w of gitDirWatchers) {
+				assert.ok(!('onDidStart' in (w.options ?? {})), `watcher at ${w.basePath}`);
+			}
+
+			const workingTree = watchers.find(w => w.basePath === '/repo')!;
+			workingTree.start();
+			await delay(60);
+			assert.deepStrictEqual(received, [{ paths: 0, incomplete: true }]);
+
+			workingTree.start();
+			await delay(60);
+			assert.strictEqual(received.length, 1, 'only the first report counts');
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('asks the working-tree watcher with polling on too', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				polling: { stat: () => Promise.resolve(undefined) },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree();
+
+			const workingTree = watchers.find(w => w.basePath === '/repo');
+			assert.strictEqual(typeof workingTree?.options?.onDidStart, 'function');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+	});
+
 	describe('working-tree watcher excludes', () => {
 		const wtPath = '/repo';
 		const ignoredReadDelayMs = 700; // past the service's 500ms refresh debounce
@@ -1126,7 +1182,7 @@ describe('RepositoryWatchService', () => {
 
 			const [watcher, ...rest] = workingTreeWatchers(watchers);
 			assert.strictEqual(rest.length, 0);
-			assert.deepStrictEqual(watcher.options, { excludes: workingTreeExcludes });
+			assert.deepStrictEqual(watcher.options?.excludes, workingTreeExcludes);
 
 			wtSub.dispose();
 			handle.dispose();
@@ -1162,9 +1218,7 @@ describe('RepositoryWatchService', () => {
 
 			const created = workingTreeWatchers(watchers);
 			assert.strictEqual(created.length, 2);
-			assert.deepStrictEqual(created[1].options, {
-				excludes: [...workingTreeExcludes, 'dist', 'packages/app/out'],
-			});
+			assert.deepStrictEqual(created[1].options?.excludes, [...workingTreeExcludes, 'dist', 'packages/app/out']);
 			assert.ok(first.disposed);
 			assert.ok(!created[1].disposed);
 
@@ -1237,9 +1291,7 @@ describe('RepositoryWatchService', () => {
 
 			const created = workingTreeWatchers(watchers);
 			assert.strictEqual(created.length, 3);
-			assert.deepStrictEqual(created[2].options, {
-				excludes: [...workingTreeExcludes, 'dist', 'packages/a/out'],
-			});
+			assert.deepStrictEqual(created[2].options?.excludes, [...workingTreeExcludes, 'dist', 'packages/a/out']);
 			assert.ok(live.disposed);
 
 			wtSub.dispose();
@@ -1291,9 +1343,10 @@ describe('RepositoryWatchService', () => {
 			await delay(ignoredReadDelayMs);
 
 			assert.strictEqual(reads, 2);
-			assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
-				excludes: [...workingTreeExcludes, 'dist'],
-			});
+			assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options?.excludes, [
+				...workingTreeExcludes,
+				'dist',
+			]);
 
 			repoSub.dispose();
 			wtSub.dispose();
@@ -1377,7 +1430,7 @@ describe('RepositoryWatchService', () => {
 				assert.strictEqual(reads, 2, 'exactly one re-read');
 				const created = workingTreeWatchers(watchers);
 				assert.strictEqual(created.length, 2);
-				assert.deepStrictEqual(created[1].options, { excludes: [...workingTreeExcludes, 'dist'] });
+				assert.deepStrictEqual(created[1].options?.excludes, [...workingTreeExcludes, 'dist']);
 				assert.ok(live.disposed);
 				assert.deepStrictEqual(received, [], 'the ignored events never reach subscribers');
 
@@ -1493,9 +1546,10 @@ describe('RepositoryWatchService', () => {
 				pending[1](['dist']);
 				await delay(20);
 				assert.strictEqual(pending.length, 2);
-				assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
-					excludes: [...workingTreeExcludes, 'dist'],
-				});
+				assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options?.excludes, [
+					...workingTreeExcludes,
+					'dist',
+				]);
 
 				wtSub.dispose();
 				handle.dispose();
