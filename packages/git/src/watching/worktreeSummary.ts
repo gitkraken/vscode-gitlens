@@ -4,10 +4,13 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
+import { joinPaths } from '@gitlens/utils/path.js';
 import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { MergeTargetsChangeEvent } from '../cache.js';
 import type { GitTrackingUpstream } from '../models/branch.js';
+import type { GitRefTip } from '../models/reference.js';
 import type { GitDir } from '../models/repository.js';
 import type { AheadOfBase, AheadOfBaseTier } from '../providers/branches.js';
 import type { RepositoryService } from '../repositoryService.js';
@@ -80,6 +83,16 @@ export interface WorktreeSummary {
 	readonly stale: boolean;
 }
 
+export interface WorktreeSummarySnapshot {
+	readonly summary: WorktreeSummary;
+	/**
+	 * When {@link WorktreeSummary.dirty} was read (`Date.now()` as the read started), for a worktree without a
+	 * subscription, whose working tree nothing watches; `undefined` for a subscribed worktree, whose summary follows
+	 * its working tree
+	 */
+	readonly dirtyReadAt: number | undefined;
+}
+
 export interface WorktreeSummarySubscribeOptions {
 	/** Debounce for repo (`.git`) changes this subscriber asks of the watch session; the shortest across subscribers wins */
 	readonly delayMs?: number;
@@ -111,6 +124,12 @@ export interface WorktreeSummaryServiceOptions {
 	 * repository's summaries react. Without it, or when it returns `undefined`, every summary reacts.
 	 */
 	readonly getCommonPath?: (repoPath: string) => string | undefined;
+	/**
+	 * Reads a path's modification time (ms) and size; `undefined` when it doesn't exist, and a rejection means unknown.
+	 * With it, a read of a worktree without a subscription re-reads the dirty flag only when the worktree's index file
+	 * moved since the last one (or when asked to); without it, on every such read.
+	 */
+	readonly stat?: (path: string) => Promise<{ readonly mtime: number; readonly size: number } | undefined>;
 	/**
 	 * For tests only; production never passes it. Called whenever the base re-measure answers in place of a full base
 	 * read, with its answer and what a full `getAheadOfBase` of the same branch answers right after (`undefined` when
@@ -146,6 +165,9 @@ const maxConcurrentReadsPerRepository = 4;
 // Each read runs a couple of git processes side by side, so eight leave most of the process queue to foreground
 // commands and the CPU to the host; a hung read still frees its slot once git's command timeout ends it.
 const maxConcurrentReads = 8;
+// Worktrees without a subscription whose last read is kept to answer from: a host listing more than this re-reads the
+// least recently asked in full
+const maxUnwatchedReads = 256;
 
 const emptyRefs: readonly string[] = Object.freeze([]);
 
@@ -171,6 +193,82 @@ interface ReadResult {
 	readonly baseDefaultBranch: string | null | undefined;
 	/** Why the base read failed when the rest of the summary was read; the summary is then stale */
 	readonly baseError: unknown;
+	/** When the dirty read started; `undefined` when dirty wasn't read but kept from `previous` */
+	readonly dirtyReadAt: number | undefined;
+}
+
+/**
+ * What an unwatched read was read from, taken just before it, so a change landing during the read leaves these looking
+ * older than the disk and the next read re-reads what it moved. All of it comes from core's caches, which the `.git`
+ * watch drops on a HEAD or ref change, or from one stat.
+ */
+interface UnwatchedInputs {
+	/** HEAD as `getBranch` answered it: the branch (`undefined` when detached), detached, and HEAD's commit */
+	readonly branch: string | undefined;
+	readonly detached: boolean;
+	readonly sha: string | undefined;
+	/** The upstream's short name, which a `.git/config` write can change without moving any ref */
+	readonly upstream: string | undefined;
+	/**
+	 * The upstream's tips as a remote-tracking and as a local branch, since its short name doesn't say which; `undefined`
+	 * without an upstream
+	 */
+	readonly upstreamTips: string | undefined;
+	/**
+	 * The tip of each ref the base depends on, or for a remote's `HEAD` symref the ref it points at (see
+	 * {@link getBaseInput}); `undefined` for one that doesn't exist, which counts as unchanged only while it stays out,
+	 * and `null` for one that couldn't be read, which never does
+	 */
+	readonly baseTips: ReadonlyMap<string, string | null | undefined>;
+	/** The size and modification time of the worktree's index file; `undefined` when unknown (no stat, or it failed) */
+	readonly index: string | undefined;
+}
+
+/** The last read of a worktree without a subscription, answered from until its inputs move */
+interface UnwatchedRead {
+	readonly result: ReadResult;
+	readonly dirtyReadAt: number;
+	readonly inputs: UnwatchedInputs;
+	/** Read groups due on the next read whatever the inputs say: core's own write of the branch's merge target or base */
+	due: number;
+}
+
+/** What an unwatched read finds of its inputs before it reads */
+interface UnwatchedProbe {
+	readonly branch: string | undefined;
+	readonly detached: boolean;
+	readonly sha: string | undefined;
+	readonly upstream: string | undefined;
+	/** The ref tips' commits by full name (see {@link getTipsByName}) */
+	readonly tips: ReadonlyMap<string, string>;
+	/** Where the `HEAD` symref of each remote it read points, by remote name (see {@link readRemoteHeads}) */
+	readonly remoteHeads: Map<string, string | null | undefined>;
+	readonly index: string | undefined;
+}
+
+/** A read of a worktree without a subscription, which concurrent callers share */
+class UnwatchedFlight {
+	readonly abort = new AbortController();
+	/** Callers waiting for it; the read is aborted once none is */
+	callers = 0;
+	/** Read groups made due while it ran, carried into what it stores */
+	due = 0;
+	readonly promise: Promise<UnwatchedRead>;
+
+	constructor(
+		readonly key: string,
+		/** Whether it re-reads the dirty flag whatever its inputs say; a caller asking for that joins only such a read */
+		readonly probeDirty: boolean,
+		/** Set once no caller waits any longer (or the service is disposed), which aborts the read */
+		public disposed: boolean,
+		read: (flight: UnwatchedFlight) => Promise<UnwatchedRead>,
+	) {
+		// A turn later, once the caller registered it: a read failing before its first await must still find itself the
+		// registered one, to drop the last read
+		this.promise = Promise.resolve().then(() => read(this));
+		// Callers race it against their own cancellation, so once every one gave up its rejection has no other handler
+		this.promise.catch(noop);
+	}
 }
 
 interface SummaryEntry {
@@ -295,6 +393,18 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
  * silent, so a consumer can re-render on every event without diffing. A failed recompute keeps the last values and
  * sets `stale` (firing once); the next successful one clears it.
+ *
+ * **Worktrees without a subscription.** {@link getSummary} and {@link getSummarySnapshot} answer one from its last read
+ * (kept for the {@link maxUnwatchedReads} most recently asked), re-reading only the groups whose inputs moved since:
+ * HEAD's branch or commit reads all of them; the upstream's tip, or its name, reads `branch`; a ref the base depends on
+ * (where a remote's `HEAD` symref points, for one) reads `base`, re-measured from the previous one where that can
+ * answer; the config inputs its base read consulted read `branch` and the base when they changed; and the worktree's
+ * index file reads `dirty`. The inputs come from core's caches, so nothing moved means no git at all; only a `.git`
+ * watch of the worktree (or core's own writes) keeps them current, so a host must watch the `.git` of a worktree it
+ * asks about this way for others' changes to show. Its working tree is unwatched, so an edit that leaves the index
+ * alone goes unseen until `dirty` is read again: the snapshot says when that was, and `probeDirty` reads it anyway.
+ * Concurrent reads of a worktree share one, and take no read slot: each is a caller's foreground read, which never
+ * waits behind subscribed worktrees' runs.
  */
 export class WorktreeSummaryService implements UnifiedDisposable {
 	private readonly _onDidChangeSummary = new Emitter<WorktreeSummary>();
@@ -309,9 +419,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private activeReads = 0;
 	/** Entries waiting for a read slot, oldest first */
 	private readonly readWaiters = new Map<SummaryEntry, (acquired: boolean) => void>();
+	/** The last read of each worktree without a subscription, by repository key */
+	private readonly unwatchedReads = new LruMap<string, UnwatchedRead>(maxUnwatchedReads);
+	/** The read in flight for each worktree without a subscription, by repository key */
+	private readonly unwatchedFlights = new Map<string, UnwatchedFlight>();
 	private readonly watchService: RepositoryWatchService;
 	private readonly getRepository: (repoPath: string) => RepositoryService | undefined;
 	private readonly getCommonPath: ((repoPath: string) => string | undefined) | undefined;
+	private readonly stat: WorktreeSummaryServiceOptions['stat'];
 	private readonly verifyBaseRemeasure: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 	private readonly mergeTargetsListener: UnifiedDisposable | undefined;
 	private _disposed = false;
@@ -320,6 +435,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		this.watchService = options.watchService;
 		this.getRepository = options.getRepository;
 		this.getCommonPath = options.getCommonPath;
+		this.stat = options.stat;
 		this.verifyBaseRemeasure = options.verifyBaseRemeasure;
 		this.mergeTargetsListener = options.onDidChangeMergeTargets?.(e => this.onMergeTargetsChanged(e));
 	}
@@ -336,6 +452,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			resolve(false);
 		}
 		this.readWaiters.clear();
+		for (const flight of this.unwatchedFlights.values()) {
+			flight.disposed = true;
+			flight.abort.abort();
+		}
+		this.unwatchedFlights.clear();
+		this.unwatchedReads.clear();
 		this.mergeTargetsListener?.dispose();
 		for (const entry of [...this.entries.values()]) {
 			for (const subscription of [...entry.subscribers]) {
@@ -367,6 +489,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		if (isNew) {
 			if (!target.disposed) {
+				// The subscribed value supersedes the last unwatched read, and a read still in flight no longer stores one
+				this.unwatchedReads.delete(key);
+				this.unwatchedFlights.delete(key);
 				target.pending = allFields | baseConfigField;
 				target.running = this.start(target);
 			}
@@ -383,38 +508,279 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 	/**
 	 * Returns a worktree's summary. For a subscribed worktree, the cached value — after waiting for any run in flight
-	 * or pending; it rejects with the read's error when there is still no value. Otherwise a one-off full read that
-	 * is neither cached nor watched.
+	 * or pending; it rejects with the read's error when there is still no value. Otherwise the last read of it,
+	 * re-reading what moved since (see {@link getSummarySnapshot}).
 	 */
 	async getSummary(repoPath: string, cancellation?: AbortSignal): Promise<WorktreeSummary> {
 		const key = getRepositoryKey(repoPath);
 		const entry = this.entries.get(key);
-		if (entry == null) {
-			const repo = this.getRepository(key);
-			if (repo == null) throw new Error(`No repository found for '${key}'`);
+		if (entry == null) return (await this.getUnwatchedSnapshot(key, false, cancellation)).summary;
 
-			const result = await readSummary(
-				repo,
-				key,
-				allFields,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				cancellation,
-				this.verifyBaseRemeasure,
-			);
-			return result.summary;
-		}
+		return this.getSubscribedSummary(entry, cancellation);
+	}
 
+	/**
+	 * Returns a worktree's summary, with when its dirty flag was read. A subscribed worktree answers as
+	 * {@link getSummary} does, with `dirtyReadAt` `undefined`, since its summary follows its working tree. Any other
+	 * answers from its last read, re-reading only the groups whose inputs moved since (no git when none did), and in
+	 * full the first time, or after a failed or stale read. Its working tree is unwatched, so the dirty flag is re-read
+	 * only when the index file moved, or with `probeDirty`; a rejection drops the last read. Its inputs are core's
+	 * cached answers, which only a `.git` watch of the worktree (or core's own writes) keeps current.
+	 */
+	async getSummarySnapshot(
+		repoPath: string,
+		options?: { probeDirty?: boolean; cancellation?: AbortSignal },
+	): Promise<WorktreeSummarySnapshot> {
+		const key = getRepositoryKey(repoPath);
+		const entry = this.entries.get(key);
+		if (entry == null) return this.getUnwatchedSnapshot(key, options?.probeDirty ?? false, options?.cancellation);
+
+		return { summary: await this.getSubscribedSummary(entry, options?.cancellation), dirtyReadAt: undefined };
+	}
+
+	private async getSubscribedSummary(
+		entry: SummaryEntry,
+		cancellation: AbortSignal | undefined,
+	): Promise<WorktreeSummary> {
 		if (entry.running != null) {
 			await (cancellation != null ? raceWithSignal(entry.running, cancellation) : entry.running);
 		}
 		if (entry.disposed) throw new CancellationError();
 		if (entry.value != null) return entry.value;
 
-		throw entry.error ?? new Error(`No summary available for '${key}'`);
+		throw entry.error ?? new Error(`No summary available for '${entry.key}'`);
+	}
+
+	/** Joins the read in flight for `key`, or starts one; the read is aborted only once no caller waits for it */
+	private async getUnwatchedSnapshot(
+		key: string,
+		probeDirty: boolean,
+		cancellation: AbortSignal | undefined,
+	): Promise<WorktreeSummarySnapshot> {
+		if (cancellation?.aborted) throw new CancellationError();
+
+		let flight = this.getJoinableFlight(key);
+		if (probeDirty) {
+			// A read that won't re-read the dirty flag can't answer a caller that asked for it; wait it out, then read
+			// again
+			while (flight != null && !flight.probeDirty) {
+				const waited = flight;
+				try {
+					await (cancellation != null ? raceWithSignal(waited.promise, cancellation) : waited.promise);
+				} catch (ex) {
+					if (cancellation?.aborted) throw ex;
+				}
+				flight = this.getJoinableFlight(key);
+				// Settled, though its callers haven't all let go of it yet
+				if (flight === waited) {
+					flight = undefined;
+				}
+			}
+
+			// A subscription that started meanwhile answers instead, its summary following the working tree
+			const entry = this.entries.get(key);
+			if (entry != null) {
+				return { summary: await this.getSubscribedSummary(entry, cancellation), dirtyReadAt: undefined };
+			}
+		}
+
+		if (flight == null) {
+			flight = new UnwatchedFlight(key, probeDirty, this._disposed, f => this.readUnwatched(f));
+			if (!this._disposed) {
+				this.unwatchedFlights.set(key, flight);
+			}
+		}
+
+		const current = flight;
+		current.callers++;
+		try {
+			const read = await (cancellation != null ? raceWithSignal(current.promise, cancellation) : current.promise);
+			return { summary: read.result.summary, dirtyReadAt: read.dirtyReadAt };
+		} finally {
+			current.callers--;
+			// Settled, or every caller gave up; either way a later caller starts a read of its own. Aborted even once
+			// another read or a subscription took its place, which no caller waits on any longer
+			if (current.callers === 0) {
+				if (this.unwatchedFlights.get(key) === current) {
+					this.unwatchedFlights.delete(key);
+				}
+				current.disposed = true;
+				current.abort.abort();
+			}
+		}
+	}
+
+	/**
+	 * The read in flight for `key`, unless core wrote a merge target or base while it ran: it may have read the stored
+	 * values before the write, and a caller after an awaited write sees them, as one of a subscribed worktree does
+	 */
+	private getJoinableFlight(key: string): UnwatchedFlight | undefined {
+		const flight = this.unwatchedFlights.get(key);
+		return flight?.due === 0 ? flight : undefined;
+	}
+
+	private async readUnwatched(flight: UnwatchedFlight): Promise<UnwatchedRead> {
+		const { key } = flight;
+		const signal = flight.abort.signal;
+		if (flight.disposed) throw new CancellationError();
+
+		// A stale read's fields can't be trusted (see `queue`), so it is read again in full
+		let last = this.unwatchedReads.get(key);
+		if (last?.result.summary.stale) {
+			last = undefined;
+		}
+
+		try {
+			const repo = this.getRepository(key);
+			if (repo == null) throw new Error(`No repository found for '${key}'`);
+
+			// Core drops every remote's cached `HEAD` symref on any ref change, so after the first read only those the
+			// base depends on are read, unless the base is read again
+			const headRemotes = last != null ? getHeadRemotes(last.result.summary.baseDependsOn) : undefined;
+			const probe = await this.probeUnwatched(repo, headRemotes, signal);
+			if (flight.disposed) throw new CancellationError();
+
+			let fields: number;
+			let baseMoves: Set<string> | undefined;
+			if (last == null) {
+				// The config inputs too, so a later base move can be re-measured against the key they had
+				fields = allFields | baseConfigField;
+			} else {
+				fields = last.due;
+				const { inputs } = last;
+				const previous = last.result.summary;
+				if (probe.branch !== inputs.branch || probe.detached !== inputs.detached || probe.sha !== inputs.sha) {
+					// The branch read only widens to the rest for a different branch, but a commit moves the base count
+					// and can leave the working tree clean
+					fields |= allFields;
+				} else {
+					if (probe.upstream !== inputs.upstream) {
+						// The config inputs too, which read the base again when the upstream's identity changed
+						fields |= branchField | baseConfigField;
+					} else if (getUpstreamTips(probe.tips, probe.upstream) !== inputs.upstreamTips) {
+						fields |= branchField;
+					}
+					for (const ref of previous.baseDependsOn) {
+						// An unreadable value is unknown, so it moved
+						const value = getBaseInput(probe, ref);
+						if (value !== null && value === inputs.baseTips.get(ref)) continue;
+
+						baseMoves ??= new Set();
+						baseMoves.add(ref);
+					}
+					if (baseMoves != null) {
+						fields |= baseMoveField;
+					}
+					// A config write the base read consulted (another branch's tracking, a remote, the default branch)
+					// moves no ref; one cached read, as a subscribed worktree's config change reads
+					if (
+						(fields & baseConfigField) === 0 &&
+						last.result.baseConfigKey != null &&
+						repo.branches.getAheadOfBase != null &&
+						(probe.detached || probe.branch != null)
+					) {
+						const configKey = getBaseConfigKey(await readBaseConfig(repo, signal), previous);
+						if (flight.disposed) throw new CancellationError();
+
+						// An unreadable config is unknown, not changed
+						if (configKey != null && configKey !== last.result.baseConfigKey) {
+							fields |= branchField | baseConfigField;
+						}
+					}
+				}
+				if (flight.probeDirty || probe.index == null || probe.index !== inputs.index) {
+					fields |= dirtyField;
+				}
+				if (fields === 0) {
+					this.unwatchedReads.touch(key);
+					return last;
+				}
+			}
+
+			// A base read can come to depend on any remote's `HEAD`, so the rest are read too, before it like the other
+			// inputs
+			if (headRemotes != null && (fields & (baseField | baseKeysField | baseConfigField | baseMoveField)) !== 0) {
+				await readRemoteHeads(repo, probe.remoteHeads, undefined, signal);
+				if (flight.disposed) throw new CancellationError();
+			}
+
+			// No read slot: like the one-off read it replaces, this is a caller's foreground read, which never waits
+			// behind subscribed worktrees' runs
+			let result = await readSummary(
+				repo,
+				key,
+				fields,
+				last?.result.summary,
+				last?.result.baseKeys,
+				last?.result.baseConfigKey,
+				last?.result.baseDefaultBranch,
+				baseMoves,
+				signal,
+				this.verifyBaseRemeasure,
+			);
+
+			// Keep the summary the caller already has when nothing in it changed
+			const kept = last?.result.summary;
+			if (kept != null && summariesEqual(kept, result.summary)) {
+				result = { ...result, summary: kept };
+			}
+			const read: UnwatchedRead = {
+				result: result,
+				// Without a last read every group was read, dirty included
+				dirtyReadAt: result.dirtyReadAt ?? last?.dirtyReadAt ?? Date.now(),
+				inputs: toUnwatchedInputs(probe, result.summary),
+				due: flight.due,
+			};
+			if (this.unwatchedFlights.get(key) === flight && !this.entries.has(key)) {
+				this.unwatchedReads.set(key, read);
+			}
+			return read;
+		} catch (ex) {
+			if (!isCancellationError(ex) && this.unwatchedFlights.get(key) === flight) {
+				this.unwatchedReads.delete(key);
+			}
+			throw ex;
+		}
+	}
+
+	/**
+	 * Reads an unwatched read's inputs: cached answers but for the index file's stat (see {@link UnwatchedInputs}), with
+	 * the `HEAD` symrefs of `remotes` (every remote's when `undefined`)
+	 */
+	private async probeUnwatched(
+		repo: RepositoryService,
+		remotes: ReadonlySet<string> | undefined,
+		signal: AbortSignal,
+	): Promise<UnwatchedProbe> {
+		const remoteHeads = new Map<string, string | null | undefined>();
+		const [current, tips, gitDir] = await Promise.all([
+			repo.branches.getBranch(undefined, undefined, signal),
+			repo.refs.getRefTips(undefined, signal),
+			getGitDir(repo),
+			readRemoteHeads(repo, remoteHeads, remotes, signal),
+		]);
+
+		let index: string | undefined;
+		const stat = this.stat;
+		if (stat != null && gitDir != null) {
+			try {
+				const stats = await stat(joinPaths(gitDir.uri.fsPath, 'index'));
+				index = stats != null ? `${stats.size}:${stats.mtime}` : '';
+			} catch {
+				index = undefined;
+			}
+		}
+
+		const detached = current?.detached ?? false;
+		return {
+			branch: detached ? undefined : current?.name || undefined,
+			detached: detached,
+			sha: current?.sha,
+			upstream: current?.upstream?.name,
+			tips: getTipsByName(tips),
+			remoteHeads: remoteHeads,
+			index: index,
+		};
 	}
 
 	getResourceUsage(): ResourceUsage {
@@ -529,11 +895,31 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			const value = entry.value;
 			if (value != null && (value.branch == null || (e.refs != null && !e.refs.has(value.branch)))) continue;
 
-			const commonPath = this.getCommonPath?.(entry.key);
-			if (commonPath != null && commonPath !== e.repoPath) continue;
+			if (!this.isInRepository(entry.key, e.repoPath)) continue;
 
 			this.queue(entry, baseKeysField);
 		}
+
+		// No ref moves for such a write, so a worktree without a subscription re-reads the stored values on its next read
+		for (const read of this.unwatchedReads.values()) {
+			const value = read.result.summary;
+			if (value.branch == null || (e.refs != null && !e.refs.has(value.branch))) continue;
+			if (!this.isInRepository(value.repoPath, e.repoPath)) continue;
+
+			read.due |= baseKeysField;
+		}
+		// One in flight may have read them before the write, so it takes no more callers; its branch isn't known yet,
+		// so any of the repository's
+		for (const flight of this.unwatchedFlights.values()) {
+			if (!this.isInRepository(flight.key, e.repoPath)) continue;
+
+			flight.due |= baseKeysField;
+		}
+	}
+
+	private isInRepository(key: string, commonPath: string): boolean {
+		const path = this.getCommonPath?.(key);
+		return path == null || path === commonPath;
 	}
 
 	private queue(entry: SummaryEntry, fields: number, baseMoves?: readonly string[]): void {
@@ -788,7 +1174,12 @@ async function readSummary(
 		fields |= allFields;
 	}
 
-	let dirtyRead = fields & dirtyField ? readDirty(repo, signal) : undefined;
+	let dirtyReadAt: number | undefined;
+	const startDirtyRead = (): Promise<boolean> => {
+		dirtyReadAt = Date.now();
+		return readDirty(repo, signal);
+	};
+	let dirtyRead = fields & dirtyField ? startDirtyRead() : undefined;
 
 	let branch = previous?.branch;
 	let detached = previous?.detached ?? false;
@@ -807,7 +1198,7 @@ async function readSummary(
 
 		if (previous != null && (branch !== previous.branch || detached !== previous.detached)) {
 			fields |= baseField;
-			dirtyRead ??= readDirty(repo, signal);
+			dirtyRead ??= startDirtyRead();
 		}
 	}
 
@@ -948,6 +1339,121 @@ async function readSummary(
 		baseConfigKey: baseConfigKey,
 		baseDefaultBranch: baseDefaultBranch,
 		baseError: baseError,
+		dirtyReadAt: dirtyReadAt,
+	};
+}
+
+async function getGitDir(repo: RepositoryService): Promise<GitDir | undefined> {
+	try {
+		return await repo.config.getGitDir?.();
+	} catch (ex) {
+		if (isCancellationError(ex)) throw ex;
+
+		return undefined;
+	}
+}
+
+/** Each ref list's tips by full name, built once per list, which core's cache shares across a repository's worktrees */
+const tipsByNameCache = new WeakMap<readonly GitRefTip[], ReadonlyMap<string, string>>();
+
+function getTipsByName(tips: readonly GitRefTip[]): ReadonlyMap<string, string> {
+	let byName = tipsByNameCache.get(tips);
+	if (byName == null) {
+		const map = new Map<string, string>();
+		for (const tip of tips) {
+			map.set(tip.fullName, tip.sha);
+		}
+		byName = map;
+		tipsByNameCache.set(tips, byName);
+	}
+	return byName;
+}
+
+/** The upstream's tips as a remote-tracking and as a local branch, since its short name doesn't say which */
+function getUpstreamTips(tips: ReadonlyMap<string, string>, upstream: string | undefined): string | undefined {
+	if (upstream == null) return undefined;
+
+	return `${tips.get(`refs/remotes/${upstream}`) ?? ''}\0${tips.get(`refs/heads/${upstream}`) ?? ''}`;
+}
+
+/**
+ * Reads where the `HEAD` symref of each of `remotes` (every remote's when `undefined`) points (`origin/main`) into
+ * `heads`, as core's cached local reads answer it, skipping those already there: `undefined` when it has none (a
+ * remote since removed included), `null` when the read failed
+ */
+async function readRemoteHeads(
+	repo: RepositoryService,
+	heads: Map<string, string | null | undefined>,
+	remotes: ReadonlySet<string> | undefined,
+	signal: AbortSignal,
+): Promise<void> {
+	if (remotes?.size === 0) return;
+
+	const names = remotes ?? (await repo.remotes.getRemotes(undefined, signal)).map(r => r.name);
+	await Promise.all(
+		Array.from(names, async name => {
+			if (heads.has(name)) return;
+
+			let target: string | null | undefined;
+			try {
+				target = await repo.branches.getDefaultBranchName(name, { local: true }, signal);
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				target = null;
+			}
+			heads.set(name, target);
+		}),
+	);
+}
+
+/** The remote whose `HEAD` symref `ref` is; `undefined` for any other ref */
+function getHeadRemote(ref: string): string | undefined {
+	if (!ref.startsWith('refs/remotes/') || !ref.endsWith('/HEAD')) return undefined;
+
+	// A remote name can hold a slash, so the remote is everything between
+	return ref.slice('refs/remotes/'.length, -'/HEAD'.length);
+}
+
+/** The remotes whose `HEAD` symref is among `refs` */
+function getHeadRemotes(refs: readonly string[]): Set<string> {
+	const remotes = new Set<string>();
+	for (const ref of refs) {
+		const remote = getHeadRemote(ref);
+		if (remote != null) {
+			remotes.add(remote);
+		}
+	}
+	return remotes;
+}
+
+/**
+ * What `probe` found of `ref`, a ref the base depends on: for a remote's `HEAD` symref, which the ref tips leave out,
+ * the ref it points at, since its tip follows that ref's, itself a dependency; else its tip. `null` for a symref of a
+ * remote it didn't read: only when the read found HEAD elsewhere than the probe did and read the base for that, which
+ * the next probe sees as HEAD moving anyway
+ */
+function getBaseInput(probe: UnwatchedProbe, ref: string): string | null | undefined {
+	const remote = getHeadRemote(ref);
+	if (remote == null) return probe.tips.get(ref);
+
+	return probe.remoteHeads.has(remote) ? probe.remoteHeads.get(remote) : null;
+}
+
+/** The inputs `summary` was read from, as the probe before its read found them */
+function toUnwatchedInputs(probe: UnwatchedProbe, summary: WorktreeSummary): UnwatchedInputs {
+	const baseTips = new Map<string, string | null | undefined>();
+	for (const ref of summary.baseDependsOn) {
+		baseTips.set(ref, getBaseInput(probe, ref));
+	}
+	return {
+		branch: probe.branch,
+		detached: probe.detached,
+		sha: probe.sha,
+		upstream: probe.upstream,
+		upstreamTips: getUpstreamTips(probe.tips, probe.upstream),
+		baseTips: baseTips,
+		index: probe.index,
 	};
 }
 

@@ -1686,6 +1686,31 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			sub.dispose();
 		});
 
+		test('a fetch moving the base of a worktree without a subscription re-measures it, to the fresh answer', async () => {
+			startTask('task', 1);
+			const summaries = service.summaries!;
+			const before = await summaries.getSummary(repo.path);
+			assert.strictEqual(watchers.length, 0, 'nothing watches the worktree');
+			calls = { full: 0, remeasured: 0, answered: 0 };
+			assert.strictEqual(
+				await summaries.getSummary(repo.path),
+				before,
+				'nothing moved, so the last read answers',
+			);
+			assert.deepStrictEqual(calls, { full: 0, remeasured: 0, answered: 0 });
+
+			addCommit(peer.path, 'one.txt', 'one', 'Peer one');
+			git(peer.path, 'push', '-q', 'origin', 'main');
+			await service.forRepo(repo.path)!.ops!.fetch({ remote: 'origin' });
+			const summary = await summaries.getSummary(repo.path);
+
+			assert.deepStrictEqual(calls, { full: 0, remeasured: 1, answered: 1 });
+			const fresh = await readFresh('task');
+			assert.notStrictEqual(summary.base?.sha, before.base?.sha, 'the base moved');
+			assert.deepStrictEqual(summary.base, fresh.base);
+			assert.deepStrictEqual(summary.baseDependsOn, fresh.dependsOn);
+		});
+
 		test('a packed-refs rewrite that moved the base reads it in full', async () => {
 			const sub = await subscribeTask();
 			addCommit(peer.path, 'one.txt', 'one', 'Peer one');

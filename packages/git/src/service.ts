@@ -167,6 +167,8 @@ export class GitService implements UnifiedDisposable {
 				getRepository: repoPath => this.forRepo(repoPath),
 				onDidChangeMergeTargets: this.onDidChangeMergeTargets,
 				getCommonPath: repoPath => this.getProvider(repoPath)?.provider.getCommonPath?.(repoPath),
+				// The host's polling stat, when it configured polling, answers whether an unwatched index file moved
+				stat: watchPolling?.stat,
 				verifyBaseRemeasure: verifyBaseRemeasure,
 			});
 		}
