@@ -1450,7 +1450,8 @@ suite('Azure DevOps organization identities (#6032)', () => {
 			{ id: 'two-id' },
 			{ id: 'two-id' },
 			undefined,
-			undefined,
+			// The organization whose identity can't be read, which marks the row unresolved.
+			null,
 			{ id: 'one-id' },
 		]);
 		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
@@ -1574,12 +1575,12 @@ suite('Azure DevOps organization identities (#6032)', () => {
 			}
 		).searchMyIssuesWithTruncationResult();
 		assert.deepEqual(
-			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.assignees[0]?.id]).sort(),
+			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.viewerUnresolved, i.assignees[0]?.id]).sort(),
 			[
-				['wi-api', undefined, 'two-id'],
-				['wi-web', 'one-id', 'one-id'],
+				['wi-api', undefined, true, 'two-id'],
+				['wi-web', 'one-id', undefined, 'one-id'],
 			],
-			"an organization whose identity can't be read keeps its work items, without a viewer",
+			"an organization whose identity can't be read keeps its work items, marked unresolved rather than without a viewer",
 		);
 		assert.deepEqual(
 			lookups.sort(),
@@ -1607,12 +1608,13 @@ suite('Azure DevOps organization identities (#6032)', () => {
 				getIssueViewers: (
 					session: ProviderAuthenticationSession,
 					issues: readonly ProviderIssue[],
-				) => Promise<({ id: string } | undefined)[]>;
+				) => Promise<({ id: string } | null | undefined)[]>;
 			}
 		).getIssueViewers.bind(azure);
 
 		const viewers = await getIssueViewers(session, rows);
-		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, undefined]);
+		// `null` for the organization whose identity can't be read; nothing for the row that names no one.
+		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, null]);
 		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
 
 		await getIssueViewers(session, rows);

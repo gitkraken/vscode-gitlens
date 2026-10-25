@@ -58,6 +58,9 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.provider != null && azureProviderIds.has(pr.provider.id)) {
 		fields.revision = pullRequestRevision(pr);
 	}
+	if (pr.viewerUnresolved) {
+		fields.viewerUnresolved = true;
+	}
 	return fields;
 }
 
@@ -108,6 +111,9 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	// Only where it is set, so every other host's etag stays exactly what it was.
 	if (fields.revision != null) {
 		state.push(fields.revision);
+	}
+	if (fields.viewerUnresolved) {
+		state.push('viewer-unresolved');
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;

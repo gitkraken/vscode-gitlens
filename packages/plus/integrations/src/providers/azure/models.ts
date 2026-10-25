@@ -766,7 +766,8 @@ export function fromAzureWorkItem(
 	stateCategory?: AzureWorkItemStateCategory,
 	projection?: IssueProjection,
 	htmlFields?: readonly AzureWorkItemHtmlField[],
-	viewer?: { id: string },
+	/** As `toIssueShape` takes it: `null` where the read couldn't resolve it. */
+	viewer?: { id: string } | null,
 ): Issue {
 	const state = workItem.fields['System.State'];
 	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
@@ -775,6 +776,7 @@ export function fromAzureWorkItem(
 	const author = fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']);
 	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
 	const assignees = assignee != null ? [assignee] : [];
+	const namesPeople = issueNamesPeople({ author: author, assignees: assignees });
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -803,7 +805,8 @@ export function fromAzureWorkItem(
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
 		description != null ? toIssueBodyField(description.field) : undefined,
-		issueNamesPeople({ author: author, assignees: assignees }) ? viewer : undefined,
+		namesPeople ? (viewer ?? undefined) : undefined,
+		namesPeople && viewer === null ? true : undefined,
 	);
 }
 

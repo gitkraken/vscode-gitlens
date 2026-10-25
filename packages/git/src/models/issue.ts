@@ -210,10 +210,19 @@ export interface IssueShape extends IssueOrPullRequest {
 	 * `getCurrentAccount` returns: Azure DevOps can know one person by another id in each organization (Azure DevOps
 	 * Server: collection) than the account's, and a work item's {@link author} and {@link assignees} carry the
 	 * organization's. A consumer matching them to the current user compares against this when present, and against
-	 * the account otherwise. Absent on every other provider, and on an Azure DevOps row whose organization's identity
-	 * couldn't be read.
+	 * the account otherwise, unless {@link viewerUnresolved} is set. Absent on every other provider, and on an Azure
+	 * DevOps row whose organization's identity couldn't be read.
 	 */
 	readonly viewer?: { readonly id: string; readonly username?: string };
+	/**
+	 * Set, and only ever `true`, on an Azure DevOps row that names someone ({@link author} or {@link assignees}) whose
+	 * organization's (Azure DevOps Server: collection's) identity the read tried and failed to resolve: its
+	 * `ConnectionData` failed or didn't answer within 10 seconds. Such a row has no {@link viewer}, and neither the
+	 * account `getCurrentAccount` returns nor anyone else can be matched against its people: whether it is the current
+	 * user's is unknown, not "no". Absent everywhere else, so a row with neither field is still one whose provider has
+	 * no per-row identity, matched against the account.
+	 */
+	readonly viewerUnresolved?: true;
 }
 
 @loggable(i => i.id)
@@ -247,6 +256,7 @@ export class Issue implements IssueShape {
 		public readonly projection?: IssueProjection,
 		public readonly bodyField?: IssueBodyField,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
+		public readonly viewerUnresolved?: true,
 	) {}
 
 	static is(issue: unknown): issue is Issue {

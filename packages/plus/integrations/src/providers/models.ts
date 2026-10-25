@@ -1436,10 +1436,14 @@ function getProviderIssueState(issue: ProviderIssue, providerId: ProviderReferen
 	return issue.closedDate != null || isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
 }
 
+/**
+ * `options.viewer` is the current account as the row's organization identifies it, or `null` where the read tried to
+ * resolve that and couldn't: a row that names someone then gets {@link IssueShape.viewerUnresolved} instead.
+ */
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { projection?: IssueProjection; viewer?: { id: string } },
+	options?: { projection?: IssueProjection; viewer?: { id: string } | null },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1514,7 +1518,13 @@ export function toIssueShape(
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
-		...(options?.viewer != null && issueNamesPeople(issue) ? { viewer: options.viewer } : {}),
+		...(issueNamesPeople(issue)
+			? options?.viewer != null
+				? { viewer: options.viewer }
+				: options?.viewer === null
+					? { viewerUnresolved: true }
+					: {}
+			: {}),
 	};
 }
 
@@ -1854,12 +1864,16 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
+/**
+ * `options.currentAccount` is what `authoredByMe` and `viewer` are resolved against, or `null` where the read tried to
+ * resolve it and couldn't: a row that names someone then gets {@link PullRequestShape.viewerUnresolved} instead.
+ */
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
 	options?: {
 		project?: IssueProject;
-		currentAccount?: { id: string; username?: string };
+		currentAccount?: { id: string; username?: string } | null;
 		projection?: PullRequestProjection;
 	},
 ): PullRequest {
@@ -1940,8 +1954,17 @@ export function fromProviderPullRequest(
 			? authoredByCurrentAccount(pr.author, provider, options.currentAccount)
 			: undefined,
 		options?.projection,
-		options?.currentAccount,
+		options?.currentAccount ?? undefined,
+		viewerUnresolved(pr, options?.currentAccount),
 	);
+}
+
+/** `true` for a row that names someone the identity it should be matched against couldn't be resolved for. */
+function viewerUnresolved(
+	pr: ProviderPullRequest | PullRequest,
+	currentAccount: { id: string } | null | undefined,
+): true | undefined {
+	return currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined;
 }
 
 /**
@@ -1951,14 +1974,16 @@ export function fromProviderPullRequest(
  */
 export function stampNativePullRequest(
 	pr: PullRequest,
-	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
+	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
 ): PullRequest {
 	return Object.assign(Object.create(PullRequest.prototype) as PullRequest, pr, {
 		authoredByMe:
 			options.currentAccount != null
 				? authoredByCurrentAccount(pr.author, pr.provider, options.currentAccount)
 				: undefined,
-		viewer: options.currentAccount,
+		viewer: options.currentAccount ?? undefined,
+		// Only when set, so a row resolved as before keeps exactly the keys it always had.
+		...(viewerUnresolved(pr, options.currentAccount) ? { viewerUnresolved: true } : {}),
 		projection: options.projection,
 	});
 }
@@ -1970,7 +1995,7 @@ export function stampNativePullRequest(
 export function toPullRequestRow(
 	pr: ProviderPullRequest | PullRequest,
 	provider: Provider,
-	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
+	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
 ): PullRequest {
 	return isNativePullRequest(pr)
 		? stampNativePullRequest(pr, options)
@@ -2033,10 +2058,11 @@ function authoredByCurrentAccount(
 	return isGitHub && currentAccount.username != null && author.username === currentAccount.username;
 }
 
+/** `options.viewer` as {@link toIssueShape} takes it. */
 export function fromProviderIssue(
 	issue: ProviderIssue,
 	integration: Integration,
-	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } },
+	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } | null },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
@@ -2087,7 +2113,8 @@ export function fromProviderIssue(
 		toIssueIterations(issue),
 		options?.projection,
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
-		issueNamesPeople(issue) ? options?.viewer : undefined,
+		issueNamesPeople(issue) ? (options?.viewer ?? undefined) : undefined,
+		issueNamesPeople(issue) && options?.viewer === null ? true : undefined,
 	);
 }
 

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `viewerUnresolved?: true` to `IssueShape`/`Issue` and `PullRequestShape`/`PullRequest`: set on an Azure DevOps or Azure DevOps Server work item or pull request that names someone when the user's identity in its organization (collection) couldn't be read, because its `ConnectionData` failed, answered without an identity or took more than 10 seconds. Such a row has no `viewer` and, on a pull request, no `authoredByMe`, and a host should treat whether it's the user's as unknown rather than match it against `getCurrentAccount`, whose id is the one that may not match there. Every read that stamps `viewer` on those rows sets it: `listIssuesPage`, `getIssuesBatch`, the work item point read and Azure DevOps Server's `searchIssuesPage`; `listPullRequestsPage`, the sweeps, `getPullRequestsBatch`, `getPullRequestsForBranches` and Azure DevOps Server's `searchPullRequestsPage`. Absent on every other row, so a row with neither field still means what it did. A pull request row marked this way never compares unchanged on `getPullRequestsBatch`'s etag check, as a work item already didn't, so it's read in full again once the identity can be read ([#6083](https://github.com/gitkraken/vscode-gitlens/issues/6083)) (git, plus/integrations)
+
+### Fixed
+
+- Fixes Azure DevOps Server's `searchPullRequestsPage` without a current-user relationship leaving its rows without `viewer` and `authoredByMe`: it now resolves the user's identity in each collection that returned someone to match, as the other pull request reads do ([#6083](https://github.com/gitkraken/vscode-gitlens/issues/6083)) (plus/integrations)
+
 ## [0.18.0] - 2026-10-25
 
 ## [0.17.0] - 2026-10-25

@@ -472,7 +472,7 @@ export async function getPullRequestViewers(
 	integration: GitHostIntegration,
 	connectionId: string | undefined,
 	pullRequests: readonly (ProviderPullRequest | PullRequest)[],
-): Promise<({ id: string; username?: string } | undefined)[]> {
+): Promise<({ id: string; username?: string } | null | undefined)[]> {
 	if (!pullRequests.some(pullRequestNamesPeople)) return pullRequests.map(() => undefined);
 
 	try {
