@@ -915,6 +915,26 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			}
 		});
 
+		test("a checkout core runs in one worktree takes the watchers' report of its HEAD for its own, in every other checkout", async () => {
+			const id = basename(git(linked[0].path, 'rev-parse', '--absolute-git-dir'));
+			resetObservations();
+
+			await repoOf(linked[0].path).ops!.checkout(git(linked[0].path, 'rev-parse', 'HEAD'));
+			fireWorktreeHead(id, 'change');
+			await settle();
+
+			for (const co of [mainCo, bCo]) {
+				assert.ok(
+					heardBy(co).some(e => e.changed('worktreeHead')),
+					`${co.key} heard the worktree's HEAD move`,
+				);
+				assert.deepStrictEqual(unannouncedHeard(co), [], `${co.key} heard nothing unannounced`);
+			}
+
+			await repoOf(linked[0].path).ops!.checkout('feature-a');
+			await settle();
+		});
+
 		test("a lock doesn't take a sibling's HEAD moving beside it for its own", async () => {
 			const id = basename(git(linked[0].path, 'rev-parse', '--absolute-git-dir'));
 			resetObservations();
@@ -1010,7 +1030,7 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			assert.deepStrictEqual(announced[0].refs, ['refs/heads/other']);
 		});
 
-		test('a commit on a detached HEAD moves no branch, so no other checkout hears of it', async () => {
+		test('a commit on a detached HEAD moves no branch, so other checkouts hear only that its HEAD moved', async () => {
 			git(linked[0].path, 'checkout', '-q', '--detach');
 			// What the watchers report for the worktree's HEAD, which the fixture's fakes never fire
 			provider.notifyChanged(linked[0].path, ['head', 'heads', 'worktrees']);
@@ -1024,10 +1044,15 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			await settle();
 
 			assert.strictEqual(announced.length, 1);
-			assert.deepStrictEqual([...announced[0].changes], ['head', 'index']);
+			assert.deepStrictEqual([...announced[0].changes], ['head', 'index', 'worktrees', 'worktreeHead']);
 			assert.strictEqual(a.sha, git(linked[0].path, 'rev-parse', 'HEAD'), "the worktree's own summary moved");
-			assert.deepStrictEqual(heardBy(bCo), []);
-			assert.deepStrictEqual(heardBy(mainCo), []);
+			for (const co of [bCo, mainCo]) {
+				assert.deepStrictEqual(
+					heardBy(co).map(e => [...e.changes]),
+					[['worktrees', 'worktreeHead']],
+					`${co.key} heard only that the worktree's HEAD moved`,
+				);
+			}
 			assert.strictEqual(readsOf(bCo), 0, 'feature-b was not recomputed');
 		});
 

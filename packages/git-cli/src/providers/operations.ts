@@ -165,6 +165,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				repoPath,
 				options?.createBranch ? { branch: `refs/heads/${options.createBranch}` } : undefined,
 				Boolean(options?.createBranch) && mayWriteTracking(ref, options?.noTracking),
+				true,
 			);
 		}
 	}
@@ -1264,7 +1265,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					...args,
 				);
 			} finally {
-				this.announceHeadChanged(repoPath);
+				this.announceHeadChanged(repoPath, undefined, undefined, true);
 			}
 			return { conflicted: false };
 		} catch (ex) {
@@ -1503,12 +1504,20 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	 * Called once git has run, success or not — a rejected write can still have moved HEAD or left state behind.
 	 * `moved` is the one branch the write could have moved, when it knows it, or `'detached'` when it moved a detached
 	 * HEAD and so no branch; `wroteTracking` says it wrote that branch's tracking, to its own config section.
+	 * `rewroteHead` says it rewrote the HEAD file (a checkout or rebase), as a detached HEAD's move always does: every other
+	 * worktree's watcher reports that as `worktreeHead`, so the kind is announced for them to take the report for the
+	 * write's own. A move of HEAD's branch alone (a commit) leaves the file be, and is announced without it.
 	 */
-	private announceHeadChanged(repoPath: string, moved?: HeadState, wroteTracking?: boolean): void {
+	private announceHeadChanged(
+		repoPath: string,
+		moved?: HeadState,
+		wroteTracking?: boolean,
+		rewroteHead?: boolean,
+	): void {
 		if (moved === 'detached') {
 			// The worktree list carries this worktree's HEAD, which `heads` would otherwise have reset
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'index']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'index', 'worktrees', 'worktreeHead']);
 			return;
 		}
 
@@ -1517,6 +1526,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const changes: RepositoryChange[] = wroteTracking
 			? ['config', 'head', 'heads', 'index']
 			: ['head', 'heads', 'index'];
+		if (rewroteHead) {
+			changes.push('worktrees', 'worktreeHead');
+		}
 		if (moved == null) {
 			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
 		} else if (wroteTracking) {
