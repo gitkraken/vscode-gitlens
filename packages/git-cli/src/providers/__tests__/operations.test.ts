@@ -495,11 +495,17 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 	suite('onRebaseCapableOperation hook', () => {
 		let hookSpy: sinon.SinonSpy;
+		let onChanged: sinon.SinonSpy;
 
 		setup(() => {
 			hookSpy = sandbox.spy();
+			onChanged = sandbox.spy();
 			const context = {
-				hooks: { operations: { onRebaseCapableOperation: hookSpy } },
+				hooks: {
+					operations: { onRebaseCapableOperation: hookSpy },
+					cache: { onReset: () => {} },
+					repository: { onChanged: onChanged },
+				},
 			} as unknown as GitServiceContext;
 			const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
 			const provider = {
@@ -519,6 +525,15 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			assert.deepStrictEqual(hookSpy.args, [
 				[repoPath, 'rebase', 'started'],
 				[repoPath, 'rebase', 'ended'],
+			]);
+		});
+
+		test('rebase announces its HEAD rewrite as worktreeHead', async () => {
+			await operations.rebase(repoPath, 'origin/main');
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 			]);
 		});
 
@@ -595,12 +610,15 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			assert.strictEqual(onChanged.callCount, 1);
 		});
 
-		test('checkout announces head, heads and index when git rejects', async () => {
+		test('checkout announces head, heads, index and the worktree HEAD when git rejects', async () => {
 			stubRunFailure("fatal: ambiguous argument 'badref': unknown revision or path not in the working tree.");
 
 			await assert.rejects(operations.checkout(repoPath, 'badref'), (ex: unknown) => CheckoutError.is(ex));
 
-			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+			]);
 			assert.strictEqual(onChanged.callCount, 1);
 		});
 
@@ -609,7 +627,7 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 			assert.deepStrictEqual(onChanged.lastCall.args, [
 				repoPath,
-				['config', 'head', 'heads', 'index'],
+				['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 				['refs/heads/feature'],
 				{ configConfinedToRefs: true },
 			]);
@@ -619,14 +637,14 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			await operations.checkout(repoPath, 'main', { createBranch: 'feature' });
 			assert.deepStrictEqual(onChanged.lastCall.args, [
 				repoPath,
-				['head', 'heads', 'index'],
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 				['refs/heads/feature'],
 			]);
 
 			await operations.checkout(repoPath, 'origin/main', { createBranch: 'other', noTracking: true });
 			assert.deepStrictEqual(onChanged.lastCall.args, [
 				repoPath,
-				['head', 'heads', 'index'],
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 				['refs/heads/other'],
 			]);
 		});

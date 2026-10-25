@@ -1944,7 +1944,7 @@ suite('OperationsGitSubProvider — naming the branch a HEAD-moving write moved'
 		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
 
 		assert.strictEqual(revParse(r.path, 'refs/heads/main'), main, 'sanity: no branch moved');
-		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'index']]]);
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'index', 'worktrees', 'worktreeHead']]]);
 		assert.deepStrictEqual(onReset.args, [[r.path, 'branches', 'status', 'worktrees']]);
 	});
 
