@@ -784,7 +784,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				// Find the worktree where this branch is checked out (if any)
 				const worktree = await this.provider.worktrees?.getWorktree(
 					repoPath,
-					wt => wt.branch?.name === branch.name,
+					wt => wt.branchName === branch.name,
 				);
 				if (worktree != null) {
 					// Branch is checked out in a worktree — run git pull in that worktree's directory

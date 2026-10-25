@@ -264,13 +264,13 @@ export async function getBranchWorktree(
 		const { id } = branch;
 		return container.git
 			.getRepositoryService(branch.repoPath)
-			.worktrees?.getWorktree(wt => wt.branch?.id === id, cancellation);
+			.worktrees?.getWorktree(wt => wt.branch?.id === id, undefined, cancellation);
 	}
 
 	const { path } = branch.worktree;
 	return container.git
 		.getRepositoryService(branch.repoPath)
-		.worktrees?.getWorktree(wt => wt.path === path, cancellation);
+		.worktrees?.getWorktree(wt => wt.path === path, undefined, cancellation);
 }
 
 export async function setBranchDisposition(

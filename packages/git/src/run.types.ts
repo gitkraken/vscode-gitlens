@@ -107,6 +107,13 @@ export interface GitRunOptions {
 	 * a listed code resolves as `exited` with that `exitCode` in every `errors` mode.
 	 */
 	expectedExitCodes?: readonly number[];
+	/**
+	 * Called once, when the git process starts: after any wait in core's queue, and not again for a lock retry. A call
+	 * that joins an identical run already in flight is told when that run starts, or at once if it already has. Not
+	 * called for a run that never starts (cancelled while queued), nor for one `caching` answers, even from a run
+	 * still in flight.
+	 */
+	onSpawn?: () => void;
 	/** Priority level for queue ordering. If not specified, will be inferred from the command type. */
 	priority?: GitCommandPriority;
 	/** Specifies that this command should always be executed locally if possible (for live share sessions) */

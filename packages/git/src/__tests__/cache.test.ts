@@ -2170,3 +2170,178 @@ suite('Cache.applyRepositoryChanges', () => {
 		assert.ok(cache.branches.has(repoPath));
 	});
 });
+
+suite('Cache.getWorktrees — force', () => {
+	const repoPath = '/test/repo';
+	const siblingPath = '/test/repo-wt';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(siblingPath), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	function worktreeList(commonPath: string, ...branchNames: string[]): GitWorktree[] {
+		return branchNames.map(
+			(name, i) =>
+				new GitWorktree(
+					i === 0,
+					'branch',
+					commonPath,
+					fileUri(`${commonPath}/${name}`),
+					false,
+					false,
+					'abc123',
+					undefined,
+					undefined,
+					name,
+				),
+		);
+	}
+
+	test('re-reads only the worktree list and keeps every other cache', async () => {
+		let factoryCount = 0;
+		const read = (path: string, force?: boolean) =>
+			cache.getWorktrees(
+				path,
+				commonPath => {
+					factoryCount++;
+					return worktreeList(commonPath, 'main', ...(factoryCount > 1 ? ['fresh'] : []));
+				},
+				force ? { force: true } : undefined,
+			);
+
+		assert.strictEqual((await read(repoPath)).length, 1);
+		assert.strictEqual((await read(siblingPath)).length, 1);
+		assert.strictEqual(factoryCount, 1, 'the sibling is served from the shared list');
+
+		const branches = Promise.resolve({ values: [] } satisfies PagedResult<GitBranch>);
+		cache.branches.set(repoPath, branches);
+		const gitResult: GitResult = {
+			stdout: 'x',
+			stderr: undefined,
+			exitCode: 0,
+			completion: { status: 'exited', code: 0 },
+		};
+		await cache.gitResults.getOrCreate(siblingPath, 'git status', () => Promise.resolve(gitResult));
+
+		const forced = await read(repoPath, true);
+		assert.strictEqual(factoryCount, 2, 'the forced read re-ran the factory');
+		assert.deepStrictEqual(
+			forced.map(w => w.branchName),
+			['main', 'fresh'],
+		);
+
+		const sibling = await read(siblingPath);
+		assert.strictEqual(factoryCount, 2, "the sibling's dropped entry was re-derived from the new list");
+		assert.deepStrictEqual(
+			sibling.map(w => w.branchName),
+			['main', 'fresh'],
+		);
+		assert.strictEqual(sibling[0].repoPath, siblingPath);
+
+		assert.strictEqual(cache.branches.get(repoPath), branches, 'the branch list is kept');
+		assert.ok(cache.gitResults.get(siblingPath, 'git status'), 'gitResults are kept');
+	});
+
+	test('does not join a read that started before it', async () => {
+		let factoryCount = 0;
+		let resolveFirst!: (value: GitWorktree[]) => void;
+
+		const first = cache.getWorktrees(
+			repoPath,
+			() =>
+				new Promise<GitWorktree[]>(resolve => {
+					factoryCount++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		const second = cache.getWorktrees(
+			repoPath,
+			commonPath => {
+				factoryCount++;
+				return worktreeList(commonPath, 'main', 'fresh');
+			},
+			{ force: true },
+		);
+
+		resolveFirst(worktreeList(repoPath, 'main'));
+
+		const [firstResult, secondResult] = await Promise.all([first, second]);
+		assert.strictEqual(factoryCount, 2, 'the forced read ran its own factory');
+		assert.strictEqual(firstResult.length, 1);
+		assert.strictEqual(secondResult.length, 2);
+
+		const later = await cache.getWorktrees(repoPath, () => {
+			factoryCount++;
+			return [];
+		});
+		assert.strictEqual(factoryCount, 2, 'the older read settling must not displace the forced answer');
+		assert.strictEqual(later.length, 2);
+	});
+
+	test('an aborted forced read rejects and keeps the cached list', async () => {
+		let factoryCount = 0;
+		const factory = (commonPath: string) => {
+			factoryCount++;
+			return worktreeList(commonPath, 'main');
+		};
+		const cached = await cache.getWorktrees(repoPath, factory);
+
+		const controller = new AbortController();
+		controller.abort();
+		await assert.rejects(cache.getWorktrees(repoPath, factory, { force: true }, controller.signal), (ex: unknown) =>
+			isCancellationError(ex),
+		);
+
+		assert.strictEqual(await cache.getWorktrees(repoPath, factory), cached);
+		assert.strictEqual(factoryCount, 1);
+	});
+});
+
+suite('GitWorktree.withRepoPath', () => {
+	test('preserves branchName', () => {
+		const worktree = new GitWorktree(
+			false,
+			'branch',
+			'/test/repo',
+			fileUri('/test/repo-wt'),
+			false,
+			false,
+			'abc123',
+			undefined,
+			undefined,
+			'feature/x',
+		);
+
+		assert.strictEqual(worktree.withRepoPath('/test/other').branchName, 'feature/x');
+	});
+});
+
+suite('GitWorktree.name', () => {
+	test('falls back to branchName when no branch was matched', () => {
+		const worktree = new GitWorktree(
+			false,
+			'branch',
+			'/test/repo',
+			fileUri('/test/repo-wt'),
+			false,
+			false,
+			'abc123',
+			undefined,
+			undefined,
+			'feature/x',
+		);
+
+		assert.strictEqual(worktree.name, 'feature/x');
+	});
+});

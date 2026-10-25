@@ -30,9 +30,23 @@ export interface GitWorktreesSubProvider {
 	getWorktree(
 		repoPath: string,
 		predicate: (w: GitWorktree) => boolean,
+		/** `force`: searches a fresh list, as {@link getWorktrees} reads it */
+		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitWorktree | undefined>;
-	getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]>;
+	getWorktrees(
+		repoPath: string,
+		/**
+		 * `force`: re-reads `git worktree list` rather than answer from the cached list or a read whose git process
+		 * started before this call (a pending read that hasn't started one yet is joined), and stores the fresh
+		 * answer. When the list disagrees with the cached branch list, the branch caches are refreshed once (and
+		 * a worktree's own when its branch changed); otherwise they are left alone. Not a substitute for a
+		 * `'worktrees'` reset: with the branch list current it keeps the cached git results and merge targets, which
+		 * a reset after a sibling worktree's checkout evicts.
+		 */
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri(repoPath: string): Uri | undefined;
 	/**
 	 * Deletes a worktree. Pass `force: 'locked'` to also override a locked worktree.

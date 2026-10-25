@@ -5792,7 +5792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Worktree registry for the webview — the Agent Activity treemap maps agent file activity
 			// to repo-relative keys against these. Fetched directly (not via the graph session, which isn't
 			// loaded yet on the deferred-rows build).
-			this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation.token)),
+			this.repository.git.worktrees?.getWorktrees(undefined, toAbortSignal(cancellation.token)),
 		]);
 		// Deferred worktree clean/dirty probe (see above) — surfaces changed worktrees in the WIP bar
 		// shortly after load without blocking or competing with the rows walk.
