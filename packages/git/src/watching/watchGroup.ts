@@ -591,7 +591,9 @@ export class WatchGroup implements UnifiedDisposable {
 
 		const isFetchHead = relativePath === 'FETCH_HEAD';
 		const isExclude = relativePath === 'info/exclude';
-		const changes = isFetchHead ? undefined : classifyGitDirChange(relativePath);
+		const changes = isFetchHead
+			? undefined
+			: withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, event.reason);
 		if (changes == null && !isFetchHead && !isExclude) return;
 
 		const ref = changes != null ? getChangedRef(relativePath) : undefined;
@@ -674,7 +676,7 @@ export class WatchGroup implements UnifiedDisposable {
 			return;
 		}
 
-		const changes = classifyGitDirChange(relativePath);
+		const changes = withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, event.reason);
 		// A linked worktree's git dir isn't the common one, so no path there is a worktree's admin entry
 		if (changes != null && entry.coversCommon && this.isWorktreesReport(changes)) {
 			this.onWorktreesReported(relativePath, event.reason, () => {
@@ -693,7 +695,11 @@ export class WatchGroup implements UnifiedDisposable {
 
 	/** A report of the `worktrees` directory, an admin entry or a file in it, once the group may tell them apart */
 	private isWorktreesReport(changes: readonly RepositoryChange[]): boolean {
-		return this._worktreesBaseline != null && changes.length === 1 && changes[0] === 'worktrees';
+		return (
+			this._worktreesBaseline != null &&
+			changes.includes('worktrees') &&
+			changes.every(c => c === 'worktrees' || c === 'worktreeHead')
+		);
 	}
 
 	/** `deliver` tells the sessions the report reaches of it, should the report concern them (see above) */
@@ -1077,7 +1083,7 @@ export class WatchGroup implements UnifiedDisposable {
 
 	private deliverWorktreesChange(): void {
 		for (const entry of this._sessions.values()) {
-			entry.hooks.onRepoChanged(entry.repoPath, ['worktrees'], undefined);
+			entry.hooks.onRepoChanged(entry.repoPath, ['worktrees', 'worktreeHead'], undefined);
 		}
 	}
 
@@ -1186,6 +1192,28 @@ export class WatchGroup implements UnifiedDisposable {
 			}
 		}
 	}
+}
+
+/**
+ * `changes` with `worktreeHead` for a report that can stand for an entry's HEAD created or deleted with it: the
+ * `worktrees` directory, an entry created or deleted, or its `gitdir` deleted. A watcher may coalesce the subtree a
+ * removal deletes into one report of its parent, so no report of the HEAD comes. An entry's directory merely changed
+ * stays `worktrees` alone: a watcher may report it beside each file in it, a lock's `locked` included
+ */
+function withWorktreeEntryHead(
+	changes: RepositoryChange[] | undefined,
+	relativePath: string,
+	reason: FileWatchEvent['reason'],
+): RepositoryChange[] | undefined {
+	if (changes?.length !== 1 || changes[0] !== 'worktrees') return changes;
+	if (relativePath === 'worktrees') return ['worktrees', 'worktreeHead'];
+
+	const idEnd = relativePath.indexOf('/', 10);
+	if (idEnd === -1) return reason === 'create' || reason === 'delete' ? ['worktrees', 'worktreeHead'] : changes;
+
+	return reason === 'delete' && relativePath.substring(idEnd + 1) === 'gitdir'
+		? ['worktrees', 'worktreeHead']
+		: changes;
 }
 
 /** The path doesn't exist: Node's error, or the one VS Code's file system raises */

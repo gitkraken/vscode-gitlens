@@ -36,6 +36,8 @@ export type RepositoryChange =
 	| 'stash'
 	| 'remotes'
 	| 'worktrees'
+	/** A linked worktree's HEAD moved: a checkout in a worktree whose own `.git` this session doesn't watch */
+	| 'worktreeHead'
 	| 'config'
 	| 'pausedOp'
 	| 'cherryPick'
@@ -59,6 +61,7 @@ export const repositoryChanges = exhaustiveArray<RepositoryChange>()([
 	'stash',
 	'remotes',
 	'worktrees',
+	'worktreeHead',
 	'config',
 	'pausedOp',
 	'cherryPick',

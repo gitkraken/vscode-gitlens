@@ -13,6 +13,7 @@ export const allWatchedRepositoryChanges: readonly RepositoryChange[] = [
 	'stash',
 	'remotes',
 	'worktrees',
+	'worktreeHead',
 	'config',
 	'cherryPick',
 	'merge',
@@ -35,9 +36,10 @@ const watchedRefRegex = /^refs\/(?:heads|remotes|stash|tags|replace)(?:\/|\.lock
  * to which logical repository changes.
  *
  * `worktrees` means the worktree list, or what `git worktree list` reports per worktree, changed:
- * `worktrees`, `worktrees/<n>` (add/remove/prune) and `worktrees/<n>/{HEAD,locked,gitdir}`. Any other
- * path under `worktrees/<n>/` (index, `*_HEAD`, `MERGE_*`, rebase state, logs, …) is that worktree's
- * own state, which its own gitdir watcher classifies, so it yields `undefined` here.
+ * `worktrees`, `worktrees/<n>` (add/remove/prune) and `worktrees/<n>/{HEAD,locked,gitdir}`. `worktrees/<n>/HEAD`
+ * is also `worktreeHead`: that worktree's HEAD moved, which can change what any worktree's git reads answer, where
+ * the rest changes only the list. Any other path under `worktrees/<n>/` (index, `*_HEAD`, `MERGE_*`, rebase state,
+ * logs, …) is that worktree's own state, which its own gitdir watcher classifies, so it yields `undefined` here.
  *
  * @param relativePath - Path relative to the common `.git` directory or a worktree's gitdir
  *   (e.g., `refs/heads/main`, `HEAD`, `config`, `worktrees/foo/HEAD`)
@@ -64,7 +66,9 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 			if (idEnd === -1) return relativePath.length > 10 ? ['worktrees'] : undefined;
 
 			const file = relativePath.substring(idEnd + 1);
-			return file === 'HEAD' || file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
+			if (file === 'HEAD') return ['worktrees', 'worktreeHead'];
+
+			return file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
 		}
 	}
 

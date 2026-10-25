@@ -1179,7 +1179,7 @@ suite('BranchesSubProvider.getMergeTarget', () => {
 
 				checkout(repo.path, 'feature');
 				// What a window hears of a checkout in a worktree it doesn't watch
-				await reportChange(repo, 'worktrees');
+				await reportChange(repo, 'worktrees', 'worktreeHead');
 				assert.strictEqual((await getMergeTarget(repo, 'feature', { inferBase: true }))?.tier, 'inferred');
 			} finally {
 				repo.cleanup();

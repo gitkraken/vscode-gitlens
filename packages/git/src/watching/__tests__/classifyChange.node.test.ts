@@ -162,9 +162,13 @@ describe('classifyGitDirChange', () => {
 	});
 
 	it('maps the worktree entry and what `git worktree list` reports per worktree to worktrees', () => {
-		for (const p of ['worktrees/foo', 'worktrees/foo/HEAD', 'worktrees/foo/locked', 'worktrees/foo/gitdir']) {
+		for (const p of ['worktrees/foo', 'worktrees/foo/locked', 'worktrees/foo/gitdir']) {
 			assert.deepStrictEqual(classifyGitDirChange(p), ['worktrees'], p);
 		}
+	});
+
+	it('maps a worktree’s HEAD to worktrees and worktreeHead', () => {
+		assert.deepStrictEqual(classifyGitDirChange('worktrees/foo/HEAD'), ['worktrees', 'worktreeHead']);
 	});
 
 	it('returns undefined for a worktree’s own state under worktrees/<n>/ (its root watcher classifies it)', () => {

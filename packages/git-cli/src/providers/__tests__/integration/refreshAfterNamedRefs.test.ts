@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { AnnouncedRepositoryChanges } from '@gitlens/git/providers/provider.js';
 import type { GitService } from '@gitlens/git/service.js';
@@ -873,8 +873,62 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 				assert.ok((await localBranches(p)).includes('remote-cut'), `${p} lists the new local branch`);
 			}
 			assert.strictEqual(announced.length, 1);
-			assert.deepStrictEqual([...announced[0].changes].sort(), ['heads', 'worktrees']);
+			assert.deepStrictEqual([...announced[0].changes].sort(), ['heads', 'worktreeHead', 'worktrees']);
 			assert.strictEqual(announced[0].refs, undefined, "the cancelled run's output, naming the branch, is lost");
+		});
+
+		/** Reports a worktree's HEAD file the way the `.git` watchers over the common git dir do */
+		function fireWorktreeHead(id: string, reason: FileWatchEvent['reason']): void {
+			const dotGit = normalizePath(join(main.path, '.git'));
+			for (const w of watchers.filter(w => normalizePath(w.basePath) === dotGit)) {
+				w.fire({ path: join(w.basePath, 'worktrees', id, 'HEAD'), reason: reason });
+			}
+		}
+
+		function unannouncedHeard(co: Checkout): string[] {
+			return heardBy(co).flatMap(e => e.getUnannouncedChanges());
+		}
+
+		test("adding and removing a worktree take the watchers' report of its HEAD for their own, in every checkout", async () => {
+			const path = join(root, 'wt-head');
+			resetObservations();
+
+			await repoOf(main.path).worktrees!.createWorktree(path, { commitish: 'main', detach: true });
+			fireWorktreeHead('wt-head', 'create');
+			await settle();
+
+			for (const co of [mainCo, aCo, bCo]) {
+				assert.ok(
+					heardBy(co).some(e => e.changed('worktreeHead')),
+					`${co.key} heard the new worktree's HEAD`,
+				);
+				assert.deepStrictEqual(unannouncedHeard(co), [], `${co.key} heard nothing unannounced`);
+			}
+
+			resetObservations();
+			await repoOf(main.path).worktrees!.deleteWorktree(path);
+			fireWorktreeHead('wt-head', 'delete');
+			await settle();
+
+			for (const co of [mainCo, aCo, bCo]) {
+				assert.deepStrictEqual(unannouncedHeard(co), [], `${co.key} heard nothing unannounced`);
+			}
+		});
+
+		test("a lock doesn't take a sibling's HEAD moving beside it for its own", async () => {
+			const id = basename(git(linked[0].path, 'rev-parse', '--absolute-git-dir'));
+			resetObservations();
+
+			await repoOf(main.path).worktrees!.lockWorktree(linked[0].path, { reason: 'task' });
+			// A checkout in that worktree, outside core, as the lock lands
+			fireWorktreeHead(id, 'change');
+			await settle();
+
+			for (const co of [mainCo, bCo]) {
+				assert.deepStrictEqual(unannouncedHeard(co), ['worktreeHead'], `${co.key} heard the checkout`);
+			}
+
+			await repoOf(main.path).worktrees!.unlockWorktree(linked[0].path);
 		});
 
 		test('adding a worktree with no commitish announces the branch git names after the path', async () => {

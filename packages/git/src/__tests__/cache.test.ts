@@ -4,8 +4,8 @@ import { CancellationError, isCancellationError } from '@gitlens/utils/cancellat
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import type { BranchMetadataChange, MergeTargetsChangeEvent } from '../cache.js';
-import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
+import type { BranchMetadataChange, CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
+import { Cache, resetDropsPendingRuns, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
@@ -2308,6 +2308,87 @@ suite('Cache.getWorktrees — force', () => {
 	});
 });
 
+suite('Cache — worktree list vs worktree HEAD changes', () => {
+	const repoPath = '/test/repo';
+	const siblingPath = '/test/repo-wt';
+	const gitResult: GitResult = {
+		stdout: 'x',
+		stderr: undefined,
+		exitCode: 0,
+		completion: { status: 'exited', code: 0 },
+	};
+	let cache: Cache;
+	let reads: { worktrees: number; gitResults: number; mergeTargets: number };
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(siblingPath), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		reads = { worktrees: 0, gitResults: 0, mergeTargets: 0 };
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	/** Reads the worktree list, a sibling's git result and a merge target a checkout would evict, counting the misses */
+	async function readAll(): Promise<void> {
+		await cache.getWorktrees(repoPath, () => {
+			reads.worktrees++;
+			return [];
+		});
+		await cache.gitResults.getOrCreate(siblingPath, 'git status', () => {
+			reads.gitResults++;
+			return Promise.resolve(gitResult);
+		});
+		await cache.getMergeTarget(repoPath, 'refs/heads/feature', () => {
+			reads.mergeTargets++;
+			return {
+				result: undefined,
+				selfAtTip: false,
+				tips: [],
+				replaced: '',
+				shallow: null,
+				configKey: undefined,
+				stored: undefined,
+				evictOnCheckout: true,
+			};
+		});
+	}
+
+	test('a worktrees change evicts only the worktree list', async () => {
+		await readAll();
+		const types = cache.applyRepositoryChanges(repoPath, ['worktrees'], 'share');
+		await readAll();
+
+		assert.deepStrictEqual(types, ['worktreeList']);
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 1, mergeTargets: 1 });
+	});
+
+	test("a worktree's HEAD moving also evicts every worktree's git results and the checkout's merge targets", async () => {
+		await readAll();
+		const types = cache.applyRepositoryChanges(repoPath, ['worktrees', 'worktreeHead'], 'share');
+		await readAll();
+
+		assert.deepStrictEqual(types, ['worktrees']);
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 2, mergeTargets: 2 });
+	});
+
+	test("clearing the 'worktrees' type still evicts all three, and 'worktreeList' only the list", async () => {
+		await readAll();
+		cache.clearCaches(repoPath, 'worktreeList');
+		await readAll();
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 1, mergeTargets: 1 });
+
+		cache.clearCaches(repoPath, 'worktrees');
+		await readAll();
+		assert.deepStrictEqual(reads, { worktrees: 3, gitResults: 2, mergeTargets: 2 });
+	});
+});
+
 suite('GitWorktree.withRepoPath', () => {
 	test('preserves branchName', () => {
 		const worktree = new GitWorktree(
@@ -2344,4 +2425,22 @@ suite('GitWorktree.name', () => {
 
 		assert.strictEqual(worktree.name, 'feature/x');
 	});
+});
+
+suite('resetDropsPendingRuns', () => {
+	const cases: [string, readonly CachedGitTypes[] | undefined, boolean][] = [
+		['undefined, a reset of everything', undefined, true],
+		['an empty list, a reset of everything', [], true],
+		['the worktree list alone', ['worktreeList'], false],
+		['providers alone', ['providers'], false],
+		['providers and the worktree list', ['providers', 'worktreeList'], false],
+		['branches', ['branches'], true],
+		['the worktree list and branches', ['worktreeList', 'branches'], true],
+	];
+
+	for (const [name, types, expected] of cases) {
+		test(`${name} ${expected ? 'drops' : 'keeps'} in-flight runs`, () => {
+			assert.strictEqual(resetDropsPendingRuns(types), expected);
+		});
+	}
 });

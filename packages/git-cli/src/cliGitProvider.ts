@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { env } from 'node:process';
 import type { CachedGitTypes, MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
-import { Cache } from '@gitlens/git/cache.js';
+import { Cache, resetDropsPendingRuns } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
@@ -146,7 +146,9 @@ export class CliGitProvider implements GitProvider {
 					...hostHooks?.cache,
 					onReset: (repoPath, ...types) => {
 						this._cache.evictCaches(repoPath, ...types);
-						this._git.clearPendingCommands(this.getRepositoryPaths(repoPath));
+						if (resetDropsPendingRuns(types)) {
+							this._git.clearPendingCommands(this.getRepositoryPaths(repoPath));
+						}
 						hostHooks?.cache?.onReset?.(repoPath, ...types);
 					},
 				},
@@ -428,8 +430,10 @@ export class CliGitProvider implements GitProvider {
 			}
 
 			resets.push({ repoPath: repoPath, types: types });
-			for (const path of this.getRepositoryPaths(repoPath)) {
-				pendingPaths.add(path);
+			if (resetDropsPendingRuns(types)) {
+				for (const path of this.getRepositoryPaths(repoPath)) {
+					pendingPaths.add(path);
+				}
 			}
 		}
 

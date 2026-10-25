@@ -881,8 +881,8 @@ suite('Git.run notify', () => {
 			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', inGitDir);
 
 			assert.deepStrictEqual(notified, [
-				{ repoPaths: ['/repo'], changes: ['worktrees'] },
-				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
 			]);
 		});
 
@@ -917,7 +917,7 @@ suite('Git.run notify', () => {
 
 			assert.deepStrictEqual(notified, [
 				{ repoPaths: ['/repo'], changes: ['worktrees'] },
-				{ repoPaths: [normalizePath(ignored)], changes: ['worktrees'] },
+				{ repoPaths: [normalizePath(ignored)], changes: ['worktrees', 'worktreeHead'] },
 			]);
 			assert.deepStrictEqual(reads, []);
 		});
@@ -982,9 +982,9 @@ suite('Git.run notify', () => {
 			);
 
 			assert.deepStrictEqual(notified, [
-				{ repoPaths: ['/repo'], changes: ['worktrees'] },
-				{ repoPaths: ['/repo'], changes: ['worktrees'] },
-				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
 			]);
 		});
 
@@ -999,7 +999,7 @@ suite('Git.run notify', () => {
 				`${resolve('/repo/.git/sync-tools-worktrees')}/../my-worktrees/x`,
 			);
 
-			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }]);
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] }]);
 		});
 
 		test('announces worktrees as before when no folder is registered or the folders are unknown', async () => {
@@ -1017,7 +1017,11 @@ suite('Git.run notify', () => {
 					ignored,
 				);
 
-				assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }], String(answer));
+				assert.deepStrictEqual(
+					notified,
+					[{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] }],
+					String(answer),
+				);
 			}
 		});
 	});
