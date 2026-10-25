@@ -1783,6 +1783,44 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 
+		it("takes a worktree's HEAD report for the echo of a write that announced worktreeHead, pending or late", async () => {
+			const { session, received } = createSession();
+
+			// `git worktree add` writes the new entry's HEAD as it starts, and `remove` deletes it, before announcing
+			session.pushRepoChanges(['worktrees', 'worktreeHead']);
+			session.noteSelfWrite(['worktrees', 'worktreeHead']);
+			session.pushRepoChanges(['worktrees', 'worktreeHead']);
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['worktreeHead', 'worktrees']);
+			assert.deepStrictEqual(sorted(received[0].announced), ['worktreeHead', 'worktrees']);
+			assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+			session.dispose();
+		});
+
+		it("keeps a worktree's HEAD report unannounced under a write that announced only worktrees", async () => {
+			for (const pending of [true, false]) {
+				const { session, received } = createSession();
+
+				// A lock writes no HEAD, so a HEAD report around it is a checkout in another worktree
+				if (pending) {
+					session.pushRepoChanges(['worktrees', 'worktreeHead']);
+				}
+				session.noteSelfWrite(['worktrees']);
+				if (!pending) {
+					session.pushRepoChanges(['worktrees', 'worktreeHead']);
+				}
+				await delay(60);
+
+				const label = pending ? 'pending' : 'late';
+				assert.strictEqual(received.length, 1, label);
+				assert.deepStrictEqual(sorted(received[0].changes), ['worktreeHead', 'worktrees'], label);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['worktreeHead'], label);
+				session.dispose();
+			}
+		});
+
 		it('keeps the unannounced kinds of a raw change mixing both, marking only the announced ones', async () => {
 			const { session, received } = createSession();
 

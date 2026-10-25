@@ -191,6 +191,18 @@ suite('CliGitProvider — what an announced change resets', () => {
 		);
 	});
 
+	test("a lock's worktree-list-only reset and announcement keep every pending run joinable", () => {
+		const pending = seedPending([repoPath, worktreePath, otherPath]);
+
+		provider.context.hooks?.cache?.onReset?.(worktreePath, 'worktreeList');
+		provider.notifyChanged(worktreePath, ['worktrees']);
+
+		assert.deepStrictEqual(
+			Array.from(pending.values(), p => p.cwd),
+			[repoPath, worktreePath, otherPath],
+		);
+	});
+
 	test('a -C shared-state write into a sibling worktree drops pending runs once, and resets and announces both paths', async () => {
 		const clearPending = sinon.spy(git, 'clearPendingCommands');
 		try {
@@ -228,6 +240,73 @@ suite('CliGitProvider — what an announced change resets', () => {
 			Array.from(pending.values(), p => p.cwd),
 			[otherPath],
 		);
+	});
+
+	test("a worktree write's HEAD reaches each sibling announced, which evicts none of the shared caches for it", async () => {
+		const applied = sinon.spy(cache, 'applyRepositoryChanges');
+		const announced: [string, RepositoryChange[]][] = [];
+		const listener = provider.onDidAnnounceChanges(e => announced.push([e.repoPath, [...e.changes]]));
+		try {
+			provider.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
+		} finally {
+			listener.dispose();
+			applied.restore();
+		}
+
+		// The sibling's watcher reports the entry's HEAD too, so it must be announced there to be taken for the echo
+		assert.deepStrictEqual(announced, [
+			[repoPath, ['worktrees', 'worktreeHead']],
+			[worktreePath, ['worktrees', 'worktreeHead']],
+		]);
+		assert.deepStrictEqual(changed, announced);
+
+		const siblingCall = applied.getCalls().find(c => c.args[0] === worktreePath);
+		assert.ok(siblingCall);
+		assert.deepStrictEqual(siblingCall.args.slice(1), [
+			['worktrees', 'worktreeHead'],
+			'evict',
+			{ worktreeOnly: true },
+		]);
+
+		// What that reset evicts on its own: the shared caches it names were evicted by the writer's reset before it
+		const gitResult = {
+			stdout: 'x',
+			stderr: undefined,
+			exitCode: 0,
+			completion: { status: 'exited', code: 0 },
+		} as const;
+		let gitResultReads = 0;
+		const readGitResult = () =>
+			cache.gitResults.getOrCreate(worktreePath, 'git status', () => {
+				gitResultReads++;
+				return Promise.resolve(gitResult);
+			});
+		let mergeTargetReads = 0;
+		const readMergeTarget = () =>
+			cache.getMergeTarget(worktreePath, 'refs/heads/feature', () => {
+				mergeTargetReads++;
+				return {
+					result: undefined,
+					selfAtTip: false,
+					tips: [],
+					replaced: '',
+					shallow: null,
+					configKey: undefined,
+					stored: undefined,
+					evictOnCheckout: true,
+				};
+			});
+		cache.worktrees.set(repoPath, Promise.resolve([]));
+		await readGitResult();
+		await readMergeTarget();
+
+		cache.applyRepositoryChanges(worktreePath, ['worktrees', 'worktreeHead'], 'evict', { worktreeOnly: true });
+
+		await readGitResult();
+		await readMergeTarget();
+		assert.strictEqual(gitResultReads, 1, "the sibling's git results are kept");
+		assert.strictEqual(mergeTargetReads, 1, 'the merge targets are kept');
+		assert.ok(cache.worktrees.has(repoPath), 'the shared worktree list is kept');
 	});
 
 	test('a -C shared-state write into an unrelated repository resets both', async () => {
@@ -869,7 +948,7 @@ suite('CliGitProvider — what an announced change resets', () => {
 						'remove',
 						resolve(`${realPath}/.git/my-worktrees/x`),
 					);
-					assert.deepStrictEqual(ownChanged, [[linkPath, ['worktrees']]]);
+					assert.deepStrictEqual(ownChanged, [[linkPath, ['worktrees', 'worktreeHead']]]);
 				} finally {
 					registering.dispose();
 				}

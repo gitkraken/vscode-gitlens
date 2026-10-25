@@ -217,16 +217,16 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				);
 				this.context.hooks?.repository?.onChanged?.(
 					repoPath,
-					['worktrees', 'heads'],
+					['worktrees', 'worktreeHead', 'heads'],
 					[`refs/heads/${createdBranch}`],
 				);
 			} else if (mayHaveCreatedBranch) {
 				// Git creates the branch before checking it out, so a run cut short may have left one it never named
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config', 'worktrees');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'heads']);
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead', 'heads']);
 			} else {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
 			}
 		}
 	}
@@ -557,7 +557,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			}
 			// A failed or cancelled removal may already have taken the worktree's files or admin entry
 			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
 		}
 	}
 
@@ -594,7 +594,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			}
 		} finally {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
 		}
 	}
 
@@ -637,7 +637,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
 		} finally {
-			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			// A lock touches no worktree's HEAD, so no worktree's git results or merge targets
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktreeList');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 		}
 	}
@@ -656,7 +657,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw' }, 'worktree', 'unlock', pathStr);
 		} finally {
-			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktreeList');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 		}
 	}

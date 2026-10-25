@@ -257,9 +257,10 @@ export function leadingCommand(args: readonly string[]): LeadingCommand {
 }
 
 /**
- * The change kinds every worktree sharing a `.git` sees: its refs, stash, worktree list and config. The rest a
- * classified verb announces — HEAD, the index, a paused operation, FETCH_HEAD — belong to the one tree the
- * command ran in, so a `-C`-scoped write tells the caller's own `cwd` only this subset of what it changed.
+ * The change kinds every worktree sharing a `.git` sees: its refs, stash, worktree list, the HEADs of the worktrees
+ * it lists (`worktreeHead`, which every other worktree's watcher reports too) and config. The rest a classified verb
+ * announces — the tree's own HEAD, the index, a paused operation, FETCH_HEAD — belong to the one tree the command ran
+ * in, so a `-C`-scoped write tells the caller's own `cwd` only this subset of what it changed.
  */
 export const worktreeSharedChanges: ReadonlySet<RepositoryChange> = new Set([
 	'heads',
@@ -267,6 +268,7 @@ export const worktreeSharedChanges: ReadonlySet<RepositoryChange> = new Set([
 	'stash',
 	'remotes',
 	'worktrees',
+	'worktreeHead',
 	'config',
 ]);
 
@@ -370,7 +372,7 @@ export function mayWriteTracking(startPoint: string | undefined, noTracking: boo
 	return startPoint.includes('/');
 }
 
-const worktreeChanges: readonly RepositoryChange[] = ['worktrees', 'heads'];
+const worktreeChanges: readonly RepositoryChange[] = ['worktrees', 'worktreeHead', 'heads'];
 const emptyChanges: readonly RepositoryChange[] = [];
 
 export interface CommandChanges {
@@ -414,7 +416,8 @@ const headIndexChanges: readonly RepositoryChange[] = ['head', 'index'];
 const checkoutChanges: readonly RepositoryChange[] = ['head', 'heads', 'index'];
 const checkoutTrackingChanges: readonly RepositoryChange[] = ['config', 'head', 'heads', 'index'];
 const worktreeOnlyChanges: readonly RepositoryChange[] = ['worktrees'];
-const worktreeTrackingChanges: readonly RepositoryChange[] = ['config', 'worktrees', 'heads'];
+const worktreeHeadChanges: readonly RepositoryChange[] = ['worktrees', 'worktreeHead'];
+const worktreeTrackingChanges: readonly RepositoryChange[] = ['config', 'worktrees', 'worktreeHead', 'heads'];
 
 const stashRefs: readonly string[] = ['refs/stash'];
 
@@ -640,8 +643,10 @@ function getTagChanges(args: readonly string[]): NamedChanges | undefined {
 	return { changes: tagsChanges, refs: [`refs/tags/${names[0]}`] };
 }
 
-/** The `worktree` subcommands other than `add` and `list`; none writes a branch */
-const worktreeEditSubcommands: ReadonlySet<string> = new Set(['remove', 'prune', 'lock', 'unlock', 'move', 'repair']);
+/** The `worktree` subcommands besides `add` and `list` (none writes a branch) that delete a worktree's HEAD */
+const worktreeHeadSubcommands: ReadonlySet<string> = new Set(['remove', 'prune']);
+/** The rest, which touch no worktree's HEAD */
+const worktreeEditSubcommands: ReadonlySet<string> = new Set(['lock', 'unlock', 'move', 'repair']);
 const worktreeAddFlags: ReadonlySet<string> = new Set([
 	'-f',
 	'--force',
@@ -668,6 +673,7 @@ const worktreeAddValued: ReadonlySet<string> = new Set(['-b', '-B', '--reason'])
 function getWorktreeChanges(args: readonly string[]): NamedChanges | undefined {
 	const [subcommand, ...rest] = args;
 	if (subcommand != null && worktreeEditSubcommands.has(subcommand)) return { changes: worktreeOnlyChanges };
+	if (subcommand != null && worktreeHeadSubcommands.has(subcommand)) return { changes: worktreeHeadChanges };
 	if (subcommand !== 'add') return undefined;
 
 	const parsed = parseArgs(rest, worktreeAddFlags, worktreeAddValued);
@@ -714,7 +720,7 @@ function getWorktreeChanges(args: readonly string[]): NamedChanges | undefined {
 		}
 		return { changes: worktreeChanges, refs: refs };
 	}
-	if (detach || (commitish != null && fullShaRegex.test(commitish))) return { changes: worktreeOnlyChanges };
+	if (detach || (commitish != null && fullShaRegex.test(commitish))) return { changes: worktreeHeadChanges };
 
 	return undefined;
 }

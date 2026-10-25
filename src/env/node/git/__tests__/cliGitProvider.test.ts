@@ -41,4 +41,10 @@ suite('clearPendingCommandsForReset', () => {
 
 		assert.strictEqual(pending.size, 2);
 	});
+
+	test('a worktree-list-only reset, as a lock makes, drops nothing', () => {
+		clearPendingCommandsForReset(git, { repoPath: '/repo-a', types: ['worktreeList'] });
+
+		assert.strictEqual(pending.size, 2);
+	});
 });
