@@ -1,5 +1,5 @@
 import { exhaustiveArray } from '@gitlens/utils/array.js';
-import { raceWithSignal } from '@gitlens/utils/cancellation.js';
+import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
 import type { Event } from '@gitlens/utils/event.js';
@@ -2296,8 +2296,17 @@ export class Cache implements Disposable {
 			cacheable: CacheController,
 			cancellation?: AbortSignal,
 		) => PromiseOrValue<GitWorktree[]>,
+		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitWorktree[]> {
+		if (options?.force) {
+			// An aborted call must not cost every other caller the shared list
+			if (cancellation?.aborted) throw new CancellationError();
+
+			// Not `evictCaches(…, 'worktrees')`: that also drops `gitResults` and merge targets for every sibling worktree
+			this.evictShared('worktrees', repoPath, 'evict');
+		}
+
 		return this.getSharedOrCreate(
 			this.worktrees,
 			repoPath,

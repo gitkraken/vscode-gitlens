@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as sinon from 'sinon';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -167,6 +168,90 @@ suite('WorktreesSubProvider mutations', () => {
 		} finally {
 			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: repo.path, stdio: 'pipe' });
 			rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	test('a forced getWorktrees sees a worktree created outside the provider, and matches its new branch', async () => {
+		assert.ok(repo.provider.worktrees);
+		await repo.provider.worktrees.getWorktrees(repo.path);
+		await repo.provider.branches.getBranches(repo.path);
+
+		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-fresh-'));
+		const spy = sinon.spy(repo.provider.git, 'run');
+		try {
+			execFileSync('git', ['worktree', 'add', '-b', 'fresh-branch', worktreePath], {
+				cwd: repo.path,
+				stdio: 'pipe',
+			});
+
+			const worktrees = await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+			const created = worktrees.find(w => normalizePath(w.path) === normalizePath(worktreePath));
+			assert.ok(created, 'the new worktree should be listed');
+			assert.strictEqual(created.branchName, 'fresh-branch');
+			assert.strictEqual(created.branch?.name, 'fresh-branch', 'the stale branch list should be refreshed');
+			assert.ok(
+				spy.getCalls().some(c => c.args.includes('worktree') && c.args.includes('list')),
+				'a `worktree list` should have run',
+			);
+
+			spy.resetHistory();
+			await repo.provider.branches.getBranches(repo.path);
+			assert.ok(
+				!spy.getCalls().some(c => c.args.includes('for-each-ref')),
+				'the refreshed branch list should be served from cache',
+			);
+		} finally {
+			spy.restore();
+			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: repo.path, stdio: 'pipe' });
+			rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	test('a forced getWorktrees of an unchanged repository re-reads only the worktree list', async () => {
+		assert.ok(repo.provider.worktrees);
+		createBranch(repo.path, 'steady-branch');
+		const branchPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-steady-'));
+		const detachedPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-detached-'));
+		let spy: sinon.SinonSpy | undefined;
+		try {
+			addWorktree(repo.path, branchPath, 'steady-branch');
+			execFileSync('git', ['worktree', 'add', '--detach', detachedPath], { cwd: repo.path, stdio: 'pipe' });
+
+			// Settles whatever earlier tests left stale, so what follows reads a repository that hasn't changed
+			await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+			await repo.provider.branches.getBranches(repo.path);
+
+			spy = sinon.spy(repo.provider.git, 'run');
+			const worktrees = await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+
+			assert.strictEqual(
+				worktrees.find(w => normalizePath(w.path) === normalizePath(branchPath))?.branch?.name,
+				'steady-branch',
+			);
+			assert.strictEqual(
+				worktrees.find(w => normalizePath(w.path) === normalizePath(detachedPath))?.type,
+				'detached',
+			);
+			const calls = spy.getCalls();
+			assert.strictEqual(
+				calls.filter(c => c.args.includes('worktree') && c.args.includes('list')).length,
+				1,
+				'exactly one `worktree list` should run',
+			);
+			assert.ok(
+				!calls.some(c => c.args.includes('for-each-ref')),
+				'an unchanged repository should not re-read its branches',
+			);
+		} finally {
+			spy?.restore();
+			for (const path of [branchPath, detachedPath]) {
+				try {
+					execFileSync('git', ['worktree', 'remove', '--force', path], { cwd: repo.path, stdio: 'pipe' });
+				} catch {}
+				try {
+					rmSync(path, { recursive: true, force: true });
+				} catch {}
+			}
 		}
 	});
 

@@ -485,14 +485,14 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitWorktreesSubProvider
 
-| Method                                               | Returns                    |
-| ---------------------------------------------------- | -------------------------- |
-| `getWorktree(repoPath, predicate, cancellation?)`    | `GitWorktree \| undefined` |
-| `getWorktrees(repoPath, cancellation?)`              | `GitWorktree[]`            |
-| `getWorktreesDefaultUri(repoPath)`                   | `Uri \| undefined`         |
-| `createWorktree(repoPath, path, options?)`           | `void`                     |
-| `createWorktreeWithResult(repoPath, path, options?)` | `GitWorktree \| undefined` |
-| `deleteWorktree(repoPath, path, options?)`           | `void`                     |
+| Method                                                      | Returns                    |
+| ----------------------------------------------------------- | -------------------------- |
+| `getWorktree(repoPath, predicate, options?, cancellation?)` | `GitWorktree \| undefined` |
+| `getWorktrees(repoPath, options?, cancellation?)`           | `GitWorktree[]`            |
+| `getWorktreesDefaultUri(repoPath)`                          | `Uri \| undefined`         |
+| `createWorktree(repoPath, path, options?)`                  | `void`                     |
+| `createWorktreeWithResult(repoPath, path, options?)`        | `GitWorktree \| undefined` |
+| `deleteWorktree(repoPath, path, options?)`                  | `void`                     |
 
 ### GitBlameSubProvider
 
