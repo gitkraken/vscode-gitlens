@@ -525,9 +525,9 @@ export abstract class AzureDevOpsIntegrationBase<
 	/**
 	 * Resolved per organization, which a raw row names as its repository owner: an organization's pull requests carry
 	 * the id {@link getFilterUserId} resolves there, not necessarily the account's. A row an account-wide read returned
-	 * keeps the one that read resolved, even once its session is gone. A row that names no organization or no one to
-	 * match gets no viewer; one in an organization whose id can't be read gets `null`, so it's marked
-	 * `viewerUnresolved`: its authorship stays unknown, as does every such row when no session can be resolved to ask
+	 * keeps the one that read resolved, even once its session is gone. A row that names no one to match gets no viewer;
+	 * one in an organization whose id can't be read gets `null`, so it's marked `viewerUnresolved`: its authorship stays
+	 * unknown, as does every such row that names no organization to ask, or when no session can be resolved to ask
 	 * with.
 	 */
 	override async getPullRequestViewers(
@@ -536,20 +536,23 @@ export abstract class AzureDevOpsIntegrationBase<
 	): Promise<({ id: string; username?: string } | null | undefined)[]> {
 		// Azure's rows are provider-apis' own; only GitHub's are native.
 		const read = pullRequests.map(pr => (isNativePullRequest(pr) ? undefined : this._rowViewers.get(pr)));
+		// The organization to ask for each row still to resolve, `''` for one that names none.
 		const organizations = pullRequests.map((pr, i) =>
 			read[i] == null && !isNativePullRequest(pr) && pullRequestNamesPeople(pr)
-				? pr.repository?.owner?.login || undefined
+				? pr.repository?.owner?.login || ''
 				: undefined,
 		);
 		if (!organizations.some(o => o != null)) return read;
 
-		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
-		const viewerFor =
-			session != null ? this.getOrganizationViewers(session) : () => Promise.resolve<{ id: string } | null>(null);
+		const session = organizations.some(o => o)
+			? await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined)
+			: undefined;
+		const viewerFor = session != null ? this.getOrganizationViewers(session) : undefined;
 		return Promise.all(
 			read.map((viewer, i) => {
 				const organization = organizations[i];
 				if (organization == null) return Promise.resolve(viewer);
+				if (!organization || viewerFor == null) return Promise.resolve(null);
 
 				return viewerFor(organization);
 			}),
@@ -558,8 +561,9 @@ export abstract class AzureDevOpsIntegrationBase<
 
 	/**
 	 * Resolved per organization, which a raw work item names as its project's namespace: an organization's work items
-	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no
-	 * organization or no one to match gets no viewer; one in an organization whose id can't be read gets `null`.
+	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no one to
+	 * match gets no viewer; one in an organization whose id can't be read, or that names no organization to ask, gets
+	 * `null`.
 	 */
 	protected override getIssueViewers(
 		session: ProviderAuthenticationSession,
@@ -568,9 +572,11 @@ export abstract class AzureDevOpsIntegrationBase<
 		const viewerFor = this.getOrganizationViewers(session);
 		return Promise.all(
 			issues.map(i =>
-				issueNamesPeople(i) && i.project?.namespace
-					? viewerFor(i.project.namespace)
-					: Promise.resolve(undefined),
+				!issueNamesPeople(i)
+					? Promise.resolve(undefined)
+					: i.project?.namespace
+						? viewerFor(i.project.namespace)
+						: Promise.resolve(null),
 			),
 		);
 	}

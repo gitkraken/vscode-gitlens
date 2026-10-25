@@ -1546,6 +1546,31 @@ suite('Azure DevOps organization identities (#6032)', () => {
 		manager.dispose();
 	});
 
+	test('a row that names someone but no organization to ask is unresolved, not unknown-provider (#6083)', async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities();
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+
+		const prViewers = await azure.getPullRequestViewers([
+			providerPr('pr-1', { author: person('one-id'), repository: null as never }),
+		]);
+		const issueViewers = await (
+			azure as unknown as {
+				getIssueViewers: (
+					session: ProviderAuthenticationSession,
+					issues: readonly ProviderIssue[],
+				) => Promise<({ id: string } | null | undefined)[]>;
+			}
+		).getIssueViewers(session, [
+			{ ...workItemIn('Org One', 'web', 'one-id'), project: null } as unknown as ProviderIssue,
+		]);
+
+		assert.deepEqual(prViewers, [null]);
+		assert.deepEqual(issueViewers, [null]);
+		assert.equal(lookups.length, 0, 'no identity read');
+
+		manager.dispose();
+	});
+
 	test("an organization refusing its connection data is that organization's failure, named once the credential checks out", async () => {
 		let probes = 0;
 		const manager = await azureWithRefusingOrg(
