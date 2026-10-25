@@ -1901,7 +1901,7 @@ export abstract class GitHostIntegration<
 	 * row gets the account itself; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`), with
 	 * `null` for a row whose organization's identity couldn't be read, which marks it `viewerUnresolved`.
 	 * Throws only when the account itself can't be read. Azure DevOps never throws: a session it can't resolve leaves
-	 * the rows it hadn't already resolved unknown.
+	 * every row it would have asked an organization for `null` too.
 	 */
 	async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
