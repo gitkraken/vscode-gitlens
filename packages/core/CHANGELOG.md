@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-25
+
 ### Added
 
 - Adds `ignoredWorktreeFolders` to `CliGitProviderOptions` and `createCliGitService`: folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist, for a tool's throwaway worktrees (sync-tools' `sync-tools-worktrees`, say). They are matched under the common git dir as spelled and as it resolves through symlinks. They are left out of worktree lists, and adding, removing, locking, unlocking or moving one (by absolute path, in a `notify: 'infer'` run; the typed worktree writes still announce it) announces no `worktrees` change, so it no longer evicts every checkout's cached git results. The `.git` watchers leave the folders unwatched, so a throwaway checkout inside `.git` costs the watcher nothing. Nothing is ignored unless registered (git, git-cli)
@@ -954,7 +956,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.17.0...HEAD
+[0.17.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...gitkraken:releases/core/v0.17.0
 [0.16.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...gitkraken:releases/core/v0.16.5
 [0.16.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...gitkraken:releases/core/v0.16.4
 [0.16.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...gitkraken:releases/core/v0.16.3
