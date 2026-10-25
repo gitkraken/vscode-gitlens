@@ -250,6 +250,11 @@ interface SharedCaches {
 	emptyTreeSha: PromiseMap<RepoPath, string> | undefined;
 	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
 	gkConfigMap: PromiseMap<RepoPath, Map<string, string>> | undefined;
+	/**
+	 * The `git config` listing of the gitignore filter's inputs (`core.excludesFile`, `core.ignorecase`), read once in
+	 * the main checkout for every checkout of the repository
+	 */
+	ignoreConfigListing: PromiseMap<RepoPath, string | undefined> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
 	/** Keyed by commonPath — `FETCH_HEAD` lives in the common git dir, shared across worktrees. */
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
@@ -284,6 +289,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 		'emptyTreeSha',
 		'gitResults',
 		'gkConfigMap',
+		'ignoreConfigListing',
 		'initialCommitSha',
 		'lastFetched',
 		'logShas',
@@ -334,6 +340,7 @@ function createEmptyCaches(): AllCaches {
 		gitIgnore: undefined,
 		gitResults: undefined,
 		gkConfigMap: undefined,
+		ignoreConfigListing: undefined,
 		initialCommitSha: undefined,
 		lastFetched: undefined,
 		logShas: undefined,
@@ -584,6 +591,10 @@ export class Cache implements Disposable {
 		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>({ capacity: 200 }));
 	}
 
+	get ignoreConfigListing(): PromiseMap<RepoPath, string | undefined> {
+		return (this._caches.ignoreConfigListing ??= new PromiseMap<RepoPath, string | undefined>());
+	}
+
 	get initialCommitSha(): PromiseMap<RepoPath, string | undefined> {
 		return (this._caches.initialCommitSha ??= new PromiseMap<RepoPath, string | undefined>());
 	}
@@ -796,6 +807,7 @@ export class Cache implements Disposable {
 				// A checkout can change includeIf.onbranch without writing any config file.
 				keysToClear.add('aheadOfBaseConfigKey');
 				keysToClear.add('aheadOfBaseConfigListing');
+				keysToClear.add('ignoreConfigListing');
 				// `'branch'` comes from a HEAD change — a checkout — which appends `checkout: moving from X
 				// to Y` to the reflog, exactly the entry `getBaseBranchName` greps for when nothing is
 				// stored. A base derived as "none" BEFORE that entry existed is cached with no TTL, so
@@ -829,6 +841,7 @@ export class Cache implements Disposable {
 			if (types.includes('config')) {
 				keysToClear.add('aheadOfBaseConfigKey');
 				keysToClear.add('aheadOfBaseConfigListing');
+				keysToClear.add('ignoreConfigListing');
 				// `getBaseBranchName` falls back to `branch.<ref>.vscode-merge-base` (written by VS Code's
 				// built-in Git), which lives in `.git/config` — so a config change is the only signal that
 				// source changed. Cheap: config events are rare.
@@ -938,6 +951,7 @@ export class Cache implements Disposable {
 					// listing read before the change
 					const hardEvict =
 						key === 'aheadOfBaseConfigListing' ||
+						key === 'ignoreConfigListing' ||
 						(key === 'gitResults' && (types.includes('config') || types.includes('branch')));
 					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight);
 				}
@@ -1084,6 +1098,7 @@ export class Cache implements Disposable {
 			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
 			if (normalizedPath === commonPath) {
 				this._caches.aheadOfBaseConfigListing?.delete(commonPath);
+				this._caches.ignoreConfigListing?.delete(commonPath);
 			}
 			this._caches.gitResults?.delete(normalizedPath);
 		}
@@ -1146,7 +1161,7 @@ export class Cache implements Disposable {
 				continue;
 			}
 			// The main checkout's own listing, so it retires with that checkout as its config key does
-			if (key === 'aheadOfBaseConfigListing') {
+			if (key === 'aheadOfBaseConfigListing' || key === 'ignoreConfigListing') {
 				if (repoPath === commonPath || isLastWorktree) {
 					cache.delete(commonPath);
 				}
@@ -2072,6 +2087,23 @@ export class Cache implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		return this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation);
+	}
+
+	/**
+	 * One listing of the gitignore filter's config inputs for every checkout of a repository, which serves a checkout's
+	 * filter while nothing makes config differ by checkout. Evicted hard, so a read after a change never joins one
+	 * from before it.
+	 */
+	getIgnoreConfigListing(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.getSharedSimple(this.ignoreConfigListing, repoPath, factory, cancellation);
 	}
 
 	getBranchMetadataMap(

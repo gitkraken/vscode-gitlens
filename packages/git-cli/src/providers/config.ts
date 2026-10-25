@@ -15,12 +15,15 @@ import type {
 	GkConfigKeys,
 } from '@gitlens/git/providers/config.js';
 import { parseBranchMetadataGkConfigKey } from '@gitlens/git/utils/branch.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { first, some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { dirname, getBestPath, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { fsExists } from '../exec/exec.js';
@@ -195,6 +198,52 @@ export function isGitBooleanFalse(value: string): boolean {
 	);
 }
 
+/** Splits `git config --null --get-regexp` output into its entries, in order; a key set without a value has none */
+export function parseConfigListing(listing: string): [key: string, value: string | undefined][] {
+	const entries: [key: string, value: string | undefined][] = [];
+	for (const entry of listing.split('\0')) {
+		if (!entry) continue;
+
+		const separator = entry.indexOf('\n');
+		entries.push(
+			separator < 0 ? [entry, undefined] : [entry.substring(0, separator), entry.substring(separator + 1)],
+		);
+	}
+	return entries;
+}
+
+/**
+ * Whether `listing` shows config that can differ by checkout over time: `extensions.worktreeConfig` (each checkout's
+ * `config.worktree`), or a conditional include that is neither `hasconfig:` nor `gitdir:`, since `onbranch:` follows
+ * each checkout's HEAD and an unknown condition might follow anything. A `gitdir:` include matching only some
+ * checkouts is accepted as shared: it is the common identity setup, and treating it as differing would end sharing for
+ * nearly everyone. The cost is a known gap: an edit to a file only those checkouts include goes unseen there, since
+ * nothing watches it, until a change the shared listing does see.
+ */
+export function mayConfigDifferByCheckout(listing: string): boolean {
+	for (const [key, value] of parseConfigListing(listing)) {
+		if (key === 'extensions.worktreeconfig') {
+			// A key set without a value is true
+			if (value == null || !isGitBooleanFalse(value)) return true;
+
+			continue;
+		}
+		if (!key.startsWith('includeif.')) continue;
+
+		const condition = key.substring('includeif.'.length, key.lastIndexOf('.'));
+		if (
+			condition.startsWith('hasconfig:') ||
+			condition.startsWith('gitdir:') ||
+			condition.startsWith('gitdir/i:')
+		) {
+			continue;
+		}
+
+		return true;
+	}
+	return false;
+}
+
 export class ConfigGitSubProvider implements GitConfigSubProvider {
 	constructor(
 		private readonly context: GitServiceContext,
@@ -258,6 +307,64 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			...args,
 		);
 		return result.stdout.trim() || undefined;
+	}
+
+	/**
+	 * A checkout's raw `core.excludesFile` and `core.ignorecase`, the config its gitignore filter loads. Every checkout
+	 * of a repository shares one read in the main checkout, unless the listing shows config that can differ by checkout
+	 * (see `mayConfigDifferByCheckout`) or the read failed; then a linked checkout reads its own.
+	 */
+	@trace({ quiet: true })
+	async getIgnoreConfig(
+		repoPath: string,
+	): Promise<{ excludesFile: string | undefined; ignoreCase: string | undefined }> {
+		const commonPath = this.cache.getCommonPath(repoPath);
+		const listing = await this.cache.getIgnoreConfigListing(repoPath, (path, cacheable, signal) =>
+			this.readIgnoreConfigListing(path, cacheable, signal),
+		);
+		if (listing != null && (repoPath === commonPath || !mayConfigDifferByCheckout(listing))) {
+			let excludesFile: string | undefined;
+			let ignoreCase: string | undefined;
+			// A key can repeat, and git answers with the last
+			for (const [key, value] of parseConfigListing(listing)) {
+				if (key === 'core.excludesfile') {
+					excludesFile = value?.trim() || undefined;
+				} else if (key === 'core.ignorecase') {
+					// A key set without a value is true
+					ignoreCase = value == null ? 'true' : value.trim() || undefined;
+				}
+			}
+			return { excludesFile: excludesFile, ignoreCase: ignoreCase };
+		}
+
+		const [excludesFileResult, ignoreCaseResult] = await Promise.allSettled([
+			this.getConfig(repoPath, 'core.excludesFile'),
+			this.getConfig(repoPath, 'core.ignorecase'),
+		]);
+		return { excludesFile: getSettledValue(excludesFileResult), ignoreCase: getSettledValue(ignoreCaseResult) };
+	}
+
+	private async readIgnoreConfigListing(
+		cwd: string,
+		cacheable: CacheController,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		// Conditional includes and `extensions.worktreeConfig` tell whether one checkout's listing holds for the others.
+		// Exit 1 is nothing set, a real answer; a failure must not reject, as the filter's per-checkout reads never did
+		const result = await this.git.run(
+			{ cwd: cwd, cancellation: cancellation, errors: 'ignore' },
+			'config',
+			'--null',
+			'--get-regexp',
+			'^(core\\.excludesfile|core\\.ignorecase|includeif\\..*|extensions\\.worktreeconfig)$',
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		if (result.completion.status !== 'exited' || (result.exitCode !== 0 && result.exitCode !== 1)) {
+			cacheable.invalidate();
+			return undefined;
+		}
+		return result.stdout;
 	}
 
 	@trace({ quiet: true })
