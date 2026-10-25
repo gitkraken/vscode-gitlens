@@ -67,7 +67,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly authoredByMe?: boolean;
 	/**
 	 * The current account as this pull request's members identify it: the identity its people were matched against,
-	 * present whenever it was resolved. {@link authoredByMe} is matched against it too, and stays `undefined` when the
+	 * present whenever it was resolved (see {@link viewerUnresolved} for an Azure DevOps row it couldn't be for). {@link authoredByMe} is matched against it too, and stays `undefined` when the
 	 * row has no author, though its reviewers or assignees still get this. A consumer matching {@link reviewRequests}
 	 * or {@link latestReviews} entries to the current user compares against this, not the account `getCurrentAccount`
 	 * returns: Azure DevOps can know one person by another id in each organization (Azure DevOps Server: collection)
