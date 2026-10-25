@@ -827,15 +827,12 @@ export class CliGitProvider implements GitProvider {
 				gitDirPath: gitDirPath,
 				fs: this.context.fs,
 				// Resolved the way git resolves it; unset, git reads its default location instead
-				getGlobalExcludesPath:
-					this.config.getConfig != null
-						? async () => {
-								const configured = await this.config.getConfig(repoPath, 'core.excludesFile');
-								return configured != null
-									? resolveGitPathConfig(configured, repoPath)
-									: getDefaultGlobalExcludesPath();
-							}
-						: undefined,
+				getGlobalExcludesPath: async () => {
+					const { excludesFile: configured } = await this.config.getIgnoreConfig(repoPath);
+					return configured != null
+						? resolveGitPathConfig(configured, repoPath)
+						: getDefaultGlobalExcludesPath();
+				},
 				// `info/exclude` lives in the COMMON git dir — a linked worktree's own git dir has none
 				getInfoExcludePath: async () => {
 					const gitDir = await this.config.getGitDir?.(repoPath);
@@ -845,7 +842,7 @@ export class CliGitProvider implements GitProvider {
 				},
 				getGitIgnorePaths: () => this.getGitIgnorePaths(repoPath),
 				getIgnoreCase: async () => {
-					const value = await this.config.getConfig?.(repoPath, 'core.ignorecase');
+					const { ignoreCase: value } = await this.config.getIgnoreConfig(repoPath);
 					if (value == null) return undefined;
 					if (parseGitBoolean(value)) return true;
 

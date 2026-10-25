@@ -73,7 +73,7 @@ import { KeyedSequencer } from '../exec/indexLock.js';
 import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 import { resolveBranchRemote } from './branchRemote.js';
-import { isGitBooleanFalse } from './config.js';
+import { mayConfigDifferByCheckout, parseConfigListing } from './config.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
@@ -4511,52 +4511,6 @@ function mayHaveUpstream(records: readonly RefRecord[], name: string): boolean {
 /** `answer` with the default branch its read resolved, when it consulted one (see `AheadOfBase.defaultBranch`) */
 function withDefaultBranch(answer: AheadOfBase, defaultBranch: string | null | undefined): AheadOfBase {
 	return defaultBranch !== undefined ? { ...answer, defaultBranch: defaultBranch } : answer;
-}
-
-/** Splits `git config --null --get-regexp` output into its entries, in order; a key set without a value has none */
-function parseConfigListing(listing: string): [key: string, value: string | undefined][] {
-	const entries: [key: string, value: string | undefined][] = [];
-	for (const entry of listing.split('\0')) {
-		if (!entry) continue;
-
-		const separator = entry.indexOf('\n');
-		entries.push(
-			separator < 0 ? [entry, undefined] : [entry.substring(0, separator), entry.substring(separator + 1)],
-		);
-	}
-	return entries;
-}
-
-/**
- * Whether `listing` shows config that can differ by checkout over time: `extensions.worktreeConfig` (each checkout's
- * `config.worktree`), or a conditional include that is neither `hasconfig:` nor `gitdir:`, since `onbranch:` follows
- * each checkout's HEAD and an unknown condition might follow anything. A `gitdir:` include matching only some
- * checkouts is accepted as shared: it is the common identity setup, and treating it as differing would end sharing for
- * nearly everyone. The cost is a known gap: an edit to a file only those checkouts include goes unseen there, since
- * nothing watches it, until a change the shared listing does see.
- */
-function mayConfigDifferByCheckout(listing: string): boolean {
-	for (const [key, value] of parseConfigListing(listing)) {
-		if (key === 'extensions.worktreeconfig') {
-			// A key set without a value is true
-			if (value == null || !isGitBooleanFalse(value)) return true;
-
-			continue;
-		}
-		if (!key.startsWith('includeif.')) continue;
-
-		const condition = key.substring('includeif.'.length, key.lastIndexOf('.'));
-		if (
-			condition.startsWith('hasconfig:') ||
-			condition.startsWith('gitdir:') ||
-			condition.startsWith('gitdir/i:')
-		) {
-			continue;
-		}
-
-		return true;
-	}
-	return false;
 }
 
 /**
