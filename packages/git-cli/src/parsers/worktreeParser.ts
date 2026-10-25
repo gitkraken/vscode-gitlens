@@ -67,6 +67,7 @@ export function parseGitWorktrees(
 					entry.sha,
 					branch,
 					getWorkspaceFolder?.(uri),
+					entry.branch,
 				),
 			);
 
@@ -88,8 +89,10 @@ export function parseGitWorktrees(
 				entry.sha = value;
 				break;
 			case 'branch':
-				// Strip off refs/heads/
-				entry.branch = value.substring(11);
+				// A HEAD pointing outside `refs/heads/` names no branch
+				if (value.startsWith('refs/heads/')) {
+					entry.branch = value.substring(11);
+				}
 				break;
 			case 'detached':
 				entry.detached = true;

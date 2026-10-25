@@ -81,6 +81,24 @@ export function isRunHookFailure(ex: unknown): boolean {
 	return typeof ex === 'object' && ex != null && runHookFailures.has(ex);
 }
 
+interface PendingCommand {
+	readonly cwd: string | undefined;
+	readonly promise: Promise<RunResult<string | Buffer>>;
+	spawned: boolean;
+	/** The `onSpawn` of the run and of every call that joined it before it spawned */
+	readonly spawnListeners: (() => void)[];
+}
+
+function notifySpawned(listeners: readonly (() => void)[]): void {
+	for (const listener of listeners) {
+		try {
+			listener();
+		} catch (ex) {
+			Logger.error(ex, 'GitRunOptions.onSpawn');
+		}
+	}
+}
+
 /**
  * Splits `paths` into `:(literal)` pathspec batches that each fit the command-line length limit after `prefix`, so a
  * folder named like a glob (`[id]/`) doesn't match its siblings.
@@ -741,10 +759,7 @@ export type NamedRefs = { readonly refs: readonly string[]; readonly configConfi
 
 export class Git {
 	/** Map of running git commands — avoids running duplicate overlapping commands */
-	private readonly pendingCommands = new Map<
-		string,
-		{ readonly cwd: string | undefined; readonly promise: Promise<RunResult<string | Buffer>> }
-	>();
+	private readonly pendingCommands = new Map<string, PendingCommand>();
 	/** Queue for throttling background git operations */
 	private readonly _queue: GitQueue;
 	/** Orders the index-writing runs of each checkout, so they don't race for its `index.lock` */
@@ -1202,6 +1217,7 @@ export class Git {
 			cancellation,
 			configs,
 			correlationKey,
+			onSpawn,
 			errors: errorHandling,
 			encoding,
 			expectedExitCodes,
@@ -1241,15 +1257,22 @@ export class Git {
 		// rather than be classified like a git failure below.
 		let hookFailure: { error: unknown } | undefined;
 		let waiting;
-		let promise = this.pendingCommands.get(cacheKey)?.promise;
-		if (promise == null) {
+		let promise: Promise<RunResult<string | Buffer>>;
+		const pending = this.pendingCommands.get(cacheKey);
+		if (pending == null) {
 			waiting = false;
 
 			// Create a deferred promise and store it immediately to prevent duplicate commands
 			// Note: cancellation tokens are not part of the dedup key — calls with different AbortSignals will not be deduplicated
 			const deferred = defer<RunResult<string | Buffer>>();
 			promise = deferred.promise;
-			this.pendingCommands.set(cacheKey, { cwd: options.cwd, promise: promise });
+			const command: PendingCommand = {
+				cwd: options.cwd,
+				promise: promise,
+				spawned: false,
+				spawnListeners: onSpawn != null ? [onSpawn] : [],
+			};
+			this.pendingCommands.set(cacheKey, command);
 
 			// A write to the index takes `index.lock` and fails at once if another process holds it, so these
 			// runs queue behind one another per checkout and retry briefly when something outside still beats
@@ -1285,6 +1308,11 @@ export class Git {
 					priority,
 					() => {
 						execStart = hrtime();
+						// A lock retry spawns again, but the run has already started
+						if (!command.spawned) {
+							command.spawned = true;
+							notifySpawned(command.spawnListeners.splice(0));
+						}
 						return this._runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts);
 					},
 					cancellation,
@@ -1328,6 +1356,14 @@ export class Git {
 				.catch(() => {});
 		} else {
 			waiting = true;
+			promise = pending.promise;
+			if (onSpawn != null) {
+				if (pending.spawned) {
+					notifySpawned([onSpawn]);
+				} else {
+					pending.spawnListeners.push(onSpawn);
+				}
+			}
 			Logger.trace(`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u00b7 awaiting existing call...`);
 		}
 

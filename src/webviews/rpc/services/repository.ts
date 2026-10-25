@@ -307,7 +307,9 @@ export class RepositoryService {
 	async getReachableFromOtherWorktrees(repoPath: string, sha: string, signal?: AbortSignal): Promise<boolean> {
 		signal?.throwIfAborted();
 
-		const worktrees = await this.container.git.getRepository(repoPath)?.git.worktrees?.getWorktrees(signal);
+		const worktrees = await this.container.git
+			.getRepository(repoPath)
+			?.git.worktrees?.getWorktrees(undefined, signal);
 		signal?.throwIfAborted();
 		if (worktrees == null || worktrees.length <= 1) return false;
 

@@ -1274,6 +1274,74 @@ suite('Git.clearPendingCommands', () => {
 	});
 });
 
+suite('Git.run onSpawn', () => {
+	type Spawn = { args: readonly string[]; finish: () => void };
+
+	/** A Git with one process slot whose spawns wait for `finish` */
+	function newGit(): { git: Git; spawns: Spawn[] } {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { queue: { maxConcurrent: 1 } });
+		const spawns: Spawn[] = [];
+		(git as unknown as { _runSpawn: unknown })._runSpawn = (_cmd: string, args: readonly string[]) =>
+			new Promise(resolve => {
+				spawns.push({ args: args, finish: () => resolve({ exitCode: 0, stdout: '', stderr: '' }) });
+			});
+		return { git: git, spawns: spawns };
+	}
+
+	async function until(condition: () => boolean): Promise<void> {
+		for (let i = 0; i < 100 && !condition(); i++) {
+			await new Promise(resolve => setImmediate(resolve));
+		}
+		assert.ok(condition());
+	}
+
+	test('fires when the process spawns, not while the run waits in the queue', async () => {
+		const { git, spawns } = newGit();
+		const onSpawn = sinon.spy();
+
+		const first = git.run({ cwd: '/repo' }, 'status');
+		await until(() => spawns.length === 1);
+		const second = git.run({ cwd: '/repo', onSpawn: onSpawn }, 'worktree', 'list', '--porcelain');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.notCalled(onSpawn);
+
+		spawns[0].finish();
+		await until(() => spawns.length === 2);
+		sinon.assert.calledOnce(onSpawn);
+
+		spawns[1].finish();
+		await Promise.all([first, second]);
+		sinon.assert.calledOnce(onSpawn);
+	});
+
+	test('tells a call that joins an identical run when that run spawns, or at once if it has', async () => {
+		const { git, spawns } = newGit();
+		const queued = sinon.spy();
+		const joinedQueued = sinon.spy();
+		const joinedSpawned = sinon.spy();
+
+		const blocker = git.run({ cwd: '/repo' }, 'status');
+		await until(() => spawns.length === 1);
+		const run = git.run({ cwd: '/repo', onSpawn: queued }, 'worktree', 'list');
+		const rider = git.run({ cwd: '/repo', onSpawn: joinedQueued }, 'worktree', 'list');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.notCalled(joinedQueued);
+
+		spawns[0].finish();
+		await until(() => spawns.length === 2);
+		sinon.assert.calledOnce(queued);
+		sinon.assert.calledOnce(joinedQueued);
+
+		const lateRider = git.run({ cwd: '/repo', onSpawn: joinedSpawned }, 'worktree', 'list');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.calledOnce(joinedSpawned);
+
+		spawns[1].finish();
+		await Promise.all([blocker, run, rider, lateRider]);
+		assert.strictEqual(spawns.length, 2, 'the riders shared the run');
+	});
+});
+
 suite('Git.stream stdin', () => {
 	test('rejects, rather than crashing on EPIPE, when git exits before reading its input', async () => {
 		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));

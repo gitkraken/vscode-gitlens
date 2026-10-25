@@ -5,6 +5,7 @@ import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
@@ -15,6 +16,7 @@ import { isWindows } from '@gitlens/utils/env/node/platform.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { basename, isDescendant, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
@@ -36,7 +38,88 @@ function getNewWorktreeBranch(stderr: string | undefined): string | undefined {
 	return stderr ? /^Preparing worktree \(new branch '(.+)'\)$/m.exec(stderr)?.[1] : undefined;
 }
 
+const unbornSha = /^0+$/;
+
+/**
+ * Where `git worktree list` contradicts the branch list it was paired with, or `undefined` when they agree. `switched`
+ * holds the worktrees whose checked-out branch differs from the one the branch list places there.
+ */
+function findStaleBranches(
+	worktrees: readonly GitWorktree[],
+	branches: readonly GitBranch[],
+	/** Whether git says where each branch is checked out (`%(worktreepath)`); before it, only the current branch's is known */
+	knowsPaths: boolean,
+): { switched: string[] } | undefined {
+	if (!worktrees.length) return undefined;
+
+	const byName = new Map<string, GitBranch>();
+	const byPath = new Map<string, GitBranch>();
+	for (const b of branches) {
+		// A detached HEAD's stand-in branch names no ref
+		if (b.remote || b.detached) continue;
+
+		byName.set(b.name, b);
+		// A rebasing branch's worktree lists as detached
+		if (b.worktree && !b.rebasing) {
+			byPath.set(normalizePath(b.worktree.path), b);
+		}
+	}
+
+	// Git places a branch checked out in several worktrees (`worktree add --force`) at only one of them
+	const listedBranches = new Map(worktrees.map(w => [w.path, w.branchName]));
+
+	let stale = false;
+	const switched: string[] = [];
+	for (const w of worktrees) {
+		// A bare repository checks nothing out, though git places the branch its HEAD names there
+		if (w.type === 'bare') {
+			byPath.delete(w.path);
+			continue;
+		}
+
+		const listed = byPath.get(w.path);
+		if (listed != null) {
+			byPath.delete(w.path);
+			if (listed.name !== w.branchName) {
+				switched.push(w.path);
+				stale = true;
+			}
+		} else if (knowsPaths && w.branchName != null) {
+			// Detached, or not yet a worktree, when the branches were read
+			switched.push(w.path);
+		}
+
+		// An unborn branch has no ref for the branch list to know
+		if (w.branchName == null || !w.sha || unbornSha.test(w.sha)) continue;
+
+		const branch = byName.get(w.branchName);
+		if (
+			branch == null ||
+			(branch.sha != null && branch.sha !== w.sha) ||
+			branch.worktree === false ||
+			(branch.worktree != null && listedBranches.get(normalizePath(branch.worktree.path)) !== w.branchName)
+		) {
+			stale = true;
+		}
+	}
+
+	// A branch placed in a worktree that no longer lists it was removed or switched away
+	if (byPath.size) {
+		stale = true;
+	}
+
+	return stale ? { switched: switched } : undefined;
+}
+
 export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
+	/** Per common path, the read whose `git worktree list` hasn't started yet */
+	private readonly _unspawnedReads = new Map<string, object>();
+	/**
+	 * Per common path, the `git worktree list` output a fresh branch list still contradicted: a layout where git's two
+	 * listings never agree, which re-reading the branches again can't fix until the list changes
+	 */
+	private readonly _lastingDisagreements = new Map<string, string>();
+
 	constructor(
 		private readonly context: GitServiceContext,
 		private readonly git: Git,
@@ -162,20 +245,34 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	): Promise<GitWorktree | undefined> {
 		await this.createWorktree(repoPath, path, options, runOptions);
 		const normalized = normalizePath(path);
-		return this.getWorktree(repoPath, w => normalizePath(w.path) === normalized, runOptions?.cancellation);
+		return this.getWorktree(
+			repoPath,
+			w => normalizePath(w.path) === normalized,
+			undefined,
+			runOptions?.cancellation,
+		);
 	}
 
 	@debug({ quiet: true })
 	async getWorktree(
 		repoPath: string,
 		predicate: (w: GitWorktree) => boolean,
+		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitWorktree | undefined> {
-		return (await this.getWorktrees(repoPath, cancellation)).find(predicate);
+		return (await this.getWorktrees(repoPath, options, cancellation)).find(predicate);
 	}
 
 	@debug({ quiet: true })
-	async getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]> {
+	async getWorktrees(
+		repoPath: string,
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitWorktree[]> {
+		// A pending read that hasn't started `git worktree list` will see the state as of this call, so it is joined,
+		// whether it was pending as the call started or is once the call would evict (another forced read's, say)
+		let force = options?.force === true && !this._unspawnedReads.has(this.cache.getCommonPath(repoPath));
+
 		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
 			l10n.t(
 				'Displaying worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
@@ -184,59 +281,125 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			),
 		);
 
+		if (force && this._unspawnedReads.has(this.cache.getCommonPath(repoPath))) {
+			force = false;
+		}
+
 		return this.cache.getWorktrees(
 			repoPath,
 			async (commonPath, cacheable, signal) => {
-				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
-				signal ??= cancellation;
-				// Read beside the list, which it doesn't depend on. `commonPath` is the main worktree, not the git dir,
-				// so the roots come from the repository's own git dir
-				const rootsRead = this.readIgnoredWorktreeRoots?.(repoPath).catch(() => undefined);
-				const [dataResult, branchesResult] = await Promise.allSettled([
-					this.git.run({ cwd: commonPath, cancellation: signal }, 'worktree', 'list', '--porcelain'),
-					this.provider.branches.getBranches(commonPath, undefined, signal),
-				]);
-
-				if (dataResult.status === 'rejected') {
-					// Don't cache a bogus empty result for a transient command failure — retry on next access.
-					cacheable.invalidate();
-				}
-
-				const getWorkspaceFolder: WorkspaceFolderResolver | undefined = this.context.workspace
-					? uri => {
-							const folder = this.context.workspace!.getFolder(uri.fsPath);
-							if (folder == null) return undefined;
-							return { uri: fileUri(folder.path), name: basename(folder.path) };
-						}
-					: undefined;
-
-				let worktrees = parseGitWorktrees(
-					getSettledValue(dataResult)?.stdout,
-					commonPath,
-					getSettledValue(branchesResult)?.values ?? [],
-					getWorkspaceFolder,
-				);
-
-				if (rootsRead != null) {
-					const roots = await rootsRead;
-					if (roots == null) {
-						// The folders couldn't be read: an unfiltered list would keep ignored worktrees in the shared
-						// cache until the next change
-						cacheable.invalidate();
-					} else if (roots.length) {
-						worktrees = worktrees.filter(
-							w => !roots.some(root => isDescendant(normalizePath(w.path), root)),
-						);
+				const unspawned = {};
+				this._unspawnedReads.set(commonPath, unspawned);
+				const onSpawned = () => {
+					if (this._unspawnedReads.get(commonPath) === unspawned) {
+						this._unspawnedReads.delete(commonPath);
 					}
+				};
+
+				try {
+					return await this.readWorktrees(repoPath, commonPath, cacheable, signal ?? cancellation, onSpawned);
+				} finally {
+					onSpawned();
 				}
-
-				// Older git prints a bare `locked` even when a reason exists; recover it from the admin dir
-				if (await this.git.supports('git:worktree:list:lock-reason')) return worktrees;
-
-				return Promise.all(worktrees.map(w => this.withLockReason(w)));
 			},
+			force ? { force: true } : undefined,
 			cancellation,
 		);
+	}
+
+	private async readWorktrees(
+		repoPath: string,
+		commonPath: string,
+		cacheable: CacheController,
+		signal: AbortSignal | undefined,
+		onSpawn: () => void,
+	): Promise<GitWorktree[]> {
+		// Read beside the list, which it doesn't depend on. `commonPath` is the main worktree, not the git dir,
+		// so the roots come from the repository's own git dir
+		const rootsRead = this.readIgnoredWorktreeRoots?.(repoPath).catch(() => undefined);
+		const [dataResult, branchesResult] = await Promise.allSettled([
+			this.git.run(
+				{ cwd: commonPath, cancellation: signal, onSpawn: onSpawn },
+				'worktree',
+				'list',
+				'--porcelain',
+			),
+			this.provider.branches.getBranches(commonPath, undefined, signal),
+		]);
+
+		if (dataResult.status === 'rejected') {
+			// Don't cache a bogus empty result for a transient command failure — retry on next access.
+			cacheable.invalidate();
+		}
+
+		const getWorkspaceFolder: WorkspaceFolderResolver | undefined = this.context.workspace
+			? uri => {
+					const folder = this.context.workspace!.getFolder(uri.fsPath);
+					if (folder == null) return undefined;
+					return { uri: fileUri(folder.path), name: basename(folder.path) };
+				}
+			: undefined;
+
+		const data = getSettledValue(dataResult)?.stdout;
+		let worktrees = parseGitWorktrees(
+			data,
+			commonPath,
+			getSettledValue(branchesResult)?.values ?? [],
+			getWorkspaceFolder,
+		);
+
+		// The branches come from the cache, which can lag the list just read (a forced read pairs a fresh list with
+		// them). Where the list contradicts them it proves them stale, so they are re-read, once
+		const knowsPaths = await this.git.supports('git:for-each-ref:worktreePath');
+		const stale =
+			branchesResult.status === 'fulfilled'
+				? findStaleBranches(worktrees, branchesResult.value.values, knowsPaths)
+				: undefined;
+		if (stale == null) {
+			this._lastingDisagreements.delete(commonPath);
+		} else if (this._lastingDisagreements.get(commonPath) !== data) {
+			this.context.hooks?.cache?.onReset?.(commonPath, 'branches');
+			for (const path of stale.switched) {
+				this.context.hooks?.cache?.onReset?.(path, 'branch');
+			}
+
+			let branches: GitBranch[] | undefined;
+			try {
+				({ values: branches } = await this.provider.branches.getBranches(commonPath, undefined, signal));
+			} catch {
+				// Keep the branches matched from the stale list, but not in the cache
+				cacheable.invalidate();
+			}
+
+			if (branches != null) {
+				worktrees = parseGitWorktrees(data, commonPath, branches, getWorkspaceFolder);
+				if (data != null && findStaleBranches(worktrees, branches, knowsPaths) != null) {
+					this._lastingDisagreements.set(commonPath, data);
+				}
+				// The host's views show the branches the watcher missed a change of; which moved is unknown. Only the
+				// host hears it: announced as a write of core's, the watch layer would take an outside `heads` report
+				// arriving meanwhile for its echo and drop it, though nothing of the kind was evicted for it
+				for (const path of new Set([commonPath, ...this.cache.getWorktreePaths(commonPath)])) {
+					this.provider.notifyHost(path, ['heads']);
+				}
+			}
+		}
+
+		if (rootsRead != null) {
+			const roots = await rootsRead;
+			if (roots == null) {
+				// The folders couldn't be read: an unfiltered list would keep ignored worktrees in the shared
+				// cache until the next change
+				cacheable.invalidate();
+			} else if (roots.length) {
+				worktrees = worktrees.filter(w => !roots.some(root => isDescendant(normalizePath(w.path), root)));
+			}
+		}
+
+		// Older git prints a bare `locked` even when a reason exists; recover it from the admin dir
+		if (await this.git.supports('git:worktree:list:lock-reason')) return worktrees;
+
+		return Promise.all(worktrees.map(w => this.withLockReason(w)));
 	}
 
 	private async withLockReason(worktree: GitWorktree): Promise<GitWorktree> {
@@ -261,6 +424,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				worktree.sha,
 				worktree.branch,
 				worktree.workspaceFolder,
+				worktree.branchName,
 			);
 		} catch {
 			return worktree;
