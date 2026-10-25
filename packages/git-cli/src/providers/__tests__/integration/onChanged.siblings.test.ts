@@ -192,7 +192,7 @@ suite('Typed write announcements across worktrees', () => {
 
 		assert.deepStrictEqual(announcementsTo(linkedPath), [['unknown']]);
 		assert.deepStrictEqual(announcementsTo(mainPath), [
-			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'config'],
+			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'worktreeHead', 'config'],
 		]);
 	});
 
@@ -200,7 +200,7 @@ suite('Typed write announcements across worktrees', () => {
 		repo.provider.notifyChanged(worktree.path, []);
 
 		assert.deepStrictEqual(announcementsTo(mainPath), [
-			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'config'],
+			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'worktreeHead', 'config'],
 		]);
 	});
 

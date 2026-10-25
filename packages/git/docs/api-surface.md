@@ -741,6 +741,6 @@ const branches = await provider.branches.getBranches(repoPath, {}, controller.si
 
 ### `Cache.clearCaches` — `gitResults` cleared broadly
 
-The `gitResults` cache is added to `sharedCachesToClear` in nearly every type-specific invalidation branch (`branches`, `config`, `contributors`, `remotes`, `stashes`, `tags`, `worktrees`). This means almost any repository change event clears the entire git results cache.
+The `gitResults` cache is added to `sharedCachesToClear` in nearly every type-specific invalidation branch (`branches`, `config`, `contributors`, `remotes`, `stashes`, `tags`, `worktrees`). This means almost any repository change event clears the entire git results cache. The exception is `worktreeList`, which a bare `'worktrees'` change (a lock, unlock or move) maps to: it clears only the worktree list.
 
 **Investigation needed**: If `gitResults` is keyed granularly (per-command), the broad clearing may be overly aggressive and could be made more targeted to improve cache hit rates.

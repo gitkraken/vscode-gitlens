@@ -148,10 +148,10 @@ suite('commandClassifier', () => {
 			assert.strictEqual(getChangesForCommand(['worktree', 'list']), undefined);
 		});
 
-		test("'worktree add' notifies worktrees + heads", () => {
+		test("'worktree add' notifies worktrees + worktreeHead + heads", () => {
 			const result = getChangesForCommand(['worktree', 'add', '/wt', 'main']);
-			assert.deepStrictEqual(result?.changes, ['worktrees', 'heads']);
-			assert.deepStrictEqual(result?.sharedChanges, ['worktrees', 'heads']);
+			assert.deepStrictEqual(result?.changes, ['worktrees', 'worktreeHead', 'heads']);
+			assert.deepStrictEqual(result?.sharedChanges, ['worktrees', 'worktreeHead', 'heads']);
 		});
 
 		for (const [verb, args] of [
@@ -402,41 +402,55 @@ suite('commandClassifier', () => {
 		]);
 
 		suiteOf('worktree announces a branch only for an add that can create one', [
-			[['worktree', 'add', '--detach', '--force', '--end-of-options', '/wt', sha], { changes: ['worktrees'] }],
-			[['worktree', 'remove', '--force', '--end-of-options', '/wt'], { changes: ['worktrees'] }],
-			[['worktree', 'prune'], { changes: ['worktrees'] }],
+			[
+				['worktree', 'add', '--detach', '--force', '--end-of-options', '/wt', sha],
+				{ changes: ['worktrees', 'worktreeHead'] },
+			],
+			[['worktree', 'remove', '--force', '--end-of-options', '/wt'], { changes: ['worktrees', 'worktreeHead'] }],
+			[['worktree', 'prune'], { changes: ['worktrees', 'worktreeHead'] }],
 			[['worktree', 'lock', '/wt'], { changes: ['worktrees'] }],
 			[['worktree', 'unlock', '/wt'], { changes: ['worktrees'] }],
 			[['worktree', 'move', '/wt', '/wt2'], { changes: ['worktrees'] }],
 			[['worktree', 'repair'], { changes: ['worktrees'] }],
-			[['worktree', 'add', '/wt', sha], { changes: ['worktrees'] }],
-			[['worktree', 'add', '/wt', sha256], { changes: ['worktrees'] }],
-			[['worktree', 'add', '--reason', 'why', '--lock', '-d', '/wt'], { changes: ['worktrees'] }],
+			[['worktree', 'add', '/wt', sha], { changes: ['worktrees', 'worktreeHead'] }],
+			[['worktree', 'add', '/wt', sha256], { changes: ['worktrees', 'worktreeHead'] }],
+			[['worktree', 'add', '--reason', 'why', '--lock', '-d', '/wt'], { changes: ['worktrees', 'worktreeHead'] }],
 			[
 				['worktree', 'add', '-b', 'feat', '/wt', sha],
-				{ changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] },
+				{ changes: ['worktrees', 'worktreeHead', 'heads'], refs: ['refs/heads/feat'] },
 			],
-			[['worktree', 'add', '-bfeat', '/wt'], { changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] }],
+			[
+				['worktree', 'add', '-bfeat', '/wt'],
+				{ changes: ['worktrees', 'worktreeHead', 'heads'], refs: ['refs/heads/feat'] },
+			],
 			[
 				['worktree', 'add', '-b', 'feat', '/wt', 'origin/feat'],
-				{ changes: ['config', 'worktrees', 'heads'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'worktrees', 'worktreeHead', 'heads'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
 			[
 				['worktree', 'add', '--no-track', '-b', 'feat', '/wt', 'origin/feat'],
-				{ changes: ['worktrees', 'heads'], refs: ['refs/heads/feat'] },
+				{ changes: ['worktrees', 'worktreeHead', 'heads'], refs: ['refs/heads/feat'] },
 			],
 			[
 				['worktree', 'add', '--track', '-B', 'feat', '/wt', 'main'],
-				{ changes: ['config', 'worktrees', 'heads'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'worktrees', 'worktreeHead', 'heads'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
 		]);
 
 		suiteOf('worktree add that may DWIM a branch stays unnamed', [
-			[['worktree', 'add', '/wt', 'main'], { changes: ['worktrees', 'heads'] }],
-			[['worktree', 'add', '/wt'], { changes: ['worktrees', 'heads'] }],
-			[['worktree', 'add', '--orphan', '-b', 'x', '/wt'], { changes: ['worktrees', 'heads'] }],
-			[['worktree', 'add', '-B', '@{-1}', '/wt', sha], { changes: ['worktrees', 'heads'] }],
-			[['worktree', 'add', '--unknown', '/wt', sha], { changes: ['worktrees', 'heads'] }],
+			[['worktree', 'add', '/wt', 'main'], { changes: ['worktrees', 'worktreeHead', 'heads'] }],
+			[['worktree', 'add', '/wt'], { changes: ['worktrees', 'worktreeHead', 'heads'] }],
+			[['worktree', 'add', '--orphan', '-b', 'x', '/wt'], { changes: ['worktrees', 'worktreeHead', 'heads'] }],
+			[['worktree', 'add', '-B', '@{-1}', '/wt', sha], { changes: ['worktrees', 'worktreeHead', 'heads'] }],
+			[['worktree', 'add', '--unknown', '/wt', sha], { changes: ['worktrees', 'worktreeHead', 'heads'] }],
 		]);
 
 		suite('worktree keeps the paths of the worktrees it acts on', () => {

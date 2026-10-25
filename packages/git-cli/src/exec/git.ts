@@ -1160,11 +1160,11 @@ export class Git {
 	}
 
 	/**
-	 * `command` without its `worktrees` change when every worktree it acts on lies under a folder whose worktrees are
-	 * ignored, read before the run while the tree it runs in surely exists; `undefined` when nothing else is left to
-	 * announce, since announcing `[]` would reset everything. Git first matches an argument against the trailing path
-	 * components of every worktree, so a relative one may name a worktree outside those folders whatever it resolves
-	 * to, and keeps the change.
+	 * `command` without its `worktrees` and `worktreeHead` changes when every worktree it acts on lies under a folder
+	 * whose worktrees are ignored, read before the run while the tree it runs in surely exists; `undefined` when nothing
+	 * else is left to announce, since announcing `[]` would reset everything. Git first matches an argument against the
+	 * trailing path components of every worktree, so a relative one may name a worktree outside those folders whatever
+	 * it resolves to, and keeps the change.
 	 */
 	private async withoutIgnoredWorktrees(
 		command: CommandChanges,
@@ -1184,10 +1184,14 @@ export class Git {
 		const resolved = worktreePaths.map(p => normalizePath(resolvePath(ranIn, p)));
 		if (!resolved.every(p => roots.some(root => isDescendant(p, root)))) return command;
 
-		const changes = command.changes.filter(c => c !== 'worktrees');
+		const changes = command.changes.filter(c => c !== 'worktrees' && c !== 'worktreeHead');
 		if (!changes.length) return undefined;
 
-		return { ...command, changes: changes, sharedChanges: command.sharedChanges.filter(c => c !== 'worktrees') };
+		return {
+			...command,
+			changes: changes,
+			sharedChanges: command.sharedChanges.filter(c => c !== 'worktrees' && c !== 'worktreeHead'),
+		};
 	}
 
 	/** HEAD of `path` through the {@link bindHeadReader bound} reader, or `undefined` when it can't be read */
@@ -1263,7 +1267,7 @@ export class Git {
 			waiting = false;
 
 			// Create a deferred promise and store it immediately to prevent duplicate commands
-			// Note: cancellation tokens are not part of the dedup key — calls with different AbortSignals will not be deduplicated
+			// Note: the cancellation signal is part of the dedup key — calls with different AbortSignals are not deduplicated
 			const deferred = defer<RunResult<string | Buffer>>();
 			promise = deferred.promise;
 			const command: PendingCommand = {

@@ -63,7 +63,16 @@ export type CachedGitTypes =
 	| 'status'
 	| 'tags'
 	| 'tracking'
-	| 'worktrees';
+	| 'worktrees'
+	/** Only the worktree list: unlike `'worktrees'`, no worktree's git results or merge targets */
+	| 'worktreeList';
+
+/** Whether a reset of these types makes in-flight git runs stale (none or empty meaning every type) */
+export function resetDropsPendingRuns(types: readonly CachedGitTypes[] | undefined): boolean {
+	// A provider reset touches only remote-provider metadata, and the list's next read never joins a running
+	// `worktree list`, as it runs under the cache's own signal: neither changes any git command's output
+	return !types?.length || types.some(t => t !== 'worktreeList' && t !== 'providers');
+}
 
 /**
  * What a gk-config reconcile did, so `Cache` knows whether the coarse fallback is still owed.
@@ -798,7 +807,8 @@ export class Cache implements Disposable {
 			}
 
 			// Only the merge targets that found no checkout entry in HEAD's reflog: every other one is confirmed against
-			// what it read when next asked. A checkout in a worktree this one doesn't watch arrives as `'worktrees'`
+			// what it read when next asked. A checkout in a worktree this one doesn't watch arrives as `'worktreeHead'`,
+			// which maps to the `'worktrees'` cache type
 			if (!worktreeOnly && (types.includes('branch') || types.includes('worktrees'))) {
 				this.evictMergeTargetsOnCheckout(repoPath);
 			}
@@ -903,12 +913,12 @@ export class Cache implements Disposable {
 				keysToClear.add('trackedPaths');
 			}
 
-			if (types.includes('worktrees')) {
+			if (types.includes('worktrees') || types.includes('worktreeList')) {
 				keysToClear.add('worktrees');
 			}
 
 			// Git results: cleared for any meaningful type change
-			if (types.some(t => t !== 'gitignore' && t !== 'gkConfig' && t !== 'providers')) {
+			if (types.some(t => t !== 'gitignore' && t !== 'gkConfig' && t !== 'providers' && t !== 'worktreeList')) {
 				keysToClear.add('gitResults');
 			}
 		}
@@ -1312,8 +1322,12 @@ export class Cache implements Disposable {
 			types.add('tags');
 		}
 
-		if (hasAny('worktrees')) {
+		// A worktree's HEAD moving changes what git answers there, which any worktree's reads can ask about; an entry
+		// added, removed, locked, unlocked or moved changes only the list
+		if (hasAny('worktreeHead')) {
 			types.add('worktrees');
+		} else if (hasAny('worktrees')) {
+			types.add('worktreeList');
 		}
 
 		if (types.size) {
@@ -2303,8 +2317,7 @@ export class Cache implements Disposable {
 			// An aborted call must not cost every other caller the shared list
 			if (cancellation?.aborted) throw new CancellationError();
 
-			// Not `evictCaches(…, 'worktrees')`: that also drops `gitResults` and merge targets for every sibling worktree
-			this.evictShared('worktrees', repoPath, 'evict');
+			this.evictCaches(repoPath, 'worktreeList');
 		}
 
 		return this.getSharedOrCreate(

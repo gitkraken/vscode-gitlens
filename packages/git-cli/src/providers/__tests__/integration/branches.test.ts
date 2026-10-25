@@ -471,7 +471,7 @@ suite('BranchesSubProvider — config-writing writes announce config', () => {
 			// of the file, and only evicts what it cached of it
 			assert.deepStrictEqual(onChanged.lastCall.args, [
 				hookedRepo.path,
-				['worktrees', 'heads'],
+				['worktrees', 'worktreeHead', 'heads'],
 				['refs/heads/wt-remote'],
 			]);
 			assert.ok(onReset.calledWith(hookedRepo.path, 'branches', 'config', 'worktrees'));
@@ -484,7 +484,7 @@ suite('BranchesSubProvider — config-writing writes announce config', () => {
 			});
 			assert.deepStrictEqual(onChanged.lastCall.args, [
 				hookedRepo.path,
-				['worktrees', 'heads'],
+				['worktrees', 'worktreeHead', 'heads'],
 				['refs/heads/wt-local'],
 			]);
 		} finally {

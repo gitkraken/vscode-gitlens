@@ -573,7 +573,11 @@ describe('WatchGroup', () => {
 			common.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
 			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), [
+				'/worktrees/B',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 		});
 
 		it("tells every session, the owner included, when a worktree's locked / gitdir changes", () => {
@@ -606,15 +610,53 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(cbAB.onRepoChanged), 1);
 		});
 
-		it('tells every session, the owner included, when a worktree is removed', () => {
+		it('tells every session, the owner included, when a worktree is removed, its HEAD with it', () => {
 			const { common, cbA, cbB } = setup();
 
+			// A watcher may coalesce the removal's subtree into this one report, so none of the HEAD comes
 			common.fire({ path: '/repo/.git/worktrees/A', reason: 'delete' });
 
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees'], undefined]);
-			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
+			const removed = ['worktrees', 'worktreeHead'];
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', removed, undefined]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', removed, undefined]);
 			assert.strictEqual(callCount(cbA.onRepoChanged), 1);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
+		});
+
+		it("tells of a worktree's HEAD with every report that can stand for its entry created or removed", () => {
+			for (const [path, reason] of [
+				['/repo/.git/worktrees', 'delete'],
+				['/repo/.git/worktrees', 'change'],
+				['/repo/.git/worktrees/C', 'create'],
+				['/repo/.git/worktrees/C/gitdir', 'delete'],
+			] as const) {
+				const { common, cbB } = setup();
+
+				common.fire({ path: path, reason: reason });
+				assert.deepStrictEqual(
+					callArgs(cbB.onRepoChanged, 0),
+					['/worktrees/B', ['worktrees', 'worktreeHead'], undefined],
+					`${path} ${reason}`,
+				);
+			}
+		});
+
+		it("tells only of the list when a worktree's entry merely changed, as a watcher reports beside a lock", () => {
+			const { common, cbA, cbB } = setup();
+
+			common.fire({ path: '/repo/.git/worktrees/A/locked', reason: 'create' });
+			common.fire({ path: '/repo/.git/worktrees/A', reason: 'change' });
+			common.fire({ path: '/repo/.git/worktrees/A/gitdir', reason: 'change' });
+
+			for (const [cb, path] of [
+				[cbA, '/worktrees/A'],
+				[cbB, '/worktrees/B'],
+			] as const) {
+				assert.strictEqual(callCount(cb.onRepoChanged), 3);
+				for (let i = 0; i < 3; i++) {
+					assert.deepStrictEqual(callArgs(cb.onRepoChanged, i), [path, ['worktrees'], undefined]);
+				}
+			}
 		});
 	});
 
@@ -789,9 +831,17 @@ describe('WatchGroup', () => {
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'change');
 
 			// The owner hears its own HEAD from its root watcher
-			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
+				'/repo',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 0, 1]);
-			assert.deepStrictEqual(callArgs(linkedB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(linkedB.onRepoChanged, 0), [
+				'/worktrees/B',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 			assert.strictEqual(reads.length, baselineReads);
 			group.dispose();
 		});
@@ -887,7 +937,11 @@ describe('WatchGroup', () => {
 
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/mine/HEAD', 'change');
 
-			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
+				'/repo',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			group.dispose();
 		});
@@ -913,7 +967,11 @@ describe('WatchGroup', () => {
 
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/gone', 'delete');
 
-			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
+				'/repo',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 			assert.deepStrictEqual(heard(main, linkedA), [1, 1]);
 			group.dispose();
 		});
@@ -1306,7 +1364,12 @@ describe('WatchGroup', () => {
 			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
-			assert.deepStrictEqual(callArgs(linkedA.onRepoChanged, 0), ['/worktrees/A', ['worktrees'], undefined]);
+			// A listing can't tell an entry added from one moved out of an ignored folder, so it tells of its HEAD too
+			assert.deepStrictEqual(callArgs(linkedA.onRepoChanged, 0), [
+				'/worktrees/A',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 
 			// Nothing changed since
 			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
@@ -1585,6 +1648,7 @@ describe('WatchGroup', () => {
 			'stash',
 			'remotes',
 			'worktrees',
+			'worktreeHead',
 			'config',
 			'cherryPick',
 			'merge',
@@ -1717,7 +1781,7 @@ describe('WatchGroup', () => {
 			}
 
 			assert.strictEqual(callCount(mainChanged), 1);
-			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees', 'worktreeHead'], undefined]);
 		});
 	});
 
