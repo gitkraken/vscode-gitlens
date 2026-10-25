@@ -365,6 +365,7 @@ async function connectedServer(fixture: ServerFixture = {}): Promise<Connected> 
 				if (fixture.hangIdentity) return new Promise<Response>(() => {});
 				if (identityFails(fixture)) return Promise.resolve(json({ message: 'identity unavailable' }, 500));
 			}
+
 			const id = atServer || typeof fixture.orgUserId === 'function' ? me : (fixture.orgUserId ?? me);
 			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
 			return Promise.resolve(
