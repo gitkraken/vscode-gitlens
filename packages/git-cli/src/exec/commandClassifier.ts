@@ -304,12 +304,12 @@ const objectOnlyVerbs = new Set([
 const changesByVerb: Readonly<Record<string, readonly RepositoryChange[]>> = {
 	commit: ['head', 'heads', 'index', 'pausedOp'],
 	am: ['head', 'heads', 'index', 'pausedOp'],
-	bisect: ['head', 'index'],
-	checkout: ['head', 'heads', 'index'],
-	switch: ['head', 'heads', 'index'],
+	bisect: ['head', 'index', 'worktrees', 'worktreeHead'],
+	checkout: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+	switch: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 	reset: ['head', 'heads', 'index', 'pausedOp'],
 	merge: ['head', 'heads', 'index', 'pausedOp', 'merge'],
-	rebase: ['head', 'heads', 'index', 'pausedOp', 'rebase'],
+	rebase: ['head', 'heads', 'index', 'pausedOp', 'rebase', 'worktrees', 'worktreeHead'],
 	'cherry-pick': ['head', 'heads', 'index', 'pausedOp', 'cherryPick'],
 	revert: ['head', 'heads', 'index', 'pausedOp', 'revert'],
 	pull: ['head', 'heads', 'index', 'remotes', 'tags', 'lastFetched', 'pausedOp', 'merge', 'rebase'],
@@ -409,12 +409,29 @@ const remotesChanges: readonly RepositoryChange[] = ['remotes'];
 const tagsChanges: readonly RepositoryChange[] = ['tags'];
 const stashChanges: readonly RepositoryChange[] = ['stash'];
 const stashIndexChanges: readonly RepositoryChange[] = ['stash', 'index'];
-const stashBranchChanges: readonly RepositoryChange[] = ['head', 'heads', 'index', 'stash'];
+const stashBranchChanges: readonly RepositoryChange[] = [
+	'head',
+	'heads',
+	'index',
+	'stash',
+	'worktrees',
+	'worktreeHead',
+];
 const indexChanges: readonly RepositoryChange[] = ['index'];
 const headHeadsChanges: readonly RepositoryChange[] = ['head', 'heads'];
-const headIndexChanges: readonly RepositoryChange[] = ['head', 'index'];
-const checkoutChanges: readonly RepositoryChange[] = ['head', 'heads', 'index'];
-const checkoutTrackingChanges: readonly RepositoryChange[] = ['config', 'head', 'heads', 'index'];
+// A checkout, rebase, bisect or `stash branch` rewrites the tree's HEAD file, which every other worktree's watcher
+// reports as `worktreeHead`: the `worktrees` and `worktreeHead` kinds reach them as shared, so that report is the
+// write's own
+const headIndexChanges: readonly RepositoryChange[] = ['head', 'index', 'worktrees', 'worktreeHead'];
+const checkoutChanges: readonly RepositoryChange[] = ['head', 'heads', 'index', 'worktrees', 'worktreeHead'];
+const checkoutTrackingChanges: readonly RepositoryChange[] = [
+	'config',
+	'head',
+	'heads',
+	'index',
+	'worktrees',
+	'worktreeHead',
+];
 const worktreeOnlyChanges: readonly RepositoryChange[] = ['worktrees'];
 const worktreeHeadChanges: readonly RepositoryChange[] = ['worktrees', 'worktreeHead'];
 const worktreeTrackingChanges: readonly RepositoryChange[] = ['config', 'worktrees', 'worktreeHead', 'heads'];

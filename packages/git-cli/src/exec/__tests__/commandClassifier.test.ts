@@ -261,9 +261,17 @@ suite('commandClassifier', () => {
 		const sha256 = `${sha}${sha.slice(0, 24)}`;
 		const unnamedUpdateRef: RepositoryChange[] = ['head', 'heads', 'remotes', 'tags', 'stash'];
 		const unnamedBranchConfig: RepositoryChange[] = ['config', 'heads', 'remotes'];
-		const unnamedCheckout: RepositoryChange[] = ['head', 'heads', 'index'];
+		const unnamedCheckout: RepositoryChange[] = ['head', 'heads', 'index', 'worktrees', 'worktreeHead'];
 		const reset: RepositoryChange[] = ['head', 'heads', 'index', 'pausedOp'];
-		const rebase: RepositoryChange[] = ['head', 'heads', 'index', 'pausedOp', 'rebase'];
+		const rebase: RepositoryChange[] = [
+			'head',
+			'heads',
+			'index',
+			'pausedOp',
+			'rebase',
+			'worktrees',
+			'worktreeHead',
+		];
 
 		function check(args: readonly string[], expected: Named | undefined): void {
 			const result = getChangesForCommand(args);
@@ -492,43 +500,72 @@ suite('commandClassifier', () => {
 		});
 
 		suiteOf('checkout and switch name only a branch they can create', [
-			[['checkout', '--detach', sha], { changes: ['head', 'index'] }],
-			[['checkout', sha], { changes: ['head', 'index'] }],
-			[['checkout', sha256], { changes: ['head', 'index'] }],
+			[['checkout', '--detach', sha], { changes: ['head', 'index', 'worktrees', 'worktreeHead'] }],
+			[['checkout', sha], { changes: ['head', 'index', 'worktrees', 'worktreeHead'] }],
+			[['checkout', sha256], { changes: ['head', 'index', 'worktrees', 'worktreeHead'] }],
 			[['checkout', '--', '.'], { changes: ['index'] }],
 			[['checkout', sha, '--', 'a.txt'], { changes: ['index'] }],
 			[
 				['checkout', 'feat'],
-				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
 			[
 				['checkout', 'feat', '--'],
-				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
 			[
 				['checkout', '-b', 'feat', 'origin/feat'],
-				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
-			[['checkout', '-b', 'feat', sha], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
+			[
+				['checkout', '-b', 'feat', sha],
+				{ changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: ['refs/heads/feat'] },
+			],
 			[
 				['checkout', '-B', 'feat', 'main', '--'],
-				{ changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] },
+				{ changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: ['refs/heads/feat'] },
 			],
 			[
 				['checkout', '-b', 'feat', '--no-track', 'origin/feat'],
-				{ changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] },
+				{ changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: ['refs/heads/feat'] },
 			],
-			[['switch', '-c', 'feat'], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
+			[
+				['switch', '-c', 'feat'],
+				{ changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: ['refs/heads/feat'] },
+			],
 			[
 				['switch', '--create=feat', 'origin/feat'],
-				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
-			[['switch', '-C', 'feat', sha], { changes: ['head', 'heads', 'index'], refs: ['refs/heads/feat'] }],
-			[['switch', '-d', sha], { changes: ['head', 'index'] }],
-			[['switch', '--detach', 'main'], { changes: ['head', 'index'] }],
+			[
+				['switch', '-C', 'feat', sha],
+				{ changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: ['refs/heads/feat'] },
+			],
+			[['switch', '-d', sha], { changes: ['head', 'index', 'worktrees', 'worktreeHead'] }],
+			[['switch', '--detach', 'main'], { changes: ['head', 'index', 'worktrees', 'worktreeHead'] }],
 			[
 				['switch', 'feat'],
-				{ changes: ['config', 'head', 'heads', 'index'], refs: ['refs/heads/feat'], confined: true },
+				{
+					changes: ['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/feat'],
+					confined: true,
+				},
 			],
 		]);
 
@@ -654,7 +691,10 @@ suite('commandClassifier', () => {
 			// Creates the branch from a commit, checks it out, and drops the stash once applied
 			[
 				['stash', 'branch', 'x', 'stash@{1}'],
-				{ changes: ['head', 'heads', 'index', 'stash'], refs: ['refs/heads/x', 'refs/stash'] },
+				{
+					changes: ['head', 'heads', 'index', 'stash', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/x', 'refs/stash'],
+				},
 			],
 			[['stash', 'branch'], { changes: ['stash', 'index'] }],
 			[['stash', 'branch', '@{-1}', 'stash@{1}'], { changes: ['stash', 'index'] }],
@@ -669,7 +709,7 @@ suite('commandClassifier', () => {
 		test("a '-C'-scoped named write carries pathOverride and shares only its shared kinds", () => {
 			const branch = getChangesForCommand(['-C', '/other', 'checkout', '-b', 'feat', 'origin/feat']);
 			assert.strictEqual(branch?.pathOverride, '/other');
-			assert.deepStrictEqual(branch?.sharedChanges, ['config', 'heads']);
+			assert.deepStrictEqual(branch?.sharedChanges, ['config', 'heads', 'worktrees', 'worktreeHead']);
 			assert.deepStrictEqual(branch?.refs, ['refs/heads/feat']);
 
 			const commit = getChangesForCommand(['-C', '/other', 'commit', '--no-edit']);
@@ -678,7 +718,13 @@ suite('commandClassifier', () => {
 			assert.strictEqual(commit?.movesHeadBranch, true);
 
 			const detach = getChangesForCommand(['-C', '/other', 'checkout', '--detach', sha]);
-			assert.deepStrictEqual(detach?.sharedChanges, []);
+			assert.deepStrictEqual(detach?.sharedChanges, ['worktrees', 'worktreeHead']);
+		});
+
+		test('a commit on a branch shares only heads, so siblings are not woken by it', () => {
+			const commit = getChangesForCommand(['commit', '--no-edit']);
+			assert.deepStrictEqual(commit?.sharedChanges, ['heads']);
+			assert.strictEqual(commit?.changes.includes('worktreeHead'), false);
 		});
 
 		test("leadingCommand captures each '-c' config before the verb", () => {
