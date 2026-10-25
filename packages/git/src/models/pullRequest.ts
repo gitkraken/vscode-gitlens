@@ -78,11 +78,11 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	/**
 	 * Set, and only ever `true`, on an Azure DevOps row that names someone (its author, a reviewer or an assignee)
 	 * whose organization's (Azure DevOps Server: collection's) identity the read tried and failed to resolve: its
-	 * `ConnectionData` failed or didn't answer within 10 seconds. Such a row has neither {@link viewer} nor
-	 * {@link authoredByMe}, and neither the account `getCurrentAccount` returns nor anyone else can be matched against
-	 * its people: whether it is the current user's, or asks for their review, is unknown, not "no". Absent everywhere
-	 * else, so a row with neither field is still one whose identity wasn't resolved for another reason (a read that
-	 * doesn't resolve it, or a failed account read), as before.
+	 * `ConnectionData` failed, answered without an identity, or didn't answer within 10 seconds. Such a row has neither
+	 * {@link viewer} nor {@link authoredByMe}, and neither the account `getCurrentAccount` returns nor anyone else can
+	 * be matched against its people: whether it is the current user's, or asks for their review, is unknown, not "no".
+	 * Absent everywhere else, so a row with neither field is still one whose identity wasn't resolved for another
+	 * reason (a read that doesn't resolve it, or a failed account read), as before.
 	 */
 	readonly viewerUnresolved?: true;
 	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */

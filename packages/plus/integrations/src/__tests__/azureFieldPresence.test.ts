@@ -1124,6 +1124,53 @@ for (const [label, connect, searches] of [
 	});
 }
 
+suite('Pull request viewer: the Azure DevOps Server filtered search', () => {
+	test("a continuation page resolves the collection's identity again rather than keeping its first page's answer", async () => {
+		let failIdentity = true;
+		const routes: string[] = [];
+		const connected = await connectedServer({
+			orgUserId: 'author',
+			failIdentity: () => failIdentity,
+			routes: routes,
+		});
+		const scope = {
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			repos: repos,
+			criteria: { states: ['all' as const] },
+			itemsPerPage: 1,
+		};
+
+		const first = await connected.manager.searchPullRequestsPage(scope);
+		assert.equal(first.items[0]?.viewerUnresolved, true);
+		assert.equal(first.items[0]?.viewer, undefined);
+		assert.ok(first.cursor != null, 'a second page follows');
+
+		failIdentity = false;
+		const second = await connected.manager.searchPullRequestsPage({ ...scope, cursor: first.cursor });
+		assert.deepEqual(second.items[0]?.viewer, { id: 'author' });
+		assert.equal(second.items[0]?.authoredByMe, true);
+		assert.equal(second.items[0]?.viewerUnresolved, undefined);
+
+		connected.manager.dispose();
+	});
+
+	test("a count, which maps no row, doesn't read the identity", async () => {
+		const routes: string[] = [];
+		const connected = await connectedServer({ routes: routes });
+
+		const count = await connected.manager.countPullRequests({
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			scopes: [{ key: 'all', repos: repos, criteria: { states: ['all'] } }],
+		});
+		assert.equal(count.fetchFailed, undefined, JSON.stringify(count.warnings));
+		assert.equal(routes.filter(r => r === '_apis/connectiondata').length, 0);
+
+		connected.manager.dispose();
+	});
+});
+
 suite('Pull request viewer: the etag of a row whose identity was unresolved', () => {
 	test('never compares unchanged, so the row is read in full again rather than kept unresolved', async () => {
 		let failIdentity = true;

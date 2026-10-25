@@ -141,8 +141,9 @@ const pullRequestCountReuseTtl = 60 * 1000;
 interface AzurePullRequestSearchRow {
 	pr: ProviderPullRequest;
 	project: AzureProjectDescriptor;
-	/** `null` where the collection's identity couldn't be read, which marks the row `viewerUnresolved`. */
-	currentAccount: { id: string } | null | undefined;
+	collection: string;
+	/** The identity a relationship filter resolved in {@link collection}; without one, each page resolves it. */
+	currentAccount: { id: string } | undefined;
 	position: AzurePullRequestSearchPosition;
 }
 
@@ -650,11 +651,22 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const page = cursor?.page ?? 1;
 		const last = slice.at(-1);
 		const hasMore = last != null && start + slice.length < drain.rows.length;
+		// A search without a relationship resolved no collection's id for its filters, so a page resolves its rows'
+		// own, bounded like every other read's and only for a row that names someone. Per page rather than per drain,
+		// so a continuation asks again rather than serving the answer its first page got.
+		const viewerFor = this.getOrganizationViewers(session);
+		const viewers = await Promise.all(
+			slice.map(r =>
+				r.currentAccount == null && pullRequestNamesPeople(r.pr)
+					? viewerFor(r.collection)
+					: Promise.resolve(r.currentAccount),
+			),
+		);
 		return {
-			values: slice.map(r =>
+			values: slice.map((r, i) =>
 				fromProviderPullRequest(r.pr, this, {
 					project: r.project,
-					currentAccount: r.currentAccount,
+					currentAccount: viewers[i],
 					projection: options.summary ? 'search-summary' : 'search',
 				}),
 			),
@@ -902,19 +914,6 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			},
 		);
 
-		// A search without a relationship resolved no collection's id for its filters, so the rows' own viewer is
-		// read here, bounded like every other read's, and only for a collection that returned someone to match.
-		const viewerFor = this.getOrganizationViewers(session);
-		const viewers = new Map(
-			await Promise.all(
-				uniqueAzureNames(
-					drains
-						.filter(d => !userIds.has(d.facet.collection) && d.values.some(pullRequestNamesPeople))
-						.map(d => d.facet.collection),
-				).map(async collection => [collection, await viewerFor(collection)] as const),
-			),
-		);
-
 		const rows = new Map<string, AzurePullRequestSearchRow>();
 		for (const { facet, keep, values } of drains) {
 			for (const pr of values) {
@@ -929,7 +928,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				rows.set(identity, {
 					pr: markMyGroupReviews(pr, groupIds),
 					project: facet.project,
-					currentAccount: userId != null ? { id: userId } : viewers.get(facet.collection),
+					collection: facet.collection,
+					currentAccount: userId != null ? { id: userId } : undefined,
 					position: toAzurePullRequestSearchPosition(pr, sort, identity),
 				});
 			}

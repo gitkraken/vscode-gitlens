@@ -217,10 +217,10 @@ export interface IssueShape extends IssueOrPullRequest {
 	/**
 	 * Set, and only ever `true`, on an Azure DevOps row that names someone ({@link author} or {@link assignees}) whose
 	 * organization's (Azure DevOps Server: collection's) identity the read tried and failed to resolve: its
-	 * `ConnectionData` failed or didn't answer within 10 seconds. Such a row has no {@link viewer}, and neither the
-	 * account `getCurrentAccount` returns nor anyone else can be matched against its people: whether it is the current
-	 * user's is unknown, not "no". Absent everywhere else, so a row with neither field is still one whose provider has
-	 * no per-row identity, matched against the account.
+	 * `ConnectionData` failed, answered without an identity, or didn't answer within 10 seconds. Such a row has no
+	 * {@link viewer}, and neither the account `getCurrentAccount` returns nor anyone else can be matched against its
+	 * people: whether it is the current user's is unknown, not "no". Absent everywhere else, so a row with neither
+	 * field is still one whose provider has no per-row identity, matched against the account.
 	 */
 	readonly viewerUnresolved?: true;
 }

@@ -293,7 +293,9 @@ seconds. When that read fails, answers without an identity or doesn't answer in 
 that names someone carries `viewerUnresolved: true` instead of `viewer` (and, on a pull request, `authoredByMe`): nobody
 can be matched against its people, `getCurrentAccount` included, since on those hosts that account's id is the one
 that may not match. Treat such a row's "mine" questions as unknown, not as "no". A later read resolves it once the
-organization answers. `viewerUnresolved` is set on no other row, so a row with neither field still means what it did:
+organization answers; one that never does stays unresolved until its request fails at the transport (the host's
+`fetch` timeout; about 5 minutes on Node's) or the connection re-syncs, since reads don't wait on the same hung
+request again. `viewerUnresolved` is set on no other row, so a row with neither field still means what it did:
 a provider with no per-row identity, or a read that resolved none for another reason.
 
 ### Field presence

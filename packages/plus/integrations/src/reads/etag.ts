@@ -77,9 +77,10 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 	}
 	if (issue.provider != null && azureProviderIds.has(issue.provider.id)) {
 		fields.descriptionRule = azureWorkItemDescriptionRule;
-		// A row that names someone and has no viewer was read while its organization's identity couldn't be: it
-		// must not compare unchanged, or it would be kept without one until the work item changes.
-		if (issue.viewer != null || !issueNamesPeople(issue)) {
+		// A row read while its organization's identity couldn't be must not compare unchanged, or it would be kept
+		// without a viewer until the work item changes. Also a row that names someone and has neither field: one held
+		// from before `viewerUnresolved` existed.
+		if (!issue.viewerUnresolved && (issue.viewer != null || !issueNamesPeople(issue))) {
 			fields.viewerRule = azureWorkItemViewerRule;
 		}
 	}

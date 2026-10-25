@@ -1518,13 +1518,7 @@ export function toIssueShape(
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
-		...(issueNamesPeople(issue)
-			? options?.viewer != null
-				? { viewer: options.viewer }
-				: options?.viewer === null
-					? { viewerUnresolved: true }
-					: {}
-			: {}),
+		...toIssueViewer(issue, options?.viewer),
 	};
 }
 
@@ -1955,16 +1949,8 @@ export function fromProviderPullRequest(
 			: undefined,
 		options?.projection,
 		options?.currentAccount ?? undefined,
-		viewerUnresolved(pr, options?.currentAccount),
+		options?.currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined,
 	);
-}
-
-/** `true` for a row that names someone the identity it should be matched against couldn't be resolved for. */
-function viewerUnresolved(
-	pr: ProviderPullRequest | PullRequest,
-	currentAccount: { id: string } | null | undefined,
-): true | undefined {
-	return currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined;
 }
 
 /**
@@ -1974,16 +1960,14 @@ function viewerUnresolved(
  */
 export function stampNativePullRequest(
 	pr: PullRequest,
-	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
+	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
 ): PullRequest {
 	return Object.assign(Object.create(PullRequest.prototype) as PullRequest, pr, {
 		authoredByMe:
 			options.currentAccount != null
 				? authoredByCurrentAccount(pr.author, pr.provider, options.currentAccount)
 				: undefined,
-		viewer: options.currentAccount ?? undefined,
-		// Only when set, so a row resolved as before keeps exactly the keys it always had.
-		...(viewerUnresolved(pr, options.currentAccount) ? { viewerUnresolved: true } : {}),
+		viewer: options.currentAccount,
 		projection: options.projection,
 	});
 }
@@ -1997,8 +1981,9 @@ export function toPullRequestRow(
 	provider: Provider,
 	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
 ): PullRequest {
+	// Only an Azure DevOps viewer can be unresolved, and its rows are never native.
 	return isNativePullRequest(pr)
-		? stampNativePullRequest(pr, options)
+		? stampNativePullRequest(pr, { ...options, currentAccount: options.currentAccount ?? undefined })
 		: fromProviderPullRequest(pr, provider, options);
 }
 
@@ -2022,6 +2007,20 @@ export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): b
 	return isNativePullRequest(pr)
 		? Boolean(pr.reviewRequests?.length || pr.latestReviews?.length)
 		: Boolean(pr.reviews?.length);
+}
+
+/**
+ * The viewer fields of an issue row naming `issue`'s people, from what its read resolved: `viewer` when it resolved
+ * one, `viewerUnresolved` when it tried and couldn't (`null`), and neither for a row that names no one, as nothing on
+ * it can be matched. Only the keys it sets, so a row resolved as before keeps exactly the keys it always had.
+ */
+export function toIssueViewer(
+	issue: Parameters<typeof issueNamesPeople>[0],
+	viewer: { id: string } | null | undefined,
+): { viewer?: { id: string }; viewerUnresolved?: true } | undefined {
+	if (viewer === undefined || !issueNamesPeople(issue)) return undefined;
+
+	return viewer != null ? { viewer: viewer } : { viewerUnresolved: true };
 }
 
 /**
@@ -2066,6 +2065,7 @@ export function fromProviderIssue(
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
+	const viewer = toIssueViewer(issue, options?.viewer);
 	return new Issue(
 		integration,
 		identifier,
@@ -2113,8 +2113,8 @@ export function fromProviderIssue(
 		toIssueIterations(issue),
 		options?.projection,
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
-		issueNamesPeople(issue) ? (options?.viewer ?? undefined) : undefined,
-		issueNamesPeople(issue) && options?.viewer === null ? true : undefined,
+		viewer?.viewer,
+		viewer?.viewerUnresolved,
 	);
 }
 

@@ -527,8 +527,8 @@ export abstract class AzureDevOpsIntegrationBase<
 	 * the id {@link getFilterUserId} resolves there, not necessarily the account's. A row an account-wide read returned
 	 * keeps the one that read resolved, even once its session is gone. A row that names no organization or no one to
 	 * match gets no viewer; one in an organization whose id can't be read gets `null`, so it's marked
-	 * `viewerUnresolved`: its authorship stays unknown. With no session to resolve them with, the rows not already
-	 * resolved get neither, as no organization was asked.
+	 * `viewerUnresolved`: its authorship stays unknown, as does every such row when no session can be resolved to ask
+	 * with.
 	 */
 	override async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
@@ -544,9 +544,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (!organizations.some(o => o != null)) return read;
 
 		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
-		if (session == null) return read;
-
-		const viewerFor = this.getOrganizationViewers(session);
+		const viewerFor =
+			session != null ? this.getOrganizationViewers(session) : () => Promise.resolve<{ id: string } | null>(null);
 		return Promise.all(
 			read.map((viewer, i) => {
 				const organization = organizations[i];

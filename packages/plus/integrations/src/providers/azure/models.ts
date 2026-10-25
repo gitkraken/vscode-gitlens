@@ -26,8 +26,8 @@ import {
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
-	issueNamesPeople,
 	toIssueBodyField,
+	toIssueViewer,
 } from '../models.js';
 import type { ProviderPullRequestReview } from '../pullRequestReviews.js';
 import {
@@ -776,7 +776,7 @@ export function fromAzureWorkItem(
 	const author = fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']);
 	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
 	const assignees = assignee != null ? [assignee] : [];
-	const namesPeople = issueNamesPeople({ author: author, assignees: assignees });
+	const viewerFields = toIssueViewer({ author: author, assignees: assignees }, viewer);
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -805,8 +805,8 @@ export function fromAzureWorkItem(
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
 		description != null ? toIssueBodyField(description.field) : undefined,
-		namesPeople ? (viewer ?? undefined) : undefined,
-		namesPeople && viewer === null ? true : undefined,
+		viewerFields?.viewer,
+		viewerFields?.viewerUnresolved,
 	);
 }
 
