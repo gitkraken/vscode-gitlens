@@ -5,6 +5,7 @@ import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationManager } from '../index.js';
 import { createIntegrationManager } from '../index.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -81,36 +82,6 @@ const workflow = [
 	{ name: 'Active', category: 'InProgress' },
 	{ name: 'Closed', category: 'Completed' },
 ];
-
-/** The locations Azure DevOps Server 2019 advertises for each area: released up to 5.0, or a 5.0 preview. */
-const locations: Record<string, [string, string, boolean][]> = {
-	wit: [
-		['b51fd764-e5c2-4b9b-aaf7-3395cf4bdd94', '{project}/_apis/wit/fields/{fieldNameOrRefName}', false],
-		['1a9c53f7-f243-4447-b110-35ef023636e4', '{project}/{team}/_apis/wit/wiql/{id}', false],
-		['72c7ddf8-2cdc-4f60-90cd-ab71c14a399b', '{project}/_apis/wit/workItems/{id}', false],
-		['908509b6-4248-4475-a1cd-829139ba419f', '{project}/_apis/wit/workItemsBatch', false],
-		['7c8d7a76-4a09-43e8-b5df-bd792f4ac6aa', '{project}/_apis/wit/workItemTypes/{type}', false],
-		['7c9d7a76-4a09-43e8-b5df-bd792f4ac6aa', '{project}/_apis/wit/workItemTypes/{type}/states', true],
-	],
-	git: [
-		[
-			'9946fd70-0d40-406e-b686-b4744cbbcc37',
-			'{project}/_apis/git/repositories/{repositoryId}/pullRequests/{pullRequestId}',
-			false,
-		],
-		['225f7195-f9c7-4d14-ab28-a83f7ff77e1f', '{project}/_apis/git/repositories/{repositoryId}', false],
-		[
-			'b3a6eebe-9cf0-49ea-b6cb-1a4c5f5007b0',
-			'{project}/_apis/git/repositories/{repositoryId}/pullRequestQuery',
-			true,
-		],
-	],
-	work: [['7799f497-3cb5-4f16-ad4f-5cd06012db64', '{project}/{team}/_apis/work/backlogconfiguration', true]],
-	ims: [
-		['28010c54-d0c0-4c89-a5b0-1c9e188b9fb7', '_apis/identities/{identityId}', false],
-		['299e50df-fe45-4d3a-8b5b-a5836fac74dc', '_apis/identityBatch', true],
-	],
-};
 
 function json(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify(data), {
@@ -243,21 +214,14 @@ function createServer(profile: ServerProfile) {
 		const lower = route.toLowerCase();
 
 		if (method === 'OPTIONS') {
-			const area = /^_apis\/(\w+)$/.exec(lower)?.[1];
-			if (atServer || area == null || locations[area] == null) return notFoundPage();
+			if (atServer) return notFoundPage();
 
-			return json({
-				count: locations[area].length,
-				value: locations[area].map(([locationId, routeTemplate, preview]) => ({
-					id: locationId,
-					area: area,
-					routeTemplate: routeTemplate,
-					minVersion: '1.0',
-					maxVersion: profile.maxVersion,
-					releasedVersion: preview ? '0.0' : profile.releasedVersion,
-					resourceVersion: profile.resourceVersion,
-				})),
-			});
+			return (
+				azureRestDiscoveryResponse(url, {
+					...profile,
+					previewOnlyResources: ['states', 'pullRequestQuery', 'backlogconfiguration', 'identityBatch'],
+				}) ?? notFoundPage()
+			);
 		}
 
 		if (lower === '_apis/connectiondata') {
@@ -430,7 +394,7 @@ suite('Azure DevOps Server 2019 issue lists (#6070)', () => {
 						includeAllAssignees: true,
 					});
 
-					const versions = new Map<string, string>();
+					const routes = new Set<string>();
 					for (const r of server.requests) {
 						const version = r.url.searchParams.get('api-version');
 						if (version == null) continue;
@@ -440,9 +404,11 @@ suite('Azure DevOps Server 2019 issue lists (#6070)', () => {
 							.replace(`${project}/`, '')
 							.toLowerCase()
 							.replace(/workitemtypes\/[^/]+\/states/, 'workitemtypes/{type}/states');
-						versions.set(`${r.method} ${path}`, version);
+						const route = `${r.method} ${path}`;
+						assert.equal(version, profile.expected[route], r.url.toString());
+						routes.add(route);
 					}
-					assert.deepEqual(Object.fromEntries(versions), profile.expected);
+					assert.deepEqual([...routes].sort(), Object.keys(profile.expected).sort());
 				});
 			});
 		});

@@ -19,8 +19,7 @@ export type AzureWorkItemStatesScope = {
 	isPAT: boolean;
 };
 
-// Each builder takes the version REST discovery negotiated, never a fixed one: a server older than that version answers
-// it with a 404 page (#6070).
+// Older servers return a 404 page for unsupported API versions, so callers must supply the negotiated version.
 export function getAzureWorkItemTypesUrl(
 	baseUrl: string,
 	namespace: string,

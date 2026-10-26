@@ -169,7 +169,15 @@ export function azureWorkItemTypeStatesResponse(
 	});
 }
 
-export function azureRestDiscoveryResponse(input: string | URL): Response | undefined {
+export function azureRestDiscoveryResponse(
+	input: string | URL,
+	options: {
+		maxVersion?: string;
+		releasedVersion?: string;
+		resourceVersion?: number;
+		previewOnlyResources?: readonly string[];
+	} = {},
+): Response | undefined {
 	const area = new URL(input.toString()).pathname.match(/\/_apis\/(wit|git|work|IMS)$/i)?.[1].toLowerCase();
 	if (area == null) return undefined;
 
@@ -202,9 +210,11 @@ export function azureRestDiscoveryResponse(input: string | URL): Response | unde
 				id: id,
 				routeTemplate: route,
 				minVersion: '1.0',
-				maxVersion: '7.1',
-				releasedVersion: '7.1',
-				resourceVersion: 3,
+				maxVersion: options.maxVersion ?? '7.1',
+				releasedVersion: options.previewOnlyResources?.includes(route.split('/').at(-1)!)
+					? '0.0'
+					: (options.releasedVersion ?? '7.1'),
+				resourceVersion: options.resourceVersion ?? 3,
 			})),
 	});
 }
