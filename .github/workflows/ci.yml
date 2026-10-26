@@ -294,6 +294,7 @@ jobs:
             # `cli_insiders` opts the `@cli-insiders` specs in (they skip without it). Each matrix leg
             # is its own runner with an empty CLI data dir, so enabling it costs a pre-release core
             # download per editor, not once per run.
+            # `@signed-in` specs run in their own job (`e2e-signed-in`, below) — this job holds no credentials.
             - name: Run E2E tests
               env:
                   GL_E2E_CLI_INSIDERS: ${{ inputs.cli_insiders && '1' || '' }}
@@ -301,6 +302,7 @@ jobs:
                   xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
                   pnpm exec playwright test -c tests/e2e/playwright.config.ts
                   --project=${{ matrix.editor.id }} --workers=${{ matrix.editor.ciWorkers || 4 }}
+                  --grep-invert @signed-in
 
             # The frame/heap benchmark is deliberately excluded from the default functional suite. Run it
             # serially and repeatedly in the canonical VS Code leg so its measurements remain comparable.
@@ -338,4 +340,102 @@ jobs:
                   name: graph-browser-performance-${{ matrix.editor.id }}
                   path: out/perf/commit-graph-browser-*.json
                   retention-days: 14
+                  if-no-files-found: ignore
+
+    # `@signed-in` specs: a worker signs in to the GitKraken test account (tests/e2e/fixtures/gkSignIn.ts) so the
+    # account's cloud integrations come with it — see docs/testing.md § signed-in workers. A separate job, not a step
+    # of e2e-tests: the credentials live in the `e2e-signed-in` Environment (job-level), restricted to `main`, which
+    # would otherwise block e2e on every other branch. Off until a maintainer sets the repository variable
+    # `E2E_SIGNED_IN` to `true`; on other refs it doesn't start rather than fail. VS Code only, staging only — the
+    # account's session token reaches every integration the account has connected, so CI never signs in to production.
+    e2e-signed-in:
+        name: E2E Tests (VS Code, signed in - staging)
+        runs-on: ubuntu-latest
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.E2E_SIGNED_IN == 'true' }}
+        environment: e2e-signed-in
+        permissions:
+            contents: read
+        timeout-minutes: 25
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  # Test code runs with the credentials below; it doesn't need the token too
+                  persist-credentials: false
+
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
+
+            - name: Setup pnpm
+              uses: pnpm/setup@v2
+              with:
+                  install: false
+                  cache: true
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # GitLens reads `gitkraken.env` only in a pre-release (date-versioned) build or in Development mode, and
+            # the harness runs extensions in Test mode — so signing in to staging needs the pre-release version patch.
+            # It changes nothing but the version (and README).
+            - name: Pre-release version (staging backend)
+              run: pnpm run patch-pre
+
+            - name: Build (production with DEBUG for simulator)
+              run: pnpm run bundle:e2e
+
+            # The scan below is what keeps credentials out of the uploaded artifacts — check it still works first
+            - name: Self-test the secret scan
+              run: node --test scripts/__tests__/e2eScanForSecrets.test.mjs
+
+            # The credentials exist in this step and the scan below only. E2E_REQUIRE_SIGNIN turns a missing cookie or
+            # GitHub URL into a failure instead of a silent skip; no --pass-with-no-tests, so a job that matches no
+            # spec fails instead of going green. --retries=0 regardless of the config's CI default: a sign-in failure
+            # should surface on the first attempt, not be masked by a fresh worker.
+            - name: Run signed-in E2E tests (staging)
+              env:
+                  GK_E2E_ENV: staging
+                  E2E_REQUIRE_SIGNIN: '1'
+                  # The staging site's session cookie (`stagingAccessToken`) — the only GitKraken credential CI holds
+                  GK_E2E_ACCESS_TOKEN_COOKIE: ${{ secrets.GK_E2E_ACCESS_TOKEN_COOKIE }}
+                  # Public values, kept as variables so failures stay readable
+                  E2E_REQUIRED_INTEGRATIONS: ${{ vars.E2E_REQUIRED_INTEGRATIONS }}
+                  E2E_GITHUB_REPO_URL: ${{ vars.E2E_GITHUB_REPO_URL }}
+                  E2E_GITHUB_ISSUE_URL: ${{ vars.E2E_GITHUB_ISSUE_URL }}
+                  E2E_GITHUB_PR_URL: ${{ vars.E2E_GITHUB_PR_URL }}
+              run: >
+                  xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
+                  pnpm exec playwright test -c tests/e2e/playwright.config.ts
+                  --project=vscode --workers=4
+                  --grep @signed-in --output out/test-results-signed-in --retries=0
+
+            # Artifacts are uploaded as usual, so make sure no credential rides along: a file holding a secret value
+            # (verbatim, base64, base64url, URL-encoded; inside trace zips too) — or that can't be read — is deleted
+            # and the job fails, and e-mail addresses and JWT-shaped tokens in text files are masked. Prints only the
+            # file, the secret's name and the encoding.
+            - name: Scan e2e output for secrets
+              id: scan
+              if: ${{ !cancelled() }}
+              env:
+                  SCAN_SECRET_NAMES: GK_E2E_ACCESS_TOKEN_COOKIE
+                  GK_E2E_ACCESS_TOKEN_COOKIE: ${{ secrets.GK_E2E_ACCESS_TOKEN_COOKIE }}
+              run: node scripts/e2eScanForSecrets.mjs out/test-results-signed-in playwright-report
+
+            # Only after a complete scan — one that crashed midway leaves files unscanned, so nothing is uploaded
+            - name: Upload test results
+              if: ${{ !cancelled() && steps.scan.outputs.complete == 'true' }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: playwright-results-vscode-signed-in
+                  path: out/test-results-signed-in/
+                  # The repository is public: keep results from an account-holding run only as long as a triage needs
+                  retention-days: 1
                   if-no-files-found: ignore
