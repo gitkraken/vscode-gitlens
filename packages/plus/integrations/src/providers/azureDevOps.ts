@@ -404,14 +404,14 @@ export abstract class AzureDevOpsIntegrationBase<
 	private readonly _organizationUserIds = new PromiseCache<string, string | undefined>({ capacity: 50 });
 
 	/**
-	 * How long a read waits for the user's identity in an organization (its `ConnectionData`) before setting its rows'
-	 * viewer without it: a hung lookup must not hold up the rows it only enriches.
+	 * How long a read waits for the user's identity in an organization (its `ConnectionData`) before marking its rows
+	 * `viewerUnresolved` instead: a hung lookup must not hold up the rows it only enriches.
 	 */
 	protected organizationViewerTimeoutMs: number = 10 * 1000;
 
 	/**
 	 * The {@link getFilterUserId} lookups that outlived {@link organizationViewerTimeoutMs} and are still pending. A
-	 * read resolves no viewer for them straight away rather than waiting on the same hung request again; each is
+	 * read treats them as unresolved straight away rather than waiting on the same hung request again; each is
 	 * dropped once its own request settles, never by an older one a re-sync left behind.
 	 */
 	private readonly _hungOrganizationUserIds = new Map<string, Promise<string | undefined>>();
@@ -525,66 +525,65 @@ export abstract class AzureDevOpsIntegrationBase<
 	/**
 	 * Resolved per organization, which a raw row names as its repository owner: an organization's pull requests carry
 	 * the id {@link getFilterUserId} resolves there, not necessarily the account's. A row an account-wide read returned
-	 * keeps the one that read resolved, even once its session is gone. A row that names no organization or no one to
-	 * match gets no viewer, nor does one in an organization whose id can't be read: its authorship stays unknown.
+	 * keeps the one that read resolved, even once its session is gone. A row that names no one to match gets no viewer;
+	 * one whose organization's id can't be read, that names no organization, or that no session can be resolved to ask
+	 * for, gets `null`, so it's marked `viewerUnresolved`.
 	 */
 	override async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
-	): Promise<({ id: string; username?: string } | undefined)[]> {
+	): Promise<({ id: string; username?: string } | null | undefined)[]> {
 		// Azure's rows are provider-apis' own; only GitHub's are native.
 		const read = pullRequests.map(pr => (isNativePullRequest(pr) ? undefined : this._rowViewers.get(pr)));
-		const organizations = pullRequests.map((pr, i) =>
-			read[i] == null && !isNativePullRequest(pr) && pullRequestNamesPeople(pr)
-				? pr.repository?.owner?.login || undefined
-				: undefined,
+		const unresolved = pullRequests.map(
+			(pr, i) => read[i] == null && !isNativePullRequest(pr) && pullRequestNamesPeople(pr),
 		);
-		if (!organizations.some(o => o != null)) return read;
+		if (!unresolved.some(Boolean)) return read;
 
 		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
-		if (session == null) return read;
-
-		const viewerFor = this.getOrganizationViewers(session);
+		const viewerFor = session != null ? this.getOrganizationViewers(session) : undefined;
 		return Promise.all(
-			read.map((viewer, i) => {
-				const organization = organizations[i];
-				if (organization == null) return Promise.resolve(viewer);
+			pullRequests.map((pr, i) => {
+				if (!unresolved[i]) return Promise.resolve(read[i]);
 
-				return viewerFor(organization);
+				// Never native, as `unresolved` only holds for provider-apis' rows.
+				const organization = (pr as ProviderPullRequest).repository?.owner?.login;
+				return organization && viewerFor != null ? viewerFor(organization) : Promise.resolve(null);
 			}),
 		);
 	}
 
 	/**
 	 * Resolved per organization, which a raw work item names as its project's namespace: an organization's work items
-	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no
-	 * organization or no one to match gets no viewer, nor does one in an organization whose id can't be read.
+	 * carry the id {@link getFilterUserId} resolves there, not necessarily the account's. A row that names no one to
+	 * match gets no viewer; one in an organization whose id can't be read, or that names no organization to ask, gets
+	 * `null`.
 	 */
 	protected override getIssueViewers(
 		session: ProviderAuthenticationSession,
 		issues: readonly ProviderIssue[],
-	): Promise<({ id: string } | undefined)[]> {
+	): Promise<({ id: string } | null | undefined)[]> {
 		const viewerFor = this.getOrganizationViewers(session);
 		return Promise.all(
-			issues.map(i =>
-				issueNamesPeople(i) && i.project?.namespace
-					? viewerFor(i.project.namespace)
-					: Promise.resolve(undefined),
-			),
+			issues.map(i => {
+				if (!issueNamesPeople(i)) return Promise.resolve(undefined);
+
+				return i.project?.namespace ? viewerFor(i.project.namespace) : Promise.resolve(null);
+			}),
 		);
 	}
 
 	/**
 	 * For one read, the current user as each organization's pull requests and work items identify them (see
 	 * {@link getFilterUserId}). An organization whose id can't be read, or not within
-	 * {@link organizationViewerTimeoutMs}, resolves `undefined`, since authorship is optional enrichment and one
-	 * organization's failed or hung lookup must not fail or hold up the read or blank the others; it is asked once per
-	 * read, as a miss isn't cached.
+	 * {@link organizationViewerTimeoutMs}, resolves `null`, which marks its rows `viewerUnresolved`: authorship is
+	 * optional enrichment, and one organization's failed or hung lookup must not fail or hold up the read or blank the
+	 * others. It is asked once per read, as a miss isn't cached.
 	 */
 	protected getOrganizationViewers(
 		session: ProviderAuthenticationSession,
-	): (organization: string) => Promise<{ id: string } | undefined> {
-		const viewers = new Map<string, Promise<{ id: string } | undefined>>();
+	): (organization: string) => Promise<{ id: string } | null> {
+		const viewers = new Map<string, Promise<{ id: string } | null>>();
 		return organization => {
 			const key = organization.toLowerCase();
 			let viewer = viewers.get(key);
@@ -600,15 +599,15 @@ export abstract class AzureDevOpsIntegrationBase<
 	private async getOrganizationViewer(
 		session: ProviderAuthenticationSession,
 		organization: string,
-	): Promise<{ id: string } | undefined> {
+	): Promise<{ id: string } | null> {
 		const key = this.organizationUserIdKey(session, organization);
-		if (this._hungOrganizationUserIds.has(key)) return undefined;
+		if (this._hungOrganizationUserIds.has(key)) return null;
 
 		const generation = this._organizationUserIdsGeneration;
 		const lookup = this.getFilterUserId(session, organization);
 		try {
 			const id = await raceWithTimeout(lookup, this.organizationViewerTimeoutMs);
-			return id != null ? { id: id } : undefined;
+			return id != null ? { id: id } : null;
 		} catch (ex) {
 			if (
 				isCancellationError(ex) &&
@@ -623,7 +622,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				};
 				void lookup.then(settled, settled);
 			}
-			return undefined;
+			return null;
 		}
 	}
 

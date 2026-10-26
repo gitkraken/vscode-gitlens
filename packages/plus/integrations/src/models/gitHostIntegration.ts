@@ -994,7 +994,7 @@ export abstract class GitHostIntegration<
 			| (PagedResult<ProviderIssue> & {
 					metadata?: CollectionMetadata;
 					/** Each row's viewer, in order, where the provider sets one (see {@link getIssueViewers}). */
-					viewers?: ({ id: string } | undefined)[];
+					viewers?: ({ id: string } | null | undefined)[];
 			  })
 			| undefined
 		>
@@ -1898,14 +1898,15 @@ export abstract class GitHostIntegration<
 	/**
 	 * The current account as each of `pullRequests` identifies its members, in order: what a raw row's
 	 * `authoredByMe` and `viewer` are resolved against when it's mapped. Most hosts give a person one id, so every
-	 * row gets the account itself; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`).
+	 * row gets the account itself; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`), with
+	 * `null` for a row whose organization's identity couldn't be read, which marks it `viewerUnresolved`.
 	 * Throws only when the account itself can't be read. Azure DevOps never throws: a session it can't resolve leaves
-	 * the rows it hadn't already resolved unknown.
+	 * every row it would have asked an organization for `null` too.
 	 */
 	async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
-	): Promise<({ id: string; username?: string } | undefined)[]> {
+	): Promise<({ id: string; username?: string } | null | undefined)[]> {
 		const account = await this.getCurrentAccount({ connectionId: connectionId });
 		const viewer = account != null ? { id: account.id, username: account.username } : undefined;
 		return pullRequests.map(() => viewer);
@@ -1915,12 +1916,12 @@ export abstract class GitHostIntegration<
 	 * The current account as each of `issues`, read with `session`, identifies its members, in order, where that can
 	 * differ from the account itself: what a raw row's {@link IssueShape.viewer} is set to when it's mapped. Only
 	 * Azure DevOps sets one, per organization (see `AzureDevOpsIntegrationBase`); `undefined` leaves every row without.
-	 * Never throws: a viewer that can't be resolved leaves the row without one.
+	 * Never throws: a viewer that can't be resolved is `null`, which marks the row {@link IssueShape.viewerUnresolved}.
 	 */
 	protected getIssueViewers(
 		_session: ProviderAuthenticationSession,
 		_issues: readonly ProviderIssue[],
-	): Promise<({ id: string } | undefined)[] | undefined> {
+	): Promise<({ id: string } | null | undefined)[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 

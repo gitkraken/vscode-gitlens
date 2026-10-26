@@ -131,6 +131,12 @@ interface ServerFixture {
 	onRoute?: (route: string, token: string) => void;
 	/** Leaves the organization's connection data unanswered, as a hung request would. */
 	hangIdentity?: boolean;
+	/** Fails the organization's (Azure DevOps Server: collection's) connection data with a server error, while true. */
+	failIdentity?: boolean | (() => boolean);
+}
+
+function identityFails(fixture: ServerFixture): boolean {
+	return typeof fixture.failIdentity === 'function' ? fixture.failIdentity() : fixture.failIdentity === true;
 }
 
 /** A work item with an assignee, tags, a description and comments. */
@@ -287,6 +293,9 @@ async function connectedServices(fixture: ServerFixture = {}): Promise<Connected
 			.filter(Boolean)
 			.map(s => decodeURIComponent(s).toLowerCase());
 		if (fixture.hangIdentity && segments.at(-1) === 'connectiondata') return new Promise<Response>(() => {});
+		if (identityFails(fixture) && segments.at(-1) === 'connectiondata') {
+			return Promise.resolve(json({ message: 'identity unavailable' }, 500));
+		}
 
 		assert.equal(url.hostname, 'dev.azure.com', url.href);
 		assert.equal(segments[0], org, url.href);
@@ -353,7 +362,10 @@ async function connectedServer(fixture: ServerFixture = {}): Promise<Connected> 
 		if (segments.at(-1) === 'connectiondata') {
 			if (!atServer) {
 				fixture.routes?.push('_apis/connectiondata');
+				if (fixture.hangIdentity) return new Promise<Response>(() => {});
+				if (identityFails(fixture)) return Promise.resolve(json({ message: 'identity unavailable' }, 500));
 			}
+
 			const id = atServer || typeof fixture.orgUserId === 'function' ? me : (fixture.orgUserId ?? me);
 			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
 			return Promise.resolve(
@@ -866,6 +878,7 @@ for (const [label, connect, searches] of [
 
 			for (const [read, row] of await readAllWorkItems(connected, searches)) {
 				assert.deepEqual(row.viewer, { id: 'org-me' }, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
 				assert.ok(
 					row.assignees.some(a => a.id === row.viewer?.id),
 					`${read}: the assignee is matched by the viewer`,
@@ -890,12 +903,38 @@ for (const [label, connect, searches] of [
 
 			for (const [read, row] of await readAllWorkItems(connected, searches)) {
 				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, undefined, `${read}: nothing on it needed an identity`);
 			}
 			assert.equal(
 				routes.filter(r => r === '_apis/connectiondata').length,
 				1,
 				'only the batch read asks, alongside the work item and before it can tell whether anyone is named',
 			);
+
+			connected.manager.dispose();
+		});
+
+		test("marks a work item that names someone viewerUnresolved when the organization's identity can't be read (#6083)", async () => {
+			const connected = await connect({ failIdentity: true });
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test('leaves a work item that names no one unmarked, even when the identity read fails', async () => {
+			const connected = await connect({
+				failIdentity: true,
+				workItemFields: { 'System.CreatedBy': undefined, 'System.AssignedTo': undefined },
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
+			}
 
 			connected.manager.dispose();
 		});
@@ -948,6 +987,7 @@ suite('Work item viewer: Azure DevOps Services edge cases', () => {
 
 		for (const [read, row] of await readAllWorkItems(connected, false)) {
 			assert.equal(row.viewer, undefined, read);
+			assert.equal(row.viewerUnresolved, true, read);
 		}
 
 		// While that request is still pending, a later read doesn't wait on it again: with a deadline past the test's
@@ -955,6 +995,7 @@ suite('Work item viewer: Azure DevOps Services edge cases', () => {
 		azure.organizationViewerTimeoutMs = 10 * 60 * 1000;
 		for (const [read, row] of await readAllWorkItems(connected, false)) {
 			assert.equal(row.viewer, undefined, `${read}, again`);
+			assert.equal(row.viewerUnresolved, true, `${read}, again`);
 		}
 
 		connected.manager.dispose();
@@ -967,7 +1008,7 @@ suite('Work item viewer: Azure DevOps Services edge cases', () => {
 			requestOrganizationUserId: () => Promise<string | undefined>;
 			getOrganizationViewers: (
 				session: ProviderAuthenticationSession,
-			) => (organization: string) => Promise<{ id: string } | undefined>;
+			) => (organization: string) => Promise<{ id: string } | null>;
 			invalidateDiscoveryCaches: () => void;
 		};
 		azure.organizationViewerTimeoutMs = 20;
@@ -980,7 +1021,7 @@ suite('Work item viewer: Azure DevOps Services edge cases', () => {
 		azure.invalidateDiscoveryCaches();
 		assert.deepEqual(await azure.getOrganizationViewers(session)(org), { id: 'org-me' }, 'the replacement');
 
-		assert.equal(await obsolete, undefined, 'the obsolete lookup timed out');
+		assert.equal(await obsolete, null, 'the obsolete lookup timed out');
 		assert.deepEqual(
 			await azure.getOrganizationViewers(session)(org),
 			{ id: 'org-me' },
@@ -988,5 +1029,179 @@ suite('Work item viewer: Azure DevOps Services edge cases', () => {
 		);
 
 		connected.manager.dispose();
+	});
+});
+
+/**
+ * Every pull request read a host maps "mine" from (the lists, sweeps, batch, branch and filtered search reads), each
+ * row of which names its author and reviewers.
+ */
+async function readAllPullRequests(
+	{ manager, providerId, target }: Connected,
+	searches: boolean,
+): Promise<[string, PullRequestShape][]> {
+	const scoped = await manager.listPullRequestsPage({ ...target, providerId: providerId, repos: repos });
+	const swept = await manager.sweepPullRequests({ ...target, providerIds: [providerId], repos: repos });
+	const batch = await manager.getPullRequestsBatch({
+		...target,
+		providerId: providerId,
+		targets: [{ key: 'pr', owner: org, repo: repoName, number: 1, project: projectName }],
+	});
+	const branches = await manager.getPullRequestsForBranches({
+		...target,
+		providerId: providerId,
+		targets: [{ key: 'branch', owner: org, repo: repoName, project: projectName, branch: 'feature-1' }],
+	});
+	const searched = searches
+		? await manager.searchPullRequestsPage({
+				...target,
+				providerId: providerId,
+				repos: repos,
+				criteria: { states: ['all'] },
+			})
+		: undefined;
+
+	const rows: [string, PullRequestShape | undefined][] = [
+		['repos', scoped.items[0]],
+		['sweep', swept.items[0]],
+		['batch', batch.items[0]?.pullRequest],
+		['branch', branches.items[0]?.pullRequests[0]],
+		...(searched != null ? [['search', searched.items[0]] as [string, PullRequestShape | undefined]] : []),
+	];
+	for (const [read, row] of rows) {
+		assert.ok(row != null, `${providerId} ${read}: a row`);
+	}
+
+	return rows as [string, PullRequestShape][];
+}
+
+/**
+ * A row whose organization's identity couldn't be read says so (#6083), rather than looking like one from a provider
+ * with no per-row identity, which a host matches against the account: on Azure DevOps that account's id is exactly the
+ * one that may not match, so a host would report a definite "not mine".
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Pull request viewer: every ${label} read`, () => {
+		test("stamps the organization's identity and no marker when it can be read", async () => {
+			const connected = await connect({ orgUserId: 'author' });
+
+			for (const [read, row] of await readAllPullRequests(connected, searches)) {
+				assert.deepEqual(row.viewer, { id: 'author' }, read);
+				assert.equal(row.authoredByMe, true, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test("marks the rows viewerUnresolved, with no viewer or authorship, when it can't be read", async () => {
+			const connected = await connect({ failIdentity: true });
+
+			for (const [read, row] of await readAllPullRequests(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.authoredByMe, undefined, `${read}: unknown, not "not mine"`);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test('marks the rows viewerUnresolved when the identity read outlives its bound', async () => {
+			const connected = await connect({ hangIdentity: true });
+			(connected.azure as unknown as { organizationViewerTimeoutMs: number }).organizationViewerTimeoutMs = 20;
+
+			for (const [read, row] of await readAllPullRequests(connected, false)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.authoredByMe, undefined, read);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+	});
+}
+
+suite('Pull request viewer: the Azure DevOps Server filtered search', () => {
+	test("a continuation page resolves the collection's identity again rather than keeping its first page's answer", async () => {
+		let failIdentity = true;
+		const routes: string[] = [];
+		const connected = await connectedServer({
+			orgUserId: 'author',
+			failIdentity: () => failIdentity,
+			routes: routes,
+		});
+		const scope = {
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			repos: repos,
+			criteria: { states: ['all' as const] },
+			itemsPerPage: 1,
+		};
+
+		const first = await connected.manager.searchPullRequestsPage(scope);
+		assert.equal(first.items[0]?.viewerUnresolved, true);
+		assert.equal(first.items[0]?.viewer, undefined);
+		assert.ok(first.cursor != null, 'a second page follows');
+
+		failIdentity = false;
+		const second = await connected.manager.searchPullRequestsPage({ ...scope, cursor: first.cursor });
+		assert.deepEqual(second.items[0]?.viewer, { id: 'author' });
+		assert.equal(second.items[0]?.authoredByMe, true);
+		assert.equal(second.items[0]?.viewerUnresolved, undefined);
+
+		connected.manager.dispose();
+	});
+
+	test("a count, which maps no row, doesn't read the identity", async () => {
+		const routes: string[] = [];
+		const connected = await connectedServer({ routes: routes });
+
+		const count = await connected.manager.countPullRequests({
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			scopes: [{ key: 'all', repos: repos, criteria: { states: ['all'] } }],
+		});
+		assert.equal(count.fetchFailed, undefined, JSON.stringify(count.warnings));
+		assert.equal(routes.filter(r => r === '_apis/connectiondata').length, 0);
+
+		connected.manager.dispose();
+	});
+});
+
+suite('Pull request viewer: the etag of a row whose identity was unresolved', () => {
+	test('never compares unchanged, so the row is read in full again rather than kept unresolved', async () => {
+		let failIdentity = true;
+		const connected = await connectedServices({ orgUserId: 'author', failIdentity: () => failIdentity });
+		const { manager, providerId, target } = connected;
+		const targets = [{ key: 'pr', owner: org, repo: repoName, number: 1, project: projectName }];
+
+		const unresolved = await manager.getPullRequestsBatch({ ...target, providerId: providerId, targets: targets });
+		const unresolvedRow = unresolved.items[0];
+		assert.equal(unresolvedRow?.pullRequest?.viewerUnresolved, true);
+		assert.ok(unresolvedRow?.etag != null);
+
+		failIdentity = false;
+		const again = await manager.getPullRequestsBatch({
+			...target,
+			providerId: providerId,
+			targets: targets.map(t => ({ ...t, etag: unresolvedRow.etag })),
+		});
+		const resolvedRow = again.items[0];
+		assert.notEqual(resolvedRow?.unchanged, true, 'not kept as it was');
+		assert.deepEqual(resolvedRow?.pullRequest?.viewer, { id: 'author' });
+		assert.equal(resolvedRow?.pullRequest?.viewerUnresolved, undefined);
+		assert.ok(resolvedRow?.etag != null);
+
+		const resolvedAgain = await manager.getPullRequestsBatch({
+			...target,
+			providerId: providerId,
+			targets: targets.map(t => ({ ...t, etag: resolvedRow.etag })),
+		});
+		assert.equal(resolvedAgain.items[0]?.unchanged, true, 'a resolved row still compares unchanged');
+
+		manager.dispose();
 	});
 });

@@ -64,6 +64,7 @@ import {
 	getProviderPullRequestIdentity,
 	providersMetadata,
 	PullRequestFilter,
+	pullRequestNamesPeople,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
@@ -140,6 +141,8 @@ const pullRequestCountReuseTtl = 60 * 1000;
 interface AzurePullRequestSearchRow {
 	pr: ProviderPullRequest;
 	project: AzureProjectDescriptor;
+	collection: string;
+	/** The identity a relationship filter resolved in {@link collection}; without one, each page resolves it. */
 	currentAccount: { id: string } | undefined;
 	position: AzurePullRequestSearchPosition;
 }
@@ -648,11 +651,22 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const page = cursor?.page ?? 1;
 		const last = slice.at(-1);
 		const hasMore = last != null && start + slice.length < drain.rows.length;
+		// A search without a relationship resolved no collection's id for its filters, so a page resolves its rows'
+		// own, bounded like every other read's and only for a row that names someone. Per page rather than per drain,
+		// so a continuation asks again rather than serving the answer its first page got.
+		const viewerFor = this.getOrganizationViewers(session);
+		const viewers = await Promise.all(
+			slice.map(r =>
+				r.currentAccount == null && pullRequestNamesPeople(r.pr)
+					? viewerFor(r.collection)
+					: Promise.resolve(r.currentAccount),
+			),
+		);
 		return {
-			values: slice.map(r =>
+			values: slice.map((r, i) =>
 				fromProviderPullRequest(r.pr, this, {
 					project: r.project,
-					currentAccount: r.currentAccount,
+					currentAccount: viewers[i],
 					projection: options.summary ? 'search-summary' : 'search',
 				}),
 			),
@@ -914,6 +928,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				rows.set(identity, {
 					pr: markMyGroupReviews(pr, groupIds),
 					project: facet.project,
+					collection: facet.collection,
 					currentAccount: userId != null ? { id: userId } : undefined,
 					position: toAzurePullRequestSearchPosition(pr, sort, identity),
 				});

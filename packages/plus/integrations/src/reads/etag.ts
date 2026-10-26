@@ -58,6 +58,9 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.provider != null && azureProviderIds.has(pr.provider.id)) {
 		fields.revision = pullRequestRevision(pr);
 	}
+	if (pr.viewerUnresolved) {
+		fields.viewerUnresolved = true;
+	}
 	return fields;
 }
 
@@ -74,9 +77,10 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 	}
 	if (issue.provider != null && azureProviderIds.has(issue.provider.id)) {
 		fields.descriptionRule = azureWorkItemDescriptionRule;
-		// A row that names someone and has no viewer was read while its organization's identity couldn't be: it
-		// must not compare unchanged, or it would be kept without one until the work item changes.
-		if (issue.viewer != null || !issueNamesPeople(issue)) {
+		// A row read while its organization's identity couldn't be must not compare unchanged, or it would be kept
+		// without a viewer until the work item changes. Also a row that names someone and has neither field: one held
+		// from before `viewerUnresolved` existed.
+		if (!issue.viewerUnresolved && (issue.viewer != null || !issueNamesPeople(issue))) {
 			fields.viewerRule = azureWorkItemViewerRule;
 		}
 	}
@@ -108,6 +112,9 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	// Only where it is set, so every other host's etag stays exactly what it was.
 	if (fields.revision != null) {
 		state.push(fields.revision);
+	}
+	if (fields.viewerUnresolved) {
+		state.push('viewer-unresolved');
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;

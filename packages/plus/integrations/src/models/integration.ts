@@ -144,6 +144,11 @@ export interface PullRequestEtagFields {
 	 * only for hosts that keep none (Azure DevOps and Server). Part of the etag whenever it is set, not an include.
 	 */
 	revision?: string;
+	/**
+	 * A full row marked `viewerUnresolved`, which no cheap check ever sets: such a row never compares unchanged, so it
+	 * is read in full again rather than kept without a viewer until the pull request changes.
+	 */
+	viewerUnresolved?: true;
 }
 
 /**
