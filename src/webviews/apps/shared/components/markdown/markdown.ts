@@ -8,12 +8,14 @@ import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
+import { escape, untrustedMarkdownRenderer } from './markdown.utils.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 
 type BlockRenderMode = 'plain' | 'image-chips' | 'avatar-column';
 
 let inlineMarked: Marked | undefined;
-const blockMarkedByMode = new Map<BlockRenderMode, Marked>();
+let untrustedInlineMarked: Marked | undefined;
+const blockMarkedByMode = new Map<`${BlockRenderMode}${'' | '|untrusted'}`, Marked>();
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
@@ -200,6 +202,13 @@ export class GlMarkdown extends LitElement {
 	@property({ type: Boolean, reflect: true, attribute: 'avatar-column' })
 	avatarColumn = false;
 
+	/** Renders markdown from an untrusted source (e.g. the server): links only for `http:`, `https:` and
+	 *  `mailto:` URLs (any other link is just its text), no images, and raw HTML shown as escaped text. In
+	 *  inline mode (which already renders links as text and drops HTML) images render nothing, rather than
+	 *  their raw alt text. */
+	@property({ type: Boolean, reflect: true })
+	untrusted = false;
+
 	override render(): unknown {
 		return html`${this.markdown ? this.renderMarkdown(this.markdown) : ''}`;
 	}
@@ -223,45 +232,44 @@ export class GlMarkdown extends LitElement {
 	private renderMarkdown(markdown: string) {
 		let rendered;
 		if (this.inline) {
-			inlineMarked ??= new Marked({ breaks: false, gfm: true, renderer: getInlineMarkdownRenderer() });
+			let marked;
+			if (this.untrusted) {
+				untrustedInlineMarked ??= new Marked({
+					breaks: false,
+					gfm: true,
+					renderer: { ...getInlineMarkdownRenderer(), image: untrustedMarkdownRenderer.image },
+				});
+				marked = untrustedInlineMarked;
+			} else {
+				inlineMarked ??= new Marked({ breaks: false, gfm: true, renderer: getInlineMarkdownRenderer() });
+				marked = inlineMarked;
+			}
 			// Not using parseInline here, since our custom inline renderer handles lists and other block elements manually for prettier formatting
-			rendered = inlineMarked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
-			rendered = renderThemeIconsWithinText(rendered);
+			// Untrusted content must not inject theme icons (incl. `~spin`), so it skips icon rendering entirely
+			rendered = this.untrusted
+				? marked.parse(markdown, { async: false })
+				: renderThemeIconsWithinText(marked.parse(markdownEscapeEscapedIcons(markdown), { async: false }));
 			return html`<span>${unsafeHTML(rewriteInlineStylesToData(rendered))}</span>`;
 		}
 
 		const mode: BlockRenderMode = this.imageChips ? 'image-chips' : this.avatarColumn ? 'avatar-column' : 'plain';
-		let marked = blockMarkedByMode.get(mode);
+		const key = this.untrusted ? (`${mode}|untrusted` as const) : mode;
+		let marked = blockMarkedByMode.get(key);
 		if (marked == null) {
-			marked = new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(mode) });
-			blockMarkedByMode.set(mode, marked);
+			let renderer = getMarkdownRenderer(mode);
+			if (this.untrusted) {
+				renderer = { ...renderer, ...untrustedMarkdownRenderer };
+			}
+			marked = new Marked({ breaks: true, gfm: true, renderer: renderer });
+			blockMarkedByMode.set(key, marked);
 		}
 
-		rendered = marked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
-		rendered = renderThemeIconsWithinText(rendered);
+		// Untrusted content must not inject theme icons (incl. `~spin`), so it skips icon rendering entirely
+		rendered = this.untrusted
+			? marked.parse(markdown, { async: false })
+			: renderThemeIconsWithinText(marked.parse(markdownEscapeEscapedIcons(markdown), { async: false }));
 		return unsafeHTML(rewriteInlineStylesToData(rendered));
 	}
-}
-
-const escapeReplacements: { [index: string]: string } = {
-	'&': '&amp;',
-	'<': '&lt;',
-	'>': '&gt;',
-	'"': '&quot;',
-	"'": '&#39;',
-};
-const getEscapeReplacement = (ch: string) => escapeReplacements[ch];
-
-export function escape(html: string, encode?: boolean) {
-	if (encode) {
-		if (/[&<>"']/.test(html)) {
-			return html.replace(/[&<>"']/g, getEscapeReplacement);
-		}
-	} else if (/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/.test(html)) {
-		return html.replace(/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, getEscapeReplacement);
-	}
-
-	return html;
 }
 
 const leadingImageRegex = /^(<img\b[^>]*>)(?:\s|&nbsp;)*(.*)$/is;
