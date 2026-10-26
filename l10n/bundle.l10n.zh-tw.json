@@ -2118,6 +2118,7 @@
 	"GitLens Sign in": "GitLens 登入",
 	"GitLens Walkthrough {done}/{total}": "GitLens 演練 {done}/{total}",
 	"GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.": "GitLens 將 GitKraken MCP 新增到你的 AI 聊天中，利用 Git 和你的整合來提供上下文並執行操作。你還可以將 MCP 連線到你機器上的其他代理。",
+	"GitLens can't list pull requests for this {0} repository because its remote URL doesn't name a project.": "GitLens 無法列出此 {0} 儲存庫的提取要求，因為其遠端 URL 未指明專案。",
 	"GitLens can't open repositories while this workspace is in Restricted Mode. Trust this workspace to visualize its history, branches, and commits in the Commit Graph.": "當此工作區處於受限模式時，GitLens 無法開啟儲存庫。信任此工作區即可在認可圖中視覺化其歷史、分支和認可。",
 	"GitLens cannot access Bitbucket PRs for commits.\nAllow access by visiting [this commit]({0}) on Bitbucket and click “Pull requests” under the “Apps” section on the bottom right\nor [read our docs](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit) for more info.": "GitLens 無法存取認可的 Bitbucket PR。\n請存取 Bitbucket 上的[此認可]({0})，並點選右下角「Apps」部分中的「Pull requests」以允許存取\n或[閱讀我們的文件](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit)了解更多資訊。",
 	"GitLens checks this repository against git's performance features and suggests the ones worth turning on.": "GitLens 會根據 git 的效能特性檢查此儲存庫，並建議值得開啟的特性。",

@@ -1214,11 +1214,14 @@ would expose the graph through fade or at the gap left by the translate). */
 			);
 		}
 
-		// Connected and reachable, but the host has no repo-scoped pull request query GitLens can issue —
+		// Connected and reachable, but the remote doesn't name what the host's repo-scoped pull request query needs —
 		// so no Try Again, which would only land right back here.
 		if (emptyState.reason === 'unsupported') {
 			return html`<div class="empty">
-				GitLens can't list pull requests for ${emptyState.providerName} repositories yet.
+				${l10n.t(
+					"GitLens can't list pull requests for this {0} repository because its remote URL doesn't name a project.",
+					emptyState.providerName,
+				)}
 			</div>`;
 		}
 

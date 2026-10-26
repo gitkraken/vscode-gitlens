@@ -2523,7 +2523,7 @@ interface GraphSidebarPullRequestsShownEvent extends GraphContextEventData {
 	'pullRequests.draft.count': number;
 	/** Number whose head lives in a fork — these carry no ref the graph can scope to, so they have no Focus action */
 	'pullRequests.fork.count': number;
-	/** Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list */
+	/** Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a connected remote whose URL doesn't name what the host's repo-scoped pull request query needs, such as an Azure DevOps project) instead of a list */
 	emptyReason?: 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported';
 }
 

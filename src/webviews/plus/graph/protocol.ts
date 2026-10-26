@@ -1356,8 +1356,8 @@ export type GraphSidebarPullRequestsEmptyState =
 	| { reason: 'no-remotes' }
 	| { reason: 'no-supported-remote' }
 	| { reason: 'integration-disconnected'; providerName: string; integrationId: SupportedCloudIntegrationIds }
-	/** The host has no repo-scoped pull request query GitLens can issue, so a retry can never turn this
-	 *  into a list. */
+	/** Connected, but the remote doesn't name what the host's repo-scoped pull request query needs (an Azure DevOps
+	 *  remote whose URL names no project), so a retry can never turn this into a list. */
 	| { reason: 'unsupported'; providerName: string };
 
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (

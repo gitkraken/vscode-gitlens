@@ -2817,7 +2817,7 @@ or
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list
+  // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a connected remote whose URL doesn't name what the host's repo-scoped pull request query needs, such as an Azure DevOps project) instead of a list
   'emptyReason': 'integration-disconnected' | 'no-remotes' | 'no-supported-remote' | 'unsupported',
   'pullRequests.count': number,
   // Number of drafts, which are listed but rarely the reason the panel was opened

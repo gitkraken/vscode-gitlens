@@ -14,10 +14,12 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
-import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import { fromProviderPullRequest, toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
+import { getAzureRepositoryIdentity } from '@gitlens/integrations/providers/azure/azure.utils.js';
+import { toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
+import { isAzureProviderId } from '@gitlens/integrations/providers/providerErrors.js';
 import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -148,19 +150,15 @@ type SidebarPullRequests = {
 	launchpadByPr: Map<PullRequest, NonNullable<GraphSidebarPullRequest['launchpad']>> | undefined;
 };
 
-/** Hosts with no repo-scoped pull request query GitLens can issue *by either path*, so that nothing a
- *  refresh does changes the answer and the panel says so rather than offering a retry.
- *
- *  Azure only: `getMyPullRequestsForRepos` rejects it outright (its `repoDesc` carries no `project`, which
- *  that call requires — `gitHostIntegration.ts`), and it doesn't implement the provider-native repo-scoped
- *  search either. Failing only the *native* half isn't enough to belong here: Bitbucket Server stubs that
- *  half exactly as Bitbucket Cloud does, but both are wired for `getPullRequestsForRepos` and both inherit
- *  an `{ owner, name }` `repoDesc`, so they list through the providers-api path. Listing one and not the
- *  other here is what wrongly told Bitbucket Server users the host couldn't be asked. */
-const pullRequestsUnsupportedIntegrationIds: ReadonlySet<IntegrationIds> = new Set([
-	GitCloudHostIntegrationId.AzureDevOps,
-	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-]);
+/** The project an Azure DevOps remote names, which its repo-scoped pull request read requires. Azure names a
+ *  repository `{project}/_git/{repo}`, but a remote URL that doesn't parse into that form (an unrecognized
+ *  layout) leaves `undefined`. */
+function getAzureProjectName(remote: GitRemote<RemoteProvider>): string | undefined {
+	const { owner, name } = remote.provider.repoDesc as { owner?: string; name?: string };
+	if (owner == null || name == null) return undefined;
+
+	return getAzureRepositoryIdentity({ owner: owner, name: name }).projectName;
+}
 
 /** The checked-out branch's name, for deciding whether a pull request's head is already here. Matched by
  *  short name because that's how the deep link the row's actions run decides to skip the switch — a name
@@ -788,10 +786,11 @@ export class GraphPanelsService {
 
 		signal?.throwIfAborted();
 
-		// Asked before fetching, not after: these hosts have no repo-scoped query at all, so the list request
-		// and the viewer lookup behind it are spent to learn what the integration's id already says — and
-		// since a null list evicts the cache, they'd be spent again on every invalidation.
-		if (pullRequestsUnsupportedIntegrationIds.has(integration.id)) {
+		// Asked before fetching, not after: Azure's repo-scoped read refuses a scope without a project and its
+		// provider-native search is a stub, so for a remote whose URL names no project nothing a refresh does
+		// changes the answer — say so rather than spend the list request (and, since a null list evicts the
+		// cache, spend it again on every invalidation) only to offer a Try Again that can't succeed.
+		if (isAzureProviderId(integration.id) && getAzureProjectName(remote) == null) {
 			return { ...empty, emptyState: { reason: 'unsupported' as const, providerName: remote.provider.name } };
 		}
 
@@ -927,10 +926,11 @@ export class GraphPanelsService {
 	 * is gated on the viewer being author or assignee, so "Ready to Merge" stays confined to your own work.
 	 *
 	 * With no account at all — the integration isn't connected, the lookup returns nothing, or it doesn't
-	 * answer inside {@link viewerAccountTimeout} — it categorizes viewer-less, and that mode needs demotions
-	 * of its own, because with no viewer every author-side rule fires for every row. `readyToMerge` is one:
-	 * its only surviving gate is `canMerge`, which the shared cascade defaults to `true` for a pull request
-	 * carrying no permissions — and the list's providers-api path never reports a negative one — so a
+	 * answer inside {@link viewerAccountTimeout} — or for a row whose provider couldn't resolve the viewer
+	 * (`viewerUnresolved`), it categorizes viewer-less, and that mode needs demotions of its own, because with
+	 * no viewer every author-side rule fires for every row. `readyToMerge` is one: its only surviving gate is
+	 * `canMerge`, which the shared cascade defaults to `true` for a pull request carrying no permissions — and
+	 * the list's paged read never reports a negative one — so a
 	 * stranger's approved pull request would come back green. `unassignedReviewers` is another: it's the
 	 * cascade's last writer and is true of any pull request nobody has been asked to review yet, so left
 	 * alone it paints every brand-new pull request red "Blocked". And last-writer-wins would let a
@@ -951,25 +951,32 @@ export class GraphPanelsService {
 			const { account } = await viewer;
 
 			const prsByUuid = new Map<string, PullRequest>();
+			type CategorizeInput = Parameters<typeof categorizePullRequests>[0][number];
+			const withViewer: CategorizeInput[] = [];
+			// A row whose provider couldn't resolve the user's identity in its organization (Azure DevOps marks it
+			// `viewerUnresolved`) can't be matched against the account — its id is the one that may not match
+			// there — so whether it's the user's is unknown, and it categorizes viewer-less like a missing account.
+			const viewerless: CategorizeInput[] = [];
 			// A single malformed pull request shouldn't cost the whole panel its enrichment, so a failed
 			// conversion drops just that one.
-			const inputs = prs.flatMap(pr => {
+			for (const pr of prs) {
 				try {
 					const providerPr = toProviderPullRequestWithUniqueId(pr);
 					prsByUuid.set(providerPr.uuid, pr);
 					// The shared pull request model carries no provider reference, and the per-integration
 					// split keys on it.
-					return [
-						{
-							...(account != null ? canonicalizeViewerIdentity(providerPr, pr, account) : providerPr),
+					if (account != null && !pr.viewerUnresolved) {
+						withViewer.push({
+							...canonicalizeViewerIdentity(providerPr, pr, account),
 							provider: pr.provider,
-						},
-					];
+						});
+					} else {
+						viewerless.push({ ...providerPr, provider: pr.provider });
+					}
 				} catch (ex) {
 					Logger.warn(`Unable to convert pull request '${pr.url}': ${ex}`, 'getSidebarPullRequests');
-					return [];
 				}
-			});
+			}
 
 			// Bitbucket's API reports no mergeable state, checks, or draft flag, so the shared categorizer
 			// sees a hardcoded "mergeable" and calls almost every pull request ready to merge. Demote that
@@ -986,11 +993,16 @@ export class GraphPanelsService {
 			// Keyed by the pull request itself, not by a field of it — these are the very objects the rows are
 			// built from, so object identity is exact and can't be wrong about which row a verdict belongs to.
 			const launchpadByPr = new Map<PullRequest, NonNullable<GraphSidebarPullRequest['launchpad']>>();
-			for (const item of categorizePullRequests(
-				inputs,
-				currentUsers,
-				account != null ? undefined : { viewer: 'none' },
-			)) {
+			const categorized = [
+				...(withViewer.length ? categorizePullRequests(withViewer, currentUsers) : []).map(item => ({
+					item: item,
+					viewerless: false,
+				})),
+				...(viewerless.length ? categorizePullRequests(viewerless, undefined, { viewer: 'none' }) : []).map(
+					item => ({ item: item, viewerless: true }),
+				),
+			];
+			for (const { item, viewerless: isViewerless } of categorized) {
 				const pr = prsByUuid.get(item.uuid);
 				let category = sharedCategoryToLaunchpadActionCategoryMap.get(item.suggestedActionCategory);
 				if (pr == null || category == null) continue;
@@ -999,7 +1011,7 @@ export class GraphPanelsService {
 					category = 'other';
 				}
 
-				if (account == null) {
+				if (isViewerless) {
 					// Viewer-less only — see above for why these demotions exist and why they don't apply
 					// once a real viewer resolves.
 					if (category === 'mergeable' || category === 'unassigned-reviewers') {
@@ -1377,11 +1389,11 @@ export class GraphPanelsService {
 					? { branchName: upstreamName, remote: true }
 					: undefined;
 
-		// `PullRequest.id` is the number only on the provider-native path; the providers-api path
+		// `PullRequest.id` is the number only on the provider-native path; the paged read
 		// puts the provider's internal id there. The URL carries the real number on both.
 		const number = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
 		// Prefer what the model already carries (the native reads select it) and fall back to the
-		// per-repository join, which is the only source on the providers-api path this panel uses.
+		// per-repository join, which is the only source on the paged read this panel uses.
 		const stack = pr.stack ?? stacksByNumber?.get(Number(number));
 
 		return {
@@ -1459,7 +1471,7 @@ export class GraphPanelsService {
 
 	/**
 	 * Fetches the repo's open PRs and their Launchpad categorization, deduping concurrent callers and
-	 * caching the result — neither `getMyPullRequestsForRepos` nor `searchMyPullRequests` is `@gate()`d,
+	 * caching the result — neither `listPullRequestsPage` nor `searchMyPullRequests` is `@gate()`d,
 	 * so without this every panel open and every sidebar invalidation would issue its own request.
 	 */
 	private async fetchPullRequests(
@@ -1484,26 +1496,29 @@ export class GraphPanelsService {
 			}
 		};
 		promise = this.fetchPullRequestsCore(integration, remote).then(
-			async prs => {
+			async listed => {
 				// Only a real list is worth keeping. No list means the lookup failed or the provider can't
 				// answer it, and caching either would hold that for the full TTL with refresh unable to
 				// shift it.
-				if (prs == null) {
+				if (listed == null) {
 					evict();
 					return { prs: undefined, launchpadByPr: undefined };
 				}
 
-				// Sorted here rather than at either producer: the providers-api walk and the provider-native
+				const { prs, incomplete } = listed;
+
+				// Sorted here rather than at either producer: the paged read and the provider-native
 				// fallback each return their own order, so without this the same repository lists differently
 				// depending on which path answered. Most-recently-updated first, matching the row's own byline
 				// and every other panel's explicit sort. `updatedDate` specifically — the row's `date` prefers
 				// a merge/close date, which only the search fallback's rows ever carry.
 				prs.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
 
-				// An empty list can be a swallowed failure rather than an empty repository, so it gets a
-				// short window instead of the full one — long enough to dedupe a burst of panel opens,
-				// short enough that a transient outage can't serve "No items" for half an hour.
-				if (!prs.length && this._pullRequestsCache?.promise === promise) {
+				// An empty list can be a swallowed failure rather than an empty repository, and an incomplete one
+				// is missing rows a failed request or skipped page left out, so either gets a short window
+				// instead of the full one — long enough to dedupe a burst of panel opens, short enough that a
+				// transient outage can't serve "No items" or a partial list for half an hour.
+				if ((!prs.length || incomplete) && this._pullRequestsCache?.promise === promise) {
 					this._pullRequestsCache.expiresAt = Math.min(
 						this._pullRequestsCache.expiresAt,
 						Date.now() + pullRequestsEmptyCacheExpiration,
@@ -1555,61 +1570,27 @@ export class GraphPanelsService {
 		return promise;
 	}
 
-	/** The repo's open pull requests, or `undefined` when nothing answered — a failure, an unresolvable
-	 *  session, or a host with no repo-scoped query. Never an empty list for any of those. */
+	/** The repo's open pull requests, with whether the paged read reported them incomplete, or `undefined`
+	 *  when nothing answered — a failure or an unresolvable session. Never an empty list for either. */
 	private async fetchPullRequestsCore(
 		integration: GitHostIntegration,
 		remote: GitRemote<RemoteProvider>,
-	): Promise<PullRequest[] | undefined> {
+	): Promise<{ prs: PullRequest[]; incomplete: boolean } | undefined> {
 		const repoDesc = remote.provider.repoDesc as { key: string; owner?: string; name?: string };
 
-		// Every open PR, not just the current user's — `getMyPullRequestsForRepos` is only user-scoped
-		// when `filters` is passed, and omitting it returns the whole repo. It takes no AbortSignal, so
-		// the caller discards a superseded result rather than cancelling the request.
 		if (repoDesc.owner != null && repoDesc.name != null) {
 			try {
-				const repos = [{ namespace: repoDesc.owner, name: repoDesc.name }];
-				const prs: PullRequest[] = [];
-				let cursor: string | undefined;
-
-				// Ask for a full page up front: the provider's default page size is small, and each round
-				// trip is sequential (the cursor for page N+1 only arrives with page N), so a large page
-				// is what keeps this to one request on almost every repo.
-				for (let page = 0; page < pullRequestsMaxPages; page++) {
-					const result = await integration.getMyPullRequestsForRepos(repos, {
-						state: 'open',
-						cursor: cursor,
-						pageSize: pullRequestsPageSize,
-					});
-					if (result?.values == null) {
-						// First page failed outright — fall through to the provider-native path.
-						if (page === 0) break;
-						return prs;
-					}
-
-					prs.push(...result.values.map(pr => fromProviderPullRequest(pr, integration)));
-
-					if (!result.paging?.more || result.paging.cursor == null) return prs;
-
-					cursor = result.paging.cursor;
-				}
-
-				if (prs.length) {
-					Logger.warn(
-						`Stopped paging pull requests at ${pullRequestsMaxPages} pages`,
-						'getSidebarPullRequests',
-					);
-					return prs;
-				}
+				const listed = await this.listOpenPullRequests(integration, repoDesc.owner, repoDesc.name);
+				if (listed != null) return listed;
 			} catch (ex) {
 				// Not fatal — fall through to the provider-native path below, which every provider implements.
-				Logger.warn(`Unable to list pull requests via providers-api: ${ex}`, 'getSidebarPullRequests');
+				Logger.warn(`Unable to list pull requests: ${ex}`, 'getSidebarPullRequests');
 			}
 		}
 
 		// Fallback: provider-native, and only the current user's PRs. Every integration exposes it, but not
 		// every one answers a repo-scoped query — Azure DevOps (both editions) and Bitbucket Server stub
-		// that out. Bitbucket Cloud only stubs this path; it lists via the providers-api path above.
+		// that out. Bitbucket Cloud only stubs this path; it lists via the paged read above.
 		const result = await integration.searchMyPullRequests(remote.provider.repoDesc, undefined, {
 			silent: true,
 			state: 'open',
@@ -1617,9 +1598,90 @@ export class GraphPanelsService {
 		// It reports failure by resolving with `error` rather than throwing, and resolves a bare `undefined`
 		// when the session can't be resolved at all (expired token, revoked connection) — so an unchecked
 		// `value` turns either into an empty list, which the caller would then cache as the truth. Both are
-		// `undefined` here, and the caller names them apart by integration.
-		if (result == null || 'error' in result) return undefined;
-		return result.value;
+		// `undefined` here, which the caller reports as a retryable failure.
+		if (result == null || 'error' in result || result.value == null) return undefined;
+		return { prs: result.value, incomplete: false };
+	}
+
+	/** Every open pull request of the repo through the core's repo-scoped paged read, with whether any page
+	 *  reported it incomplete, or `undefined` when its first page answered nothing — so the caller can try the
+	 *  provider-native path instead. */
+	private async listOpenPullRequests(
+		integration: GitHostIntegration,
+		owner: string,
+		name: string,
+	): Promise<{ prs: PullRequest[]; incomplete: boolean } | undefined> {
+		// Azure names a repository `{project}/_git/{repo}` and its repo-scoped read refuses a scope without a
+		// `project`, so split the name into the two the read takes.
+		let repo: { namespace: string; name: string; project?: string };
+		if (isAzureProviderId(integration.id)) {
+			const identity = getAzureRepositoryIdentity({ owner: owner, name: name });
+			repo = { namespace: owner, name: identity.repositoryName, project: identity.projectName };
+		} else {
+			repo = { namespace: owner, name: name };
+		}
+
+		const prs: PullRequest[] = [];
+		let cursor: string | undefined;
+		let incomplete = false;
+		let capped = true;
+
+		// Every open PR, not just the current user's — the read is only user-scoped when `filters` is passed.
+		// It takes no AbortSignal, so the caller discards a superseded result rather than cancelling it. A full
+		// page is asked for up front: each round trip is sequential (the cursor for page N+1 only arrives with
+		// page N), so a large page is what keeps this to one request on almost every repo.
+		for (let page = 1; page <= pullRequestsMaxPages; page++) {
+			const result = await this.container.integrations.listPullRequestsPage({
+				providerId: integration.id,
+				// The integration the remote resolved to, so a self-managed host with several connections
+				// reads from the same one the viewer is resolved against.
+				domain: integration.domain,
+				repos: [repo],
+				states: ['open'],
+				page: page,
+				cursor: cursor,
+				itemsPerPage: pullRequestsPageSize,
+			});
+			if (result.warnings.length) {
+				Logger.warn(
+					`Pull request read reported: ${result.warnings.map(w => w.message).join('; ')}`,
+					'getSidebarPullRequests',
+				);
+			}
+
+			// The read never throws for a provider-side failure: a first page that failed outright comes back
+			// empty and `fetchFailed`, and leaves the provider-native path to try.
+			if (page === 1 && result.fetchFailed && !result.items.length) return undefined;
+
+			// `page.truncated` is a page that couldn't confirm it drained everything (an interrupted read or
+			// incomplete metadata) — rows missing just the same, so it counts with the other two.
+			if (result.requestFailed || result.unexpectedGap || result.page.truncated) {
+				incomplete = true;
+			}
+
+			// The read types its rows as the plain shape, but builds each as the `PullRequest` model the rows,
+			// the categorizer and the actions all take.
+			prs.push(...(result.items as PullRequest[]));
+
+			if (!result.hasMore || result.cursor == null) {
+				capped = false;
+				break;
+			}
+
+			cursor = result.cursor;
+		}
+
+		if (capped) {
+			Logger.warn(`Stopped paging pull requests at ${pullRequestsMaxPages} pages`, 'getSidebarPullRequests');
+		}
+		if (incomplete) {
+			Logger.warn(
+				'Pull request results may be incomplete: a request failed, a page was cut short, or the provider skipped one',
+				'getSidebarPullRequests',
+			);
+		}
+
+		return { prs: prs, incomplete: incomplete };
 	}
 
 	private getSidebarStashes(graph: GitGraph) {

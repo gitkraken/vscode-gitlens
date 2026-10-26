@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
+- Fixes the _Commit Graph_'s _Pull Requests_ panel saying it can't list pull requests for Azure DevOps and Azure DevOps Server repositories &mdash; it now lists the repository's open pull requests
 
 ## [19.5.0] - 2026-10-27
 
