@@ -1,5 +1,5 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import { l10n } from 'vscode';
 import type { Disposable } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
