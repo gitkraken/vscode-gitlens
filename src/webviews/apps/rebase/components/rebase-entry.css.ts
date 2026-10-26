@@ -74,13 +74,13 @@ export const entryStyles = css`
 		--fg: color-mix(in srgb, var(--fg-color) var(--fg-intensity), transparent);
 		--fg-muted: color-mix(in srgb, var(--fg) var(--fg-muted-intensity), transparent);
 
-		--action-color: var(--color-foreground--65);
-		--action-line-color: var(--color-foreground--65);
+		--action-color: var(--vscode-descriptionForeground);
+		--action-line-color: var(--vscode-descriptionForeground);
 		--action-text-decoration: none;
 
-		--entry-bg: var(--color-background);
+		--entry-bg: var(--gl-color-surface-base);
 
-		--wa-form-control-background-color: var(--color-background);
+		--wa-form-control-background-color: var(--gl-color-surface-base);
 		--wa-form-control-value-color: var(--color-foreground);
 		--wa-form-control-value-color-hover: var(--color-foreground);
 		--wa-form-control-value-color-disabled: var(--color-foreground);
@@ -131,10 +131,10 @@ export const entryStyles = css`
 		/* Done entries - already applied commits */
 		&.entry--done {
 			--fg-intensity: 50%;
-			--action-line-color: var(--color-foreground--50);
+			--action-line-color: var(--vscode-disabledForeground);
 
 			/* Override default transparent action color with opaque muted gray for pick */
-			--action-color: color-mix(in srgb, var(--color-foreground) 50%, var(--vscode-editor-background));
+			--action-color: color-mix(in srgb, var(--color-foreground) 50%, var(--gl-color-surface-base));
 
 			cursor: default;
 			background: var(--vscode-list-inactiveSelectionBackground);
@@ -216,7 +216,7 @@ export const entryStyles = css`
 			width: 100%;
 			margin: 0.5rem 0;
 			border: none;
-			border-top: var(--gl-border-width) solid var(--color-foreground--25);
+			border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 	}
 
@@ -242,7 +242,7 @@ export const entryStyles = css`
 			/* Layer the row tint over an opaque editor base so the dot center always
 			   covers the throughline — VS Code list hover/selection tokens are
 			   semi-transparent overlays and would otherwise let the line shine through. */
-			background-color: var(--vscode-editor-background);
+			background-color: var(--gl-color-surface-base);
 			background-image: linear-gradient(var(--entry-bg), var(--entry-bg));
 			border: 2px solid var(--action-color);
 			border-radius: 50%;
@@ -282,7 +282,7 @@ export const entryStyles = css`
 		min-width: 90px;
 		padding-left: 0.75rem;
 		font-size: 0.9em;
-		color: var(--color-foreground--50);
+		color: var(--vscode-disabledForeground);
 	}
 
 	.action-select {
@@ -374,7 +374,7 @@ export const entryStyles = css`
 	.entry-update-refs {
 		&:focus,
 		&:focus-within {
-			outline-color: var(--color-focus-border);
+			outline-color: var(--gl-color-border-focus);
 		}
 
 		flex-shrink: 0;
@@ -425,7 +425,7 @@ export const entryStyles = css`
 
 			&:focus,
 			&:focus-visible {
-				outline-color: var(--color-focus-border);
+				outline-color: var(--gl-color-border-focus);
 			}
 		}
 	}
@@ -435,7 +435,7 @@ export const entryStyles = css`
 	   ========================================================================== */
 
 	.entry[data-type='command'] {
-		--action-color: var(--color-foreground--50);
+		--action-color: var(--vscode-descriptionForeground);
 		--action-line-color: var(--action-color);
 
 		/* Muted but responds to hover/focus/selected at reduced intensity */
@@ -443,7 +443,7 @@ export const entryStyles = css`
 
 		.entry-graph code-icon {
 			font-size: var(--gl-font-base);
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.action-select {
@@ -467,25 +467,24 @@ export const entryStyles = css`
 				font-family: var(--vscode-editor-font-family, monospace);
 				font-style: normal;
 				background-color: var(--vscode-textCodeBlock-background, rgb(128 128 128 / 15%));
-				border: var(--gl-border-width) solid var(--color-foreground--10);
 				border-radius: var(--gl-radius-sm);
 			}
 		}
 	}
 
 	.entry[data-type='base'] {
-		--action-color: var(--color-foreground--25);
-		--action-line-color: var(--color-foreground--25);
+		--action-color: var(--vscode-disabledForeground);
+		--action-line-color: var(--vscode-disabledForeground);
 
 		/* Non-interactive - fixed muted color, doesn't respond to states */
-		--fg: var(--color-foreground--65);
+		--fg: var(--vscode-descriptionForeground);
 
 		cursor: default;
 		background: var(--vscode-list-inactiveSelectionBackground);
 
 		/* Filled circle for base entry - mix with background for opaque fill */
 		.entry-graph::after {
-			background-color: color-mix(in srgb, var(--color-foreground) 25%, var(--vscode-editor-background));
+			background-color: color-mix(in srgb, var(--color-foreground) 25%, var(--gl-color-surface-base));
 			background-image: none;
 			border-color: transparent;
 		}
