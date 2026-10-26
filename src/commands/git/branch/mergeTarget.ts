@@ -4,6 +4,7 @@ import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
+import { getBranchMergeTarget } from '../../../git/utils/-webview/branch.utils.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -125,22 +126,35 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 			) {
 				using step = steps.enterStep(Steps.PickMergeTargetBranch);
 
-				const detectedMergeTarget = await svc.branches.getStoredDetectedMergeTargetBranchName?.(refName);
 				const userMergeTarget = await svc.branches.getStoredUserMergeTargetBranchName?.(refName);
 
-				const suggestedMergeTarget =
+				let suggestedMergeTarget =
 					(typeof state.mergeTarget === 'string' ? state.mergeTarget : undefined) ??
-					(typeof state.suggestedMergeTarget === 'string' ? state.suggestedMergeTarget : undefined) ??
-					userMergeTarget ??
-					detectedMergeTarget ??
-					(await svc.branches.getBaseBranchName?.(refName));
+					(typeof state.suggestedMergeTarget === 'string' ? state.suggestedMergeTarget : undefined);
+				if (suggestedMergeTarget == null) {
+					const branch = await svc.branches.getBranch(refName);
+					if (branch != null) {
+						const { target } = await getBranchMergeTarget(this.container, branch).catch(() => ({
+							target: undefined,
+						}));
+						if (target?.ref != null) {
+							// The target can be a local branch, but the picker lists only remote branches, so use its upstream
+							const targetBranch = await svc.branches.getBranch(target.ref);
+							suggestedMergeTarget = targetBranch?.remote
+								? targetBranch.name
+								: targetBranch?.upstream?.local
+									? undefined
+									: targetBranch?.upstream?.name;
+						}
+					}
+				}
 
 				const result = yield* pickOrResetBranchStep(state, context, {
 					filter: (b: GitBranch) => b.remote && b.name !== refName,
 					placeholder: l10n.t('Choose a merge target branch'),
 					picked: suggestedMergeTarget,
 					reset:
-						userMergeTarget != null /* && detectedMergeTarget !== userMergeTarget*/
+						userMergeTarget != null
 							? {
 									label: l10n.t('Reset Merge Target'),
 									detail: l10n.t('Reset the merge target branch to be automatically detected'),
