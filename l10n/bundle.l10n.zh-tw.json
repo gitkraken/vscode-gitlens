@@ -4522,6 +4522,7 @@
 	"Unable to archive Cloud Patch: {0}": "無法歸檔雲補丁：{0}",
 	"Unable to archive Code Suggestion: {0}": "無法歸檔 Code Suggestion：{0}",
 	"Unable to archive draft '{0}'": "無法歸檔草稿 '{0}'",
+	"Unable to associate issue {0} with branch '{1}'.": "無法將問題 {0} 與分支 '{1}' 關聯。",
 	"Unable to build a diff for the selected commit.": "無法為所選認可建置差異。",
 	"Unable to build a search from your description — {0}": "無法根據你的描述建置搜尋 —— {0}",
 	"Unable to check for conflicts": "無法檢查衝突",

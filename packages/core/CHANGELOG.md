@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Jira issues losing their actual project id, name and site resource id when the provider supplies no namespace. The project's `resourceName` stays empty when no site display name is available; no site or project identity is synthesized. Other providers retain their namespace requirement ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964)) (plus/integrations)
+
 ## [0.20.1] - 2026-10-26
 
 ### Changed

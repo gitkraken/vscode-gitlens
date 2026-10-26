@@ -4695,6 +4695,7 @@
 	"Unable to archive Cloud Patch: {0}": "Unable to archive Cloud Patch: {0}",
 	"Unable to archive Code Suggestion: {0}": "Unable to archive Code Suggestion: {0}",
 	"Unable to archive draft '{0}'": "Unable to archive draft '{0}'",
+	"Unable to associate issue {0} with branch '{1}'.": "Unable to associate issue {0} with branch '{1}'.",
 	"Unable to build a diff for the selected commit.": "Unable to build a diff for the selected commit.",
 	"Unable to build a search from your description — {0}": "Unable to build a search from your description — {0}",
 	"Unable to check for conflicts": "Unable to check for conflicts",

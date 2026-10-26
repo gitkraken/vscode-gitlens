@@ -10,7 +10,6 @@ import {
 	isBranchReference,
 	isRevisionReference,
 } from '@gitlens/git/utils/reference.utils.js';
-import { getIssueOwner } from '@gitlens/integrations/providers/utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer } from '@gitlens/utils/promise.js';
@@ -217,6 +216,7 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 								subcommand: 'create',
 								reference: state.reference,
 								createBranch: state.name,
+								associateWithIssue: state.associateWithIssue,
 								repo: state.repo,
 								worktreeDefaultOpen: state.worktreeDefaultOpen,
 								result: worktreeResult,
@@ -307,10 +307,12 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				if (state.associateWithIssue != null) {
 					const issue = state.associateWithIssue;
 					const branch = await state.repo.git.branches.getBranch(state.name);
-					// TODO: These descriptors are hacked in. Use an integration function to get the right resource for the issue.
-					const owner = getIssueOwner(issue);
-					if (branch != null && owner != null) {
-						await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' }, owner);
+					if (branch != null) {
+						await addAssociatedIssueToBranch(this.container, branch, { ...issue, type: 'issue' });
+					} else {
+						void window.showWarningMessage(
+							l10n.t("Unable to associate issue {0} with branch '{1}'.", issue.id, state.name),
+						);
 					}
 				}
 
