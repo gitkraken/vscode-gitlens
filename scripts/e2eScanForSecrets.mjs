@@ -12,8 +12,8 @@
  * `unzip -p`. Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
  * a hit, so nothing is uploaded unscanned. Only after a complete pass does it write `complete=true` to
  * `GITHUB_OUTPUT`, so the upload step can require it: a scan that crashes midway publishes nothing. Values shorter than
- * 8 characters are ignored (too likely to collide). Nothing secret is printed: only the file, the variable name and
- * which encoding matched. Masking covers text files only (by extension, and never a file holding NUL bytes) —
+ * 8 characters are ignored (too likely to collide). Nothing secret is printed: only the file and what happened to it,
+ * not which secret or encoding matched. Masking covers text files only (by extension, and never a file holding NUL bytes) —
  * signed-in specs keep traces off, so no zip should carry account details in the first place.
  */
 import { execFileSync } from 'node:child_process';
@@ -109,19 +109,20 @@ function contentOf(file) {
  */
 function clearFile(file, needles, log) {
 	const content = contentOf(file);
-	const matched =
-		content == null
-			? [{ name: '<unreadable file>', encoding: '-' }]
-			: needles.filter(n => content.indexOf(n.bytes) !== -1);
-	if (matched.length) {
-		for (const m of matched) {
-			log(`[secret-scan] ${file}: contains ${m.name} (${m.encoding}) — deleted`);
-		}
+	if (content == null) {
+		log(`[secret-scan] ${file}: unreadable — deleted`);
 		rmSync(file, { force: true });
 		return 'removed';
 	}
 
-	if (content == null || !textExtensions.has(path.extname(file).toLowerCase()) || content.includes(0)) {
+	// Which secret or encoding matched stays out of the log: it is derived from the secret values themselves
+	if (needles.some(n => content.indexOf(n.bytes) !== -1)) {
+		log(`[secret-scan] ${file}: contains detected secret material — deleted`);
+		rmSync(file, { force: true });
+		return 'removed';
+	}
+
+	if (!textExtensions.has(path.extname(file).toLowerCase()) || content.includes(0)) {
 		return undefined;
 	}
 

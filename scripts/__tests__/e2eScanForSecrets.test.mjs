@@ -142,14 +142,14 @@ test('ignores short or missing values', () => {
 	assert.deepEqual(secretNeedles({ SHORT: 'abc', EMPTY: '' }, ['SHORT', 'EMPTY', 'MISSING']), []);
 });
 
-test('the CLI fails the run and names only the variable when a secret is found', async () => {
+test('the CLI fails the run without printing the secret when one is found', async () => {
 	await withOutput({ 'trace.txt': `token ${secret}` }, async dir => {
 		const result = spawnSync(process.execPath, [resolve('scripts/e2eScanForSecrets.mjs'), dir], {
 			encoding: 'utf8',
 			env: { ...process.env, SCAN_SECRET_NAMES: 'GK_E2E_TEST_SECRET', GK_E2E_TEST_SECRET: secret },
 		});
 		assert.equal(result.status, 1);
-		assert.match(result.stdout, /contains GK_E2E_TEST_SECRET \(verbatim\)/);
+		assert.match(result.stdout, /trace\.txt: contains detected secret material — deleted/);
 		assert.equal(result.stdout.includes(secret), false);
 	});
 });
