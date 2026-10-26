@@ -31014,7 +31014,7 @@
 	"devDependencies": {
 		"@custom-elements-manifest/analyzer": "0.11.0",
 		"@e18e/eslint-plugin": "0.8.0",
-		"@modelcontextprotocol/sdk": "1.30.0",
+		"@modelcontextprotocol/sdk": "1.32.1",
 		"@octokit/request-error": "catalog:",
 		"@oxlint/plugins": "1.83.0",
 		"@playwright/test": "1.63.0",
@@ -31067,7 +31067,7 @@
 		"sass-embedded": "catalog:",
 		"sass-loader": "17.0.1",
 		"schema-utils": "4.5.0",
-		"sharp": "0.35.4",
+		"sharp": "0.35.5",
 		"sinon": "catalog:",
 		"stylelint": "17.15.0",
 		"stylelint-config-recess-order": "7.8.0",
@@ -31085,7 +31085,7 @@
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6",
 		"yaml": "catalog:",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"lint-staged": {
 		"*.{ts,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
