@@ -4,7 +4,7 @@
 // `@use` this ONLY from an app root whose styles actually consume these tokens — unlike tokens.scss,
 // which every root imports. The import is the record of what has been migrated: adding it to an app
 // that still reads --color-* / raw --vscode-* ships dead custom properties in that bundle and makes
-// the migration look further along than it is. Today: settings only.
+// the migration look further along than it is.
 
 // Governing rules this file is built on:
 //  1. Mint a token only where GitLens has a concept VS Code has no token for. A passthrough that
