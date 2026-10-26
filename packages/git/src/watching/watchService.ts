@@ -241,6 +241,11 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private readonly sessionMap = new Map<string, SessionRecord>();
 	private readonly watchGroups = new Map<string, WatchGroup>();
 	private readonly wtWatchers = new Map<string, WorkingTreeWatcherEntry>();
+	/**
+	 * The last git-ignored directory read under each filter's current rules, kept across a working-tree watcher's
+	 * stop and start so a restart can skip the read; dropped with the filter
+	 */
+	private readonly keptIgnoredDirectories = new WeakMap<GitIgnoreFilter, readonly string[]>();
 	private _disposed = false;
 	/** Global suspend state (driven by window focus); inherited by sessions created via {@link watch}. */
 	private _suspended = false;
@@ -615,6 +620,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		let buffered: string[] | undefined = filter != null ? [] : undefined;
 		let bufferIncomplete = false;
 
+		// Ahead of `ready()`, so the replay below waits for rules that may have changed while nothing watched them
+		const revalidated = filter?.revalidate();
 		if (filter != null) {
 			void filter
 				.ready()
@@ -635,9 +642,10 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				});
 		}
 
-		// An ignore rule changed (or may have): refresh the filter and the pruned set, and notify the host
-		const onIgnoreRulesChanged = (): void => {
-			if (filter != null) {
+		// An ignore rule changed (or may have): refresh the filter (unless it already reloaded) and the pruned set, and
+		// notify the host
+		const onIgnoreRulesChanged = (refreshFilter: boolean): void => {
+			if (refreshFilter && filter != null) {
 				void filter.refresh();
 			}
 			if (entry != null) {
@@ -660,7 +668,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			// among them, and a filter left on the old rules would keep dropping changes they used to ignore
 			if (event.reason === 'overflow') {
 				session.pushWorkingTreeChanges([], true);
-				onIgnoreRulesChanged();
+				onIgnoreRulesChanged(true);
 				return;
 			}
 
@@ -671,12 +679,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			// The root .gitignore is only an ignore change; a nested one is also an ordinary working-tree change.
 			const relativePath = isDescendant(event.path, repoPath) ? relative(repoPath, event.path) : undefined;
 			if (relativePath === '.gitignore') {
-				onIgnoreRulesChanged();
+				onIgnoreRulesChanged(true);
 				return;
 			}
 
 			if (relativePath?.endsWith('/.gitignore') && !(filterReady && filter?.isIgnored(relativePath))) {
-				onIgnoreRulesChanged();
+				onIgnoreRulesChanged(true);
 			}
 
 			if (!filterReady) {
@@ -704,13 +712,19 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			session.pushWorkingTreeChanges([event.path]);
 		};
 
-		const created = this.createWorkingTreeWatcher(repoPath, onEvent, workingTreeExcludes);
+		// A read from before the watch last stopped; should the rules have moved since, `revalidate` brings a re-read
+		const kept = canPrune && filter != null ? this.keptIgnoredDirectories.get(filter) : undefined;
+		const created = this.createWorkingTreeWatcher(
+			repoPath,
+			onEvent,
+			kept != null ? [...workingTreeExcludes, ...kept] : workingTreeExcludes,
+		);
 		entry = {
 			session: session,
 			onEvent: onEvent,
 			filter: filter,
 			watcher: created.watcher,
-			ignoredDirectories: [],
+			ignoredDirectories: kept ?? [],
 			generation: 0,
 			reading: false,
 			rereadQueued: false,
@@ -720,9 +734,31 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.wtWatchers.set(repoPath, entry);
 		this.setWorkingTreeReliability(entry, created.reliability, true);
 
-		if (canPrune) {
+		if (canPrune && kept == null) {
 			void this.refreshIgnoredDirectories(entry, repoPath);
 		}
+
+		// The kept read predates the rules either outcome lands on, so it goes even when the watch has stopped meanwhile
+		void revalidated?.then(
+			changed => {
+				if (!changed) return;
+
+				if (filter != null) {
+					this.keptIgnoredDirectories.delete(filter);
+				}
+				if (this.wtWatchers.get(repoPath) === entry) {
+					onIgnoreRulesChanged(false);
+				}
+			},
+			() => {
+				if (filter != null) {
+					this.keptIgnoredDirectories.delete(filter);
+				}
+				if (this.wtWatchers.get(repoPath) === entry) {
+					onIgnoreRulesChanged(true);
+				}
+			},
+		);
 	}
 
 	private stopWorkingTreeWatcher(repoPath: string): void {
@@ -910,6 +946,10 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 	/** Re-reads the git-ignored directories once ignore rules stop changing (trailing debounce, one timer per repo) */
 	private scheduleIgnoredDirectoriesRefresh(entry: WorkingTreeWatcherEntry): void {
+		// Read under the old rules, so a restart must read again even if the watcher stops before this re-read lands
+		if (entry.filter != null) {
+			this.keptIgnoredDirectories.delete(entry.filter);
+		}
 		if (!this.canPruneIgnoredDirectories()) return;
 
 		// A read already in flight is now stale, and a directory git wouldn't prune may be prunable now
@@ -955,6 +995,9 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			if (entry.generation === generation) {
 				if (directories != null) {
 					this.swapWorkingTreeWatcher(entry, repoPath, directories);
+					if (entry.filter != null) {
+						this.keptIgnoredDirectories.set(entry.filter, directories);
+					}
 				}
 				if (unpruned != null) {
 					this.settleUnprunedDirectories(entry, unpruned, directories);

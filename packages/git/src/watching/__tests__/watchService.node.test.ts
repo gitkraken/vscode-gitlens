@@ -7,7 +7,7 @@ import { Cache } from '../../cache.js';
 import { FileType } from '../../context.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
-import type { GitIgnoreFilter } from '../gitIgnoreFilter.js';
+import { GitIgnoreFilter } from '../gitIgnoreFilter.js';
 import type {
 	FileWatcher,
 	FileWatcherOptions,
@@ -1000,6 +1000,7 @@ describe('RepositoryWatchService', () => {
 				ready: () => new Promise<void>(() => {}),
 				isIgnored: () => false,
 				refresh: () => Promise.resolve(),
+				revalidate: () => Promise.resolve(false),
 			} as unknown as GitIgnoreFilter;
 			const service = new RepositoryWatchService({
 				watchingProvider: factory,
@@ -1032,6 +1033,7 @@ describe('RepositoryWatchService', () => {
 					refreshes++;
 					return Promise.resolve();
 				},
+				revalidate: () => Promise.resolve(false),
 			} as unknown as GitIgnoreFilter;
 			const service = new RepositoryWatchService({
 				watchingProvider: factory,
@@ -1539,6 +1541,7 @@ describe('RepositoryWatchService', () => {
 					ready: () => Promise.resolve(),
 					isIgnored: (path: string) => path === '.env' || /^(dist|out)(\/|$)/.test(path),
 					refresh: () => Promise.resolve(),
+					revalidate: () => Promise.resolve(false),
 				} as unknown as GitIgnoreFilter;
 			}
 
@@ -1692,6 +1695,320 @@ describe('RepositoryWatchService', () => {
 				wtSub.dispose();
 				handle.dispose();
 				service.dispose();
+			});
+		});
+
+		describe('a watch that stops and starts again', () => {
+			const ignoresDist = /^dist(\/|$)/;
+
+			/** A fake filter whose `revalidate` reports `next` (then false), and whose `ready` waits on it */
+			function revalidatingFilter() {
+				const state = {
+					revalidations: 0,
+					refreshes: 0,
+					next: undefined as Promise<boolean> | boolean | undefined,
+					revalidating: undefined as Promise<boolean> | undefined,
+					ignored: ignoresDist,
+				};
+				const filter = {
+					ready: () => state.revalidating?.then(noop, noop) ?? Promise.resolve(),
+					isIgnored: (path: string) => state.ignored.test(path),
+					refresh: () => {
+						state.refreshes++;
+						return Promise.resolve();
+					},
+					revalidate: () => {
+						state.revalidations++;
+						state.revalidating = Promise.resolve(state.next ?? false);
+						state.next = undefined;
+						return state.revalidating;
+					},
+				} as unknown as GitIgnoreFilter;
+				return { filter: filter, state: state };
+			}
+
+			function noop(): void {}
+
+			function startRestartable(
+				filter: GitIgnoreFilter,
+				getIgnoredDirectories: () => Promise<readonly string[]>,
+			) {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: factory,
+					defaultRepoDelayMs: 20,
+					defaultWorkingTreeDelayMs: 20,
+					getIgnoredDirectories: getIgnoredDirectories,
+					getIgnoreFilter: () => filter,
+				});
+				const counts = { gitIgnoreChanges: 0 };
+				const handle = service.watch(wtPath, standardGitDir('/repo/.git'), {
+					onGitIgnoreChanged: () => counts.gitIgnoreChanges++,
+				});
+				assertHandle(handle);
+				const repoChanges: string[][] = [];
+				const repoSub = handle.session.subscribe({ delayMs: 20 });
+				repoSub.onDidChange(e => repoChanges.push([...e.changes]));
+				const received: string[][] = [];
+				const subscribe = () => {
+					const sub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+					// The event is the session's, so a listener outlives its subscription unless disposed with it
+					const listener = sub.onDidChangeWorkingTree(e => received.push([...e.paths]));
+					return {
+						dispose: () => {
+							listener.dispose();
+							sub.dispose();
+						},
+					};
+				};
+				const dispose = () => {
+					repoSub.dispose();
+					handle.dispose();
+					service.dispose();
+				};
+				return {
+					watchers: watchers,
+					counts: counts,
+					repoChanges: repoChanges,
+					received: received,
+					subscribe: subscribe,
+					dispose: dispose,
+				};
+			}
+
+			it('starts excluding the last read, without reading again, when the rules held', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 1);
+				first.dispose();
+				assert.ok(workingTreeWatchers(started.watchers).every(w => w.disposed));
+
+				const second = started.subscribe();
+				await delay(ignoredReadDelayMs);
+
+				assert.strictEqual(state.revalidations, 2);
+				assert.strictEqual(reads, 1, 'no read on the restart');
+				const created = workingTreeWatchers(started.watchers);
+				assert.strictEqual(created.length, 3, 'one watcher for the restart, never swapped');
+				assert.deepStrictEqual(created[2].options?.excludes, [...workingTreeExcludes, 'dist']);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('re-reads and announces an ignore change when revalidation finds the rules moved', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => (reads++ === 0 ? ['dist'] : ['dist', 'out']));
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				state.next = true;
+				const second = started.subscribe();
+				await delay(60);
+
+				assert.strictEqual(started.counts.gitIgnoreChanges, 1);
+				assert.ok(
+					started.repoChanges.some(c => c.includes('ignores')),
+					"'ignores' reaches the session",
+				);
+				assert.strictEqual(state.refreshes, 0, 'the filter already reloaded');
+
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 2);
+				assert.deepStrictEqual(workingTreeWatchers(started.watchers).at(-1)?.options?.excludes, [
+					...workingTreeExcludes,
+					'dist',
+					'out',
+				]);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('refreshes the filter and announces an ignore change when revalidation fails', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				state.next = Promise.reject(new Error('stat failed'));
+				const second = started.subscribe();
+				await delay(60);
+
+				assert.strictEqual(state.refreshes, 1);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 1);
+
+				// The re-read matches what the restart's watcher already excludes
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(workingTreeWatchers(started.watchers).length, 3, 'nothing re-created');
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('ignores a revalidation that lands after the watch stopped again', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				second.dispose();
+				resolve(true);
+				await delay(60);
+
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				started.dispose();
+			});
+
+			it('reads again on the next start when a revalidation found the rules moved after the watch stopped', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				second.dispose();
+				resolve(true);
+				await delay(20);
+				assert.strictEqual(reads, 1);
+
+				// The filter already reloaded, so this start's revalidation finds nothing; the list from before must go
+				const third = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 2, 'the list from before the rule change is not reused');
+
+				third.dispose();
+				started.dispose();
+			});
+
+			it('reads again on restart when the rules changed and the watch stopped before the re-read', async () => {
+				const { filter } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 1);
+
+				workingTreeWatchers(started.watchers).at(-1)!.fire({ path: '/repo/.gitignore', reason: 'change' });
+				first.dispose();
+
+				const second = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 2, 'the list from before the rule change is not reused');
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('holds events arriving during revalidation, then filters them under the rules it lands on', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				// `dist` stopped being ignored while nothing watched; the restart's revalidation is what notices
+				state.ignored = /(?!)/;
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				const live = workingTreeWatchers(started.watchers).at(-1)!;
+				live.fire({ path: '/repo/dist/a.js', reason: 'change' });
+				live.fire({ path: '/repo/src/b.ts', reason: 'change' });
+				await delay(60);
+				assert.deepStrictEqual(started.received, [], 'held until the revalidation lands');
+
+				state.ignored = ignoresDist;
+				resolve(true);
+				await delay(60);
+				assert.deepStrictEqual(started.received, [['/repo/src/b.ts']]);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('with a real filter: a first start stats nothing beyond its load, a restart under unchanged rules reloads nothing', async () => {
+				const stats: string[] = [];
+				const reads: string[] = [];
+				let discovered!: () => void;
+				const discovery = new Promise<void>(r => (discovered = r));
+				const filter = new GitIgnoreFilter({
+					repoPath: wtPath,
+					gitDirPath: '/repo/.git',
+					fs: {
+						readFile: async uri => {
+							reads.push(uri.path);
+							if (uri.path !== '/repo/.gitignore') throw new Error('ENOENT');
+							return new TextEncoder().encode('dist/\n');
+						},
+						stat: async uri => {
+							stats.push(uri.path);
+							return uri.path === '/repo/.gitignore'
+								? { type: FileType.File, ctime: 0, mtime: 1, size: 6 }
+								: undefined;
+						},
+						readDirectory: async () => [],
+					},
+					getGitIgnorePaths: async () => {
+						await discovery;
+						return ['.gitignore', 'pkg/.gitignore'];
+					},
+				});
+				let dirReads = 0;
+				const started = startRestartable(filter, async () => {
+					dirReads++;
+					return ['dist'];
+				});
+
+				// The filter's first load is still discovering nested files
+				const first = started.subscribe();
+				await delay(20);
+				assert.ok(!stats.includes('/repo/pkg/.gitignore'), "a revalidation would have stat'ed it");
+				discovered();
+				await filter.ready();
+				first.dispose();
+				const loadStats = stats.length;
+				const loadReads = reads.length;
+
+				const second = started.subscribe();
+				await delay(ignoredReadDelayMs);
+
+				assert.deepStrictEqual(stats.slice(loadStats).sort(), [
+					'/repo/.git/info/exclude',
+					'/repo/.gitignore',
+					'/repo/pkg/.gitignore',
+				]);
+				assert.strictEqual(reads.length, loadReads, 'nothing re-read');
+				assert.strictEqual(dirReads, 1);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				second.dispose();
+				started.dispose();
 			});
 		});
 	});
