@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-26
+
 ### Added
 
 - Adds `viewerUnresolved?: true` to `IssueShape`/`Issue` and `PullRequestShape`/`PullRequest`: set on an Azure DevOps or Azure DevOps Server work item or pull request that names someone when the user's identity in its organization (collection) couldn't be read, because its `ConnectionData` failed, answered without an identity or took more than 10 seconds. Such a row has no `viewer` and, on a pull request, no `authoredByMe`, and a host should treat whether it's the user's as unknown rather than match it against `getCurrentAccount`, whose id is the one that may not match there. Every read that stamps `viewer` on those rows sets it: `listIssuesPage`, `getIssuesBatch`, the work item point read and Azure DevOps Server's `searchIssuesPage`; the repository-scoped `listPullRequestsPage` and sweeps, `getPullRequestsBatch`, `getPullRequestsForBranches` and Azure DevOps Server's `searchPullRequestsPage` without a current-user relationship. The account-wide pull request reads and a relationship search still report such an organization as a failed scope instead, since they filter by that identity. Absent on every other row, so a row with neither field still means what it did. A pull request row marked this way never compares unchanged on `getPullRequestsBatch`'s etag check, as a work item already didn't, so it's read in full again once the identity can be read ([#6083](https://github.com/gitkraken/vscode-gitlens/issues/6083)) (git, plus/integrations)
@@ -966,7 +968,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...HEAD
+[0.19.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...gitkraken:releases/core/v0.19.0
 [0.18.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.17.0...gitkraken:releases/core/v0.18.0
 [0.17.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...gitkraken:releases/core/v0.17.0
 [0.16.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...gitkraken:releases/core/v0.16.5
