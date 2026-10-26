@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-10-26
+
 ### Changed
 
 - Imports `EntityIdentifierUtils` and `GitProviderUtils` from the `@gitkraken/provider-apis` main entry instead of its `/entity-identifiers` and `/provider-utils` subpaths. Those subpaths are standalone bundles that repeat code the main entry already ships, and core already loads the main entry, so a host that bundles core carried both copies. Same functions and behavior; a Node ESM consumer still links both names through the main entry's CommonJS export list ([#6086](https://github.com/gitkraken/vscode-gitlens/issues/6086)) (plus/integrations)
@@ -978,7 +980,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...HEAD
+[0.20.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...gitkraken:releases/core/v0.20.1
 [0.20.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...gitkraken:releases/core/v0.20.0
 [0.19.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...gitkraken:releases/core/v0.19.0
 [0.18.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.17.0...gitkraken:releases/core/v0.18.0
