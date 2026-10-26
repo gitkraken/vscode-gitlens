@@ -42,6 +42,15 @@ export interface GitIgnoreFilterOptions {
 	readonly getIgnoreCase?: () => Promise<boolean | undefined>;
 }
 
+/** What a committed load was built from, which {@link GitIgnoreFilter.revalidate} compares against */
+interface LoadedSources {
+	readonly ignoreCase: boolean;
+	readonly globalExcludesPath: string | undefined;
+	readonly infoExcludePath: string | undefined;
+	/** Every ignore file the load read, by absolute path, with its {@link GitIgnoreFilter.stamp} taken before the read */
+	readonly stamps: ReadonlyMap<string, string | undefined>;
+}
+
 /**
  * In-memory gitignore filter using the `ignore` npm package.
  * Fully library-owned — no VS Code dependencies.
@@ -65,6 +74,9 @@ export class GitIgnoreFilter {
 	private inflight: Promise<void> | undefined;
 	/** The one load queued behind {@link inflight}, which every refresh made meanwhile shares */
 	private trailing: Promise<void> | undefined;
+	/** The running {@link revalidate}, which {@link ready} also waits for */
+	private revalidating: Promise<boolean> | undefined;
+	private sources: LoadedSources | undefined;
 	private readonly _generation = getScopedCounter();
 
 	// Reused across `isIgnored` calls (which are synchronous, so never interleave) to avoid per-event allocations
@@ -92,8 +104,12 @@ export class GitIgnoreFilter {
 		void this.startLoad();
 	}
 
-	/** Resolves when patterns are loaded. Safe to call multiple times. */
+	/** Resolves when patterns are loaded and any {@link revalidate} has settled. Safe to call multiple times. */
 	async ready(): Promise<void> {
+		if (this.revalidating != null) {
+			await this.revalidating;
+		}
+		// Read after the revalidation: a refresh made during it supersedes it
 		if (this.loading != null) {
 			await this.loading;
 		}
@@ -145,6 +161,37 @@ export class GitIgnoreFilter {
 		}
 		this.loading = this.trailing;
 		return this.trailing;
+	}
+
+	/**
+	 * Reloads when an ignore source changed since the last load, for a caller that stopped watching them for a while.
+	 * Resolves true once that reload has committed; false when nothing changed, when no load has committed yet, or when
+	 * a load is running, queued, or started meanwhile (it reads the sources afresh).
+	 *
+	 * Only the sources the last load read are stat'ed — the nested list isn't rediscovered, which would cost a git
+	 * spawn — so a nested `.gitignore` created since then goes unseen until the next {@link refresh}.
+	 */
+	revalidate(): Promise<boolean> {
+		if (this.revalidating != null) return this.revalidating;
+
+		const sources = this.sources;
+		if (sources == null || this.loading != null) return Promise.resolve(false);
+
+		const generation = this._generation.current;
+		const revalidation: Promise<boolean> = this.sourcesChanged(sources)
+			.then(async changed => {
+				if (!changed || this._generation.current !== generation) return false;
+
+				await this.refresh();
+				return true;
+			})
+			.finally(() => {
+				if (this.revalidating === revalidation) {
+					this.revalidating = undefined;
+				}
+			});
+		this.revalidating = revalidation;
+		return revalidation;
 	}
 
 	private startLoad(): Promise<void> {
@@ -223,14 +270,18 @@ export class GitIgnoreFilter {
 
 	private async loadPatterns(): Promise<void> {
 		const id = this._generation.next();
+		const stamps = new Map<string, string | undefined>();
 
+		const globalExcludesPath = this.resolveGlobalExcludesPath();
+		const infoExcludePath = this.resolveInfoExcludePath();
 		const [globalResult, infoResult, rootResult, nestedResult, ignoreCaseResult] = await Promise.allSettled([
-			this.readGlobalExcludes(),
-			this.readInfoExclude(),
-			this.readFile(`${this.repoPath}/.gitignore`),
-			this.loadNested(),
+			globalExcludesPath.then(path => this.readSource(path, stamps)),
+			infoExcludePath.then(path => this.readSource(path, stamps)),
+			this.readSource(`${this.repoPath}/.gitignore`, stamps),
+			this.loadNested(stamps),
 			this.readIgnoreCase(),
 		]);
+		const [globalPathResult, infoPathResult] = await Promise.allSettled([globalExcludesPath, infoExcludePath]);
 
 		// Only commit results if no newer refresh has started
 		if (id !== this._generation.current) return;
@@ -268,10 +319,38 @@ export class GitIgnoreFilter {
 
 		this.ig = ig;
 		this.nested = nested?.size ? nested : undefined;
+		this.sources = {
+			ignoreCase: options.ignorecase,
+			globalExcludesPath: getSettledValue(globalPathResult),
+			infoExcludePath: getSettledValue(infoPathResult),
+			stamps: stamps,
+		};
+	}
+
+	/** Whether anything {@link loadPatterns} built `sources` from differs now; a source that can't be stat'ed has */
+	private async sourcesChanged(sources: LoadedSources): Promise<boolean> {
+		const [globalExcludesPath, infoExcludePath, ignoreCase, unchanged] = await Promise.allSettled([
+			this.resolveGlobalExcludesPath(),
+			this.resolveInfoExcludePath(),
+			this.readIgnoreCase(),
+			Promise.allSettled(
+				Array.from(
+					sources.stamps,
+					async ([path, stamp]) => stamp != null && stamp === (await this.stamp(path)),
+				),
+			),
+		]);
+
+		return (
+			getSettledValue(globalExcludesPath) !== sources.globalExcludesPath ||
+			getSettledValue(infoExcludePath) !== sources.infoExcludePath ||
+			(getSettledValue(ignoreCase) ?? defaultIgnoreCase) !== sources.ignoreCase ||
+			getSettledValue(unchanged)?.every(r => getSettledValue(r) === true) !== true
+		);
 	}
 
 	/** Reads every nested `.gitignore`, keyed by its repo-relative directory (no trailing slash) */
-	private async loadNested(): Promise<Map<string, string> | undefined> {
+	private async loadNested(stamps: Map<string, string | undefined>): Promise<Map<string, string> | undefined> {
 		if (this.getGitIgnorePaths == null) return undefined;
 
 		let paths: readonly string[];
@@ -294,7 +373,7 @@ export class GitIgnoreFilter {
 
 		const entries = await Promise.allSettled(
 			Array.from(dirs, async dir => {
-				const content = await this.readFile(`${this.repoPath}/${dir}${suffix}`);
+				const content = await this.readSource(`${this.repoPath}/${dir}${suffix}`, stamps);
 				return content ? ([dir, content] as const) : undefined;
 			}),
 		);
@@ -309,6 +388,27 @@ export class GitIgnoreFilter {
 		return nested;
 	}
 
+	/** Stamps an ignore file, then reads it — stamped first, so an edit landing in between reads as a change later */
+	private async readSource(
+		path: string | undefined,
+		stamps: Map<string, string | undefined>,
+	): Promise<string | undefined> {
+		if (path == null) return undefined;
+
+		stamps.set(path, await this.stamp(path));
+		return this.readFile(path);
+	}
+
+	/** `mtime:size`, `''` when the file is absent, or undefined when it can't be stat'ed */
+	private async stamp(path: string): Promise<string | undefined> {
+		try {
+			const stat = await this.fs.stat(fileUri(path));
+			return stat != null ? `${stat.mtime}:${stat.size}` : '';
+		} catch {
+			return undefined;
+		}
+	}
+
 	private async readFile(path: string): Promise<string | undefined> {
 		try {
 			const data = await this.fs.readFile(fileUri(path));
@@ -319,12 +419,11 @@ export class GitIgnoreFilter {
 		}
 	}
 
-	private async readInfoExclude(): Promise<string | undefined> {
-		if (this.getInfoExcludePath == null) return this.readFile(`${this.gitDirPath}/info/exclude`);
+	private async resolveInfoExcludePath(): Promise<string | undefined> {
+		if (this.getInfoExcludePath == null) return `${this.gitDirPath}/info/exclude`;
 
 		try {
-			const path = await this.getInfoExcludePath();
-			return path != null ? await this.readFile(path) : undefined;
+			return await this.getInfoExcludePath();
 		} catch {
 			// The git dir couldn't be resolved
 			return undefined;
@@ -342,12 +441,11 @@ export class GitIgnoreFilter {
 		}
 	}
 
-	private async readGlobalExcludes(): Promise<string | undefined> {
+	private async resolveGlobalExcludesPath(): Promise<string | undefined> {
 		if (this.getGlobalExcludesPath == null) return undefined;
 
 		try {
-			const path = await this.getGlobalExcludesPath();
-			return path != null ? await this.readFile(path) : undefined;
+			return await this.getGlobalExcludesPath();
 		} catch {
 			// Global excludes might not be configured
 			return undefined;
