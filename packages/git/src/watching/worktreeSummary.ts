@@ -87,8 +87,9 @@ export interface WorktreeSummarySnapshot {
 	readonly summary: WorktreeSummary;
 	/**
 	 * When {@link WorktreeSummary.dirty} was read (`Date.now()` as the read started), for a worktree without a
-	 * subscription, whose working tree nothing watches; `undefined` for a subscribed worktree, whose summary follows
-	 * its working tree
+	 * subscription, whose working tree nothing watches, or a subscribed one still showing such a read's (see
+	 * {@link WorktreeSummarySubscription.dirtyReadAt}); `undefined` for a subscribed worktree whose summary follows its
+	 * working tree
 	 */
 	readonly dirtyReadAt: number | undefined;
 }
@@ -107,7 +108,15 @@ export interface WorktreeSummarySubscribeOptions {
 export interface WorktreeSummarySubscription extends UnifiedDisposable {
 	/** The latest summary; `undefined` until the first read succeeds, or after disposal */
 	readonly current: WorktreeSummary | undefined;
-	/** Fires when the summary's value changes */
+	/**
+	 * When {@link current}'s dirty flag was read, while it's still the one a read without a subscription found: the
+	 * working-tree watch reads it once live. `undefined` once the summary follows its working tree, or after disposal
+	 */
+	readonly dirtyReadAt: number | undefined;
+	/**
+	 * Fires when the summary's value changes, and with the same summary when a dirty flag kept from a read without a
+	 * subscription is read again (see {@link dirtyReadAt})
+	 */
 	readonly onDidChange: Event<WorktreeSummary>;
 }
 
@@ -168,6 +177,10 @@ const maxConcurrentReads = 8;
 // Worktrees without a subscription whose last read is kept to answer from: a host listing more than this re-reads the
 // least recently asked in full
 const maxUnwatchedReads = 256;
+// How long a newly subscribed worktree serves its saved dirty flag waiting for its working-tree watch to go live; past
+// it, the flag is read without the rescan, so a provider that promised a start that never comes can't leave it
+// unconfirmed
+const maxDeferredDirtyMs = 10_000;
 
 const emptyRefs: readonly string[] = Object.freeze([]);
 
@@ -285,6 +298,18 @@ interface SummaryEntry {
 	/** The timing-neutral listening subscriptions and their event listeners */
 	listeners: UnifiedDisposable[] | undefined;
 	value: WorktreeSummary | undefined;
+	/**
+	 * The last read without a subscription, which the first run starts from; never answered, since its dirty flag
+	 * doesn't follow the working tree
+	 */
+	seed: WorktreeSummary | undefined;
+	/**
+	 * When the value's dirty flag was read, while it is still the saved read's (see `queueSeedStart`); `undefined` once
+	 * the value follows the working tree
+	 */
+	dirtyReadAt: number | undefined;
+	/** Reads the saved read's dirty flag should the working-tree watch not go live in {@link maxDeferredDirtyMs} */
+	dirtyReadTimer: ReturnType<typeof setTimeout> | undefined;
 	/** The stored base values as of the last base read; a `gk` config change re-reads the base only when they differ */
 	baseKeys: BaseKeys | undefined;
 	/**
@@ -319,6 +344,11 @@ class SummarySubscription implements WorktreeSummarySubscription {
 
 	get current(): WorktreeSummary | undefined {
 		return this.disposed ? undefined : this.entry.value;
+	}
+
+	get dirtyReadAt(): number | undefined {
+		// Nothing to date before the first value
+		return this.disposed || this.entry.value == null ? undefined : this.entry.dirtyReadAt;
 	}
 
 	get onDidChange(): Event<WorktreeSummary> {
@@ -365,7 +395,10 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * has working changes, and how far it is past its base — kept current by the repository watch layer.
  *
  * **Lifecycle.** Entries are per repository key and ref-counted across {@link subscribe} calls. The first subscriber
- * starts watching the worktree and reads everything; the last one to leave aborts any in-flight read, releases the
+ * starts watching the worktree and reads everything, or, for a worktree last read without a subscription, starts from
+ * that read: it re-reads the groups whose inputs moved since, by the same rules as such a read, and always `dirty` —
+ * unless its working-tree watch is still starting, when the rescan that watch owes reads it, and the summary keeps the
+ * saved read's flag, with its `dirtyReadAt`, until then. The last one to leave aborts any in-flight read, releases the
  * watch and drops the value. Each subscriber's timing options join the watch session's cadence (the shortest wins);
  * the service's own listening subscriptions never constrain it.
  *
@@ -392,7 +425,8 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
  * silent, so a consumer can re-render on every event without diffing. A failed recompute keeps the last values and
- * sets `stale` (firing once); the next successful one clears it.
+ * sets `stale` (firing once); the next successful one clears it. A summary still showing the dirty flag of a read
+ * without a subscription fires again, unchanged, once that flag is read again (its `dirtyReadAt` cleared).
  *
  * **Worktrees without a subscription.** {@link getSummary} and {@link getSummarySnapshot} answer one from its last read
  * (kept for the {@link maxUnwatchedReads} most recently asked), re-reading only the groups whose inputs moved since:
@@ -404,11 +438,14 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * asks about this way for others' changes to show. Its working tree is unwatched, so an edit that leaves the index
  * alone goes unseen until `dirty` is read again: the snapshot says when that was, and `probeDirty` reads it anyway.
  * Concurrent reads of a worktree share one, and take no read slot: each is a caller's foreground read, which never
- * waits behind subscribed worktrees' runs.
+ * waits behind subscribed worktrees' runs. A first subscriber takes over the last read.
  */
 export class WorktreeSummaryService implements UnifiedDisposable {
 	private readonly _onDidChangeSummary = new Emitter<WorktreeSummary>();
-	/** Fires when the summary of any subscribed worktree changes value */
+	/**
+	 * Fires when the summary of any subscribed worktree changes value, and with the same summary when a dirty flag kept
+	 * from a read without a subscription is read again (see {@link WorktreeSummarySubscription.dirtyReadAt})
+	 */
 	get onDidChangeSummary(): Event<WorktreeSummary> {
 		return this._onDidChangeSummary.event;
 	}
@@ -468,7 +505,11 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		this._onDidChangeSummary.dispose();
 	}
 
-	/** Subscribes to a worktree's summary, starting to watch and read it if this is its first subscriber */
+	/**
+	 * Subscribes to a worktree's summary, starting to watch and read it if this is its first subscriber: from its last
+	 * read without a subscription, if any, re-reading the groups whose inputs moved since and the dirty flag — at once,
+	 * or, while its working-tree watch is still starting, as that watch goes live
+	 */
 	subscribe(repoPath: string, options?: WorktreeSummarySubscribeOptions): WorktreeSummarySubscription {
 		const key = getRepositoryKey(repoPath);
 
@@ -489,17 +530,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		if (isNew) {
 			if (!target.disposed) {
-				// The subscribed value supersedes the last unwatched read, and a read still in flight no longer stores one
-				this.unwatchedReads.delete(key);
+				// The start takes over the last unwatched read, and a read still in flight no longer stores one
 				this.unwatchedFlights.delete(key);
-				target.pending = allFields | baseConfigField;
 				target.running = this.start(target);
 			}
 		} else if (target.handle != null) {
 			subscription.attach(target.handle.session);
 		} else if (target.running == null && !target.disposed) {
 			// The start failed (no repository or git directory yet); a new subscriber retries it
-			target.pending = allFields | baseConfigField;
 			target.running = this.start(target);
 		}
 
@@ -521,7 +559,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 	/**
 	 * Returns a worktree's summary, with when its dirty flag was read. A subscribed worktree answers as
-	 * {@link getSummary} does, with `dirtyReadAt` `undefined`, since its summary follows its working tree. Any other
+	 * {@link getSummary} does, with `dirtyReadAt` `undefined` once its summary follows its working tree, and until then
+	 * the saved read's (see {@link WorktreeSummarySubscription.dirtyReadAt}), which `probeDirty` reads again. Any other
 	 * answers from its last read, re-reading only the groups whose inputs moved since (no git when none did), and in
 	 * full the first time, or after a failed or stale read. Its working tree is unwatched, so the dirty flag is re-read
 	 * only when the index file moved, or with `probeDirty`; a rejection drops the last read. Its inputs are core's
@@ -535,7 +574,22 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		const entry = this.entries.get(key);
 		if (entry == null) return this.getUnwatchedSnapshot(key, options?.probeDirty ?? false, options?.cancellation);
 
-		return { summary: await this.getSubscribedSummary(entry, options?.cancellation), dirtyReadAt: undefined };
+		return this.getSubscribedSnapshot(entry, options?.probeDirty ?? false, options?.cancellation);
+	}
+
+	private async getSubscribedSnapshot(
+		entry: SummaryEntry,
+		probeDirty: boolean,
+		cancellation: AbortSignal | undefined,
+	): Promise<WorktreeSummarySnapshot> {
+		let summary = await this.getSubscribedSummary(entry, cancellation);
+		// Asked for, a dirty flag kept from the saved read is read now rather than once the watch goes live. Looked at
+		// after the wait, since the start decides to keep it only once it probed
+		if (probeDirty && entry.dirtyReadAt != null) {
+			this.queue(entry, dirtyField);
+			summary = await this.getSubscribedSummary(entry, cancellation);
+		}
+		return { summary: summary, dirtyReadAt: entry.dirtyReadAt };
 	}
 
 	private async getSubscribedSummary(
@@ -579,9 +633,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 			// A subscription that started meanwhile answers instead, its summary following the working tree
 			const entry = this.entries.get(key);
-			if (entry != null) {
-				return { summary: await this.getSubscribedSummary(entry, cancellation), dirtyReadAt: undefined };
-			}
+			if (entry != null) return this.getSubscribedSnapshot(entry, true, cancellation);
 		}
 
 		if (flight == null) {
@@ -637,7 +689,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			// Core drops every remote's cached `HEAD` symref on any ref change, so after the first read only those the
 			// base depends on are read, unless the base is read again
 			const headRemotes = last != null ? getHeadRemotes(last.result.summary.baseDependsOn) : undefined;
-			const probe = await this.probeUnwatched(repo, headRemotes, signal);
+			const probe = await this.probeUnwatched(repo, headRemotes, true, signal);
 			if (flight.disposed) throw new CancellationError();
 
 			let fields: number;
@@ -646,51 +698,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				// The config inputs too, so a later base move can be re-measured against the key they had
 				fields = allFields | baseConfigField;
 			} else {
-				fields = last.due;
-				const { inputs } = last;
-				const previous = last.result.summary;
-				if (probe.branch !== inputs.branch || probe.detached !== inputs.detached || probe.sha !== inputs.sha) {
-					// The branch read only widens to the rest for a different branch, but a commit moves the base count
-					// and can leave the working tree clean
-					fields |= allFields;
-				} else {
-					if (probe.upstream !== inputs.upstream) {
-						// The config inputs too, which read the base again when the upstream's identity changed
-						fields |= branchField | baseConfigField;
-					} else if (getUpstreamTips(probe.tips, probe.upstream) !== inputs.upstreamTips) {
-						fields |= branchField;
-					}
-					for (const ref of previous.baseDependsOn) {
-						// An unreadable value is unknown, so it moved
-						const value = getBaseInput(probe, ref);
-						if (value !== null && value === inputs.baseTips.get(ref)) continue;
+				({ fields, baseMoves } = await getMovedFields(repo, last, probe, flight.probeDirty, signal));
+				if (flight.disposed) throw new CancellationError();
 
-						baseMoves ??= new Set();
-						baseMoves.add(ref);
-					}
-					if (baseMoves != null) {
-						fields |= baseMoveField;
-					}
-					// A config write the base read consulted (another branch's tracking, a remote, the default branch)
-					// moves no ref; one cached read, as a subscribed worktree's config change reads
-					if (
-						(fields & baseConfigField) === 0 &&
-						last.result.baseConfigKey != null &&
-						repo.branches.getAheadOfBase != null &&
-						(probe.detached || probe.branch != null)
-					) {
-						const configKey = getBaseConfigKey(await readBaseConfig(repo, signal), previous);
-						if (flight.disposed) throw new CancellationError();
-
-						// An unreadable config is unknown, not changed
-						if (configKey != null && configKey !== last.result.baseConfigKey) {
-							fields |= branchField | baseConfigField;
-						}
-					}
-				}
-				if (flight.probeDirty || probe.index == null || probe.index !== inputs.index) {
-					fields |= dirtyField;
-				}
 				if (fields === 0) {
 					this.unwatchedReads.touch(key);
 					return last;
@@ -745,23 +755,24 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 	/**
 	 * Reads an unwatched read's inputs: cached answers but for the index file's stat (see {@link UnwatchedInputs}), with
-	 * the `HEAD` symrefs of `remotes` (every remote's when `undefined`)
+	 * the `HEAD` symrefs of `remotes` (every remote's when `undefined`); without `statIndex`, the index is unknown
 	 */
 	private async probeUnwatched(
 		repo: RepositoryService,
 		remotes: ReadonlySet<string> | undefined,
+		statIndex: boolean,
 		signal: AbortSignal,
 	): Promise<UnwatchedProbe> {
 		const remoteHeads = new Map<string, string | null | undefined>();
+		const stat = statIndex ? this.stat : undefined;
 		const [current, tips, gitDir] = await Promise.all([
 			repo.branches.getBranch(undefined, undefined, signal),
 			repo.refs.getRefTips(undefined, signal),
-			getGitDir(repo),
+			stat != null ? getGitDir(repo) : undefined,
 			readRemoteHeads(repo, remoteHeads, remotes, signal),
 		]);
 
 		let index: string | undefined;
-		const stat = this.stat;
 		if (stat != null && gitDir != null) {
 			try {
 				const stats = await stat(joinPaths(gitDir.uri.fsPath, 'index'));
@@ -809,6 +820,23 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			return;
 		}
 
+		// Taken only now: until the watch is placed, core's write of a merge target or base skips the entry but still
+		// makes the stored values due on the saved read. A stale one's fields can't be trusted (see `queue`)
+		let last = this.unwatchedReads.get(entry.key);
+		this.unwatchedReads.delete(entry.key);
+		if (last?.result.summary.stale) {
+			last = undefined;
+		}
+		if (last != null) {
+			entry.seed = last.result.summary;
+			// The values its base read consulted, or the first `gk` config or config change would read the base again
+			entry.baseKeys = last.result.baseKeys;
+			entry.baseConfigKey = last.result.baseConfigKey;
+			entry.baseDefaultBranch = last.result.baseDefaultBranch;
+		} else {
+			entry.pending |= allFields | baseConfigField;
+		}
+
 		entry.handle = handle;
 		entry.slotsKey = getRepositoryKey(gitDir.commonUri ?? gitDir.uri);
 		const session = handle.session;
@@ -825,11 +853,80 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			subscription.attach(session);
 		}
 
+		// Probed once listening, so a change landing meanwhile is queued against the seed rather than missed. Whether
+		// the working-tree watch the listeners placed is still starting is asked now: should it go live during the
+		// probe, the rescan it queues reads the dirty flag the first run would otherwise read too
+		if (last != null) {
+			await this.queueSeedStart(entry, last, this.watchService.isWorkingTreeStarting(entry.key));
+			if (entry.disposed) return;
+		}
+
 		await this.drain(entry);
 	}
 
+	/**
+	 * Queues the groups of the saved read `last` whose inputs moved since, as an unwatched read finds them, and the
+	 * dirty flag, which no input vouches for; everything when its inputs can't be read. With `deferDirty`, the dirty
+	 * flag is left to the rescan of a working-tree watch still starting, and the value keeps `last`'s until then
+	 */
+	private async queueSeedStart(entry: SummaryEntry, last: UnwatchedRead, deferDirty: boolean): Promise<void> {
+		const signal = entry.abort.signal;
+		let moved: { fields: number; baseMoves: Set<string> | undefined } | undefined;
+		try {
+			const repo = this.getRepository(entry.key);
+			if (repo != null) {
+				// No stat of the index: the dirty flag is read whatever it says
+				const probe = await this.probeUnwatched(
+					repo,
+					getHeadRemotes(last.result.summary.baseDependsOn),
+					false,
+					signal,
+				);
+				if (entry.disposed) return;
+
+				moved = await getMovedFields(repo, last, probe, true, signal);
+			}
+		} catch {
+			// Unknown inputs, read in full below
+		}
+		if (entry.disposed) return;
+
+		if (moved == null) {
+			dropSeed(entry);
+			entry.pending |= allFields | baseConfigField;
+			return;
+		}
+
+		if (deferDirty) {
+			// A working-tree change queued meanwhile still reads it
+			entry.pending |= moved.fields & ~dirtyField;
+			entry.dirtyReadAt = last.dirtyReadAt;
+			// Cleared with `dirtyReadAt`, so it fires only while the saved flag is still shown
+			entry.dirtyReadTimer = setTimeout(() => {
+				entry.dirtyReadTimer = undefined;
+				this.queue(entry, dirtyField);
+			}, maxDeferredDirtyMs);
+			// Nothing to read before the watch goes live: the saved read is the first value as it is
+			if (entry.pending === 0 && entry.seed != null) {
+				const seed = entry.seed;
+				entry.error = undefined;
+				entry.seed = undefined;
+				entry.value = seed;
+				this.fireChange(entry, seed);
+			}
+		} else {
+			entry.pending |= moved.fields;
+		}
+		if (moved.baseMoves != null) {
+			entry.baseMoves ??= new Set();
+			for (const ref of moved.baseMoves) {
+				entry.baseMoves.add(ref);
+			}
+		}
+	}
+
 	private onRepoChanged(entry: SummaryEntry, e: WatcherRepoChangeEvent): void {
-		const value = entry.value;
+		const value = entry.value ?? entry.seed;
 		if (value == null || e.changed('unknown', 'head')) {
 			this.queue(entry, allFields | (e.changed('config') ? baseConfigField : 0));
 			return;
@@ -890,8 +987,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			// Before the watch starts there's nothing to refresh: the start's own read comes after the write
 			if (entry.handle == null) continue;
 
-			// With no value yet, the first read may have read the stored values before the write, so `queue` reads
-			// everything again
+			// With no value yet, the first read may have read the stored values before the write, so they're read again:
+			// with everything when there's no saved read to start from, else compared with that read's
 			const value = entry.value;
 			if (value != null && (value.branch == null || (e.refs != null && !e.refs.has(value.branch)))) continue;
 
@@ -925,9 +1022,10 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private queue(entry: SummaryEntry, fields: number, baseMoves?: readonly string[]): void {
 		if (entry.disposed || fields === 0) return;
 
-		// Without a value a partial read has nothing to merge into, and a stale value's fields can't be trusted: a
-		// partial read would clear `stale` while vouching for groups it never re-read
-		entry.pending |= entry.value == null || entry.value.stale ? fields | allFields | baseConfigField : fields;
+		// Without a value (or a saved read to start from) a partial read has nothing to merge into, and a stale value's
+		// fields can't be trusted: a partial read would clear `stale` while vouching for groups it never re-read
+		const value = entry.value ?? entry.seed;
+		entry.pending |= value == null || value.stale ? fields | allFields | baseConfigField : fields;
 		if (baseMoves != null) {
 			entry.baseMoves ??= new Set();
 			for (const ref of baseMoves) {
@@ -1013,7 +1111,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	}
 
 	private async run(entry: SummaryEntry, fields: number, baseMoves: ReadonlySet<string> | undefined): Promise<void> {
-		const previous = entry.value;
+		const { value, seed } = entry;
+		const previous = value ?? seed;
 
 		let result: ReadResult;
 		try {
@@ -1047,18 +1146,39 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		}
 
 		entry.error = undefined;
+		entry.seed = undefined;
 		entry.baseKeys = result.baseKeys;
 		entry.baseConfigKey = entry.pending & baseConfigField ? undefined : result.baseConfigKey;
 		entry.baseDefaultBranch = result.baseDefaultBranch;
-		if (previous != null && summariesEqual(previous, result.summary)) return;
+		// Any read of the dirty flag ends showing the saved one, even one a branch read adds on finding another branch
+		const dirtyConfirmed = result.dirtyReadAt != null && entry.dirtyReadAt != null;
+		if (dirtyConfirmed) {
+			clearDeferredDirty(entry);
+		}
+		if (value != null && summariesEqual(value, result.summary)) {
+			// Unchanged, but no longer the saved read's
+			if (dirtyConfirmed) {
+				this.fireChange(entry, value);
+			}
+			return;
+		}
 
-		entry.value = result.summary;
-		this.fireChange(entry, result.summary);
+		// The first value is published even when it reads as the seed, as the seed's own object for a host that has it
+		const summary = value == null && seed != null && summariesEqual(seed, result.summary) ? seed : result.summary;
+		entry.value = summary;
+		this.fireChange(entry, summary);
 	}
 
 	private fail(entry: SummaryEntry, ex: unknown): void {
 		const previous = entry.value;
 		if (previous == null) {
+			if (entry.seed != null) {
+				dropSeed(entry);
+				// Changes during the run were queued against the seed; without one they read everything
+				if (entry.pending !== 0) {
+					entry.pending |= allFields | baseConfigField;
+				}
+			}
 			if (entry.error == null) {
 				Logger.warn(`WorktreeSummaryService: reading '${entry.key}' failed: ${String(ex)}`);
 			}
@@ -1101,6 +1221,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.handle?.dispose();
 		entry.handle = undefined;
 		entry.value = undefined;
+		entry.seed = undefined;
+		clearDeferredDirty(entry);
 		entry.baseKeys = undefined;
 		entry.baseConfigKey = undefined;
 		entry.baseDefaultBranch = undefined;
@@ -1128,6 +1250,21 @@ function* getConfigRelevantRefs(value: WorktreeSummary): Iterable<string> {
 	yield* value.baseDependsOn;
 }
 
+/** Drops the saved read a first run was to start from, with the values its base read consulted and its dirty flag */
+function dropSeed(entry: SummaryEntry): void {
+	entry.seed = undefined;
+	clearDeferredDirty(entry);
+	entry.baseKeys = undefined;
+	entry.baseConfigKey = undefined;
+	entry.baseDefaultBranch = undefined;
+}
+
+function clearDeferredDirty(entry: SummaryEntry): void {
+	entry.dirtyReadAt = undefined;
+	clearTimeout(entry.dirtyReadTimer);
+	entry.dirtyReadTimer = undefined;
+}
+
 function createEntry(key: string): SummaryEntry {
 	return {
 		key: key,
@@ -1137,6 +1274,9 @@ function createEntry(key: string): SummaryEntry {
 		handle: undefined,
 		listeners: undefined,
 		value: undefined,
+		seed: undefined,
+		dirtyReadAt: undefined,
+		dirtyReadTimer: undefined,
 		baseKeys: undefined,
 		baseConfigKey: undefined,
 		baseDefaultBranch: undefined,
@@ -1367,6 +1507,64 @@ function getTipsByName(tips: readonly GitRefTip[]): ReadonlyMap<string, string> 
 		tipsByNameCache.set(tips, byName);
 	}
 	return byName;
+}
+
+/**
+ * The read groups due on a read from `last`, given what `probe` found of its inputs since (with the refs the base
+ * depends on that moved): those `last` made due, and those whose inputs moved
+ */
+async function getMovedFields(
+	repo: RepositoryService,
+	last: UnwatchedRead,
+	probe: UnwatchedProbe,
+	probeDirty: boolean,
+	signal: AbortSignal,
+): Promise<{ fields: number; baseMoves: Set<string> | undefined }> {
+	let fields = last.due;
+	let baseMoves: Set<string> | undefined;
+	const { inputs } = last;
+	const previous = last.result.summary;
+	if (probe.branch !== inputs.branch || probe.detached !== inputs.detached || probe.sha !== inputs.sha) {
+		// The branch read only widens to the rest for a different branch, but a commit moves the base count and can
+		// leave the working tree clean
+		fields |= allFields;
+	} else {
+		if (probe.upstream !== inputs.upstream) {
+			// The config inputs too, which read the base again when the upstream's identity changed
+			fields |= branchField | baseConfigField;
+		} else if (getUpstreamTips(probe.tips, probe.upstream) !== inputs.upstreamTips) {
+			fields |= branchField;
+		}
+		for (const ref of previous.baseDependsOn) {
+			// An unreadable value is unknown, so it moved
+			const value = getBaseInput(probe, ref);
+			if (value !== null && value === inputs.baseTips.get(ref)) continue;
+
+			baseMoves ??= new Set();
+			baseMoves.add(ref);
+		}
+		if (baseMoves != null) {
+			fields |= baseMoveField;
+		}
+		// A config write the base read consulted (another branch's tracking, a remote, the default branch) moves no
+		// ref; one cached read, as a subscribed worktree's config change reads
+		if (
+			(fields & baseConfigField) === 0 &&
+			last.result.baseConfigKey != null &&
+			repo.branches.getAheadOfBase != null &&
+			(probe.detached || probe.branch != null)
+		) {
+			const configKey = getBaseConfigKey(await readBaseConfig(repo, signal), previous);
+			// An unreadable config is unknown, not changed
+			if (configKey != null && configKey !== last.result.baseConfigKey) {
+				fields |= branchField | baseConfigField;
+			}
+		}
+	}
+	if (probeDirty || probe.index == null || probe.index !== inputs.index) {
+		fields |= dirtyField;
+	}
+	return { fields: fields, baseMoves: baseMoves };
 }
 
 /** The upstream's tips as a remote-tracking and as a local branch, since its short name doesn't say which */

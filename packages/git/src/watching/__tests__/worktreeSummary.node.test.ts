@@ -26,6 +26,7 @@ import type {
 	WorktreeSummaryServiceOptions,
 	WorktreeSummarySnapshot,
 	WorktreeSummarySubscribeOptions,
+	WorktreeSummarySubscription,
 } from '../worktreeSummary.js';
 import { WorktreeSummaryService } from '../worktreeSummary.js';
 
@@ -33,17 +34,23 @@ const repoPath = '/repo';
 const key = getRepositoryKey(repoPath);
 
 function createMockFactory(
-	onWatcher?: (basePath: string, onEvent: (event: FileWatchEvent) => void) => void,
+	onWatcher?: (
+		basePath: string,
+		onEvent: (event: FileWatchEvent) => void,
+		options: FileWatcherOptions | undefined,
+	) => void,
 	getReliability?: (basePath: string) => FileWatcherReliability | undefined,
+	callsOnDidStart?: boolean,
 ): FileWatchingProvider {
 	return {
+		callsOnDidStart: callsOnDidStart,
 		createWatcher: function (
 			_basePath: string,
 			_pattern: string,
 			_onEvent: (event: FileWatchEvent) => void,
 			options?: FileWatcherOptions,
 		): FileWatcher {
-			onWatcher?.(_basePath, _onEvent);
+			onWatcher?.(_basePath, _onEvent, options);
 			const reliability = getReliability?.(_basePath);
 			if (reliability != null) {
 				options?.onDidChangeReliability?.(reliability);
@@ -310,6 +317,8 @@ interface Harness {
 	push(changes: RepositoryChange[], ref?: string | false): void;
 	fireGitDir(relativePath: string): void;
 	pushWorkingTree(): void;
+	/** Reports the working-tree watch live, as a provider that places it asynchronously does (see `callsOnDidStart`) */
+	startWorkingTree(): void;
 	/** Fires the merge-targets event core raises as it writes a branch's merge target or base */
 	fireMergeTargets(refs: string[] | undefined, commonPath?: string): void;
 }
@@ -323,20 +332,26 @@ function createHarness(options?: {
 	polling?: WatchPollingOptions;
 	verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 	stat?: WorktreeSummaryServiceOptions['stat'];
+	/** The provider promises each working-tree watch reports itself live, which {@link Harness.startWorkingTree} does */
+	callsOnDidStart?: boolean;
 }): Harness {
 	const repo = new FakeRepository();
 	const repos = new Map<string, FakeRepository>([[key, repo]]);
 	const watchers: ((event: FileWatchEvent) => void)[] = [];
+	let workingTreeOptions: FileWatcherOptions | undefined;
 	const watchService = new RepositoryWatchService({
 		watchingProvider: createMockFactory(
-			(basePath, onEvent) => {
+			(basePath, onEvent, watcherOptions) => {
 				if (getRepositoryKey(basePath) === getRepositoryKey(`${repoPath}/.git`)) {
 					watchers.push(onEvent);
+				} else if (getRepositoryKey(basePath) === key) {
+					workingTreeOptions = watcherOptions;
 				}
 			},
 			options?.polling != null
 				? basePath => (getRepositoryKey(basePath).endsWith('/.git') ? 'unwatchable' : undefined)
 				: undefined,
+			options?.callsOnDidStart,
 		),
 		defaultRepoDelayMs: 10,
 		defaultWorkingTreeDelayMs: options?.defaultWorkingTreeDelayMs ?? 10,
@@ -382,6 +397,10 @@ function createHarness(options?: {
 			watchers[0]({ path: `${repoPath}/.git/${relativePath}`, reason: 'change' });
 		},
 		pushWorkingTree: () => session().pushWorkingTreeChanges([`${repoPath}/src/a.ts`]),
+		startWorkingTree: () => {
+			assert.ok(workingTreeOptions?.onDidStart != null, 'expected a working-tree watch');
+			workingTreeOptions.onDidStart();
+		},
 		fireMergeTargets: (refs, commonPath) =>
 			mergeTargets.fire({ repoPath: commonPath ?? key, refs: refs != null ? new Set(refs) : undefined }),
 	};
@@ -986,9 +1005,12 @@ describe('WorktreeSummaryService', () => {
 		 */
 		const probeForBase: ReadCounts = { ...probeOnly, remotes: 1 };
 
-		function setup(): { h: Harness; touchIndex: () => void } {
+		function setup(options?: { callsOnDidStart?: boolean }): { h: Harness; touchIndex: () => void } {
 			const files = new Map<string, { mtime: number; size: number }>([[indexPath, { mtime: 1, size: 100 }]]);
-			const h = createHarness({ stat: path => Promise.resolve(files.get(normalizePath(path))) });
+			const h = createHarness({
+				stat: path => Promise.resolve(files.get(normalizePath(path))),
+				callsOnDidStart: options?.callsOnDidStart,
+			});
 			return {
 				h: h,
 				touchIndex: () => {
@@ -1397,6 +1419,551 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(snapshot.summary, sub.current);
 
 			sub.dispose();
+		});
+
+		describe('then subscribed', () => {
+			/** The start probes the last read's inputs, as an unwatched read does, and always reads the dirty flag */
+			const probeAndDirty: ReadCounts = { ...probeOnly, dirty: 1 };
+			const movedBase: FakeBase = {
+				ref: 'refs/heads/develop',
+				ahead: 3,
+				sha: 'ddd222',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+			const releaseBase: FakeBase = {
+				ref: 'refs/heads/release',
+				ahead: 1,
+				sha: 'rrr111',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+
+			it('starts from the last read, reading only the dirty flag, when nothing moved', async () => {
+				const { h } = setup();
+				const first = await h.service.getSummary(repoPath);
+				const tipReads = h.repo.tipReads;
+
+				const fired: WorktreeSummary[] = [];
+				let sub: WorktreeSummarySubscription | undefined;
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					sub.onDidChange(e => fired.push(e));
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.strictEqual(h.repo.tipReads - tipReads, 1, 'the probe');
+				assert.strictEqual(summary, first, 'the summary the host already has');
+				assert.strictEqual(sub?.current, first);
+				assert.deepStrictEqual(fired, [first], 'the first value is a change from nothing');
+				assert.ok(h.watchService.getSession(key) != null);
+			});
+
+			it('keeps the stored base values and config inputs of the last read, so a change leaving them reads no base', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			});
+
+			it('reads the dirty flag, though the index is as it was', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				// An unstaged edit leaves the index alone
+				h.repo.state.dirty = true;
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.strictEqual(summary?.dirty, true);
+			});
+
+			it('reads the branch, and no base, when only the upstream moved', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.repo.state.tips['refs/remotes/origin/main'] = 'ooo222';
+				h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeAndDirty, branch: 2, remotes: 1 });
+				assert.strictEqual(summary?.behind, 5);
+			});
+
+			it('re-measures the base, with no full base read, when only a ref it depends on moved', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+				h.repo.state.baseMove = movedBase;
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.deepStrictEqual(
+					h.repo.baseMoves.map(m => m.moved),
+					[['refs/heads/develop']],
+				);
+				assert.deepStrictEqual(summary?.base, movedBase);
+			});
+
+			it('reads everything when HEAD moved', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.repo.state.sha = 'aaa222';
+				h.repo.state.tips['refs/heads/main'] = 'aaa222';
+				h.repo.state.base = { ...h.repo.state.base!, ahead: 4 };
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...all, branch: 2 });
+				assert.strictEqual(summary?.sha, 'aaa222');
+				assert.strictEqual(summary.base?.ahead, 4);
+			});
+
+			it('reads everything, without probing, after a stale read', async () => {
+				const { h } = setup();
+				h.repo.state.baseFail = new Error('base read failed');
+				assert.strictEqual((await h.service.getSummary(repoPath)).stale, true);
+				h.repo.state.baseFail = undefined;
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, all);
+				assert.deepStrictEqual(summary, expectedInitial);
+			});
+
+			it("reads everything when the last read's inputs can't be probed", async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				const refs = h.repo.service.refs as unknown as { getRefTips: () => Promise<unknown> };
+				const getRefTips = refs.getRefTips;
+				refs.getRefTips = () => {
+					refs.getRefTips = getRefTips;
+					return Promise.reject(new Error('Unable to read the refs'));
+				};
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...all, branch: 2 });
+				assert.deepStrictEqual(summary, expectedInitial);
+			});
+
+			it('reads the branch and the base when the config inputs the base read consulted changed', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.repo.state.configKey = 'config-v2';
+				h.repo.state.base = { ...h.repo.state.base!, ahead: 7 };
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeAndDirty, branch: 2, base: 1, remotes: 1 });
+				assert.strictEqual(summary?.base?.ahead, 7);
+			});
+
+			it("re-reads the stored base values after core's own write of them while unsubscribed", async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				h.repo.state.userMergeTarget = 'release';
+				h.repo.state.base = releaseBase;
+				h.fireMergeTargets(['main']);
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeAndDirty, base: 1 });
+				assert.deepStrictEqual(summary?.base, releaseBase);
+			});
+
+			it("re-reads the stored base values after core's own write of them before the watch is placed", async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+				const getGitDir = config.getGitDir;
+				let placeWatch: (() => void) | undefined;
+				const watchPlaced = new Promise<void>(resolve => (placeWatch = resolve));
+				config.getGitDir = async () => {
+					await watchPlaced;
+					return getGitDir();
+				};
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					assert.strictEqual(h.watchService.getSession(key), undefined);
+					h.repo.state.userMergeTarget = 'release';
+					h.repo.state.base = releaseBase;
+					h.fireMergeTargets(['main']);
+					placeWatch?.();
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeAndDirty, base: 1 });
+				assert.deepStrictEqual(summary?.base, releaseBase);
+			});
+
+			it('reads only what a change arriving during the probe can affect', async t => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				t.after(() => h.repo.release());
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.repo.hold();
+					const before = h.repo.counts.branch;
+					h.service.subscribe(repoPath);
+					await waitFor(() => h.repo.counts.branch > before);
+
+					// After the probe read the ref tips, so only the watch sees these
+					h.repo.state.dirty = true;
+					h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+					h.repo.state.baseMove = movedBase;
+					h.pushWorkingTree();
+					h.push(['heads'], 'refs/heads/develop');
+					await delay(40);
+
+					h.repo.release();
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.deepStrictEqual(
+					h.repo.baseMoves.map(m => m.moved),
+					[['refs/heads/develop']],
+				);
+				assert.strictEqual(summary?.dirty, true);
+				assert.deepStrictEqual(summary.base, movedBase);
+			});
+
+			it('reads everything for a change after a failed first run', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				const status = h.repo.service.status as unknown as {
+					hasWorkingChanges: (options?: unknown, signal?: AbortSignal) => Promise<boolean>;
+				};
+				const hasWorkingChanges = status.hasWorkingChanges;
+				const failure = new Error('read failed');
+				status.hasWorkingChanges = () => Promise.reject(failure);
+
+				const sub = h.service.subscribe(repoPath);
+				await assert.rejects(h.service.getSummary(repoPath), failure);
+				assert.strictEqual(sub.current, undefined, 'the last read is never answered');
+
+				status.hasWorkingChanges = hasWorkingChanges;
+				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), all);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+			});
+
+			it('reads the config inputs too for a change during a failed first run', async () => {
+				const { h } = setup();
+				await h.service.getSummary(repoPath);
+				const status = h.repo.service.status as unknown as {
+					hasWorkingChanges: (options?: unknown, signal?: AbortSignal) => Promise<boolean>;
+				};
+				const hasWorkingChanges = status.hasWorkingChanges;
+				status.hasWorkingChanges = () => {
+					status.hasWorkingChanges = hasWorkingChanges;
+					h.fireMergeTargets(['main']);
+					return Promise.reject(new Error('read failed'));
+				};
+
+				h.service.subscribe(repoPath);
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+
+				// Known again, so a config change that leaves them reads no base
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			});
+		});
+
+		describe('then subscribed while the working-tree watch starts', () => {
+			/** The start probes the last read's inputs, and the dirty flag when it reads it */
+			const probeAndDirty: ReadCounts = { ...probeOnly, dirty: 1 };
+
+			it("keeps the last read's dirty flag, reading only the probe", async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				const first = await h.service.getSummarySnapshot(repoPath);
+				// An unstaged edit leaves the index alone
+				h.repo.state.dirty = true;
+
+				const fired: WorktreeSummary[] = [];
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					sub.onDidChange(e => fired.push(e));
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeOnly);
+				assert.strictEqual(sub?.current, first.summary);
+				assert.deepStrictEqual(fired, [first.summary], 'the first value is a change from nothing');
+				assert.strictEqual(sub.dirtyReadAt, first.dirtyReadAt);
+				assert.strictEqual((await h.service.getSummarySnapshot(repoPath)).dirtyReadAt, first.dirtyReadAt);
+			});
+
+			it('reads the dirty flag once as the watch goes live, firing the same summary when it held', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				const first = await h.service.getSummary(repoPath);
+				const sub = h.service.subscribe(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				await h.service.getSummary(repoPath);
+
+				assert.deepStrictEqual(await readsAfter(h, () => h.startWorkingTree()), onlyDirty);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+				assert.strictEqual(fired.length, 2);
+				assert.strictEqual(fired[1], first);
+				assert.strictEqual(sub.current, first);
+				assert.strictEqual((await h.service.getSummarySnapshot(repoPath)).dirtyReadAt, undefined);
+			});
+
+			it('publishes the dirty flag the watch finds changed as it goes live', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				h.repo.state.dirty = true;
+				const sub = h.service.subscribe(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				await h.service.getSummary(repoPath);
+				assert.strictEqual(sub.current?.dirty, false);
+
+				assert.deepStrictEqual(await readsAfter(h, () => h.startWorkingTree()), onlyDirty);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+				assert.deepStrictEqual(
+					fired.map(e => e.dirty),
+					[false, true],
+				);
+				assert.strictEqual(sub.current, fired[1]);
+			});
+
+			it('reads what moved, but not the dirty flag', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				const first = await h.service.getSummarySnapshot(repoPath);
+				h.repo.state.tips['refs/remotes/origin/main'] = 'ooo222';
+				h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+				h.repo.state.dirty = true;
+
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeOnly, branch: 2, remotes: 1 });
+				assert.strictEqual(sub?.current?.behind, 5);
+				assert.strictEqual(sub.current.dirty, false);
+				assert.strictEqual(sub.dirtyReadAt, first.dirtyReadAt);
+			});
+
+			it('dates no dirty flag until the first run publishes', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				const first = await h.service.getSummarySnapshot(repoPath);
+				h.repo.state.tips['refs/remotes/origin/main'] = 'ooo222';
+				h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+				const before = h.repo.snapshot().branch;
+
+				// Past the probe, and held in the run it queues
+				h.repo.hold();
+				const sub = h.service.subscribe(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				await waitFor(() => h.repo.snapshot().branch === before + 1);
+				h.repo.release();
+				h.repo.hold();
+				await waitFor(() => h.repo.snapshot().branch === before + 2);
+				assert.strictEqual(sub.current, undefined);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+
+				h.repo.release();
+				await h.service.getSummary(repoPath);
+				assert.deepStrictEqual(
+					fired.map(e => e.behind),
+					[5],
+				);
+				assert.strictEqual(sub.dirtyReadAt, first.dirtyReadAt);
+			});
+
+			it('reads the dirty flag for a working-tree change before the watch goes live', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				const first = await h.service.getSummary(repoPath);
+				const sub = h.service.subscribe(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				await h.service.getSummary(repoPath);
+
+				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+				assert.deepStrictEqual(fired, [first, first]);
+			});
+
+			it('reads the dirty flag at once when the working-tree watch was already live', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				const handle = h.watchService.watch(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+				assert.ok(handle != null);
+				const wtSub = handle.session.subscribeToWorkingTree();
+				h.startWorkingTree();
+				// Its rescan settles before the summary listens
+				await delay(30);
+				h.repo.state.dirty = true;
+
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.strictEqual(sub?.current?.dirty, true);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+
+				wtSub.dispose();
+				handle.dispose();
+			});
+
+			it('reads everything, keeping no dirty flag, without a last read', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, all);
+				assert.deepStrictEqual(sub?.current, expectedInitial);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+			});
+
+			it('reads the dirty flag once the watch is too long going live', async t => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				h.repo.state.dirty = true;
+
+				// Only once the first read is saved: the harness's own waits use real timers
+				t.mock.timers.enable({ apis: ['setTimeout'] });
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				const tick = (ms: number) =>
+					readsOf(h, async () => {
+						t.mock.timers.tick(ms);
+						await h.service.getSummary(repoPath);
+					});
+				assert.deepStrictEqual(await tick(9_999), none);
+				assert.deepStrictEqual(await tick(1), onlyDirty);
+				assert.strictEqual(sub.current?.dirty, true);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+				sub.dispose();
+			});
+
+			it('reads the dirty flag no more once it was read again', async t => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				t.mock.timers.enable({ apis: ['setTimeout'] });
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				const counts = await readsOf(h, async () => {
+					await h.service.getSummarySnapshot(repoPath, { probeDirty: true });
+					t.mock.timers.tick(10_000);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, onlyDirty);
+				sub.dispose();
+			});
+
+			it('reads the dirty flag for a snapshot asking for it', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				h.repo.state.dirty = true;
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				let snapshot: WorktreeSummarySnapshot | undefined;
+				const counts = await readsOf(
+					h,
+					async () => (snapshot = await h.service.getSummarySnapshot(repoPath, { probeDirty: true })),
+				);
+				assert.deepStrictEqual(counts, onlyDirty);
+				assert.strictEqual(snapshot?.summary.dirty, true);
+				assert.strictEqual(snapshot.dirtyReadAt, undefined);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+			});
+
+			it('reads the dirty flag for a snapshot asking for it as the subscription starts', async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				h.repo.state.dirty = true;
+
+				let snapshot: WorktreeSummarySnapshot | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					snapshot = await h.service.getSummarySnapshot(repoPath, { probeDirty: true });
+				});
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.strictEqual(snapshot?.summary.dirty, true);
+				assert.strictEqual(snapshot.dirtyReadAt, undefined);
+			});
+
+			it('reads the dirty flag for a snapshot asking for it that a subscription answers', async t => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				t.after(() => h.repo.release());
+
+				h.repo.hold();
+				const before = h.repo.counts.branch;
+				const unasked = h.service.getSummary(repoPath);
+				await waitFor(() => h.repo.counts.branch > before);
+				const asked = h.service.getSummarySnapshot(repoPath, { probeDirty: true });
+				h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch > before + 1);
+				h.repo.state.dirty = true;
+				h.repo.release();
+
+				await unasked;
+				const snapshot = await asked;
+				assert.strictEqual(snapshot.summary.dirty, true);
+				assert.strictEqual(snapshot.dirtyReadAt, undefined);
+			});
+
+			it("drops the last read's dirty flag with a failed first run", async () => {
+				const { h } = setup({ callsOnDidStart: true });
+				await h.service.getSummary(repoPath);
+				// The branch is due, and its read lists the remotes
+				h.repo.state.tips['refs/remotes/origin/main'] = 'ooo222';
+				const remotes = h.repo.service.remotes as unknown as { getRemotes: () => Promise<unknown> };
+				const getRemotes = remotes.getRemotes;
+				const failure = new Error('read failed');
+				remotes.getRemotes = () => {
+					remotes.getRemotes = getRemotes;
+					return Promise.reject(failure);
+				};
+
+				const sub = h.service.subscribe(repoPath);
+				await assert.rejects(h.service.getSummary(repoPath), failure);
+				assert.strictEqual(sub.current, undefined);
+				assert.strictEqual(sub.dirtyReadAt, undefined);
+			});
 		});
 	});
 
