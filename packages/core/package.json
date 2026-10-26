@@ -206,6 +206,26 @@
 			"types": "./dist/plus/integrations/lite.d.ts",
 			"default": "./dist/plus/integrations/lite.js"
 		},
+		"./plus/notifications/context.js": {
+			"types": "./dist/plus/notifications/context.d.ts",
+			"default": "./dist/plus/notifications/context.js"
+		},
+		"./plus/notifications/errors.js": {
+			"types": "./dist/plus/notifications/errors.d.ts",
+			"default": "./dist/plus/notifications/errors.js"
+		},
+		"./plus/notifications/models.js": {
+			"types": "./dist/plus/notifications/models.d.ts",
+			"default": "./dist/plus/notifications/models.js"
+		},
+		"./plus/notifications/notificationsService.js": {
+			"types": "./dist/plus/notifications/notificationsService.d.ts",
+			"default": "./dist/plus/notifications/notificationsService.js"
+		},
+		"./plus/notifications/presentation.js": {
+			"types": "./dist/plus/notifications/presentation.d.ts",
+			"default": "./dist/plus/notifications/presentation.js"
+		},
 		"./utils/__tests__/*.js": null,
 		"./utils/*.js": {
 			"types": "./dist/utils/*.d.ts",

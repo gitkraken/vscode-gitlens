@@ -11,6 +11,7 @@
 		{ "path": "./packages/plus/git-github" },
 		{ "path": "./packages/plus/ai" },
 		{ "path": "./packages/plus/agents" },
+		{ "path": "./packages/plus/notifications" },
 		{ "path": "./tsconfig.node.json" },
 		{ "path": "./tsconfig.browser.json" },
 		{ "path": "./src/webviews/apps/tsconfig.json" },

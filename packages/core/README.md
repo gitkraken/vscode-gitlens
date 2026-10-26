@@ -2,18 +2,19 @@
 
 Shared Git, AI, and GitHub primitives from [GitLens](https://github.com/gitkraken/vscode-gitlens), bundled for consumption by internal GitKraken products.
 
-This package flattens eight internal workspace packages into a single tarball:
+This package flattens nine internal workspace packages into a single tarball:
 
-| Subpath               | Source package          | License        |
-| --------------------- | ----------------------- | -------------- |
-| `utils/*`             | `@gitlens/utils`        | See `LICENSE`  |
-| `ipc/*`               | `@gitlens/ipc`          | See `LICENSE`  |
-| `git/*`               | `@gitlens/git`          | See `LICENSE`  |
-| `git-cli/*`           | `@gitlens/git-cli`      | See `LICENSE`  |
-| `plus/ai/*`           | `@gitlens/ai`           | `LICENSE.plus` |
-| `plus/git-github/*`   | `@gitlens/git-github`   | `LICENSE.plus` |
-| `plus/agents/*`       | `@gitlens/agents`       | `LICENSE.plus` |
-| `plus/integrations/*` | `@gitlens/integrations` | `LICENSE.plus` |
+| Subpath                | Source package           | License        |
+| ---------------------- | ------------------------ | -------------- |
+| `utils/*`              | `@gitlens/utils`         | See `LICENSE`  |
+| `ipc/*`                | `@gitlens/ipc`           | See `LICENSE`  |
+| `git/*`                | `@gitlens/git`           | See `LICENSE`  |
+| `git-cli/*`            | `@gitlens/git-cli`       | See `LICENSE`  |
+| `plus/ai/*`            | `@gitlens/ai`            | `LICENSE.plus` |
+| `plus/git-github/*`    | `@gitlens/git-github`    | `LICENSE.plus` |
+| `plus/agents/*`        | `@gitlens/agents`        | `LICENSE.plus` |
+| `plus/integrations/*`  | `@gitlens/integrations`  | `LICENSE.plus` |
+| `plus/notifications/*` | `@gitlens/notifications` | `LICENSE.plus` |
 
 ## Usage
 
@@ -37,6 +38,13 @@ provider-neutral facade at `plus/integrations/index.js`. It has its own guide �
 warning contracts, the filter capability table, and a per-provider capability matrix:
 [`docs/integrations.md`](./docs/integrations.md).
 
+### Notifications
+
+Showing GitKraken notifications (the `notifications-service-v2` inbox) in another host goes through
+`plus/notifications/notificationsService.js` and its host context. Its guide covers implementing the context, the
+refresh and toast contracts, and what the host must own (polling, persistence, toast de-duplication, safe link
+handling): [`docs/notifications.md`](./docs/notifications.md).
+
 ### Node vs browser
 
 `utils/` uses internal `#env/*` imports that resolve differently based on the target:
@@ -53,7 +61,7 @@ The package is marked `"sideEffects": false` and uses per-file subpath exports. 
 ## Licensing
 
 - `LICENSE` — governs `utils/`, `git/`, and `git-cli/`.
-- `LICENSE.plus` — governs everything under `plus/` (currently `plus/ai/`, `plus/git-github/`, `plus/agents/`, and `plus/integrations/`). Proprietary; not for redistribution.
+- `LICENSE.plus` — governs everything under `plus/` (currently `plus/ai/`, `plus/git-github/`, `plus/agents/`, `plus/integrations/`, and `plus/notifications/`). Proprietary; not for redistribution.
 
 ## Versioning
 
@@ -63,8 +71,8 @@ Independent from the [GitLens VS Code extension](https://github.com/gitkraken/vs
 
 Built from the `packages/` workspace of [vscode-gitlens](https://github.com/gitkraken/vscode-gitlens), by `pnpm --filter @gitkraken/core-gitlens run build` in two steps:
 
-1. **`tsdown.config.ts`** compiles the eight packages' TypeScript sources straight into `dist/`, one emitted module per source module, each rooted at the subpath in the table above. It reads their `src/` directly — the packages' own manifests resolve to source, so nothing here waits on their `dist/` — and cross-package imports come out as relative paths, with `#env/*` staying external for the `"imports"` field to resolve.
-2. **`scripts/bundle.mjs`** assembles everything around that: it copies the LICENSEs and generates the manifest's `exports`, `imports`, and `dependencies` from the eight sub-packages' own manifests.
+1. **`tsdown.config.ts`** compiles the nine packages' TypeScript sources straight into `dist/`, one emitted module per source module, each rooted at the subpath in the table above. It reads their `src/` directly — the packages' own manifests resolve to source, so nothing here waits on their `dist/` — and cross-package imports come out as relative paths, with `#env/*` staying external for the `"imports"` field to resolve.
+2. **`scripts/bundle.mjs`** assembles everything around that: it copies the LICENSEs and generates the manifest's `exports`, `imports`, and `dependencies` from the nine sub-packages' own manifests.
 
 Neither the subpath layout nor the generated manifest is hand-written, so adding or removing a bundled package is a one-line change to `scripts/packages.mjs`, which both steps read.
 

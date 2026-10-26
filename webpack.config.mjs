@@ -67,6 +67,7 @@ function getLibraryAliases() {
 		'@gitlens/integrations': path.resolve(__dirname, 'packages', 'plus', 'integrations', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
+		'@gitlens/notifications': path.resolve(__dirname, 'packages', 'plus', 'notifications', 'src'),
 	};
 }
 

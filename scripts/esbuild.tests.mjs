@@ -77,6 +77,7 @@ async function buildTests(target) {
 		'@gitlens/integrations': path.resolve(__dirname, 'packages', 'plus', 'integrations', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
+		'@gitlens/notifications': path.resolve(__dirname, 'packages', 'plus', 'notifications', 'src'),
 		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
 		'@gitkraken/commit-graph-ui': path.resolve(__dirname, 'packages', 'plus', 'commit-graph-ui', 'src'),
 		'@gitlens/components': path.resolve(__dirname, 'packages', 'components', 'src'),

@@ -164,6 +164,9 @@ importers:
       '@gitlens/ipc':
         specifier: workspace:*
         version: link:packages/ipc
+      '@gitlens/notifications':
+        specifier: workspace:*
+        version: link:packages/plus/notifications
       '@gitlens/utils':
         specifier: workspace:*
         version: link:packages/utils
@@ -806,6 +809,25 @@ importers:
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
+  packages/plus/notifications:
+    dependencies:
+      '@gitlens/utils':
+        specifier: workspace:*
+        version: link:../../utils
+    devDependencies:
+      '@types/mocha':
+        specifier: 'catalog:'
+        version: 10.0.10
+      mocha:
+        specifier: 'catalog:'
+        version: 11.8.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.13
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
