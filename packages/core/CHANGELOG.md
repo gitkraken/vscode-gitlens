@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-26
+
 ### Added
 
 - Adds `requestFailed?: boolean` and `unexpectedGap?: boolean` to `ProviderPagedResult`, so a host can tell why a paged read is incomplete without reading its warnings. `requestFailed` is `fetchFailed` without the failures that only name items a successful read left unreadable, which those items' own warnings already report. `unexpectedGap` is set when the provider promised another page without a usable cursor or page position, or repeated the cursor it was given, including on a page walked internally to reach a requested page number. Both are set to an explicit boolean by `listPullRequestsPage`, `listIssuesPage` and `listIssueTrackerIssuesPage`, so their absence means a read that doesn't report them yet ([gitkraken/kepler#4398](https://github.com/gitkraken/kepler/issues/4398)) (plus/integrations)
@@ -972,7 +974,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...HEAD
+[0.20.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...gitkraken:releases/core/v0.20.0
 [0.19.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...gitkraken:releases/core/v0.19.0
 [0.18.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.17.0...gitkraken:releases/core/v0.18.0
 [0.17.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...gitkraken:releases/core/v0.17.0
