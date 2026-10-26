@@ -47,6 +47,8 @@ interface WorkingTreeWatcherEntry {
 	refreshTimer?: ReturnType<typeof setTimeout>;
 	/** What the live watcher last reported; a re-created watcher starts over from its own report */
 	reliability: FileWatcherReliability;
+	/** The live watcher has yet to call the `onDidStart` its provider promised (see `callsOnDidStart`) */
+	starting: boolean;
 	/** Compares the host's working-tree fingerprint while the watcher isn't `reliable` */
 	pollTarget?: PollTarget;
 	/**
@@ -420,6 +422,15 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	}
 
 	/**
+	 * Whether the working tree's watch has yet to go live, owing a rescan once it does (see
+	 * `FileWatchingProvider.callsOnDidStart`). Not while it's `unwatchable`: it rescans when it comes back.
+	 */
+	isWorkingTreeStarting(repoPath: string): boolean {
+		const entry = this.wtWatchers.get(getRepositoryKey(repoPath));
+		return entry?.starting === true && entry.reliability !== 'unwatchable';
+	}
+
+	/**
 	 * `'poll'` while a watcher the repository is watched through — its `.git` watchers or its working tree's — can't
 	 * watch, and is polled instead; `'events'` while it is watched natively (polled beside an `unreliable` watcher
 	 * included); `undefined` when nothing watches it, which {@link onDidChangeWatchMode} doesn't announce.
@@ -704,6 +715,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			reading: false,
 			rereadQueued: false,
 			reliability: 'reliable',
+			starting: created.starting,
 		};
 		this.wtWatchers.set(repoPath, entry);
 		this.setWorkingTreeReliability(entry, created.reliability, true);
@@ -729,23 +741,29 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.wtWatchers.delete(repoPath);
 	}
 
-	/** Creates a working-tree watcher, with the reliability it reported before returning */
+	/**
+	 * Creates a working-tree watcher, with the reliability it reported before returning, and whether it has yet to call
+	 * the `onDidStart` its provider promised
+	 */
 	private createWorkingTreeWatcher(
 		repoPath: string,
 		onEvent: (event: FileWatchEvent) => void,
 		excludes: readonly string[],
-	): { watcher: FileWatcher; reliability: FileWatcherReliability } {
+	): { watcher: FileWatcher; reliability: FileWatcherReliability; starting: boolean } {
 		let watcher: FileWatcher | undefined;
 		let started = false;
 		// Not given to `.git` watchers: a host places one for every checkout at startup, and each would cost a rescan
 		const onDidStart = (): void => {
-			// A watch that was live before `createWatcher` returned missed nothing
-			if (started || watcher == null) return;
+			if (started) return;
 
 			started = true;
+			// A watch that was live before `createWatcher` returned missed nothing
+			if (watcher == null) return;
+
 			// The same rescan as a watch coming back, and only for the live watcher, never one already replaced or stopped
 			const entry = this.wtWatchers.get(repoPath);
 			if (entry?.watcher === watcher) {
+				entry.starting = false;
 				entry.session.pushWorkingTreeChanges([], true);
 			}
 		};
@@ -755,7 +773,11 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				excludes: excludes,
 				onDidStart: onDidStart,
 			});
-			return { watcher: watcher, reliability: 'reliable' };
+			return {
+				watcher: watcher,
+				reliability: 'reliable',
+				starting: this.provider.callsOnDidStart === true && !started,
+			};
 		}
 
 		let reliability: FileWatcherReliability = 'reliable';
@@ -776,7 +798,11 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			},
 		};
 		watcher = this.provider.createWatcher(repoPath, '**', onEvent, options);
-		return { watcher: watcher, reliability: reliability };
+		return {
+			watcher: watcher,
+			reliability: reliability,
+			starting: this.provider.callsOnDidStart === true && !started,
+		};
 	}
 
 	private setWorkingTreeReliability(
@@ -792,8 +818,10 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 		if ((state === 'unwatchable') === (previous === 'unwatchable')) return;
 
-		// The watch went down or came back: whatever changed meanwhile went unseen
+		// The watch went down or came back: whatever changed meanwhile went unseen. This rescan stands in for a start still
+		// owed, which a provider that lost the watch may never report
 		if (!initial) {
+			entry.starting = false;
 			entry.session.pushWorkingTreeChanges([], true);
 		}
 		const record = this.sessionMap.get(entry.session.repoPath);
@@ -972,7 +1000,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 		// New first, then the old one: the overlap can repeat an event (the session coalesces them), but never loses one.
 		// A provider that places its watch asynchronously leaves a gap until it goes live, which its `onDidStart` rescans
-		let created: { watcher: FileWatcher; reliability: FileWatcherReliability };
+		let created: { watcher: FileWatcher; reliability: FileWatcherReliability; starting: boolean };
 		try {
 			created = this.createWorkingTreeWatcher(repoPath, entry.onEvent, [...workingTreeExcludes, ...directories]);
 		} catch {
@@ -981,6 +1009,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 		const previousWatcher = entry.watcher;
 		entry.watcher = created.watcher;
+		// The replacement owes its own start
+		entry.starting = created.starting;
 		entry.ignoredDirectories = directories;
 		previousWatcher.dispose();
 		this.setWorkingTreeReliability(entry, created.reliability);

@@ -1149,6 +1149,144 @@ describe('RepositoryWatchService', () => {
 			handle.dispose();
 			service.dispose();
 		});
+
+		describe('isWorkingTreeStarting', () => {
+			it('is true from placing the working-tree watch until it goes live, for a provider that says it will', () => {
+				const { factory, watchers } = createMockFactory();
+				const service = new RepositoryWatchService({ watchingProvider: { ...factory, callsOnDidStart: true } });
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false, 'no working-tree watch yet');
+
+				const wtSub = handle.session.subscribeToWorkingTree();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				watchers.find(w => w.basePath === '/repo')!.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it("is false for a provider that doesn't say it will", () => {
+				const { factory } = createMockFactory();
+				const service = new RepositoryWatchService({ watchingProvider: factory });
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('is false, with no rescan, for a watch that went live inside createWatcher', async () => {
+				const { factory } = createMockFactory();
+				const provider: FileWatchingProvider = {
+					...factory,
+					callsOnDidStart: true,
+					createWatcher: function (basePath, pattern, onEvent, options) {
+						const watcher = factory.createWatcher(basePath, pattern, onEvent, options);
+						if (basePath === '/repo') {
+							options?.onDidStart?.();
+						}
+						return watcher;
+					},
+				};
+				const service = new RepositoryWatchService({
+					watchingProvider: provider,
+					defaultWorkingTreeDelayMs: 20,
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+				let received = 0;
+				wtSub.onDidChangeWorkingTree(() => received++);
+
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+				await delay(60);
+				assert.strictEqual(received, 0);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('is false while the watch is unwatchable, and once it comes back', () => {
+				const { factory, watchers } = createMockFactory();
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					polling: { stat: () => Promise.resolve(undefined) },
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				const watcher = watchers.find(w => w.basePath === '/repo')!;
+				watcher.report('unwatchable');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				// Coming back rescans in place of a start the provider may never report
+				watcher.report('reliable');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('starts over with a re-created watcher, which only its own start ends', async () => {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					getIgnoredDirectories: async () => ['dist'],
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+				const [first] = watchers.filter(w => w.basePath === '/repo');
+				first.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				await delay(20);
+				const [, second, ...rest] = watchers.filter(w => w.basePath === '/repo');
+				assert.ok(second != null && rest.length === 0, 'the watcher was re-created excluding `dist`');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				second.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it("isn't ended by a replaced watcher's start", async () => {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					getIgnoredDirectories: async () => ['dist'],
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+
+				await delay(20);
+				const [first, second] = watchers.filter(w => w.basePath === '/repo');
+				assert.ok(first.disposed && second != null);
+
+				first.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+		});
 	});
 
 	describe('working-tree watcher excludes', () => {
