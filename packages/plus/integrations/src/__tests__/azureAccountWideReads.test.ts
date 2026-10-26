@@ -1450,7 +1450,8 @@ suite('Azure DevOps organization identities (#6032)', () => {
 			{ id: 'two-id' },
 			{ id: 'two-id' },
 			undefined,
-			undefined,
+			// The organization whose identity can't be read, which marks the row unresolved.
+			null,
 			{ id: 'one-id' },
 		]);
 		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
@@ -1521,6 +1522,55 @@ suite('Azure DevOps organization identities (#6032)', () => {
 		manager.dispose();
 	});
 
+	test("rows no read resolved are unresolved, not unknown-provider, once the session can't be resolved (#6083)", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities();
+		(
+			azure as unknown as { resolveReadSessionOrThrow: () => Promise<ProviderAuthenticationSession | undefined> }
+		).resolveReadSessionOrThrow = () => Promise.reject(new Error('disconnected'));
+		const rows = [
+			providerPr('pr-1', {
+				author: person('one-id'),
+				repository: { id: 'repo-1', name: 'repo', owner: { login: 'Org One' }, remoteInfo: null },
+			}),
+			// Names no one, so nothing on it needed an identity.
+			providerPr('pr-2', {
+				author: null,
+				reviews: null,
+				repository: { id: 'repo-2', name: 'repo', owner: { login: 'Org One' }, remoteInfo: null },
+			}),
+		];
+
+		assert.deepEqual(await azure.getPullRequestViewers(rows), [null, undefined]);
+		assert.equal(lookups.length, 0, 'no identity read');
+
+		manager.dispose();
+	});
+
+	test('a row that names someone but no organization to ask is unresolved, not unknown-provider (#6083)', async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities();
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+
+		const prViewers = await azure.getPullRequestViewers([
+			providerPr('pr-1', { author: person('one-id'), repository: null as never }),
+		]);
+		const issueViewers = await (
+			azure as unknown as {
+				getIssueViewers: (
+					session: ProviderAuthenticationSession,
+					issues: readonly ProviderIssue[],
+				) => Promise<({ id: string } | null | undefined)[]>;
+			}
+		).getIssueViewers(session, [
+			{ ...workItemIn('Org One', 'web', 'one-id'), project: null } as unknown as ProviderIssue,
+		]);
+
+		assert.deepEqual(prViewers, [null]);
+		assert.deepEqual(issueViewers, [null]);
+		assert.equal(lookups.length, 0, 'no identity read');
+
+		manager.dispose();
+	});
+
 	test("an organization refusing its connection data is that organization's failure, named once the credential checks out", async () => {
 		let probes = 0;
 		const manager = await azureWithRefusingOrg(
@@ -1574,12 +1624,12 @@ suite('Azure DevOps organization identities (#6032)', () => {
 			}
 		).searchMyIssuesWithTruncationResult();
 		assert.deepEqual(
-			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.assignees[0]?.id]).sort(),
+			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.viewerUnresolved, i.assignees[0]?.id]).sort(),
 			[
-				['wi-api', undefined, 'two-id'],
-				['wi-web', 'one-id', 'one-id'],
+				['wi-api', undefined, true, 'two-id'],
+				['wi-web', 'one-id', undefined, 'one-id'],
 			],
-			"an organization whose identity can't be read keeps its work items, without a viewer",
+			"an organization whose identity can't be read keeps its work items, marked unresolved rather than without a viewer",
 		);
 		assert.deepEqual(
 			lookups.sort(),
@@ -1607,12 +1657,13 @@ suite('Azure DevOps organization identities (#6032)', () => {
 				getIssueViewers: (
 					session: ProviderAuthenticationSession,
 					issues: readonly ProviderIssue[],
-				) => Promise<({ id: string } | undefined)[]>;
+				) => Promise<({ id: string } | null | undefined)[]>;
 			}
 		).getIssueViewers.bind(azure);
 
 		const viewers = await getIssueViewers(session, rows);
-		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, undefined]);
+		// `null` for the organization whose identity can't be read; nothing for the row that names no one.
+		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, null]);
 		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
 
 		await getIssueViewers(session, rows);

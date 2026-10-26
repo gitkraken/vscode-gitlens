@@ -214,7 +214,8 @@ The hosts with a cheap check select only the change state:
   comment or a label, which its full row doesn't carry either, or a vote that keeps the reviewer's state, such as an
   approval becoming an approval with suggestions. A hash collision is the only way an edit it does see can hide,
   at about 2^-64. An Azure DevOps pull request etag from before the revision existed compares unequal once and costs
-  one full read.
+  one full read. A pull request or work item row marked `viewerUnresolved` (see `viewer` and `viewerUnresolved` below)
+  never compares unchanged, so it is read in full again rather than kept without its viewer until it changes.
 - **Bitbucket Cloud:** one list request per repository per 50 pull requests, by id and in every state, where the
   full read sends one request per pull request. A pull request missing from the list is proven absent, as the full
   read's 404 would prove it. Bitbucket Cloud's rows carry no mergeability or check rollup, so its etag
@@ -281,7 +282,25 @@ and `latestReviews` carry the collection's. So the pull request reads resolve th
 row whose `authoredByMe` was resolved also carries `viewer`, the identity it was matched against: per collection on
 Azure DevOps Server, the account itself everywhere else. To tell whether a review was requested from the current
 user, or which review is theirs, compare the reviewer entries against `viewer`, not against `getCurrentAccount`. A row
-whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`.
+whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`; on Azure
+DevOps it also says so (see `viewerUnresolved` below).
+
+Azure DevOps (Services, per organization) and Azure DevOps Server (per collection) work items carry `viewer` the same
+way: the identity a work item's `author` and `assignees` were read with, which is what "assigned to me" and "authored
+by me" compare against. Every other provider's issues have none, and are matched against `getCurrentAccount`.
+
+On Azure DevOps and Azure DevOps Server, that identity is read from the organization's `ConnectionData`, which a read
+that only enriches its rows with it waits on for at most 10 seconds. When that read fails, answers without an identity
+or doesn't answer in time, a pull request or work item row that names someone carries `viewerUnresolved: true` instead
+of `viewer` (and, on a pull request, `authoredByMe`): nobody can be matched against its people, `getCurrentAccount`
+included, since on those hosts that account's id is the one that may not match. Treat such a row's "mine" questions as
+unknown, not as "no". A later read resolves it once the organization answers; one that never does stays unresolved until
+its request fails at the transport (the host's `fetch` timeout; about 5 minutes on Node's) or the connection re-syncs,
+since reads don't wait on the same hung request again. `viewerUnresolved` is set on no other row, so a row with neither
+field still means what it did: a provider with no per-row identity, or a read that resolved none for another reason. The
+account-wide pull request reads (`listPullRequestsPage` and the sweeps without `repos`) and a relationship search are
+different: they need the identity to filter by, so they wait on it without that bound, and an organization whose
+identity can't be read is reported as a failed scope with its rows left out, never as marked rows.
 
 ### Field presence
 

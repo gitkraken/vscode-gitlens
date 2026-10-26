@@ -67,7 +67,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly authoredByMe?: boolean;
 	/**
 	 * The current account as this pull request's members identify it: the identity its people were matched against,
-	 * present whenever it was resolved. {@link authoredByMe} is matched against it too, and stays `undefined` when the
+	 * present whenever it was resolved (see {@link viewerUnresolved} for an Azure DevOps row it couldn't be for). {@link authoredByMe} is matched against it too, and stays `undefined` when the
 	 * row has no author, though its reviewers or assignees still get this. A consumer matching {@link reviewRequests}
 	 * or {@link latestReviews} entries to the current user compares against this, not the account `getCurrentAccount`
 	 * returns: Azure DevOps can know one person by another id in each organization (Azure DevOps Server: collection)
@@ -75,6 +75,16 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	 * GitHub Enterprise, whose rows key people by login.
 	 */
 	readonly viewer?: { readonly id: string; readonly username?: string };
+	/**
+	 * Set, and only ever `true`, on an Azure DevOps row that names someone (its author, a reviewer or an assignee)
+	 * whose organization's (Azure DevOps Server: collection's) identity the read tried and failed to resolve: its
+	 * `ConnectionData` failed, answered without an identity, or didn't answer within 10 seconds. Such a row has neither
+	 * {@link viewer} nor {@link authoredByMe}, and neither the account `getCurrentAccount` returns nor anyone else can
+	 * be matched against its people: whether it is the current user's, or asks for their review, is unknown, not "no".
+	 * Absent everywhere else, so a row with neither field is still one whose identity wasn't resolved for another
+	 * reason (a read that doesn't resolve it, or a failed account read), as before.
+	 */
+	readonly viewerUnresolved?: true;
 	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */
 	readonly projection?: PullRequestProjection;
 }
@@ -123,6 +133,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly authoredByMe?: boolean,
 		public readonly projection?: PullRequestProjection,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
+		public readonly viewerUnresolved?: true,
 	) {}
 
 	get closed(): boolean {

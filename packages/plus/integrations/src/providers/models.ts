@@ -1436,10 +1436,14 @@ function getProviderIssueState(issue: ProviderIssue, providerId: ProviderReferen
 	return issue.closedDate != null || isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
 }
 
+/**
+ * `options.viewer` is the current account as the row's organization identifies it, or `null` where the read tried to
+ * resolve that and couldn't: a row that names someone then gets {@link IssueShape.viewerUnresolved} instead.
+ */
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { projection?: IssueProjection; viewer?: { id: string } },
+	options?: { projection?: IssueProjection; viewer?: { id: string } | null },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1514,7 +1518,7 @@ export function toIssueShape(
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
-		...(options?.viewer != null && issueNamesPeople(issue) ? { viewer: options.viewer } : {}),
+		...toIssueViewer(issue, options?.viewer),
 	};
 }
 
@@ -1854,12 +1858,16 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
+/**
+ * `options.currentAccount` is what `authoredByMe` and `viewer` are resolved against, or `null` where the read tried to
+ * resolve it and couldn't: a row that names someone then gets {@link PullRequestShape.viewerUnresolved} instead.
+ */
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
 	options?: {
 		project?: IssueProject;
-		currentAccount?: { id: string; username?: string };
+		currentAccount?: { id: string; username?: string } | null;
 		projection?: PullRequestProjection;
 	},
 ): PullRequest {
@@ -1940,7 +1948,8 @@ export function fromProviderPullRequest(
 			? authoredByCurrentAccount(pr.author, provider, options.currentAccount)
 			: undefined,
 		options?.projection,
-		options?.currentAccount,
+		options?.currentAccount ?? undefined,
+		options?.currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined,
 	);
 }
 
@@ -1970,10 +1979,11 @@ export function stampNativePullRequest(
 export function toPullRequestRow(
 	pr: ProviderPullRequest | PullRequest,
 	provider: Provider,
-	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
+	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
 ): PullRequest {
+	// Only an Azure DevOps viewer can be unresolved, and its rows are never native.
 	return isNativePullRequest(pr)
-		? stampNativePullRequest(pr, options)
+		? stampNativePullRequest(pr, { ...options, currentAccount: options.currentAccount ?? undefined })
 		: fromProviderPullRequest(pr, provider, options);
 }
 
@@ -1997,6 +2007,20 @@ export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): b
 	return isNativePullRequest(pr)
 		? Boolean(pr.reviewRequests?.length || pr.latestReviews?.length)
 		: Boolean(pr.reviews?.length);
+}
+
+/**
+ * The viewer fields of an issue row naming `issue`'s people, from what its read resolved: `viewer` when it resolved
+ * one, `viewerUnresolved` when it tried and couldn't (`null`), and neither for a row that names no one, as nothing on
+ * it can be matched. Only the keys it sets, so a row resolved as before keeps exactly the keys it always had.
+ */
+export function toIssueViewer(
+	issue: Parameters<typeof issueNamesPeople>[0],
+	viewer: { id: string } | null | undefined,
+): { viewer?: { id: string }; viewerUnresolved?: true } | undefined {
+	if (viewer === undefined || !issueNamesPeople(issue)) return undefined;
+
+	return viewer != null ? { viewer: viewer } : { viewerUnresolved: true };
 }
 
 /**
@@ -2033,13 +2057,15 @@ function authoredByCurrentAccount(
 	return isGitHub && currentAccount.username != null && author.username === currentAccount.username;
 }
 
+/** `options.viewer` as {@link toIssueShape} takes it. */
 export function fromProviderIssue(
 	issue: ProviderIssue,
 	integration: Integration,
-	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } },
+	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } | null },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
+	const viewer = toIssueViewer(issue, options?.viewer);
 	return new Issue(
 		integration,
 		identifier,
@@ -2087,7 +2113,8 @@ export function fromProviderIssue(
 		toIssueIterations(issue),
 		options?.projection,
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
-		issueNamesPeople(issue) ? options?.viewer : undefined,
+		viewer?.viewer,
+		viewer?.viewerUnresolved,
 	);
 }
 

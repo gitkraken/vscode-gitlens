@@ -518,10 +518,11 @@ export class AzureDevOpsApi implements Disposable {
 		options: {
 			baseUrl: string;
 			/**
-			 * The current user as the organization's work items identify them, set as the row's `viewer`. Asked only once
-			 * the work item was read, alongside its state and fields; never rejects.
+			 * The current user as the organization's work items identify them, set as the row's `viewer`, or `null` when
+			 * it couldn't be resolved, which marks the row `viewerUnresolved`. Asked only once the work item was read,
+			 * alongside its state and fields; never rejects.
 			 */
-			viewer?: () => Promise<{ id: string } | undefined>;
+			viewer?: () => Promise<{ id: string } | null>;
 		},
 	): Promise<Issue | undefined> {
 		const scope = getScopedLogger();
@@ -979,8 +980,9 @@ export class AzureDevOpsApi implements Disposable {
 	 * the count of the same query; the caller refreshes its project discovery before a search so that means a
 	 * project created during the pagination.
 	 *
-	 * `viewer` resolves the current user as the collection's work items identify them, set as each row's `viewer`. It's
-	 * asked once for a page that read any work item, and never rejects.
+	 * `viewer` resolves the current user as the collection's work items identify them, set as each row's `viewer`, or
+	 * `null` when it couldn't be resolved, which marks the rows `viewerUnresolved`. It's asked once for a page that read
+	 * any work item, and never rejects.
 	 */
 	@trace({
 		args: (provider, token, collection) => ({
@@ -995,7 +997,7 @@ export class AzureDevOpsApi implements Disposable {
 		collection: string,
 		options: WorkItemSearchOptions & {
 			resolveProject: (name: string) => AzureProjectDescriptor | undefined;
-			viewer?: () => Promise<{ id: string } | undefined>;
+			viewer?: () => Promise<{ id: string } | null>;
 			cursor?: string;
 			pageSize?: number;
 		},
