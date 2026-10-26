@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `requestFailed?: boolean` and `unexpectedGap?: boolean` to `ProviderPagedResult`, so a host can tell why a paged read is incomplete without reading its warnings. `requestFailed` is `fetchFailed` without the failures that only name items a successful read left unreadable, which those items' own warnings already report. `unexpectedGap` is set when the provider promised another page without a usable cursor or page position, or repeated the cursor it was given, including on a page walked internally to reach a requested page number. Both are set to an explicit boolean by `listPullRequestsPage`, `listIssuesPage` and `listIssueTrackerIssuesPage`, so their absence means a read that doesn't report them yet ([gitkraken/kepler#4398](https://github.com/gitkraken/kepler/issues/4398)) (plus/integrations)
+
 ## [0.19.0] - 2026-10-26
 
 ### Added
