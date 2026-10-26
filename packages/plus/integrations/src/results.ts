@@ -376,6 +376,13 @@ export interface ProviderResult<T> {
 }
 
 export interface ProviderPagedResult<T> extends ProviderResult<T> {
+	/**
+	 * True when a request failed. Unlike `fetchFailed`, a collection read successfully that only left some of its items
+	 * unreadable doesn't set it; those items are named by their own warnings.
+	 */
+	requestFailed?: boolean;
+	/** True when the provider advertised continuation without a usable cursor or page position, or repeated one. */
+	unexpectedGap?: boolean;
 	page: ProviderPageInfo;
 	hasMore: boolean;
 	/**

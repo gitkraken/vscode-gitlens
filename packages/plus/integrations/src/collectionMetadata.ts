@@ -639,13 +639,14 @@ export function mergeAssessmentInto(
 	domain: string | undefined,
 	connectionId: string | undefined,
 	metadata: CollectionMetadata | undefined,
-): { fetchFailed: boolean; truncated: boolean; reported: boolean } {
+): { fetchFailed: boolean; requestFailed: boolean; truncated: boolean; reported: boolean } {
 	const assessment = assessCollectionMetadata(providerId, domain, connectionId, metadata);
 	for (const warning of assessment.warnings) {
 		appendDedupedWarning(warnings, warning);
 	}
 	return {
 		fetchFailed: assessment.fetchFailed,
+		requestFailed: assessment.requestFailed,
 		truncated: assessment.truncated,
 		// What the assessment PRODUCED, not what `appendDedupedWarning` accepted: a warning dropped as a
 		// duplicate is still one the consumer will see, so it still makes a restatement redundant.

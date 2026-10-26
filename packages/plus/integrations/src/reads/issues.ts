@@ -443,6 +443,8 @@ async function readAccountWideIssuesPage({
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
 		fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
+		requestFailed: assessment.requestFailed || pageFetchFailed,
+		unexpectedGap: drained.unexpectedGap,
 	};
 }
 
@@ -558,6 +560,7 @@ async function readRepoScopedIssuesPage({
 	let pageFetchFailed = warning != null && value == null;
 	let paged = toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 	let allMetadata = value?.metadata;
+	let drainedGap = false;
 
 	// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor, so a page-only
 	// request is advanced through the provider's own continuations (see drainToRequestedPage).
@@ -600,6 +603,7 @@ async function readRepoScopedIssuesPage({
 		paged = drained.paged;
 		allMetadata = drained.metadata;
 		pageFetchFailed = drained.fetchFailed;
+		drainedGap = drained.unexpectedGap === true;
 	}
 
 	// Ordered once the drain (above) has assembled whichever pages this position spans.
@@ -649,5 +653,8 @@ async function readRepoScopedIssuesPage({
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
 		fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
+		requestFailed: assessment.requestFailed || pageFetchFailed,
+		unexpectedGap:
+			drainedGap || (paged.hasMore === true && usableCursor(paged.cursor) == null && !issuesPageAdvanceable),
 	};
 }
