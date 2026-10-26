@@ -303,6 +303,14 @@ function getExtensionConfig(target, mode, env) {
 		);
 	}
 
+	// Webpack's 244 KiB default assumes a conventional web page. Keep a realistic extension
+	// budget so a material bundle-size regression still becomes a warning (and fails one-shot builds).
+	// The webworker bundle carries the whole core (watching layer, provider integrations) in one file, and
+	// legitimate feature growth across ~80 core commits used up the 4 MiB budget, so it gets 4.25 MiB.
+	// That build is also capped at one chunk, so a DEBUG build (`bundle:e2e`) inlines the lazy
+	// `__debug__*` imports into its gitlens.js; the extra 40 KiB covers them on top of that budget.
+	const sizeBudget = target === 'webworker' ? 4.25 * 1024 * 1024 + (debug ? 40 * 1024 : 0) : 4 * 1024 * 1024;
+
 	return {
 		name: `extension:${target}`,
 		// `rebaseTodoEditor` is a standalone Node script bundled for desktop only — it's git's
@@ -317,14 +325,7 @@ function getExtensionConfig(target, mode, env) {
 		mode: mode,
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
-		// Webpack's 244 KiB default assumes a conventional web page. Keep a realistic extension
-		// budget so a material bundle-size regression still becomes a warning (and fails one-shot builds).
-		// The webworker bundle carries the whole core (watching layer, provider integrations) in one file, and
-		// legitimate feature growth across ~80 core commits used up the 4 MiB budget, so it gets 4.25 MiB.
-		performance: {
-			maxAssetSize: (target === 'webworker' ? 4.25 : 4) * 1024 * 1024,
-			maxEntrypointSize: (target === 'webworker' ? 4.25 : 4) * 1024 * 1024,
-		},
+		performance: { maxAssetSize: sizeBudget, maxEntrypointSize: sizeBudget },
 		output: {
 			chunkFilename: '[name].js',
 			filename: pathData => (pathData.chunk?.name === 'extension' ? 'gitlens.js' : '[name].js'),
