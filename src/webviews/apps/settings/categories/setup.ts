@@ -19,6 +19,21 @@ export const setupCategories: SettingsCategory[] = [
 		],
 	},
 	{
+		id: 'notifications',
+		name: l10n.t('Notifications'),
+		group: 'Setup',
+		icon: 'bell',
+		hint: l10n.t('Messages from GitKraken for your account and organization'),
+		controls: [
+			{
+				kind: 'notifications',
+				// Search text — the rendered inbox comes from the notifications RPC service
+				label: l10n.t('Notifications inbox'),
+				hint: l10n.t('Read, mark, and delete GitKraken notifications, and choose whether to receive offers'),
+			},
+		],
+	},
+	{
 		id: 'setup',
 		name: l10n.t('Get Started'),
 		group: 'Setup',

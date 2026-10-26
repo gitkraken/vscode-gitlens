@@ -1134,6 +1134,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.plus.restore'
 	| 'gitlens.plus.signUp'
 	| 'gitlens.plus.simulate.ai'
+	| 'gitlens.plus.simulate.notifications'
 	| 'gitlens.plus.simulate.subscription'
 	| 'gitlens.plus.upgrade'
 	| 'gitlens.plus.validate'
@@ -1280,4 +1281,5 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.showSettingsPage!agents'
 	| 'gitlens.showSettingsPage!ai'
 	| 'gitlens.showSettingsPage!integrations'
+	| 'gitlens.showSettingsPage!notifications'
 	| 'gitlens.showWelcomeView';

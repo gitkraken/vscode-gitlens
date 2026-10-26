@@ -6690,6 +6690,10 @@
 			"label": "Simulate AI Provider (Debugging)",
 			"commandPalette": "gitlens:enabled && gitlens:debugging"
 		},
+		"gitlens.plus.simulate.notifications": {
+			"label": "Simulate Notifications (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
 		"gitlens.plus.simulate.subscription": {
 			"label": "Simulate Subscription (Debugging)",
 			"commandPalette": "gitlens:enabled && gitlens:debugging"
@@ -8296,6 +8300,10 @@
 					}
 				]
 			}
+		},
+		"gitlens.showSettingsPage!notifications": {
+			"label": "Open Notifications",
+			"icon": "$(gear)"
 		},
 		"gitlens.showSettingsPage!remotes-view": {
 			"label": "Open View Settings",

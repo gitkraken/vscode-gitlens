@@ -10,6 +10,7 @@ import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
+import type { GkNotification, NotificationSettings, NotificationsStatus } from '@gitlens/notifications/models.js';
 import type { Source, TelemetryEventData, TelemetryEvents } from '../../../constants.telemetry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 
@@ -234,6 +235,40 @@ export interface AiUsageInfo {
 	 * `used` above. Lets the pool's bar separate this user's draw from the rest of the organization's.
 	 */
 	readonly sharedUsed?: number;
+}
+
+/**
+ * The GitKraken notifications inbox. Unless `access` is `'signedIn'`, the rest is empty and nothing polls.
+ */
+export interface NotificationsInboxState {
+	/**
+	 * What a surface can show:
+	 * - `'unavailable'` — the feature flag is off; show nothing
+	 * - `'signedOut'` — the flag is on but there's no account, so no inbox; a surface may prompt to sign in
+	 * - `'signedIn'` — the inbox is live (the rest of this state is the signed-in account's)
+	 */
+	readonly access: 'unavailable' | 'signedOut' | 'signedIn';
+	/**
+	 * Opaque; changes whenever the host starts a new inbox (sign-in or an account switch), so a surface
+	 * can drop UI state (failures, fetched-once requests) that belonged to the previous one. `undefined` unless signed in
+	 */
+	readonly inboxId: number | undefined;
+	readonly status: NotificationsStatus;
+	/** Newest first */
+	readonly items: GkNotification[];
+	readonly hasMore: boolean;
+	/** Unread among the loaded items */
+	readonly unreadCount: number;
+	/** `undefined` until fetched (see `getSettings()`) or restored from the cache */
+	readonly settings: NotificationSettings | undefined;
+	/** When the list was last fetched successfully (ms since the epoch) */
+	readonly lastSyncedAt: number | undefined;
+	/**
+	 * A notification to scroll to and focus (a toast's View asked for it). Targets the Settings inbox only — a toast's
+	 * View always opens Settings — which applies it once, then calls `consumeFocus()`. Other surfaces must ignore it
+	 * (and never call `consumeFocus()`), or they'd steal the request from Settings.
+	 */
+	readonly focusNotificationId: string | undefined;
 }
 
 // ============================================================

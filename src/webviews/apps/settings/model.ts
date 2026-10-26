@@ -230,6 +230,15 @@ export interface AgentsPanelDescriptor extends DescriptorBase {
 	kind: 'agents';
 }
 
+/**
+ * The GitKraken notifications inbox — renders `gl-settings-notifications` (list, read state, marketing opt-out).
+ * Driven by the notifications RPC service; `label`/`hint` exist for search. Its category is hidden while the
+ * feature flag is off (see `state.ts`).
+ */
+export interface NotificationsPanelDescriptor extends DescriptorBase {
+	kind: 'notifications';
+}
+
 /** Non-interactive informational callout. */
 export interface InfoDescriptor {
 	kind: 'info';
@@ -253,6 +262,7 @@ export type SettingDescriptor =
 	| AgentsPanelDescriptor
 	| SetupDescriptor
 	| AccountPanelDescriptor
+	| NotificationsPanelDescriptor
 	| InfoDescriptor;
 
 export interface SettingsCategory {
@@ -396,6 +406,7 @@ export function descriptorKeys(d: SettingDescriptor): string[] {
 			return ['ai.defaultAgent'];
 		case 'setup':
 		case 'account':
+		case 'notifications':
 		case 'integrations':
 		case 'info':
 			return [];

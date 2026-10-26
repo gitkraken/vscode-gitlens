@@ -9424,6 +9424,11 @@
 				"category": "%command.category%"
 			},
 			{
+				"command": "gitlens.plus.simulate.notifications",
+				"title": "%command.gitlens.plus.simulate.notifications.title%",
+				"category": "%command.category%"
+			},
+			{
 				"command": "gitlens.plus.simulate.subscription",
 				"title": "%command.gitlens.plus.simulate.subscription.title%",
 				"category": "%command.category%"
@@ -9951,6 +9956,11 @@
 			{
 				"command": "gitlens.showSettingsPage!line-history-view",
 				"title": "%command.gitlens.showSettingsPage!line-history-view.title%",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage!notifications",
+				"title": "%command.gitlens.showSettingsPage!notifications.title%",
 				"icon": "$(gear)"
 			},
 			{
@@ -15404,6 +15414,10 @@
 					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
+					"command": "gitlens.plus.simulate.notifications",
+					"when": "gitlens:enabled && gitlens:debugging"
+				},
+				{
 					"command": "gitlens.plus.simulate.subscription",
 					"when": "gitlens:enabled && gitlens:debugging"
 				},
@@ -15769,6 +15783,10 @@
 				},
 				{
 					"command": "gitlens.showSettingsPage!line-history-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage!notifications",
 					"when": "false"
 				},
 				{

@@ -18,6 +18,7 @@ import type { Config } from '../../config.js';
 import type { ConfigPath, ConfigPathValue } from '../../system/-webview/configuration.js';
 import type { CustomConfigPath, CustomConfigPathValue } from '../protocol.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
+import type { NotificationsRpcService } from '../rpc/services/notifications.js';
 import type { Unsubscribe } from '../rpc/services/types.js';
 import type { WalkthroughProgressService } from '../rpc/walkthroughService.js';
 
@@ -138,6 +139,8 @@ export interface SettingsViewService {
 /** RPC services for the Settings webview. */
 export interface SettingsServices extends SharedWebviewServices {
 	readonly settings: SettingsViewService;
+	/** The GitKraken notifications inbox (the Notifications category). */
+	readonly notifications: NotificationsRpcService;
 	/** Walkthrough progress for the Get Started launchpad's two walkthrough steps. */
 	readonly walkthrough: WalkthroughProgressService;
 }

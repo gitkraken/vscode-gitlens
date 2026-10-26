@@ -8,6 +8,7 @@ import type {
 	AiModelInfo,
 	AIState,
 	IntegrationStateInfo,
+	NotificationsInboxState,
 	ScopedAiModelInfo,
 } from '../../rpc/services/types.js';
 import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
@@ -15,7 +16,7 @@ import type { SettingsScope } from '../../settings/settingsService.js';
 import type { HostStorage } from '../shared/host/storage.js';
 import { createStateGroup } from '../shared/state/signals.js';
 import { defaultSettingsCategory, defaultSettingsCategoryId, settingsCategories } from './categories/index.js';
-import type { SettingsSearchMatch } from './model.js';
+import type { SettingsCategory, SettingsSearchMatch } from './model.js';
 import { getPath, searchSettings } from './model.js';
 
 /**
@@ -58,6 +59,11 @@ export function createSettingsState(storage?: HostStorage) {
 	const walkthrough = signal<WalkthroughProgressPayload | undefined>(undefined);
 	/** The compose/review/resolve scoped overrides, in display order; `undefined` means not yet loaded. */
 	const scopedAiModels = signal<ScopedAiModelInfo[] | undefined>(undefined);
+	/**
+	 * The GitKraken notifications inbox (host-pushed via `notifications.onNotificationsChanged`); `undefined`
+	 * until the first read, so the nav shows a placeholder and the Notifications category stays hidden.
+	 */
+	const notifications = signal<NotificationsInboxState | undefined>(undefined);
 	/** Shared-service fetch failures, so panels can show an error + retry instead of a forever-skeleton */
 	const serviceErrors = signal<{ integrations: boolean; ai: boolean; agents: boolean }>({
 		integrations: false,
@@ -77,13 +83,24 @@ export function createSettingsState(storage?: HostStorage) {
 	const error = signal<string | undefined>(undefined);
 
 	// Derived
+	/**
+	 * The categories the rail offers: the Notifications category only exists while its feature flag is on. A
+	 * hidden category still resolves as an anchor, but selecting it lands on the default category instead.
+	 */
+	const categories = computed<readonly SettingsCategory[]>(() => {
+		const access = notifications.get()?.access;
+		return access != null && access !== 'unavailable'
+			? settingsCategories
+			: settingsCategories.filter(c => !c.controls.some(d => d.kind === 'notifications'));
+	});
+
 	const searchResults = computed<SettingsSearchMatch[]>(() =>
-		searchSettings(settingsCategories, query.get(), getSettingValue),
+		searchSettings(categories.get(), query.get(), getSettingValue),
 	);
 
 	const selectedCategory = computed(() => {
 		const id = selectedCategoryId.get();
-		return settingsCategories.find(c => c.id === id) ?? defaultSettingsCategory;
+		return categories.get().find(c => c.id === id) ?? defaultSettingsCategory;
 	});
 
 	/**
@@ -140,6 +157,7 @@ export function createSettingsState(storage?: HostStorage) {
 		agents: agents,
 		walkthrough: walkthrough,
 		scopedAiModels: scopedAiModels,
+		notifications: notifications,
 		serviceErrors: serviceErrors,
 
 		// Ephemeral UI

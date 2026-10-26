@@ -17,6 +17,7 @@ import './settings-agents.js';
 import './settings-ai.js';
 import './settings-autolinks.js';
 import './settings-integrations.js';
+import './settings-notifications.js';
 import './settings-remotes.js';
 import './settings-scm-views.js';
 import './settings-setup.js';
@@ -358,6 +359,9 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 
 			case 'account':
 				return html`<gl-settings-account .actions=${this.actions}></gl-settings-account>`;
+
+			case 'notifications':
+				return html`<gl-settings-notifications .actions=${this.actions}></gl-settings-notifications>`;
 
 			case 'info':
 				return html`<div class="info" role="note">

@@ -8,6 +8,7 @@ import type {
 	StoredIntegrationConfigurations,
 } from '@gitlens/integrations/constants.js';
 import type { IntegrationConnectedKey } from '@gitlens/integrations/models/integration.js';
+import type { NotificationsSnapshot } from '@gitlens/notifications/models.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
@@ -133,6 +134,13 @@ interface GlobalStorageCore {
 	'featureFlags:flags': FeatureFlagMap;
 	/** Whether a feature-flag fetch has ever completed (even unsuccessfully) — see `hasEverFetched` */
 	'featureFlags:fetched': boolean;
+	/**
+	 * The last notifications list (with when it was synced) per account id, shown until the next refresh lands; only
+	 * the most recently written few accounts are kept
+	 */
+	'notifications:cache': Record<string, StoredNotificationsCacheEntry>;
+	/** Notification id → when it was toasted; shared across windows so a notice never toasts twice */
+	'notifications:toasted': Record<string, number>;
 	/** A/B (welcome-in-editor): the arm latched on first run — true = Welcome opened as an editor tab */
 	'welcome:inEditorShown': boolean;
 }
@@ -181,6 +189,12 @@ export interface StoredGkCLIInstallInfo {
 // so the multi-account descriptor shape (id/primary/type/accountName) can't drift between the extension's
 // storage typing and the integrations package that owns it.
 export type { StoredConfiguredIntegrationDescriptor, StoredIntegrationConfigurations };
+
+export interface StoredNotificationsCacheEntry {
+	snapshot: NotificationsSnapshot;
+	/** When this entry was last written (ms since the epoch); the oldest entries are evicted first */
+	writtenAt: number;
+}
 
 export interface StoredProductConfig {
 	promos: StoredPromo[];

@@ -6,6 +6,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { focusOutlineButton, srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { formatUnreadCount } from '@gitlens/notifications/presentation.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AutolinkConfig } from '../../../../config.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
@@ -231,12 +232,44 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 	 */
 	private categoryStatus(category: SettingsCategory): {
 		on: boolean | undefined;
+		/** An empty `label` shows no count but still announces `aria` (instead of On/Off) */
 		count?: { label: string; aria: string };
 	} {
 		// Signed-in cue for the Account section — placeholder pip until the subscription resolves
 		if (category.controls.some(c => c.kind === 'account')) {
 			if (this._subscription.subscription.get() === undefined) return { on: undefined };
 			return { on: this._subscription.hasAccount.get() };
+		}
+
+		if (category.controls.some(c => c.kind === 'notifications')) {
+			const notifications = this._state.notifications.get();
+			// Still loading (nothing cached and the first fetch hasn't finished) — placeholder pip, no count
+			if (
+				notifications == null ||
+				(notifications.access === 'signedIn' &&
+					notifications.lastSyncedAt == null &&
+					notifications.status !== 'error')
+			) {
+				return { on: undefined };
+			}
+
+			// Signed out: there is nothing to count
+			if (notifications.access !== 'signedIn') return { on: false };
+
+			const unread = notifications.unreadCount;
+			return {
+				on: unread > 0,
+				count: {
+					// A visible zero is noise; the pip says there's nothing unread (the aria text still does)
+					label: unread > 0 ? formatUnreadCount(unread) : '',
+					aria:
+						unread === 0
+							? l10n.t('Notifications, no unread')
+							: unread > 99
+								? l10n.t('Notifications, more than 99 unread')
+								: l10n.t('Notifications, {count} unread', { count: unread }),
+				},
+			};
 		}
 
 		if (category.controls.some(c => c.kind === 'integrations')) {
@@ -349,7 +382,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 	private _scrolledSelectedId?: string;
 
 	override willUpdate(): void {
-		this._pendingSelectedId = this._state.selectedCategoryId.get();
+		this._pendingSelectedId = this._state.selectedCategory.get().id;
 	}
 
 	override updated(): void {
@@ -403,7 +436,8 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				</div>`;
 		}
 
-		const selectedId = this._state.selectedCategoryId.get();
+		// The resolved category, not the raw id: a persisted or deep-linked id can name a hidden category
+		const selectedId = this._state.selectedCategory.get().id;
 		// Roving tabindex: when search filters out the selected category, the
 		// first rendered item becomes the tab stop so the rail stays reachable
 		const tabStopId = matches.some(m => m.category.id === selectedId) ? selectedId : matches[0].category.id;
@@ -480,7 +514,9 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			}
 			${
 				count
-					? html`<span class="item__count" aria-label=${count.aria}>${count.label}</span>`
+					? count.label
+						? html`<span class="item__count" aria-label=${count.aria}>${count.label}</span>`
+						: html`<span class="sr-only">${count.aria}</span>`
 					: on !== undefined
 						? html`<span class="sr-only">${on ? l10n.t('On') : l10n.t('Off')}</span>`
 						: nothing

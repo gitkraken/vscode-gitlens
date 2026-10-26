@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Notifications_ section to _GitLens Settings_ for messages from GitKraken about your account and organization &mdash; filter by all, unread, or read, mark notifications read or unread, delete them, and follow their links
+  - Shows the unread count in the settings navigation, and pops up only new security and system notices (never while the inbox is open)
+  - Paid plans can opt out of marketing notifications
+
 ### Changed
 
 - Changes the Pro feature gates, the feature badge, the _Commit Graph_ account chip, _GitLens Settings_ → _Account_, the Welcome page and the Pro-gated view prompts to offer _Upgrade to Pro_ alongside _Reactivate Pro Trial_, so an account the server won't reactivate isn't left without a path to Pro ([#6010](https://github.com/gitkraken/vscode-gitlens/issues/6010))

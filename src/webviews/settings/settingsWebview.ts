@@ -22,6 +22,7 @@ import { assertsConfigKeyValue, isCustomConfigKey } from '../protocol.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import { createSharedServices } from '../rpc/services/common.js';
+import { NotificationsRpcService } from '../rpc/services/notifications.js';
 import { proxyServices } from '../rpc/services/proxy.js';
 import { WalkthroughService } from '../rpc/walkthroughService.js';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider.js';
@@ -110,6 +111,8 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 			...shared,
 
 			walkthrough: new WalkthroughService(this.container, buffer, tracker),
+
+			notifications: new NotificationsRpcService(this.container, this.host, buffer, tracker),
 
 			settings: {
 				// ── Events ──
