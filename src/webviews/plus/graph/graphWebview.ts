@@ -2867,11 +2867,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
 		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
 		// (`worktrees` → wipRowsById; also falls through to the structural gate below as a
-		// backstop full-state push), tracking changes (`head|heads|remotes` → wip.branch.upstream,
-		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel), and
-		// `.git/config` edits (`config` → wip.signing; the watcher currently always pairs `config`
-		// with `remotes`, but don't rely on that classifier detail). Unioned so the in-flight
-		// coalescer can't double-fire on a single multi-flag event (e.g. Pull's
+		// backstop full-state push), tracking changes (`head|heads|remotes|config` → wip.branch.upstream,
+		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel; a `git branch -u`
+		// arrives as `config` alone, since the watcher delivers a write confined to `branch.<name>`
+		// sections without `remotes`), and other `.git/config` edits (`config` → wip.signing). Unioned so
+		// the in-flight coalescer can't double-fire on a single multi-flag event (e.g. Pull's
 		// `head, heads, remotes, index`).
 		if (e.changed('head', 'heads', 'index', 'ignores', 'remotes', 'worktrees', 'config')) {
 			void this._wip.notifyDidChangeWorkingTree();
@@ -2892,12 +2892,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastFetchedHandlerDebounced();
 		}
 
-		// Drop stale refsMetadata.issue cache entries on any `config` event. In practice `.git/config`
-		// writes are classified as `[config, remotes]` (the classifier can't cheaply tell a remote.*
-		// write from any other key change), so this is always paired with the `remotes` flag in the
-		// structural gate below, which runs `getState` → re-fetches fresh refsMetadata. There's no
-		// dedicated config-exclusive fast path because `e.changedExclusive('config')` would never
-		// match in the wild.
+		// Drop stale refsMetadata.issue cache entries on any `config` event. The watcher delivers a `.git/config`
+		// write confined to `branch.<name>` sections as `config` alone, and any other as `config` + `remotes`;
+		// either way `config` passes the structural gate below, which runs `getState` → re-fetches fresh
+		// refsMetadata.
 		if (e.changed('config')) {
 			this._producers.clearRefsMetadataIssues();
 		}
@@ -2908,6 +2906,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				'heads',
 				// 'index',
 				'remotes',
+				// A branch-only `.git/config` write (`git branch -u`, `git push -u` setting the upstream, …) comes
+				// as `config` without `remotes`, and rows embed each branch's upstream pill and HEAD's upstream
+				// (unpushed marks) — no lighter path refreshes those, so it takes the state rebuild
+				'config',
 				// 'remoteProviders',
 				'starred',
 				'stash',
@@ -2921,23 +2923,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		// Branch tips, stored merge targets, and remote tracking can all move the merge-base anchor
-		// scope relies on. Drop the host-side overview cache and signal the webview to drop its
-		// mirrored merge-base cache so the next scope resolve recomputes against fresh refs.
-		// (config-only events are handled above; this branch covers heads/remotes mixed with anything.)
-		if (e.changed('heads', 'remotes')) {
+		// Branch tips, upstreams, and remote tracking can all move the merge-base anchor scope relies on.
+		// Drop the host-side overview cache and signal the webview to drop its mirrored merge-base cache so
+		// the next scope resolve recomputes against fresh refs.
+		if (e.changed('heads', 'remotes', 'config')) {
 			this.invalidateScopeAnchors();
-			// Local/remote tips moved → cached ahead/behind is stale. Re-fetch the tracked branches in place
-			// (delta), the one event that actually changes upstream counts — NOT every state push.
+			// Local/remote tips or upstreams moved → cached ahead/behind is stale. Re-fetch the tracked branches
+			// in place (delta), the events that actually change upstream counts — NOT every state push.
 			this._producers.invalidateUpstreamRefsMetadata();
 		}
 
-		// Invalidate sidebar panels only for changes that actually affect their data. Skipping this for
-		// config/unknown/pausedOp changes prevents the sidebar from showing a spinner during unrelated
-		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
-		// Deferred to post-rebuild (see consumer in `notifyDidChangeState`) so the webview's refetch
-		// reads the updated graph session.
-		if (e.changed('heads', 'remotes', 'stash', 'tags', 'worktrees')) {
+		// Invalidate sidebar panels only for changes that actually affect their data (`config` for the
+		// branches panel's upstream/tracking). Skipping this for unknown/pausedOp changes prevents the
+		// sidebar from showing a spinner during unrelated repo activity (e.g. worktrees discovered during
+		// graph scroll fire `unknown` repo events). Deferred to post-rebuild (see consumer in
+		// `notifyDidChangeState`) so the webview's refetch reads the updated graph session.
+		if (e.changed('heads', 'remotes', 'config', 'stash', 'tags', 'worktrees')) {
 			this._sidebarEventCounter.next();
 		}
 
@@ -2946,7 +2947,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// branchState; the webview dedups equal values (see the `branchState` guard in
 		// stateProvider.ts's `state.onStateChanged` handler), so the worst case is a redundant push
 		// discarded on receipt.
-		if (e.changed('head', 'heads', 'remotes')) {
+		if (e.changed('head', 'heads', 'remotes', 'config')) {
 			void this._producers.notifyDidChangeBranchStateOnly();
 		}
 

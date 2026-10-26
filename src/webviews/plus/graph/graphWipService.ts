@@ -351,8 +351,9 @@ export class GraphWipService {
 					// CLI, ignoring/un-ignoring files, rebase progress, fetch/publish) only surface
 					// via the structural `onDidChange` event — mirror the WIP triggers the primary
 					// fires from `onRepositoryChanged` (see `index`/`ignores` and
-					// `head`/`heads`/`remotes`) so the secondary panel stays reactive to those same
-					// changes.
+					// `head`/`heads`/`remotes`/`config` — a branch-only `.git/config` write, like setting an
+					// upstream, comes as `config` alone) so the secondary panel stays reactive to those
+					// same changes.
 					watcher.onDidChange(e => {
 						if (!e.changed('index', 'ignores', 'pausedOp', 'head', 'heads', 'remotes', 'config')) return;
 

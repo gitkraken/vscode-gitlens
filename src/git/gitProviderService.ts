@@ -335,7 +335,10 @@ export class GitProviderService implements UnifiedDisposable {
 		this._cache = new Cache();
 
 		const watchingProvider = createWatchingProvider();
-		this._gitService = GitService.createSingleton(watchingProvider);
+		// `readFile` lets the watcher diff `.git/config` and deliver a write confined to `branch.<name>` sections
+		// (upstream, push remote, description, …) as `config` alone, instead of always pairing it with `remotes`. A
+		// read that fails (e.g. a virtual repo with no real `.git/config`) is treated as unconfined, as without it
+		this._gitService = GitService.createSingleton(watchingProvider, { readFile: readWatchedFile });
 		this._watchService = this._gitService.watchService!;
 		this._repositoryInitWatcher = new RepositoryInitWatcher(watchingProvider);
 
@@ -2568,6 +2571,10 @@ export class GitProviderService implements UnifiedDisposable {
 
 function getEncoding(uri: Uri): string {
 	return configuration.getCore('files.encoding', uri) ?? 'utf8';
+}
+
+function readWatchedFile(path: string): Promise<Uint8Array> {
+	return Promise.resolve(workspace.fs.readFile(coerceUri(path)));
 }
 
 function createWatchingProvider(): FileWatchingProvider {
