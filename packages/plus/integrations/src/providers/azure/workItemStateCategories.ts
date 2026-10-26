@@ -19,21 +19,23 @@ export type AzureWorkItemStatesScope = {
 	isPAT: boolean;
 };
 
+// Each builder takes the version REST discovery negotiated, never a fixed one: a server older than that version answers
+// it with a 404 page (#6070).
 export function getAzureWorkItemTypesUrl(
 	baseUrl: string,
 	namespace: string,
 	project: string,
-	apiVersion = '6.0',
+	apiVersion: string,
 ): string {
 	return `${baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes?api-version=${apiVersion}`;
 }
 
-// Server 2020 serves this endpoint only as a preview; Services accepts the same version.
+// Azure DevOps Server serves this endpoint only as a preview.
 export function getAzureWorkItemTypeStatesPath(
 	namespace: string,
 	project: string,
 	type: string,
-	apiVersion = '6.0-preview.1',
+	apiVersion: string,
 ): string {
 	return `${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(type)}/states?api-version=${apiVersion}`;
 }
@@ -43,7 +45,7 @@ export function getAzureWorkItemTypeStatesUrl(
 	namespace: string,
 	project: string,
 	type: string,
-	apiVersion = '6.0-preview.1',
+	apiVersion: string,
 ): string {
 	return `${baseUrl.replace(/\/$/, '')}/${getAzureWorkItemTypeStatesPath(namespace, project, type, apiVersion)}`;
 }
