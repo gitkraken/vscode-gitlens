@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Imports `EntityIdentifierUtils` and `GitProviderUtils` from the `@gitkraken/provider-apis` main entry instead of its `/entity-identifiers` and `/provider-utils` subpaths. Those subpaths are standalone bundles that repeat code the main entry already ships, and core already loads the main entry, so a host that bundles core carried both copies. Same functions and behavior; a Node ESM consumer still links both names through the main entry's CommonJS export list ([#6086](https://github.com/gitkraken/vscode-gitlens/issues/6086)) (plus/integrations)
+
 ## [0.20.0] - 2026-10-26
 
 ### Added

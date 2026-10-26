@@ -45,8 +45,7 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
-import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
+import { EntityIdentifierUtils, GitProviderUtils } from '@gitkraken/provider-apis';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {

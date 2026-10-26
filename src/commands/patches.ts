@@ -1,4 +1,4 @@
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { TextEditor } from 'vscode';
 import { env, l10n, Uri, window, workspace } from 'vscode';
 import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
