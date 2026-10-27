@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Explain Branch_ comparing against the current branch, instead of reporting that no base branch was found, for a branch with no merge target
 - Fixes _Create Pull Request_ cutting a local merge target's name at its first slash when choosing the pull request's base &mdash; `release/2.0` became `2.0`
 - Fixes a branch's base never being found from where it was created when Git's `grep.patternType` is set to `fixed`
+- Fixes Bitbucket Cloud remotes on the new `ssh.bitbucket.org` SSH host not being recognized as Bitbucket &mdash; thanks to [PR #6062](https://github.com/gitkraken/vscode-gitlens/pull/6062) by Alexey Kotlyarov ([@koterpillar](https://github.com/koterpillar))
 
 ## [19.4.0] - 2026-10-15
 

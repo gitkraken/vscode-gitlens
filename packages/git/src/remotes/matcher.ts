@@ -52,6 +52,13 @@ interface ProviderEntry {
 
 const builtInProviders: ProviderEntry[] = [
 	{ custom: false, matcher: 'bitbucket.org', type: 'bitbucket' },
+	// Bitbucket Cloud SSH access moved to ssh.bitbucket.org; match on the URL to keep bitbucket.org as the domain
+	{
+		custom: false,
+		matchUrl: true,
+		matcher: /^(?:ssh:\/\/)?(?:[^@/]+@)?ssh\.(bitbucket\.org)[:/](.+)$/i,
+		type: 'bitbucket',
+	},
 	{ custom: false, matcher: 'github.com', type: 'github' },
 	{ custom: false, matcher: 'gitlab.com', type: 'gitlab' },
 	{ custom: false, matcher: /\bdev\.azure\.com$/i, type: 'azure-devops' },

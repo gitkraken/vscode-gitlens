@@ -19,7 +19,28 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			assert.strictEqual(provider.id, 'gitlab');
 		});
 
-		test('matches Bitbucket URL', () => {
+		test('matches Bitbucket SSH URL', () => {
+			const matcher = createRemoteProviderMatcher();
+			const provider = matcher(
+				'git@ssh.bitbucket.org:owner/repo.git',
+				'ssh.bitbucket.org',
+				'owner/repo.git',
+				undefined,
+			);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'bitbucket');
+			assert.strictEqual(provider.domain, 'bitbucket.org');
+		});
+
+		test('matches Bitbucket legacy SSH URL', () => {
+			const matcher = createRemoteProviderMatcher();
+			const provider = matcher('git@bitbucket.org:owner/repo.git', 'bitbucket.org', 'owner/repo.git', undefined);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'bitbucket');
+			assert.strictEqual(provider.domain, 'bitbucket.org');
+		});
+
+		test('matches Bitbucket HTTPS URL', () => {
 			const matcher = createRemoteProviderMatcher();
 			const provider = matcher(
 				'https://bitbucket.org/owner/repo.git',
