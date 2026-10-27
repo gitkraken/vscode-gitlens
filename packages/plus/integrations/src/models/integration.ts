@@ -17,7 +17,7 @@ import type {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -33,7 +33,12 @@ import type {
 	IntegrationAuthenticationSessionDescriptor,
 } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { ConnectionResource, ProviderAuthenticationSession } from '../authentication/models.js';
+import type {
+	ConnectionResource,
+	ProviderAuthenticationSession,
+	SessionPublication,
+} from '../authentication/models.js';
+import { getSessionIdentity } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
 import type { ProviderRefusal, ProviderScopeFailure } from '../collectionMetadata.js';
 import {
@@ -333,6 +338,7 @@ export abstract class IntegrationBase<
 	) {}
 
 	dispose(): void {
+		this.invalidateDiscoveryCaches();
 		this._onDidChange.dispose();
 	}
 
@@ -699,15 +705,59 @@ export abstract class IntegrationBase<
 	 */
 	invalidateDiscoveryCaches(): void {}
 
+	invalidateDiscoveryForConnection(_connectionId?: string): void {
+		this.invalidateDiscoveryCaches();
+	}
+
+	getSessionDiscoveryGeneration(_sessionId?: string, _connectionId?: string, _cloud?: boolean): number {
+		return this.discoveryGeneration;
+	}
+
+	get discoveryGeneration(): number {
+		return 0;
+	}
+
+	protected isResolvedSessionCurrent(
+		_session: ProviderAuthenticationSession | undefined,
+		_generation: number,
+	): boolean {
+		return true;
+	}
+
+	onSessionPublishing(publication: SessionPublication): void {
+		const { session, previousSessionId, replacePrimary } = publication;
+		const cloud = session != null ? session.cloud : publication.cloud;
+		const sameVariant = cloud == null || this._session?.cloud == null || cloud === this._session.cloud;
+		const affectsPrimary =
+			(replacePrimary === true && (session != null || cloud == null || (this._session != null && sameVariant))) ||
+			(this._session === null && session != null) ||
+			(this._session != null &&
+				sameVariant &&
+				(session?.id === this._session.id || previousSessionId === this._session.id));
+		if (affectsPrimary && getSessionIdentity(this._session) !== getSessionIdentity(session)) {
+			this._session = undefined;
+		}
+		this.invalidatePublishedSession(publication, affectsPrimary);
+	}
+
+	protected invalidatePublishedSession(_publication: SessionPublication, _affectsPrimary: boolean): void {
+		this.invalidateDiscoveryCaches();
+	}
+
 	private static readonly requestExceptionLimit = 5;
 	private requestExceptionCount = 0;
+
+	private resetRecoveryAccounting(): void {
+		this.requestExceptionCount = 0;
+		this._syncRequestsPerFailedUsecase.clear();
+		this._rejectedTokens.clear();
+	}
 
 	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all'): void {
 		this.requestExceptionCount = 0;
 		if (syncReqUsecase === 'all') {
-			this._syncRequestsPerFailedUsecase.clear();
-			// 'all' is the whole-integration reset: a disconnect, or a re-sync that produced a new access token.
-			this.onStoredTokensReplaced();
+			this.resetRecoveryAccounting();
+			this.invalidateDiscoveryCaches();
 		} else {
 			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
 		}
@@ -768,6 +818,7 @@ export abstract class IntegrationBase<
 	private async syncCloudConnectionLocked(
 		state: 'connected' | 'disconnected',
 		forceSync: boolean,
+		reason: 'explicit' | 'expired' = 'explicit',
 	): Promise<Error | undefined> {
 		const scope = getScopedLogger();
 		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
@@ -794,9 +845,10 @@ export abstract class IntegrationBase<
 				if (forceSync) {
 					// Get a new session from the cloud. The stored one is refetched rather than deleted first (see
 					// `GetSessionOptions.refetch`), so a fetch that fails transiently keeps the token it had.
-					// Not left to the token-changed check below, which needs an `oldSession` — see
-					// `onStoredTokensReplaced`.
-					this.onStoredTokensReplaced();
+					if (reason === 'explicit') {
+						this._rejectedTokens.clear();
+						this.invalidateDiscoveryForConnection();
+					}
 					// The cached session is kept while the replacement is fetched (the refetch does not read it): a
 					// transient failure then leaves it as it was, expiry included, and a read meanwhile does not have to
 					// resolve a session of its own, which during a GK API outage fails the same way and reports the
@@ -832,8 +884,13 @@ export abstract class IntegrationBase<
 					failure = toError(ex);
 				}
 
-				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
-					this.resetRequestExceptionCount('all');
+				if (
+					oldSession &&
+					newSession &&
+					newSession === this._session &&
+					newSession.accessToken !== oldSession.accessToken
+				) {
+					this.resetRecoveryAccounting();
 				}
 
 				// The forced re-sync above kept the stored token and its descriptor until a replacement arrived.
@@ -1168,7 +1225,7 @@ export abstract class IntegrationBase<
 					failure = this._lastResyncFailure;
 				} else if (this._session != null && this.connectionExpired === true) {
 					try {
-						failure = await this.syncCloudConnectionLocked('connected', true);
+						failure = await this.syncCloudConnectionLocked('connected', true, 'expired');
 					} catch (ex) {
 						failure = toError(ex);
 					}
@@ -1286,8 +1343,14 @@ export abstract class IntegrationBase<
 		}
 		if (this.ctx.config.isIntegrationsEnabled?.() === false) return undefined;
 
+		const generation = this.discoveryGeneration;
+
 		if (createIfNeeded || sync) {
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+			if (this.getSessionDiscoveryGeneration(this._session?.id, undefined, this._session?.cloud) > generation) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 		} else if (this.ctx.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
 		}
@@ -1309,7 +1372,17 @@ export abstract class IntegrationBase<
 				session = undefined;
 			}
 		} catch (ex) {
+			if (isCancellationError(ex) || !this.isResolvedSessionCurrent(undefined, generation)) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
+
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+
+			if (!this.isResolvedSessionCurrent(undefined, generation)) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 
 			// Only interactive paths can prompt for consent, so a sync failure must reach the rethrow below.
 			if (!sync && ex instanceof Error && ex.message.includes('User did not consent')) {
@@ -1327,19 +1400,53 @@ export abstract class IntegrationBase<
 			session = null;
 		}
 
-		if (session === undefined && !createIfNeeded && !sync) {
-			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		if (!this.isResolvedSessionCurrent(session ?? undefined, generation)) {
+			if (sync) throw new CancellationError();
+			return undefined;
 		}
 
+		if (session === undefined && !createIfNeeded && !sync) {
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+			if (!this.isResolvedSessionCurrent(undefined, generation)) return undefined;
+		}
+
+		if (getSessionIdentity(this._session) !== getSessionIdentity(session)) {
+			// Retire reads before the replacement becomes visible across the storage await.
+			this.onSessionPublishing({ session: session ?? undefined, replacePrimary: true });
+		} else if (refetch && session != null) {
+			this.onSessionPublishing({ session: session, replacePrimary: true });
+		}
 		this._session = session ?? null;
 		this.smoothifyRequestExceptionCount();
 
 		if (session != null) {
+			const publishedGeneration = this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud);
 			await this.ctx.storage.storeWorkspace(this.connectedKey, true);
+			if (
+				this._session !== session ||
+				publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+			) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 
 			queueMicrotask(() => {
+				if (
+					this._session !== session ||
+					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+				) {
+					return;
+				}
+
 				this._onDidChange.fire();
 				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
+				if (
+					this._session !== session ||
+					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+				) {
+					return;
+				}
+
 				// Fired detached, so there is no caller left to catch anything: every implementor is async, and
 				// a rejection would surface as a process-level unhandled rejection in the host. It is a
 				// best-effort warm-up, so swallow the failure with a warning instead. Never awaited by the

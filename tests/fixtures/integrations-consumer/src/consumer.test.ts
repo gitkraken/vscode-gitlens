@@ -12,21 +12,25 @@ import type { Account } from '@gitkraken/core-gitlens/git/models/author.js';
 import type { PullRequestShape } from '@gitkraken/core-gitlens/git/models/pullRequest.js';
 import type { Repository } from '@gitkraken/core-gitlens/git/models/repository.js';
 import type { GitService } from '@gitkraken/core-gitlens/git/service.js';
+import { getAutolinks, getBranchAutolinks } from '@gitkraken/core-gitlens/git/utils/autolink.utils.js';
 import type { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
 import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git-github/providers/githubProvider.js';
 import {
 	createIntegrationManager,
 	type ConfigChangeEvent,
+	type GetAutolinkReferencesOptions,
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	hostFromDomain,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 	type IntegrationsRemoteConfig,
 	type IntegrationManagerCacheProvider,
 	type IntegrationManagerContext,
 	type IntegrationStorageProvider,
 	type ListOrgsOptions,
 	type ListProjectsOptions,
+	type RefSet,
 	type Sources,
 } from '@gitkraken/core-gitlens/plus/integrations/index.js';
 import { Emitter } from '@gitkraken/core-gitlens/utils/event.js';
@@ -45,6 +49,8 @@ type DocumentedCoreExports = [
 	IntegrationsRemoteConfig,
 	ListOrgsOptions,
 	ListProjectsOptions,
+	GetAutolinkReferencesOptions,
+	RefSet,
 	Sources,
 ];
 const documentedCoreExportsTypeChecks: DocumentedCoreExports | undefined = undefined;
@@ -180,6 +186,59 @@ async function main(): Promise<void> {
 		const manager = createIntegrationManager(buildRuntime());
 		assert.deepEqual(manager.getConfigured(), []);
 		manager.dispose();
+	});
+
+	await check('consumer matches Jira Data Center references through supported package exports', async () => {
+		const runtime = buildRuntime();
+		const connection = {
+			tokenId: 'dc',
+			provider: 'jiraServer',
+			type: 'pat',
+			domain: 'https://jira.example.com/jira',
+		};
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		runtime.account.fetchGkApi = async path =>
+			new Response(
+				JSON.stringify({
+					data:
+						path === 'v1/provider-tokens'
+							? [connection]
+							: {
+									...connection,
+									accessToken: 'test-pat',
+									expiresIn: 3600,
+									scopes: '',
+								},
+				}),
+			);
+		runtime.http.fetch = async input => {
+			assert.equal(input.toString(), 'https://jira.example.com/jira/rest/api/2/project');
+			return new Response(JSON.stringify([{ id: '100', key: 'PROJ', name: 'Project' }]), {
+				headers: { 'content-type': 'application/json' },
+			});
+		};
+		const manager = createIntegrationManager(runtime);
+		try {
+			await manager.refreshConnections();
+			const options: GetAutolinkReferencesOptions = {
+				providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+				connectionId: 'dc',
+			};
+			const refs: RefSet | undefined = await manager.getAutolinkReferences(options);
+			assert.ok(refs != null);
+			assert.equal(
+				getAutolinks('PROJ-12', [refs]).get('12')?.url,
+				'https://jira.example.com/jira/browse/PROJ-12',
+			);
+			assert.equal(getAutolinks('PROJ-12 PROJ-13', [refs], { maxResults: 1 }).size, 1);
+			assert.equal(getAutolinks('PROJ-12 PROJ-13', [refs]).size, 2);
+			assert.equal(
+				[...getBranchAutolinks('feature/PROJ_12', [refs]).values()][0]?.url,
+				'https://jira.example.com/jira/browse/PROJ-12',
+			);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	await check('consumer reads the Linear workspace from each connection without hierarchy reads', async () => {
