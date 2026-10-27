@@ -85,7 +85,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		});
 	}
 
-	override invalidateDiscoveryCaches(): void {
+	protected override clearDiscoveryCaches(): void {
 		this._recentAccounts.clear();
 	}
 

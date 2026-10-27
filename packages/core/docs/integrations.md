@@ -1220,7 +1220,28 @@ every read below is scoped to that one connection; a paged read that omits it ge
 while `getIssuesBatch` refuses instead (see §4). `listOrgs` returns exactly one resource — the
 instance itself, synthesized from the configured host rather than fetched — and its projects carry the project key
 as `key` (the numeric id when the server reports none), which is what `listProjects` publishes as `name` and what
-`project` selects; reads address the project by id regardless. No autolinks are registered yet.
+`project` selects; reads address the project by id regardless. Project autolinks use the real key, skipping
+projects whose key fell back to the numeric id. Dashed commit references (`PROJ-12`) and underscored branch
+references (`PROJ_12`) both point to `<configured instance URL>/browse/PROJ-12`, retaining any context path.
+
+`getAutolinkReferences({ providerId, connectionId?, domain?, forceSync? })` supports Jira Cloud and Data Center.
+It returns a `RefSet` tuple containing provider metadata and references for that one connection, or `undefined`
+when the target cannot be resolved or discovery failed or was incomplete. Each call awaits uncached discovery
+with one resolved session; callers own coalescing and caching. `forceSync: true` refreshes the session and
+retires discovery started before or during that refresh. Refreshing a secondary connection does not change the
+primary session. Empty references mean complete discovery found no projects with links. Internal decoration
+readers retain their separate tolerant cache. Match references in the host with `getAutolinks` or `getBranchAutolinks` from
+`git/utils/autolink.utils.js`; references may hold compiled regexes and are not a wire format. Match separate
+references independently if distinct projects sharing an issue number must both be retained, since
+`getAutolinks` keys its result by the numeric suffix.
+
+`getAutolinks(message, refsets, { maxResults })` stops static-reference materialization when the result map
+reaches the requested number of distinct entries, including entries inserted by dynamic callbacks. Omit the
+option for existing unlimited behavior; zero returns no results. A limited call resets its cached regex so
+subsequent calls still start at the beginning. Dynamic parse callbacks run to completion and can exceed the
+requested count; this option cannot limit work inside them. Jira references from this facade are static. Consumers can request
+one result beyond their display budget to detect overflow, then yield between reference batches to bound
+work across large catalogs.
 
 ¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
 finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its

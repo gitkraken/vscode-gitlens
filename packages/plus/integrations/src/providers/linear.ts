@@ -1,5 +1,4 @@
 import type { CollectionMetadata, CollectionScopeFailure, GitIssueState } from '@gitkraken/provider-apis';
-import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -34,6 +33,7 @@ import { linearIssuesEtagMaxNumbers, toLinearIssueEtagFields } from './linearIss
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
+import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
@@ -125,32 +125,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		const teams = await this.getTeams(session);
 		for (const team of teams ?? []) {
-			const dashedPrefix = `${team.key}-`;
-			const underscoredPrefix = `${team.key}_`;
-
-			autolinks.push({
-				prefix: dashedPrefix,
-				url: `${organization.url}/issue/${dashedPrefix}<num>`,
-				alphanumeric: false,
-				ignoreCase: false,
-				title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
-
-				type: 'issue',
-				description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-				descriptor: { ...organization },
-			});
-			autolinks.push({
-				prefix: underscoredPrefix,
-				url: `${organization.url}/issue/${dashedPrefix}<num>`,
-				alphanumeric: false,
-				ignoreCase: false,
-				referenceType: 'branch',
-				title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
-
-				type: 'issue',
-				description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-				descriptor: { ...organization },
-			});
+			autolinks.push(
+				...createIssueAutolinkReferences(team.key, `${organization.url}/issue/${team.key}-<num>`, organization),
+			);
 		}
 
 		// Not kept when built from teams read before the caches were dropped.
@@ -302,7 +279,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return (await this.readTeams(session)) ?? { values: [], metadata: { completeness: 'unknown' } };
 	}
 
-	override invalidateDiscoveryCaches(): void {
+	protected override clearDiscoveryCaches(): void {
 		this._organizations = undefined;
 		this._teams.clear();
 		this._autolinks.clear();

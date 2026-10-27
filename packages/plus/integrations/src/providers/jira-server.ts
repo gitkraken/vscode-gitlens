@@ -1,6 +1,7 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { JIRA_MAX_PROJECT_KEYS_PER_REQUEST } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
+import type { AutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueProjection, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -28,7 +29,8 @@ import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraServerMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
-import { DiscoveryCache } from './utils/discoveryCache.js';
+import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
+import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
 	drainJiraIssues,
@@ -139,9 +141,71 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		return { id: this.domain, key: this.domain, name: this.domain, url: this.apiBaseUrlFor(session) };
 	}
 
-	// No `autolinks()` override yet, unlike Jira Cloud: an autolink prefix has to be the Jira project KEY, which
-	// is what a commit message or branch name carries (`PROJ-123`). The project descriptors carry it now (see
-	// `getProviderProjectsForResources`), so the override can follow Cloud's; until then none is registered.
+	private readonly _autolinks = new Map<string, { autolinks: AutolinkReference[]; builtAt: number }>();
+	private readonly _autolinksBuilds = new Map<string, Promise<AutolinkReference[]>>();
+
+	override async autolinks(): Promise<AutolinkReference[]> {
+		const generation = this.discoveryGeneration;
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected || this._session == null) return [];
+		if (!this.isResolvedSessionCurrent(this._session, generation)) return [];
+
+		const session = this._session;
+		const cacheKey = this.projectsCacheKey(session);
+		const cached = this._autolinks.get(cacheKey);
+		if (this.connectionExpired === true) return cached?.autolinks ?? [];
+		if (cached == null) return this.buildAutolinks(session);
+
+		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {
+			void this.buildAutolinks(session);
+		}
+		return cached.autolinks;
+	}
+
+	private buildAutolinks(session: ProviderAuthenticationSession): Promise<AutolinkReference[]> {
+		const cacheKey = this.projectsCacheKey(session);
+		let build = this._autolinksBuilds.get(cacheKey);
+		if (build == null) {
+			build = this.buildAutolinksCore(session).finally(() => {
+				if (this._autolinksBuilds.get(cacheKey) === build) {
+					this._autolinksBuilds.delete(cacheKey);
+				}
+			});
+			this._autolinksBuilds.set(cacheKey, build);
+		}
+		return build;
+	}
+
+	private async buildAutolinksCore(session: ProviderAuthenticationSession): Promise<AutolinkReference[]> {
+		const cacheKey = this.projectsCacheKey(session);
+		const generation = this._projects.generation;
+		try {
+			const resource = this.resourceFor(session);
+			const result = await this.getProjectsForResourcesWithMetadataResult([resource]);
+			if (this._projects.generation !== generation) return [];
+			if (result?.value == null || result.error != null || isIncompleteCollection(result.value.metadata)) {
+				return this._autolinks.get(cacheKey)?.autolinks ?? [];
+			}
+
+			const autolinks: AutolinkReference[] = [];
+			for (const project of result.value.values) {
+				if (project.key === project.id) continue;
+
+				autolinks.push(
+					...createIssueAutolinkReferences(
+						project.key,
+						`${resource.url}/browse/${project.key}-<num>`,
+						resource,
+					),
+				);
+			}
+			this._autolinks.set(cacheKey, { autolinks: autolinks, builtAt: Date.now() });
+			return autolinks;
+		} catch (ex) {
+			Logger.error(ex, 'JiraServerIntegration.autolinks');
+			return this._autolinks.get(cacheKey)?.autolinks ?? [];
+		}
+	}
 
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
@@ -164,24 +228,42 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 
 	/** Expires, and is dropped on a re-sync, so a project created or deleted mid-session is picked up (#5907). */
 	private readonly _projects = new DiscoveryCache<JiraServerProjectDescriptor[]>();
-	protected override async getProviderProjectsForResources(
+	private readonly _projectReads = new Map<string, Promise<JiraServerProjectDescriptor[] | undefined>>();
+	protected override getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: JiraServerResourceDescriptor[],
-		force: boolean = false,
 	): Promise<JiraServerProjectDescriptor[] | undefined> {
 		// Every resource here is this instance (see `getProviderResourcesForUser`), so one read serves them
 		// all; a caller that passes none is asking for nothing.
-		if (resources.length === 0) return [];
+		if (resources.length === 0) return Promise.resolve([]);
 
 		const cacheKey = this.projectsCacheKey(session);
 		const cached = this._projects.get(cacheKey);
-		if (cached != null && !force) return cached;
+		if (cached != null) return Promise.resolve(cached);
 
+		let read = this._projectReads.get(cacheKey);
+		if (read == null) {
+			read = this.readProjectsCached(session, cacheKey).finally(() => {
+				if (this._projectReads.get(cacheKey) === read) {
+					this._projectReads.delete(cacheKey);
+				}
+			});
+			this._projectReads.set(cacheKey, read);
+		}
+		return read;
+	}
+
+	private async readProjectsCached(
+		session: ProviderAuthenticationSession,
+		cacheKey: string,
+	): Promise<JiraServerProjectDescriptor[] | undefined> {
 		const generation = this._projects.generation;
 		const descriptors = await this.readProjects(session);
 		if (descriptors == null) return undefined;
 
-		this._projects.set(cacheKey, descriptors, { generation: generation });
+		if (this._projects.set(cacheKey, descriptors, { generation: generation })) {
+			this._autolinks.delete(cacheKey);
+		}
 
 		return descriptors;
 	}
@@ -204,6 +286,11 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			this.apiBaseUrlFor(session),
 		);
 		if (projects == null) return undefined;
+		if (projects.length === 0) {
+			// Jira can serve anonymous empty projects after rejection without an identifying response header.
+			const account = await this.getProviderAccountForResource(session, this.resourceFor(session));
+			if ((account?.username ?? account?.name) == null) return undefined;
+		}
 
 		const resourceId = this.resourceFor(session).id;
 		return projects.map<JiraServerProjectDescriptor>(p => ({
@@ -260,7 +347,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 				if (!isJiraServerMissingProjectError(ex)) return false;
 
 				Logger.warn(`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`);
-				this._projects.delete(this.projectsCacheKey(session));
+				this.invalidateDiscoveryCaches();
 				return true;
 			},
 		};
@@ -508,11 +595,14 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		return `${this.apiBaseUrlFor(session)}:${session.accessToken}`;
 	}
 
-	override invalidateDiscoveryCaches(): void {
+	protected override clearDiscoveryCaches(): void {
 		this._projects.clear();
+		this._projectReads.clear();
+		this._autolinks.clear();
+		this._autolinksBuilds.clear();
 	}
 
 	protected override providerOnDisconnect(): void {
-		this._projects.clear();
+		this.invalidateDiscoveryCaches();
 	}
 }

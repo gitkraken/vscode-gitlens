@@ -1,3 +1,4 @@
+import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestSearchCriteria,
@@ -7,7 +8,7 @@ import type {
 import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
-import type { IntegrationIds } from './constants.js';
+import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from './constants.js';
 import type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
 import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
 import type {
@@ -249,6 +250,15 @@ export type ListProjectsOptions =
 			domain?: never;
 	  };
 
+export type GetAutolinkReferencesOptions = {
+	providerId: IssuesCloudHostIntegrationId.Jira | IssuesSelfManagedHostIntegrationId.JiraServer;
+	connectionId?: string;
+	/** Trusted self-managed domain fallback, as on the other provider reads. */
+	domain?: string;
+	/** Drops discovery and awaits a fresh build; retires builds started before the refresh. */
+	forceSync?: boolean;
+};
+
 /**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
  * implementation details so SDK changes don't expand this contract.
@@ -319,6 +329,14 @@ export interface IntegrationManager {
 
 	listOrgs(options?: ListOrgsOptions): Promise<ProviderResult<ProviderOrganization>>;
 	listProjects(options?: ListProjectsOptions): Promise<ProviderResult<ProviderOrganization>>;
+	/**
+	 * Jira project references for one connection. Cold discovery is awaited. Returns `undefined` for an
+	 * unresolved target or failed/incomplete discovery; an empty set means complete discovery found no links.
+	 * Each call reads the provider; callers own coalescing and caching.
+	 * Match with `getAutolinks` or `getBranchAutolinks` from `git/utils/autolink.utils.js` in the host process;
+	 * references can contain compiled regular expressions and are not a wire format.
+	 */
+	getAutolinkReferences(options: GetAutolinkReferencesOptions): Promise<RefSet | undefined>;
 	listRepos(options: {
 		providerId: IntegrationIds;
 		org?: string;
