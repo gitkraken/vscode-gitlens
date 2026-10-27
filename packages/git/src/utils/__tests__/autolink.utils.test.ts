@@ -135,11 +135,43 @@ suite('Autolink Utils Test Suite', () => {
 	});
 
 	suite('ensureCachedBranchNameRegexes', () => {
+		test('matches single-digit issues with configured hyphen and underscore prefixes', () => {
+			for (const [prefix, id] of [
+				['PROJ_', '1'],
+				['PROJ-', '9'],
+			]) {
+				const refs: RefSet[] = [
+					[undefined, [makeRef({ prefix: prefix, url: 'https://jira.example.com/browse/PROJ-<num>' })]],
+				];
+				for (const branch of [`${prefix}${id}`, `feature/${prefix}${id}-description`]) {
+					const links = [...getBranchAutolinks(branch, refs).values()];
+					assert.strictEqual(links.length, 1, branch);
+					assert.strictEqual(links[0].id, id, branch);
+					assert.strictEqual(links[0].url, `https://jira.example.com/browse/PROJ-${id}`, branch);
+				}
+				for (const branch of [`feature/${prefix}`, `feature/${prefix}${id}x`, 'feature/OTHER-1']) {
+					assert.strictEqual(getBranchAutolinks(branch, refs).size, 0, branch);
+				}
+			}
+		});
+
+		test('preserves minimum digits and false-positive guards for unprefixed branches', () => {
+			const refs: RefSet[] = [[undefined, [makeRef({ prefix: '' })]]];
+			for (const branch of ['1', '12', 'feature/1', 'fix-9', 'feature/12x', 'a12b', 'release/1.2']) {
+				assert.strictEqual(getBranchAutolinks(branch, refs).size, 0, branch);
+			}
+			for (const branch of ['feature/12', 'fix-99-description', '123', 'work123']) {
+				assert.strictEqual(getBranchAutolinks(branch, refs).size, 1, branch);
+			}
+		});
+
 		test('treats configured prefixes as literal text, including regex metacharacters', () => {
 			const ref = makeRef({ prefix: '[OPS.+-' });
 			const refs: RefSet[] = [[undefined, [ref]]];
 			assert.strictEqual(getBranchAutolinks('feature/[OPS.+-12', refs).size, 1);
 			assert.strictEqual(getBranchAutolinks('feature/OPSxx-12', refs).size, 0);
+			assert.strictEqual(getBranchAutolinks('feature/[OPS.+-1', refs).size, 1);
+			assert.strictEqual(getBranchAutolinks('feature/OPSxx-1', refs).size, 0);
 		});
 
 		test('creates regexes for a ref with a prefix', () => {
