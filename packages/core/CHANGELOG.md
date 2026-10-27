@@ -8,17 +8,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `syncedWith?: IssueSyncedWith[]` to `IssueShape`/`Issue`: on a Linear row, the GitHub issues Linear's two-way GitHub Issues sync keeps it in sync with, so a host reading both providers can show a synced pair once instead of twice. Each entry is `{ provider: 'github'; id; owner; repo; number }`, where `id` is the GitHub issue's database id (its REST `id`) as Linear stored it, and `owner`, `repo` and `number` are all set, or all absent when Linear reports the link without them or failed to resolve that link's details. A GitHub row's `nodeId` is its GraphQL node ID, not that id, so a host matches a GitHub row on the coordinates, comparing `owner` and `repo` case-insensitively as GitHub does; Linear's link names no host and Linear also syncs with GitHub Enterprise Cloud, so the same coordinates on two hosts can't be told apart from the row alone. `[]` on a Linear row synced with nothing; absent on every other provider, and on a Linear row whose link list Linear failed to resolve, so absence means unknown rather than unsynced. Requires `@gitkraken/provider-apis` with `Issue.syncedWith` (GKDEV-3662) ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (git, plus/integrations)
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
-
-### Changed
-
-- Changes a Linear row's `getIssuesBatch` etag to list its sync links, each as its GitHub issue id and coordinates, which the cheap check now reads too, so a link added or removed, or its coordinates filled in or changed, is seen even when Linear leaves the update time alone. Every Linear etag a host holds from before misses once and costs one full read. A row without `syncedWith` never compares unchanged, and an issue whose link list Linear failed to resolve on the cheap check falls through to its full read rather than failing its team's check, unless the failure is throttling ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (plus/integrations)
 
 ### Fixed
 
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
+
+## [0.21.0] - 2026-10-27
+
+### Added
+
+- Adds `syncedWith?: IssueSyncedWith[]` to `IssueShape`/`Issue`: on a Linear row, the GitHub issues Linear's two-way GitHub Issues sync keeps it in sync with, so a host reading both providers can show a synced pair once instead of twice. Each entry is `{ provider: 'github'; id; owner; repo; number }`, where `id` is the GitHub issue's database id (its REST `id`) as Linear stored it, and `owner`, `repo` and `number` are all set, or all absent when Linear reports the link without them or failed to resolve that link's details. A GitHub row's `nodeId` is its GraphQL node ID, not that id, so a host matches a GitHub row on the coordinates, comparing `owner` and `repo` case-insensitively as GitHub does; Linear's link names no host and Linear also syncs with GitHub Enterprise Cloud, so the same coordinates on two hosts can't be told apart from the row alone. `[]` on a Linear row synced with nothing; absent on every other provider, and on a Linear row whose link list Linear failed to resolve, so absence means unknown rather than unsynced. Requires `@gitkraken/provider-apis` with `Issue.syncedWith` (GKDEV-3662) ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (git, plus/integrations)
+
+### Changed
+
+- Changes a Linear row's `getIssuesBatch` etag to list its sync links, each as its GitHub issue id and coordinates, which the cheap check now reads too, so a link added or removed, or its coordinates filled in or changed, is seen even when Linear leaves the update time alone. Every Linear etag a host holds from before misses once and costs one full read. A row without `syncedWith` never compares unchanged, and an issue whose link list Linear failed to resolve on the cheap check falls through to its full read rather than failing its team's check, unless the failure is throttling ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (plus/integrations)
 
 ## [0.20.2] - 2026-10-27
 
@@ -1000,7 +1005,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...HEAD
+[0.21.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...gitkraken:releases/core/v0.21.0
 [0.20.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...gitkraken:releases/core/v0.20.2
 [0.20.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...gitkraken:releases/core/v0.20.1
 [0.20.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...gitkraken:releases/core/v0.20.0
