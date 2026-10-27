@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
 
+### Changed
+
+- Changes Linear's user-scoped tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProject*` with `options.user`) to also return the GitHub-synced issues the viewer created, not only those assigned to them. Linear's two-way GitHub Issues sync makes the author of a GitHub issue (one who linked their GitHub account to Linear) the creator of its Linear copy but assigns no one the GitHub issue doesn't, so the Linear copy of a GitHub issue the user filed was never read and a host showed only its GitHub copy. Only issues with a GitHub issue attachment and a GitHub sync link (`syncedWith` not `[]`) widen, so the rest of what the viewer created in Linear stays out; a synced row whose link list Linear failed to resolve is kept rather than silently dropped. Asking for `filters: [IssueFilter.Assignee]` by name still reads only assigned issues. Still one query per page; the wider match can take more pages. Requires `@gitkraken/provider-apis` with `LinearGetIssuesInput.githubSyncedCreators`; an older one ignores it and reads assigned issues only ([gitkraken/kepler#4480](https://github.com/gitkraken/kepler/issues/4480)) (plus/integrations)
+
 ### Fixed
 
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)

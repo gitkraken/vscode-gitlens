@@ -1365,7 +1365,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Linear,
 		scopes: [],
-		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
+		// The user-scoped tracker read scopes Linear's "my issues" by the viewer's id: assigned issues, plus the
+		// GitHub-synced issues the viewer created unless `Assignee` is asked for by name. Author/mention aren't supported.
 		supportedIssueFilters: [IssueFilter.Assignee],
 		// Both directions, and one table for both reads: they are the same root `issues` query taking the same
 		// `sort` argument, so there is no account-wide narrowing to declare.

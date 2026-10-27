@@ -1350,6 +1350,8 @@ export class ProvidersApi implements Disposable {
 			labels?: string[];
 			/** Linear user ids (the viewer's `id`), not names. */
 			assignees?: string[];
+			/** Linear user ids whose GitHub-synced issues (created by one of them) to read as well, ORed with `assignees`. */
+			githubSyncedCreators?: string[];
 			/** Omitted reads open issues (workflow state type other than `completed`/`canceled`). */
 			states?: GitIssueState[];
 		},
