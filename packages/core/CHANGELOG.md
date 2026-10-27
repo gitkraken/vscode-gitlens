@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-10-27
+
 ### Fixed
 
 - Fixes Jira issues losing their actual project id, name and site resource id when the provider supplies no namespace. The project's `resourceName` stays empty when no site display name is available; no site or project identity is synthesized. Other providers retain their namespace requirement ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964)) (plus/integrations)
@@ -984,7 +986,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...HEAD
+[0.20.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...gitkraken:releases/core/v0.20.2
 [0.20.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...gitkraken:releases/core/v0.20.1
 [0.20.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...gitkraken:releases/core/v0.20.0
 [0.19.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...gitkraken:releases/core/v0.19.0
