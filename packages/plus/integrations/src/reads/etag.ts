@@ -1,6 +1,10 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
 import { getIssueFieldPresence } from '../fieldPresence.js';
 import type {
 	IssueEtagFields,
@@ -12,6 +16,7 @@ import {
 	azureWorkItemDescriptionRule,
 	azureWorkItemViewerRule,
 	issueEtagIncludes,
+	linearSyncedWithEtagKeys,
 	pullRequestEtagIncludes,
 	pullRequestRevision,
 } from '../models/integration.js';
@@ -83,6 +88,9 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 		if (!issue.viewerUnresolved && (issue.viewer != null || !issueNamesPeople(issue))) {
 			fields.viewerRule = azureWorkItemViewerRule;
 		}
+	}
+	if (issue.provider?.id === IssuesCloudHostIntegrationId.Linear) {
+		fields.syncedWithKeys = issue.syncedWith != null ? linearSyncedWithEtagKeys(issue.syncedWith) : null;
 	}
 	return fields;
 }
@@ -156,6 +164,11 @@ export function issueEtag(fields: IssueEtagFields, includes: readonly IssueEtagI
 	}
 	if (fields.viewerRule != null) {
 		state.push(fields.viewerRule);
+	}
+	// Only where it is set, so every other provider's etag stays exactly what it was. An unknown list is spelled
+	// apart from every known one, so it never compares unchanged.
+	if (fields.syncedWithKeys !== undefined) {
+		state.push(fields.syncedWithKeys === null ? 'synced-with:unknown' : ['synced-with', ...fields.syncedWithKeys]);
 	}
 	if (covered.length === 0) return `is1:${JSON.stringify(state)}`;
 

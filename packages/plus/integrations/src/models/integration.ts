@@ -2,7 +2,7 @@ import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-ap
 import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueShape, IssueSyncedWith } from '@gitlens/git/models/issue.js';
 import type {
 	IssueOrPullRequest,
 	IssueOrPullRequestState,
@@ -217,6 +217,13 @@ export interface IssueEtagFields {
 	 * it never compares unchanged and is read in full again rather than kept without one.
 	 */
 	viewerRule?: number;
+	/**
+	 * Linear only: the row's `syncedWith` links as {@link linearSyncedWithEtagKeys} spells them, so a link added, removed
+	 * or moved to other coordinates changes the etag whether or not the issue's update time moves. `null` on a
+	 * full row without `syncedWith` (held from before it existed, or read while Linear failed to resolve it), which
+	 * never compares unchanged with a cheap check's list.
+	 */
+	syncedWithKeys?: readonly string[] | null;
 }
 
 /**
@@ -238,6 +245,16 @@ export const azureWorkItemDescriptionRule = 1;
  * identity in the work item's organization (gitkraken/kepler#4291).
  */
 export const azureWorkItemViewerRule = 1;
+
+/**
+ * A Linear row's sync links in its etag, sorted: each as its GitHub id and, when known, the coordinates a host matches
+ * the GitHub row by, so a link whose coordinates Linear fills in or changes later compares changed.
+ */
+export function linearSyncedWithEtagKeys(links: readonly IssueSyncedWith[]): string[] {
+	return links
+		.map(link => (link.owner != null ? `${link.id}:${link.owner}/${link.repo}#${link.number}` : `${link.id}:`))
+		.sort();
+}
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };

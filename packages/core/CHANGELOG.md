@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `syncedWith?: IssueSyncedWith[]` to `IssueShape`/`Issue`: on a Linear row, the GitHub issues Linear's two-way GitHub Issues sync keeps it in sync with, so a host reading both providers can show a synced pair once instead of twice. Each entry is `{ provider: 'github'; id; owner; repo; number }`, where `id` is the GitHub issue's database id (its REST `id`) as Linear stored it, and `owner`, `repo` and `number` are all set, or all absent when Linear reports the link without them or failed to resolve that link's details. A GitHub row's `nodeId` is its GraphQL node ID, not that id, so a host matches a GitHub row on the coordinates, comparing `owner` and `repo` case-insensitively as GitHub does; Linear's link names no host and Linear also syncs with GitHub Enterprise Cloud, so the same coordinates on two hosts can't be told apart from the row alone. `[]` on a Linear row synced with nothing; absent on every other provider, and on a Linear row whose link list Linear failed to resolve, so absence means unknown rather than unsynced. Requires `@gitkraken/provider-apis` with `Issue.syncedWith` (GKDEV-3662) ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (git, plus/integrations)
+
+### Changed
+
+- Changes a Linear row's `getIssuesBatch` etag to list its sync links, each as its GitHub issue id and coordinates, which the cheap check now reads too, so a link added or removed, or its coordinates filled in or changed, is seen even when Linear leaves the update time alone. Every Linear etag a host holds from before misses once and costs one full read. A row without `syncedWith` never compares unchanged, and an issue whose link list Linear failed to resolve on the cheap check falls through to its full read rather than failing its team's check, unless the failure is throttling ([gitkraken/kepler#4428](https://github.com/gitkraken/kepler/issues/4428)) (plus/integrations)
+
 ## [0.20.2] - 2026-10-27
 
 ### Fixed

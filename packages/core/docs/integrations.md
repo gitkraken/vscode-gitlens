@@ -228,7 +228,10 @@ The hosts with a cheap check select only the change state:
   the full read sends one request per issue. The query matches the team's current key, while the full read may also
   resolve an identifier the issue no longer carries (its team was renamed, or it moved), so an issue the query leaves
   out, or an identifier that isn't a team key and a number, falls through to its own full read, which decides whether
-  it is absent.
+  it is absent. The check also reads each issue's GitHub sync links (`syncedWith`) with their coordinates, so a link
+  added, removed or moved changes the etag even when Linear leaves the update time alone. A row without `syncedWith`
+  (held from before the field, or read while Linear failed to resolve its link list) never compares unchanged, so it is
+  read in full again.
 
 Every other host and tracker accepts the `etag`, reads the target in full, and etags the row. On a host with a cheap check, a call is up to three integration calls: the cheap check
 of the targets that sent an `etag`, a full read of the rest started alongside it, and a full read of the targets
@@ -1544,6 +1547,14 @@ as `#{id}`, used for branch names). `nodeId` is the stable provider-native id, b
 provider-specific (Azure work-item ids are organization-scoped). For cross-scope correlation, key by
 provider/domain plus repository or project identity and `nodeId`; `url` is also unique for the provider reads
 that require one.
+
+A Linear row also carries `syncedWith`: the GitHub issues Linear's two-way GitHub Issues sync keeps it in sync
+with, so a host reading both providers can show the pair once. Each link's `id` is the GitHub issue's database id
+(its REST `id`), which a GitHub row doesn't carry (its `nodeId` is the GraphQL node ID), so match a GitHub row on
+`owner`/`repo`/`number`, comparing `owner` and `repo` case-insensitively as GitHub does. A link carries no
+coordinates when Linear reports it without them or failed to resolve that link's details. Linear's link names no host
+and Linear also syncs with GitHub Enterprise Cloud, so the same coordinates on two hosts can't be told apart from the
+row alone. `[]` means synced with nothing; an absent field means unknown, not unsynced.
 
 ## 10. Token-scoped reads (`lite.js`)
 
