@@ -11,11 +11,15 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider, GitServiceConfig, GitServiceContext, GitServiceHooks } from '@gitlens/git/context.js';
+import type { GitService } from '@gitlens/git/service.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
+import type { CliGitServiceOptions } from '../../../service.js';
+import { createCliGitService } from '../../../service.js';
+import { verifyBaseRemeasure } from './shadowCheck.js';
 
 export interface TestRepo {
 	path: string;
@@ -93,7 +97,8 @@ function createNodeFs(): FileSystemProvider {
 		},
 		readDirectory: async function (uri) {
 			const entries = readdirSync(toFsPath(uri), { withFileTypes: true });
-			return entries.map(e => [e.name, e.isDirectory() ? 2 : 1]);
+			// Flags links the way VS Code's and Kepler's listings do (`FileType.SymbolicLink`)
+			return entries.map(e => [e.name, (e.isDirectory() ? 2 : 1) | (e.isSymbolicLink() ? 64 : 0)]);
 		},
 	};
 }
@@ -169,6 +174,42 @@ export function createTestRepo(options?: {
 		rmSync(dir, { recursive: true, force: true });
 		throw ex;
 	}
+}
+
+/**
+ * A provider of its own, with cold caches, for any existing repository: a read through it can't be served from what
+ * another provider cached. Call `dispose()` when done.
+ */
+export function createProvider(options?: { gitOptions?: GitOptions }): CliGitProvider {
+	ensureLogger();
+
+	return new CliGitProvider({
+		context: createMinimalContext(),
+		locator: getGitLocation,
+		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+	});
+}
+
+/** A service config that keeps the background commit-graph write from running (see {@link createMinimalContext}) */
+export const noCommitGraphWritesConfig: GitServiceConfig = { commits: {}, graph: { writeCommitGraph: false } };
+
+/**
+ * {@link createCliGitService} with the worktree summary's base re-measure shadow-checked (see `shadowCheck.ts`), which
+ * the root hooks fail the test on. Not for a test that counts the processes a summary spawns: the check reads the
+ * base in full each time the re-measure answers. Unless `context.config.graph` says otherwise it writes no commit-graph,
+ * like {@link createProvider}: a base re-measure asks for one, which can still be writing when the test removes the
+ * repository.
+ */
+export function createShadowCheckedGitService(options: Omit<CliGitServiceOptions, 'verifyBaseRemeasure'>): GitService {
+	const config = options.context.config;
+	return createCliGitService({
+		...options,
+		context: {
+			...options.context,
+			config: { ...noCommitGraphWritesConfig, ...config, graph: { writeCommitGraph: false, ...config?.graph } },
+		},
+		verifyBaseRemeasure: verifyBaseRemeasure,
+	});
 }
 
 // Monotonic commit clock: git commit dates have 1-second granularity, so rapid test commits otherwise

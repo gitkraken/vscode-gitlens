@@ -148,8 +148,28 @@ export interface GitServiceHooks {
 	};
 	/** Repository state hooks — wired by the provider to its repository-changed emitter */
 	readonly repository?: {
-		/** Called when repository state has changed */
-		onChanged?(repoPath: string, changes: RepositoryChange[]): void;
+		/**
+		 * Called when repository state has changed.
+		 *
+		 * `refs`, when given, are the full ref names (`refs/heads/main`, `refs/remotes/origin/main`) the write
+		 * created, moved or deleted. A ref kind in `changes` (`heads`, `remotes`, `tags`, `stash`) with at least
+		 * one name of its kind in `refs` is fully described by those names: no other ref of that kind moved. A ref
+		 * kind in `changes` with no name in `refs` stays unnamed — any ref of that kind may have moved. A host that
+		 * ignores `refs` treats every ref kind as unnamed, as before.
+		 *
+		 * `options.configConfinedToRefs`, given only with `config` among `changes`, says the write changed
+		 * `.git/config` only in the `branch.<name>` sections of the local branches `refs` names (`refs/heads/<name>`),
+		 * as a branch create, delete, rename or upstream change does. A branch's section matters only to a checkout on
+		 * that branch or one whose upstream or base is that branch, so the config change concerns exactly the
+		 * checkouts following those branches. Without it, the config change may be anywhere in the file, whatever
+		 * `refs` names. A host that ignores it treats every config change as unconfined, as before.
+		 */
+		onChanged?(
+			repoPath: string,
+			changes: RepositoryChange[],
+			refs?: readonly string[],
+			options?: { readonly configConfinedToRefs?: boolean },
+		): void;
 	};
 	/** Commit lifecycle hooks */
 	readonly commits?: {

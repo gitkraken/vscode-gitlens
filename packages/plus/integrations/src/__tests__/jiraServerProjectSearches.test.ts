@@ -149,6 +149,7 @@ suite('Jira Server multi-project issue searches', () => {
 					kind: 'provider',
 					message:
 						'Skipped Jira issues that could not be read: ALPHA-2 (Cannot read properties of undefined).',
+					skippedItems: { keys: ['ALPHA-2'], total: 1, complete: true },
 				},
 			],
 		});
@@ -206,6 +207,7 @@ suite('Jira Server multi-project issue searches', () => {
 								scope: { providerId: 'jiraServer' },
 								kind: 'provider',
 								message: 'Skipped Jira issues that could not be read: ALPHA-2 (boom).',
+								skippedItems: { keys: ['ALPHA-2'], total: 1, complete: true },
 							},
 						],
 					},

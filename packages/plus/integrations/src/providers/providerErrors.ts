@@ -1,3 +1,4 @@
+import { Logger } from '@gitlens/utils/logger.js';
 import type { TokenWithInfo } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import {
@@ -10,6 +11,7 @@ import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	getAuthenticatedUser,
+	isProviderUnreachableError,
 	isRateLimitResponse,
 	RequestClientError,
 	RequestNotFoundError,
@@ -49,6 +51,47 @@ export class UnexpectedHtmlResponseError extends Error {
 
 		Error.captureStackTrace?.(this, new.target);
 	}
+}
+
+/**
+ * A provider read that failed on the data a request returned rather than on the request: `provider-apis` reads a
+ * response body as the shape it expects without checking it, so a 2xx carrying anything else (a gateway's JSON
+ * error, `{}`, `null`, a GraphQL answer with neither data nor errors) surfaces as a `TypeError` thrown deep inside the
+ * read, such as `response.body.map is not a function` from Jira Cloud's site list or Trello's boards, or
+ * `Cannot read properties of undefined (reading 'id')` from Linear's organization. See {@link throwProviderError}.
+ *
+ * The message is the readable one a warning carries. The `TypeError` is kept as `original`, and a log line, which
+ * prints the error through `toString()`, names it too.
+ */
+export class UnexpectedResponseError extends Error {
+	static is(ex: unknown): ex is UnexpectedResponseError {
+		return ex instanceof UnexpectedResponseError;
+	}
+
+	constructor(readonly original: Error) {
+		super('Expected data but the provider returned an unexpected response');
+
+		Error.captureStackTrace?.(this, new.target);
+	}
+
+	override toString(): string {
+		return `${super.toString()} (${String(this.original)})`;
+	}
+}
+
+/** What the request function `ProvidersApi` hands `provider-apis` threw itself: see {@link markRequestError}. */
+const requestErrors = new WeakSet<object>();
+
+/**
+ * Records an error the request function threw itself (a transport failure, or a response it refused), so
+ * {@link throwProviderError} never reads it as data a read could not handle, whatever the host's fetch throws.
+ * Returns `ex`, to rethrow.
+ */
+export function markRequestError(ex: unknown): unknown {
+	if (ex != null && typeof ex === 'object') {
+		requestErrors.add(ex);
+	}
+	return ex;
 }
 
 /**
@@ -284,6 +327,17 @@ export function throwProviderError(tokenWithInfo: TokenWithInfo, error: unknown)
 					throw new RequestClientError(normalizedError);
 				}
 		}
+	}
+
+	// A `TypeError` the request function didn't throw was thrown while reading what it returned: a body that isn't the
+	// shape the read expects (see `UnexpectedResponseError`). A transport failure that reached here some other way stays
+	// one. Neither a session expiry nor a strike toward disconnecting, as before: nothing says the credential is at
+	// fault, and the provider may answer properly next time. Logged here because a warning or a fan-out's scope failure
+	// built from it carries only the readable message, and a fan-out never reaches `handleProviderException`'s log.
+	if (error instanceof TypeError && !requestErrors.has(error) && !isProviderUnreachableError(error)) {
+		const unexpected = new UnexpectedResponseError(error);
+		Logger.warn(`${tokenWithInfo.providerId}: ${String(unexpected)}`);
+		throw unexpected;
 	}
 
 	throw error;

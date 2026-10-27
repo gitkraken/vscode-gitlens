@@ -11,7 +11,7 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult, IssueEtagFields, IssueEtagInclude } from '../models/integration.js';
-import { azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
+import { azureRestDiscoveryResponse, azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
 import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
@@ -884,18 +884,35 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			};
 		}
 
-		/** Answers the work item type states read itself, which `urls` leaves out, and every other read by `respond`. */
-		function azureRespond(runtime: FakeRuntime, respond: (url: string) => Response): { urls: string[] } {
+		/**
+		 * Answers the work item type states read and the connection data read (the user's identity in the organization,
+		 * `orgUserId`) itself, which `urls` leaves out and `identityReads` records, and every other read by `respond`.
+		 */
+		function azureRespond(
+			runtime: FakeRuntime,
+			respond: (url: string) => Response,
+			orgUserId = 'u1',
+		): { urls: string[]; identityReads: string[] } {
 			const urls: string[] = [];
+			const identityReads: string[] = [];
 			runtime.http.fetch = input => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return Promise.resolve(discovery);
+
 				const url = input.toString();
 				const states = azureWorkItemTypeStatesResponse(url);
 				if (states != null) return Promise.resolve(states);
 
+				if (/\/_apis\/connectiondata(\?|$)/i.test(url)) {
+					identityReads.push(url);
+					const user = { id: orgUserId, providerDisplayName: orgUserId };
+					return Promise.resolve(json(200, { authenticatedUser: user, authorizedUser: user }));
+				}
+
 				urls.push(url);
 				return Promise.resolve(respond(url));
 			};
-			return { urls: urls };
+			return { urls: urls, identityReads: identityReads };
 		}
 
 		function workItemId(url: string): number {

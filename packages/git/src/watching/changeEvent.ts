@@ -7,8 +7,13 @@ export type RefChangeKind = 'heads' | 'remotes' | 'tags' | 'stash';
 export interface WatcherRefChanges {
 	/** Full ref names whose files changed (`refs/heads/main`), plus per-worktree pseudo-refs (`HEAD`, `ORIG_HEAD`). A name may be a ref directory and then covers every ref beneath it. */
 	readonly names?: Iterable<string>;
-	/** Ref kinds that changed without a name (packed-refs rewrite, config, shallow/replace, an injected change): any ref of that kind may have moved. */
+	/** Ref kinds that changed without a name (packed-refs rewrite, a ref namespace directory like `refs/remotes`, shallow/replace, an injected change): any ref of that kind may have moved. */
 	readonly unnamed?: Iterable<RefChangeKind>;
+	/**
+	 * The local branches (full `refs/heads/` names) whose `branch.<name>` sections are all that every `config` change
+	 * among the changes touched in `.git/config`. Omitted when any of them may have changed anything else.
+	 */
+	readonly configBranches?: Iterable<string>;
 }
 
 export function isRefChangeKind(change: RepositoryChange): change is RefChangeKind {
@@ -17,7 +22,9 @@ export function isRefChangeKind(change: RepositoryChange): change is RefChangeKi
 
 /**
  * The kind of ref a full ref name (or ref directory) belongs to. A pseudo-ref (no `refs/` prefix, e.g. `HEAD`,
- * `ORIG_HEAD`) counts as `heads`; a ref outside the watched namespaces (e.g. `refs/notes/x`) has no kind.
+ * `ORIG_HEAD`) counts as `heads`; a ref outside the watched namespaces (e.g. `refs/notes/x`) has no kind, and neither
+ * has a namespace directory itself (`refs/remotes`), so a change reported for one names no ref: any ref of the kind it
+ * holds may have moved.
  */
 export function getRefChangeKind(ref: string): RefChangeKind | undefined {
 	if (!ref.startsWith('refs/')) return 'heads';
@@ -41,6 +48,7 @@ export class WatcherRepoChangeEvent {
 	private readonly _refs: Set<string>;
 	private readonly _unnamedRefKinds: Set<RefChangeKind>;
 	private readonly _announced: Set<RepositoryChange>;
+	private readonly _configBranches: Set<string> | undefined;
 
 	constructor(
 		/** The repository path this event is for */
@@ -59,6 +67,8 @@ export class WatcherRepoChangeEvent {
 			this._refs = new Set(refs.names);
 			this._unnamedRefKinds = new Set(refs.unnamed);
 		}
+		this._configBranches =
+			refs?.configBranches != null && this._changes.has('config') ? new Set(refs.configBranches) : undefined;
 		this._announced = announced != null ? new Set(filter(announced, c => this._changes.has(c))) : new Set();
 	}
 
@@ -88,6 +98,38 @@ export class WatcherRepoChangeEvent {
 	/** Ref kinds that changed without a name — any ref of these kinds may have moved */
 	get unnamedRefKinds(): ReadonlySet<RefChangeKind> {
 		return this._unnamedRefKinds;
+	}
+
+	/**
+	 * The local branches (full `refs/heads/` names) whose `branch.<name>` sections are the only part of `.git/config`
+	 * that changed; `undefined` when `config` didn't change, or any config change may be elsewhere. Independent of
+	 * {@link refs}: an outside edit to a branch's tracking moves no ref.
+	 */
+	get configBranches(): ReadonlySet<string> | undefined {
+		return this._configBranches;
+	}
+
+	/** Whether `config` changed only in the sections of {@link configBranches} */
+	get configConfined(): boolean {
+		return this._configBranches != null;
+	}
+
+	/**
+	 * Test whether `config` may have changed in a way that concerns a subscriber following `relevantRefs`.
+	 *
+	 * A branch's config section matters only to a checkout on that branch or one whose upstream or base is that branch,
+	 * and those follow `refs/heads/<name>` (or `HEAD`, which may be on any branch). So a {@link configConfined} change
+	 * concerns `relevantRefs` only when one of them is `HEAD` or one of {@link configBranches}; any other config change
+	 * concerns everyone.
+	 */
+	mayHaveChangedConfig(relevantRefs: Iterable<string>): boolean {
+		if (!this._changes.has('config')) return false;
+		if (this._configBranches == null) return true;
+
+		for (const ref of relevantRefs) {
+			if (ref === 'HEAD' || this._configBranches.has(ref)) return true;
+		}
+		return false;
 	}
 
 	toString(changesOnly: boolean = false): string {
@@ -163,7 +205,8 @@ export class WatcherRepoChangeEvent {
 
 	/**
 	 * Coalesce: return a new event with all changes and refs from both this and the given set. When `refs` is omitted,
-	 * every ref kind in `changes` counts as unnamed. A kind in `changes` is no longer {@link announced}.
+	 * every ref kind in `changes` counts as unnamed. A kind in `changes` is no longer {@link announced}. `config` stays
+	 * {@link configConfined}, to the branches of both, only when each side that changed it was confined.
 	 */
 	with(changes: RepositoryChange[], refs?: WatcherRefChanges): WatcherRepoChangeEvent {
 		const names = [...this._refs];
@@ -179,10 +222,17 @@ export class WatcherRepoChangeEvent {
 			}
 		}
 
+		let configBranches: Set<string> | undefined;
+		const own = this._changes.has('config') ? this._configBranches : new Set<string>();
+		const other = changes.includes('config') ? refs?.configBranches : [];
+		if (own != null && other != null) {
+			configBranches = new Set([...own, ...other]);
+		}
+
 		return new WatcherRepoChangeEvent(
 			this.repoPath,
 			[...this._changes, ...changes],
-			{ names: names, unnamed: unnamed },
+			{ names: names, unnamed: unnamed, configBranches: configBranches },
 			filter(this._announced, c => !changes.includes(c)),
 		);
 	}

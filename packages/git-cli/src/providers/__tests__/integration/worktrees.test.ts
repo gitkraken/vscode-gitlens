@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as sinon from 'sinon';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -91,13 +92,11 @@ suite('WorktreesSubProvider mutations', () => {
 		await repo.provider.worktrees.pruneWorktrees(repo.path);
 
 		assert.strictEqual(porcelainWorktreeCount(), before, 'the pruned worktree admin entry should be gone');
+		// A prune deletes the entry's HEAD, so it evicts in full and announces the HEAD its watchers report
+		assert.deepStrictEqual(cacheResets, [{ repoPath: repo.path, types: ['worktrees'] }]);
 		assert.ok(
-			cacheResets.some(r => r.types.includes('worktrees')),
-			'onReset should fire for worktrees',
-		);
-		assert.ok(
-			repoChanges.some(c => c.changes.includes('worktrees')),
-			'onChanged should fire for worktrees',
+			repoChanges.some(c => c.changes.includes('worktrees') && c.changes.includes('worktreeHead')),
+			'onChanged should fire for worktrees and worktreeHead',
 		);
 	});
 
@@ -134,17 +133,18 @@ suite('WorktreesSubProvider mutations', () => {
 
 		try {
 			await repo.provider.worktrees.lockWorktree(repo.path, worktreePath, { reason: 'testing lock' });
-			assert.ok(
-				cacheResets.some(r => r.types.includes('worktrees')),
-				'onReset should fire for worktrees on lock',
+			assert.deepStrictEqual(
+				cacheResets,
+				[{ repoPath: repo.path, types: ['worktreeList'] }],
+				'a lock resets only the worktree list',
 			);
-			assert.ok(
-				repoChanges.some(c => c.changes.includes('worktrees')),
-				'onChanged should fire for worktrees on lock',
+			assert.deepStrictEqual(
+				repoChanges.filter(c => c.repoPath === repo.path).map(c => c.changes),
+				[['worktrees']],
+				'onChanged should fire for worktrees alone on lock',
 			);
 
-			// `getWorktrees` is cached — clear it (what a host's `onReset` handler would do) before re-reading.
-			repo.provider.cache.clearCaches(repo.path, 'worktrees');
+			// The provider's own `onReset` handling evicted the list, so the re-read sees the lock
 			let worktrees = await repo.provider.worktrees.getWorktrees(repo.path);
 			const locked = worktrees.find(w => w.branch?.name === 'lock-target');
 			assert.ok(locked, 'the locked worktree should be listed');
@@ -154,12 +154,12 @@ suite('WorktreesSubProvider mutations', () => {
 			repoChanges.length = 0;
 
 			await repo.provider.worktrees.unlockWorktree(repo.path, worktreePath);
-			assert.ok(
-				cacheResets.some(r => r.types.includes('worktrees')),
-				'onReset should fire for worktrees on unlock',
+			assert.deepStrictEqual(
+				cacheResets,
+				[{ repoPath: repo.path, types: ['worktreeList'] }],
+				'an unlock resets only the worktree list',
 			);
 
-			repo.provider.cache.clearCaches(repo.path, 'worktrees');
 			worktrees = await repo.provider.worktrees.getWorktrees(repo.path);
 			const unlocked = worktrees.find(w => w.branch?.name === 'lock-target');
 			assert.ok(unlocked, 'the worktree should still be listed');
@@ -167,6 +167,127 @@ suite('WorktreesSubProvider mutations', () => {
 		} finally {
 			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: repo.path, stdio: 'pipe' });
 			rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	test("locking and unlocking a worktree keeps a sibling worktree's cached git results", async () => {
+		createBranch(repo.path, 'lock-sibling');
+		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-lock-sibling-'));
+		addWorktree(repo.path, worktreePath, 'lock-sibling');
+		const gitDir = await repo.provider.config.getGitDir(worktreePath);
+		repo.provider.cache.registerRepoPath(fileUri(worktreePath), gitDir);
+
+		const readHead = () =>
+			repo.provider.git.run(
+				{ cwd: worktreePath, caching: { cache: repo.provider.cache.gitResults } },
+				'rev-parse',
+				'HEAD',
+			);
+		// Below the result cache: what actually runs git
+		const spy = sinon.spy(repo.provider.git as unknown as { runCore: (...args: unknown[]) => unknown }, 'runCore');
+		const spawns = () => spy.getCalls().filter(c => c.args[2] === 'git rev-parse HEAD').length;
+		try {
+			await readHead();
+			assert.strictEqual(spawns(), 1, 'the first read spawns git');
+
+			await repo.provider.worktrees.lockWorktree(repo.path, worktreePath, { reason: 'task' });
+			await repo.provider.worktrees.unlockWorktree(repo.path, worktreePath);
+			await readHead();
+			assert.strictEqual(spawns(), 1, "the sibling's read is still served from the cache");
+
+			// What a sibling's HEAD moving still costs, so the read above would have noticed an eviction
+			repo.provider.cache.clearCaches(repo.path, 'worktrees');
+			await readHead();
+			assert.strictEqual(spawns(), 2, "a 'worktrees' reset evicts the sibling's read");
+		} finally {
+			spy.restore();
+			repo.provider.cache.unregisterRepoPath(normalizePath(worktreePath));
+			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: repo.path, stdio: 'pipe' });
+			rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	test('a forced getWorktrees sees a worktree created outside the provider, and matches its new branch', async () => {
+		assert.ok(repo.provider.worktrees);
+		await repo.provider.worktrees.getWorktrees(repo.path);
+		await repo.provider.branches.getBranches(repo.path);
+
+		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-fresh-'));
+		const spy = sinon.spy(repo.provider.git, 'run');
+		try {
+			execFileSync('git', ['worktree', 'add', '-b', 'fresh-branch', worktreePath], {
+				cwd: repo.path,
+				stdio: 'pipe',
+			});
+
+			const worktrees = await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+			const created = worktrees.find(w => normalizePath(w.path) === normalizePath(worktreePath));
+			assert.ok(created, 'the new worktree should be listed');
+			assert.strictEqual(created.branchName, 'fresh-branch');
+			assert.strictEqual(created.branch?.name, 'fresh-branch', 'the stale branch list should be refreshed');
+			assert.ok(
+				spy.getCalls().some(c => c.args.includes('worktree') && c.args.includes('list')),
+				'a `worktree list` should have run',
+			);
+
+			spy.resetHistory();
+			await repo.provider.branches.getBranches(repo.path);
+			assert.ok(
+				!spy.getCalls().some(c => c.args.includes('for-each-ref')),
+				'the refreshed branch list should be served from cache',
+			);
+		} finally {
+			spy.restore();
+			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: repo.path, stdio: 'pipe' });
+			rmSync(worktreePath, { recursive: true, force: true });
+		}
+	});
+
+	test('a forced getWorktrees of an unchanged repository re-reads only the worktree list', async () => {
+		assert.ok(repo.provider.worktrees);
+		createBranch(repo.path, 'steady-branch');
+		const branchPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-steady-'));
+		const detachedPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-detached-'));
+		let spy: sinon.SinonSpy | undefined;
+		try {
+			addWorktree(repo.path, branchPath, 'steady-branch');
+			execFileSync('git', ['worktree', 'add', '--detach', detachedPath], { cwd: repo.path, stdio: 'pipe' });
+
+			// Settles whatever earlier tests left stale, so what follows reads a repository that hasn't changed
+			await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+			await repo.provider.branches.getBranches(repo.path);
+
+			spy = sinon.spy(repo.provider.git, 'run');
+			const worktrees = await repo.provider.worktrees.getWorktrees(repo.path, { force: true });
+
+			assert.strictEqual(
+				worktrees.find(w => normalizePath(w.path) === normalizePath(branchPath))?.branch?.name,
+				'steady-branch',
+			);
+			assert.strictEqual(
+				worktrees.find(w => normalizePath(w.path) === normalizePath(detachedPath))?.type,
+				'detached',
+			);
+			const calls = spy.getCalls();
+			assert.strictEqual(
+				calls.filter(c => c.args.includes('worktree') && c.args.includes('list')).length,
+				1,
+				'exactly one `worktree list` should run',
+			);
+			assert.ok(
+				!calls.some(c => c.args.includes('for-each-ref')),
+				'an unchanged repository should not re-read its branches',
+			);
+		} finally {
+			spy?.restore();
+			for (const path of [branchPath, detachedPath]) {
+				try {
+					execFileSync('git', ['worktree', 'remove', '--force', path], { cwd: repo.path, stdio: 'pipe' });
+				} catch {}
+				try {
+					rmSync(path, { recursive: true, force: true });
+				} catch {}
+			}
 		}
 	});
 

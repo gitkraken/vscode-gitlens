@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes _Publish Repository_ in the _Commit Graph_ and views to open the push wizard's chooser (_Publish Repository…_ or _Add Remote…_) with the clicked action pre-selected, rather than handing straight to VS Code's publish flow &mdash; _Add Remote…_ continues into the publish confirm without a fetch step, and a multi-repository push now skips (and names) repositories without remotes instead of failing
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
+- Changes how a branch's merge target is chosen when none is saved or detected &mdash; the default branch is found from local branches first (an `upstream` remote's, then `origin`'s) and the remote is asked only when they name none, the default branch itself is measured against its own upstream, and a branch created from another branch is measured against it until that branch is merged; the guess for a branch created with `git checkout -b` is no longer saved
 - Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
 
 ### Fixed
@@ -28,10 +29,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Don't Ask Again_ appearing on push confirmations it cannot skip &mdash; the no-remotes chooser, the publish step, and the behind-upstream guard
 - Fixes opening the changes of a file that was deleted (or renamed away) and re-added failing with "file not found" &mdash; the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914)) &mdash; thanks to [PR #5930](https://github.com/gitkraken/vscode-gitlens/pull/5930) by Andrés Martínez ([@amartinez1224](https://github.com/amartinez1224))
 - Fixes _Open Blame Prior to this Change_ on a line whose change added the file (including a file that was deleted or renamed away and re-added) opening an empty file picker or a blank document &mdash; it now says the file didn't exist before that change ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914))
+- Fixes Azure DevOps work items whose type keeps its content outside Description, such as a Bug's Repro Steps or a custom field on an inherited process, showing no description ([#6047](https://github.com/gitkraken/vscode-gitlens/issues/6047))
 - Fixes Azure DevOps issue lists misclassifying Removed work items without closure dates ([#6013](https://github.com/gitkraken/vscode-gitlens/issues/6013))
 - Fixes Azure DevOps repositories cloned with a legacy `https://{org}.visualstudio.com/DefaultCollection/…` remote never showing pull requests, work items or commit authors, and filling the log with `Invalid Azure repository descriptor` errors ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) &mdash; also fixes remotes that name no project (`…/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`), whose project is named after the repository
 - Fixes Azure DevOps repositories named after their project and cloned without the project segment (`…/{collection}/_git/{repo}`, as TFS 2018 offers them) never showing pull requests or commit authors ([#6000](https://github.com/gitkraken/vscode-gitlens/issues/6000))
+- Fixes Azure DevOps showing no authored or review-requested pull requests, and failing to read the user's groups, for accounts whose profile id differs from their identity in an organization; Launchpad also categorizes those pull requests as the user's ([#6032](https://github.com/gitkraken/vscode-gitlens/issues/6032))
 - Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
+- Fixes a branch's merge target counting commits that are already on the remote when the target is an out-of-date local branch &mdash; a merge target is now measured against the local branch or its upstream, whichever the branch split off from more recently
+- Fixes the merge target status being hidden when a branch's target is a local branch whose name ends with the branch's own name, such as `release/main` for `main`, and both are at the same commit
+- Fixes _Home_ and _Commit Graph_ branch cards measuring the overview and the merge target status against different targets for a branch that tracks a remote other than `origin`
+- Fixes the _Commit Graph_'s commit scope picker ignoring a branch's saved or pull request merge target
+- Fixes _Explain Branch_ comparing against the current branch, instead of reporting that no base branch was found, for a branch with no merge target
+- Fixes _Create Pull Request_ cutting a local merge target's name at its first slash when choosing the pull request's base &mdash; `release/2.0` became `2.0`
+- Fixes a branch's base never being found from where it was created when Git's `grep.patternType` is set to `fixed`
 
 ## [19.4.0] - 2026-10-15
 

@@ -1,4 +1,3 @@
-import type { SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
 import { resolve as resolvePath } from 'path';
 import * as process from 'process';
@@ -44,16 +43,19 @@ import { arePathsEqual, dirname, isAbsolute, isDescendant, joinPaths, normalizeP
 import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
+import type { CommandChanges } from './commandClassifier.js';
 import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
-import type { RunOptions, RunResult } from './exec.js';
+import type { ProcessSpawner, ProcessSpawnOptions, RunOptions, RunResult } from './exec.js';
 import { endStdin, fsExists, runSpawn } from './exec.js';
 import type { GitCommandPriority, GitResult, GitRunOptions, GitSpawnOptions } from './exec.types.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './features.js';
 import { gitFeaturesByVersion } from './features.js';
 import type { GitQueueConfig } from './gitQueue.js';
 import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
+import type { HeadState } from './headState.js';
+import { getMovedHead } from './headState.js';
 import {
 	isConfigCommand,
 	isIndexWriteCommand,
@@ -77,6 +79,24 @@ const runHookFailures = new WeakSet<object>();
 
 export function isRunHookFailure(ex: unknown): boolean {
 	return typeof ex === 'object' && ex != null && runHookFailures.has(ex);
+}
+
+interface PendingCommand {
+	readonly cwd: string | undefined;
+	readonly promise: Promise<RunResult<string | Buffer>>;
+	spawned: boolean;
+	/** The `onSpawn` of the run and of every call that joined it before it spawned */
+	readonly spawnListeners: (() => void)[];
+}
+
+function notifySpawned(listeners: readonly (() => void)[]): void {
+	for (const listener of listeners) {
+		try {
+			listener();
+		} catch (ex) {
+			Logger.error(ex, 'GitRunOptions.onSpawn');
+		}
+	}
 }
 
 /**
@@ -633,6 +653,8 @@ export interface GitOptions {
 	hooks?: GitHooks;
 	/** Optional dedicated logger for git command logging */
 	logger?: LogChannel;
+	/** Launches the git process of every run and stream (not the locator's); defaults to Node's `spawn`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
+	spawn?: ProcessSpawner;
 }
 
 export interface GitHooks {
@@ -725,12 +747,19 @@ const uniqueCounterForStream = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitRunOptions & { exitCodeOnly: true };
 
+/** What a `notify`-flagged run announces once it settles, worked out before it spawns */
+type PendingNotify =
+	/** An explicit `notify` list, announced as given */
+	| { readonly cwd: string; readonly pathOverride: string | undefined; readonly changes: readonly RepositoryChange[] }
+	/** `notify: 'infer'`'s classification, with HEAD before the run when the verb moves only HEAD's branch */
+	| { readonly cwd: string; readonly command: CommandChanges; readonly headBefore: HeadState };
+
+/** The refs a `notify`-flagged run proved it moved, as {@link Git.bindChangeNotifier} passes them on */
+export type NamedRefs = { readonly refs: readonly string[]; readonly configConfinedToRefs?: boolean };
+
 export class Git {
 	/** Map of running git commands — avoids running duplicate overlapping commands */
-	private readonly pendingCommands = new Map<
-		string,
-		{ readonly cwd: string | undefined; readonly promise: Promise<RunResult<string | Buffer>> }
-	>();
+	private readonly pendingCommands = new Map<string, PendingCommand>();
 	/** Queue for throttling background git operations */
 	private readonly _queue: GitQueue;
 	/** Orders the index-writing runs of each checkout, so they don't race for its `index.lock` */
@@ -755,8 +784,15 @@ export class Git {
 				repoPaths: readonly string[],
 				changes: readonly RepositoryChange[],
 				sharedPaths?: readonly string[],
+				named?: NamedRefs,
 		  ) => void)
 		| undefined;
+	/** Bound via {@link bindHeadReader}; reads HEAD around a `notify: 'infer'` run that moves only HEAD's branch */
+	private _headReader: ((path: string) => Promise<HeadState>) | undefined;
+	/** Bound via {@link bindIgnoredWorktreeRootsReader}; read before a `notify: 'infer'` worktree write */
+	private _ignoredWorktreeRootsReader: ((path: string) => Promise<readonly string[] | undefined>) | undefined;
+	/** The classifier behind `notify: 'infer'` — a field only so tests can substitute it */
+	private readonly _classify: typeof getChangesForCommand = getChangesForCommand;
 
 	constructor(
 		private readonly _locator: () => Promise<GitLocation>,
@@ -772,16 +808,41 @@ export class Git {
 	 * `repoPaths` holds more than one path only for a `-C`-scoped shared-state verb: the `-C` target, then the
 	 * caller's own `cwd`. `sharedPaths` names the paths that were not run in but share the repository, which
 	 * hear only the part of `changes` every worktree sees (the caller's `cwd`, when the verb also changed
-	 * something local to the `-C` target).
+	 * something local to the `-C` target). `named.refs`, given only when the run proved them, are the full ref
+	 * names it moved, as `repository.onChanged`'s `refs` are: `repoPaths` hear all of them, `sharedPaths` those of
+	 * the kinds they hear. `named.configConfinedToRefs` confines a `config` change to those branches' sections.
 	 */
 	bindChangeNotifier(
 		fn: (
 			repoPaths: readonly string[],
 			changes: readonly RepositoryChange[],
 			sharedPaths?: readonly string[],
+			named?: NamedRefs,
 		) => void,
 	): void {
 		this._changeNotifier = fn;
+	}
+
+	/**
+	 * Binds the reader a `notify: 'infer'` {@link run} of a verb that moves only HEAD's branch (a commit, a reset)
+	 * calls on the tree it runs in, before and after the run, to name that branch. It must not run git, and resolves
+	 * `undefined` when HEAD can't be read. With nothing bound, such a run announces its branch move unnamed.
+	 */
+	bindHeadReader(fn: (path: string) => Promise<HeadState>): void {
+		this._headReader = fn;
+	}
+
+	/**
+	 * Binds the reader a `notify: 'infer'` {@link run} of a worktree write calls on the tree it runs in: the absolute
+	 * folders, under that repository's common git dir, whose worktrees the host has core ignore. No worktree list shows
+	 * one, so its add, remove, lock, unlock or move announces no `worktrees` change. Each folder comes in every spelling
+	 * a path may take (as the host spells the git dir, and resolved through symlinks); a path spelled through some other
+	 * symlink keeps the change. It runs git at most once per repository (for a common git dir its files don't show),
+	 * resolves `[]` (or `undefined`) when nothing is ignored, and rejects when the folders can't be read, which keeps the
+	 * change. With nothing bound, every worktree write announces `worktrees`.
+	 */
+	bindIgnoredWorktreeRootsReader(fn: (path: string) => Promise<readonly string[] | undefined>): void {
+		this._ignoredWorktreeRootsReader = fn;
 	}
 
 	/**
@@ -950,10 +1011,13 @@ export class Git {
 		// `notify` announces once the run settles (success, failure or cancellation), which the bare
 		// `return <promise>` paths below don't wait for; callers without it never take this branch.
 		if (options.notify != null) {
+			const pending = await this.prepareNotify(options, runArgs);
 			try {
 				return await this.run<T>({ ...options, notify: undefined }, ...args);
 			} finally {
-				this.applyNotify(options, runArgs);
+				if (pending != null) {
+					await this.applyNotify(pending);
+				}
 			}
 		}
 
@@ -1010,44 +1074,133 @@ export class Git {
 	}
 
 	/**
-	 * Applies `options.notify` once a {@link run} has settled — a no-op unless both `notify` and a
-	 * {@link bindChangeNotifier bound} notifier are present, so an unflagged caller pays nothing.
+	 * Works out, before a `notify`-flagged {@link run} spawns, what it announces once it settles — `undefined` unless
+	 * both `notify` and a {@link bindChangeNotifier bound} notifier are present, so an unflagged caller pays nothing.
+	 * A verb that moves only HEAD's branch reads HEAD here, since the run may move it.
 	 */
-	private applyNotify(options: GitRunOptions, args: readonly string[]): void {
+	private async prepareNotify(options: GitRunOptions, args: readonly string[]): Promise<PendingNotify | undefined> {
 		const notify = options.notify;
-		if (notify == null || this._changeNotifier == null || options.cwd == null) return;
+		if (notify == null || this._changeNotifier == null || options.cwd == null) return undefined;
 
+		// The argv git sees, which `options.configs` (a `-c`, or even a `-C`) leads
+		const argv = options.configs?.length ? [...options.configs, ...args] : args;
 		if (notify !== 'infer') {
 			// The caller decided exactly what changed; still resolve WHERE it changed the same way `infer`
 			// does, since the caller may have passed its own `-C` in the argv.
-			this._changeNotifier([this.resolveNotifyPath(options.cwd, leadingCommand(args).pathOverride)], notify);
+			return { cwd: options.cwd, pathOverride: leadingCommand(argv).pathOverride, changes: notify };
+		}
+
+		let command = this._classify(argv);
+		if (command == null) return undefined; // read-only or object-store-only — nothing to announce
+
+		if (command.worktreePaths != null && command.changes.includes('worktrees')) {
+			command = await this.withoutIgnoredWorktrees(
+				command,
+				command.worktreePaths,
+				this.resolveNotifyPath(options.cwd, command.pathOverride),
+			);
+			if (command == null) return undefined;
+		}
+
+		const headBefore =
+			command.movesHeadBranch && this._headReader != null
+				? await this.readHead(this.resolveNotifyPath(options.cwd, command.pathOverride))
+				: undefined;
+		return { cwd: options.cwd, command: command, headBefore: headBefore };
+	}
+
+	/** Announces what {@link prepareNotify} worked out, once the run has settled */
+	private async applyNotify(pending: PendingNotify): Promise<void> {
+		if (!('command' in pending)) {
+			this._changeNotifier?.([this.resolveNotifyPath(pending.cwd, pending.pathOverride)], pending.changes);
 			return;
 		}
 
-		const command = getChangesForCommand(args);
-		if (command == null) return; // read-only or object-store-only — nothing to announce
+		const command = pending.command;
+		const ranIn = this.resolveNotifyPath(pending.cwd, command.pathOverride);
+		let changes = command.changes;
+		let sharedChanges = command.sharedChanges;
+		const refs = [...(command.refs ?? [])];
+		if (command.movesHeadBranch && this._headReader != null) {
+			const moved = getMovedHead(pending.headBefore, await this.readHead(ranIn));
+			if (moved === 'detached') {
+				// A detached HEAD moving moves no branch
+				changes = changes.filter(c => c !== 'heads');
+				sharedChanges = sharedChanges.filter(c => c !== 'heads');
+				// Nothing else changed, and announcing `[]` would reset everything
+				if (!changes.length) return;
+			} else if (moved != null && changes.includes('heads') && !refs.includes(moved.branch)) {
+				refs.push(moved.branch);
+			}
+		}
 
-		const ranIn = this.resolveNotifyPath(options.cwd, command.pathOverride);
+		const notifier = this._changeNotifier;
+		if (notifier == null) return;
+
+		let named: NamedRefs | undefined;
+		if (refs.length) {
+			named = command.configConfinedToRefs ? { refs: refs, configConfinedToRefs: true } : { refs: refs };
+		}
 
 		// A `-C`-scoped write also changes what the caller's own `cwd` sees when both share a `.git`: a branch,
 		// tag or stash it wrote. The target may be a worktree the cache never registered, so its eviction can't be
 		// trusted to reach `cwd`; announce the shared kinds there too, and only those. A write it can't classify
 		// (`[]`) resets both, since what it shares is unknown.
-		const cwd = normalizePath(options.cwd);
-		if (
-			command.pathOverride != null &&
-			cwd !== ranIn &&
-			(command.sharedChanges.length || !command.changes.length)
-		) {
-			if (command.sharedChanges.length === command.changes.length) {
-				this._changeNotifier([ranIn, cwd], command.changes);
+		const cwd = normalizePath(pending.cwd);
+		if (command.pathOverride != null && cwd !== ranIn && (sharedChanges.length || !changes.length)) {
+			if (sharedChanges.length === changes.length) {
+				notifier([ranIn, cwd], changes, undefined, named);
 			} else {
-				this._changeNotifier([ranIn], command.changes, [cwd]);
+				notifier([ranIn], changes, [cwd], named);
 			}
 			return;
 		}
 
-		this._changeNotifier([ranIn], command.changes);
+		notifier([ranIn], changes, undefined, named);
+	}
+
+	/**
+	 * `command` without its `worktrees` and `worktreeHead` changes when every worktree it acts on lies under a folder
+	 * whose worktrees are ignored, read before the run while the tree it runs in surely exists; `undefined` when nothing
+	 * else is left to announce, since announcing `[]` would reset everything. Git first matches an argument against the
+	 * trailing path components of every worktree, so a relative one may name a worktree outside those folders whatever
+	 * it resolves to, and keeps the change.
+	 */
+	private async withoutIgnoredWorktrees(
+		command: CommandChanges,
+		worktreePaths: readonly string[],
+		ranIn: string,
+	): Promise<CommandChanges | undefined> {
+		const reader = this._ignoredWorktreeRootsReader;
+		if (reader == null || !worktreePaths.every(p => isAbsolute(p))) return command;
+
+		let roots: readonly string[] | undefined;
+		try {
+			roots = await reader(ranIn);
+		} catch {}
+		if (!roots?.length) return command;
+
+		// Resolved as git resolves them, so a `..` segment can't lead a path that only starts under a folder out of it
+		const resolved = worktreePaths.map(p => normalizePath(resolvePath(ranIn, p)));
+		if (!resolved.every(p => roots.some(root => isDescendant(p, root)))) return command;
+
+		const changes = command.changes.filter(c => c !== 'worktrees' && c !== 'worktreeHead');
+		if (!changes.length) return undefined;
+
+		return {
+			...command,
+			changes: changes,
+			sharedChanges: command.sharedChanges.filter(c => c !== 'worktrees' && c !== 'worktreeHead'),
+		};
+	}
+
+	/** HEAD of `path` through the {@link bindHeadReader bound} reader, or `undefined` when it can't be read */
+	private async readHead(path: string): Promise<HeadState> {
+		try {
+			return await this._headReader?.(path);
+		} catch {
+			return undefined;
+		}
 	}
 
 	private resolveNotifyPath(cwd: string, pathOverride: string | undefined): string {
@@ -1068,6 +1221,7 @@ export class Git {
 			cancellation,
 			configs,
 			correlationKey,
+			onSpawn,
 			errors: errorHandling,
 			encoding,
 			expectedExitCodes,
@@ -1086,6 +1240,7 @@ export class Git {
 			decode: this.options.decode,
 			env: this.buildEnv(options.env),
 			quiet: errorHandling === 'ignore',
+			spawn: this.options.spawn,
 		};
 
 		// A run fed its own stdin or per-call env is never shared: the same argv can answer differently for
@@ -1106,15 +1261,22 @@ export class Git {
 		// rather than be classified like a git failure below.
 		let hookFailure: { error: unknown } | undefined;
 		let waiting;
-		let promise = this.pendingCommands.get(cacheKey)?.promise;
-		if (promise == null) {
+		let promise: Promise<RunResult<string | Buffer>>;
+		const pending = this.pendingCommands.get(cacheKey);
+		if (pending == null) {
 			waiting = false;
 
 			// Create a deferred promise and store it immediately to prevent duplicate commands
-			// Note: cancellation tokens are not part of the dedup key — calls with different AbortSignals will not be deduplicated
+			// Note: the cancellation signal is part of the dedup key — calls with different AbortSignals are not deduplicated
 			const deferred = defer<RunResult<string | Buffer>>();
 			promise = deferred.promise;
-			this.pendingCommands.set(cacheKey, { cwd: options.cwd, promise: promise });
+			const command: PendingCommand = {
+				cwd: options.cwd,
+				promise: promise,
+				spawned: false,
+				spawnListeners: onSpawn != null ? [onSpawn] : [],
+			};
+			this.pendingCommands.set(cacheKey, command);
 
 			// A write to the index takes `index.lock` and fails at once if another process holds it, so these
 			// runs queue behind one another per checkout and retry briefly when something outside still beats
@@ -1150,6 +1312,11 @@ export class Git {
 					priority,
 					() => {
 						execStart = hrtime();
+						// A lock retry spawns again, but the run has already started
+						if (!command.spawned) {
+							command.spawned = true;
+							notifySpawned(command.spawnListeners.splice(0));
+						}
 						return this._runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts);
 					},
 					cancellation,
@@ -1193,6 +1360,14 @@ export class Git {
 				.catch(() => {});
 		} else {
 			waiting = true;
+			promise = pending.promise;
+			if (onSpawn != null) {
+				if (pending.spawned) {
+					notifySpawned([onSpawn]);
+				} else {
+					pending.spawnListeners.push(onSpawn);
+				}
+			}
 			Logger.trace(`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u00b7 awaiting existing call...`);
 		}
 
@@ -1389,18 +1564,20 @@ export class Git {
 		const startEpochMs = Date.now();
 		const streamId = uniqueCounterForStream.next();
 
-		const { configs, stdin, stdinEncoding, cancellation, encoding, slownessCategory, ...opts } = options;
+		const { configs, stdin, stdinEncoding, cancellation, encoding, slownessCategory, cwd, timeout } = options;
 		const runArgs = args.filter(a => a != null);
 
-		const spawnOpts: SpawnOptions = {
+		const spawnOpts: ProcessSpawnOptions = {
 			// Unless provided, ignore stdin and leave default streams for stdout and stderr
 			stdio: [stdin ? 'pipe' : 'ignore', null, null],
-			...opts,
-			signal: cancellation,
+			cwd: cwd,
 			env: this.buildEnv(options.env),
+			// 0 disables it, which the spawner contract spells as absent
+			timeout: timeout === 0 ? undefined : timeout,
+			signal: cancellation,
 		};
 
-		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${runArgs.join(' ')}`;
+		const gitCommand = `(spawn) [${cwd}] git ${runArgs.join(' ')}`;
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -1411,7 +1588,7 @@ export class Git {
 		}
 
 		const command = await this.path();
-		const proc = spawn(command, runArgs, spawnOpts);
+		const proc = (this.options.spawn ?? spawn)(command, runArgs, spawnOpts);
 
 		if (stdin) {
 			endStdin(proc.stdin, stdin, stdinEncoding);
@@ -1443,7 +1620,13 @@ export class Git {
 						resolve();
 					} else {
 						reject(
-							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal, 'unknown'),
+							new CancelledRunError(
+								proc.spawnargs.join(' '),
+								true,
+								code ?? undefined,
+								signal,
+								proc.killed ? 'timeout' : 'unknown',
+							),
 						);
 					}
 					return;
@@ -1496,7 +1679,7 @@ export class Git {
 				duration,
 				duration,
 				false,
-				spawnOpts.cwd as string | undefined,
+				cwd,
 				runArgs,
 				slownessCategory,
 				startEpochMs,
@@ -1514,30 +1697,31 @@ export class Git {
 			this.logGitCommandStart(gitCommand, streamId);
 
 			try {
-				if (proc.stdout) {
-					const enc = encoding ?? 'utf8';
-					if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
-						proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
-						for await (const chunk of proc.stdout) {
-							yield chunk;
-						}
-					} else {
-						// Non-UTF-8 encoding: collect raw buffers and decode at the end.
-						// Streaming decode is unsafe because chunk boundaries can split
-						// multi-byte sequences in the source encoding.
-						const decode = this.options.decode;
-						if (decode == null) {
-							throw new Error(
-								`Non-UTF-8 encoding '${enc}' requested for stream but no decode function configured`,
-							);
-						}
+				// Only a host spawner can leave it out; reading no output as empty would pass for a clean answer
+				if (proc.stdout == null) throw new Error(`'${command}' was spawned without a stdout pipe`);
 
-						const buffers: Buffer[] = [];
-						for await (const chunk of proc.stdout) {
-							buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-						}
-						yield await decode(Buffer.concat(buffers), { encoding: enc });
+				const enc = encoding ?? 'utf8';
+				if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
+					proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
+					for await (const chunk of proc.stdout) {
+						yield chunk;
 					}
+				} else {
+					// Non-UTF-8 encoding: collect raw buffers and decode at the end.
+					// Streaming decode is unsafe because chunk boundaries can split
+					// multi-byte sequences in the source encoding.
+					const decode = this.options.decode;
+					if (decode == null) {
+						throw new Error(
+							`Non-UTF-8 encoding '${enc}' requested for stream but no decode function configured`,
+						);
+					}
+
+					const buffers: Buffer[] = [];
+					for await (const chunk of proc.stdout) {
+						buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+					}
+					yield await decode(Buffer.concat(buffers), { encoding: enc });
 				}
 			} finally {
 				// This await MUST be in this inner finally block to ensure the child process close event completes

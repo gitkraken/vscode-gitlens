@@ -206,8 +206,19 @@ const maxWorkingTreePaths = 1000;
 /**
  * Cap on retained ref names per flush, for the same reason (a fetch of many refs while suspended). Past it, a ref kind
  * is recorded unnamed — any ref of that kind may have moved — which only makes `mayHaveChangedRef` more conservative.
+ * A pending `config` confined to more branches than this is recorded unconfined, for the same reason.
  */
 const maxPendingRefNames = 1000;
+
+/**
+ * What core's announced writes in the pending window said about one kind: when it was first announced, and the full
+ * ref names it was confined to (for `config`, the branches whose sections it changed); `names` is absent when an
+ * announcement left the kind open — any ref of it, or any part of the config, may have changed.
+ */
+interface PendingAnnouncement {
+	readonly at: number;
+	names: Set<string> | undefined;
+}
 
 /**
  * Per-repository session that owns the debounce/coalesce/suspend
@@ -232,10 +243,20 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/** Kinds among {@link pendingRepoChanges} injected or pushed unfenced, which an announcement never replaces */
 	private readonly pendingRepoUnfencedChanges = new Set<RepositoryChange>();
 	/**
-	 * Kinds among {@link pendingRepoChanges} that only core's announced writes reported, with when each was announced
-	 * (see {@link noteSelfWrite})
+	 * Kinds among {@link pendingRepoChanges} that only core's announced writes, and their own echoes, reported (see
+	 * {@link noteSelfWrite})
 	 */
-	private readonly pendingRepoAnnouncedAt = new Map<RepositoryChange, number>();
+	private readonly pendingRepoAnnounced = new Map<RepositoryChange, PendingAnnouncement>();
+	/**
+	 * Refs core's writes named since the last flush, kept when an outside report makes their kind unannounced: each is
+	 * a ref a write changed, never the echo of a ref directory
+	 */
+	private readonly pendingRepoAnnouncedRefs = new Set<string>();
+	/**
+	 * For a pending `config` change, the branches (full ref names) whose sections are all that every report of it
+	 * changed; `undefined` once any report may have changed anything else
+	 */
+	private pendingRepoConfigBranches: Set<string> | undefined;
 	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
 	private effectiveRepoMaxWaitMs: number;
@@ -361,7 +382,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * return the subscriber's current list. A `heads`/`remotes`/`tags`/`stash` change is delivered only when a listed
 	 * ref of that kind may have moved, when the change isn't attributable to a name (e.g. a `packed-refs` rewrite),
 	 * or, for `heads`, when a pseudo-ref (`HEAD`, `ORIG_HEAD`) moved — so `stash` and `tags` changes are dropped unless
-	 * a ref of that kind is listed. Other change kinds always pass, and an event left with no changes isn't delivered.
+	 * a ref of that kind is listed. A `config` change confined to some branches' `branch.<name>` sections
+	 * (`configBranches`) is delivered only when `HEAD` or one of those branches is listed. Other change kinds always
+	 * pass, and an event left with no changes isn't delivered.
 	 * The filter never affects other subscribers, the debounce, or the global `onDidFireRepoChange` forwarding.
 	 */
 	subscribe(opts?: {
@@ -528,11 +551,14 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/**
 	 * Push interpreted repo changes into the pipeline. `ref` is the full ref name (or ref directory, or pseudo-ref) whose
 	 * file changed; a ref kind in `changes` is attributed to it when the kinds match, and is otherwise unnamed.
+	 * `false` preserves cache invalidations for a config edit without claiming any ref moved. `configBranches`, for a
+	 * `config` among `changes`, are the local branches (full ref names) whose `branch.<name>` sections are all that
+	 * changed in `.git/config`; without it, the config change may be anywhere.
 	 */
-	pushRepoChanges(changes: RepositoryChange[], ref?: string): void {
+	pushRepoChanges(changes: RepositoryChange[], ref?: string | false, configBranches?: ReadonlySet<string>): void {
 		if (this._disposed) return;
 
-		this.coalesceRepo(changes, ref, 'raw');
+		this.coalesceRepo(changes, ref, 'raw', configBranches);
 	}
 
 	/**
@@ -550,38 +576,87 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * Core announced one of its own writes for this repository: its caches were evicted and its host notified, both
 	 * after the write finished. The announcement becomes this session's one event for the write:
 	 *
-	 * - raw changes of an announced kind still pending are replaced by it — they happened before the announcement,
-	 *   which already covers them, whether they came from the write or from an outside change;
-	 * - the announced kinds are pushed through the debounce and suspend like {@link fireChange}, ref kinds unnamed,
-	 *   and the event carries them in `announced`;
-	 * - raw changes of an announced kind that arrive later are never dropped. One arriving within the repo debounce
-	 *   delay of the announcement, before its event fires, is taken for the write's own late echo and keeps the kind
-	 *   announced; any other report of the kind before the event fires clears the mark. Once it fires, nothing is
-	 *   special.
+	 * - the announced kinds are pushed through the debounce and suspend like {@link fireChange}, and the event carries
+	 *   them in `announced`. A ref kind is unnamed unless `refs` names refs of that kind (the full ref names the write
+	 *   moved), in which case it carries those names and no other ref of the kind counts as changed by the write.
+	 *   `config` is confined to the `branch.<name>` sections of the local branches `refs` names when
+	 *   `options.configConfinedToRefs` says so, and the event carries them (`configBranches`);
+	 * - a raw change of an announced kind is the write's own report of it only when it is provably within what the
+	 *   write announced: a ref the write named or a ref directory holding one, or a config change confined to branches
+	 *   the write's config was confined to. Pending when the announcement arrives, it is replaced. Arriving later, it
+	 *   merges and the kind stays announced only within the repo debounce delay of the announcement; a window can stay
+	 *   pending for minutes while the session is suspended, and a later move of the same ref is as likely an outside
+	 *   one. Any other report of the kind is an outside change: it stays, and the kind isn't `announced`, since the
+	 *   host has not handled the outside part. A write never names `HEAD`, but a commit locks it to write its reflog,
+	 *   so under a write that announced `head`, a report of the `HEAD` file within the same delay is the write's echo,
+	 *   its `heads` part included;
+	 * - a kind the write announced open (unnamed, or `config` unconfined) covers any change of the kind: raw changes
+	 *   of it still pending are replaced, since the host evicts everything of the kind after the write. One arriving
+	 *   within the repo debounce delay of the announcement, before its event fires, is taken for the write's own late
+	 *   echo; any later report of the kind before the event fires clears the mark.
 	 *
-	 * The trade-off: an echo the watcher delivers after the announced event fired causes one extra, unannounced event
-	 * (a duplicate refresh), rather than risk losing an outside change of the same kind.
+	 * Once the event fires, nothing is special: an echo the watcher delivers after it causes one extra, unannounced
+	 * event (a duplicate refresh, narrowed like any other), rather than risk losing an outside change of the same kind.
 	 *
 	 * Empty `changes`, or `'unknown'`, announces every kind a watcher can report (never `'unknown'` itself, which a
-	 * cache reads as a close); `'closed'` and `'opened'` are ignored. Only raw `.git` changes are replaced or kept
-	 * announced: {@link fireChange}, {@link fireChangeImmediate}, {@link pushUnfencedRepoChanges} and working-tree
-	 * changes always pass.
+	 * cache reads as a close), open whatever `refs` says; `'closed'` and `'opened'` are ignored. Only raw `.git` changes
+	 * are replaced or kept announced: {@link fireChange}, {@link fireChangeImmediate}, {@link pushUnfencedRepoChanges}
+	 * and working-tree changes always pass.
 	 */
-	noteSelfWrite(changes: readonly RepositoryChange[]): void {
+	noteSelfWrite(
+		changes: readonly RepositoryChange[],
+		refs?: readonly string[],
+		options?: { readonly configConfinedToRefs?: boolean },
+	): void {
 		if (this._disposed) return;
 
 		const all = changes.length === 0 || changes.includes('unknown');
 		const announced = all ? allWatchedRepositoryChanges : changes.filter(c => isAnnounceable(c));
+		const named = all ? undefined : groupNamedRefs(changes, refs);
+		const configBranches =
+			!all && options?.configConfinedToRefs === true && changes.includes('config')
+				? getBranchRefs(refs)
+				: undefined;
 
 		for (const change of this.pendingRepoChanges) {
 			if (this.pendingRepoUnfencedChanges.has(change) || !isAnnounceable(change)) continue;
 			if (!all && !changes.includes(change)) continue;
 
+			if (change === 'config' && configBranches != null) {
+				// An earlier announcement's config stays and merges with this one; a raw one is replaced only when it
+				// is provably this write's own report
+				if (this.pendingRepoAnnounced.has(change)) continue;
+				if (!isSubsetOf(this.pendingRepoConfigBranches, configBranches)) continue;
+			}
+
+			const names = isRefChangeKind(change) ? named?.get(change) : undefined;
+			if (names != null) {
+				for (const name of names) {
+					this.pendingRepoRefs.delete(name);
+				}
+				// Git reports the directory it creates or removes to hold the write's ref as well. Only a raw report can
+				// be that echo: a name an earlier write announced is a ref it changed, and it can sit where this write's
+				// directory is (delete `team`, then create `team/task`)
+				// Walked from each name, as a write can name many refs (a fetch) while many outside ones are pending
+				for (const name of names) {
+					for (const dir of getRefDirectories(name)) {
+						if (!this.pendingRepoAnnouncedRefs.has(dir)) {
+							this.pendingRepoRefs.delete(dir);
+						}
+					}
+				}
+				// What's left of the kind came from outside the write, so it stays, unannounced
+				if (this.hasPendingRefOfKind(change)) continue;
+			}
+
 			this.pendingRepoChanges.delete(change);
-			this.pendingRepoAnnouncedAt.delete(change);
+			this.pendingRepoAnnounced.delete(change);
+			if (change === 'config') {
+				this.pendingRepoConfigBranches = undefined;
+			}
 			if (!isRefChangeKind(change)) continue;
 
-			// Announcements carry no ref names, so the replaced kind takes its named refs with it
+			// An unnamed announcement covers any ref of the kind, so the replaced kind takes its named refs with it
 			this.pendingRepoUnnamedRefKinds.delete(change);
 			for (const ref of this.pendingRepoRefs) {
 				if (getRefChangeKind(ref) === change) {
@@ -591,7 +666,24 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		}
 
 		if (announced.length !== 0) {
-			this.coalesceRepo(announced, undefined, 'announced');
+			this.coalesceRepo(
+				named != null ? announced.filter(c => !isRefChangeKind(c) || !named.has(c)) : announced,
+				undefined,
+				'announced',
+				configBranches,
+			);
+			if (named != null) {
+				for (const [kind, names] of named) {
+					for (const name of names) {
+						this.coalesceRepo([kind], name, 'announced');
+						// Only a name kept among the pending refs can be taken for a directory's echo; past the cap
+						// the kind went unnamed, which covers it, so the set stays as bounded as those refs
+						if (this.pendingRepoRefs.has(name)) {
+							this.pendingRepoAnnouncedRefs.add(name);
+						}
+					}
+				}
+			}
 		} else if (this.pendingRepoChanges.size === 0) {
 			// Nothing left to flush: idle the clock rather than let it fire an empty window
 			this.repoClock.cancel();
@@ -659,8 +751,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		const event = new WatcherRepoChangeEvent(
 			this.repoPath,
 			[...this.pendingRepoChanges],
-			{ names: this.pendingRepoRefs, unnamed: this.pendingRepoUnnamedRefKinds },
-			this.pendingRepoAnnouncedAt.keys(),
+			{
+				names: this.pendingRepoRefs,
+				unnamed: this.pendingRepoUnnamedRefKinds,
+				configBranches: this.pendingRepoConfigBranches,
+			},
+			this.pendingRepoAnnounced.keys(),
 		);
 		this.clearPendingRepoChanges();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
@@ -672,33 +768,76 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/**
 	 * `origin` is a raw `.git` event, a push no announcement replaces ({@link fireChange},
 	 * {@link pushUnfencedRepoChanges}), or core's announced write. A kind stays announced only while nothing else
-	 * reports it in the pending window, save the write's own late echo (see {@link noteSelfWrite}).
+	 * reports it in the pending window, save the write's own report of it (see {@link noteSelfWrite}).
+	 * `configBranches` confines a `config` among `changes` to those branches' sections; without it, it may be anywhere.
 	 */
 	private coalesceRepo(
 		changes: readonly RepositoryChange[],
-		ref: string | undefined,
+		ref: string | false | undefined,
 		origin: 'raw' | 'unfenced' | 'announced',
+		configBranches?: ReadonlySet<string>,
 	): void {
 		if (changes.length === 0) return;
 
 		const now = performance.now();
-		const refKind = ref != null ? getRefChangeKind(ref) : undefined;
+		const refKind = typeof ref === 'string' ? getRefChangeKind(ref) : undefined;
 		for (const change of changes) {
+			const pending = this.pendingRepoChanges.has(change);
+			// What this report is confined to: the ref it names, or the branches whose config sections it changed
+			let names: ReadonlySet<string> | undefined;
+			if (origin !== 'unfenced') {
+				if (change === 'config') {
+					names = configBranches;
+				} else if (typeof ref === 'string' && refKind === change) {
+					names = new Set([ref]);
+				}
+			}
+
+			const announcement = this.pendingRepoAnnounced.get(change);
 			if (origin === 'announced') {
-				if (!this.pendingRepoChanges.has(change)) {
-					this.pendingRepoAnnouncedAt.set(change, now);
+				if (!pending) {
+					this.pendingRepoAnnounced.set(change, {
+						at: now,
+						names: names != null ? new Set(names) : undefined,
+					});
+				} else if (announcement != null) {
+					// Added in place: a write naming many refs arrives here once per name, and copying the set each
+					// time would cost quadratic time in the number of refs it moved
+					if (announcement.names != null && names != null) {
+						for (const name of names) {
+							announcement.names.add(name);
+						}
+					} else {
+						announcement.names = undefined;
+					}
 				}
 			} else {
-				const announcedAt = origin === 'raw' ? this.pendingRepoAnnouncedAt.get(change) : undefined;
-				if (announcedAt == null || now - announcedAt > this.effectiveRepoMs) {
-					this.pendingRepoAnnouncedAt.delete(change);
+				const own =
+					origin === 'raw' && announcement != null && this.isOwnReport(change, announcement, names, now);
+				if (announcement != null && !own) {
+					this.pendingRepoAnnounced.delete(change);
+				} else if (!pending && origin === 'raw' && this.isHeadEcho(change, names, now)) {
+					// A detached HEAD's move announces head without heads, and the HEAD file is all it wrote
+					this.pendingRepoAnnounced.set(change, { at: now, names: new Set(names) });
 				}
 				if (origin === 'unfenced') {
 					this.pendingRepoUnfencedChanges.add(change);
 				}
 			}
+
+			if (change === 'config') {
+				let branches: Set<string> | undefined;
+				if (!pending) {
+					branches = names != null ? new Set(names) : undefined;
+				} else if (this.pendingRepoConfigBranches != null && names != null) {
+					branches = new Set([...this.pendingRepoConfigBranches, ...names]);
+				}
+				this.pendingRepoConfigBranches =
+					branches != null && branches.size <= maxPendingRefNames ? branches : undefined;
+			}
+
 			this.pendingRepoChanges.add(change);
-			if (!isRefChangeKind(change)) continue;
+			if (ref === false || !isRefChangeKind(change)) continue;
 
 			if (
 				ref != null &&
@@ -713,12 +852,57 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoClock.note();
 	}
 
+	/**
+	 * Whether a raw report of `change`, confined to `names` (`undefined`: not confined), is the announced write's own.
+	 * It must arrive within the repo debounce delay of the announcement, as it always had to. An open announcement
+	 * asks nothing more; one confined to names also needs every name the report carries to be one the write announced,
+	 * save the `heads` part of a `HEAD` report under a write that announced `head` in time, which is a commit's echo.
+	 */
+	private isOwnReport(
+		change: RepositoryChange,
+		announcement: PendingAnnouncement,
+		names: ReadonlySet<string> | undefined,
+		now: number,
+	): boolean {
+		if (now - announcement.at > this.effectiveRepoMs) return false;
+		if (announcement.names == null) return true;
+		if (names == null) return false;
+		// A ref and a directory of the same name can't coexist, which is what lets a directory report stand for its
+		// refs; config sections `branch.team` and `branch.team/task` can
+		if (isRefChangeKind(change) ? isCoveredBy(names, announcement.names) : isSubsetOf(names, announcement.names)) {
+			return true;
+		}
+
+		return this.isHeadEcho(change, names, now);
+	}
+
+	/** Whether a raw `heads` report confined to `HEAD` is the echo of a write that announced `head` in time */
+	private isHeadEcho(change: RepositoryChange, names: ReadonlySet<string> | undefined, now: number): boolean {
+		if (change !== 'heads' || names?.size !== 1 || !names.has('HEAD')) return false;
+
+		const head = this.pendingRepoAnnounced.get('head');
+		return head != null && now - head.at <= this.effectiveRepoMs;
+	}
+
+	/** Whether a pending report of `kind` remains, unnamed or under a name */
+	private hasPendingRefOfKind(kind: RepositoryChange): boolean {
+		if (!isRefChangeKind(kind)) return false;
+		if (this.pendingRepoUnnamedRefKinds.has(kind)) return true;
+
+		for (const ref of this.pendingRepoRefs) {
+			if (getRefChangeKind(ref) === kind) return true;
+		}
+		return false;
+	}
+
 	private clearPendingRepoChanges(): void {
 		this.pendingRepoChanges.clear();
 		this.pendingRepoRefs.clear();
 		this.pendingRepoUnnamedRefKinds.clear();
 		this.pendingRepoUnfencedChanges.clear();
-		this.pendingRepoAnnouncedAt.clear();
+		this.pendingRepoAnnounced.clear();
+		this.pendingRepoAnnouncedRefs.clear();
+		this.pendingRepoConfigBranches = undefined;
 	}
 
 	private flushWorkingTree(): void {
@@ -757,6 +941,95 @@ function isAnnounceable(change: RepositoryChange): boolean {
 	return change !== 'closed' && change !== 'opened';
 }
 
+/**
+ * The names in `refs` grouped by their ref kind, for the ref kinds among `changes` only; `undefined` when none is named.
+ * Pseudo-refs (`HEAD`) are left out: a write names the refs it moved, and those are full ref names.
+ */
+function groupNamedRefs(
+	changes: readonly RepositoryChange[],
+	refs: readonly string[] | undefined,
+): Map<RefChangeKind, Set<string>> | undefined {
+	if (!refs?.length) return undefined;
+
+	let named: Map<RefChangeKind, Set<string>> | undefined;
+	for (const ref of refs) {
+		if (!ref.startsWith('refs/')) continue;
+
+		const kind = getRefChangeKind(ref);
+		if (kind == null || !changes.includes(kind)) continue;
+
+		named ??= new Map();
+		let names = named.get(kind);
+		if (names == null) {
+			names = new Set();
+			named.set(kind, names);
+		}
+		names.add(ref);
+	}
+	return named;
+}
+
+/** The local branches among `refs` (full `refs/heads/` names), or `undefined` when there are none */
+function getBranchRefs(refs: readonly string[] | undefined): Set<string> | undefined {
+	let branches: Set<string> | undefined;
+	for (const ref of refs ?? []) {
+		if (ref.startsWith('refs/heads/')) {
+			(branches ??= new Set()).add(ref);
+		}
+	}
+	return branches;
+}
+
+/**
+ * Whether `ref` is a ref directory holding one of `names` (compared on `/` boundaries). A namespace root
+ * (`refs/heads`) or a pseudo-ref is no such directory, so a report of it is never a write's own by this rule.
+ */
+function isRefDirectoryOfAny(ref: string, names: ReadonlySet<string>): boolean {
+	if (!ref.startsWith('refs/') || getRefChangeKind(ref) == null) return false;
+
+	const prefix = `${ref}/`;
+	for (const name of names) {
+		if (name.startsWith(prefix)) return true;
+	}
+	return false;
+}
+
+/**
+ * The ref directories holding `ref`, innermost first, each of `ref`'s own kind; never a namespace root (`refs/heads`),
+ * as {@link isRefDirectoryOfAny} counts them
+ */
+function* getRefDirectories(ref: string): Iterable<string> {
+	for (let index = ref.lastIndexOf('/'); index > 0; index = ref.lastIndexOf('/', index - 1)) {
+		const dir = ref.substring(0, index);
+		if (!dir.startsWith('refs/') || getRefChangeKind(dir) == null) return;
+
+		yield dir;
+	}
+}
+
+/**
+ * Whether every name in `names` is one in `of` or a ref directory holding one; never for `undefined`, which stands for
+ * any name
+ */
+function isCoveredBy(names: ReadonlySet<string> | undefined, of: ReadonlySet<string>): boolean {
+	if (names == null) return false;
+
+	for (const name of names) {
+		if (!of.has(name) && !isRefDirectoryOfAny(name, of)) return false;
+	}
+	return true;
+}
+
+/** Whether every name in `names` is in `of`; never for `undefined`, which stands for any name */
+function isSubsetOf(names: ReadonlySet<string> | undefined, of: ReadonlySet<string>): boolean {
+	if (names == null) return false;
+
+	for (const name of names) {
+		if (!of.has(name)) return false;
+	}
+	return true;
+}
+
 /** Wraps a session's repo event so each delivery is narrowed to the subscriber's relevant refs (see `subscribe`) */
 function createRelevantRefsEvent(
 	event: Event<WatcherRepoChangeEvent>,
@@ -778,7 +1051,9 @@ function createRelevantRefsEvent(
 /**
  * Narrows an event to the refs a subscriber cares about. Returns the event itself when no change kind is removed (the
  * kept names then stay a superset, which only makes `mayHaveChangedRef` more conservative), `undefined` when every kind
- * is removed, and otherwise a new event with the kept kinds, names and unnamed kinds.
+ * is removed, and otherwise a new event with the kept kinds, names and unnamed kinds. A `config` change confined to
+ * some local branches' sections is removed unless a relevant ref is `HEAD` or one of those branches (see
+ * `mayHaveChangedConfig`).
  */
 function narrowToRelevantRefs(
 	e: WatcherRepoChangeEvent,
@@ -791,7 +1066,12 @@ function narrowToRelevantRefs(
 
 		(unresolved ??= new Set()).add(change);
 	}
-	if (unresolved == null) return e;
+	// A confined `config` passes only if a relevant ref is one of the branches it is confined to
+	const configBranches = e.configBranches;
+	let keepConfig = configBranches == null;
+	if (unresolved == null && keepConfig) return e;
+
+	unresolved ??= new Set();
 
 	const pseudoRefs: string[] = [];
 	for (const name of e.refs) {
@@ -802,25 +1082,33 @@ function narrowToRelevantRefs(
 	if (pseudoRefs.length !== 0) {
 		// A pseudo-ref (`HEAD`, `ORIG_HEAD`) moving is a `heads` change for every subscriber
 		unresolved.delete('heads');
-		if (unresolved.size === 0) return e;
+		if (unresolved.size === 0 && keepConfig) return e;
 	}
 
 	// Names that equal or cover a relevant ref — collected as we go, since `relevantRefs` may be a one-shot iterable
 	const keptNames = new Set<string>(pseudoRefs);
 	for (const ref of relevantRefs()) {
-		const kind = getRefChangeKind(ref);
-		if (kind == null || !e.changes.has(kind)) continue;
-
-		// `HEAD` is usually a symref to the checked-out branch, so any `heads` change may have moved it
+		// `HEAD` is usually a symref to the checked-out branch, so any `heads` change may have moved it, and any branch's
+		// config section may be its branch's
 		if (ref === 'HEAD') {
-			for (const name of e.refs) {
-				if (getRefChangeKind(name) === 'heads') {
-					keptNames.add(name);
+			if (e.changes.has('heads')) {
+				for (const name of e.refs) {
+					if (getRefChangeKind(name) === 'heads') {
+						keptNames.add(name);
+					}
 				}
 			}
-			unresolved.delete(kind);
+			keepConfig = true;
+			unresolved.delete('heads');
 			continue;
 		}
+
+		if (!keepConfig && configBranches?.has(ref)) {
+			keepConfig = true;
+		}
+
+		const kind = getRefChangeKind(ref);
+		if (kind == null || !e.changes.has(kind)) continue;
 
 		const covering = findCoveringRefName(e.refs, ref);
 		if (covering == null) continue;
@@ -828,11 +1116,11 @@ function narrowToRelevantRefs(
 		keptNames.add(covering);
 		unresolved.delete(kind);
 	}
-	if (unresolved.size === 0) return e;
+	if (unresolved.size === 0 && keepConfig) return e;
 
 	const keptChanges: RepositoryChange[] = [];
 	for (const change of e.changes) {
-		if (!isRefChangeKind(change) || !unresolved.has(change)) {
+		if (change === 'config' ? keepConfig : !isRefChangeKind(change) || !unresolved.has(change)) {
 			keptChanges.push(change);
 		}
 	}
@@ -841,7 +1129,7 @@ function narrowToRelevantRefs(
 	return new WatcherRepoChangeEvent(
 		e.repoPath,
 		keptChanges,
-		{ names: keptNames, unnamed: e.unnamedRefKinds },
+		{ names: keptNames, unnamed: e.unnamedRefKinds, configBranches: configBranches },
 		e.announced,
 	);
 }

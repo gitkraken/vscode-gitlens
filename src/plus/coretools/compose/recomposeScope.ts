@@ -3,7 +3,7 @@ import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { GlRepository } from '../../../git/models/repository.js';
-import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
+import { getBranchMergeTarget } from '../../../git/utils/-webview/branch.utils.js';
 
 export interface RecomposeScopeRequest {
 	branchName?: string;
@@ -509,8 +509,7 @@ export async function resolveRecomposeScope(
 		}
 
 		// Single-level merge-target resolution (v1); composerWebview's recursive walk is a later enhancement.
-		const mergeTargetResult = await getBranchMergeTargetName(container, branch);
-		const mergeTargetName = !mergeTargetResult.paused ? mergeTargetResult.value : undefined;
+		const mergeTargetName = (await getBranchMergeTarget(container, branch)).target?.ref;
 		const branchData = await getBranchCommits(repo, branch.name, mergeTargetName);
 		if (!branchData?.commits.length) {
 			return {

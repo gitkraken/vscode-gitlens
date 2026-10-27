@@ -854,7 +854,7 @@ suite('a GitHub native row is tagged for the read that returned it', () => {
 		assert.equal(nativeGitHub().authoredByMe, undefined, 'an unresolved account leaves it unknown');
 	});
 
-	test('with the viewer authorship was matched against, present exactly when it was', () => {
+	test('with the viewer authorship was matched against, present whenever it was resolved', () => {
 		const viewer = { id: '641685', username: 'eamodio' };
 		const pr = nativeGitHub(undefined, viewer);
 

@@ -5,7 +5,7 @@ import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import type { Writable } from 'stream';
+import type { Readable, Writable } from 'stream';
 import type { CancellationReason } from '../../cancellation.js';
 import { getScopedLogger, maybeStartScopedLogger } from '../../logger.scoped.js';
 import { normalizePath } from '../../path.js';
@@ -188,6 +188,44 @@ export async function getWindowsShortPath(path: string): Promise<string> {
 	});
 }
 
+/** What core uses of a spawned process; Node's `ChildProcess` satisfies it */
+export interface SpawnedProcess {
+	readonly stdin: Writable | null;
+	readonly stdout: Readable | null;
+	readonly stderr: Readable | null;
+	readonly killed: boolean;
+	readonly exitCode: number | null;
+	readonly spawnargs: string[];
+	once(event: 'error', listener: (error: Error) => void): this;
+	once(event: 'close', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
+	removeAllListeners(): this;
+}
+
+export interface ProcessSpawnOptions {
+	readonly cwd?: string;
+	/** The child's whole environment, not additions to the spawner's own; an `undefined` value leaves the key out */
+	readonly env?: Record<string, string | undefined>;
+	/** Milliseconds; absent means none */
+	readonly timeout?: number;
+	readonly signal?: AbortSignal;
+	/** A `null` entry means `'pipe'` */
+	readonly stdio?: ['pipe' | 'ignore', null, null];
+}
+
+/**
+ * Launches a process in place of Node's `spawn`, and must behave as it does:
+ * - pipe stdout and stderr, and stdin unless `stdio[0]` is `'ignore'`, which leaves `stdin` null
+ * - honour `signal`, including one already aborted: kill with SIGTERM, then emit `'error'` with `name` `AbortError`,
+ *   unless the process has already exited
+ * - honour `timeout`: kill with SIGTERM and set `killed`, without emitting `'error'`
+ * - report a killed process's `'close'` with a null code and its signal, not an exit code such as 143
+ * - emit no event before returning, `'error'` at most once, and `'close'` exactly once and last: also after `'error'`
+ *   (a failed launch, an abort), and only after `stdout` and `stderr` have ended or been destroyed, with `exitCode`
+ *   and `killed` already set
+ * - close the child's stdout when `stdout` is destroyed, which is how a reader that stops early ends the process
+ */
+export type ProcessSpawner = (command: string, args: readonly string[], options: ProcessSpawnOptions) => SpawnedProcess;
+
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	cwd?: string;
 	readonly env?: Record<string, string | undefined>;
@@ -224,6 +262,8 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	 * Use for commands whose failure is expected (e.g. paired with `errors: 'ignore'`).
 	 */
 	readonly quiet?: boolean;
+	/** Launches the process; defaults to Node's `spawn`. Only used by `runSpawn` */
+	readonly spawn?: ProcessSpawner;
 }
 
 const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
@@ -400,17 +440,24 @@ export function runSpawn<T extends string | Buffer>(
 ): Promise<RunExitResult | RunResult<T>> {
 	const scope = getScopedLogger() ?? maybeStartScopedLogger('Exec.runSpawn');
 
-	const { stdin, stdinEncoding, cancellation, decode, ...opts }: RunOptions = options;
+	const { stdin, stdinEncoding, cancellation, decode, spawn: spawner, ...opts }: RunOptions = options;
 
 	const promise = new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
-		const proc = spawn(command, args, { ...opts, signal: cancellation });
+		const proc = (spawner ?? spawn)(command, args, {
+			cwd: opts.cwd,
+			env: opts.env,
+			// 0 disables it, which the spawner contract spells as absent
+			timeout: opts.timeout === 0 ? undefined : opts.timeout,
+			signal: cancellation,
+			stdio: ['pipe', null, null],
+		});
 		const errorEncoding = encoding === 'buffer' ? 'utf8' : encoding;
 
 		const stdoutBuffers: Buffer[] = [];
-		proc.stdout.on('data', (data: Buffer) => stdoutBuffers.push(data));
+		proc.stdout?.on('data', (data: Buffer) => stdoutBuffers.push(data));
 
 		const stderrBuffers: Buffer[] = [];
-		proc.stderr.on('data', (data: Buffer) => stderrBuffers.push(data));
+		proc.stderr?.on('data', (data: Buffer) => stderrBuffers.push(data));
 
 		function getStdio<T>(
 			encoding: BufferEncoding | 'buffer' | string,
@@ -512,6 +559,11 @@ export function runSpawn<T extends string | Buffer>(
 			// branch, which is where a codeless result can genuinely surface.)
 			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
 		});
+
+		// Only a host spawner can leave these out; reading no output as empty would pass for a clean answer
+		if (proc.stdout == null || proc.stderr == null) {
+			reject(new Error(`'${command}' was spawned without stdout and stderr pipes`));
+		}
 
 		if (stdin != null) {
 			endStdin(proc.stdin, stdin, stdinEncoding);

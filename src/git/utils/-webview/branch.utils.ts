@@ -1,11 +1,10 @@
-import type { BranchDisposition, BranchTargetInfo, GitBranch } from '@gitlens/git/models/branch.js';
+import type { BranchDisposition, GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { MergeTarget } from '@gitlens/git/providers/branches.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
-import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
 import type { Container } from '../../../container.js';
@@ -52,18 +51,41 @@ export async function getBranchAheadRange(svc: GitRepositoryService, branch: Git
 	return undefined;
 }
 
+export interface BranchMergeTarget {
+	/**
+	 * The merge target as of now: the full answer when the lookup settled within `timeout`, else the answer without
+	 * the pull request's base
+	 */
+	readonly target: MergeTarget | undefined;
+	/**
+	 * Set only when the lookup outlasted `timeout`: settles to its full answer when that names a different ref, else
+	 * `undefined`
+	 */
+	readonly pending: Promise<MergeTarget | undefined> | undefined;
+}
+
+export interface BranchTargetInfo extends BranchMergeTarget {
+	/** The base recorded or inferred for the branch, for display */
+	readonly baseBranch: string | undefined;
+	/** The repository's default branch, for display */
+	readonly defaultBranch: string | undefined;
+}
+
+export interface BranchMergeTargetOptions {
+	associatedPullRequest?: Promise<PullRequest | undefined>;
+	cancellation?: AbortSignal;
+	keepSelfAtTip?: boolean;
+	/** How long to wait on the lookup before answering without the pull request (see {@link BranchMergeTarget.pending}) */
+	timeout?: number;
+}
+
 export async function getBranchMergeTargetInfo(
 	container: Container,
 	branch: GitBranch,
-	options?: {
-		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: AbortSignal;
-		detectedOnly?: boolean;
-		timeout?: number;
-	},
+	options?: BranchMergeTargetOptions,
 ): Promise<BranchTargetInfo> {
 	const [targetResult, baseResult, defaultResult] = await Promise.allSettled([
-		getBranchMergeTargetNameWithoutFallback(container, branch, options),
+		getBranchMergeTarget(container, branch, options),
 		container.git
 			.getRepositoryService(branch.repoPath)
 			.branches.getBaseBranchName?.(branch.name, undefined, options?.cancellation),
@@ -74,129 +96,65 @@ export async function getBranchMergeTargetInfo(
 
 	if (options?.cancellation?.aborted) throw new CancellationError();
 
+	const merge = getSettledValue(targetResult);
 	return {
-		mergeTargetBranch: getSettledValue(targetResult) ?? { value: undefined, paused: false },
+		target: merge?.target,
+		pending: merge?.pending,
 		baseBranch: getSettledValue(baseResult),
 		defaultBranch: getSettledValue(defaultResult),
 	};
 }
 
 /**
- * True when the merge-target fallback chain landed on the focal branch itself — the default branch has no
- * other branch to target.
+ * Resolves the branch a branch is measured against. The pull request is read only when the lookup finds no stored
+ * target, and only once however many lookups run.
  *
- * `targetName` is remote-qualified on desktop and bare from the GitHub provider, hence both comparisons.
- * Only the target is stripped: `getBranchNameWithoutRemote` cuts at the first `/`, so stripping the focal
- * side too would turn `feature/x` into `x`.
+ * With a `timeout`, a slow lookup doesn't hold up the answer: `target` is what resolves without the pull request, and
+ * `pending` settles to the full answer when it differs.
  */
-export function isSelfMergeTarget(targetName: string, branchName: string): boolean {
-	return targetName === branchName || getBranchNameWithoutRemote(targetName) === branchName;
-}
-
-export async function getBranchMergeTargetName(
+export async function getBranchMergeTarget(
 	container: Container,
 	branch: GitBranch,
-	options?: {
-		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: AbortSignal;
-		detectedOnly?: boolean;
-		timeout?: number;
-	},
-): Promise<MaybePausedResult<string | undefined>> {
-	async function getMergeTargetFallback() {
-		const [baseResult, defaultResult] = await Promise.allSettled([
-			container.git
-				.getRepositoryService(branch.repoPath)
-				.branches.getBaseBranchName?.(branch.name, undefined, options?.cancellation),
-			getDefaultBranchName(container, branch.repoPath, branch.remoteName, {
-				cancellation: options?.cancellation,
-			}),
-		]);
-		return getSettledValue(baseResult) ?? getSettledValue(defaultResult);
-	}
-
-	const result = await getBranchMergeTargetNameWithoutFallback(container, branch, options);
-	if (!result.paused) {
-		if (result.value) return { value: result.value, paused: false };
-
-		if (options?.cancellation?.aborted) {
-			return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
-		}
-
-		const fallback = await getMergeTargetFallback();
-		if (options?.cancellation?.aborted) {
-			return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
-		}
-
-		return { value: fallback, paused: false };
-	}
-
-	if (options?.cancellation?.aborted || result.reason === 'cancelled') {
-		return { value: Promise.resolve(undefined), paused: true, reason: 'cancelled' };
-	}
-
-	return {
-		value: result.value.then(r => r ?? getMergeTargetFallback()),
-		paused: true,
-		reason: 'timedout',
-	};
-}
-
-/** This is an internal helper function for getting only the merge target from stored data or a PR, not falling back to base/default */
-async function getBranchMergeTargetNameWithoutFallback(
-	container: Container,
-	branch: GitBranch,
-	options?: {
-		associatedPullRequest?: Promise<PullRequest | undefined>;
-		cancellation?: AbortSignal;
-		detectedOnly?: boolean;
-		timeout?: number;
-	},
-): Promise<MaybePausedResult<string | undefined>> {
+	options?: BranchMergeTargetOptions,
+): Promise<BranchMergeTarget> {
 	const svc = container.git.getRepositoryService(branch.repoPath);
-	const targetBranch = await svc.branches.getStoredMergeTargetBranchName?.(
-		branch.name,
-		options?.detectedOnly ? { detectedOnly: true } : undefined,
-		options?.cancellation,
-	);
-	if (targetBranch) return { value: targetBranch, paused: false };
 
-	if (options?.cancellation?.aborted) return { value: undefined, paused: false };
+	let pullRequest: Promise<PullRequest | undefined> | undefined;
+	function getPullRequest(): Promise<PullRequest | undefined> {
+		return (pullRequest ??= options?.associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch));
+	}
 
-	return pauseOnCancelOrTimeout(
-		(options?.associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch))?.then(async pr => {
-			if (pr?.refs?.base == null) return undefined;
+	function lookup(
+		getAssociatedPullRequest: (() => Promise<PullRequest | undefined>) | undefined,
+	): Promise<MergeTarget | undefined> {
+		return svc.branches.getMergeTarget(
+			branch.name,
+			{
+				inferBase: true,
+				defaultBranch: 'remote',
+				keepSelfAtTip: options?.keepSelfAtTip,
+				getFallbackDefaultBranch: () =>
+					getDefaultBranchNameFromIntegration(branch.repoPath, { cancellation: options?.cancellation }),
+				getAssociatedPullRequest: getAssociatedPullRequest,
+			},
+			options?.cancellation,
+		);
+	}
 
-			const name = `${branch.remoteName}/${pr.refs.base.branch}`;
+	const full = lookup(getPullRequest);
+	if (options?.timeout == null) return { target: await full, pending: undefined };
 
-			// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer), so a
-			// confirmed-gone base is skipped like a stored target. A check that can't complete keeps the base, as
-			// before — including a cancelled one, whose rejection would otherwise reject a timed-out lookup's continuation.
-			const check = await svc.refs
-				.getSymbolicReferenceNameOrMissing?.(name, undefined, options?.cancellation)
-				.catch(() => undefined);
-			if (check?.missing) return undefined;
+	// The whole lookup is bounded, not only its pull request read: core joins a lookup of the same branch already in
+	// flight, such as the overview's, which waits on the pull request however long it takes
+	const result = await pauseOnCancelOrTimeout(full, options.cancellation, options.timeout);
+	if (!result.paused) return { target: result.value, pending: undefined };
 
-			// A stacked PR's base is the layer below it — an ephemeral branch that is deleted when the
-			// stack merges. A stored target wins over every other source for as long as its branch exists,
-			// and a merged layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps
-			// merged branches). Return it for display (per-layer diffs are what makes a stack reviewable)
-			// but never write it.
-			if (pr.stack != null) return name;
+	const late = result.value.catch(() => undefined);
+	if (result.reason === 'cancelled') throw new CancellationError();
 
-			// Same self-write semantics as `getBranchContributionsOverview`'s Tier 2: the value
-			// being stored is the canonical mergeTarget any future overview lookup will resolve
-			// to, so skip the wholesale `branchOverviews` invalidation that would otherwise
-			// evict an in-cache entry keyed by `${ref}|${name}`.
-			void svc.branches.storeMergeTargetBranchName?.(branch.name, name, {
-				skipInvalidation: ['branchOverviews'],
-			});
-
-			return name;
-		}),
-		options?.cancellation,
-		options?.timeout,
-	);
+	// Without the pull request, core keys the lookup apart from one waiting on it
+	const target = await lookup(undefined);
+	return { target: target, pending: late.then(t => (t?.ref !== target?.ref ? t : undefined)) };
 }
 
 export async function getDefaultBranchName(
@@ -306,13 +264,13 @@ export async function getBranchWorktree(
 		const { id } = branch;
 		return container.git
 			.getRepositoryService(branch.repoPath)
-			.worktrees?.getWorktree(wt => wt.branch?.id === id, cancellation);
+			.worktrees?.getWorktree(wt => wt.branch?.id === id, undefined, cancellation);
 	}
 
 	const { path } = branch.worktree;
 	return container.git
 		.getRepositoryService(branch.repoPath)
-		.worktrees?.getWorktree(wt => wt.path === path, cancellation);
+		.worktrees?.getWorktree(wt => wt.path === path, undefined, cancellation);
 }
 
 export async function setBranchDisposition(

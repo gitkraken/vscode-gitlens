@@ -4,7 +4,12 @@ import { UnsupportedSortError } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderScopeFailure } from '../../collectionMetadata.js';
 import type { ProviderApiPagedResult } from '../models.js';
-import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from '../utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	flatSettledOrThrow,
+	mergeCollectionMetadata,
+	mergeSkippedItems,
+} from '../utils/providerPaging.js';
 
 suite('collectProviderPagedResult', () => {
 	test('marks the result truncated and preserves paging when maxPages is reached', async () => {
@@ -330,24 +335,117 @@ suite('mergeCollectionMetadata', () => {
 	});
 });
 
-suite('mergeCollectionMetadata unreadable items (#6011)', () => {
-	test('two equal failures naming different unreadable items merge them rather than keeping the first', () => {
-		const failure = (keys: string[], complete: boolean): ProviderScopeFailure => ({
-			scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
-			kind: 'provider',
-			message:
-				'Skipped Jira issues that could not be read: P-1 (boom). Issues on 1 more page could not be read either.',
-			unreadableItems: { keys: keys, complete: complete },
+suite('mergeCollectionMetadata skipped items (#6011, #6035)', () => {
+	const message =
+		'Skipped Jira issues that could not be read: P-1 (boom). Issues on 1 more page could not be read either.';
+	const failure = (skippedItems?: { keys: string[]; total: number; complete: boolean }): ProviderScopeFailure => ({
+		scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
+		kind: 'provider',
+		message: message,
+		...(skippedItems != null ? { skippedItems: skippedItems } : {}),
+	});
+
+	test('failures reporting skipped items merge them, adding the totals of pages and not those of overlapping reads', () => {
+		const pageOne: CollectionMetadata = {
+			completeness: 'partial',
+			failures: [failure({ keys: ['P-1', 'P-2'], total: 2, complete: true })],
+		};
+		const pageTwo: CollectionMetadata = {
+			completeness: 'partial',
+			failures: [failure({ keys: ['P-1', 'P-3'], total: 3, complete: false })],
+		};
+		const skipped = (metadata: CollectionMetadata | undefined) => metadata?.failures?.map(f => f.skippedItems);
+
+		// Pages are disjoint: what each skipped adds up, the repeated key included.
+		assert.deepEqual(skipped(mergeCollectionMetadata(pageOne, pageTwo, 'disjoint')), [
+			{ keys: ['P-1', 'P-2', 'P-3'], total: 5, complete: false },
+		]);
+		// Reads that may reach the same issue can't add up, and this is how a merge reads them unless it is told the
+		// pages are disjoint: the total is a lower bound, at least the keys named.
+		for (const merged of [
+			mergeCollectionMetadata(pageOne, pageTwo),
+			mergeCollectionMetadata(pageOne, pageTwo, 'overlapping'),
+		]) {
+			assert.deepEqual(skipped(merged), [{ keys: ['P-1', 'P-2', 'P-3'], total: 3, complete: false }]);
+		}
+	});
+
+	test('failures reporting skipped items merge however their messages word them, and keep the first', () => {
+		const withMessage = (message: string, keys: string[]): CollectionMetadata => ({
+			completeness: 'partial',
+			failures: [{ ...failure({ keys: keys, total: keys.length, complete: true }), message: message }],
 		});
 
 		const merged = mergeCollectionMetadata(
-			{ completeness: 'partial', failures: [failure(['P-1', 'P-2'], true)] },
-			{ completeness: 'partial', failures: [failure(['P-1', 'P-3'], false)] },
+			withMessage('Skipped Jira issues that could not be read: P-1 (boom), P-2 (boom).', ['P-1', 'P-2']),
+			withMessage(
+				'Skipped Jira issues that could not be read: P-2 (bang). Issues on 1 more page could not be read either.',
+				['P-2', 'P-3'],
+			),
 		);
 
 		assert.deepEqual(
-			merged?.failures?.map(f => (f as ProviderScopeFailure).unreadableItems),
-			[{ keys: ['P-1', 'P-2', 'P-3'], complete: false }],
+			merged?.failures?.map(f => [f.message, f.skippedItems]),
+			[
+				[
+					'Skipped Jira issues that could not be read: P-1 (boom), P-2 (boom).',
+					{ keys: ['P-1', 'P-2', 'P-3'], total: 3, complete: true },
+				],
+			],
 		);
+	});
+
+	test('failures reporting skipped items in different scopes stay apart', () => {
+		const inScope = (projectId: string): ProviderScopeFailure => ({
+			...failure({ keys: ['P-1'], total: 1, complete: true }),
+			scope: { providerId: 'jira', resourceId: 'site-1', projectId: projectId },
+		});
+
+		const merged = mergeCollectionMetadata(
+			{ completeness: 'partial', failures: [inScope('A')] },
+			{ completeness: 'partial', failures: [inScope('B')] },
+		);
+
+		assert.deepEqual(
+			merged?.failures?.map(f => f.scope?.projectId),
+			['A', 'B'],
+		);
+	});
+
+	test('a malformed report of skipped items merges with a valid one as the normalized pair', () => {
+		const malformed = { keys: ['P-1', 7], total: Number.NaN, complete: 'yes' } as unknown as {
+			keys: string[];
+			total: number;
+			complete: boolean;
+		};
+
+		assert.deepEqual(mergeSkippedItems(malformed, { keys: ['P-2'], total: 1, complete: true }, 'overlapping'), {
+			keys: ['P-1', 'P-2'],
+			total: 2,
+			complete: false,
+		});
+		assert.deepEqual(
+			mergeSkippedItems({ keys: ['P-2'], total: 1, complete: true }, { total: 4 } as never, 'disjoint'),
+			{ keys: ['P-2'], total: 5, complete: false },
+		);
+	});
+
+	test('a failure that reports skipped items is never merged with an equal one that does not', () => {
+		const skipped = { keys: ['P-1'], total: 1, complete: true };
+
+		for (const [first, second] of [
+			[failure(skipped), failure()],
+			[failure(), failure(skipped)],
+		]) {
+			const merged = mergeCollectionMetadata(
+				{ completeness: 'partial', failures: [first] },
+				{ completeness: 'partial', failures: [second] },
+			);
+
+			assert.deepEqual(
+				merged?.failures?.map(f => f.skippedItems),
+				[first.skippedItems, second.skippedItems],
+			);
+		}
 	});
 });

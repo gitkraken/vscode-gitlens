@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { spawn } from 'child_process';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
@@ -6,10 +7,13 @@ import { execPath } from 'process';
 import * as sinon from 'sinon';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
+import type { CommandChanges } from '../commandClassifier.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
+import type { ProcessSpawner } from '../exec.js';
 import { run, runSpawn } from '../exec.js';
 import type { GitResultCache } from '../exec.types.js';
 import { defaultExceptionHandler, Git, GitError } from '../git.js';
+import type { HeadState } from '../headState.js';
 
 function nodeArgs(script: string): string[] {
 	return ['-e', script];
@@ -653,7 +657,12 @@ suite('Git base environment', () => {
 });
 
 suite('Git.run notify', () => {
-	type Notified = { repoPaths: readonly string[]; changes: readonly string[]; sharedPaths?: readonly string[] };
+	type Notified = {
+		repoPaths: readonly string[];
+		changes: readonly string[];
+		sharedPaths?: readonly string[];
+		named?: { readonly refs: readonly string[]; readonly configConfinedToRefs?: boolean };
+	};
 
 	function newGitWithBinder(): { git: Git; notified: Notified[] } {
 		// A nonexistent binary makes every run fail fast (ENOENT) without ever spawning a real process —
@@ -661,13 +670,16 @@ suite('Git.run notify', () => {
 		// like a success would, and much faster than a real git invocation.
 		const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
 		const notified: Notified[] = [];
-		git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
-			notified.push(
-				sharedPaths == null
-					? { repoPaths: repoPaths, changes: changes }
-					: { repoPaths: repoPaths, changes: changes, sharedPaths: sharedPaths },
-			),
-		);
+		git.bindChangeNotifier((repoPaths, changes, sharedPaths, named) => {
+			const entry: Notified = { repoPaths: repoPaths, changes: changes };
+			if (sharedPaths != null) {
+				entry.sharedPaths = sharedPaths;
+			}
+			if (named != null) {
+				entry.named = named;
+			}
+			notified.push(entry);
+		});
 		return { git: git, notified: notified };
 	}
 
@@ -695,7 +707,8 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified, [
 			{
 				repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'],
-				changes: ['config', 'heads', 'remotes', 'tags'],
+				changes: ['config', 'heads'],
+				named: { refs: ['refs/heads/x'], configConfinedToRefs: true },
 			},
 		]);
 	});
@@ -724,6 +737,28 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified[0].sharedPaths, ['/repo']);
 	});
 
+	test("notify: 'infer' classifies the argv git sees, which options.configs leads", async () => {
+		const { git, notified } = newGitWithBinder();
+		git.bindHeadReader(() => Promise.resolve({ branch: 'refs/heads/feature' }));
+
+		await git.run(
+			{ cwd: '/repo', errors: 'ignore', notify: 'infer', configs: ['-C', '/other'] },
+			'branch',
+			'-d',
+			'x',
+		);
+		// Update-refs is provably off only through the `-c` in `configs`
+		await git.run(
+			{ cwd: '/repo', errors: 'ignore', notify: 'infer', configs: ['-c', 'rebase.updateRefs=false'] },
+			'rebase',
+			'main',
+		);
+
+		assert.strictEqual(notified.length, 2);
+		assert.deepStrictEqual(notified[0].repoPaths, [normalizePath(resolve('/repo', '/other')), '/repo']);
+		assert.deepStrictEqual(notified[1].named, { refs: ['refs/heads/feature'] });
+	});
+
 	test("notify: 'infer' on a -C stash push announces only the stash to cwd", async () => {
 		const { git, notified } = newGitWithBinder();
 
@@ -734,6 +769,7 @@ suite('Git.run notify', () => {
 				repoPaths: [normalizePath(resolve('/repo', '/other'))],
 				changes: ['stash', 'index'],
 				sharedPaths: ['/repo'],
+				named: { refs: ['refs/stash'] },
 			},
 		]);
 	});
@@ -782,6 +818,425 @@ suite('Git.run notify', () => {
 
 		assert.deepStrictEqual(notified, []);
 	});
+
+	suite('ignored worktrees', () => {
+		const sha = '0123456789abcdef0123456789abcdef01234567';
+		const roots = [normalizePath(resolve('/repo/.git/sync-tools-worktrees'))];
+		const ignored = resolve('/repo/.git/sync-tools-worktrees/x');
+		// Inside the git dir, but under no folder the host registered: a user's own worktree
+		const inGitDir = resolve('/repo/.git/my-worktrees/x');
+
+		/** Binds a roots reader answering `answer` (an `Error` rejects), recording each path it reads */
+		function readIgnoredRoots(git: Git, answer: readonly string[] | undefined | Error): string[] {
+			const reads: string[] = [];
+			git.bindIgnoredWorktreeRootsReader(path => {
+				reads.push(path);
+				if (answer instanceof Error) return Promise.reject(answer);
+
+				return Promise.resolve(answer);
+			});
+			return reads;
+		}
+
+		test('adding, removing or locking a worktree under an ignored folder announces nothing', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				'--force',
+				'--end-of-options',
+				ignored,
+				sha,
+			);
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				'--force',
+				'--end-of-options',
+				ignored,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'lock', ignored);
+
+			assert.deepStrictEqual(notified, []);
+			assert.deepStrictEqual(reads, ['/repo', '/repo', '/repo']);
+		});
+
+		test('a worktree inside the git dir but under no ignored folder still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				inGitDir,
+				sha,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', inGitDir);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+			]);
+		});
+
+		test('a move announces nothing only when both ends are under an ignored folder', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'move',
+				ignored,
+				`${ignored}2`,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'move', ignored, '/wt');
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees'] }]);
+		});
+
+		test('a relative worktree still announces worktrees, reading nothing', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, roots);
+
+			// Resolves under the ignored folder, yet git may match it to the trailing components of another worktree
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'lock',
+				'.git/sync-tools-worktrees/x',
+			);
+			await git.run({ cwd: ignored, errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', 'wt');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees'] },
+				{ repoPaths: [normalizePath(ignored)], changes: ['worktrees', 'worktreeHead'] },
+			]);
+			assert.deepStrictEqual(reads, []);
+		});
+
+		test('adding a branch with a worktree under an ignored folder still announces the branch', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'-b',
+				'x',
+				ignored,
+				sha,
+			);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['heads'], named: { refs: ['refs/heads/x'] } },
+			]);
+		});
+
+		test('reads the ignored folders of the -C target, and tells cwd nothing either', async () => {
+			const { git, notified } = newGitWithBinder();
+			const reads = readIgnoredRoots(git, [normalizePath(resolve('/other/.git/sync-tools-worktrees'))]);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'-C',
+				'/other',
+				'worktree',
+				'remove',
+				resolve('/other/.git/sync-tools-worktrees/x'),
+			);
+
+			assert.deepStrictEqual(reads, [normalizePath(resolve('/repo', '/other'))]);
+			assert.deepStrictEqual(notified, []);
+		});
+
+		test('a worktree outside every ignored folder still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'add',
+				'--detach',
+				'--force',
+				'--end-of-options',
+				'/wt',
+				sha,
+			);
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'worktree', 'remove', '/wt');
+			// A sibling whose name only starts like the ignored folder
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				resolve('/repo/.git/sync-tools-worktreesx'),
+			);
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+				{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] },
+			]);
+		});
+
+		test('a path that leaves an ignored folder through `..` still announces worktrees', async () => {
+			const { git, notified } = newGitWithBinder();
+			readIgnoredRoots(git, roots);
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+				'worktree',
+				'remove',
+				`${resolve('/repo/.git/sync-tools-worktrees')}/../my-worktrees/x`,
+			);
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] }]);
+		});
+
+		test('announces worktrees as before when no folder is registered or the folders are unknown', async () => {
+			for (const answer of [undefined, new Error('unreadable'), [], 'unbound'] as const) {
+				const { git, notified } = newGitWithBinder();
+				if (answer !== 'unbound') {
+					readIgnoredRoots(git, answer);
+				}
+
+				await git.run(
+					{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+					'worktree',
+					'remove',
+					'--force',
+					ignored,
+				);
+
+				assert.deepStrictEqual(
+					notified,
+					[{ repoPaths: ['/repo'], changes: ['worktrees', 'worktreeHead'] }],
+					String(answer),
+				);
+			}
+		});
+	});
+
+	suite('names', () => {
+		const otherPath = normalizePath(resolve('/repo', '/other'));
+		const moveHead: CommandChanges = {
+			changes: ['head', 'heads', 'index', 'pausedOp'],
+			sharedChanges: ['heads'],
+			movesHeadBranch: true,
+		};
+
+		/** Makes `notify: 'infer'` classify every argv as `classified`, whatever the classifier makes of it today */
+		function classifyAs(git: Git, classified: CommandChanges): void {
+			(git as unknown as { _classify: () => CommandChanges })._classify = () => classified;
+		}
+
+		/** Binds a head reader answering each read with the next of `states` (an `Error` rejects), recording it in `order` */
+		function readHeads(git: Git, order: string[], ...states: (HeadState | Error)[]): void {
+			git.bindHeadReader(path => {
+				order.push(`read ${path}`);
+				const state = states.shift();
+				return state instanceof Error ? Promise.reject(state) : Promise.resolve(state);
+			});
+		}
+
+		/** Records each spawn in `order`, so a test can tell a HEAD read before the run from one after it */
+		function recordSpawns(git: Git, order: string[]): void {
+			const inner = (git as unknown as { _runSpawn: (...a: unknown[]) => Promise<unknown> })._runSpawn;
+			(git as unknown as { _runSpawn: unknown })._runSpawn = (...a: unknown[]) => {
+				order.push('spawn');
+				return inner(...a);
+			};
+		}
+
+		test('the refs a classification names reach the binder, with its config confinement', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, {
+				changes: ['config', 'heads'],
+				sharedChanges: ['config', 'heads'],
+				refs: ['refs/heads/x'],
+				configConfinedToRefs: true,
+			});
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'branch', '-d', 'x');
+
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: ['/repo'],
+					changes: ['config', 'heads'],
+					named: { refs: ['refs/heads/x'], configConfinedToRefs: true },
+				},
+			]);
+		});
+
+		test('a -C shared-state write passes its names with both paths', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, {
+				changes: ['tags'],
+				pathOverride: '/other',
+				sharedChanges: ['tags'],
+				refs: ['refs/tags/v1'],
+			});
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'tag', 'v1');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: [otherPath, '/repo'], changes: ['tags'], named: { refs: ['refs/tags/v1'] } },
+			]);
+		});
+
+		test('a -C write with local changes passes its names with the -C target and cwd as a shared path', async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			classifyAs(git, { ...moveHead, pathOverride: '/other' });
+			readHeads(git, order, { branch: 'refs/heads/feature' }, { branch: 'refs/heads/feature' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, [`read ${otherPath}`, `read ${otherPath}`], 'HEAD is read where the run ran');
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: [otherPath],
+					changes: ['head', 'heads', 'index', 'pausedOp'],
+					sharedPaths: ['/repo'],
+					named: { refs: ['refs/heads/feature'] },
+				},
+			]);
+		});
+
+		test("a verb that moves HEAD's branch names it when HEAD was on it before and after the run", async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			classifyAs(git, moveHead);
+			readHeads(git, order, { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+			recordSpawns(git, order);
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, ['read /repo', 'spawn', 'read /repo']);
+			assert.deepStrictEqual(notified, [
+				{
+					repoPaths: ['/repo'],
+					changes: ['head', 'heads', 'index', 'pausedOp'],
+					named: { refs: ['refs/heads/main'] },
+				},
+			]);
+		});
+
+		test("HEAD's branch joins the refs the classification names", async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, { ...moveHead, refs: ['refs/heads/other'] });
+			readHeads(git, [], { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified[0].named, { refs: ['refs/heads/other', 'refs/heads/main'] });
+		});
+
+		test('a detached HEAD both times moved no branch, so heads is not announced, here or to cwd', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+			readHeads(git, [], 'detached', 'detached');
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'index', 'pausedOp'] }]);
+
+			const { git: cGit, notified: cNotified } = newGitWithBinder();
+			classifyAs(cGit, { ...moveHead, pathOverride: '/other' });
+			readHeads(cGit, [], 'detached', 'detached');
+
+			await cGit.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(
+				cNotified,
+				[{ repoPaths: [otherPath], changes: ['head', 'index', 'pausedOp'] }],
+				'with no branch moved, cwd shares nothing that changed',
+			);
+		});
+
+		test('a detached HEAD both times announces nothing when a branch move was all the verb could change', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, { changes: ['heads'], sharedChanges: ['heads'], movesHeadBranch: true });
+			readHeads(git, [], 'detached', 'detached');
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, []);
+		});
+
+		test('HEAD on another branch after the run, detached on one side only, or unreadable, names nothing', async () => {
+			const cases: [HeadState | Error, HeadState | Error][] = [
+				[{ branch: 'refs/heads/main' }, { branch: 'refs/heads/other' }],
+				[{ branch: 'refs/heads/main' }, 'detached'],
+				['detached', { branch: 'refs/heads/main' }],
+				[undefined, { branch: 'refs/heads/main' }],
+				[{ branch: 'refs/heads/main' }, new Error('unreadable')],
+				[new Error('unreadable'), 'detached'],
+			];
+			for (const [before, after] of cases) {
+				const { git, notified } = newGitWithBinder();
+				classifyAs(git, moveHead);
+				readHeads(git, [], before, after);
+
+				const result = await git.run(
+					{ cwd: '/repo', errors: 'ignore', notify: 'infer' },
+					'commit',
+					'-m',
+					'msg',
+				);
+
+				assert.strictEqual(result.completion.status, 'failed', 'the run settles as it would have');
+				assert.deepStrictEqual(
+					notified,
+					[{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] }],
+					`${JSON.stringify(before)} → ${JSON.stringify(after)}`,
+				);
+			}
+		});
+
+		test('a rejecting head reader never turns a run that throws into another error', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+			readHeads(git, [], new Error('before'), new Error('after'));
+
+			await assert.rejects(
+				git.run({ cwd: '/repo', errors: 'throw', notify: 'infer' }, 'commit', '-m', 'msg'),
+				(ex: unknown) => ex instanceof Error && ex.message !== 'before' && ex.message !== 'after',
+			);
+			assert.strictEqual(notified.length, 1);
+		});
+
+		test('with no head reader bound, a branch move is announced unnamed', async () => {
+			const { git, notified } = newGitWithBinder();
+			classifyAs(git, moveHead);
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(notified, [
+				{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] },
+			]);
+		});
+
+		test('an explicit notify array never reads HEAD', async () => {
+			const { git, notified } = newGitWithBinder();
+			const order: string[] = [];
+			readHeads(git, order, { branch: 'refs/heads/main' }, { branch: 'refs/heads/main' });
+
+			await git.run({ cwd: '/repo', errors: 'ignore', notify: ['head', 'heads'] }, 'commit', '-m', 'msg');
+
+			assert.deepStrictEqual(order, []);
+			assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'heads'] }]);
+		});
+	});
 });
 
 suite('Git.clearPendingCommands', () => {
@@ -823,6 +1278,74 @@ suite('Git.clearPendingCommands', () => {
 	});
 });
 
+suite('Git.run onSpawn', () => {
+	type Spawn = { args: readonly string[]; finish: () => void };
+
+	/** A Git with one process slot whose spawns wait for `finish` */
+	function newGit(): { git: Git; spawns: Spawn[] } {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { queue: { maxConcurrent: 1 } });
+		const spawns: Spawn[] = [];
+		(git as unknown as { _runSpawn: unknown })._runSpawn = (_cmd: string, args: readonly string[]) =>
+			new Promise(resolve => {
+				spawns.push({ args: args, finish: () => resolve({ exitCode: 0, stdout: '', stderr: '' }) });
+			});
+		return { git: git, spawns: spawns };
+	}
+
+	async function until(condition: () => boolean): Promise<void> {
+		for (let i = 0; i < 100 && !condition(); i++) {
+			await new Promise(resolve => setImmediate(resolve));
+		}
+		assert.ok(condition());
+	}
+
+	test('fires when the process spawns, not while the run waits in the queue', async () => {
+		const { git, spawns } = newGit();
+		const onSpawn = sinon.spy();
+
+		const first = git.run({ cwd: '/repo' }, 'status');
+		await until(() => spawns.length === 1);
+		const second = git.run({ cwd: '/repo', onSpawn: onSpawn }, 'worktree', 'list', '--porcelain');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.notCalled(onSpawn);
+
+		spawns[0].finish();
+		await until(() => spawns.length === 2);
+		sinon.assert.calledOnce(onSpawn);
+
+		spawns[1].finish();
+		await Promise.all([first, second]);
+		sinon.assert.calledOnce(onSpawn);
+	});
+
+	test('tells a call that joins an identical run when that run spawns, or at once if it has', async () => {
+		const { git, spawns } = newGit();
+		const queued = sinon.spy();
+		const joinedQueued = sinon.spy();
+		const joinedSpawned = sinon.spy();
+
+		const blocker = git.run({ cwd: '/repo' }, 'status');
+		await until(() => spawns.length === 1);
+		const run = git.run({ cwd: '/repo', onSpawn: queued }, 'worktree', 'list');
+		const rider = git.run({ cwd: '/repo', onSpawn: joinedQueued }, 'worktree', 'list');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.notCalled(joinedQueued);
+
+		spawns[0].finish();
+		await until(() => spawns.length === 2);
+		sinon.assert.calledOnce(queued);
+		sinon.assert.calledOnce(joinedQueued);
+
+		const lateRider = git.run({ cwd: '/repo', onSpawn: joinedSpawned }, 'worktree', 'list');
+		await new Promise(resolve => setImmediate(resolve));
+		sinon.assert.calledOnce(joinedSpawned);
+
+		spawns[1].finish();
+		await Promise.all([blocker, run, rider, lateRider]);
+		assert.strictEqual(spawns.length, 2, 'the riders shared the run');
+	});
+});
+
 suite('Git.stream stdin', () => {
 	test('rejects, rather than crashing on EPIPE, when git exits before reading its input', async () => {
 		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
@@ -835,5 +1358,60 @@ suite('Git.stream stdin', () => {
 				out.push(chunk);
 			}
 		});
+	});
+});
+
+suite('Git options.spawn', () => {
+	test('launches git through the injected spawner for run and stream', async () => {
+		const commands: string[] = [];
+		const timeouts: (number | undefined)[] = [];
+		const spawner: ProcessSpawner = (command, args, options) => {
+			commands.push(command);
+			timeouts.push(options.timeout);
+			return spawn(command, args, options);
+		};
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await git.run({ cwd: tmpdir() }, '--version');
+		assert.deepStrictEqual(commands, ['git']);
+
+		const out: string[] = [];
+		for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 0 }, '--version')) {
+			out.push(chunk);
+		}
+
+		assert.deepStrictEqual(commands, ['git', 'git']);
+		assert.strictEqual(timeouts[1], undefined, 'a disabled (0) stream timeout reaches the spawner as none');
+		assert.ok(out.join('').startsWith('git version'));
+	});
+
+	test("rejects a stream its own timeout killed with the 'timeout' reason", async () => {
+		const spawner: ProcessSpawner = (_command, _args, options) =>
+			spawn(execPath, nodeArgs('setTimeout(() => {}, 60000)'), options);
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, '--version')) {
+					// drain
+				}
+			},
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('rejects a stream whose spawner returned no stdout pipe rather than reading it as empty', async () => {
+		const spawner: ProcessSpawner = (command, args, options) =>
+			spawn(command, args, { ...options, stdio: ['pipe', 'ignore', 'pipe'] });
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir() }, '--version')) {
+					// drain
+				}
+			},
+			(ex: unknown) => ex instanceof Error && ex.message.includes('without a stdout pipe'),
+		);
 	});
 });

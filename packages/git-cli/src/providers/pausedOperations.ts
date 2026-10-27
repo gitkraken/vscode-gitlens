@@ -46,7 +46,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	 * so it also answers `true` for states `getPausedOperationStatus` can't describe, e.g. a stopped `git am`).
 	 * Rejects when git's dir can't be resolved or read
 	 */
-	@debug()
+	@debug({ quiet: true })
 	async hasPausedOperation(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
 		const gitDir = await this.provider.config.getGitDir(repoPath);
 		const operations = await this.scanGitDir(gitDir);
@@ -112,7 +112,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		});
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	getPausedOperationStatus(
 		repoPath: string,
 		options?: { force?: boolean },

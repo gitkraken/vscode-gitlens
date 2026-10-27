@@ -249,7 +249,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		return sha;
 	}
 
-	@debug({ args: repoPath => ({ repoPath: repoPath }) })
+	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async validatePatch(repoPath: string | undefined, contents: string): Promise<boolean> {
 		try {
 			await this.git.run({ cwd: repoPath, configs: gitConfigsLog, stdin: contents }, 'apply', '--check', '-');

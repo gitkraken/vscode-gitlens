@@ -115,6 +115,36 @@ describe('classifyGitDirChange', () => {
 		assert.deepStrictEqual(classifyGitDirChange('refs/stash'), ['stash']);
 	});
 
+	it('maps a ref named like a watched file by its namespace', () => {
+		assert.deepStrictEqual(classifyGitDirChange('refs/heads/fix-index'), ['heads']);
+		assert.deepStrictEqual(classifyGitDirChange('refs/tags/config'), ['tags']);
+		assert.deepStrictEqual(classifyGitDirChange('refs/stash.lock'), ['stash']);
+	});
+
+	it("returns undefined for a ref's lock file, which git renames over the ref or removes with the ref unchanged", () => {
+		assert.strictEqual(classifyGitDirChange('refs/heads/main.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/heads/feature/foo.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/remotes/origin/HEAD.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/remotes/origin/main.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/tags/v1.0.lock'), undefined);
+		assert.strictEqual(
+			classifyGitDirChange('refs/replace/0123456789abcdef0123456789abcdef01234567.lock'),
+			undefined,
+		);
+	});
+
+	it("maps the stash's lock file to stash, since git rewrites its reflog alone under it", () => {
+		assert.deepStrictEqual(classifyGitDirChange('refs/stash.lock'), ['stash']);
+	});
+
+	it("returns undefined for a ref outside the watched namespaces, whatever its name holds (a tool's own)", () => {
+		assert.strictEqual(classifyGitDirChange('refs/kepler/sync/resolved/fix-index'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/undo/config-x'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/kepler/a/HEAD'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/kepler/a/HEAD.lock'), undefined);
+		assert.strictEqual(classifyGitDirChange('refs/heads-index'), undefined);
+	});
+
 	it('maps refs/tags/v1.0 to tags', () => {
 		assert.deepStrictEqual(classifyGitDirChange('refs/tags/v1.0'), ['tags']);
 	});
@@ -132,9 +162,13 @@ describe('classifyGitDirChange', () => {
 	});
 
 	it('maps the worktree entry and what `git worktree list` reports per worktree to worktrees', () => {
-		for (const p of ['worktrees/foo', 'worktrees/foo/HEAD', 'worktrees/foo/locked', 'worktrees/foo/gitdir']) {
+		for (const p of ['worktrees/foo', 'worktrees/foo/locked', 'worktrees/foo/gitdir']) {
 			assert.deepStrictEqual(classifyGitDirChange(p), ['worktrees'], p);
 		}
+	});
+
+	it('maps a worktree’s HEAD to worktrees and worktreeHead', () => {
+		assert.deepStrictEqual(classifyGitDirChange('worktrees/foo/HEAD'), ['worktrees', 'worktreeHead']);
 	});
 
 	it('returns undefined for a worktree’s own state under worktrees/<n>/ (its root watcher classifies it)', () => {

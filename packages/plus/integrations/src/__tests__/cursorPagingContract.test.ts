@@ -586,3 +586,140 @@ suite('cursor paging contract (#5438)', () => {
 		manager.dispose();
 	});
 });
+
+/**
+ * `requestFailed` and `unexpectedGap` let a consumer tell a read that broke, or a provider that promised more
+ * without a way to reach it, from one that only left items unread or was cut by a budget. Each is reported as
+ * an explicit boolean, so a consumer can tell "not failed" from a result that predates the field.
+ */
+suite('paged read evidence (requestFailed, unexpectedGap)', () => {
+	function cursorPage<T extends object>(values: T[], cursor: string | undefined, more: boolean): PagedResult<T> {
+		return { values: values, paging: { more: more, cursor: cursor ?? '{}' } };
+	}
+
+	async function prDrain(pages: (round: number) => PagedResult<ProviderPullRequest>, page: number) {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => Promise.resolve(pages(++calls)),
+		});
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: page,
+		});
+		manager.dispose();
+		return { result: result, calls: calls };
+	}
+
+	test('a clean drain reports neither a failed request nor a gap', async () => {
+		const { result } = await prDrain(round => endlessCursorPage([providerPr(`page-${round}`)], round), 3);
+
+		assert.equal(result.requestFailed, false);
+		assert.equal(result.unexpectedGap, false);
+	});
+
+	test('a walked page that claims more without a usable cursor is a gap', async () => {
+		const { result, calls } = await prDrain(
+			round =>
+				round === 1
+					? cursorPage([providerPr('page-1')], opaqueCursor, true)
+					: cursorPage([providerPr(`page-${round}`)], undefined, true),
+			3,
+		);
+
+		assert.equal(calls, 2, 'the drain stops where the continuation ran out');
+		assert.equal(result.unexpectedGap, true);
+		assert.equal(result.requestFailed, false, 'no request failed');
+	});
+
+	test('a walked page that repeats its cursor is a gap', async () => {
+		const { result, calls } = await prDrain(() => cursorPage([providerPr('same')], opaqueCursor, true), 3);
+
+		assert.equal(calls, 2, 'the drain stops on the repeated cursor');
+		assert.equal(result.unexpectedGap, true);
+	});
+
+	test('a first page that claims more without a cursor is a gap on a cursor-only read', async () => {
+		const { result } = await prDrain(() => cursorPage([providerPr('page-1')], undefined, true), 1);
+
+		assert.equal(result.hasMore, false, 'no continuation is advertised without a cursor');
+		assert.equal(result.unexpectedGap, true);
+	});
+
+	test('a terminal page is not a gap', async () => {
+		const { result } = await prDrain(() => cursorPage([providerPr('page-1')], undefined, false), 1);
+
+		assert.equal(result.unexpectedGap, false);
+		assert.equal(result.requestFailed, false);
+	});
+
+	test('a page that fails mid-drain is a failed request', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+		});
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<IssueShape>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () => {
+			calls++;
+			if (calls === 1) {
+				return Promise.resolve({
+					value: endlessCursorPage([{ id: 'page-1' } as unknown as IssueShape], calls),
+				});
+			}
+			return Promise.reject(new Error('Request failed (500)'));
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 3,
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.requestFailed, true);
+		assert.equal(result.unexpectedGap, false);
+
+		manager.dispose();
+	});
+
+	test('an account-wide issue drain that loses its cursor is a gap', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let calls = 0;
+		(
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: IssueShape[]; cursor?: string; hasMore: boolean; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = () => {
+			calls++;
+			return Promise.resolve({
+				value: {
+					values: [{ id: `page-${calls}` } as unknown as IssueShape],
+					cursor: calls === 1 ? 'next-1' : undefined,
+					hasMore: true,
+					truncated: false,
+				},
+			});
+		};
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub, page: 3 });
+
+		assert.equal(calls, 2);
+		assert.equal(result.unexpectedGap, true);
+		assert.equal(result.requestFailed, false);
+
+		manager.dispose();
+	});
+});

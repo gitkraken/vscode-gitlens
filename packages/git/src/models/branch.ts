@@ -3,7 +3,6 @@ import { loggable } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { serializable } from '@gitlens/utils/decorators/serializable.js';
 import { getBranchId, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
-import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import type { Shape } from '@gitlens/utils/types.js';
 import {
 	formatDetachedHeadName,
@@ -278,9 +277,3 @@ export type GitBranchStatus =
 	| 'upToDate'
 	| 'missingUpstream'
 	| 'remote';
-
-export interface BranchTargetInfo {
-	mergeTargetBranch: MaybePausedResult<string | undefined>;
-	baseBranch: string | undefined;
-	defaultBranch: string | undefined;
-}

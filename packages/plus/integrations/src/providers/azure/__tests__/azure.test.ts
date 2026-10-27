@@ -10,6 +10,7 @@ import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
 import type { AzurePullRequest, AzureRepositoryUrls } from '../models.js';
+import { AzureWorkItemDescriptionsCache } from '../workItemDescriptions.js';
 import { AzureWorkItemStatesCache } from '../workItemStateCategories.js';
 import { azureProvider, azureToken, createAzureForkSource, createAzurePullRequest } from './fixtures.js';
 
@@ -544,6 +545,7 @@ suite('AzureDevOpsIntegration.getPullRequest', () => {
 		});
 		const apis: ApiClients = {
 			azureWorkItemStates: new AzureWorkItemStatesCache(),
+			azureWorkItemDescriptions: new AzureWorkItemDescriptionsCache(),
 			github: Promise.resolve(undefined),
 			gitlab: Promise.resolve(undefined),
 			bitbucket: Promise.resolve(undefined),

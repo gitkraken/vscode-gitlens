@@ -1,12 +1,14 @@
 import * as assert from 'assert';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo, gkConfig } from './helpers.js';
+import { createBranch, createTestRepo, createWorktree, gkConfig } from './helpers.js';
 
 suite('ConfigSubProvider', () => {
 	let repo: TestRepo;
@@ -73,7 +75,7 @@ suite('ConfigSubProvider — gk branch sections', () => {
 		return repo.provider.config.getGkConfig(repo.path, `branch.${ref}.gk-merge-base`);
 	}
 
-	test('removeGkConfigBranchSection drops that ref’s gk keys and leaves siblings alone', async () => {
+	test("removeGkConfigBranchSection drops that ref's gk keys and leaves siblings alone", async () => {
 		await setBase('doomed', 'origin/doomed-base');
 		await setBase('keeper', 'origin/keeper-base');
 
@@ -288,5 +290,138 @@ suite('ConfigSubProvider — concurrent gk config writes', () => {
 
 		assert.strictEqual(countWrites(run), 1);
 		assert.strictEqual(gkConfig(repo.path, key), 'X');
+	});
+});
+
+suite('ConfigSubProvider — config under extensions.worktreeConfig', () => {
+	let repo: TestRepo;
+	let worktree: { path: string; cleanup: () => void };
+	let plain: { path: string; cleanup: () => void };
+
+	function git(cwd: string, ...args: string[]): string {
+		return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
+	}
+
+	setup(async () => {
+		repo = createTestRepo();
+		git(repo.path, 'config', 'extensions.worktreeConfig', 'true');
+		createBranch(repo.path, 'with-override');
+		createBranch(repo.path, 'no-override');
+		worktree = createWorktree(repo.path, 'with-override');
+		plain = createWorktree(repo.path, 'no-override');
+		// The cache keys checkouts by normalized (forward-slash) path, which a native Windows path isn't
+		repo.path = normalizePath(repo.path);
+		worktree.path = normalizePath(worktree.path);
+		plain.path = normalizePath(plain.path);
+		git(worktree.path, 'config', '--worktree', 'user.name', 'Worktree User');
+		git(worktree.path, 'config', '--worktree', 'commit.gpgsign', 'true');
+
+		// How core learns that a linked worktree shares the main checkout's common path
+		for (const path of [repo.path, worktree.path, plain.path]) {
+			repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+		}
+		assert.notStrictEqual(repo.provider.cache.getCommonPath(worktree.path), worktree.path);
+		assert.strictEqual(
+			repo.provider.cache.getCommonPath(worktree.path),
+			repo.provider.cache.getCommonPath(repo.path),
+		);
+	});
+
+	teardown(() => {
+		plain?.cleanup();
+		worktree?.cleanup();
+		repo?.cleanup();
+	});
+
+	test('each worktree reads its own config.worktree value, whichever read first', async () => {
+		const config = repo.provider.config;
+		const pattern = '^user\\.name$';
+
+		assert.strictEqual((await config.getConfigRegex(repo.path, pattern)).get('user.name'), 'Test User');
+		assert.strictEqual((await config.getConfigRegex(worktree.path, pattern)).get('user.name'), 'Worktree User');
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('user.name'), 'Test User');
+	});
+
+	test('a worktree read first does not leak its config.worktree value to the others', async () => {
+		const config = repo.provider.config;
+		const pattern = '^user\\.name$';
+
+		assert.strictEqual((await config.getConfigRegex(worktree.path, pattern)).get('user.name'), 'Worktree User');
+		assert.strictEqual((await config.getConfigRegex(repo.path, pattern)).get('user.name'), 'Test User');
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('user.name'), 'Test User');
+	});
+
+	test("getConfig reads each worktree's own config.worktree value, whichever read first", async () => {
+		const config = repo.provider.config;
+
+		assert.strictEqual(await config.getConfig(repo.path, 'user.name'), 'Test User');
+		assert.strictEqual(await config.getConfig(worktree.path, 'user.name'), 'Worktree User');
+		assert.strictEqual(await config.getConfig(plain.path, 'user.name'), 'Test User');
+		assert.strictEqual(await config.getConfig(worktree.path, 'commit.gpgsign'), 'true');
+		assert.strictEqual(await config.getConfig(repo.path, 'commit.gpgsign'), 'false');
+	});
+
+	test("getSigningConfig and getCurrentUser read the linked worktree's own values after the main checkout read first", async () => {
+		const config = repo.provider.config;
+
+		assert.strictEqual((await config.getSigningConfig(repo.path)).enabled, false);
+		assert.strictEqual((await config.getCurrentUser(repo.path))?.name, 'Test User');
+
+		assert.strictEqual((await config.getSigningConfig(worktree.path)).enabled, true);
+		assert.strictEqual((await config.getCurrentUser(worktree.path))?.name, 'Worktree User');
+		assert.strictEqual((await config.getSigningConfig(plain.path)).enabled, false);
+		assert.strictEqual((await config.getCurrentUser(plain.path))?.name, 'Test User');
+	});
+
+	test("a shared write clears every worktree's cached read, not just the one that wrote", async () => {
+		const config = repo.provider.config;
+		const pattern = '^(user\\.name|branch\\.shared\\.rebase)$';
+
+		assert.strictEqual((await config.getConfigRegex(repo.path, pattern)).get('branch.shared.rebase'), undefined);
+		assert.strictEqual(
+			(await config.getConfigRegex(worktree.path, pattern)).get('branch.shared.rebase'),
+			undefined,
+		);
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('branch.shared.rebase'), undefined);
+
+		await config.setConfig(repo.path, 'branch.shared.rebase', 'true');
+
+		assert.strictEqual((await config.getConfigRegex(repo.path, pattern)).get('branch.shared.rebase'), 'true');
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('branch.shared.rebase'), 'true');
+		const fromWorktree = await config.getConfigRegex(worktree.path, pattern);
+		assert.strictEqual(fromWorktree.get('branch.shared.rebase'), 'true');
+		assert.strictEqual(fromWorktree.get('user.name'), 'Worktree User', 'still its own override');
+	});
+
+	test("a write from one worktree clears the others' cached read of the key it changed", async () => {
+		const config = repo.provider.config;
+		const pattern = '^user\\.name$';
+
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('user.name'), 'Test User');
+		assert.strictEqual(await config.getConfig(plain.path, 'user.name'), 'Test User');
+
+		await config.setConfig(repo.path, 'user.name', 'Changed User');
+
+		assert.strictEqual((await config.getConfigRegex(plain.path, pattern)).get('user.name'), 'Changed User');
+		assert.strictEqual((await config.getConfigRegex(repo.path, pattern)).get('user.name'), 'Changed User');
+		assert.strictEqual((await config.getConfigRegex(worktree.path, pattern)).get('user.name'), 'Worktree User');
+		assert.strictEqual(await config.getConfig(plain.path, 'user.name'), 'Changed User');
+		assert.strictEqual(await config.getConfig(worktree.path, 'user.name'), 'Worktree User');
+	});
+
+	test('getConfigRegexAll serves the shared value to every worktree, never a config.worktree value', async () => {
+		const config = repo.provider.config;
+		const pattern = '^user\\.name$';
+
+		const fromWorktree = await config.getConfigRegexAll(worktree.path, pattern);
+		const fromMain = await config.getConfigRegexAll(repo.path, pattern);
+		const fromPlain = await config.getConfigRegexAll(plain.path, pattern);
+
+		for (const result of [fromWorktree, fromMain, fromPlain]) {
+			// Every scope's value is kept (the machine's global one too), the repository's last; none is the worktree's
+			const values = result.get('user.name');
+			assert.strictEqual(values?.at(-1), 'Test User');
+			assert.ok(!values.includes('Worktree User'));
+		}
 	});
 });

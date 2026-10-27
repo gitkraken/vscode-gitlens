@@ -28,6 +28,9 @@ import type { ParsedStash, ParsedStashWithFiles } from '../parsers/logParser.js'
 import { getStashFilesOnlyLogParser, getStashLogParser } from '../parsers/logParser.js';
 import { createCommitFileset } from './commitFilesetUtils.js';
 
+/** The one ref a stash write moves: a push, pop, drop or store changes `refs/stash` or its reflog, never another ref */
+const stashRefs: readonly string[] = ['refs/stash'];
+
 export class StashGitSubProvider implements GitStashSubProvider {
 	constructor(
 		private readonly context: GitServiceContext,
@@ -60,8 +63,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		conflictCommand: 'stash-apply' | 'stash-pop',
 		runOptions?: GitOperationRunOptions,
 	): Promise<StashApplyResult> {
+		// Only a clean pop is known to have moved `refs/stash`: a conflicted one keeps the entry
+		let dropped = false;
 		try {
 			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			dropped = conflictCommand === 'stash-pop';
 			return { conflicted: false };
 		} catch (ex) {
 			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
@@ -91,7 +97,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		} finally {
 			// A conflicted, failed or cancelled apply may already have changed the stash list or working tree
 			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+			if (dropped) {
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['stash'], stashRefs);
+			} else {
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+			}
 		}
 	}
 
@@ -106,7 +116,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return result.stdout.trim() || undefined;
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStash(
 		repoPath: string,
 		options?: {
@@ -198,7 +208,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		return { ...stash, stashes: stashes };
 	}
 
-	@debug()
+	@debug({ quiet: true })
 	async getStashCommitFiles(
 		repoPath: string,
 		ref: string,
@@ -508,7 +518,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			// save changed nothing
 			if (!nothingToSave) {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['stash'], stashRefs);
 			}
 		}
 	}
@@ -530,9 +540,10 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		}
 	}
 
+	/** For a drop or store, which move `refs/stash` (or its reflog, the rest of the list) */
 	private announceStashChanged(repoPath: string): void {
 		this.context.hooks?.cache?.onReset?.(repoPath, 'stashes');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['stash'], stashRefs);
 	}
 }
 

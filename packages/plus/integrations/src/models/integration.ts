@@ -144,6 +144,11 @@ export interface PullRequestEtagFields {
 	 * only for hosts that keep none (Azure DevOps and Server). Part of the etag whenever it is set, not an include.
 	 */
 	revision?: string;
+	/**
+	 * A full row marked `viewerUnresolved`, which no cheap check ever sets: such a row never compares unchanged, so it
+	 * is read in full again rather than kept without a viewer until the pull request changes.
+	 */
+	viewerUnresolved?: true;
 }
 
 /**
@@ -196,11 +201,43 @@ export const issueEtagIncludes: readonly IssueEtagInclude[] = ['reactions'];
 
 /** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */
 export interface IssueEtagFields {
-	state: IssueOrPullRequestState;
+	state: IssueOrPullRequestState | undefined;
 	updatedDate: Date;
 	/** Counts only when `'reactions'` is requested, and only from a row whose read fetched reactions. */
 	thumbsUpCount?: number;
+	/**
+	 * Azure DevOps only: the version of the rule a work item's body is read by ({@link azureWorkItemDescriptionRule}).
+	 * A change of rule changes the body without moving `updatedDate`, so a row read under an earlier one must not
+	 * compare unchanged.
+	 */
+	descriptionRule?: number;
+	/**
+	 * Azure DevOps only: the version of the rule a work item's `viewer` is set by ({@link azureWorkItemViewerRule}).
+	 * A full row that names someone but got no viewer (its organization's identity couldn't be read) leaves it out, so
+	 * it never compares unchanged and is read in full again rather than kept without one.
+	 */
+	viewerRule?: number;
 }
+
+/**
+ * {@link IssueEtagFields.descriptionRule}: the version of the rule an Azure DevOps work item's body is read by, stamped
+ * on both sides of its etag. Bumped whenever the rule changes which field a work item's body comes from, so every row
+ * a caller holds from before is read in full once. 1: the first rich text field with content (provider-apis'
+ * `getAzureWorkItemDescription`), where it used to be only Description. The rule lives in provider-apis, so a bump of
+ * that package that changes it must bump this too; the etag tests pin the rule to catch one.
+ *
+ * It can't cover a row whose read found the organization's field catalog unavailable: that row's body falls back to
+ * the built-in fields, and a cheap check, which reads no body, can't tell it from a complete one, so it stays as read
+ * until the work item changes.
+ */
+export const azureWorkItemDescriptionRule = 1;
+
+/**
+ * {@link IssueEtagFields.viewerRule}: the version of the rule an Azure DevOps work item's `viewer` is set by, stamped
+ * on both sides of its etag, so every row a caller holds from before it was set is read in full once. 1: the user's
+ * identity in the work item's organization (gitkraken/kepler#4291).
+ */
+export const azureWorkItemViewerRule = 1;
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };

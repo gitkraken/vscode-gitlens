@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import type { WatcherRepoChangeEvent, WorkingTreeChangeEvent } from '../changeEvent.js';
+import type { WorkingTreeChangeEvent } from '../changeEvent.js';
+import { WatcherRepoChangeEvent } from '../changeEvent.js';
 import { allWatchedRepositoryChanges } from '../classifyChange.js';
 import type { WatchSessionLifecycle } from '../watchSession.js';
 import { RepositoryWatchSession } from '../watchSession.js';
@@ -688,10 +689,79 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 
-		it('marks remotes unnamed for a config change', async () => {
+		it('keeps remote movement broad when the caller has no ref information', async () => {
 			const [e] = await flush(session => session.pushRepoChanges(['config', 'remotes']));
 			assert.deepStrictEqual([...e.unnamedRefKinds], ['remotes']);
 			assert.strictEqual(e.refs.size, 0);
+		});
+
+		it('delivers config and remote cache invalidation without claiming a remote ref moved', async () => {
+			const [e] = await flush(session => session.pushRepoChanges(['config', 'remotes'], false));
+
+			assert.deepStrictEqual([...e.changes], ['config', 'remotes']);
+			assert.deepStrictEqual(e.getUnannouncedChanges(), ['config', 'remotes']);
+			assert.strictEqual(e.refs.size, 0);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), false);
+			assert.strictEqual(e.mayHaveChangedRef('refs/heads/main'), false);
+		});
+
+		for (const configFirst of [true, false]) {
+			it(`retains only the real named remote when config is coalesced ${configFirst ? 'before' : 'after'} it`, async () => {
+				const [e] = await flush(session => {
+					if (configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+					session.pushRepoChanges(['remotes'], 'refs/remotes/origin/main');
+					if (!configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+				});
+
+				assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+				assert.deepStrictEqual([...e.refs], ['refs/remotes/origin/main']);
+				assert.strictEqual(e.unnamedRefKinds.size, 0);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/other'), false);
+			});
+
+			it(`preserves unknown remote movement when config is coalesced ${configFirst ? 'before' : 'after'} it`, async () => {
+				const [e] = await flush(session => {
+					if (configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+					session.pushRepoChanges(['remotes']);
+					if (!configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+				});
+
+				assert.deepStrictEqual([...e.unnamedRefKinds], ['remotes']);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/other'), true);
+			});
+		}
+
+		it('preserves packed ref invalidation when coalesced with a config-only write', async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['heads', 'remotes', 'tags']);
+				session.pushRepoChanges(['config', 'remotes'], false);
+			});
+
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes', 'tags']);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
+			assert.strictEqual(e.mayHaveChangedRef('refs/heads/main'), true);
+			assert.strictEqual(e.mayHaveChangedRef('refs/tags/v1'), true);
+		});
+
+		it('keeps an overflow broad after a config-only write', async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['config', 'remotes'], false);
+				session.pushUnfencedRepoChanges([...allWatchedRepositoryChanges]);
+			});
+
+			assert.deepStrictEqual([...e.changes].sort(), [...allWatchedRepositoryChanges].sort());
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes', 'stash', 'tags']);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
 		});
 
 		it('marks heads, remotes and tags unnamed for a packed-refs rewrite', async () => {
@@ -1713,6 +1783,44 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 
+		it("takes a worktree's HEAD report for the echo of a write that announced worktreeHead, pending or late", async () => {
+			const { session, received } = createSession();
+
+			// `git worktree add` writes the new entry's HEAD as it starts, and `remove` deletes it, before announcing
+			session.pushRepoChanges(['worktrees', 'worktreeHead']);
+			session.noteSelfWrite(['worktrees', 'worktreeHead']);
+			session.pushRepoChanges(['worktrees', 'worktreeHead']);
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['worktreeHead', 'worktrees']);
+			assert.deepStrictEqual(sorted(received[0].announced), ['worktreeHead', 'worktrees']);
+			assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+			session.dispose();
+		});
+
+		it("keeps a worktree's HEAD report unannounced under a write that announced only worktrees", async () => {
+			for (const pending of [true, false]) {
+				const { session, received } = createSession();
+
+				// A lock writes no HEAD, so a HEAD report around it is a checkout in another worktree
+				if (pending) {
+					session.pushRepoChanges(['worktrees', 'worktreeHead']);
+				}
+				session.noteSelfWrite(['worktrees']);
+				if (!pending) {
+					session.pushRepoChanges(['worktrees', 'worktreeHead']);
+				}
+				await delay(60);
+
+				const label = pending ? 'pending' : 'late';
+				assert.strictEqual(received.length, 1, label);
+				assert.deepStrictEqual(sorted(received[0].changes), ['worktreeHead', 'worktrees'], label);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['worktreeHead'], label);
+				session.dispose();
+			}
+		});
+
 		it('keeps the unannounced kinds of a raw change mixing both, marking only the announced ones', async () => {
 			const { session, received } = createSession();
 
@@ -1830,6 +1938,713 @@ describe('WatchSession', () => {
 			assert.deepStrictEqual(sorted(received[0].changes), ['index', 'stash']);
 			assert.deepStrictEqual(sorted(received[0].announced), ['index', 'stash']);
 			session.dispose();
+		});
+
+		describe('naming the refs it moved', () => {
+			it('fires the named refs only, so a ref it did not move has not changed', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['remotes'], ['refs/remotes/origin/main']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['remotes']);
+				assert.deepStrictEqual([...received[0].announced], ['remotes']);
+				assert.deepStrictEqual([...received[0].refs], ['refs/remotes/origin/main']);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], []);
+				assert.ok(received[0].mayHaveChangedRef('refs/remotes/origin/main'));
+				assert.ok(!received[0].mayHaveChangedRef('refs/remotes/origin/other'));
+				session.dispose();
+			});
+
+			it("drops the write's own pending raw name and keeps the kind announced", async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['heads'], 'refs/heads/feature');
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['heads']);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual([...received[0].refs], ['refs/heads/feature']);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], []);
+				session.dispose();
+			});
+
+			it('keeps a pending raw name of the same kind it did not name, and the kind unannounced', async () => {
+				const { session, received } = createSession();
+
+				// An outside change to another branch, then core's write to its own
+				session.pushRepoChanges(['heads'], 'refs/heads/outside');
+				session.pushRepoChanges(['heads'], 'refs/heads/feature');
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['heads']);
+				assert.deepStrictEqual(
+					[...received[0].announced],
+					[],
+					'an outside change rides along, so the host may not skip the kind',
+				);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/feature', 'refs/heads/outside']);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], []);
+				session.dispose();
+			});
+
+			it('keeps a kind already pending unnamed unnamed', async () => {
+				const { session, received } = createSession();
+
+				// A packed-refs rewrite can't be attributed to a name
+				session.pushRepoChanges(['heads']);
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['heads']);
+				assert.deepStrictEqual([...received[0].announced], []);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], ['heads']);
+				assert.ok(received[0].mayHaveChangedRef('refs/heads/other'));
+				session.dispose();
+			});
+
+			it('keeps an earlier named announcement of the kind announced, with both names', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/a']);
+				session.noteSelfWrite(['heads'], ['refs/heads/b']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/a', 'refs/heads/b']);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], []);
+				session.dispose();
+			});
+
+			it('leaves a ref kind it announced without a name unnamed, and ignores names of kinds it did not announce', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['tags'], 'refs/tags/v1');
+				session.noteSelfWrite(['heads', 'remotes'], ['refs/heads/feature', 'refs/tags/v1', 'refs/notes/x']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].changes), ['heads', 'remotes', 'tags']);
+				assert.deepStrictEqual(sorted(received[0].announced), ['heads', 'remotes']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/feature', 'refs/tags/v1']);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], ['remotes']);
+				session.dispose();
+			});
+
+			it('still merges the late echo of a named write into the announcement', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				session.pushRepoChanges(['heads'], 'refs/heads/feature');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual([...received[0].refs], ['refs/heads/feature']);
+				assert.ok(!received[0].mayHaveChangedRef('refs/heads/main'));
+				session.dispose();
+			});
+
+			it("takes the report of a new ref directory pending before the announcement for the write's own", async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler');
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual([...received[0].refs], ['refs/heads/kepler/task-1']);
+				session.dispose();
+			});
+
+			it("takes the report of a ref directory arriving after the announcement for the write's own", async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler');
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/kepler', 'refs/heads/kepler/task-1']);
+				session.dispose();
+			});
+
+			it('keeps the report of a ref directory holding none of the announced refs an outside change', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['heads'], 'refs/heads/other');
+				session.noteSelfWrite(['heads'], ['refs/heads/kepler/task-1']);
+				session.pushRepoChanges(['heads'], 'refs/heads/kepler/task-1');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/kepler/task-1', 'refs/heads/other']);
+				session.dispose();
+			});
+
+			it('keeps the ref an earlier announcement made when a later one creates a ref beneath its name', async () => {
+				const { session, received } = createSession();
+
+				// Deleting `team` frees the name, so the next write can create `team/task`, whose directory is `team`
+				session.noteSelfWrite(['heads'], ['refs/heads/team']);
+				session.noteSelfWrite(['heads'], ['refs/heads/team/task']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['refs/heads/team', 'refs/heads/team/task']);
+				session.dispose();
+			});
+
+			it('keeps the ref an earlier announcement made once an outside report made its kind unannounced', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], ['refs/heads/team']);
+				session.pushRepoChanges(['heads'], 'refs/heads/other');
+				session.noteSelfWrite(['heads'], ['refs/heads/team/task']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['heads']);
+				assert.deepStrictEqual(sorted(received[0].refs), [
+					'refs/heads/other',
+					'refs/heads/team',
+					'refs/heads/team/task',
+				]);
+				session.dispose();
+			});
+
+			it('never replaces an injected change of the kind', async () => {
+				const { session, received } = createSession();
+
+				session.fireChange('heads');
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].announced], []);
+				assert.deepStrictEqual([...received[0].unnamedRefKinds], ['heads']);
+				session.dispose();
+			});
+
+			it('ignores the names of an empty announcement or one naming unknown', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['unknown'], ['refs/heads/feature']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].refs], []);
+				assert.ok(received[0].mayHaveChangedRef('refs/heads/other'));
+				session.dispose();
+			});
+
+			it('a relevant-refs subscriber hears a named heads write only when it lists the ref', async () => {
+				const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+				const received: WatcherRepoChangeEvent[] = [];
+				session.subscribe({ relevantRefs: () => ['refs/heads/main'] }).onDidChange(e => received.push(e));
+				const listing: WatcherRepoChangeEvent[] = [];
+				session.subscribe({ relevantRefs: () => ['refs/heads/feature'] }).onDidChange(e => listing.push(e));
+
+				session.noteSelfWrite(['heads'], ['refs/heads/feature']);
+				await delay(60);
+				assert.strictEqual(received.length, 0, 'a named heads-only write to another branch is not delivered');
+				assert.strictEqual(listing.length, 1, 'a subscriber listing the ref hears it');
+
+				session.noteSelfWrite(['index', 'heads'], ['refs/heads/feature']);
+				await delay(60);
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['index'], 'the non-ref kind riding along passes');
+				session.dispose();
+			});
+		});
+
+		describe('confining config to the branches it names', () => {
+			const feature = 'refs/heads/feature';
+			const other = 'refs/heads/other';
+			const confined = { configConfinedToRefs: true } as const;
+
+			it("keeps a named write's config confined through its own pending report and its late echo", async () => {
+				const { session, received } = createSession();
+
+				// The watcher's reports of the write: the file changed only in the branch's section, so no `remotes`
+				session.pushRepoChanges(['config'], undefined, new Set([feature]));
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				session.pushRepoChanges(['config'], undefined, new Set([feature]));
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].changes), ['config', 'heads']);
+				assert.deepStrictEqual(sorted(received[0].announced), ['config', 'heads']);
+				assert.strictEqual(received[0].configConfined, true);
+				assert.deepStrictEqual([...received[0].configBranches!], [feature]);
+				assert.ok(received[0].mayHaveChangedConfig([feature]));
+				assert.ok(received[0].mayHaveChangedConfig(['HEAD']), 'HEAD may be on the named branch');
+				assert.ok(!received[0].mayHaveChangedConfig(['refs/heads/main', 'refs/remotes/origin/feature']));
+				session.dispose();
+			});
+
+			it('keeps a pending config report for another branch, unannounced, confined to both branches', async () => {
+				const { session, received } = createSession();
+
+				// An outside `git config branch.other.merge ...`, pending as the write is announced
+				session.pushRepoChanges(['config'], undefined, new Set([other]));
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.ok(received[0].changed('config'));
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.deepStrictEqual(sorted(received[0].configBranches!), [feature, other]);
+				assert.ok(received[0].mayHaveChangedConfig([other]));
+				assert.ok(!received[0].mayHaveChangedConfig(['refs/heads/main']));
+				session.dispose();
+			});
+
+			it('keeps a pending unconfined config report, and its remotes, beside a confined write', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['config', 'remotes']);
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].changes), ['config', 'heads', 'remotes']);
+				assert.deepStrictEqual([...received[0].announced], ['heads']);
+				assert.strictEqual(received[0].configConfined, false);
+				session.dispose();
+			});
+
+			it("takes no later config report for the write's own unless its branches are among the write's", async () => {
+				for (const report of [
+					{ label: 'another branch', branches: new Set([other]) },
+					{ label: 'the branch and another', branches: new Set([feature, other]) },
+					{ label: 'anywhere', branches: undefined },
+				]) {
+					const { session, received } = createSession();
+
+					// Right after the announcement, well within the debounce delay
+					session.noteSelfWrite(['config', 'heads'], [feature], confined);
+					session.pushRepoChanges(
+						report.branches != null ? ['config'] : ['config', 'remotes'],
+						undefined,
+						report.branches,
+					);
+					await delay(60);
+
+					assert.strictEqual(received.length, 1, report.label);
+					assert.ok(!received[0].announced.has('config'), report.label);
+					if (report.branches != null) {
+						assert.deepStrictEqual(sorted(received[0].configBranches!), [feature, other], report.label);
+					} else {
+						assert.strictEqual(received[0].configConfined, false, report.label);
+						assert.ok(received[0].changed('remotes'), report.label);
+					}
+					session.dispose();
+				}
+			});
+
+			it("keeps a config report of a branch named like the directory of the write's branch an outside change", async () => {
+				const { session, received } = createSession();
+				const team = 'refs/heads/team';
+
+				// Unlike refs, the sections `branch.team` and `branch.team/task` can both exist
+				session.noteSelfWrite(['config', 'heads'], [`${team}/task`], confined);
+				session.pushRepoChanges(['config'], undefined, new Set([team]));
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.ok(received[0].changed('config'));
+				assert.ok(!received[0].announced.has('config'));
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), ['config']);
+				assert.deepStrictEqual(sorted(received[0].configBranches!), [team, `${team}/task`]);
+				assert.ok(received[0].mayHaveChangedConfig([team]));
+				session.dispose();
+			});
+
+			it("takes a config report of the write's branches for its own only within the debounce delay", async () => {
+				const now = performance.now();
+				let elapsed = 0;
+				const clock = mock.method(performance, 'now', () => now + elapsed);
+				try {
+					for (const announcement of ['confined', 'open'] as const) {
+						for (const late of [false, true]) {
+							const label = `${announcement}, ${late ? 'after' : 'within'} the delay`;
+							const { session, received } = createSession();
+							// Suspended, as a blurred window is: the window stays pending however long it takes
+							session.suspend();
+
+							session.noteSelfWrite(
+								['config', 'heads'],
+								[feature],
+								announcement === 'confined' ? confined : undefined,
+							);
+							elapsed += late ? 60_000 : 10;
+							session.pushRepoChanges(['config'], undefined, new Set([feature]));
+							session.resume(0);
+							await delay(30);
+
+							assert.strictEqual(received.length, 1, label);
+							// A minute on, the same sections changing again is as likely an outside edit
+							assert.strictEqual(received[0].announced.has('config'), !late, label);
+							if (announcement === 'confined') {
+								assert.deepStrictEqual([...received[0].configBranches!], [feature], label);
+							} else {
+								assert.strictEqual(received[0].configConfined, false, label);
+							}
+							session.dispose();
+						}
+					}
+				} finally {
+					clock.mock.restore();
+				}
+			});
+
+			it('leaves config unconfined beside an injected config change, before or after the write', async () => {
+				for (const injectFirst of [true, false]) {
+					const { session, received } = createSession();
+
+					if (injectFirst) {
+						session.fireChange('config');
+					}
+					session.noteSelfWrite(['config', 'heads'], [feature], confined);
+					if (!injectFirst) {
+						session.fireChange('config');
+					}
+					await delay(60);
+
+					assert.strictEqual(received.length, 1);
+					assert.strictEqual(
+						received[0].configConfined,
+						false,
+						`injected ${injectFirst ? 'before' : 'after'}`,
+					);
+					assert.ok(!received[0].announced.has('config'));
+					assert.ok(received[0].mayHaveChangedConfig(['refs/heads/main']));
+					session.dispose();
+				}
+			});
+
+			it('leaves config unconfined without the flag, beside an unconfined announcement, or with no branch to confine it to', async () => {
+				for (const writes of [
+					// Names alone don't confine config: only the write says so
+					[{ changes: ['config', 'heads'] as const, refs: [feature], options: undefined }],
+					[
+						{ changes: ['config', 'heads'] as const, refs: [feature], options: confined },
+						{ changes: ['config'] as const, refs: undefined, options: undefined },
+					],
+					[
+						{ changes: ['config'] as const, refs: undefined, options: undefined },
+						{ changes: ['config', 'heads'] as const, refs: [feature], options: confined },
+					],
+					[
+						{
+							changes: ['config', 'remotes'] as const,
+							refs: ['refs/remotes/origin/main'],
+							options: confined,
+						},
+					],
+				]) {
+					const { session, received } = createSession();
+
+					for (const write of writes) {
+						session.noteSelfWrite([...write.changes], write.refs, write.options);
+					}
+					await delay(60);
+
+					assert.strictEqual(received.length, 1);
+					assert.ok(received[0].announced.has('config'));
+					assert.strictEqual(received[0].configConfined, false, JSON.stringify(writes));
+					session.dispose();
+				}
+			});
+
+			it('confines a write naming a branch it moved no ref of', async () => {
+				const { session, received } = createSession();
+
+				// An upstream change names the branch only for its config section
+				session.noteSelfWrite(['config'], [feature], confined);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].changes], ['config']);
+				assert.deepStrictEqual([...received[0].configBranches!], [feature]);
+				session.dispose();
+			});
+
+			it("keeps two named writes' config confined to both their branches", async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				session.noteSelfWrite(['config', 'heads'], [other], confined);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.ok(received[0].announced.has('config'));
+				assert.deepStrictEqual(sorted(received[0].configBranches!), [feature, other]);
+				assert.ok(received[0].mayHaveChangedConfig([feature]));
+				assert.ok(received[0].mayHaveChangedConfig([other]));
+				assert.ok(!received[0].mayHaveChangedConfig(['refs/heads/main']));
+				session.dispose();
+			});
+
+			it('confines an outside report on its own, by its branches alone', async () => {
+				const { session, received } = createSession();
+
+				// An outside branch-only edit moves no ref, so the event names none
+				session.pushRepoChanges(['config'], undefined, new Set([other]));
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].refs], []);
+				assert.deepStrictEqual([...received[0].configBranches!], [other]);
+				assert.ok(received[0].mayHaveChangedConfig([other]));
+				assert.ok(!received[0].mayHaveChangedConfig([feature]));
+				session.dispose();
+			});
+
+			it('coalesces with with(), confined only when every side that changed config was', () => {
+				const event = new WatcherRepoChangeEvent('/repo', ['config', 'heads'], {
+					names: [feature],
+					configBranches: [feature],
+				});
+				assert.strictEqual(event.configConfined, true);
+
+				assert.deepStrictEqual(
+					[...event.with(['heads'], { names: [other] }).configBranches!],
+					[feature],
+					'a side without config keeps it confined',
+				);
+				assert.deepStrictEqual(sorted(event.with(['config'], { configBranches: [other] }).configBranches!), [
+					feature,
+					other,
+				]);
+				assert.strictEqual(event.with(['config', 'heads'], { names: [other] }).configConfined, false);
+				assert.strictEqual(event.with(['config']).configConfined, false);
+				assert.deepStrictEqual(
+					[
+						...new WatcherRepoChangeEvent('/repo', ['heads'], { names: [feature] }).with(['config'], {
+							configBranches: [other],
+						}).configBranches!,
+					],
+					[other],
+				);
+				assert.strictEqual(
+					new WatcherRepoChangeEvent('/repo', ['heads'], { names: [feature], configBranches: [feature] })
+						.configBranches,
+					undefined,
+					'no config changed',
+				);
+			});
+
+			it('delivers a confined config only to relevant-refs subscribers following one of its branches, or HEAD', async () => {
+				const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+				const listen = (refs: string[]) => {
+					const events: WatcherRepoChangeEvent[] = [];
+					session.subscribe({ relevantRefs: () => refs }).onDidChange(e => events.push(e));
+					return events;
+				};
+				const others = listen(['refs/heads/main', 'refs/remotes/origin/feature']);
+				const following = listen(['refs/heads/main', feature]);
+				const head = listen(['HEAD']);
+				const all: WatcherRepoChangeEvent[] = [];
+				session.subscribe().onDidChange(e => all.push(e));
+
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				await delay(60);
+
+				assert.strictEqual(others.length, 0, 'neither the branch nor its config concerns it');
+				assert.strictEqual(following.length, 1);
+				assert.deepStrictEqual(sorted(following[0].changes), ['config', 'heads']);
+				assert.strictEqual(following[0].configConfined, true);
+				assert.strictEqual(head.length, 1);
+				assert.deepStrictEqual(sorted(head[0].changes), ['config', 'heads']);
+				assert.strictEqual(all.length, 1);
+
+				// An outside edit of the branch's tracking moves no ref, yet reaches the subscriber following it
+				session.pushRepoChanges(['config'], undefined, new Set([feature]));
+				await delay(60);
+				assert.strictEqual(others.length, 0);
+				assert.strictEqual(following.length, 2);
+				assert.deepStrictEqual([...following[1].changes], ['config']);
+
+				// An unconfined config change still reaches everyone
+				session.noteSelfWrite(['config']);
+				await delay(60);
+				assert.strictEqual(others.length, 1);
+				assert.deepStrictEqual([...others[0].changes], ['config']);
+				assert.ok(others[0].mayHaveChangedConfig(['refs/heads/main']));
+				session.dispose();
+			});
+
+			it('keeps a confined config for a subscriber following a named branch whose heads change is unnamed', async () => {
+				const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+				const following: WatcherRepoChangeEvent[] = [];
+				session.subscribe({ relevantRefs: () => [feature] }).onDidChange(e => following.push(e));
+				const others: WatcherRepoChangeEvent[] = [];
+				session.subscribe({ relevantRefs: () => ['refs/tags/v1'] }).onDidChange(e => others.push(e));
+
+				// A packed-refs rewrite left `heads` unnamed; the write's config is still confined to its branch
+				session.pushRepoChanges(['heads']);
+				session.noteSelfWrite(['config', 'heads'], [feature], confined);
+				await delay(60);
+
+				assert.strictEqual(following.length, 1);
+				assert.ok(following[0].changed('config'));
+				assert.strictEqual(others.length, 1, 'the unnamed heads change passes');
+				assert.deepStrictEqual([...others[0].changes], ['heads'], 'its confined config does not');
+				session.dispose();
+			});
+		});
+
+		describe('telling its own reports from outside ones by name', () => {
+			const feature = 'refs/heads/feature';
+			const other = 'refs/heads/other';
+
+			it('takes a raw report of a ref the write did not name, however soon, for an outside change', async () => {
+				const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+				const all: WatcherRepoChangeEvent[] = [];
+				session.subscribe().onDidChange(e => all.push(e));
+				const following: WatcherRepoChangeEvent[] = [];
+				session.subscribe({ relevantRefs: () => [other] }).onDidChange(e => following.push(e));
+
+				session.noteSelfWrite(['heads'], [feature]);
+				// An outside commit on another branch, right after
+				session.pushRepoChanges(['heads'], other);
+				await delay(60);
+
+				assert.strictEqual(all.length, 1);
+				assert.deepStrictEqual([...all[0].announced], [], 'the host must clear what the outside commit moved');
+				assert.deepStrictEqual(sorted(all[0].refs), [feature, other]);
+				assert.strictEqual(following.length, 1, 'a subscriber following the other branch hears it');
+				session.dispose();
+			});
+
+			it('takes an unnamed raw report of a kind the write named for an outside change', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite(['heads'], [feature]);
+				// A packed-refs rewrite, which any write may have caused
+				session.pushRepoChanges(['heads']);
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual([...received[0].announced], []);
+				assert.ok(received[0].mayHaveChangedRef(other));
+				session.dispose();
+			});
+
+			it('takes a HEAD report, heads part included, for the echo of a write that announced head', async () => {
+				// A commit locks HEAD to write its reflog, and names the branch it moved, never HEAD
+				const { session, received } = createSession();
+				session.noteSelfWrite(['head', 'heads', 'index'], [feature]);
+				session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].announced), ['head', 'heads', 'index']);
+				assert.deepStrictEqual(sorted(received[0].refs), ['HEAD', feature]);
+
+				// A write that didn't announce head can't account for a HEAD report
+				const created = createSession();
+				created.session.noteSelfWrite(['heads'], [feature]);
+				created.session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(created.received.length, 1);
+				assert.deepStrictEqual([...created.received[0].announced], []);
+				session.dispose();
+				created.session.dispose();
+			});
+
+			it("takes a HEAD report for the echo of a detached HEAD's move, which announced head without heads", async () => {
+				const { session, received } = createSession();
+				session.noteSelfWrite(['head', 'index']);
+				session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(sorted(received[0].announced), ['head', 'heads', 'index']);
+
+				// A branch moved from outside first keeps heads unannounced
+				const outside = createSession();
+				outside.session.noteSelfWrite(['head', 'index']);
+				outside.session.pushRepoChanges(['heads'], feature);
+				outside.session.pushRepoChanges(['head', 'heads'], 'HEAD');
+				await delay(60);
+
+				assert.strictEqual(outside.received.length, 1);
+				assert.deepStrictEqual(sorted(outside.received[0].announced), ['head', 'index']);
+				session.dispose();
+				outside.session.dispose();
+			});
+
+			it('takes a HEAD report after the debounce delay for an outside change', async () => {
+				const now = performance.now();
+				let elapsed = 0;
+				const clock = mock.method(performance, 'now', () => now + elapsed);
+				try {
+					const { session, received } = createSession();
+					session.suspend();
+
+					session.noteSelfWrite(['head', 'heads', 'index'], [feature]);
+					// An outside `git switch` a minute later, while the window is still pending
+					elapsed += 60_000;
+					session.pushRepoChanges(['head', 'heads'], 'HEAD');
+					session.resume(0);
+					await delay(30);
+
+					assert.strictEqual(received.length, 1);
+					assert.deepStrictEqual([...received[0].announced], ['index']);
+					assert.deepStrictEqual(sorted(received[0].refs), ['HEAD', feature]);
+					session.dispose();
+				} finally {
+					clock.mock.restore();
+				}
+			});
+
+			it('takes a raw report of a ref the write named for its own only within the debounce delay', async () => {
+				const now = performance.now();
+				let elapsed = 0;
+				const clock = mock.method(performance, 'now', () => now + elapsed);
+				try {
+					for (const late of [false, true]) {
+						const label = late ? 'after the delay' : 'within the delay';
+						const { session, received } = createSession();
+						// Suspended, as a blurred window is: the window stays pending however long it takes
+						session.suspend();
+
+						session.noteSelfWrite(['heads'], [feature]);
+						// A minute on, the same branch moving again is as likely an outside write
+						elapsed += late ? 60_000 : 10;
+						session.pushRepoChanges(['heads'], feature);
+						session.resume(0);
+						await delay(30);
+
+						assert.strictEqual(received.length, 1, label);
+						assert.deepStrictEqual([...received[0].announced], late ? [] : ['heads'], label);
+						assert.deepStrictEqual([...received[0].refs], [feature], label);
+						session.dispose();
+					}
+				} finally {
+					clock.mock.restore();
+				}
+			});
 		});
 	});
 });

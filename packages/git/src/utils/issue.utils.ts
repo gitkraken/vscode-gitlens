@@ -187,6 +187,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		thumbsUpCount: value.thumbsUpCount,
 		body: value.body,
 		bodyFormat: value.bodyFormat,
+		bodyField: value.bodyField == null ? undefined : { id: value.bodyField.id, name: value.bodyField.name },
 		iterations:
 			value.iterations == null
 				? undefined
@@ -197,6 +198,8 @@ export function serializeIssue(value: IssueShape): IssueShape {
 						startDate: iteration.startDate,
 						endDate: iteration.endDate,
 					})),
+		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
+		viewerUnresolved: value.viewerUnresolved,
 	};
 	return serialized;
 }

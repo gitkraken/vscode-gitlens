@@ -4,9 +4,10 @@ import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import { Cache } from '../../cache.js';
+import { FileType } from '../../context.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
-import type { GitIgnoreFilter } from '../gitIgnoreFilter.js';
+import { GitIgnoreFilter } from '../gitIgnoreFilter.js';
 import type {
 	FileWatcher,
 	FileWatcherOptions,
@@ -14,7 +15,7 @@ import type {
 	FileWatchEvent,
 	FileWatchingProvider,
 } from '../provider.js';
-import { dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
+import { dotGitGlobCombined, dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
 import { RepositoryWatchService } from '../watchService.js';
 
 interface MockWatcher extends FileWatcher {
@@ -24,6 +25,8 @@ interface MockWatcher extends FileWatcher {
 	fire(event: FileWatchEvent): void;
 	/** Reports a reliability the way a provider would, after `createWatcher` returned */
 	report(state: FileWatcherReliability): void;
+	/** Reports the watch live the way a provider that places it asynchronously would */
+	start(): void;
 	disposed: boolean;
 }
 
@@ -60,6 +63,9 @@ function createMockFactory(
 					},
 					report: function (state: FileWatcherReliability): void {
 						options?.onDidChangeReliability?.(state);
+					},
+					start: function (): void {
+						options?.onDidStart?.();
 					},
 				},
 				() => {
@@ -503,6 +509,144 @@ describe('RepositoryWatchService', () => {
 			handleA.dispose();
 			service.dispose();
 		});
+
+		it("reports no change for a ref's lock file git removes without writing the ref", async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+			});
+
+			const globalReceived: WatcherRepoChangeEvent[] = [];
+			service.onDidChangeRepository(e => globalReceived.push(e));
+
+			const handleA = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(handleA);
+
+			const receivedA: WatcherRepoChangeEvent[] = [];
+			const subA = handleA.session.subscribe({ delayMs: 30, relevantRefs: () => ['refs/remotes/origin/HEAD'] });
+			subA.onDidChange(e => receivedA.push(e));
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+
+			// A fetch that moved nothing: it locks the remote's HEAD to check its default branch, then releases it
+			common.fire({ path: '/repo/.git/refs/remotes/origin/HEAD.lock', reason: 'create' });
+			common.fire({ path: '/repo/.git/refs/remotes/origin/HEAD.lock', reason: 'delete' });
+
+			await delay(60);
+
+			assert.strictEqual(receivedA.length, 0);
+			assert.strictEqual(globalReceived.length, 0);
+
+			subA.dispose();
+			handleA.dispose();
+			service.dispose();
+		});
+
+		it('drops the admin entry reports of a worktree under a folder its provider ignores, in either spelling', async () => {
+			const { factory, watchers } = createMockFactory();
+			const gitdirs: Record<string, string> = {
+				'/repo/.git/worktrees/x-1/gitdir': '/repo/.git/sync-tools-worktrees/x/.git\n',
+				// Git writes the path the common git dir resolves to, through a symlink
+				'/repo/.git/worktrees/x-2/gitdir': '/private/repo/.git/sync-tools-worktrees/y/.git\n',
+				// Inside the git dir, but under no folder the provider registered: a user's own worktree
+				'/repo/.git/worktrees/mine/gitdir': '/repo/.git/my-worktrees/x/.git\n',
+			};
+			const asked: string[] = [];
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				readFile: path => {
+					const normalized = normalizePath(path);
+					if (normalized === '/repo/.git/config') {
+						return Promise.resolve(new TextEncoder().encode('[core]\n'));
+					}
+
+					const content = gitdirs[normalized];
+					return content != null
+						? Promise.resolve(new TextEncoder().encode(content))
+						: Promise.reject(new Error('ENOENT'));
+				},
+				readDirectory: path =>
+					normalizePath(path) === '/repo/.git/worktrees'
+						? Promise.resolve([
+								['x-1', FileType.Directory],
+								['x-2', FileType.Directory],
+								['mine', FileType.Directory],
+							] as [string, number][])
+						: Promise.reject(new Error('ENOENT')),
+				getIgnoredWorktreeRoots: repoPath => {
+					asked.push(repoPath);
+					return Promise.resolve([
+						'/repo/.git/sync-tools-worktrees',
+						'/private/repo/.git/sync-tools-worktrees',
+					]);
+				},
+			});
+
+			const handleA = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(handleA);
+
+			const receivedA: WatcherRepoChangeEvent[] = [];
+			const subA = handleA.session.subscribe({ delayMs: 30 });
+			subA.onDidChange(e => receivedA.push(e));
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+			// A report arriving before the admin entries are first read is told at once
+			for (let i = 0; i < 5; i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+
+			common.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
+			common.fire({ path: '/repo/.git/worktrees/x-2/HEAD', reason: 'change' });
+			await delay(60);
+			assert.strictEqual(receivedA.length, 0);
+
+			common.fire({ path: '/repo/.git/worktrees/mine/HEAD', reason: 'change' });
+			await delay(60);
+			assert.strictEqual(receivedA.length, 1);
+			assert.deepStrictEqual(asked, ['/worktrees/A']);
+
+			subA.dispose();
+			handleA.dispose();
+			service.dispose();
+		});
+
+		it('leaves the folders its provider ignores worktrees under unwatched beneath the common git dir', () => {
+			const { factory, watchers } = createMockFactory();
+			const asked: string[] = [];
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				getIgnoredWorktreeFolders: repoPath => {
+					asked.push(repoPath);
+					return ['sync-tools-worktrees'];
+				},
+			});
+
+			const main = service.watch('/repo', standardGitDir('/repo/.git'));
+			const linked = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(main);
+			assertHandle(linked);
+			const subs = [main.session.subscribe({ delayMs: 30 }), linked.session.subscribe({ delayMs: 30 })];
+
+			const excludes = (basePath: string, pattern?: string) =>
+				watchers.find(w => w.basePath === basePath && (pattern == null || w.pattern === pattern))?.options
+					?.excludes;
+			assert.ok(excludes('/repo/.git', dotGitGlobCombined)?.includes('sync-tools-worktrees'));
+			assert.ok(excludes('/repo/.git', dotGitGlobCommon)?.includes('sync-tools-worktrees'));
+			assert.ok(!excludes('/repo/.git/worktrees/A')?.includes('sync-tools-worktrees'));
+			assert.ok(watchers.every(w => !w.options?.excludes?.includes('worktrees')));
+			assert.deepStrictEqual(asked, ['/repo']);
+
+			for (const sub of subs) {
+				sub.dispose();
+			}
+			linked.dispose();
+			main.dispose();
+			service.dispose();
+		});
 	});
 
 	describe('global onDidChangeRepository', () => {
@@ -856,6 +1000,7 @@ describe('RepositoryWatchService', () => {
 				ready: () => new Promise<void>(() => {}),
 				isIgnored: () => false,
 				refresh: () => Promise.resolve(),
+				revalidate: () => Promise.resolve(false),
 			} as unknown as GitIgnoreFilter;
 			const service = new RepositoryWatchService({
 				watchingProvider: factory,
@@ -888,6 +1033,7 @@ describe('RepositoryWatchService', () => {
 					refreshes++;
 					return Promise.resolve();
 				},
+				revalidate: () => Promise.resolve(false),
 			} as unknown as GitIgnoreFilter;
 			const service = new RepositoryWatchService({
 				watchingProvider: factory,
@@ -956,6 +1102,195 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 
+	describe('a watch placed asynchronously', () => {
+		it("rescans the working tree once as the working-tree watch goes live, and doesn't ask the .git watcher", async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultWorkingTreeDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: { paths: number; incomplete: boolean }[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push({ paths: e.paths.size, incomplete: e.incomplete }));
+
+			const gitDirWatchers = watchers.filter(w => w.basePath !== '/repo');
+			assert.ok(gitDirWatchers.length > 0);
+			for (const w of gitDirWatchers) {
+				assert.ok(!('onDidStart' in (w.options ?? {})), `watcher at ${w.basePath}`);
+			}
+
+			const workingTree = watchers.find(w => w.basePath === '/repo')!;
+			workingTree.start();
+			await delay(60);
+			assert.deepStrictEqual(received, [{ paths: 0, incomplete: true }]);
+
+			workingTree.start();
+			await delay(60);
+			assert.strictEqual(received.length, 1, 'only the first report counts');
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('asks the working-tree watcher with polling on too', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				polling: { stat: () => Promise.resolve(undefined) },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree();
+
+			const workingTree = watchers.find(w => w.basePath === '/repo');
+			assert.strictEqual(typeof workingTree?.options?.onDidStart, 'function');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		describe('isWorkingTreeStarting', () => {
+			it('is true from placing the working-tree watch until it goes live, for a provider that says it will', () => {
+				const { factory, watchers } = createMockFactory();
+				const service = new RepositoryWatchService({ watchingProvider: { ...factory, callsOnDidStart: true } });
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false, 'no working-tree watch yet');
+
+				const wtSub = handle.session.subscribeToWorkingTree();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				watchers.find(w => w.basePath === '/repo')!.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it("is false for a provider that doesn't say it will", () => {
+				const { factory } = createMockFactory();
+				const service = new RepositoryWatchService({ watchingProvider: factory });
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('is false, with no rescan, for a watch that went live inside createWatcher', async () => {
+				const { factory } = createMockFactory();
+				const provider: FileWatchingProvider = {
+					...factory,
+					callsOnDidStart: true,
+					createWatcher: function (basePath, pattern, onEvent, options) {
+						const watcher = factory.createWatcher(basePath, pattern, onEvent, options);
+						if (basePath === '/repo') {
+							options?.onDidStart?.();
+						}
+						return watcher;
+					},
+				};
+				const service = new RepositoryWatchService({
+					watchingProvider: provider,
+					defaultWorkingTreeDelayMs: 20,
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+				let received = 0;
+				wtSub.onDidChangeWorkingTree(() => received++);
+
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+				await delay(60);
+				assert.strictEqual(received, 0);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('is false while the watch is unwatchable, and once it comes back', () => {
+				const { factory, watchers } = createMockFactory();
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					polling: { stat: () => Promise.resolve(undefined) },
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				const watcher = watchers.find(w => w.basePath === '/repo')!;
+				watcher.report('unwatchable');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				// Coming back rescans in place of a start the provider may never report
+				watcher.report('reliable');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('starts over with a re-created watcher, which only its own start ends', async () => {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					getIgnoredDirectories: async () => ['dist'],
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+				const [first] = watchers.filter(w => w.basePath === '/repo');
+				first.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				await delay(20);
+				const [, second, ...rest] = watchers.filter(w => w.basePath === '/repo');
+				assert.ok(second != null && rest.length === 0, 'the watcher was re-created excluding `dist`');
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				second.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), false);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it("isn't ended by a replaced watcher's start", async () => {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: { ...factory, callsOnDidStart: true },
+					getIgnoredDirectories: async () => ['dist'],
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const wtSub = handle.session.subscribeToWorkingTree();
+
+				await delay(20);
+				const [first, second] = watchers.filter(w => w.basePath === '/repo');
+				assert.ok(first.disposed && second != null);
+
+				first.start();
+				assert.strictEqual(service.isWorkingTreeStarting('/repo'), true);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+		});
+	});
+
 	describe('working-tree watcher excludes', () => {
 		const wtPath = '/repo';
 		const ignoredReadDelayMs = 700; // past the service's 500ms refresh debounce
@@ -987,7 +1322,7 @@ describe('RepositoryWatchService', () => {
 
 			const [watcher, ...rest] = workingTreeWatchers(watchers);
 			assert.strictEqual(rest.length, 0);
-			assert.deepStrictEqual(watcher.options, { excludes: workingTreeExcludes });
+			assert.deepStrictEqual(watcher.options?.excludes, workingTreeExcludes);
 
 			wtSub.dispose();
 			handle.dispose();
@@ -1023,9 +1358,7 @@ describe('RepositoryWatchService', () => {
 
 			const created = workingTreeWatchers(watchers);
 			assert.strictEqual(created.length, 2);
-			assert.deepStrictEqual(created[1].options, {
-				excludes: [...workingTreeExcludes, 'dist', 'packages/app/out'],
-			});
+			assert.deepStrictEqual(created[1].options?.excludes, [...workingTreeExcludes, 'dist', 'packages/app/out']);
 			assert.ok(first.disposed);
 			assert.ok(!created[1].disposed);
 
@@ -1098,9 +1431,7 @@ describe('RepositoryWatchService', () => {
 
 			const created = workingTreeWatchers(watchers);
 			assert.strictEqual(created.length, 3);
-			assert.deepStrictEqual(created[2].options, {
-				excludes: [...workingTreeExcludes, 'dist', 'packages/a/out'],
-			});
+			assert.deepStrictEqual(created[2].options?.excludes, [...workingTreeExcludes, 'dist', 'packages/a/out']);
 			assert.ok(live.disposed);
 
 			wtSub.dispose();
@@ -1152,9 +1483,10 @@ describe('RepositoryWatchService', () => {
 			await delay(ignoredReadDelayMs);
 
 			assert.strictEqual(reads, 2);
-			assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
-				excludes: [...workingTreeExcludes, 'dist'],
-			});
+			assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options?.excludes, [
+				...workingTreeExcludes,
+				'dist',
+			]);
 
 			repoSub.dispose();
 			wtSub.dispose();
@@ -1209,6 +1541,7 @@ describe('RepositoryWatchService', () => {
 					ready: () => Promise.resolve(),
 					isIgnored: (path: string) => path === '.env' || /^(dist|out)(\/|$)/.test(path),
 					refresh: () => Promise.resolve(),
+					revalidate: () => Promise.resolve(false),
 				} as unknown as GitIgnoreFilter;
 			}
 
@@ -1238,7 +1571,7 @@ describe('RepositoryWatchService', () => {
 				assert.strictEqual(reads, 2, 'exactly one re-read');
 				const created = workingTreeWatchers(watchers);
 				assert.strictEqual(created.length, 2);
-				assert.deepStrictEqual(created[1].options, { excludes: [...workingTreeExcludes, 'dist'] });
+				assert.deepStrictEqual(created[1].options?.excludes, [...workingTreeExcludes, 'dist']);
 				assert.ok(live.disposed);
 				assert.deepStrictEqual(received, [], 'the ignored events never reach subscribers');
 
@@ -1354,13 +1687,328 @@ describe('RepositoryWatchService', () => {
 				pending[1](['dist']);
 				await delay(20);
 				assert.strictEqual(pending.length, 2);
-				assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
-					excludes: [...workingTreeExcludes, 'dist'],
-				});
+				assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options?.excludes, [
+					...workingTreeExcludes,
+					'dist',
+				]);
 
 				wtSub.dispose();
 				handle.dispose();
 				service.dispose();
+			});
+		});
+
+		describe('a watch that stops and starts again', () => {
+			const ignoresDist = /^dist(\/|$)/;
+
+			/** A fake filter whose `revalidate` reports `next` (then false), and whose `ready` waits on it */
+			function revalidatingFilter() {
+				const state = {
+					revalidations: 0,
+					refreshes: 0,
+					next: undefined as Promise<boolean> | boolean | undefined,
+					revalidating: undefined as Promise<boolean> | undefined,
+					ignored: ignoresDist,
+				};
+				const filter = {
+					ready: () => state.revalidating?.then(noop, noop) ?? Promise.resolve(),
+					isIgnored: (path: string) => state.ignored.test(path),
+					refresh: () => {
+						state.refreshes++;
+						return Promise.resolve();
+					},
+					revalidate: () => {
+						state.revalidations++;
+						state.revalidating = Promise.resolve(state.next ?? false);
+						state.next = undefined;
+						return state.revalidating;
+					},
+				} as unknown as GitIgnoreFilter;
+				return { filter: filter, state: state };
+			}
+
+			function noop(): void {}
+
+			function startRestartable(
+				filter: GitIgnoreFilter,
+				getIgnoredDirectories: () => Promise<readonly string[]>,
+			) {
+				const { factory, watchers } = createMockFactory(true);
+				const service = new RepositoryWatchService({
+					watchingProvider: factory,
+					defaultRepoDelayMs: 20,
+					defaultWorkingTreeDelayMs: 20,
+					getIgnoredDirectories: getIgnoredDirectories,
+					getIgnoreFilter: () => filter,
+				});
+				const counts = { gitIgnoreChanges: 0 };
+				const handle = service.watch(wtPath, standardGitDir('/repo/.git'), {
+					onGitIgnoreChanged: () => counts.gitIgnoreChanges++,
+				});
+				assertHandle(handle);
+				const repoChanges: string[][] = [];
+				const repoSub = handle.session.subscribe({ delayMs: 20 });
+				repoSub.onDidChange(e => repoChanges.push([...e.changes]));
+				const received: string[][] = [];
+				const subscribe = () => {
+					const sub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+					// The event is the session's, so a listener outlives its subscription unless disposed with it
+					const listener = sub.onDidChangeWorkingTree(e => received.push([...e.paths]));
+					return {
+						dispose: () => {
+							listener.dispose();
+							sub.dispose();
+						},
+					};
+				};
+				const dispose = () => {
+					repoSub.dispose();
+					handle.dispose();
+					service.dispose();
+				};
+				return {
+					watchers: watchers,
+					counts: counts,
+					repoChanges: repoChanges,
+					received: received,
+					subscribe: subscribe,
+					dispose: dispose,
+				};
+			}
+
+			it('starts excluding the last read, without reading again, when the rules held', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 1);
+				first.dispose();
+				assert.ok(workingTreeWatchers(started.watchers).every(w => w.disposed));
+
+				const second = started.subscribe();
+				await delay(ignoredReadDelayMs);
+
+				assert.strictEqual(state.revalidations, 2);
+				assert.strictEqual(reads, 1, 'no read on the restart');
+				const created = workingTreeWatchers(started.watchers);
+				assert.strictEqual(created.length, 3, 'one watcher for the restart, never swapped');
+				assert.deepStrictEqual(created[2].options?.excludes, [...workingTreeExcludes, 'dist']);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('re-reads and announces an ignore change when revalidation finds the rules moved', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => (reads++ === 0 ? ['dist'] : ['dist', 'out']));
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				state.next = true;
+				const second = started.subscribe();
+				await delay(60);
+
+				assert.strictEqual(started.counts.gitIgnoreChanges, 1);
+				assert.ok(
+					started.repoChanges.some(c => c.includes('ignores')),
+					"'ignores' reaches the session",
+				);
+				assert.strictEqual(state.refreshes, 0, 'the filter already reloaded');
+
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 2);
+				assert.deepStrictEqual(workingTreeWatchers(started.watchers).at(-1)?.options?.excludes, [
+					...workingTreeExcludes,
+					'dist',
+					'out',
+				]);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('refreshes the filter and announces an ignore change when revalidation fails', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				state.next = Promise.reject(new Error('stat failed'));
+				const second = started.subscribe();
+				await delay(60);
+
+				assert.strictEqual(state.refreshes, 1);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 1);
+
+				// The re-read matches what the restart's watcher already excludes
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(workingTreeWatchers(started.watchers).length, 3, 'nothing re-created');
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('ignores a revalidation that lands after the watch stopped again', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				second.dispose();
+				resolve(true);
+				await delay(60);
+
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				started.dispose();
+			});
+
+			it('reads again on the next start when a revalidation found the rules moved after the watch stopped', async () => {
+				const { filter, state } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				second.dispose();
+				resolve(true);
+				await delay(20);
+				assert.strictEqual(reads, 1);
+
+				// The filter already reloaded, so this start's revalidation finds nothing; the list from before must go
+				const third = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 2, 'the list from before the rule change is not reused');
+
+				third.dispose();
+				started.dispose();
+			});
+
+			it('reads again on restart when the rules changed and the watch stopped before the re-read', async () => {
+				const { filter } = revalidatingFilter();
+				let reads = 0;
+				const started = startRestartable(filter, async () => {
+					reads++;
+					return ['dist'];
+				});
+				const first = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 1);
+
+				workingTreeWatchers(started.watchers).at(-1)!.fire({ path: '/repo/.gitignore', reason: 'change' });
+				first.dispose();
+
+				const second = started.subscribe();
+				await delay(20);
+				assert.strictEqual(reads, 2, 'the list from before the rule change is not reused');
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('holds events arriving during revalidation, then filters them under the rules it lands on', async () => {
+				const { filter, state } = revalidatingFilter();
+				const started = startRestartable(filter, async () => ['dist']);
+				const first = started.subscribe();
+				await delay(20);
+				first.dispose();
+
+				// `dist` stopped being ignored while nothing watched; the restart's revalidation is what notices
+				state.ignored = /(?!)/;
+				let resolve!: (changed: boolean) => void;
+				state.next = new Promise<boolean>(r => (resolve = r));
+				const second = started.subscribe();
+				const live = workingTreeWatchers(started.watchers).at(-1)!;
+				live.fire({ path: '/repo/dist/a.js', reason: 'change' });
+				live.fire({ path: '/repo/src/b.ts', reason: 'change' });
+				await delay(60);
+				assert.deepStrictEqual(started.received, [], 'held until the revalidation lands');
+
+				state.ignored = ignoresDist;
+				resolve(true);
+				await delay(60);
+				assert.deepStrictEqual(started.received, [['/repo/src/b.ts']]);
+
+				second.dispose();
+				started.dispose();
+			});
+
+			it('with a real filter: a first start stats nothing beyond its load, a restart under unchanged rules reloads nothing', async () => {
+				const stats: string[] = [];
+				const reads: string[] = [];
+				let discovered!: () => void;
+				const discovery = new Promise<void>(r => (discovered = r));
+				const filter = new GitIgnoreFilter({
+					repoPath: wtPath,
+					gitDirPath: '/repo/.git',
+					fs: {
+						readFile: async uri => {
+							reads.push(uri.path);
+							if (uri.path !== '/repo/.gitignore') throw new Error('ENOENT');
+							return new TextEncoder().encode('dist/\n');
+						},
+						stat: async uri => {
+							stats.push(uri.path);
+							return uri.path === '/repo/.gitignore'
+								? { type: FileType.File, ctime: 0, mtime: 1, size: 6 }
+								: undefined;
+						},
+						readDirectory: async () => [],
+					},
+					getGitIgnorePaths: async () => {
+						await discovery;
+						return ['.gitignore', 'pkg/.gitignore'];
+					},
+				});
+				let dirReads = 0;
+				const started = startRestartable(filter, async () => {
+					dirReads++;
+					return ['dist'];
+				});
+
+				// The filter's first load is still discovering nested files
+				const first = started.subscribe();
+				await delay(20);
+				assert.ok(!stats.includes('/repo/pkg/.gitignore'), "a revalidation would have stat'ed it");
+				discovered();
+				await filter.ready();
+				first.dispose();
+				const loadStats = stats.length;
+				const loadReads = reads.length;
+
+				const second = started.subscribe();
+				await delay(ignoredReadDelayMs);
+
+				assert.deepStrictEqual(stats.slice(loadStats).sort(), [
+					'/repo/.git/info/exclude',
+					'/repo/.gitignore',
+					'/repo/pkg/.gitignore',
+				]);
+				assert.strictEqual(reads.length, loadReads, 'nothing re-read');
+				assert.strictEqual(dirReads, 1);
+				assert.strictEqual(started.counts.gitIgnoreChanges, 0);
+
+				second.dispose();
+				started.dispose();
 			});
 		});
 	});
@@ -1452,19 +2100,41 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 	describe('polling', () => {
-		/** Files keyed by POSIX path; `touch` moves one's mtime */
+		/**
+		 * Files and directories keyed by POSIX path; `touch` moves one's mtime, and `remove` and `rename` take a path with
+		 * everything beneath it, moving its parent directory's mtime as a filesystem does
+		 */
 		function createFs(paths: readonly string[]): {
 			stat: (path: string) => Promise<{ mtime: number; size: number } | undefined>;
 			touch: (path: string) => void;
+			remove: (path: string) => void;
+			rename: (from: string, to: string) => void;
 		} {
 			const files = new Map<string, { mtime: number; size: number }>(paths.map(p => [p, { mtime: 1, size: 1 }]));
+			const touch = (path: string): void => {
+				const file = files.get(path);
+				files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+			};
+			const take = (path: string): [string, { mtime: number; size: number }][] => {
+				const taken = [...files].filter(([p]) => p === path || p.startsWith(`${path}/`));
+				for (const [p] of taken) {
+					files.delete(p);
+				}
+				touch(path.substring(0, path.lastIndexOf('/')));
+				return taken;
+			};
 			return {
 				stat: function (path: string): Promise<{ mtime: number; size: number } | undefined> {
 					return Promise.resolve(files.get(normalizePath(path)));
 				},
-				touch: function (path: string): void {
-					const file = files.get(path);
-					files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+				touch: touch,
+				remove: function (path: string): void {
+					take(path);
+				},
+				rename: function (from: string, to: string): void {
+					for (const [p, file] of take(from)) {
+						files.set(`${to}${p.substring(from.length)}`, file);
+					}
 				},
 			};
 		}
@@ -1648,6 +2318,177 @@ describe('RepositoryWatchService', () => {
 			assert.deepStrictEqual(wtEvents, [true]);
 
 			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("reports every remote-tracking ref as possibly moved when a polled remote's directory goes", async () => {
+			// What `git remote remove origin` leaves: a rewritten config, and the remote's directory deleted with its
+			// loose refs, which moves `refs/remotes`
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+			// A subscriber narrowed to the refs it follows still hears it, whether or not it names a remote ref
+			const narrowedEvents: WatcherRepoChangeEvent[] = [];
+			const narrowedSubs = [['refs/heads/main', 'refs/remotes/origin/main'], ['refs/heads/main']].map(refs => {
+				const narrowed = handle.session.subscribe({ delayMs: 20, relevantRefs: () => refs });
+				narrowed.onDidChange(e => narrowedEvents.push(e));
+				return narrowed;
+			});
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			fs.remove('/repo/.git/refs/remotes/origin');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.ok(e.unnamedRefKinds.has('remotes'), "the poll can't tell which remote went");
+			assert.ok(e.mayHaveChangedRef('refs/remotes/origin/main'), "the removed remote's refs may have moved");
+			assert.ok(e.mayHaveChangedRef('refs/remotes/upstream/main'), 'as may any remote-tracking ref');
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'), 'no branch moved');
+
+			assert.strictEqual(narrowedEvents.length, 2);
+			for (const narrowed of narrowedEvents) {
+				assert.deepStrictEqual([...narrowed.changes].sort(), ['config', 'remotes']);
+				assert.ok(narrowed.mayHaveChangedRef('refs/remotes/origin/main'));
+				assert.ok(!narrowed.mayHaveChangedRef('refs/heads/main'));
+			}
+
+			narrowedSubs.forEach(s => s.dispose());
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("reports every remote-tracking ref as possibly moved when a polled remote's directory is renamed", async () => {
+			// What `git remote rename origin upstream` leaves: a rewritten config, and the remote's loose refs moved to a
+			// new directory, which moves `refs/remotes`
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			fs.rename('/repo/.git/refs/remotes/origin', '/repo/.git/refs/remotes/upstream');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.ok(e.unnamedRefKinds.has('remotes'));
+			assert.ok(e.mayHaveChangedRef('refs/remotes/origin/main'), 'the old name is gone');
+			assert.ok(e.mayHaveChangedRef('refs/remotes/upstream/main'), 'and the new one appeared');
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'), 'no branch moved');
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("names no ref for a polled config write that leaves every remote's directory alone", async () => {
+			// What `git branch --set-upstream-to` leaves: only the config moves, so no remote-tracking ref did
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.ok(!e.mayHaveChangedRef('refs/remotes/origin/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'));
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('names no ref for a config write the watcher reports, which reports the moved refs itself', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git/config', reason: 'change' });
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.ok(!e.mayHaveChangedRef('refs/remotes/origin/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'));
+
 			sub.dispose();
 			handle.dispose();
 			service.dispose();

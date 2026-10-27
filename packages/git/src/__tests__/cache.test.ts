@@ -1,16 +1,18 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import type { BranchMetadataChange, MergeTargetsChangeEvent } from '../cache.js';
-import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
+import type { BranchMetadataChange, CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
+import { Cache, resetDropsPendingRuns, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
 import type { GitTag } from '../models/tag.js';
 import { GitWorktree } from '../models/worktree.js';
+import type { GitResult } from '../run.types.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
 	const blame: GitBlame = {
@@ -265,6 +267,402 @@ suite('Cache.evictCaches vs clearCaches — in-flight shared entries', () => {
 		assert.strictEqual(factoryCount, 2, 'evictCaches should force the new caller to run its own factory');
 		assert.strictEqual(firstResult, firstValue, "the first caller's promise still resolves with its own value");
 		assert.strictEqual(secondResult, secondValue);
+	});
+});
+
+suite('Cache — aheadOfBaseConfigKey per checkout', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	let cache: Cache;
+	let reads: number;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		reads = 0;
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	function read(path: string): Promise<string | undefined> {
+		return cache.getAheadOfBaseConfigKey(path, () => `config ${++reads}`);
+	}
+
+	test('each checkout reads once and then stays warm', async () => {
+		assert.strictEqual(await read(repoPath), 'config 1');
+		assert.strictEqual(await read(worktree), 'config 2');
+		assert.strictEqual(await read(repoPath), 'config 1');
+		assert.strictEqual(await read(worktree), 'config 2');
+		assert.strictEqual(reads, 2);
+	});
+
+	const changes: [string, (c: Cache) => void][] = [
+		['a watcher config change from the main checkout', c => c.onRepositoryChanged(repoPath, ['config'])],
+		['a watcher config change from the linked worktree', c => c.onRepositoryChanged(worktree, ['config'])],
+		["core's own config write in the linked worktree", c => c.evictCaches(worktree, 'config')],
+		["clearCaches(repoPath, 'config')", c => c.clearCaches(repoPath, 'config')],
+		['a full clear of the linked worktree', c => c.clearCaches(worktree)],
+	];
+	changes.forEach(([name, change]) => {
+		test(`${name} evicts every checkout's read`, async () => {
+			await read(repoPath);
+			await read(worktree);
+			change(cache);
+			assert.strictEqual(await read(repoPath), 'config 3');
+			assert.strictEqual(await read(worktree), 'config 4');
+		});
+	});
+
+	test('a global reset drops the shared read', async () => {
+		await read(worktree);
+		cache.reset();
+		assert.strictEqual(await read(repoPath), 'config 2');
+	});
+
+	test('a config change never lets a later read join a read started before it', async () => {
+		let resolveFirst!: (value: string) => void;
+		const first = cache.getAheadOfBaseConfigKey(
+			repoPath,
+			() =>
+				new Promise<string>(resolve => {
+					reads++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		// A watcher report would share an in-flight read of any other shared key
+		cache.onRepositoryChanged(worktree, ['config']);
+		const second = read(repoPath);
+		resolveFirst('before');
+
+		assert.strictEqual(await first, 'before');
+		assert.strictEqual(await second, 'config 2');
+		assert.strictEqual(await read(repoPath), 'config 2', 'the old settle cannot replace the new entry');
+		assert.strictEqual(reads, 2);
+	});
+
+	test('HEAD invalidation clears only its checkout, including conditional branch config', async () => {
+		await read(repoPath);
+		await read(worktree);
+		cache.onRepositoryChanged(worktree, ['head']);
+		assert.strictEqual(await read(repoPath), 'config 1');
+		assert.strictEqual(await read(worktree), 'config 3');
+	});
+
+	test('registration and a changed mapping cannot reuse an earlier fingerprint', async () => {
+		cache.unregisterRepoPath(worktree);
+		await read(worktree);
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		assert.strictEqual(await read(worktree), 'config 2');
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri('/other/.git/worktrees/wt'),
+			commonUri: fileUri('/other/.git'),
+		});
+		assert.strictEqual(await read(worktree), 'config 3');
+		assert.ok(!cache.getWorktreePaths(repoPath).includes(worktree));
+	});
+
+	test('closing and reopening a checkout does not join its old read or lose its cancellation', async () => {
+		const controller = new AbortController();
+		let oldSignal: AbortSignal | undefined;
+		const old = cache.getAheadOfBaseConfigKey(
+			worktree,
+			(_path, _cacheable, signal) => {
+				oldSignal = signal;
+				return new Promise((_resolve, reject) =>
+					signal!.addEventListener('abort', () => reject(new CancellationError()), { once: true }),
+				);
+			},
+			controller.signal,
+		);
+		cache.unregisterRepoPath(worktree);
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		assert.strictEqual(await read(worktree), 'config 1');
+		controller.abort();
+		await assert.rejects(old, isCancellationError);
+		assert.strictEqual(oldSignal?.aborted, true);
+		assert.strictEqual(await read(worktree), 'config 1');
+	});
+
+	test('one canceled waiter leaves the same-checkout survivor and cached result alive', async () => {
+		const controller = new AbortController();
+		let release!: (value: string) => void;
+		let sharedSignal: AbortSignal | undefined;
+		const first = cache.getAheadOfBaseConfigKey(
+			worktree,
+			(_path, _cacheable, signal) => {
+				sharedSignal = signal;
+				return new Promise<string>(resolve => {
+					release = resolve;
+				});
+			},
+			controller.signal,
+		);
+		const survivor = read(worktree);
+		controller.abort();
+		await assert.rejects(first, isCancellationError);
+		assert.strictEqual(sharedSignal?.aborted, false);
+		release('survived');
+		assert.strictEqual(await survivor, 'survived');
+		assert.strictEqual(await read(worktree), 'survived');
+		assert.strictEqual(reads, 0);
+	});
+
+	(['config', 'head'] as const).forEach(change => {
+		test(`${change} cannot pair a fresh fingerprint with an older in-flight base command`, async () => {
+			const command =
+				'git rev-parse --verify --quiet --symbolic-full-name --abbrev-ref --end-of-options main@{u}';
+			let release!: (value: GitResult) => void;
+			const old = cache.gitResults.getOrCreate(
+				worktree,
+				command,
+				() =>
+					new Promise<GitResult>(resolve => {
+						release = resolve;
+					}),
+			);
+			cache.onRepositoryChanged(worktree, [change]);
+			const freshKey = await read(worktree);
+			let freshRead = false;
+			const freshResult: GitResult = {
+				stdout: 'alternate/main',
+				stderr: '',
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			const newer = cache.gitResults.getOrCreate(worktree, command, async () => {
+				freshRead = true;
+				return freshResult;
+			});
+			release({ ...freshResult, stdout: 'origin/main' });
+			assert.strictEqual(freshKey, 'config 1');
+			assert.strictEqual((await old).stdout, 'origin/main');
+			assert.strictEqual(freshRead, true, 'a post-event base read must not join pre-event work');
+			assert.strictEqual((await newer).stdout, 'alternate/main');
+			assert.strictEqual(
+				(await cache.gitResults.getOrCreate(worktree, command, async () => freshResult)).stdout,
+				'alternate/main',
+			);
+		});
+	});
+
+	const lifetimes = [
+		'linked close',
+		'main close with peer',
+		'last close',
+		'last linked close',
+		'first registration',
+		'remapping',
+	] as const;
+	lifetimes.forEach(lifetime => {
+		test(`${lifetime} retires pending config and base commands together`, async () => {
+			const path = lifetime === 'main close with peer' || lifetime === 'last close' ? repoPath : worktree;
+			const peer = path === repoPath ? worktree : repoPath;
+			const command = 'git rev-parse main@{u}';
+			const result: GitResult = {
+				stdout: 'alternate/main',
+				stderr: '',
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			if (lifetime === 'first registration') {
+				cache.unregisterRepoPath(path);
+			}
+			if (lifetime === 'last close' || lifetime === 'last linked close') {
+				cache.unregisterRepoPath(peer);
+			}
+			await cache.gitResults.getOrCreate(peer, command, async () => result);
+			let releaseKey!: (value: string) => void;
+			let releaseCommand!: (value: GitResult) => void;
+			const oldKey = cache.getAheadOfBaseConfigKey(
+				path,
+				() =>
+					new Promise<string>(resolve => {
+						releaseKey = resolve;
+					}),
+			);
+			const oldCommand = cache.gitResults.getOrCreate(
+				path,
+				command,
+				() =>
+					new Promise<GitResult>(resolve => {
+						releaseCommand = resolve;
+					}),
+			);
+			if (lifetime !== 'first registration' && lifetime !== 'remapping') {
+				cache.unregisterRepoPath(path);
+			}
+			if (lifetime === 'last linked close') {
+				assert.strictEqual(
+					cache.gitResults.get(repoPath, command),
+					undefined,
+					'the final owner also detaches the common bucket',
+				);
+			}
+			const common = lifetime === 'remapping' ? '/other' : repoPath;
+			cache.registerRepoPath(
+				fileUri(path),
+				path === common
+					? { uri: fileUri(`${common}/.git`) }
+					: {
+							uri: fileUri(`${common}/.git/worktrees/wt`),
+							commonUri: fileUri(`${common}/.git`),
+						},
+			);
+			const freshKey = await cache.getAheadOfBaseConfigKey(path, () => 'config-B');
+			let commandReads = 0;
+			const freshCommand = cache.gitResults.getOrCreate(path, command, async () => {
+				commandReads++;
+				return result;
+			});
+			releaseKey('config-A');
+			releaseCommand({ ...result, stdout: 'origin/main' });
+			assert.strictEqual(await oldKey, 'config-A');
+			assert.strictEqual((await oldCommand).stdout, 'origin/main');
+			assert.strictEqual(freshKey, 'config-B');
+			assert.strictEqual(
+				(await freshCommand).stdout,
+				'alternate/main',
+				'a fresh key must not attest a pre-lifecycle command',
+			);
+			assert.strictEqual(commandReads, 1);
+			assert.strictEqual(await cache.getAheadOfBaseConfigKey(path, () => 'unexpected'), 'config-B');
+			assert.strictEqual(
+				(
+					await cache.gitResults.getOrCreate(path, command, async () => {
+						throw new Error('lost new owner');
+					})
+				).stdout,
+				'alternate/main',
+			);
+			if (lifetime !== 'last close' && lifetime !== 'last linked close') {
+				assert.strictEqual(
+					await cache.gitResults.getOrCreate(peer, command, async () => {
+						throw new Error('peer cooled');
+					}),
+					result,
+				);
+			}
+		});
+	});
+
+	[repoPath, worktree].forEach(path => {
+		test(`closing ${path} retains old command waiter cancellation without poisoning its replacement`, async () => {
+			const controller = new AbortController();
+			let signal: AbortSignal | undefined;
+			let release!: (value: GitResult) => void;
+			const command = 'git rev-parse main@{u}';
+			const factory = (_cacheable: unknown, cancellation?: AbortSignal): Promise<GitResult> => {
+				signal = cancellation;
+				return new Promise(resolve => {
+					release = resolve;
+				});
+			};
+			const canceled = cache.gitResults.getOrCreate(path, command, factory, { cancellation: controller.signal });
+			const survivor = cache.gitResults.getOrCreate(path, command, factory);
+			cache.unregisterRepoPath(path);
+			const fresh: GitResult = {
+				stdout: 'fresh',
+				stderr: '',
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			const replacement = cache.gitResults.getOrCreate(path, command, async () => fresh);
+			controller.abort();
+			await assert.rejects(canceled, isCancellationError);
+			assert.strictEqual(signal?.aborted, false, 'the surviving old waiter still owns its aggregate');
+			release({ ...fresh, stdout: 'old' });
+			assert.strictEqual((await survivor).stdout, 'old');
+			assert.strictEqual(await replacement, fresh);
+			assert.strictEqual(
+				await cache.gitResults.getOrCreate(path, command, async () => {
+					throw new Error('replacement lost');
+				}),
+				fresh,
+			);
+		});
+	});
+
+	test('a detached command still aborts when its last old waiter cancels', async () => {
+		const controller = new AbortController();
+		let oldSignal: AbortSignal | undefined;
+		const old = cache.gitResults.getOrCreate(
+			worktree,
+			'git old',
+			(_cacheable, signal) => {
+				oldSignal = signal;
+				return new Promise<GitResult>((_resolve, reject) => {
+					signal!.addEventListener('abort', () => reject(new CancellationError()), { once: true });
+				});
+			},
+			{ cancellation: controller.signal },
+		);
+		cache.unregisterRepoPath(worktree);
+		controller.abort();
+		await assert.rejects(old, isCancellationError);
+		assert.strictEqual(oldSignal?.aborted, true);
+	});
+
+	test('an unchanged registration preserves warm checkout and common commands', async () => {
+		const result: GitResult = {
+			stdout: 'warm',
+			stderr: '',
+			exitCode: 0,
+			completion: { status: 'exited', code: 0 },
+		};
+		await read(worktree);
+		await cache.gitResults.getOrCreate(worktree, 'git checkout-command', async () => result);
+		await cache.gitResults.getOrCreate(repoPath, 'git shared-command', async () => result);
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		assert.strictEqual(await read(worktree), 'config 1');
+		assert.strictEqual(
+			await cache.gitResults.getOrCreate(worktree, 'git checkout-command', async () => {
+				throw new Error('checkout cooled');
+			}),
+			result,
+		);
+		cache.unregisterRepoPath(worktree);
+		assert.strictEqual(
+			await cache.gitResults.getOrCreate(repoPath, 'git shared-command', async () => {
+				throw new Error('shared command cooled');
+			}),
+			result,
+		);
+	});
+
+	test('a failed read is not kept', async () => {
+		const failed = await cache.getAheadOfBaseConfigKey(repoPath, (_commonPath, cacheable) => {
+			reads++;
+			cacheable.invalidate();
+			return undefined;
+		});
+		assert.strictEqual(failed, undefined);
+		assert.strictEqual(await read(worktree), 'config 2');
+	});
+
+	test('unregistering a worktree keeps the sibling warm', async () => {
+		await read(repoPath);
+
+		cache.unregisterRepoPath(worktree);
+		assert.strictEqual(await read(repoPath), 'config 1', 'the main checkout still depends on it');
+
+		cache.unregisterRepoPath(repoPath);
+		assert.strictEqual(await read(repoPath), 'config 2');
 	});
 });
 
@@ -674,14 +1072,20 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 	});
 
 	/**
-	 * Mirrors the CLI config sub-provider's reconciler: re-reads via `getGkConfigMap` (a cache miss,
-	 * since the watcher path clears it first) and hands the result to `reconcileGkConfigMap`. Returns
-	 * a promise for the last reconcile's "changed" result, set synchronously so the test can await it
-	 * right after `onRepositoryChanged` returns.
+	 * Mirrors the CLI config sub-provider's reconciler for a file that changed since the map was read: evicts the
+	 * map as the change is reported, re-reads via `getGkConfigMap` (a cache miss) and hands the result to
+	 * `reconcileGkConfigMap`. Returns a promise for the last reconcile's "changed" result, set synchronously so the
+	 * test can await it right after `onRepositoryChanged` returns.
 	 */
-	function registerTestReconciler(nextMap: () => Map<string, string>): () => Promise<boolean> {
+	function registerTestReconciler(
+		nextMap: () => Map<string, string>,
+		options?: { keepMap?: boolean },
+	): () => Promise<boolean> {
 		let pending: Promise<boolean>;
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			if (!options?.keepMap) {
+				cache.deleteGkConfigMap(rp);
+			}
 			pending = cache
 				.getGkConfigMap(rp, () => nextMap())
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -870,6 +1274,69 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 			true,
 			'the baseline must still be the pre-change value, or the change diffs against itself',
 		);
+	});
+
+	test('a reconciler that keeps the map still diffs it: an incidental read already holding the change', async () => {
+		let factoryCount = 0;
+		await cache.getGkConfigMap(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+		});
+		cache.deleteGkConfigMap(repoPath);
+
+		// Read after the external write, so the reconciler finds the file unchanged since and keeps this map
+		await cache.getGkConfigMap(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/develop']]));
+		});
+
+		const result = registerTestReconciler(
+			() => {
+				factoryCount++;
+				return new Map([['branch.main.gk-merge-base', 'origin/develop']]);
+			},
+			{ keepMap: true },
+		);
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+		assert.strictEqual(await result(), true, 'the kept map is diffed against the pre-change baseline');
+		assert.strictEqual(factoryCount, 2, 'the report leaves the map to the reconciler, which kept it');
+	});
+
+	test('a reconciler that throws before returning evicts the map and falls back to the coarse clear', async () => {
+		let factoryCount = 0;
+		const read = () =>
+			cache.getGkConfigMap(repoPath, () => {
+				factoryCount++;
+				return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+			});
+		await read();
+		const events: MergeTargetsChangeEvent[] = [];
+		cache.onDidChangeMergeTargets(e => events.push(e));
+
+		cache.setGkConfigReconciler(() => {
+			throw new Error('reconciler failed');
+		});
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await read();
+
+		assert.strictEqual(factoryCount, 2, 'the pre-change map must not keep being served');
+		assert.deepStrictEqual(events, [{ repoPath: repoPath, refs: undefined }]);
+	});
+
+	test('with no reconciler registered, the report evicts the map', async () => {
+		let factoryCount = 0;
+		const read = () =>
+			cache.getGkConfigMap(repoPath, () => {
+				factoryCount++;
+				return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+			});
+		await read();
+
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await read();
+
+		assert.strictEqual(factoryCount, 2);
 	});
 
 	suite('branch metadata', () => {
@@ -1308,6 +1775,8 @@ suite('Cache.onDidChangeMergeTargets', () => {
 		await cache.getGkConfigMap(repoPath, () => Promise.resolve(new Map(initial)));
 		let pending: Promise<unknown> = Promise.resolve();
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			// The file changed since the map was read, so the reconciler evicts it
+			cache.deleteGkConfigMap(rp);
 			pending = cache
 				.getGkConfigMap(rp, () => new Map(next))
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -1383,6 +1852,8 @@ suite('Cache.onDidChangeMergeTargets', () => {
 		function registerGatedReconciler(read: () => Promise<Map<string, string>>): () => Promise<void> {
 			let pending: Promise<unknown> = Promise.resolve();
 			cache.setGkConfigReconciler((rp, priorSnapshot) => {
+				// The file changed since the map was read, so the reconciler evicts it
+				cache.deleteGkConfigMap(rp);
 				pending = cache
 					.getGkConfigMap(rp, read)
 					.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -1542,6 +2013,7 @@ suite('Cache.onDidChangeMergeTargets', () => {
 	test('reports every branch as possibly changed with no earlier snapshot to diff against', async () => {
 		let pending: Promise<unknown> = Promise.resolve();
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			cache.deleteGkConfigMap(rp);
 			pending = cache
 				.getGkConfigMap(rp, () => new Map([['branch.main.gk-merge-target', 'origin/main']]))
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -1697,4 +2169,278 @@ suite('Cache.applyRepositoryChanges', () => {
 		assert.strictEqual(cache.blame.get(repoPath, 'file.ts'), undefined);
 		assert.ok(cache.branches.has(repoPath));
 	});
+});
+
+suite('Cache.getWorktrees — force', () => {
+	const repoPath = '/test/repo';
+	const siblingPath = '/test/repo-wt';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(siblingPath), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	function worktreeList(commonPath: string, ...branchNames: string[]): GitWorktree[] {
+		return branchNames.map(
+			(name, i) =>
+				new GitWorktree(
+					i === 0,
+					'branch',
+					commonPath,
+					fileUri(`${commonPath}/${name}`),
+					false,
+					false,
+					'abc123',
+					undefined,
+					undefined,
+					name,
+				),
+		);
+	}
+
+	test('re-reads only the worktree list and keeps every other cache', async () => {
+		let factoryCount = 0;
+		const read = (path: string, force?: boolean) =>
+			cache.getWorktrees(
+				path,
+				commonPath => {
+					factoryCount++;
+					return worktreeList(commonPath, 'main', ...(factoryCount > 1 ? ['fresh'] : []));
+				},
+				force ? { force: true } : undefined,
+			);
+
+		assert.strictEqual((await read(repoPath)).length, 1);
+		assert.strictEqual((await read(siblingPath)).length, 1);
+		assert.strictEqual(factoryCount, 1, 'the sibling is served from the shared list');
+
+		const branches = Promise.resolve({ values: [] } satisfies PagedResult<GitBranch>);
+		cache.branches.set(repoPath, branches);
+		const gitResult: GitResult = {
+			stdout: 'x',
+			stderr: undefined,
+			exitCode: 0,
+			completion: { status: 'exited', code: 0 },
+		};
+		await cache.gitResults.getOrCreate(siblingPath, 'git status', () => Promise.resolve(gitResult));
+
+		const forced = await read(repoPath, true);
+		assert.strictEqual(factoryCount, 2, 'the forced read re-ran the factory');
+		assert.deepStrictEqual(
+			forced.map(w => w.branchName),
+			['main', 'fresh'],
+		);
+
+		const sibling = await read(siblingPath);
+		assert.strictEqual(factoryCount, 2, "the sibling's dropped entry was re-derived from the new list");
+		assert.deepStrictEqual(
+			sibling.map(w => w.branchName),
+			['main', 'fresh'],
+		);
+		assert.strictEqual(sibling[0].repoPath, siblingPath);
+
+		assert.strictEqual(cache.branches.get(repoPath), branches, 'the branch list is kept');
+		assert.ok(cache.gitResults.get(siblingPath, 'git status'), 'gitResults are kept');
+	});
+
+	test('does not join a read that started before it', async () => {
+		let factoryCount = 0;
+		let resolveFirst!: (value: GitWorktree[]) => void;
+
+		const first = cache.getWorktrees(
+			repoPath,
+			() =>
+				new Promise<GitWorktree[]>(resolve => {
+					factoryCount++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		const second = cache.getWorktrees(
+			repoPath,
+			commonPath => {
+				factoryCount++;
+				return worktreeList(commonPath, 'main', 'fresh');
+			},
+			{ force: true },
+		);
+
+		resolveFirst(worktreeList(repoPath, 'main'));
+
+		const [firstResult, secondResult] = await Promise.all([first, second]);
+		assert.strictEqual(factoryCount, 2, 'the forced read ran its own factory');
+		assert.strictEqual(firstResult.length, 1);
+		assert.strictEqual(secondResult.length, 2);
+
+		const later = await cache.getWorktrees(repoPath, () => {
+			factoryCount++;
+			return [];
+		});
+		assert.strictEqual(factoryCount, 2, 'the older read settling must not displace the forced answer');
+		assert.strictEqual(later.length, 2);
+	});
+
+	test('an aborted forced read rejects and keeps the cached list', async () => {
+		let factoryCount = 0;
+		const factory = (commonPath: string) => {
+			factoryCount++;
+			return worktreeList(commonPath, 'main');
+		};
+		const cached = await cache.getWorktrees(repoPath, factory);
+
+		const controller = new AbortController();
+		controller.abort();
+		await assert.rejects(cache.getWorktrees(repoPath, factory, { force: true }, controller.signal), (ex: unknown) =>
+			isCancellationError(ex),
+		);
+
+		assert.strictEqual(await cache.getWorktrees(repoPath, factory), cached);
+		assert.strictEqual(factoryCount, 1);
+	});
+});
+
+suite('Cache — worktree list vs worktree HEAD changes', () => {
+	const repoPath = '/test/repo';
+	const siblingPath = '/test/repo-wt';
+	const gitResult: GitResult = {
+		stdout: 'x',
+		stderr: undefined,
+		exitCode: 0,
+		completion: { status: 'exited', code: 0 },
+	};
+	let cache: Cache;
+	let reads: { worktrees: number; gitResults: number; mergeTargets: number };
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(siblingPath), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		reads = { worktrees: 0, gitResults: 0, mergeTargets: 0 };
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	/** Reads the worktree list, a sibling's git result and a merge target a checkout would evict, counting the misses */
+	async function readAll(): Promise<void> {
+		await cache.getWorktrees(repoPath, () => {
+			reads.worktrees++;
+			return [];
+		});
+		await cache.gitResults.getOrCreate(siblingPath, 'git status', () => {
+			reads.gitResults++;
+			return Promise.resolve(gitResult);
+		});
+		await cache.getMergeTarget(repoPath, 'refs/heads/feature', () => {
+			reads.mergeTargets++;
+			return {
+				result: undefined,
+				selfAtTip: false,
+				tips: [],
+				replaced: '',
+				shallow: null,
+				configKey: undefined,
+				stored: undefined,
+				evictOnCheckout: true,
+			};
+		});
+	}
+
+	test('a worktrees change evicts only the worktree list', async () => {
+		await readAll();
+		const types = cache.applyRepositoryChanges(repoPath, ['worktrees'], 'share');
+		await readAll();
+
+		assert.deepStrictEqual(types, ['worktreeList']);
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 1, mergeTargets: 1 });
+	});
+
+	test("a worktree's HEAD moving also evicts every worktree's git results and the checkout's merge targets", async () => {
+		await readAll();
+		const types = cache.applyRepositoryChanges(repoPath, ['worktrees', 'worktreeHead'], 'share');
+		await readAll();
+
+		assert.deepStrictEqual(types, ['worktrees']);
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 2, mergeTargets: 2 });
+	});
+
+	test("clearing the 'worktrees' type still evicts all three, and 'worktreeList' only the list", async () => {
+		await readAll();
+		cache.clearCaches(repoPath, 'worktreeList');
+		await readAll();
+		assert.deepStrictEqual(reads, { worktrees: 2, gitResults: 1, mergeTargets: 1 });
+
+		cache.clearCaches(repoPath, 'worktrees');
+		await readAll();
+		assert.deepStrictEqual(reads, { worktrees: 3, gitResults: 2, mergeTargets: 2 });
+	});
+});
+
+suite('GitWorktree.withRepoPath', () => {
+	test('preserves branchName', () => {
+		const worktree = new GitWorktree(
+			false,
+			'branch',
+			'/test/repo',
+			fileUri('/test/repo-wt'),
+			false,
+			false,
+			'abc123',
+			undefined,
+			undefined,
+			'feature/x',
+		);
+
+		assert.strictEqual(worktree.withRepoPath('/test/other').branchName, 'feature/x');
+	});
+});
+
+suite('GitWorktree.name', () => {
+	test('falls back to branchName when no branch was matched', () => {
+		const worktree = new GitWorktree(
+			false,
+			'branch',
+			'/test/repo',
+			fileUri('/test/repo-wt'),
+			false,
+			false,
+			'abc123',
+			undefined,
+			undefined,
+			'feature/x',
+		);
+
+		assert.strictEqual(worktree.name, 'feature/x');
+	});
+});
+
+suite('resetDropsPendingRuns', () => {
+	const cases: [string, readonly CachedGitTypes[] | undefined, boolean][] = [
+		['undefined, a reset of everything', undefined, true],
+		['an empty list, a reset of everything', [], true],
+		['the worktree list alone', ['worktreeList'], false],
+		['providers alone', ['providers'], false],
+		['providers and the worktree list', ['providers', 'worktreeList'], false],
+		['branches', ['branches'], true],
+		['the worktree list and branches', ['worktreeList', 'branches'], true],
+	];
+
+	for (const [name, types, expected] of cases) {
+		test(`${name} ${expected ? 'drops' : 'keeps'} in-flight runs`, () => {
+			assert.strictEqual(resetDropsPendingRuns(types), expected);
+		});
+	}
 });

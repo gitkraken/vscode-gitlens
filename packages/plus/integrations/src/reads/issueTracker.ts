@@ -773,5 +773,7 @@ async function readIssueTrackerIssuesPage(
 		hasMore: nextPage != null && cursor != null,
 		cursor: cursor,
 		fetchFailed: fetchFailed || undefined,
+		requestFailed: requestFailed,
+		unexpectedGap: nextPage != null && cursor == null,
 	};
 }

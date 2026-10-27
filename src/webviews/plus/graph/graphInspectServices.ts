@@ -26,7 +26,7 @@ import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInA
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
-import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
+import { getBranchMergeTarget } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { showGenericErrorMessage } from '../../../messages.js';
@@ -797,8 +797,8 @@ export class GraphInspectServices {
 								? await svc.branches.getBranch(branchName)
 								: await svc.branches.getBranch();
 						if (branch != null) {
-							const result = await getBranchMergeTargetName(this.container, branch);
-							if (!result.paused && result.value != null) return result.value;
+							const target = (await getBranchMergeTarget(this.container, branch)).target;
+							if (target != null) return target.ref;
 						}
 
 						const name = await svc.branches.getDefaultBranchName();
@@ -861,14 +861,14 @@ export class GraphInspectServices {
 			const hasUpstream = upstreamRef != null && !branch.upstream?.missing;
 			const aheadCount = hasUpstream ? (branch.upstream!.state.ahead ?? 0) : 0;
 
-			// Always compute merge base against the base branch — even when an upstream
+			// Always compute merge base against the merge target — even when an upstream
 			// exists — so the picker can extend the scope into already-pushed commits.
+			// Bounded like the graph's scope anchor, so both measure from the same target.
 			let mergeBaseSha: string | undefined;
 			let baseBranch: string | undefined;
 			try {
-				baseBranch =
-					(await svc.branches.getBaseBranchName?.(branch.name)) ??
-					(await svc.branches.getDefaultBranchName?.());
+				baseBranch = (await getBranchMergeTarget(this.container, branch, { timeout: 100, keepSelfAtTip: true }))
+					.target?.ref;
 			} catch {
 				// APIs may not be available
 			}

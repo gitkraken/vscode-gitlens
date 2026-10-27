@@ -213,7 +213,9 @@ export function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLa
  * different namespaces, and every viewer-relative category then silently disappears. GitHub fetched
  * provider-natively is the one path that does that: every account carries the provider's own id, and the
  * providers-api keys a pull request's people the same way, but GitHub's native fetch keys them by login.
- * Everywhere else both sides already agree, so this is a no-op that costs one `Set` miss.
+ * Azure DevOps is the other: an organization can know the viewer by an id other than the account's, which the pull
+ * request carries as its `viewer`, so whoever has that id is the viewer too. Everywhere else both sides already
+ * agree, so this is a no-op that costs one `Set` miss.
  *
  * The handle comes off our own model's members rather than the provider-shaped copies: `toProviderAccount`
  * fills their `username` from the display name, so on that path they no longer carry a handle to match on.
@@ -228,10 +230,13 @@ export function canonicalizeViewerIdentity(
 	pr: PullRequest,
 	account: Account,
 ): PullRequestWithUniqueID {
-	// Ids matching the account's need no rewrite; this collects the ones only the handle can identify.
+	// Ids matching the account's need no rewrite; this collects the ones only the handle or the row's viewer identify.
 	const viewerIds = new Set<string>();
+	const viewerId = pr.viewer?.id !== account.id ? pr.viewer?.id : undefined;
 	const collect = (member: PullRequestMember | undefined) => {
-		if (account.username && member?.username === account.username && member.id) {
+		if (!member?.id) return;
+
+		if ((account.username && member.username === account.username) || member.id === viewerId) {
 			viewerIds.add(member.id);
 		}
 	};

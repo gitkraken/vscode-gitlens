@@ -2,7 +2,7 @@ import type { IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/mo
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { GitHostIntegration, SettledRepositoryScopes } from '../models/gitHostIntegration.js';
 import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
 import { isRepoIdsInput, PagingMode, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
@@ -359,7 +359,7 @@ async function readAccountWideIssuesPage({
 		warnings: warnings,
 		readPage: readAccountWidePage,
 		fold: p => {
-			allMetadata = mergeCollectionMetadata(allMetadata, p.metadata);
+			allMetadata = mergeCollectionMetadata(allMetadata, p.metadata, 'disjoint');
 		},
 	});
 	const { value, currentPage, requestedPageMissing } = drained;
@@ -443,6 +443,8 @@ async function readAccountWideIssuesPage({
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
 		fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
+		requestFailed: assessment.requestFailed || pageFetchFailed,
+		unexpectedGap: drained.unexpectedGap,
 	};
 }
 
@@ -483,14 +485,17 @@ async function readRepoScopedIssuesPage({
 
 	const issuesPagingMode = metadata?.issuesPagingMode;
 	// Counted, and read, as the host settles them: a scope can name another project than the one it was parsed with
-	// (see `GitHostIntegration.resolveRepositoryScopes`), which changes how many queries a per-project read makes.
-	let repos = options.repos ?? [];
-	if (issuesPagingMode === PagingMode.Project && repos.length) {
+	// (see `GitHostIntegration.resolveRepositoryScopes`), which changes how many queries a per-project read makes. The
+	// read is handed the settled scopes, flags included, so it reads what was counted rather than settling again.
+	const scopes = options.repos ?? [];
+	let repos: ProviderReposInput | SettledRepositoryScopes = scopes;
+	let counted = scopes;
+	if (issuesPagingMode === PagingMode.Project && scopes.length) {
 		const settled = await runCaptured(
 			options.providerId,
 			domain,
 			options.connectionId,
-			() => integration.resolveRepositoryScopes(repos, options.connectionId),
+			() => integration.resolveRepositoryScopes(scopes, options.connectionId),
 			{ warnOnMissingSession: warnOnMissingSession },
 		);
 		// No session to read with, or the read's own failure resolving it: answered as that read would, without it.
@@ -499,8 +504,9 @@ async function readRepoScopedIssuesPage({
 		}
 
 		repos = settled.value;
+		counted = settled.value.repos;
 	}
-	const ordering = toIssueOrdering(resolvedRepoScopedSort.sort, mergesProviderQueries(issuesPagingMode, repos));
+	const ordering = toIssueOrdering(resolvedRepoScopedSort.sort, mergesProviderQueries(issuesPagingMode, counted));
 	// Refused rather than served as concatenated per-scope runs, which would look ordered without being so — and
 	// only where it actually merges, since the same key against the same provider is perfectly answerable for a
 	// single repository or project.
@@ -554,6 +560,7 @@ async function readRepoScopedIssuesPage({
 	let pageFetchFailed = warning != null && value == null;
 	let paged = toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 	let allMetadata = value?.metadata;
+	let drainedGap = false;
 
 	// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor, so a page-only
 	// request is advanced through the provider's own continuations (see drainToRequestedPage).
@@ -596,6 +603,7 @@ async function readRepoScopedIssuesPage({
 		paged = drained.paged;
 		allMetadata = drained.metadata;
 		pageFetchFailed = drained.fetchFailed;
+		drainedGap = drained.unexpectedGap === true;
 	}
 
 	// Ordered once the drain (above) has assembled whichever pages this position spans.
@@ -645,5 +653,8 @@ async function readRepoScopedIssuesPage({
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
 		fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
+		requestFailed: assessment.requestFailed || pageFetchFailed,
+		unexpectedGap:
+			drainedGap || (paged.hasMore === true && usableCursor(paged.cursor) == null && !issuesPageAdvanceable),
 	};
 }

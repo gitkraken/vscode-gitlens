@@ -9,7 +9,7 @@ import type {
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
+import { CancellationError, raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -158,6 +158,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	private readonly _onDidChangeIntegrationConnection = new Emitter<IntegrationConnectionChangeEvent>();
 	private readonly _apiDisposables: Disposable[] = [];
 	private _apis: ApiClients | undefined;
+	private _disposed = false;
 
 	/** The package-built, memoized per-provider API clients (was injected via the now-removed `ctx.apis`). */
 	get apis(): ApiClients {
@@ -188,6 +189,9 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	dispose(): void {
+		if (this._disposed) return;
+
+		this._disposed = true;
 		this._integrations.forEach(i => i.dispose());
 		this._integrations.clear();
 		this._disposable?.dispose();
@@ -1612,13 +1616,30 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 	private _providersApi: Promise<ProvidersApi> | undefined;
 	private async getProvidersApi() {
+		if (this._disposed) throw new CancellationError();
+
 		if (this._providersApi == null) {
 			const authenticationService = this.authenticationService;
-			async function load() {
-				return new (
-					await import(/* webpackChunkName: "integrations" */ './providers/providersApi.js')
-				).ProvidersApi(authenticationService, authenticationService.apis.azureWorkItemStates);
-			}
+			const apis = authenticationService.apis;
+			const load = async () => {
+				const { ProvidersApi } = await import(
+					/* webpackChunkName: "integrations" */ './providers/providersApi.js'
+				);
+				if (this._disposed) throw new CancellationError();
+
+				const api = new ProvidersApi(
+					authenticationService,
+					apis.azureWorkItemStates,
+					apis.azureWorkItemDescriptions,
+				);
+				if (this._disposed) {
+					api.dispose();
+					throw new CancellationError();
+				}
+
+				this._apiDisposables.push(api);
+				return api;
+			};
 
 			// Never keep a rejected promise cached: a single failure (a module-resolution error, a transient
 			// construction failure) would otherwise poison every `ProvidersApi` read for the lifetime of the

@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import {
+	AZURE_WORK_ITEM_DESCRIPTION_FIELDS,
+	getAzureWorkItemDescription,
+	toAzureWorkItemHtmlFields,
+} from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestReviewer, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -20,7 +25,12 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../models/integration.js';
-import { issueEtagIncludes, pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import {
+	azureWorkItemDescriptionRule,
+	issueEtagIncludes,
+	pullRequestEtagIncludes,
+	pullRequestRevision,
+} from '../models/integration.js';
 import {
 	findInvalidIssueEtagInclude,
 	issueEtag,
@@ -313,6 +323,91 @@ suite('issueEtag', () => {
 	test('no includes gives the exact `is1:` form etags had before includes existed', () => {
 		assert.equal(issueEtag(issueBase, []), 'is1:["opened",1767225600000]');
 		assert.equal(issueEtag({ ...issueBase, thumbsUpCount: 3 }, []), 'is1:["opened",1767225600000]');
+	});
+
+	test("an Azure DevOps row's etag adds the rule its body is read by, so one held from before the rule misses; no other provider's changes", () => {
+		const shapeOf = (providerId: string) =>
+			({ ...issueBase, provider: { id: providerId } }) as unknown as IssueShape;
+		for (const providerId of [
+			GitCloudHostIntegrationId.AzureDevOps,
+			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		]) {
+			const fields = issueEtagFieldsFromShape(shapeOf(providerId));
+			assert.equal(issueEtag(fields, []), 'is1:["opened",1767225600000,1,1]', providerId);
+			assert.notEqual(issueEtag(fields, []), issueEtag(issueBase, []), providerId);
+		}
+		for (const providerId of [GitCloudHostIntegrationId.GitHub, IssuesCloudHostIntegrationId.Jira]) {
+			assert.equal(
+				issueEtag(issueEtagFieldsFromShape(shapeOf(providerId)), []),
+				'is1:["opened",1767225600000]',
+				providerId,
+			);
+		}
+	});
+
+	test('an Azure DevOps work item that names someone but got no viewer never compares unchanged (gitkraken/kepler#4291)', () => {
+		const row = (viewer?: { id: string }, author?: { id: string }) =>
+			({
+				...issueBase,
+				provider: { id: GitCloudHostIntegrationId.AzureDevOps },
+				author: author,
+				assignees: [],
+				viewer: viewer,
+			}) as unknown as IssueShape;
+		// What the cheap check computes: a full row read today would carry its organization's viewer.
+		const cheap = issueEtag({ ...issueBase, descriptionRule: 1, viewerRule: 1 }, []);
+
+		assert.equal(issueEtag(issueEtagFieldsFromShape(row({ id: 'org-me' }, { id: 'org-me' })), []), cheap);
+		assert.equal(issueEtag(issueEtagFieldsFromShape(row()), []), cheap, 'a row naming no one needs no viewer');
+		assert.notEqual(
+			issueEtag(issueEtagFieldsFromShape(row(undefined, { id: 'org-me' })), []),
+			cheap,
+			"read while its organization's identity couldn't be: read in full again",
+		);
+		// A row held from before the viewer was set, under the description rule alone.
+		assert.notEqual(issueEtag({ ...issueBase, descriptionRule: 1 }, []), cheap);
+	});
+
+	/**
+	 * provider-apis owns the rule `azureWorkItemDescriptionRule` versions, so a bump of that package can change which
+	 * field a work item's body comes from without anything here moving. When this fails, bump the rule with the pins.
+	 */
+	test('pins the Azure DevOps description rule its etag version names', () => {
+		assert.equal(azureWorkItemDescriptionRule, 1);
+		assert.deepEqual(
+			AZURE_WORK_ITEM_DESCRIPTION_FIELDS.map(f => f.referenceName),
+			[
+				'System.Description',
+				'Microsoft.VSTS.TCM.ReproSteps',
+				'Microsoft.VSTS.Common.AcceptanceCriteria',
+				'Microsoft.VSTS.CMMI.Symptom',
+			],
+		);
+		// Custom fields first, then the remaining built-in ones, each by reference name; never a preferred field, a
+		// Test Case data field or a non-html one.
+		assert.deepEqual(
+			toAzureWorkItemHtmlFields([
+				{ referenceName: 'Microsoft.VSTS.Common.Resolution', name: 'Resolution', type: 'html' },
+				{ referenceName: 'Custom.Notes', name: 'Notes', type: 'html' },
+				{ referenceName: 'Custom.Details', name: 'Details', type: 'html' },
+				{ referenceName: 'Custom.Plain', name: 'Plain', type: 'string' },
+				{ referenceName: 'Microsoft.VSTS.TCM.Steps', name: 'Steps', type: 'html' },
+				{ referenceName: 'System.Description', name: 'Description', type: 'html' },
+			]).map(f => f.referenceName),
+			['Custom.Details', 'Custom.Notes', 'Microsoft.VSTS.Common.Resolution'],
+		);
+		// Markup that shows nothing doesn't count, but an emptied Description is still the body when nothing else is.
+		assert.equal(
+			getAzureWorkItemDescription({
+				'System.Description': '<div>&nbsp;</div>',
+				'Microsoft.VSTS.TCM.ReproSteps': '<p>Steps</p>',
+			})?.field.referenceName,
+			'Microsoft.VSTS.TCM.ReproSteps',
+		);
+		assert.deepEqual(getAzureWorkItemDescription({ 'System.Description': '<div></div>' }), {
+			value: '<div></div>',
+			field: { referenceName: 'System.Description', name: 'Description' },
+		});
 	});
 
 	test("'reactions' names itself in the prefix and adds the thumbs-up count, `null` when the row has none", () => {

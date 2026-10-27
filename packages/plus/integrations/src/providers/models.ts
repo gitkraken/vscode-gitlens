@@ -45,11 +45,11 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
-import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
+import { EntityIdentifierUtils, GitProviderUtils } from '@gitkraken/provider-apis';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {
+	IssueBodyField,
 	IssueIteration,
 	IssueProject,
 	IssueProjection,
@@ -1421,23 +1421,28 @@ function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState
 			};
 }
 
-function isProviderIssueClosed(issue: ProviderIssue, providerId: ProviderReference['id']): boolean {
+function getProviderIssueState(issue: ProviderIssue, providerId: ProviderReference['id']): IssueShape['state'] {
 	const category = issue.state?.category;
 	if (
-		(providerId === GitCloudHostIntegrationId.AzureDevOps ||
-			providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer) &&
-		category != null
+		providerId === GitCloudHostIntegrationId.AzureDevOps ||
+		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	) {
-		return isTerminalIssueStateCategory(category);
+		if (category != null) return isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
+
+		return issue.closedDate != null ? 'closed' : undefined;
 	}
 
-	return issue.closedDate != null || isTerminalIssueStateCategory(category);
+	return issue.closedDate != null || isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
 }
 
+/**
+ * `options.viewer` is the current account as the row's organization identifies it, or `null` where the read tried to
+ * resolve that and couldn't: a row that names someone then gets {@link IssueShape.viewerUnresolved} instead.
+ */
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { projection?: IssueProjection },
+	options?: { projection?: IssueProjection; viewer?: { id: string } | null },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1445,7 +1450,7 @@ export function toIssueShape(
 	// Fall back to an empty author instead so these issues still surface.
 	if (issue.updatedDate == null || issue.url == null) return undefined;
 
-	const closed = isProviderIssueClosed(issue, provider.id);
+	const state = getProviderIssueState(issue, provider.id);
 
 	return {
 		type: 'issue',
@@ -1465,8 +1470,8 @@ export function toIssueShape(
 		createdDate: issue.createdDate,
 		updatedDate: issue.updatedDate,
 		closedDate: issue.closedDate ?? undefined,
-		closed: closed,
-		state: closed ? 'closed' : 'opened',
+		closed: state === 'closed',
+		state: state,
 		providerState: toIssueProviderState(issue.state),
 		author: {
 			id: issue.author?.id ?? '',
@@ -1506,11 +1511,18 @@ export function toIssueShape(
 		body: issue.description ?? undefined,
 		// Both Jira flavors return `/rest/api/2` wiki markup for the description.
 		bodyFormat: isJiraIntegrationId(provider.id) ? 'jira-wiki' : undefined,
+		// Only when known, so a row from any other provider keeps exactly the keys it always had.
+		...(issue.descriptionField != null ? { bodyField: toIssueBodyField(issue.descriptionField) } : {}),
 		issueType: issue.type ?? undefined,
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
+		...toIssueViewer(issue, options?.viewer),
 	};
+}
+
+export function toIssueBodyField(field: NonNullable<ProviderIssue['descriptionField']>): IssueBodyField {
+	return { id: field.referenceName, name: field.name };
 }
 
 function toIssueIterations(issue: ProviderIssue): IssueIteration[] | undefined {
@@ -1845,12 +1857,16 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	};
 }
 
+/**
+ * `options.currentAccount` is what `authoredByMe` and `viewer` are resolved against, or `null` where the read tried to
+ * resolve it and couldn't: a row that names someone then gets {@link PullRequestShape.viewerUnresolved} instead.
+ */
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
 	options?: {
 		project?: IssueProject;
-		currentAccount?: { id: string; username?: string };
+		currentAccount?: { id: string; username?: string } | null;
 		projection?: PullRequestProjection;
 	},
 ): PullRequest {
@@ -1931,7 +1947,8 @@ export function fromProviderPullRequest(
 			? authoredByCurrentAccount(pr.author, provider, options.currentAccount)
 			: undefined,
 		options?.projection,
-		options?.currentAccount,
+		options?.currentAccount ?? undefined,
+		options?.currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined,
 	);
 }
 
@@ -1961,10 +1978,11 @@ export function stampNativePullRequest(
 export function toPullRequestRow(
 	pr: ProviderPullRequest | PullRequest,
 	provider: Provider,
-	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
+	options: { currentAccount?: { id: string; username?: string } | null; projection?: PullRequestProjection },
 ): PullRequest {
+	// Only an Azure DevOps viewer can be unresolved, and its rows are never native.
 	return isNativePullRequest(pr)
-		? stampNativePullRequest(pr, options)
+		? stampNativePullRequest(pr, { ...options, currentAccount: options.currentAccount ?? undefined })
 		: fromProviderPullRequest(pr, provider, options);
 }
 
@@ -1979,31 +1997,74 @@ export function isNativePullRequest(pr: ProviderPullRequest | PullRequest): pr i
 }
 
 /**
+ * Whether `pr` names anyone the current account could be: its author, an assignee or a reviewer. A row naming no one
+ * needs no viewer, as nothing on it can be matched against one.
+ */
+export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): boolean {
+	if (pr.author != null || pr.assignees?.length) return true;
+
+	return isNativePullRequest(pr)
+		? Boolean(pr.reviewRequests?.length || pr.latestReviews?.length)
+		: Boolean(pr.reviews?.length);
+}
+
+/**
+ * The viewer fields of an issue row naming `issue`'s people, from what its read resolved: `viewer` when it resolved
+ * one, `viewerUnresolved` when it tried and couldn't (`null`), and neither for a row that names no one, as nothing on
+ * it can be matched. Only the keys it sets, so a row resolved as before keeps exactly the keys it always had.
+ */
+export function toIssueViewer(
+	issue: Parameters<typeof issueNamesPeople>[0],
+	viewer: { id: string } | null | undefined,
+): { viewer?: { id: string }; viewerUnresolved?: true } | undefined {
+	if (viewer === undefined || !issueNamesPeople(issue)) return undefined;
+
+	return viewer != null ? { viewer: viewer } : { viewerUnresolved: true };
+}
+
+/**
+ * Whether `issue` names anyone the current account could be: its author or an assignee, by id. A row naming no one
+ * gets no viewer, as nothing on it can be matched against one. Takes a raw row or a mapped one, so every read decides
+ * alike.
+ */
+export function issueNamesPeople(issue: {
+	readonly author?: { readonly id?: string | null } | null;
+	readonly assignees?: readonly { readonly id?: string | null }[] | null;
+}): boolean {
+	return Boolean(issue.author?.id || issue.assignees?.some(a => a.id));
+}
+
+/**
  * GitLens' own GitHub GraphQL client keys people by login, while the current account's `id` is GitHub's
  * numeric database id, so an id-only match always misses there. The login is a unique handle on every
  * GitHub row shape, so the username fallback is safe there; elsewhere `toProviderAccount` fills `username`
  * from a display name that two people can share, so only GitHub and GitHub Enterprise get the fallback.
+ *
+ * A row without an author is unknown (`undefined`), not someone else's: it can still get a viewer for its reviewers.
  */
 function authoredByCurrentAccount(
 	author: { id?: string | null; username?: string | null } | null | undefined,
 	provider: ProviderReference,
 	currentAccount: { id: string; username?: string },
-): boolean {
-	if (author?.id === currentAccount.id) return true;
+): boolean | undefined {
+	if (author == null) return undefined;
+	if (author.id === currentAccount.id) return true;
 
 	const isGitHub =
 		provider.id === GitCloudHostIntegrationId.GitHub ||
 		provider.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
-	return isGitHub && currentAccount.username != null && author?.username === currentAccount.username;
+	return isGitHub && currentAccount.username != null && author.username === currentAccount.username;
 }
 
+/** `options.viewer` as {@link toIssueShape} takes it. */
 export function fromProviderIssue(
 	issue: ProviderIssue,
 	integration: Integration,
-	options?: { project?: IssueProject; projection?: IssueProjection },
+	options?: { project?: IssueProject; projection?: IssueProjection; viewer?: { id: string } | null },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
-	const closed = isProviderIssueClosed(issue, integration.id);
+	const state = getProviderIssueState(issue, integration.id);
+	const viewer = toIssueViewer(issue, options?.viewer);
 	return new Issue(
 		integration,
 		identifier,
@@ -2012,8 +2073,8 @@ export function fromProviderIssue(
 		issue.url ?? '',
 		issue.createdDate,
 		issue.updatedDate ?? issue.closedDate ?? issue.createdDate,
-		closed,
-		closed ? 'closed' : 'opened',
+		state === 'closed',
+		state,
 		fromProviderAccount(issue.author),
 		issue.assignees?.map(fromProviderAccount) ?? undefined,
 		issue.repository != null
@@ -2050,6 +2111,9 @@ export function fromProviderIssue(
 		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		toIssueIterations(issue),
 		options?.projection,
+		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
+		viewer?.viewer,
+		viewer?.viewerUnresolved,
 	);
 }
 

@@ -1711,6 +1711,149 @@ suite('OperationsGitSubProvider — announcing a write that failed', () => {
 	});
 });
 
+suite('OperationsGitSubProvider.fetch — announcing the refs it moved', () => {
+	function watch() {
+		const announced: { changes: string[]; refs?: readonly string[] }[] = [];
+		const resets: string[][] = [];
+		return {
+			announced: announced,
+			resets: resets,
+			hooks: {
+				repository: {
+					onChanged: (_repoPath: string, c: readonly string[], refs?: readonly string[]) =>
+						announced.push(refs != null ? { changes: [...c], refs: refs } : { changes: [...c] }),
+				},
+				cache: { onReset: (_repoPath: string, ...types: string[]) => resets.push(types) },
+			},
+		};
+	}
+
+	function clear(watched: ReturnType<typeof watch>): void {
+		watched.announced.length = 0;
+		watched.resets.length = 0;
+	}
+
+	test('a fetch that brings nothing new announces nothing and resets nothing', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			// The first fetch may still write `origin/HEAD`; the second has nothing left to store
+			await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+			clear(watched);
+
+			await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+			await clone.provider.ops.fetch(clone.path);
+
+			assert.deepStrictEqual(watched.announced, []);
+			assert.deepStrictEqual(watched.resets, []);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a fetch that moves origin/main announces remotes with that name only (and origin/HEAD, which resolves to it)', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		createBranch(origin.path, 'side');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+			clear(watched);
+			addCommit(origin.path, 'ahead.txt', 'x', 'Origin advances');
+
+			await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+
+			assert.deepStrictEqual(watched.announced, [
+				{ changes: ['remotes'], refs: ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main'] },
+			]);
+			assert.deepStrictEqual(watched.resets, [['branches', 'tags']]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull fetch of a branch reference names the local branch it writes', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		createBranch(origin.path, 'side');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			createTrackingBranch(clone.path, 'side', 'origin/side');
+			checkout(origin.path, 'side');
+			addCommit(origin.path, 'side.txt', 'x', 'Origin side advances');
+			clear(watched);
+
+			const side = createReference('side', clone.path, {
+				refType: 'branch',
+				name: 'side',
+				remote: false,
+				upstream: { name: 'origin/side', missing: false },
+			});
+			await clone.provider.ops.fetch(clone.path, { branch: side, pull: true });
+
+			assert.strictEqual(watched.announced.length, 1);
+			assert.deepStrictEqual(watched.announced[0].changes, ['remotes', 'heads']);
+			assert.deepStrictEqual([...(watched.announced[0].refs ?? [])].sort(), [
+				'refs/heads/side',
+				'refs/remotes/origin/side',
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a fetch that rejects after moving one ref announces that ref', async () => {
+		const watched = watch();
+		const source = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			createBranch(source.path, 'shared', { checkout: true });
+			addCommit(source.path, 'shared.txt', 'one\n', 'Shared commit');
+			checkout(source.path, 'main');
+
+			bare = createBareRemoteFrom(source.path);
+			local = createTestRepo({ hooks: watched.hooks });
+			execFileSync('git', ['remote', 'add', 'origin', bare.path], { cwd: local.path, stdio: 'pipe' });
+			execFileSync('git', ['fetch', 'origin', 'refs/heads/shared:refs/remotes/origin/shared'], {
+				cwd: local.path,
+				stdio: 'pipe',
+			});
+
+			// The remote rewrites `shared` (a non-fast-forward for the tracking ref) and gains a new branch
+			checkout(source.path, 'shared');
+			execFileSync('git', ['commit', '--amend', '-m', 'Rewritten'], { cwd: source.path, stdio: 'pipe' });
+			createBranch(source.path, 'fresh');
+			execFileSync('git', ['push', '--force', bare.path, 'shared', 'fresh'], {
+				cwd: source.path,
+				stdio: 'pipe',
+			});
+
+			await assert.rejects(
+				local.provider.ops.fetch(local.path, {
+					remote: 'origin',
+					refspecs: [
+						'refs/heads/shared:refs/remotes/origin/shared',
+						'refs/heads/fresh:refs/remotes/origin/fresh',
+					],
+				}),
+				(ex: unknown) => FetchError.is(ex),
+			);
+
+			assert.deepStrictEqual(watched.announced, [{ changes: ['remotes'], refs: ['refs/remotes/origin/fresh'] }]);
+			assert.deepStrictEqual(watched.resets, [['branches', 'tags']]);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			source.cleanup();
+		}
+	});
+});
+
 suite('OperationsGitSubProvider — failed writes still announce', () => {
 	test('commit refused by a pre-commit hook announces head, heads and index', async () => {
 		const onChanged = sinon.spy();
@@ -1731,10 +1874,84 @@ suite('OperationsGitSubProvider — failed writes still announce', () => {
 			);
 
 			assert.strictEqual(onChanged.callCount, 1);
+			// Named like a successful commit: had the hook passed, only the checked-out branch would have moved
+			assert.deepStrictEqual(onChanged.lastCall.args, [r.path, ['head', 'heads', 'index'], ['refs/heads/main']]);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('a commit whose post-commit hook switches branches names no branch', async () => {
+		const onChanged = sinon.spy();
+		const r = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
+		try {
+			const hook = join(r.path, '.git', 'hooks', 'post-commit');
+			writeFileSync(hook, '#!/bin/sh\ngit switch -q -c elsewhere\n', { mode: 0o755 });
+
+			writeFileSync(join(r.path, 'new.txt'), 'x\n');
+			execFileSync('git', ['add', 'new.txt'], { cwd: r.path, stdio: 'pipe' });
+			onChanged.resetHistory();
+
+			const runOptions = { env: { GIT_CONFIG_COUNT: '0' } };
+			await r.provider.ops.commit(r.path, 'Switches after', undefined, runOptions);
+
+			// HEAD now names `elsewhere`, which the commit didn't move; `main`, which it did, can't be told from HEAD
+			assert.strictEqual(onChanged.callCount, 1);
 			assert.deepStrictEqual(onChanged.lastCall.args, [r.path, ['head', 'heads', 'index']]);
 		} finally {
 			r.cleanup();
 		}
+	});
+});
+
+suite('OperationsGitSubProvider — naming the branch a HEAD-moving write moved', () => {
+	let r: TestRepo;
+	let onChanged: sinon.SinonSpy;
+	let onReset: sinon.SinonSpy;
+
+	setup(() => {
+		onChanged = sinon.spy();
+		onReset = sinon.spy();
+		r = createTestRepo({ hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } } });
+		addCommit(r.path, 'second.txt', 'second\n', 'Second commit');
+	});
+
+	teardown(() => {
+		r.cleanup();
+	});
+
+	test('a reset on a branch names it', async () => {
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index'], ['refs/heads/main']]]);
+	});
+
+	test('a reset on a branch that is an alias for another names neither', async () => {
+		execFileSync('git', ['symbolic-ref', 'refs/heads/master', 'refs/heads/main'], { cwd: r.path, stdio: 'pipe' });
+		execFileSync('git', ['symbolic-ref', 'HEAD', 'refs/heads/master'], { cwd: r.path, stdio: 'pipe' });
+		onChanged.resetHistory();
+
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		// git follows the alias, so `main` moved, not the `master` HEAD names
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index']]]);
+	});
+
+	test('a reset on a detached HEAD moves no branch, yet resets what the worktree shows', async () => {
+		execFileSync('git', ['checkout', '-q', '--detach'], { cwd: r.path, stdio: 'pipe' });
+		const main = revParse(r.path, 'refs/heads/main');
+
+		await r.provider.ops.reset(r.path, 'HEAD~1', { mode: 'hard' });
+
+		assert.strictEqual(revParse(r.path, 'refs/heads/main'), main, 'sanity: no branch moved');
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'index', 'worktrees', 'worktreeHead']]]);
+		assert.deepStrictEqual(onReset.args, [[r.path, 'branches', 'status', 'worktrees']]);
+	});
+
+	test('a revert on a branch names it', async () => {
+		await r.provider.ops.revert(r.path, ['HEAD'], { editMessage: false });
+
+		assert.deepStrictEqual(onChanged.args, [[r.path, ['head', 'heads', 'index'], ['refs/heads/main']]]);
 	});
 });
 

@@ -30,6 +30,7 @@ import {
 	primarySession,
 	providerPr,
 	stubApi,
+	stubAzureOrganizationUser,
 	watchRequestFailures,
 } from './sweepHelpers.js';
 
@@ -1688,6 +1689,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			);
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			const inputs: Parameters<GetPullRequestForRepoFn>[0][] = [];
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input => {
 				inputs.push(input);
@@ -1728,6 +1730,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(200, { value: [azurePullRequest(1), azurePullRequest(3, { fork: true })] }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input =>
 				Promise.resolve(sdkPullRequest(input.number)),
 			);
@@ -1748,6 +1751,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(200, { value: [azurePullRequest(7)] }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input =>
 				Promise.resolve(sdkPullRequest(input.number)),
 			);
@@ -1775,6 +1779,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(200, { value: [azurePullRequest(1), azurePullRequest(2)] }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input =>
 				input.number === 2
 					? Promise.reject(sdkHttpError(404, { typeKey: 'GitPullRequestNotFoundException', message: 'gone' }))
@@ -1797,6 +1802,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(200, { value: [azurePullRequest(1), azurePullRequest(2)] }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input =>
 				input.number === 2
 					? Promise.reject(sdkHttpError(500, { message: 'boom' }))
@@ -1819,6 +1825,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(200, { value: Array.from({ length: 11 }, (_, i) => azurePullRequest(i + 1)) }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			const resolved = await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input =>
 				Promise.resolve(sdkPullRequest(input.number)),
 			);
@@ -1840,6 +1847,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			serve(runtime, () => json(404, { typeKey: 'GitRepositoryNotFoundException', message: 'not found' }));
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 
 			const result = await manager.getPullRequestsForBranches({
 				providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1870,6 +1878,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 				serve(runtime, response);
 				const { manager, azure } = await connectedAzure(runtime);
 				stubCurrentAccount(azure, 'me');
+				await stubAzureOrganizationUser(azure, 'me');
 
 				const result = await manager.getPullRequestsForBranches({
 					providerId: GitCloudHostIntegrationId.AzureDevOps,

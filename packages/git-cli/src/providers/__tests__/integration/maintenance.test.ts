@@ -1475,19 +1475,23 @@ suite('MaintenanceSubProvider', () => {
 			// longer than the contender's poll window, so only a working liveness probe explains the wait.
 			const timings = { retryMs: 20, maxAttempts: 300 };
 			const order: string[] = [];
+			let markHolderEntered!: () => void;
+			const holderEntered = new Promise<void>(resolve => {
+				markHolderEntered = resolve;
+			});
 
 			const holder = withMarkerLock(
 				lockRepo,
 				lockRepo.path,
 				async () => {
+					markHolderEntered();
 					await new Promise(resolve => setTimeout(resolve, 1000));
 					order.push('holder-end');
 				},
 				timings,
 			);
 
-			// Give the holder a moment to win the initial `open('wx')` before the contender starts polling.
-			await new Promise(resolve => setTimeout(resolve, 20));
+			await Promise.race([holderEntered, holder]);
 
 			const contender = withMarkerLock(
 				lockRepo,

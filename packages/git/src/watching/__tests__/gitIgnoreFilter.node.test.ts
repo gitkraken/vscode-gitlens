@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { isLinux } from '@gitlens/utils/platform.js';
 import type { FileSystemProvider } from '../../context.js';
+import { FileType } from '../../context.js';
 import { GitIgnoreFilter } from '../gitIgnoreFilter.js';
 
 const encoder = new TextEncoder();
@@ -82,6 +83,60 @@ function reverseOrderFs(files: Record<string, string>, order: readonly string[])
 
 function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+interface StampedFile {
+	content: string;
+	mtime: number;
+}
+
+/**
+ * A mutable fs whose stats report each file's `mtime` and content length, recording every path stat'ed and read.
+ * While `hold` is set, a stat waits on it.
+ */
+function stampedFs(files: Map<string, StampedFile>): {
+	fs: FileSystemProvider;
+	stats: string[];
+	reads: string[];
+	hold: Promise<void> | undefined;
+	/** Called on each read, before the content is taken */
+	onRead?: (path: string) => void;
+	/** Paths whose stat throws */
+	failing: Set<string>;
+} {
+	const state: ReturnType<typeof stampedFs> = {
+		fs: {
+			readFile: async function (uri) {
+				const path = uri.path ?? uri.fsPath;
+				state.reads.push(path);
+				state.onRead?.(path);
+				const file = files.get(path);
+				if (file == null) throw new Error(`ENOENT: ${path}`);
+				return encoder.encode(file.content);
+			},
+			stat: async function (uri) {
+				const path = uri.path ?? uri.fsPath;
+				state.stats.push(path);
+				if (state.hold != null) {
+					await state.hold;
+				}
+				if (state.failing.has(path)) throw new Error('EIO');
+
+				const file = files.get(path);
+				return file != null
+					? { type: FileType.File, ctime: 0, mtime: file.mtime, size: encoder.encode(file.content).length }
+					: undefined;
+			},
+			readDirectory: async function () {
+				return [];
+			},
+		},
+		stats: [],
+		reads: [],
+		hold: undefined,
+		failing: new Set(),
+	};
+	return state;
 }
 
 function throwingFs(): FileSystemProvider {
@@ -471,6 +526,276 @@ describe('GitIgnoreFilter', () => {
 			const refresh = filter.refresh();
 			assert.strictEqual(discoveries, 2, 'the reload is not deferred');
 			await refresh;
+		});
+	});
+
+	describe('revalidate', () => {
+		const globalPath = '/home/user/.gitignore_global';
+
+		function sourcesFilter(
+			setup?: (
+				files: Map<string, StampedFile>,
+				io: ReturnType<typeof stampedFs>,
+				config: { discovery: Promise<void> | undefined },
+			) => void,
+		) {
+			const files = new Map<string, StampedFile>([
+				[globalPath, { content: '.DS_Store\n', mtime: 1 }],
+				['/repo/.git/info/exclude', { content: '.idea\n', mtime: 1 }],
+				['/repo/.gitignore', { content: 'node_modules\n', mtime: 1 }],
+				['/repo/pkg/.gitignore', { content: 'out/\n', mtime: 1 }],
+			]);
+			const io = stampedFs(files);
+			const config = {
+				globalPath: globalPath as string | undefined,
+				infoPath: '/repo/.git/info/exclude' as string | undefined,
+				ignoreCase: false as boolean | undefined,
+				discoveries: 0,
+				/** While set, nested discovery waits on it */
+				discovery: undefined as Promise<void> | undefined,
+			};
+			setup?.(files, io, config);
+			const filter = new GitIgnoreFilter({
+				repoPath: '/repo',
+				gitDirPath: '/repo/.git',
+				fs: io.fs,
+				getGlobalExcludesPath: async () => config.globalPath,
+				getInfoExcludePath: async () => config.infoPath,
+				getGitIgnorePaths: async () => {
+					config.discoveries++;
+					if (config.discovery != null) {
+						await config.discovery;
+					}
+					return ['.gitignore', 'pkg/.gitignore'];
+				},
+				getIgnoreCase: async () => config.ignoreCase,
+			});
+			return { filter: filter, files: files, io: io, config: config };
+		}
+
+		async function loadedFilter(setup?: Parameters<typeof sourcesFilter>[0]) {
+			const loaded = sourcesFilter(setup);
+			await loaded.filter.ready();
+			loaded.io.stats.length = 0;
+			loaded.io.reads.length = 0;
+			return loaded;
+		}
+
+		function gate(): { promise: Promise<void>; release: () => void } {
+			let release!: () => void;
+			const promise = new Promise<void>(resolve => (release = resolve));
+			return { promise: promise, release: release };
+		}
+
+		it("resolves false, stat'ing every source and reading none, when nothing changed", async () => {
+			const { filter, io, config } = await loadedFilter();
+
+			assert.strictEqual(await filter.revalidate(), false);
+
+			assert.deepStrictEqual(
+				[...io.stats].sort(),
+				[globalPath, '/repo/.git/info/exclude', '/repo/.gitignore', '/repo/pkg/.gitignore'].sort(),
+			);
+			assert.deepStrictEqual(io.reads, []);
+			assert.strictEqual(config.discoveries, 1, 'nested files are not rediscovered');
+		});
+
+		for (const { source, path, content, mtime, ignored } of [
+			{
+				source: 'the root .gitignore (mtime)',
+				path: '/repo/.gitignore',
+				content: 'dist/\nbuild/\n',
+				mtime: 2,
+				ignored: 'dist/a.js',
+			},
+			{
+				source: 'info/exclude (size)',
+				path: '/repo/.git/info/exclude',
+				content: '.idea\n.vscode\n',
+				mtime: 1,
+				ignored: '.vscode',
+			},
+			{
+				source: 'the global excludes file (mtime)',
+				path: globalPath,
+				content: 'Thumbs.db\n',
+				mtime: 2,
+				ignored: 'Thumbs.db',
+			},
+			{
+				source: 'a nested .gitignore (size)',
+				path: '/repo/pkg/.gitignore',
+				content: 'out/\ngen/\n',
+				mtime: 1,
+				ignored: 'pkg/gen/x.ts',
+			},
+		]) {
+			it(`reloads when ${source} changed, and the new rules apply once ready`, async () => {
+				const { filter, files, config } = await loadedFilter();
+				assert.ok(!filter.isIgnored(ignored));
+
+				files.set(path, { content: content, mtime: mtime });
+
+				assert.strictEqual(await filter.revalidate(), true);
+				await filter.ready();
+				assert.ok(filter.isIgnored(ignored));
+				assert.strictEqual(config.discoveries, 2, 'the reload is a full one');
+			});
+		}
+
+		it('reloads when a source appears', async () => {
+			const { filter, files } = await loadedFilter(files => files.delete('/repo/.gitignore'));
+			assert.ok(!filter.isIgnored('node_modules'));
+
+			files.set('/repo/.gitignore', { content: 'node_modules\n', mtime: 1 });
+
+			assert.strictEqual(await filter.revalidate(), true);
+			assert.ok(filter.isIgnored('node_modules'));
+		});
+
+		it('reloads when `core.ignorecase` changed', async () => {
+			const { filter, config } = await loadedFilter();
+			assert.ok(!filter.isIgnored('NODE_MODULES'));
+
+			config.ignoreCase = true;
+
+			assert.strictEqual(await filter.revalidate(), true);
+			assert.ok(filter.isIgnored('NODE_MODULES'));
+		});
+
+		it('reloads when `core.excludesFile` points elsewhere', async () => {
+			const { filter, files, config } = await loadedFilter();
+
+			files.set('/home/user/other', { content: 'Thumbs.db\n', mtime: 1 });
+			config.globalPath = '/home/user/other';
+
+			assert.strictEqual(await filter.revalidate(), true);
+			assert.ok(filter.isIgnored('Thumbs.db'));
+			assert.ok(!filter.isIgnored('.DS_Store'));
+		});
+
+		it('reloads when `info/exclude` resolves elsewhere', async () => {
+			const { filter, files, config } = await loadedFilter();
+
+			files.set('/common/.git/info/exclude', { content: '.vscode\n', mtime: 1 });
+			config.infoPath = '/common/.git/info/exclude';
+
+			assert.strictEqual(await filter.revalidate(), true);
+			assert.ok(filter.isIgnored('.vscode'));
+			assert.ok(!filter.isIgnored('.idea'));
+		});
+
+		it("counts a source that can't be stat'ed as changed", async () => {
+			const { filter, io } = await loadedFilter();
+
+			io.failing.add('/repo/.gitignore');
+
+			assert.strictEqual(await filter.revalidate(), true);
+		});
+
+		it('sees an edit that landed between a load stamping a source and reading it', async () => {
+			let edited = false;
+			const { filter } = await loadedFilter((files, io) => {
+				io.onRead = path => {
+					if (path !== '/repo/.gitignore' || edited) return;
+
+					edited = true;
+					files.set(path, { content: 'dist/\n', mtime: 2 });
+				};
+			});
+			assert.ok(filter.isIgnored('dist/a.js'), 'the load read the edited content');
+
+			assert.strictEqual(await filter.revalidate(), true);
+		});
+
+		it('resolves false without a stat while a load is in flight', async () => {
+			const { filter, io, config } = await loadedFilter();
+			const discovery = gate();
+			config.discovery = discovery.promise;
+			const refresh = filter.refresh();
+
+			assert.strictEqual(await filter.revalidate(), false);
+			await delay(10);
+			assert.ok(!io.stats.includes('/repo/pkg/.gitignore'), 'only the held load has stat-ed, and not yet nested');
+
+			discovery.release();
+			await refresh;
+		});
+
+		it('resolves false without a stat on a filter that has never loaded', async () => {
+			const discovery = gate();
+			const { filter, io } = sourcesFilter((_files, _io, config) => (config.discovery = discovery.promise));
+
+			assert.strictEqual(await filter.revalidate(), false);
+			await delay(10);
+			assert.ok(!io.stats.includes('/repo/pkg/.gitignore'));
+
+			discovery.release();
+			await filter.ready();
+		});
+
+		it('makes ready() wait for the reload it starts', async () => {
+			const { filter, files } = await loadedFilter();
+			files.set('/repo/.gitignore', { content: 'dist/\n', mtime: 2 });
+
+			void filter.revalidate();
+			await filter.ready();
+
+			assert.ok(filter.isIgnored('dist/a.js'));
+		});
+
+		it('shares one revalidation among concurrent calls', async () => {
+			const { filter, files, config } = await loadedFilter();
+			files.set('/repo/.gitignore', { content: 'dist/\n', mtime: 2 });
+
+			const first = filter.revalidate();
+			assert.strictEqual(filter.revalidate(), first);
+			assert.strictEqual(await first, true);
+			assert.strictEqual(config.discoveries, 2);
+		});
+
+		it('lets a refresh made during it land, and reloads nothing more on its behalf', async () => {
+			const { filter, files, io, config } = await loadedFilter();
+			files.set('/repo/.gitignore', { content: 'dist/\n', mtime: 2 });
+
+			const stats = gate();
+			io.hold = stats.promise;
+			const revalidation = filter.revalidate();
+			io.hold = undefined;
+
+			await filter.refresh();
+			assert.ok(filter.isIgnored('dist/a.js'));
+
+			stats.release();
+			assert.strictEqual(await revalidation, false, 'the refresh already read the change');
+			await filter.ready();
+			assert.strictEqual(config.discoveries, 2, 'no reload beyond the refresh');
+		});
+
+		it('makes ready() also wait for a refresh made during it', async () => {
+			const { filter, files, io, config } = await loadedFilter();
+
+			const stats = gate();
+			io.hold = stats.promise;
+			void filter.revalidate();
+			io.hold = undefined;
+
+			let ready = false;
+			void filter.ready().then(() => (ready = true));
+
+			const discovery = gate();
+			config.discovery = discovery.promise;
+			files.set('/repo/.gitignore', { content: 'dist/\n', mtime: 2 });
+			void filter.refresh();
+
+			stats.release();
+			await delay(10);
+			assert.strictEqual(ready, false, 'the refresh is still loading');
+
+			discovery.release();
+			await delay(10);
+			assert.strictEqual(ready, true);
+			assert.ok(filter.isIgnored('dist/a.js'));
 		});
 	});
 

@@ -929,7 +929,7 @@ export class GraphWipService {
 		const repo = this.repository;
 		if (repo == null) return result;
 
-		const worktrees = await repo.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
+		const worktrees = await repo.git.worktrees?.getWorktrees(undefined, toAbortSignal(cancellation));
 		if (!worktrees?.length) return result;
 
 		// Cheap clean/dirty probe per secondary worktree — ONLY when `probeChanges` is set (the

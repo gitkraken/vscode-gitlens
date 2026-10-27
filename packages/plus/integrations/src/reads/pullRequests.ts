@@ -174,6 +174,7 @@ export async function listPullRequestsPage(
 	// them to any captured thrown-error warning without discarding the partial result's items.
 	const warnings = warning != null ? [warning] : [];
 	let pageFetchFailed = warning != null && value == null;
+	let drainedGap = false;
 
 	// Cursor-only reads ignore a synthesized page-number cursor, so a page-only request is advanced through
 	// the provider's own continuations (see drainToRequestedPage).
@@ -198,6 +199,7 @@ export async function listPullRequestsPage(
 		paged = drained.paged;
 		allMetadata = drained.metadata;
 		pageFetchFailed = drained.fetchFailed;
+		drainedGap = drained.unexpectedGap === true;
 	}
 
 	const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
@@ -257,5 +259,7 @@ export async function listPullRequestsPage(
 		// A metadata failure means items are incomplete even when the read didn't throw; a thrown error with
 		// no recovered value is the pre-existing failure case.
 		fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
+		requestFailed: assessment.requestFailed || pageFetchFailed,
+		unexpectedGap: drainedGap || (paged.hasMore === true && paged.cursor == null && !pageAdvanceable),
 	};
 }

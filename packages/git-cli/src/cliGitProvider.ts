@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { env } from 'node:process';
 import type { CachedGitTypes, MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
-import { Cache } from '@gitlens/git/cache.js';
+import { Cache, resetDropsPendingRuns } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
@@ -17,20 +17,24 @@ import type {
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { getRefChangeKind } from '@gitlens/git/watching/changeEvent.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
+import { sanitizeIgnoredWorktreeFolders } from '@gitlens/git/watching/watcherPatterns.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
+import { cancellable } from '@gitlens/utils/promise.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js';
 import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
-import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
+import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
 import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
+import { readCommonGitDir, readHeadState } from './exec/headState.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -53,6 +57,9 @@ import { StatusGitSubProvider } from './providers/status.js';
 import { TagsGitSubProvider } from './providers/tags.js';
 import { WorktreesGitSubProvider } from './providers/worktrees.js';
 
+/** How long reading the folders whose worktrees are ignored may take before it counts as failed (a hung mount) */
+const ignoredWorktreeRootsTimeoutMs = 5000;
+
 export interface CliGitProviderOptions {
 	/** Use an existing Cache instance, or one will be created */
 	cache?: Cache;
@@ -71,6 +78,15 @@ export interface CliGitProviderOptions {
 	 * failures rather than an honest "unsupported here". Defaults to `true`.
 	 */
 	localRepositories?: boolean;
+	/**
+	 * Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist: they are left out
+	 * of worktree lists, and their add, remove, lock, unlock or move run through `notify: 'infer'`, and the watcher's
+	 * reports of their admin entries, raise no `worktrees` change. The typed worktree writes still announce one. A host
+	 * registers one for a tool's throwaway worktrees, which no host shows (sync-tools' `sync-tools-worktrees`, for one).
+	 * Nothing else is ignored, since a user may keep real worktrees anywhere, the git dir included. A folder that isn't
+	 * a literal path strictly inside the common git dir, or that lies under `worktrees`, is dropped.
+	 */
+	ignoredWorktreeFolders?: readonly string[];
 }
 
 /**
@@ -111,6 +127,9 @@ export class CliGitProvider implements GitProvider {
 	/** The host's own hooks, before the provider wraps `cache.onReset` with its own clearing */
 	private readonly _hostHooks: GitServiceContext['hooks'];
 	private readonly _localRepositories: boolean;
+	private readonly _ignoredWorktreeFolders: readonly string[];
+	/** By common git dir, the folders whose worktrees are ignored there: a common git dir never moves while it is open */
+	private readonly _ignoredWorktreeRoots = new Map<string, Promise<readonly string[]>>();
 
 	constructor(options: CliGitProviderOptions) {
 		// Every typed write announces itself through `onReset`, so the provider clears its own state there
@@ -127,13 +146,15 @@ export class CliGitProvider implements GitProvider {
 					...hostHooks?.cache,
 					onReset: (repoPath, ...types) => {
 						this._cache.evictCaches(repoPath, ...types);
-						this._git.clearPendingCommands(this.getRepositoryPaths(repoPath));
+						if (resetDropsPendingRuns(types)) {
+							this._git.clearPendingCommands(this.getRepositoryPaths(repoPath));
+						}
 						hostHooks?.cache?.onReset?.(repoPath, ...types);
 					},
 				},
 				repository: {
 					...hostHooks?.repository,
-					onChanged: (repoPath, changes) => {
+					onChanged: (repoPath, changes, refs, options) => {
 						// Everything the watcher would have cleared for the write, since its own file events are
 						// dropped once it is announced (the typed write's `onReset` names only what it must evict)
 						this.resetForChanges(repoPath, changes, undefined);
@@ -146,15 +167,20 @@ export class CliGitProvider implements GitProvider {
 							this.resetForChanges(path, shared, undefined, true);
 						}
 
-						this.announceChanged(repoPath, changes);
+						this.announceChanged(repoPath, changes, refs, options);
+						if (siblings.size === 0) return;
+
+						// Siblings share the one `.git/config`, so the write's config is as confined for them
+						const sharedRefs = refs?.length ? getSharedRefs(changes, refs) : undefined;
 						for (const [path, shared] of siblings) {
-							this.announceChanged(path, shared);
+							this.announceChanged(path, shared, sharedRefs, options);
 						}
 					},
 				},
 			},
 		};
 		this._localRepositories = options.localRepositories ?? true;
+		this._ignoredWorktreeFolders = sanitizeIgnoredWorktreeFolders(options.ignoredWorktreeFolders);
 		this._git =
 			options.git ??
 			new Git(options.locator, {
@@ -169,9 +195,12 @@ export class CliGitProvider implements GitProvider {
 
 		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
 		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
-		this._git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
-			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths),
+		this._git.bindChangeNotifier((repoPaths, changes, sharedPaths, named) =>
+			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths, named),
 		);
+		this._git.bindHeadReader(path => readHeadState(path, this.context.fs, this._cache));
+		// Bound even with no folder registered, so a `Git` shared with another provider never keeps that one's folders
+		this._git.bindIgnoredWorktreeRootsReader(path => this.getIgnoredWorktreeRoots(path));
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */
@@ -181,6 +210,65 @@ export class CliGitProvider implements GitProvider {
 
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
 		return this._cache.onDidChangeMergeTargets;
+	}
+
+	getIgnoredWorktreeFolders(_repoPath: string): readonly string[] {
+		return this._ignoredWorktreeFolders;
+	}
+
+	/**
+	 * `[]`, reading nothing, when no folder is registered. Read once per common git dir, since a worktree list rebuild
+	 * and every inferred worktree write ask for them; a read that fails or doesn't settle in time (a hung mount) rejects,
+	 * and isn't kept, so the next call reads again
+	 */
+	async getIgnoredWorktreeRoots(repoPath: string): Promise<readonly string[]> {
+		if (!this._ignoredWorktreeFolders.length) return [];
+
+		const commonGitDir = await cancellable(this.findCommonGitDir(repoPath), ignoredWorktreeRootsTimeoutMs);
+		let roots = this._ignoredWorktreeRoots.get(commonGitDir);
+		if (roots == null) {
+			const read = cancellable(this.readIgnoredWorktreeRoots(commonGitDir), ignoredWorktreeRootsTimeoutMs);
+			const entry = read.then(r => r.roots);
+			roots = entry;
+			this._ignoredWorktreeRoots.set(commonGitDir, entry);
+			const forget = () => {
+				if (this._ignoredWorktreeRoots.get(commonGitDir) === entry) {
+					this._ignoredWorktreeRoots.delete(commonGitDir);
+				}
+			};
+			// Roots missing the resolved spelling still serve this call, but a later one resolves again
+			void read.then(r => (r.resolved ? undefined : forget()), forget);
+		}
+		return roots;
+	}
+
+	/**
+	 * From the cached git dir, or the repository's own files, without running git; a repository whose files don't
+	 * show it (a bare one) runs git once, and the git dir it finds is cached with the repository
+	 */
+	private async findCommonGitDir(repoPath: string): Promise<string> {
+		const commonGitDir = await readCommonGitDir(repoPath, this.context.fs, this._cache);
+		if (commonGitDir != null) return commonGitDir;
+
+		const gitDir = await this.config.getGitDir(repoPath);
+		return (gitDir.commonUri ?? gitDir.uri).fsPath;
+	}
+
+	/** `resolved` is false when the common git dir's resolved spelling couldn't be read */
+	private async readIgnoredWorktreeRoots(
+		commonGitDir: string,
+	): Promise<{ readonly roots: readonly string[]; readonly resolved: boolean }> {
+		const roots = new Set(this._ignoredWorktreeFolders.map(f => normalizePath(joinPaths(commonGitDir, f))));
+		if (!this._localRepositories) return { roots: [...roots], resolved: true };
+
+		// Only the common git dir is resolved: a folder doesn't exist until its tool first makes a worktree there
+		const realCommonGitDir = await fs.realpath(commonGitDir).catch(() => undefined);
+		if (realCommonGitDir == null) return { roots: [...roots], resolved: false };
+
+		for (const folder of this._ignoredWorktreeFolders) {
+			roots.add(normalizePath(joinPaths(realCommonGitDir, folder)));
+		}
+		return { roots: [...roots], resolved: true };
 	}
 
 	getCommonPath(repoPath: string): string | undefined {
@@ -305,13 +393,14 @@ export class CliGitProvider implements GitProvider {
 	 * Each path hears the announcement once: `repoPaths` hear all of `changes`, `sharedPaths` (reset and
 	 * `onReset`-ed like `repoPaths`) and then the other registered worktrees sharing a repository with any of
 	 * them (reset like a typed write's, with no `onReset`) hear the shared part of it, see
-	 * {@link getSiblingChanges}.
+	 * {@link getSiblingChanges}. `names.refs` reach `repoPaths` whole and the others as {@link getSharedRefs}.
 	 */
 	private notifyChangedCore(
 		repoPaths: readonly string[],
 		changes: readonly RepositoryChange[],
 		options?: { cache?: readonly CachedGitTypes[] | 'all' },
 		sharedPaths?: readonly string[],
+		names?: NamedRefs,
 	): void {
 		const announcements = new Map<string, readonly RepositoryChange[]>();
 		for (const repoPath of repoPaths) {
@@ -341,8 +430,10 @@ export class CliGitProvider implements GitProvider {
 			}
 
 			resets.push({ repoPath: repoPath, types: types });
-			for (const path of this.getRepositoryPaths(repoPath)) {
-				pendingPaths.add(path);
+			if (resetDropsPendingRuns(types)) {
+				for (const path of this.getRepositoryPaths(repoPath)) {
+					pendingPaths.add(path);
+				}
 			}
 		}
 
@@ -365,8 +456,9 @@ export class CliGitProvider implements GitProvider {
 		}
 		// The host's own hook: `context.hooks.repository.onChanged` also fans out to siblings, which would
 		// announce a path a second time
+		const sharedRefs = names?.refs.length ? getSharedRefs(changes, names.refs) : undefined;
 		for (const [path, announced] of announcements) {
-			this.announceChanged(path, [...announced]);
+			this.announceChanged(path, [...announced], repoPaths.includes(path) ? names?.refs : sharedRefs, names);
 		}
 	}
 
@@ -379,8 +471,39 @@ export class CliGitProvider implements GitProvider {
 		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
 	}
 
-	/** Tells the host about a write for one path, after its caches were reset — the watch layer hears of it first */
-	private announceChanged(repoPath: string, changes: RepositoryChange[]): void {
+	/**
+	 * Tells the host about a write for one path, after its caches were reset — the watch layer hears of it first.
+	 * `refs` are the full ref names the write moved, when it knows them, and `options.configConfinedToRefs` confines
+	 * its `config` change to the sections of the local branches among them (see `GitServiceHooks.repository.onChanged`);
+	 * the confinement is passed on only with `config` among `changes` and a branch in `refs` to confine it to.
+	 */
+	private announceChanged(
+		repoPath: string,
+		changes: RepositoryChange[],
+		refs?: readonly string[],
+		options?: { readonly configConfinedToRefs?: boolean },
+	): void {
+		if (refs?.length) {
+			if (
+				options?.configConfinedToRefs === true &&
+				changes.includes('config') &&
+				refs.some(r => r.startsWith('refs/heads/'))
+			) {
+				this._onDidAnnounceChanges.fire({
+					repoPath: repoPath,
+					changes: changes,
+					refs: refs,
+					configConfinedToRefs: true,
+				});
+				this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs, { configConfinedToRefs: true });
+				return;
+			}
+
+			this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes, refs: refs });
+			this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs);
+			return;
+		}
+
 		this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes });
 		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
 	}
@@ -644,6 +767,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._ignoredWorktreeFolders.length ? path => this.getIgnoredWorktreeRoots(path) : undefined,
 		));
 	}
 
@@ -703,15 +827,12 @@ export class CliGitProvider implements GitProvider {
 				gitDirPath: gitDirPath,
 				fs: this.context.fs,
 				// Resolved the way git resolves it; unset, git reads its default location instead
-				getGlobalExcludesPath:
-					this.config.getConfig != null
-						? async () => {
-								const configured = await this.config.getConfig(repoPath, 'core.excludesFile');
-								return configured != null
-									? resolveGitPathConfig(configured, repoPath)
-									: getDefaultGlobalExcludesPath();
-							}
-						: undefined,
+				getGlobalExcludesPath: async () => {
+					const { excludesFile: configured } = await this.config.getIgnoreConfig(repoPath);
+					return configured != null
+						? resolveGitPathConfig(configured, repoPath)
+						: getDefaultGlobalExcludesPath();
+				},
 				// `info/exclude` lives in the COMMON git dir — a linked worktree's own git dir has none
 				getInfoExcludePath: async () => {
 					const gitDir = await this.config.getGitDir?.(repoPath);
@@ -721,7 +842,7 @@ export class CliGitProvider implements GitProvider {
 				},
 				getGitIgnorePaths: () => this.getGitIgnorePaths(repoPath),
 				getIgnoreCase: async () => {
-					const value = await this.config.getConfig?.(repoPath, 'core.ignorecase');
+					const { ignoreCase: value } = await this.config.getIgnoreConfig(repoPath);
 					if (value == null) return undefined;
 					if (parseGitBoolean(value)) return true;
 
@@ -1057,6 +1178,22 @@ export class CliGitProvider implements GitProvider {
 			this._cache.dispose();
 		}
 	}
+}
+
+/**
+ * The names in `refs` a sibling worktree hears with the shared part of `changes`: those of a shared ref kind among
+ * `changes`. An empty `changes` or `'unknown'` reaches siblings as every shared kind, unnamed, so none.
+ */
+function getSharedRefs(changes: readonly RepositoryChange[], refs: readonly string[]): string[] | undefined {
+	if (!changes.length || changes.includes('unknown')) return undefined;
+
+	const shared = refs.filter(r => {
+		if (!r.startsWith('refs/')) return false;
+
+		const kind = getRefChangeKind(r);
+		return kind != null && changes.includes(kind) && worktreeSharedChanges.has(kind);
+	});
+	return shared.length ? shared : undefined;
 }
 
 /**

@@ -47,7 +47,76 @@ export interface AheadOfBase {
 	readonly reason?: 'none' | 'self' | 'unborn';
 	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, the `upstream` remote's copy of the created-from or default branch when it was compared, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
 	readonly dependsOn: readonly string[];
+	/** The default branch the read resolved from local refs and the remotes' `HEAD` symrefs, `null` when none did; absent when it didn't consult the default branch (a recorded candidate decided the base first) */
+	readonly defaultBranch?: string | null;
 }
+
+/** Which source decided a merge target (see `getMergeTarget`): an {@link AheadOfBaseTier}, the pull request's base, or the branch HEAD was on when the branch was created */
+export type MergeTargetTier = AheadOfBaseTier | 'pr' | 'inferred';
+
+export interface MergeTarget {
+	/** The ref the branch is measured against: the chosen target or its tracking ref, whichever the branch forked from nearer */
+	readonly ref: string;
+	/** Where the branch forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
+	readonly forkPoint: string | undefined;
+	readonly tier: MergeTargetTier;
+}
+
+export interface MergeTargetOptions {
+	/** Leaves the user's merge target out: the order a merge-target picker shows as "automatic" */
+	skipUserTarget?: boolean;
+	/** A target to try before every other source, as `getAheadOfBase`'s */
+	preferredTarget?: string;
+	/**
+	 * Read only when no stored merge target is usable. Its base, on the branch's remote, is tried after the stored
+	 * targets and before the recorded base, and is stored as the detected target (never the user's) unless the pull
+	 * request is part of a stack or the branch is a remote-tracking one
+	 */
+	getAssociatedPullRequest?: () => Promise<{ refs?: { base?: { branch: string } }; stack?: unknown } | undefined>;
+	/**
+	 * Also reads VS Code's `vscode-merge-base` as the recorded base, and, for a branch its reflog says was created from
+	 * `HEAD`, takes the branch HEAD was on when it was first checked out (tier `'inferred'`). The inferred branch is
+	 * never stored
+	 */
+	inferBase?: boolean;
+	/** `'remote'` lets the default-branch read contact the remote when local refs name none; `'local'` (the default) never does */
+	defaultBranch?: 'local' | 'remote';
+	/** Asked for the default branch when git names none */
+	getFallbackDefaultBranch?: () => Promise<string | undefined>;
+	/** Answers a target that is the branch itself at the branch's own commit (including its upstream there), instead of `undefined` */
+	keepSelfAtTip?: boolean;
+	priority?: GitCommandPriority;
+}
+
+/** A ref {@link GitPushTarget} names, with its commit from the cached ref list */
+export interface GitPushTargetRef {
+	/** The full ref name: `refs/remotes/origin/main`, or `refs/heads/main` for an upstream that is a local branch */
+	readonly ref: string;
+	/** The commit {@link ref} points at; `undefined` when no such ref exists (never pushed or fetched, or gone) */
+	readonly sha: string | undefined;
+}
+
+/** Where a branch pushes to and what it tracks (see `getPushTarget`) */
+export type GitPushTarget =
+	| {
+			readonly known: true;
+			/**
+			 * The push destination as git names `<branch>@{push}`; `undefined` when git can't name one. Not always
+			 * where `git push` goes: under `simple` with a push remote other than the upstream's, `git push` pushes
+			 * like `current` while `@{push}` names nothing, and under `matching` it names a destination for a branch
+			 * the remote doesn't have, which `git push` skips
+			 */
+			readonly push: GitPushTargetRef | undefined;
+			/** The branch's upstream, as git names `<branch>@{upstream}`; `undefined` when it has none */
+			readonly upstream: GitPushTargetRef | undefined;
+	  }
+	| {
+			/**
+			 * The ref list, or the checked-out branch, couldn't be read, so nothing can be said either way. A repository
+			 * with no refs at all (no commit yet) reads as an empty list too, so it is unknown as well
+			 */
+			readonly known: false;
+	  };
 
 export type MergeDetectionConfidence = 'highest' | 'high' | 'medium';
 
@@ -73,10 +142,16 @@ export interface GitBranchesSubProvider {
 		},
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>>;
+	/** Measured against the branch's {@link getMergeTarget}, which reads the pull request and the reflog guess, may ask the remote for its default branch, and keeps a target that is the branch itself */
 	getBranchContributionsOverview(
 		repoPath: string,
 		ref: string,
-		options?: { associatedPullRequest?: Promise<PullRequest | undefined>; priority?: GitCommandPriority },
+		options?: {
+			associatedPullRequest?: Promise<PullRequest | undefined>;
+			/** Asked for the default branch when git names none (see {@link MergeTargetOptions.getFallbackDefaultBranch}) */
+			getFallbackDefaultBranch?: () => Promise<string | undefined>;
+			priority?: GitCommandPriority;
+		},
 		cancellation?: AbortSignal,
 	): Promise<BranchContributionsOverview | undefined>;
 	getBranchesWithCommits(
@@ -88,6 +163,30 @@ export interface GitBranchesSubProvider {
 			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<string[]>;
+	/**
+	 * The ref `branch` (a local branch, or a remote-tracking one such as `origin/feature`) is measured against, by the
+	 * rules of {@link getAheadOfBase} but measured from the branch's own tip rather than HEAD: `preferredTarget`, the
+	 * user's merge target (unless `skipUserTarget`), the detected one, the pull request's base (`getAssociatedPullRequest`),
+	 * the recorded base, then — on the default branch — its upstream (tier `'upstream'`), else the branch the reflog
+	 * says it was created from (or, with `inferBase`, the one HEAD was on when it was first checked out: tier
+	 * `'inferred'`) unless the default branch forked strictly nearer, else the default branch. The default branch is
+	 * read from local refs; with `defaultBranch: 'remote'` the remote is asked when they name none, and
+	 * `getFallbackDefaultBranch` last. A candidate that is empty, flag-like or the branch itself falls through, as does
+	 * one git confirms is gone; one that couldn't be checked is kept. A remote-tracking branch has no stored targets,
+	 * reflog or upstream of its own (its pull request's base is still tried), and is itself as its local branch or its
+	 * copy on any remote. `undefined` for a detached HEAD or an empty name, when nothing resolves, or — unless
+	 * `keepSelfAtTip` — when the target is the branch itself at the branch's own commit.
+	 *
+	 * Answers are cached with the ref tips, stored keys and config they were read from, and a later call re-reads
+	 * only those (all cached) to confirm them, so a warm call runs no git, and a ref moving that the answer didn't
+	 * read re-measures nothing. A later call asks the pull request again only when the answer reached it and stored nothing.
+	 */
+	getMergeTarget(
+		repoPath: string,
+		branch: string,
+		options?: MergeTargetOptions,
+		cancellation?: AbortSignal,
+	): Promise<MergeTarget | undefined>;
 	getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
@@ -120,6 +219,17 @@ export interface GitBranchesSubProvider {
 		remoteBranchName: string,
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined>;
+	/**
+	 * Where `branch` (a local branch's short or full name; the branch checked out at `repoPath` when omitted) pushes to,
+	 * and its upstream, both read from the cached ref list, so a warm call runs no git. The destination is git's own
+	 * answer (`%(push)`, which follows `push.default`, `remote.pushDefault`, `branch.<name>.pushRemote`, push refspecs
+	 * and mirror remotes); it is `undefined` when git can't name a single destination: no upstream under `simple` or
+	 * `upstream`, `push.default=nothing`, `simple` with a differently named upstream or a different push remote, or a
+	 * destination with no local tracking ref. A destination or upstream is named even when its ref is missing, with an
+	 * `undefined` `sha`. A detached HEAD, a remote-tracking ref and a branch not in the list have neither. `known` is
+	 * `false` when the ref list, or the checked-out branch, couldn't be read.
+	 */
+	getPushTarget?(repoPath: string, branch?: string, cancellation?: AbortSignal): Promise<GitPushTarget>;
 	getPotentialApplyConflicts?(
 		repoPath: string,
 		targetBranch: string,
@@ -144,7 +254,8 @@ export interface GitBranchesSubProvider {
 	 * detached) was cut from. Candidates in trust
 	 * order: the user's merge target, the detected one, then the base recorded against the branch — only recorded bases
 	 * count, never a reflog guess. Each is measured as itself or its tracking ref, whichever forked nearer HEAD; a stale
-	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the default branch
+	 * target (one git confirms names no ref, a flag-like one, or the branch itself) falls through to the next — one that
+	 * couldn't be checked is kept, so its count rejects — and the default branch
 	 * is used when none survives: the `HEAD` symref of the `upstream` remote, else `origin`, else the first remote, as its
 	 * local branch or else the remote ref; then, in the same remote order, `<remote>/main` or `<remote>/master`, again as
 	 * the local branch or else the remote ref; then `init.defaultBranch`, `main`, `master` — from local refs only, never
@@ -174,6 +285,48 @@ export interface GitBranchesSubProvider {
 		},
 		cancellation?: AbortSignal,
 	): Promise<AheadOfBase>;
+	/**
+	 * An opaque snapshot of the Git config inputs to `getAheadOfBase`, excluding the stored gk merge targets and
+	 * base. Equal snapshots let a summary keep its base while its HEAD, stored values and dependent refs are unchanged.
+	 * `undefined` means the inputs could not be read; providers without this operation require a full base read.
+	 */
+	getAheadOfBaseConfigKey?(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined>;
+	/**
+	 * The Git config entries {@link getAheadOfBaseConfigKey} is taken from, in Git's order with repeated keys kept: each
+	 * key as Git lists it (section and name lowercased, the subsection as written) with its value, `undefined` for a key
+	 * set without one. A worktree summary keys its base on every entry except the `branch.<name>` ones of branches its
+	 * base read didn't depend on, so another branch's tracking changing leaves its base alone. `undefined` means the
+	 * inputs could not be read.
+	 */
+	getAheadOfBaseConfigEntries?(
+		repoPath: string,
+		cancellation?: AbortSignal,
+	): Promise<readonly (readonly [key: string, value: string | undefined])[] | undefined>;
+	/**
+	 * Re-measures `previous`, a `getAheadOfBase` answer for `branch` read with HEAD at `previous.head`, after a write
+	 * moved `moved` (full ref names from `previous.dependsOn`), without resolving the base again. It answers only when
+	 * that provably equals a fresh `getAheadOfBase`: HEAD is still at `previous.head`, the refs that moved are the base's
+	 * own ref (the only listed ref its name answers to) and any `<remote>/HEAD` symref still pointing at it, with the
+	 * default branch resolving as `previous.defaultBranch` when one did (absent, it can't be shown), the repository
+	 * isn't shallow, the base moved only forward (its old tip and every value its reflog
+	 * took since are in its new tip's history), and HEAD's count past its new tip, `previous.base.forkPoint` and every
+	 * commit the base's reflog reaches off its new tip's history is unchanged. Equal counts mean none of HEAD's commits
+	 * reached the base, the fork point is in its history, and the reflog shares no more of HEAD's history than the tip
+	 * does, so HEAD's common history with the base, and with that the fork point and the choice of base, stay as they
+	 * were; only `base.sha` moves, and `defaultBranch` is kept. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is due.
+	 */
+	getAheadOfBaseAfterBaseMove?(
+		repoPath: string,
+		branch: string | undefined,
+		previous: {
+			readonly head: string;
+			readonly base: NonNullable<AheadOfBase['base']>;
+			readonly dependsOn: readonly string[];
+			readonly defaultBranch?: string | null;
+		},
+		moved: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase | undefined>;
 	/**
 	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
 	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as

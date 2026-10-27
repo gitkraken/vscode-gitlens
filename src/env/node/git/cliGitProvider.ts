@@ -12,6 +12,7 @@ import { slowCallWarningThreshold } from '@gitlens/git-cli/exec/git.js';
 import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from '@gitlens/git-cli/exec/locator.js';
 import type { Cache } from '@gitlens/git/cache.js';
+import { resetDropsPendingRuns } from '@gitlens/git/cache.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
@@ -102,7 +103,7 @@ export function clearPendingCommandsForReset(
 	git: Pick<Git, 'clearPendingCommands'>,
 	reset: GitCacheResetEvent['data'],
 ): void {
-	if (reset.types?.length && reset.types.every(t => t === 'providers')) return;
+	if (!resetDropsPendingRuns(reset.types)) return;
 
 	git.clearPendingCommands(reset.repoPath != null ? [reset.repoPath] : undefined);
 }

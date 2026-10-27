@@ -87,7 +87,7 @@ export async function getReachableWorktrees(
 	sha: string,
 	cancellation?: AbortSignal,
 ): Promise<GitWorktree[]> {
-	const worktrees = await container.git.getRepository(repoPath)?.git.worktrees?.getWorktrees(cancellation);
+	const worktrees = await container.git.getRepository(repoPath)?.git.worktrees?.getWorktrees(undefined, cancellation);
 	if (worktrees == null || worktrees.length <= 1) return [];
 
 	const normalizedRepoPath = normalizePath(repoPath);
@@ -176,7 +176,7 @@ export async function getWorktreesByBranch(
 	async function addWorktrees(repo: GlRepository) {
 		if (repo.git.worktrees == null) return;
 
-		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(cancellation), {
+		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(undefined, cancellation), {
 			includeDefault: options?.includeDefault,
 			worktreesByBranch: worktreesByBranch,
 		});

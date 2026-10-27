@@ -10,6 +10,7 @@ import type { FieldPresence, IssueFieldGroup, PullRequestFieldGroup } from '../f
 import { getIssueFieldPresence, getPullRequestFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { assertIssuePresence, assertPullRequestPresence } from './fieldPresenceHelpers.js';
@@ -43,6 +44,18 @@ const workItemId = 7;
 
 function json(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify(data), { status: status, headers: { 'content-type': 'application/json' } });
+}
+
+/** The token an `Authorization` header carries, whether as a bearer or as a basic credential's password. */
+function credentialOf(authorization: string | null): string {
+	if (authorization == null) return '';
+	if (authorization.toLowerCase().startsWith('basic ')) {
+		return Buffer.from(authorization.slice(6), 'base64')
+			.toString()
+			.replace(/^[^:]*:/, '');
+	}
+
+	return authorization.replace(/^bearer /i, '');
 }
 
 function identity(id: string, extra?: Node): Node {
@@ -101,26 +114,53 @@ function azurePullRequest(base: string, id: number, description: string): Node {
 	};
 }
 
+/**
+ * What a test changes about the server: the work item's fields (an `undefined` one is left out, as Azure leaves out a
+ * field without a value), the organization's field catalog, and a log of the routes asked for.
+ */
+interface ServerFixture {
+	workItemFields?: Node;
+	fieldCatalog?: () => Response;
+	routes?: string[];
+	/**
+	 * The id the organization (Azure DevOps Server: collection) knows the account by, or a function of the request's
+	 * token; the profile's when omitted.
+	 */
+	orgUserId?: string | ((token: string) => string);
+	/** Called with each route below the organization before it is answered. */
+	onRoute?: (route: string, token: string) => void;
+	/** Leaves the organization's connection data unanswered, as a hung request would. */
+	hangIdentity?: boolean;
+	/** Fails the organization's (Azure DevOps Server: collection's) connection data with a server error, while true. */
+	failIdentity?: boolean | (() => boolean);
+}
+
+function identityFails(fixture: ServerFixture): boolean {
+	return typeof fixture.failIdentity === 'function' ? fixture.failIdentity() : fixture.failIdentity === true;
+}
+
 /** A work item with an assignee, tags, a description and comments. */
-function azureWorkItem(base: string, id: number): Node {
+function azureWorkItem(base: string, id: number, overrides?: Node): Node {
+	const fields: Node = {
+		'System.AreaPath': projectName,
+		'System.TeamProject': projectName,
+		'System.IterationPath': projectName,
+		'System.WorkItemType': 'Task',
+		'System.State': 'Active',
+		'System.CreatedDate': '2026-01-01T00:00:00.123Z',
+		'System.CreatedBy': identity('author'),
+		'System.AssignedTo': identity('assignee'),
+		'System.ChangedDate': '2026-01-02T00:00:00.123Z',
+		'System.CommentCount': 3,
+		'System.Title': `Work item ${id}`,
+		'System.Description': '<div>Work item body</div>',
+		'System.Tags': 'bug; ui',
+		...overrides,
+	};
 	return {
 		id: id,
 		rev: 3,
-		fields: {
-			'System.AreaPath': projectName,
-			'System.TeamProject': projectName,
-			'System.IterationPath': projectName,
-			'System.WorkItemType': 'Task',
-			'System.State': 'Active',
-			'System.CreatedDate': '2026-01-01T00:00:00.123Z',
-			'System.CreatedBy': identity('author'),
-			'System.AssignedTo': identity('assignee'),
-			'System.ChangedDate': '2026-01-02T00:00:00.123Z',
-			'System.CommentCount': 3,
-			'System.Title': `Work item ${id}`,
-			'System.Description': '<div>Work item body</div>',
-			'System.Tags': 'bug; ui',
-		},
+		fields: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
 		_links: { html: { href: `${base}/${projectName}/_workitems/edit/${id}` } },
 		url: `${base}/${projectId}/_apis/wit/workItems/${id}`,
 	};
@@ -131,9 +171,18 @@ function azureWorkItem(base: string, id: number): Node {
  * the path below it, decoded and lower-cased: Azure serves these routes case-insensitively and the clients spell them
  * both ways. A list truncates each description, as Azure does; a read by id returns it whole.
  */
-function answerCollection(base: string, segments: string[], url: URL, body: string | undefined): Response {
+function answerCollection(
+	base: string,
+	segments: string[],
+	url: URL,
+	body: string | undefined,
+	fixture: ServerFixture,
+	token = '',
+): Response {
 	const [first, ...rest] = segments;
 	const route = first === '_apis' ? segments.join('/') : `{project}/${rest.join('/')}`;
+	fixture.onRoute?.(route, token);
+	fixture.routes?.push(route);
 	const pullRequests = pullRequestIds.map(id => azurePullRequest(base, id, fullDescription));
 	const listed: Node[] = pullRequests.map(pr => ({
 		...pr,
@@ -141,6 +190,11 @@ function answerCollection(base: string, segments: string[], url: URL, body: stri
 	}));
 
 	switch (true) {
+		case route === '_apis/connectiondata': {
+			const id = typeof fixture.orgUserId === 'function' ? fixture.orgUserId(token) : (fixture.orgUserId ?? me);
+			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
+			return json({ authenticatedUser: user, authorizedUser: user });
+		}
 		case route === '_apis/projects':
 			return json({ value: [{ id: projectId, name: projectName }] });
 		case route === '{project}/_apis/git/repositories':
@@ -170,10 +224,14 @@ function answerCollection(base: string, segments: string[], url: URL, body: stri
 			return json({ workItems: [{ id: workItemId }] });
 		case route.endsWith('/_apis/wit/workitemsbatch') || route === '_apis/wit/workitemsbatch': {
 			const ids = (JSON.parse(body!) as { ids: number[] }).ids;
-			return json({ value: ids.map(id => azureWorkItem(base, id)) });
+			return json({ value: ids.map(id => azureWorkItem(base, id, fixture.workItemFields)) });
 		}
 		case /^\{project\}\/_apis\/wit\/workitems\/\d+$/.test(route):
-			return json(azureWorkItem(base, Number(segments.at(-1))));
+			return json(azureWorkItem(base, Number(segments.at(-1)), fixture.workItemFields));
+		case route === '_apis/wit/fields':
+			return fixture.fieldCatalog?.() ?? json({ count: 0, value: [] });
+		case route === '{project}/_apis/wit/workitemtypes':
+			return json({ value: [{ name: 'Task' }] });
 		case /^\{project\}\/_apis\/wit\/workitemtypes\/[^/]+\/states$/.test(route):
 			return json({ value: [{ name: 'Active', color: '', category: 'InProgress' }], count: 1 });
 		default:
@@ -211,11 +269,14 @@ interface Connected {
 }
 
 /** Azure DevOps Services: the account's organizations come from the profile, and its projects from the organization. */
-async function connectedServices(): Promise<Connected> {
+async function connectedServices(fixture: ServerFixture = {}): Promise<Connected> {
 	const runtime = createFakeRuntime();
 	bypassPointReadCache(runtime);
 	const base = `https://dev.azure.com/${org}`;
 	runtime.http.fetch = (input, init) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return Promise.resolve(discovery);
+
 		const url = new URL(input.toString());
 		if (url.hostname === 'app.vssps.visualstudio.com') {
 			if (url.pathname.endsWith('/profile/profiles/me')) {
@@ -231,10 +292,22 @@ async function connectedServices(): Promise<Connected> {
 			.split('/')
 			.filter(Boolean)
 			.map(s => decodeURIComponent(s).toLowerCase());
+		if (fixture.hangIdentity && segments.at(-1) === 'connectiondata') return new Promise<Response>(() => {});
+		if (identityFails(fixture) && segments.at(-1) === 'connectiondata') {
+			return Promise.resolve(json({ message: 'identity unavailable' }, 500));
+		}
+
 		assert.equal(url.hostname, 'dev.azure.com', url.href);
 		assert.equal(segments[0], org, url.href);
 		return Promise.resolve(
-			answerCollection(base, segments.slice(1), url, typeof init?.body === 'string' ? init.body : undefined),
+			answerCollection(
+				base,
+				segments.slice(1),
+				url,
+				typeof init?.body === 'string' ? init.body : undefined,
+				fixture,
+				credentialOf(new Headers(init?.headers).get('authorization')),
+			),
 		);
 	};
 
@@ -256,7 +329,7 @@ async function connectedServices(): Promise<Connected> {
  * Azure DevOps Server: one installation below `https://server.test/tfs`, whose one collection is `org`. Each
  * collection knows the account by an identity of its own, and only the server level lists the collections.
  */
-async function connectedServer(): Promise<Connected> {
+async function connectedServer(fixture: ServerFixture = {}): Promise<Connected> {
 	const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 	const installation = 'https://server.test/tfs';
 	const runtime = createFakeRuntime();
@@ -274,6 +347,9 @@ async function connectedServer(): Promise<Connected> {
 		return json({ data: { ...descriptor, accessToken: `${me}-token`, expiresIn: 3600, scopes: '' } });
 	};
 	runtime.http.fetch = (input, init) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return Promise.resolve(discovery);
+
 		const url = new URL(input.toString());
 		const segments = url.pathname
 			.slice('/tfs'.length)
@@ -284,7 +360,14 @@ async function connectedServer(): Promise<Connected> {
 
 		const atServer = segments[0] === '_apis';
 		if (segments.at(-1) === 'connectiondata') {
-			const user = { id: me, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
+			if (!atServer) {
+				fixture.routes?.push('_apis/connectiondata');
+				if (fixture.hangIdentity) return new Promise<Response>(() => {});
+				if (identityFails(fixture)) return Promise.resolve(json({ message: 'identity unavailable' }, 500));
+			}
+
+			const id = atServer || typeof fixture.orgUserId === 'function' ? me : (fixture.orgUserId ?? me);
+			const user = { id: id, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
 			return Promise.resolve(
 				json({
 					authenticatedUser: user,
@@ -305,6 +388,7 @@ async function connectedServer(): Promise<Connected> {
 				segments.slice(1),
 				url,
 				typeof init?.body === 'string' ? init.body : undefined,
+				fixture,
 			),
 		);
 	};
@@ -631,4 +715,493 @@ suite('Field presence: every Azure DevOps projection in the tables was exercised
 			assert.deepEqual([...exercisedIssueProjections.get(providerId)!].sort(), [...issues].sort());
 		});
 	}
+});
+
+/** Every read that returns a work item: the point read, the account-wide and repository-scoped lists, the batch read
+ * and, where the host has one (`searches`), the filtered search. Each must return the one row. */
+async function readAllWorkItems(
+	{ manager, azure, providerId, target }: Connected,
+	searches: boolean,
+): Promise<[string, IssueShape][]> {
+	const point = await azure.getIssue(projectResource, String(workItemId));
+	const account = await manager.listIssuesPage({ ...target, providerId: providerId });
+	const scoped = await manager.listIssuesPage({ ...target, providerId: providerId, repos: repos });
+	const batch = await manager.getIssuesBatch({
+		...target,
+		providerId: providerId,
+		targets: [{ key: 'issue', owner: org, repo: '', number: workItemId, project: projectName }],
+	});
+	const searched = searches
+		? await manager.searchIssuesPage({ ...target, providerId: providerId, org: org })
+		: undefined;
+
+	const rows: [string, IssueShape | undefined][] = [
+		['point', point],
+		['account', account.items[0]],
+		['repos', scoped.items[0]],
+		['batch', batch.items[0]?.issue],
+		...(searched != null ? [['search', searched.items[0]] as [string, IssueShape | undefined]] : []),
+	];
+	for (const [read, row] of rows) {
+		assert.ok(row != null, `${providerId} ${read}: a row`);
+	}
+
+	return rows as [string, IssueShape][];
+}
+
+/**
+ * A work item's description is its first rich text field with content, whichever read produced the row: provider-apis'
+ * list rows, and GitLens' own point, batch and search reads, apply the same rule.
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Work item description: every ${label} read`, () => {
+		const catalog = {
+			count: 4,
+			value: [
+				{ referenceName: 'System.Description', name: 'Description', type: 'html' },
+				{ referenceName: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps', type: 'html' },
+				{ referenceName: 'Custom.Details', name: 'Details', type: 'html' },
+				{ referenceName: 'Custom.Notes', name: 'Notes', type: 'string' },
+			],
+		};
+
+		test('keeps Description, even when another rich text field has content', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: { 'Microsoft.VSTS.TCM.ReproSteps': '<div>Steps</div>' },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.body, '<div>Work item body</div>', read);
+				assert.deepEqual(row.bodyField, { id: 'System.Description', name: 'Description' }, read);
+			}
+			assert.ok(!routes.includes('_apis/wit/fields'), 'the field catalog is not read');
+
+			connected.manager.dispose();
+		});
+
+		test('reads a work item described only by Repro Steps, without the field catalog', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: {
+					'System.Description': undefined,
+					'Microsoft.VSTS.TCM.ReproSteps': '<div>Preconditions: signed in</div>',
+				},
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.body, '<div>Preconditions: signed in</div>', read);
+				assert.deepEqual(row.bodyField, { id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }, read);
+			}
+			assert.ok(!routes.includes('_apis/wit/fields'), 'the field catalog is not read');
+
+			connected.manager.dispose();
+		});
+
+		test('reads a custom html field from the field catalog, and reuses the catalog', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: {
+					'System.Description': '<div></div>',
+					'Custom.Notes': 'plain text, not rich text',
+					'Custom.Details': '<p>Custom details</p>',
+				},
+				fieldCatalog: () => json(catalog),
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.body, '<p>Custom details</p>', read);
+				assert.deepEqual(row.bodyField, { id: 'Custom.Details', name: 'Details' }, read);
+			}
+			const catalogReads = routes.filter(route => route === '_apis/wit/fields').length;
+			assert.ok(catalogReads > 0, 'the field catalog is read');
+
+			await readAllWorkItems(connected, searches);
+			assert.equal(
+				routes.filter(route => route === '_apis/wit/fields').length,
+				catalogReads,
+				'no read asks for the catalog again',
+			);
+
+			connected.manager.dispose();
+		});
+
+		for (const [failure, response] of [
+			['refused', () => json({ message: 'denied' }, 403)],
+			['failing', () => json({ message: 'down' }, 500)],
+			['unavailable', () => json({ message: 'down' }, 503)],
+			['malformed', () => json({ unexpected: true })],
+		] as const) {
+			test(`falls back to the built-in description fields when the field catalog read is ${failure}`, async () => {
+				const connected = await connect({
+					workItemFields: {
+						'System.Description': undefined,
+						'Custom.Details': '<p>Custom details</p>',
+					},
+					fieldCatalog: response,
+				});
+
+				for (const [read, row] of await readAllWorkItems(connected, searches)) {
+					assert.equal(row.body, undefined, read);
+					assert.equal(row.bodyField, undefined, read);
+				}
+
+				connected.manager.dispose();
+			});
+		}
+	});
+}
+
+/**
+ * A work item's people carry the id its organization (Azure DevOps Server: collection) knows the account by, which can
+ * differ from the profile id (gitkraken/kepler#4291), so every read stamps the row with that identity as its `viewer`,
+ * as pull requests already are (#6032).
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Work item viewer: every ${label} read`, () => {
+		test("stamps the organization's identity, not the profile id, read once for every read", async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				orgUserId: 'org-me',
+				workItemFields: { 'System.AssignedTo': identity('org-me') },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.deepEqual(row.viewer, { id: 'org-me' }, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
+				assert.ok(
+					row.assignees.some(a => a.id === row.viewer?.id),
+					`${read}: the assignee is matched by the viewer`,
+				);
+			}
+			assert.equal(
+				routes.filter(r => r === '_apis/connectiondata').length,
+				1,
+				"the organization's identity is cached, not read again per read or per row",
+			);
+
+			connected.manager.dispose();
+		});
+
+		test('leaves a work item that names no one without a viewer', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				orgUserId: 'org-me',
+				workItemFields: { 'System.CreatedBy': undefined, 'System.AssignedTo': undefined },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, undefined, `${read}: nothing on it needed an identity`);
+			}
+			assert.equal(
+				routes.filter(r => r === '_apis/connectiondata').length,
+				1,
+				'only the batch read asks, alongside the work item and before it can tell whether anyone is named',
+			);
+
+			connected.manager.dispose();
+		});
+
+		test("marks a work item that names someone viewerUnresolved when the organization's identity can't be read (#6083)", async () => {
+			const connected = await connect({ failIdentity: true });
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test('leaves a work item that names no one unmarked, even when the identity read fails', async () => {
+			const connected = await connect({
+				failIdentity: true,
+				workItemFields: { 'System.CreatedBy': undefined, 'System.AssignedTo': undefined },
+			});
+
+			for (const [read, row] of await readAllWorkItems(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
+			}
+
+			connected.manager.dispose();
+		});
+	});
+}
+
+suite('Work item viewer: Azure DevOps Services edge cases', () => {
+	test('a repository-scoped read stamps the identity of the connection that read the rows, even if it switched since', async () => {
+		let azure: GitHostIntegration | undefined;
+		let switched = false;
+		const connected = await connectedServices({
+			// Each credential's own identity in the organization.
+			orgUserId: token => (token === 'token-b' ? 'org-b' : 'org-a'),
+			workItemFields: { 'System.AssignedTo': identity('org-a') },
+			onRoute: route => {
+				// The connection switches while the rows are being read.
+				if (!switched && azure != null && route.startsWith('{project}/_apis/wit/')) {
+					switched = true;
+					const holder = azure as unknown as { _session: ProviderAuthenticationSession };
+					holder._session = { ...holder._session, accessToken: 'token-b' };
+				}
+			},
+		});
+		azure = connected.azure;
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('token-a'),
+			domain: 'dev.azure.com',
+		};
+
+		const scoped = await connected.manager.listIssuesPage({
+			...connected.target,
+			providerId: connected.providerId,
+			repos: repos,
+		});
+
+		assert.ok(switched, 'the connection switched mid-read');
+		assert.equal(scoped.items.length, 1);
+		assert.deepEqual(scoped.items[0].viewer, { id: 'org-a' }, 'never the identity of the connection switched to');
+
+		connected.manager.dispose();
+	});
+
+	test('a hung identity read leaves the rows without a viewer rather than holding them up', async () => {
+		const connected = await connectedServices({
+			hangIdentity: true,
+			workItemFields: { 'System.AssignedTo': identity('org-me') },
+		});
+		const azure = connected.azure as unknown as { organizationViewerTimeoutMs: number };
+		azure.organizationViewerTimeoutMs = 20;
+
+		for (const [read, row] of await readAllWorkItems(connected, false)) {
+			assert.equal(row.viewer, undefined, read);
+			assert.equal(row.viewerUnresolved, true, read);
+		}
+
+		// While that request is still pending, a later read doesn't wait on it again: with a deadline past the test's
+		// own timeout, waiting would fail the test.
+		azure.organizationViewerTimeoutMs = 10 * 60 * 1000;
+		for (const [read, row] of await readAllWorkItems(connected, false)) {
+			assert.equal(row.viewer, undefined, `${read}, again`);
+			assert.equal(row.viewerUnresolved, true, `${read}, again`);
+		}
+
+		connected.manager.dispose();
+	});
+
+	test('a lookup a re-sync left behind, timing out after its replacement answered, never hides that answer', async () => {
+		const connected = await connectedServices();
+		const azure = connected.azure as unknown as {
+			organizationViewerTimeoutMs: number;
+			requestOrganizationUserId: () => Promise<string | undefined>;
+			getOrganizationViewers: (
+				session: ProviderAuthenticationSession,
+			) => (organization: string) => Promise<{ id: string } | null>;
+			invalidateDiscoveryCaches: () => void;
+		};
+		azure.organizationViewerTimeoutMs = 20;
+		let requests = 0;
+		azure.requestOrganizationUserId = () =>
+			++requests === 1 ? new Promise<undefined>(() => {}) : Promise.resolve('org-me');
+		const session = primarySession('token-a');
+
+		const obsolete = azure.getOrganizationViewers(session)(org);
+		azure.invalidateDiscoveryCaches();
+		assert.deepEqual(await azure.getOrganizationViewers(session)(org), { id: 'org-me' }, 'the replacement');
+
+		assert.equal(await obsolete, null, 'the obsolete lookup timed out');
+		assert.deepEqual(
+			await azure.getOrganizationViewers(session)(org),
+			{ id: 'org-me' },
+			'a later read still gets the replacement',
+		);
+
+		connected.manager.dispose();
+	});
+});
+
+/**
+ * Every pull request read a host maps "mine" from (the lists, sweeps, batch, branch and filtered search reads), each
+ * row of which names its author and reviewers.
+ */
+async function readAllPullRequests(
+	{ manager, providerId, target }: Connected,
+	searches: boolean,
+): Promise<[string, PullRequestShape][]> {
+	const scoped = await manager.listPullRequestsPage({ ...target, providerId: providerId, repos: repos });
+	const swept = await manager.sweepPullRequests({ ...target, providerIds: [providerId], repos: repos });
+	const batch = await manager.getPullRequestsBatch({
+		...target,
+		providerId: providerId,
+		targets: [{ key: 'pr', owner: org, repo: repoName, number: 1, project: projectName }],
+	});
+	const branches = await manager.getPullRequestsForBranches({
+		...target,
+		providerId: providerId,
+		targets: [{ key: 'branch', owner: org, repo: repoName, project: projectName, branch: 'feature-1' }],
+	});
+	const searched = searches
+		? await manager.searchPullRequestsPage({
+				...target,
+				providerId: providerId,
+				repos: repos,
+				criteria: { states: ['all'] },
+			})
+		: undefined;
+
+	const rows: [string, PullRequestShape | undefined][] = [
+		['repos', scoped.items[0]],
+		['sweep', swept.items[0]],
+		['batch', batch.items[0]?.pullRequest],
+		['branch', branches.items[0]?.pullRequests[0]],
+		...(searched != null ? [['search', searched.items[0]] as [string, PullRequestShape | undefined]] : []),
+	];
+	for (const [read, row] of rows) {
+		assert.ok(row != null, `${providerId} ${read}: a row`);
+	}
+
+	return rows as [string, PullRequestShape][];
+}
+
+/**
+ * A row whose organization's identity couldn't be read says so (#6083), rather than looking like one from a provider
+ * with no per-row identity, which a host matches against the account: on Azure DevOps that account's id is exactly the
+ * one that may not match, so a host would report a definite "not mine".
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Pull request viewer: every ${label} read`, () => {
+		test("stamps the organization's identity and no marker when it can be read", async () => {
+			const connected = await connect({ orgUserId: 'author' });
+
+			for (const [read, row] of await readAllPullRequests(connected, searches)) {
+				assert.deepEqual(row.viewer, { id: 'author' }, read);
+				assert.equal(row.authoredByMe, true, read);
+				assert.equal(row.viewerUnresolved, undefined, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test("marks the rows viewerUnresolved, with no viewer or authorship, when it can't be read", async () => {
+			const connected = await connect({ failIdentity: true });
+
+			for (const [read, row] of await readAllPullRequests(connected, searches)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.authoredByMe, undefined, `${read}: unknown, not "not mine"`);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+
+		test('marks the rows viewerUnresolved when the identity read outlives its bound', async () => {
+			const connected = await connect({ hangIdentity: true });
+			(connected.azure as unknown as { organizationViewerTimeoutMs: number }).organizationViewerTimeoutMs = 20;
+
+			for (const [read, row] of await readAllPullRequests(connected, false)) {
+				assert.equal(row.viewer, undefined, read);
+				assert.equal(row.authoredByMe, undefined, read);
+				assert.equal(row.viewerUnresolved, true, read);
+			}
+
+			connected.manager.dispose();
+		});
+	});
+}
+
+suite('Pull request viewer: the Azure DevOps Server filtered search', () => {
+	test("a continuation page resolves the collection's identity again rather than keeping its first page's answer", async () => {
+		let failIdentity = true;
+		const routes: string[] = [];
+		const connected = await connectedServer({
+			orgUserId: 'author',
+			failIdentity: () => failIdentity,
+			routes: routes,
+		});
+		const scope = {
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			repos: repos,
+			criteria: { states: ['all' as const] },
+			itemsPerPage: 1,
+		};
+
+		const first = await connected.manager.searchPullRequestsPage(scope);
+		assert.equal(first.items[0]?.viewerUnresolved, true);
+		assert.equal(first.items[0]?.viewer, undefined);
+		assert.ok(first.cursor != null, 'a second page follows');
+
+		failIdentity = false;
+		const second = await connected.manager.searchPullRequestsPage({ ...scope, cursor: first.cursor });
+		assert.deepEqual(second.items[0]?.viewer, { id: 'author' });
+		assert.equal(second.items[0]?.authoredByMe, true);
+		assert.equal(second.items[0]?.viewerUnresolved, undefined);
+
+		connected.manager.dispose();
+	});
+
+	test("a count, which maps no row, doesn't read the identity", async () => {
+		const routes: string[] = [];
+		const connected = await connectedServer({ routes: routes });
+
+		const count = await connected.manager.countPullRequests({
+			...connected.target,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			scopes: [{ key: 'all', repos: repos, criteria: { states: ['all'] } }],
+		});
+		assert.equal(count.fetchFailed, undefined, JSON.stringify(count.warnings));
+		assert.equal(routes.filter(r => r === '_apis/connectiondata').length, 0);
+
+		connected.manager.dispose();
+	});
+});
+
+suite('Pull request viewer: the etag of a row whose identity was unresolved', () => {
+	test('never compares unchanged, so the row is read in full again rather than kept unresolved', async () => {
+		let failIdentity = true;
+		const connected = await connectedServices({ orgUserId: 'author', failIdentity: () => failIdentity });
+		const { manager, providerId, target } = connected;
+		const targets = [{ key: 'pr', owner: org, repo: repoName, number: 1, project: projectName }];
+
+		const unresolved = await manager.getPullRequestsBatch({ ...target, providerId: providerId, targets: targets });
+		const unresolvedRow = unresolved.items[0];
+		assert.equal(unresolvedRow?.pullRequest?.viewerUnresolved, true);
+		assert.ok(unresolvedRow?.etag != null);
+
+		failIdentity = false;
+		const again = await manager.getPullRequestsBatch({
+			...target,
+			providerId: providerId,
+			targets: targets.map(t => ({ ...t, etag: unresolvedRow.etag })),
+		});
+		const resolvedRow = again.items[0];
+		assert.notEqual(resolvedRow?.unchanged, true, 'not kept as it was');
+		assert.deepEqual(resolvedRow?.pullRequest?.viewer, { id: 'author' });
+		assert.equal(resolvedRow?.pullRequest?.viewerUnresolved, undefined);
+		assert.ok(resolvedRow?.etag != null);
+
+		const resolvedAgain = await manager.getPullRequestsBatch({
+			...target,
+			providerId: providerId,
+			targets: targets.map(t => ({ ...t, etag: resolvedRow.etag })),
+		});
+		assert.equal(resolvedAgain.items[0]?.unchanged, true, 'a resolved row still compares unchanged');
+
+		manager.dispose();
+	});
 });

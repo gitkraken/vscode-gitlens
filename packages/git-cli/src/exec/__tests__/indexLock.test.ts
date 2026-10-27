@@ -98,6 +98,17 @@ suite('Git index.lock handling', () => {
 			assert.deepStrictEqual(spawned[0].args, spawned[1].args);
 		});
 
+		test('tells onSpawn of the first spawn only', async () => {
+			let calls = 0;
+			fake(() => (++calls === 1 ? Promise.reject(lockHeld()) : ok()));
+			let spawns = 0;
+
+			await git.run({ cwd: repoA, onSpawn: () => spawns++ }, 'add', 'file.ts');
+
+			assert.strictEqual(spawned.length, 2);
+			assert.strictEqual(spawns, 1);
+		});
+
 		test('gives up after the last delay and rethrows the lock error', async () => {
 			fake(() => Promise.reject(lockHeld()));
 

@@ -29,9 +29,14 @@ export function getAutolinkIcon(
 	isDraft: boolean = false,
 ): { icon: string; modifier: string } {
 	if (type === 'issue') {
-		return status === 'closed'
-			? { icon: 'pass', modifier: 'issue-closed' }
-			: { icon: 'issues', modifier: 'issue-opened' };
+		switch (status) {
+			case 'closed':
+				return { icon: 'pass', modifier: 'issue-closed' };
+			case 'opened':
+				return { icon: 'issues', modifier: 'issue-opened' };
+			default:
+				return { icon: 'issues', modifier: 'issue' };
+		}
 	}
 
 	if (type === 'pr') {
