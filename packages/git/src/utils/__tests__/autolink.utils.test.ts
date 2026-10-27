@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import type { CacheableAutolinkReference, RefSet } from '../../models/autolink.js';
+import type { CacheableAutolinkReference, DynamicAutolinkReference, RefSet } from '../../models/autolink.js';
 import {
 	ensureCachedBranchNameRegexes,
 	ensureCachedRegex,
@@ -135,6 +135,13 @@ suite('Autolink Utils Test Suite', () => {
 	});
 
 	suite('ensureCachedBranchNameRegexes', () => {
+		test('treats configured prefixes as literal text, including regex metacharacters', () => {
+			const ref = makeRef({ prefix: '[OPS.+-' });
+			const refs: RefSet[] = [[undefined, [ref]]];
+			assert.strictEqual(getBranchAutolinks('feature/[OPS.+-12', refs).size, 1);
+			assert.strictEqual(getBranchAutolinks('feature/OPSxx-12', refs).size, 0);
+		});
+
 		test('creates regexes for a ref with a prefix', () => {
 			const ref = makeRef({ prefix: 'JIRA-' });
 			ensureCachedBranchNameRegexes(ref);
@@ -183,6 +190,57 @@ suite('Autolink Utils Test Suite', () => {
 	});
 
 	suite('getAutolinks', () => {
+		test('limits static materialization and resets the cached regex for the next call', () => {
+			const ref = makeRef();
+			let materialized = 0;
+			Object.defineProperty(ref, 'title', {
+				get: () => {
+					materialized++;
+					return undefined;
+				},
+			});
+			const refs: RefSet[] = [[undefined, [ref]]];
+			const message = Array.from({ length: 10000 }, (_, i) => `JIRA-${i + 1}`).join(' ');
+			assert.deepStrictEqual([...getAutolinks(message, refs, { maxResults: 2 }).keys()], ['1', '2']);
+			assert.strictEqual(materialized, 2, 'the limit is applied while constructing results');
+			assert.strictEqual(ref.messageRegex?.lastIndex, 0);
+			assert.strictEqual(getAutolinks(message, refs).size, 10000);
+		});
+
+		test('shares the limit across reference sets and accepts an empty budget', () => {
+			const refs: RefSet[] = [
+				[undefined, [makeRef()]],
+				[undefined, [makeRef({ prefix: 'OPS-' })]],
+			];
+			assert.deepStrictEqual([...getAutolinks('JIRA-1 OPS-2 OPS-3', refs, { maxResults: 2 }).keys()], ['1', '2']);
+			assert.strictEqual(getAutolinks('JIRA-1', refs, { maxResults: 0 }).size, 0);
+			assert.strictEqual(getAutolinks('JIRA-1 JIRA-2', refs, { maxResults: 1.9 }).size, 1);
+		});
+
+		test('counts dynamic entries toward the total result budget', () => {
+			const dynamic: DynamicAutolinkReference = {
+				parse: (_, autolinks) => {
+					autolinks.set('1', { ...makeRef(), id: '1' });
+				},
+			};
+			const refs: RefSet[] = [[undefined, [dynamic, makeRef()]]];
+			assert.deepStrictEqual([...getAutolinks('JIRA-2 JIRA-3', refs, { maxResults: 2 }).keys()], ['1', '2']);
+			assert.deepStrictEqual([...getAutolinks('JIRA-2', refs, { maxResults: 1 }).keys()], ['1']);
+		});
+
+		test('lets an opaque dynamic callback finish even when it exceeds the result budget', () => {
+			const dynamic: DynamicAutolinkReference = {
+				parse: (_, autolinks) => {
+					for (const id of ['1', '2', '3']) {
+						autolinks.set(id, { ...makeRef(), id: id });
+					}
+				},
+			};
+			const refs: RefSet[] = [[undefined, [dynamic, makeRef()]]];
+			assert.deepStrictEqual([...getAutolinks('JIRA-4', refs, { maxResults: 2 }).keys()], ['1', '2', '3']);
+			assert.deepStrictEqual([...getAutolinks('JIRA-4', refs).keys()], ['1', '2', '3', '4']);
+		});
+
 		test('extracts autolink from commit message', () => {
 			const ref = makeRef();
 			const refsets: RefSet[] = [[undefined, [ref]]];

@@ -15,6 +15,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
 
+## [0.22.0] - 2026-10-27
+
+### Added
+
+- Adds Jira Data Center project autolinks for commit messages and branch names, preserving installation context paths and skipping projects without a real key ([#6015](https://github.com/gitkraken/vscode-gitlens/issues/6015)) (plus/integrations)
+- Adds `IntegrationManager.getAutolinkReferences` for connection-scoped Jira Cloud and Data Center references, with awaited cold discovery and `forceSync` invalidation. Match references with the existing `git/utils/autolink.utils.js` helpers (plus/integrations)
+- Adds an optional `maxResults` budget to `getAutolinks` for bounded static-reference materialization, preserving unlimited matching by default (git)
+
 ## [0.21.0] - 2026-10-27
 
 ### Added
@@ -1006,6 +1014,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
 [unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...HEAD
+[0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
 [0.21.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...gitkraken:releases/core/v0.21.0
 [0.20.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...gitkraken:releases/core/v0.20.2
 [0.20.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...gitkraken:releases/core/v0.20.1

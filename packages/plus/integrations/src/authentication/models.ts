@@ -41,6 +41,40 @@ export interface ProviderAuthenticationSession extends AuthenticationSessionLike
 	readonly appKey?: string;
 }
 
+export type SessionPublication = {
+	readonly session?: ProviderAuthenticationSession;
+	readonly previousSessionId?: string;
+	readonly connectionId?: string;
+	/** A removal has no session from which to recover the affected storage variant. */
+	readonly cloud?: boolean;
+	readonly replacePrimary?: boolean;
+};
+
+export function getSessionIdentity(
+	session:
+		| Partial<
+				Pick<
+					ProviderAuthenticationSession,
+					'id' | 'accessToken' | 'domain' | 'baseUrl' | 'protocol' | 'appKey' | 'type' | 'cloud'
+				>
+		  >
+		| null
+		| undefined,
+): string | undefined {
+	return session == null
+		? undefined
+		: JSON.stringify([
+				session.id,
+				session.accessToken,
+				session.domain,
+				session.baseUrl,
+				session.protocol,
+				session.appKey,
+				session.type,
+				session.cloud,
+			]);
+}
+
 export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationIds | 'gitkraken'> {
 	readonly providerId: T;
 	/**

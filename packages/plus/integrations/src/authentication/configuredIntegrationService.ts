@@ -24,6 +24,7 @@ import type {
 	ConnectionResource,
 	ProviderAuthenticationSession,
 } from './models.js';
+import { getSessionIdentity } from './models.js';
 
 interface StoredSession {
 	id: string;
@@ -46,8 +47,15 @@ export interface ConfiguredIntegrationsChangeEvent {
 	readonly removed: readonly IntegrationIds[];
 }
 
+type IntegrationSessionChangeEvent = {
+	readonly integrationId: IntegrationIds;
+	readonly session: ProviderAuthenticationSession;
+	readonly previousDomain?: string;
+};
+
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
+	private readonly _onWillChangeSession = new Emitter<IntegrationSessionChangeEvent>();
 	private storeConfiguredQueue: Promise<void> = Promise.resolve();
 	/**
 	 * One provider's secret and descriptor mutations run one at a time, so a sign-out never interleaves with a
@@ -62,11 +70,15 @@ export class ConfiguredIntegrationService implements Disposable {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
 	}
+	get onWillChangeSession(): Event<IntegrationSessionChangeEvent> {
+		return this._onWillChangeSession.event;
+	}
 
 	constructor(private readonly ctx: IntegrationServiceContext) {}
 
 	dispose(): void {
 		this._onDidChange.dispose();
+		this._onWillChangeSession.dispose();
 	}
 
 	private _configured?: Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>;
@@ -330,6 +342,16 @@ export class ConfiguredIntegrationService implements Disposable {
 	): Promise<boolean> {
 		return this.withLock(id, async () => {
 			if (options?.signOutMark != null && this.isSignedOutSince(id, session, options.signOutMark)) return false;
+
+			const previous = await this.readSecret(id, session.id, session.cloud);
+			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
+				// Readers share this lock, so none can resolve the retired token after this synchronous fence.
+				this._onWillChangeSession.fire({
+					integrationId: id,
+					session: session,
+					previousDomain: previous?.domain,
+				});
+			}
 
 			await this.writeSecret(id, session, options?.resource);
 			return true;
