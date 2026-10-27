@@ -37,11 +37,17 @@ type RawIssue = {
 	projectMilestone: null;
 	team: { id: string; name: string; key: string; icon: null };
 	state: { id: string; name: string; color: string; type: string } | null;
+	syncedWith: unknown[] | null;
 };
 
 function linearIssue(
 	identifier: string,
-	options?: { type?: string | null; updatedAt?: string | null; archivedAt?: string | null },
+	options?: {
+		type?: string | null;
+		updatedAt?: string | null;
+		archivedAt?: string | null;
+		syncedWith?: unknown[] | null;
+	},
 ): RawIssue {
 	const [key, number] = identifier.split('-');
 	const type = options?.type === undefined ? 'unstarted' : options.type;
@@ -61,6 +67,7 @@ function linearIssue(
 		projectMilestone: null,
 		team: { id: `team-${key}`, name: key, key: key, icon: null },
 		state: type != null ? { id: `state-${type}`, name: type, color: '#000000', type: type } : null,
+		syncedWith: options?.syncedWith === undefined ? [] : options.syncedWith,
 	};
 }
 
@@ -149,6 +156,9 @@ function fakeLinear(
 				}
 				if (selects(query, 'state')) {
 					node.state = i.state != null ? { type: i.state.type } : null;
+				}
+				if (selects(query, 'syncedWith')) {
+					node.syncedWith = i.syncedWith;
 				}
 				return node;
 			});
@@ -303,6 +313,174 @@ suite('Linear cheap etag check', () => {
 			assert.notEqual(updated, before);
 			assert.notEqual(completed, updated);
 			assert.notEqual(archived, updated);
+
+			manager.dispose();
+		});
+
+		// gitkraken/kepler#4428: Linear can link an issue to GitHub without moving its update time.
+		test('a sync link added, or its coordinates filled in, changes the etag at the same update time', async () => {
+			const runtime = createFakeRuntime();
+			const issues = [linearIssue('ENG-1')];
+			fakeLinear(runtime, issues);
+			const { manager, linear } = await connectedLinear(runtime);
+			const targets = [{ resourceId: 'workspace-1', identifier: 'ENG-1' }];
+			const etag = async () => {
+				const [fields] = fulfilled(
+					(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
+				);
+				return issueEtag(fields!, []);
+			};
+			const github = {
+				id: '6063246474',
+				service: 'github',
+				metadata: { owner: 'acme', repo: 'web', number: 42 },
+			};
+
+			const before = await etag();
+			issues[0] = linearIssue('ENG-1', { syncedWith: [{ ...github, metadata: null }] });
+			const linkedWithoutCoordinates = await etag();
+			issues[0] = linearIssue('ENG-1', { syncedWith: [github] });
+			const linked = await etag();
+			issues[0] = linearIssue('ENG-1', {
+				syncedWith: [github, { id: '10001', service: 'jira', metadata: null }],
+			});
+			const plusJira = await etag();
+
+			assert.notEqual(linkedWithoutCoordinates, before);
+			assert.notEqual(linked, linkedWithoutCoordinates, 'coordinates filled in later change it too');
+			assert.equal(plusJira, linked, 'only GitHub links count, as the full row keeps only those');
+
+			manager.dispose();
+		});
+
+		// gitkraken/kepler#4428: what the full row keeps of the links is what the cheap check lists, or a synced issue
+		// would never compare unchanged.
+		test('a synced issue computes the same etag on both reads, whatever its links hold', async () => {
+			const github = (id: string, metadata: unknown) => ({ id: id, service: 'github', metadata: metadata });
+			const runtime = createFakeRuntime();
+			fakeLinear(runtime, [
+				linearIssue('ENG-1', {
+					syncedWith: [
+						github('6063246475', { owner: 'acme', repo: 'web', number: 42 }),
+						github('6063246474', null),
+						github('6063246476', { owner: '', repo: 'web', number: 1 }),
+						github('6063246477', { owner: 'acme', repo: '', number: 1 }),
+						github('6063246478', { owner: 'acme', repo: 'web', number: 0 }),
+						github('6063246479', { owner: 'acme', repo: 'web', number: -1 }),
+						github('6063246480', { owner: 'acme', repo: 'web', number: 1.5 }),
+						github('6063246481', { owner: 'acme', repo: 'web', number: null }),
+						github('', { owner: 'acme', repo: 'web', number: 7 }),
+						{ id: '10001', service: 'jira', metadata: null },
+					],
+				}),
+			]);
+			const { manager, linear } = await connectedLinear(runtime);
+			const targets = [{ resourceId: 'workspace-1', identifier: 'ENG-1' }];
+
+			const [full] = fulfilled<IssueShape | undefined>(
+				(await linear.getIssuesByResourceIdBatchResult(targets))?.value,
+			);
+			const [cheap] = fulfilled<IssueEtagFields | undefined>(
+				(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
+			);
+
+			assert.ok(full != null && cheap != null);
+			assert.deepEqual(cheap.syncedWithKeys, [
+				'6063246474:',
+				'6063246475:acme/web#42',
+				'6063246476:',
+				'6063246477:',
+				'6063246478:',
+				'6063246479:',
+				'6063246480:',
+				'6063246481:',
+			]);
+			assert.equal(issueEtag(cheap, []), issueEtag(issueEtagFieldsFromShape(full), []));
+
+			manager.dispose();
+		});
+
+		// gitkraken/kepler#4428: a row held without `syncedWith` would otherwise be kept without it until the issue changes.
+		test('sync links Linear failed to resolve fall through to the full read, never matching either way', async () => {
+			const runtime = createFakeRuntime();
+			const unresolved = { ...linearIssue('ENG-1'), syncedWith: null };
+			fakeLinear(runtime, [unresolved, linearIssue('ENG-2')], {
+				respond: r =>
+					r.numbers != null
+						? jsonResponse(200, {
+								data: {
+									issues: {
+										pageInfo: { hasNextPage: false },
+										nodes: [
+											{ ...unresolved, syncedWith: null },
+											{ ...linearIssue('ENG-2'), syncedWith: [] },
+										],
+									},
+								},
+								errors: [{ message: 'Forbidden', path: ['issues', 'nodes', 0, 'syncedWith'] }],
+							})
+						: undefined,
+			});
+			const { manager, linear } = await connectedLinear(runtime);
+			const targets = [
+				{ resourceId: 'workspace-1', identifier: 'ENG-1' },
+				{ resourceId: 'workspace-1', identifier: 'ENG-2' },
+			];
+
+			const slots = (await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value;
+			const [full] = fulfilled<IssueShape | undefined>(
+				(await linear.getIssuesByResourceIdBatchResult(targets.slice(0, 1)))?.value,
+			);
+
+			assert.deepEqual(
+				slots?.map(slot => slot.status),
+				['rejected', 'fulfilled'],
+			);
+			assert.ok(full != null);
+			assert.equal(full.syncedWith, undefined);
+			assert.equal(
+				issueEtag(issueEtagFieldsFromShape(full), []),
+				'is1:["opened",1767312000000,"synced-with:unknown"]',
+			);
+
+			manager.dispose();
+		});
+
+		// gitkraken/kepler#4428: GraphQL nulls only the link's `metadata`, so the list resolved and the full row keeps the
+		// link without coordinates, as the cheap check lists it.
+		test('a link whose coordinates Linear failed to resolve is listed without them, as the full row keeps it', async () => {
+			const runtime = createFakeRuntime();
+			const link = { id: '6063246474', service: 'github', metadata: null };
+			fakeLinear(runtime, [linearIssue('ENG-1', { syncedWith: [link] })], {
+				respond: r =>
+					r.numbers != null
+						? jsonResponse(200, {
+								data: {
+									issues: {
+										pageInfo: { hasNextPage: false },
+										nodes: [{ ...linearIssue('ENG-1'), syncedWith: [link] }],
+									},
+								},
+								errors: [
+									{ message: 'Forbidden', path: ['issues', 'nodes', 0, 'syncedWith', 0, 'metadata'] },
+								],
+							})
+						: undefined,
+			});
+			const { manager, linear } = await connectedLinear(runtime);
+			const targets = [{ resourceId: 'workspace-1', identifier: 'ENG-1' }];
+
+			const [cheap] = fulfilled<IssueEtagFields | undefined>(
+				(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
+			);
+			const [full] = fulfilled<IssueShape | undefined>(
+				(await linear.getIssuesByResourceIdBatchResult(targets))?.value,
+			);
+
+			assert.ok(cheap != null && full != null);
+			assert.deepEqual(cheap.syncedWithKeys, ['6063246474:']);
+			assert.deepEqual(full.syncedWith, [{ provider: 'github', id: '6063246474' }]);
+			assert.equal(issueEtag(cheap, []), issueEtag(issueEtagFieldsFromShape(full), []));
 
 			manager.dispose();
 		});
@@ -659,6 +837,21 @@ suite('Linear cheap etag check', () => {
 				name: 'a rate limit reported with a 200',
 				status: 200,
 				body: { data: null, errors: [{ message: 'Rate limit exceeded', extensions: { code: 'RATELIMITED' } }] },
+				kind: 'rate-limit',
+			},
+			{
+				name: 'a rate limit reported at a sync link',
+				status: 200,
+				body: {
+					data: { issues: { pageInfo: { hasNextPage: false }, nodes: [] } },
+					errors: [
+						{
+							message: 'Rate limit exceeded',
+							path: ['issues', 'nodes', 0, 'syncedWith'],
+							extensions: { code: 'RATELIMITED' },
+						},
+					],
+				},
 				kind: 'rate-limit',
 			},
 			{ name: 'a refused credential', status: 401, body: { message: 'Unauthorized' }, kind: 'auth' },

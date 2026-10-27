@@ -56,6 +56,7 @@ import type {
 	IssueProviderState,
 	IssueShape,
 	IssueStateFilter,
+	IssueSyncedWith,
 } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
@@ -1510,6 +1511,8 @@ export function toIssueShape(
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
 		...toIssueViewer(issue, options?.viewer),
+		// Only when the provider reports it, so a row from any other provider keeps exactly the keys it always had.
+		...(issue.syncedWith != null ? { syncedWith: toIssueSyncedWith(issue.syncedWith) } : {}),
 	};
 }
 
@@ -1525,6 +1528,20 @@ function toIssueProject(project: ProviderIssue['project'], provider: ProviderRef
 		// Jira identifies its site by resourceId; the API need not supply a display name for it.
 		resourceName: project.namespace ?? '',
 	};
+}
+
+function toIssueSyncedWith(syncedWith: NonNullable<ProviderIssue['syncedWith']>): IssueSyncedWith[] {
+	return syncedWith.map(synced =>
+		synced.owner != null
+			? {
+					provider: synced.service,
+					id: synced.id,
+					owner: synced.owner,
+					repo: synced.repo,
+					number: synced.number,
+				}
+			: { provider: synced.service, id: synced.id },
+	);
 }
 
 export function toIssueBodyField(field: NonNullable<ProviderIssue['descriptionField']>): IssueBodyField {
@@ -2113,6 +2130,7 @@ export function fromProviderIssue(
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
 		viewer?.viewer,
 		viewer?.viewerUnresolved,
+		issue.syncedWith != null ? toIssueSyncedWith(issue.syncedWith) : undefined,
 	);
 }
 
