@@ -12,8 +12,8 @@ import { toGraphCommit } from './graph-commit.js';
 
 // The surface only ever hands back the rows GitLens itself gave it (`GitGraphRow[]` flows in through
 // the `rows` property), so this cast is the boundary's contract, not a guess.
-const gitLensRowAdapter: CommitGraphRowAdapter = (row, idLength, repoPath, pinnedRefId) =>
-	toGraphCommit(row as GitGraphRow, idLength, repoPath, pinnedRefId);
+const gitLensRowAdapter: CommitGraphRowAdapter = (row, idLength, repoPath, pinnedRefId, hasRemotes) =>
+	toGraphCommit(row as GitGraphRow, idLength, repoPath, pinnedRefId, hasRemotes);
 
 /** GitLens' explicit build-time composition. External products define a smaller profile of their own. */
 export const gitLensGraphRuntime: CommitGraphProfile = Object.freeze({

@@ -1,15 +1,19 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { CacheController, PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import {
+	azureRestDiscoveryResponse,
 	azureWorkItemTypeStatesResponse,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
@@ -102,6 +106,8 @@ interface ServerOptions {
 	holdCollections?: Promise<void>;
 	/** Answers the server-level `connectionData` with this status. */
 	failServerIdentity?: number;
+	/** Answers a collection's `connectionData` with this status once the collections were asked for. */
+	failCollectionIdentity?: number;
 	/** Answers a repository addressed by name without its project as missing rather than refused. */
 	projectlessNotFound?: boolean;
 	/** Refuses the credential for every request below this project. */
@@ -141,6 +147,9 @@ function createServer(options: ServerOptions) {
 	const requests: string[] = [];
 	let collectionReads = 0;
 	runtime.http.fetch = async input => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input.toString());
 		requests.push(url.pathname);
 		if (!url.pathname.startsWith(`${options.installation}/`)) return json({ message: 'Page not found.' }, 404);
@@ -154,6 +163,9 @@ function createServer(options: ServerOptions) {
 		if (route === '_apis/connectiondata') {
 			if (atServer && options.failServerIdentity != null) {
 				return json({ message: 'boom' }, options.failServerIdentity);
+			}
+			if (!atServer && options.failCollectionIdentity != null && collectionReads > 0) {
+				return json({ message: 'boom' }, options.failCollectionIdentity);
 			}
 
 			const user = { id: 'me', providerDisplayName: 'me', properties: { Account: { $value: 'me@example.com' } } };
@@ -311,6 +323,121 @@ async function connect(server: ReturnType<typeof createServer>) {
 	return { manager: manager, azure: azure };
 }
 
+suite('Azure native discovery retry', () => {
+	for (const status of [404, 503]) {
+		for (const kind of ['point', 'linked', 'commit', 'metadata', 'defaultBranch'] as const) {
+			test(`${kind} retries a failed discovery without caching absence (${status})`, async () => {
+				const server = createServer({ installation: '' });
+				const linked = new PromiseCache<string, IssueOrPullRequest | undefined>();
+				const commits = new PromiseCache<string, PullRequest | undefined>();
+				const metadata = new PromiseCache<string, RepositoryMetadata | undefined>();
+				const branches = new PromiseCache<string, DefaultBranch | undefined>();
+				server.runtime.cache.getIssueOrPullRequest = (_id, _type, _resource, _integration, loader) =>
+					linked.getOrCreate('linked', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getPullRequestForSha = (_sha, _resource, _integration, loader) =>
+					commits.getOrCreate('commit', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getRepositoryMetadata = (_resource, _integration, loader) =>
+					metadata.getOrCreate('metadata', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getRepositoryDefaultBranch = (_resource, _integration, loader) =>
+					branches.getOrCreate('branch', async cacheable => loader(cacheable).value);
+				const fetch = server.runtime.http.fetch;
+				const area = kind === 'point' || kind === 'linked' ? 'wit' : 'git';
+				let attempts = 0;
+				let missingObject = false;
+				let missingRequests = 0;
+				let issueId = '9';
+				server.runtime.http.fetch = (input, init) => {
+					const path = new URL(input.toString()).pathname.toLowerCase();
+					if (init?.method === 'OPTIONS' && path.endsWith(`/_apis/${area}`)) {
+						if (++attempts === 1) {
+							return Promise.resolve(json({ message: 'Discovery unavailable' }, status));
+						}
+					}
+					if (
+						missingObject &&
+						path.endsWith(
+							kind === 'point' || kind === 'linked'
+								? `/_apis/wit/workitems/${issueId}`
+								: kind === 'commit'
+									? '/pullrequestquery'
+									: '/_apis/git/repositories/r',
+						)
+					) {
+						missingRequests++;
+						return Promise.resolve(json({ message: 'Object not found' }, 404));
+					}
+
+					return fetch(input, init);
+				};
+				const { manager, azure } = await connect(server);
+				const repo = descriptorFor('https://server.test/DefaultCollection/proj/_git/r');
+				const project = {
+					key: 'DefaultCollection/proj',
+					owner: 'DefaultCollection',
+					name: 'proj',
+				};
+				const read = async () => {
+					switch (kind) {
+						case 'point': {
+							const result = await azure.getIssueResult(project, issueId);
+							assert.ok(result != null);
+							if (result.error != null) throw result.error;
+
+							return result.value?.id;
+						}
+						case 'linked':
+							return (
+								await azure.getLinkedIssueOrPullRequest(
+									repo,
+									{ id: issueId, key: issueId },
+									{ throwOnError: true },
+								)
+							)?.id;
+						case 'commit':
+							return (await azure.getPullRequestForCommit(repo, sha, { throwOnError: true }))?.id;
+						case 'metadata':
+							return (await azure.getRepositoryMetadata(repo))?.name;
+						case 'defaultBranch':
+							return (await azure.getDefaultBranch(repo))?.name;
+					}
+				};
+				try {
+					const before = server.requests.length;
+					const first: unknown = await read().catch((ex: unknown) => ex);
+					assert.equal(attempts, 1, String(first));
+					if (kind === 'metadata' || kind === 'defaultBranch') {
+						assert.equal(first, undefined);
+					} else {
+						assert.ok(first instanceof Error);
+					}
+					assert.equal(server.requests.length, before, 'discovery failure must not reach an object request');
+					const expected =
+						kind === 'commit' ? '7' : kind === 'metadata' ? 'r' : kind === 'defaultBranch' ? 'main' : '9';
+					assert.equal(await read(), expected);
+					assert.equal(attempts, 2, 'the same lookup retries discovery after recovery');
+					const recovered = server.requests.length;
+					assert.equal(await read(), expected);
+					assert.equal(server.requests.length, recovered, 'a successful recovery remains cached');
+					missingObject = true;
+					issueId = '999';
+					linked.clear();
+					commits.clear();
+					metadata.clear();
+					branches.clear();
+					assert.equal(await read(), undefined, 'an actual object 404 keeps the absence behavior');
+					assert.equal(missingRequests, 1);
+					const absent = server.requests.length;
+					assert.equal(await read(), undefined);
+					assert.equal(missingRequests, 1, 'proven object absence remains cached');
+					assert.equal(server.requests.length, absent);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+	}
+});
+
 /** The repository reads GitLens makes from a remote, each with the request path it must reach. */
 async function assertReads(
 	azure: GitHostIntegration,
@@ -403,29 +530,42 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 
 	suite('isAzureProjectlessCandidate', () => {
 		const shortBehindTfs = { owner: 'tfs', name: 'DefaultCollection/_git/R' };
-		const cases: { address: string; repo: Parameters<typeof isAzureProjectlessCandidate>[1]; expected: boolean }[] =
-			[
-				{ address: 'https://h/tfs', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/TFS/', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/%74fs', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h', repo: shortBehindTfs, expected: false },
-				{ address: 'https://h/other', repo: shortBehindTfs, expected: false },
-				{
-					address: 'https://h/tfs/team',
-					repo: { owner: 'team', name: 'DefaultCollection/_git/R', virtualDirectory: 'tfs' },
-					expected: true,
-				},
-				{
-					address: 'https://h/tfs',
-					repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
-					expected: false,
-				},
-				{ address: 'https://h/tfs', repo: { owner: 'tfs', name: 'DefaultCollection' }, expected: false },
-			];
-		for (const { address, repo, expected } of cases) {
-			test(`${expected ? 'settles' : 'reads as parsed'} ${repo.virtualDirectory ?? ''}/${repo.owner}/${repo.name} below ${address}`, () => {
-				assert.equal(isAzureProjectlessCandidate(address, repo), expected);
+		const cases: {
+			address: string;
+			repo: Parameters<typeof isAzureProjectlessCandidate>[1];
+			belowCollection?: boolean;
+			expected: boolean;
+		}[] = [
+			{ address: 'https://h/tfs', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/TFS/', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/%74fs', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h', repo: shortBehindTfs, expected: false },
+			{ address: 'https://h/other', repo: shortBehindTfs, expected: false },
+			{
+				address: 'https://h/tfs/team',
+				repo: { owner: 'team', name: 'DefaultCollection/_git/R', virtualDirectory: 'tfs' },
+				expected: true,
+			},
+			{
+				address: 'https://h/tfs',
+				repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
+				expected: false,
+			},
+			{ address: 'https://h/tfs', repo: { owner: 'tfs', name: 'DefaultCollection' }, expected: false },
+			// An address known to name a collection isn't the installation, so nothing reads as project-less
+			// below the address itself.
+			{
+				address: 'https://h/tfs/DefaultCollection',
+				repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
+				belowCollection: true,
+				expected: false,
+			},
+			{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, belowCollection: true, expected: true },
+		];
+		for (const { address, repo, belowCollection, expected } of cases) {
+			test(`${expected ? 'settles' : 'reads as parsed'} ${repo.virtualDirectory ?? ''}/${repo.owner}/${repo.name} below ${address}${belowCollection ? ' (a collection)' : ''}`, () => {
+				assert.equal(isAzureProjectlessCandidate(address, repo, belowCollection), expected);
 			});
 		}
 	});
@@ -442,9 +582,21 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 			['https://h/a%20b/tfs', 'tfs', 'a b'],
 			['https://h/x/x', 'x', 'x'],
 			['https://h/tfs', 'other', undefined],
+			// An encoded `/` stays inside its segment, so the directory still matches the address.
+			['https://h/a%2Fb/tfs', 'tfs', 'a%2Fb'],
+			['https://h/a%2fb/tfs/DefaultCollection', 'DefaultCollection', 'a%2Fb/tfs'],
 		] as const) {
 			test(`places ${owner} below ${address}`, () => {
 				assert.equal(getAzureScopeVirtualDirectory(address, owner), expected);
+			});
+		}
+
+		for (const [owner, expected] of [
+			['DefaultCollection', undefined],
+			['tfs', ''],
+		] as const) {
+			test(`places ${owner} below an address known to name a collection`, () => {
+				assert.equal(getAzureScopeVirtualDirectory('https://h/tfs/DefaultCollection', owner, true), expected);
 			});
 		}
 	});
@@ -866,6 +1018,134 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				const [slot] = batch?.value ?? [];
 				assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7');
 			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("flags a caller's scope that settles to a repository the connection doesn't serve", async () => {
+			// Read as given, `x/DefaultCollection/repo` may not be the repository the caller named either, so its miss
+			// proves nothing.
+			const server = createServer({ installation: '/x/tfs' });
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [
+					{ namespace: 'DefaultCollection', project: 'proj', name: 'r' },
+					{ namespace: 'x', project: 'DefaultCollection', name: 'repo' },
+				];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [false, true] }, String(settled?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("settles a caller's scope once per issue list", async () => {
+			const server = createServer({ installation: '/tfs' });
+			const { manager, azure } = await connect(server);
+			try {
+				const hooks = azure as unknown as { resolveRepositoryCoordinates: (...args: unknown[]) => unknown };
+				const resolve = hooks.resolveRepositoryCoordinates.bind(azure);
+				let settles = 0;
+				hooks.resolveRepositoryCoordinates = (...args) => {
+					settles++;
+					return resolve(...args);
+				};
+
+				const [connection] = manager.getConfigured(id);
+				const listed = await manager.listIssuesPage({
+					providerId: id,
+					connectionId: connection.id,
+					domain: connection.domain,
+					repos: [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }],
+				});
+				assert.deepEqual(
+					listed.items.map(issue => issue.title),
+					['Work item in repo'],
+					JSON.stringify(listed.warnings),
+				);
+				assert.equal(settles, 1);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("reads a caller's scope that names the addressed collection as given while discovery fails", async () => {
+			// The address answers the collection list with a 404, so it names a collection, though which one can't be
+			// read: `DefaultCollection/proj` is that collection's project, while `tfs/DefaultCollection` still may be
+			// the project-less form of `DefaultCollection/repo`.
+			const server = createServer({
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				failCollectionIdentity: 500,
+			});
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [
+					{ namespace: 'DefaultCollection', project: 'proj', name: 'r' },
+					{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' },
+				];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [false, true] }, String(settled?.error));
+				assert.ok(server.collectionReads() > 0, 'the collection list was asked for');
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("keeps a caller's scope that names the addressed collection unsettled while nothing tells it apart", async () => {
+			// A failed collection list doesn't say whether the address names a collection.
+			const server = createServer({
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				failCollections: 500,
+			});
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'DefaultCollection', project: 'proj', name: 'r' }];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [true] }, String(settled?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("keeps a caller's scope unsettled when the installation answers the collection list with a 404", async () => {
+			// Connection data that answers for the server says the address is the installation, whatever the 404 was.
+			const server = createServer({ installation: '/tfs', failCollections: 404 });
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [true] }, String(settled?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('forgets that the address names a collection once the failed discovery expires', async () => {
+			// Read when each request is answered, so the collection list's answer can change between discoveries.
+			const options: ServerOptions = {
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				failCollections: 404,
+				failCollectionIdentity: 500,
+			};
+			const server = createServer(options);
+			const realNow = Date.now;
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'DefaultCollection', project: 'proj', name: 'r' }];
+				const first = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(first?.value, { repos: repos, unsettled: [false] }, String(first?.error));
+
+				// A later failure says nothing about the address, so the scope is ambiguous again.
+				options.failCollections = 500;
+				const start = realNow();
+				Date.now = () => start + discoveryCacheTtl + 1;
+				const second = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(second?.value, { repos: repos, unsettled: [true] }, String(second?.error));
+			} finally {
+				Date.now = realNow;
 				manager.dispose();
 			}
 		});

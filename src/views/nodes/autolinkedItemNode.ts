@@ -104,11 +104,14 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 				? l10n.t('Open Pull Request \\#{0} on {1}', enriched.id, enriched.provider.name)
 				: l10n.t('Open Issue \\#{0} on {1}', enriched.id, enriched.provider.name)
 		}"`;
-		const status = enriched.closed
-			? enriched.state === 'merged'
-				? l10n.t('was merged {0}', relativeTime)
-				: l10n.t('was closed {0}', relativeTime)
-			: l10n.t('was opened {0}', relativeTime);
+		const status =
+			enriched.state == null
+				? ''
+				: enriched.closed
+					? enriched.state === 'merged'
+						? l10n.t('was merged {0}', relativeTime)
+						: l10n.t('was closed {0}', relativeTime)
+					: l10n.t('was opened {0}', relativeTime);
 		const tooltip = new MarkdownString(
 			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
 				enriched.url

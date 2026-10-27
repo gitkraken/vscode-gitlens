@@ -50,6 +50,18 @@ suite('GitErrors Regex Test Suite', () => {
 			assert.ok(GitErrors.remoteConnectionFailed.test(stderr));
 		});
 
+		test('remoteConnectionFailed matches an HTTP(S) host that could not be resolved', () => {
+			const stderr =
+				"fatal: unable to access 'https://invalid.invalid/x/y.git/': Could not resolve host: invalid.invalid";
+			assert.ok(GitErrors.remoteConnectionFailed.test(stderr));
+		});
+
+		test('remoteConnectionFailed does not match an HTTP status error', () => {
+			const stderr =
+				"fatal: unable to access 'https://github.com/user/repo.git/': The requested URL returned error: 403";
+			assert.ok(!GitErrors.remoteConnectionFailed.test(stderr));
+		});
+
 		test('noFastForward matches "(non-fast-forward)"', () => {
 			const stderr = '! [rejected]        main -> main (non-fast-forward)';
 			assert.ok(GitErrors.noFastForward.test(stderr));
@@ -558,6 +570,13 @@ suite('getGitCommandError() Test Suite', () => {
 	test('maps fetch stderr to "remoteConnectionFailed" reason', () => {
 		const ex = makeGitError('fatal: Could not read from remote repository.');
 		assert.strictEqual(captureReason('fetch', ex), 'remoteConnectionFailed');
+	});
+
+	test('maps push stderr to "remoteConnectionFailed" for an unresolvable HTTP(S) host', () => {
+		const ex = makeGitError(
+			"fatal: unable to access 'https://invalid.invalid/x/y.git/': Could not resolve host: invalid.invalid",
+		);
+		assert.strictEqual(captureReason('push', ex), 'remoteConnectionFailed');
 	});
 });
 

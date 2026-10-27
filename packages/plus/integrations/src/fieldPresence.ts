@@ -57,7 +57,7 @@ export type PullRequestFieldGroup =
 
 /** A group is `fetched` only when every field in it is. */
 export type IssueFieldGroup =
-	/** `body`. */
+	/** `body`, and `bodyField` where the provider sets it. */
 	| 'description'
 	/** `assignees`. */
 	| 'assignees'

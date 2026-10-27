@@ -40,7 +40,7 @@ import type { GlRepository, RepositoryChangeEvent } from '../../git/models/repos
 import {
 	getBranchAheadRange,
 	getBranchAssociatedPullRequest,
-	getBranchMergeTargetName,
+	getBranchMergeTarget,
 	getBranchRemote,
 	setBranchDisposition,
 } from '../../git/utils/-webview/branch.utils.js';
@@ -249,7 +249,6 @@ export class BranchNode
 					getBranchAndTagTipsResult,
 					pausedOpStatusResult,
 					unpublishedCommitsResult,
-					baseResult,
 					targetResult,
 				] = await Promise.allSettled([
 					this.getLog(svc),
@@ -262,10 +261,10 @@ export class BranchNode
 									: undefined,
 							)
 						: undefined,
-					loadComparisonDefaultCompareWith ? svc.branches.getBaseBranchName?.(this.branch.name) : undefined,
 					loadComparisonDefaultCompareWith
-						? getBranchMergeTargetName(this.view.container, this.branch, {
+						? getBranchMergeTarget(this.view.container, this.branch, {
 								associatedPullRequest: prPromise,
+								keepSelfAtTip: true,
 								timeout: 100,
 							})
 						: undefined,
@@ -326,39 +325,30 @@ export class BranchNode
 					children.push(comparison);
 
 					if (loadComparisonDefaultCompareWith) {
-						const baseBranchName = getSettledValue(baseResult);
-						const targetMaybeResult = getSettledValue(targetResult);
+						const mergeTarget = getSettledValue(targetResult);
+						const targetRef = mergeTarget?.target?.ref;
 
-						let baseOrTargetBranchName: string | undefined;
-						if (targetMaybeResult?.paused) {
-							baseOrTargetBranchName = baseBranchName;
-						} else {
-							baseOrTargetBranchName = targetMaybeResult?.value ?? baseBranchName;
-						}
-
-						if (baseOrTargetBranchName != null) {
+						if (targetRef != null) {
 							void comparison.setDefaultCompareWith({
-								ref: baseOrTargetBranchName,
-								label: baseOrTargetBranchName,
+								ref: targetRef,
+								label: targetRef,
 								notation: '...',
 								type: 'branch',
 								checkedFiles: [],
 							});
 						}
 
-						if (targetMaybeResult?.paused) {
-							void targetMaybeResult.value.then(target => {
-								if (target == null) return;
+						void mergeTarget?.pending?.then(target => {
+							if (target == null) return;
 
-								void comparison.setDefaultCompareWith({
-									ref: target,
-									label: target,
-									notation: '...',
-									type: 'branch',
-									checkedFiles: [],
-								});
+							void comparison.setDefaultCompareWith({
+								ref: target.ref,
+								label: target.ref,
+								notation: '...',
+								type: 'branch',
+								checkedFiles: [],
 							});
-						}
+						});
 					}
 				}
 
@@ -611,6 +601,13 @@ export async function getBranchNodeParts(
 	if (branch.remote) {
 		contextValue += '+remote';
 	}
+	// Per-repo (not workspace-wide) so the publish branch/repository menus pick the right action in a
+	// multi-repo workspace; a remote branch implies a remote, so only local branches need the (cached) read
+	const hasRemotes =
+		branch.remote || (await container.git.getRepositoryService(branch.repoPath).remotes.getRemotes()).length > 0;
+	if (hasRemotes) {
+		contextValue += '+remotes';
+	}
 	if (branch.starred) {
 		contextValue += '+starred';
 	}
@@ -749,14 +746,8 @@ export async function getBranchNodeParts(
 		label = branch.rebasing ? l10n.t('{0} (Rebasing)', displayName) : displayName;
 	}
 
-	let localUnpublished = false;
-	if (status === 'local') {
-		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await container.git.getRepositoryService(branch.repoPath).remotes.getRemotes();
-		if (remotes.length) {
-			localUnpublished = true;
-		}
-	}
+	// If there are any remotes then say this is unpublished, otherwise local
+	const localUnpublished = status === 'local' && hasRemotes;
 
 	let iconPath: IconPath;
 	if (options?.pendingPullRequest != null) {

@@ -216,7 +216,7 @@ export class BranchTrackingStatusNode
 		let label;
 		let description;
 		let collapsibleState;
-		let contextValue;
+		let contextValue: string;
 		let icon;
 		let tooltip;
 		switch (this.upstreamType) {
@@ -342,6 +342,14 @@ export class BranchTrackingStatusNode
 				contextValue = this.root
 					? ContextValues.StatusMissingUpstream
 					: ContextValues.BranchStatusSameAsUpstream;
+				// The upstream's remote may itself be gone, so ask the repo rather than infer from the upstream
+				if (
+					remote != null ||
+					(await this.view.container.git.getRepositoryService(this.branch.repoPath).remotes.getRemotes())
+						.length > 0
+				) {
+					contextValue += '+remotes';
+				}
 				icon = new ThemeIcon(
 					'warning',
 					new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
@@ -350,10 +358,10 @@ export class BranchTrackingStatusNode
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git
-					.getRepositoryService(this.branch.repoPath)
-					.remotes.getRemotesWithProviders();
-				const providers = getHighlanderProviders(remotes);
+				// Any remote counts for publishing; only the label needs a known provider
+				const remotesService = this.view.container.git.getRepositoryService(this.branch.repoPath).remotes;
+				const remotes = await remotesService.getRemotes();
+				const providers = getHighlanderProviders(await remotesService.getRemotesWithProviders());
 				const providerName = providers?.length ? providers[0].name : undefined;
 
 				label = providerName
@@ -368,6 +376,9 @@ export class BranchTrackingStatusNode
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
+				if (remotes.length) {
+					contextValue += '+remotes';
+				}
 				icon = new ThemeIcon(
 					'cloud-upload',
 					remotes.length ? new ThemeColor('gitlens.unpublishedChangesIconColor' satisfies Colors) : undefined,

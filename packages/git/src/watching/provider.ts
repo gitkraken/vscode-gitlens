@@ -45,6 +45,13 @@ export interface FileWatcherOptions {
 	 * already down reports `unwatchable` itself. Going from `unwatchable` to anything else makes core rescan.
 	 */
 	readonly onDidChangeReliability?: (state: FileWatcherReliability) => void;
+	/**
+	 * Called once, when a watch the provider places asynchronously goes live: whatever changed under `basePath` between
+	 * `createWatcher` and then went unseen, so core rescans. A provider whose watch is live when `createWatcher` returns
+	 * needn't call it, unless it declares `callsOnDidStart`: then it calls it inside `createWatcher`, which costs no
+	 * rescan. Passed only to working-tree watchers, whether or not the host opted into polling.
+	 */
+	readonly onDidStart?: () => void;
 }
 
 /**
@@ -69,4 +76,11 @@ export interface FileWatchingProvider {
 	 * set for a provider that can use it.
 	 */
 	readonly supportsExcludes?: boolean;
+	/**
+	 * True when the provider calls `options.onDidStart` for every working-tree watch once it goes live (unless the watch
+	 * reports `unwatchable` first). Core then leaves to that rescan what it would otherwise read at once (a newly
+	 * subscribed worktree summary's dirty flag); without it, core can't tell a watch still starting from one that was
+	 * live on return, since such a provider never calls `onDidStart`.
+	 */
+	readonly callsOnDidStart?: boolean;
 }

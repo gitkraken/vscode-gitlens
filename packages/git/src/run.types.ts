@@ -107,6 +107,13 @@ export interface GitRunOptions {
 	 * a listed code resolves as `exited` with that `exitCode` in every `errors` mode.
 	 */
 	expectedExitCodes?: readonly number[];
+	/**
+	 * Called once, when the git process starts: after any wait in core's queue, and not again for a lock retry. A call
+	 * that joins an identical run already in flight is told when that run starts, or at once if it already has. Not
+	 * called for a run that never starts (cancelled while queued), nor for one `caching` answers, even from a run
+	 * still in flight.
+	 */
+	onSpawn?: () => void;
 	/** Priority level for queue ordering. If not specified, will be inferred from the command type. */
 	priority?: GitCommandPriority;
 	/** Specifies that this command should always be executed locally if possible (for live share sessions) */
@@ -152,6 +159,9 @@ export interface GitRunOptions {
 	 * for every existing caller. The change is announced for `cwd`, or the `-C` target, as given: run from the
 	 * repository root, since that's the path core's caches are keyed by. A `-C`-scoped verb whose effect every
 	 * worktree shares (`branch`, `fetch`, …) is announced for the caller's `cwd` too, resetting once per repository.
+	 * `'infer'` names the refs the argv proves it moved, and for a verb that moves only HEAD's branch (a commit, a
+	 * reset) reads HEAD before and after the run: on one branch both times it names that branch, detached both times
+	 * it announces no branch move.
 	 *
 	 * The announcement resets only the caches the announced kinds can have made stale, the same ones a file
 	 * watcher's change of those kinds clears, and drops the repository's pending git runs. A write `'infer'`

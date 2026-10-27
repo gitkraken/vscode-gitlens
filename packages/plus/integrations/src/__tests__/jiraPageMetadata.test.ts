@@ -40,6 +40,7 @@ function dropped(): CollectionMetadata {
 				scope: { providerId: 'jira', resourceId: 'org-1' },
 				kind: 'provider',
 				message: 'Skipped Jira issues that could not be read: P-2 (boom).',
+				skippedItems: { keys: ['P-2'], total: 1, complete: true },
 			},
 		],
 	};
@@ -140,6 +141,61 @@ suite('Jira search wrappers forward page metadata', () => {
 		});
 	}
 
+	test("getIssuesForResourceForCurrentUser checks the page's skippedItems", async () => {
+		const malformed = (): CollectionMetadata => ({
+			completeness: 'partial',
+			failures: [
+				{
+					scope: { providerId: 'jira', resourceId: 'org-1' },
+					kind: 'provider',
+					message: 'Request failed (500)',
+					skippedItems: { total: 1, complete: true } as unknown as NonNullable<
+						CollectionMetadata['failures']
+					>[number]['skippedItems'],
+				},
+			],
+		});
+		const { api, dispose } = await realProvidersApi(IssuesCloudHostIntegrationId.Jira, {
+			getIssuesForResourceForCurrentUserFn: () =>
+				Promise.resolve({
+					data: [],
+					pageInfo: { hasNextPage: false, endCursor: null },
+					metadata: malformed(),
+				}),
+		});
+
+		const result = await api.getIssuesForResourceForCurrentUser(cloudToken, 'org-1');
+
+		assert.deepEqual(result.metadata?.failures?.[0].skippedItems, { keys: [], total: 1, complete: false });
+		dispose();
+	});
+
+	test("a search wrapper checks the page's skippedItems, so no later stage meets a malformed one", async () => {
+		const { api, dispose } = await realProvidersApi(IssuesCloudHostIntegrationId.Jira, {
+			getIssuesForProjectFn: () =>
+				Promise.resolve({
+					data: [],
+					pageInfo: { hasNextPage: false, endCursor: null },
+					metadata: {
+						completeness: 'partial',
+						failures: [
+							{
+								scope: { providerId: 'jira', resourceId: 'org-1' },
+								kind: 'provider',
+								message: 'Skipped Jira issues that could not be read: P-1 (boom).',
+								skippedItems: { keys: ['P-1', 7], total: 2, complete: true },
+							},
+						],
+					},
+				}),
+		});
+
+		const page = await api.getIssuesForProjectPaged(cloudToken, 'P', 'org-1');
+
+		assert.deepEqual(page?.metadata?.failures?.[0].skippedItems, { keys: ['P-1'], total: 2, complete: false });
+		dispose();
+	});
+
 	test("getIssuesForResourceForCurrentUser keeps the page's metadata", async () => {
 		const { api, dispose } = await realProvidersApi(IssuesCloudHostIntegrationId.Jira, {
 			getIssuesForResourceForCurrentUserFn: () =>
@@ -214,6 +270,7 @@ suite('Jira Cloud account-wide read metadata', () => {
 										scope: { providerId: 'jira', resourceId: 'site-1' },
 										kind: 'provider',
 										message: 'Skipped Jira issues that could not be read: A-2 (boom).',
+										skippedItems: { keys: ['A-2'], total: 1, complete: true },
 									},
 								],
 							},
@@ -362,6 +419,7 @@ suite('Jira Cloud account-wide read metadata', () => {
 							scope: { providerId: 'jira', resourceId: resourceId },
 							kind: 'provider',
 							message: `Skipped Jira issues that could not be read: A-${page} (boom).`,
+							skippedItems: { keys: [`A-${page}`], total: 1, complete: true },
 						},
 					],
 				},

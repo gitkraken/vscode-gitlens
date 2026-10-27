@@ -30,18 +30,52 @@ export interface ScopedLogger {
 
 	/** @internal Returns exit info for logging - used internally by the @log decorator */
 	getExitInfo(): { details: string | undefined; failed: string | undefined };
+	/** @internal Whether a line was written inside this scope or any scope under it */
+	readonly logged: boolean;
+	/** @internal Records that a line was written inside this scope, and so inside every scope above it */
+	markLogged(): void;
+	/** @internal Called when the scope's call returns, so a line written after it no longer triggers `onFirstLogged` */
+	exited(): void;
 }
 
-export function createLogScope(scopeId: number, prevScopeId: number | undefined, prefix: string): ScopedLogger {
+/**
+ * @param prefix The scope's line prefix, or a function that builds it on first use
+ * @param parent The scope this one runs inside, which a line written here also marks as logged
+ * @param onFirstLogged Runs when the first line is written inside this scope, after its parent's own `onFirstLogged`
+ */
+export function createLogScope(
+	scopeId: number,
+	prevScopeId: number | undefined,
+	prefix: string | (() => string),
+	parent?: ScopedLogger,
+	onFirstLogged?: (scope: ScopedLogger) => void,
+): ScopedLogger {
 	let exitDetails: string[] | undefined;
 	let exitFailed: string | undefined;
+	let logged = false;
 
 	// oxlint-disable-next-line typescript/consistent-type-assertions
 	const scope: ScopedLogger = {
 		scopeId: scopeId,
 		prevScopeId: prevScopeId,
-		prefix: prefix,
+		prefix: prefix as string,
 		enabled: (level?: Exclude<LogLevel, 'off'>) => Logger.enabled(level),
+		get logged() {
+			return logged;
+		},
+		markLogged: function (): void {
+			if (logged) return;
+
+			logged = true;
+			parent?.markLogged();
+
+			const fn = onFirstLogged;
+			onFirstLogged = undefined;
+			fn?.(scope);
+		},
+		exited: function (): void {
+			onFirstLogged = undefined;
+		},
 		addExitInfo: function (...details: string[]): void {
 			(exitDetails ??= []).push(...details);
 		},
@@ -56,6 +90,18 @@ export function createLogScope(scopeId: number, prevScopeId: number | undefined,
 			};
 		},
 	} as ScopedLogger;
+
+	if (typeof prefix === 'function') {
+		Object.defineProperty(scope, 'prefix', {
+			configurable: true,
+			enumerable: true,
+			get: function () {
+				const value = prefix();
+				Object.defineProperty(scope, 'prefix', { value: value, writable: false, enumerable: true });
+				return value;
+			},
+		});
+	}
 
 	// Lazy bind - getter replaces itself with bound function on first access
 	defineLazyBoundMethod(scope, 'trace', Logger.trace);
@@ -134,12 +180,18 @@ export function getNewLogScope(
 	label?: string,
 ): ScopedLogger {
 	if (scope != null && typeof scope !== 'boolean') {
-		return createLogScope(scope.scopeId!, scope.prevScopeId, `${scope.prefix}${prefix}`);
+		return createLogScope(scope.scopeId!, scope.prevScopeId, `${scope.prefix}${prefix}`, scope);
 	}
 
-	const prevScopeId = scope ? getCurrentScope()?.scopeId : undefined;
+	const parent = scope ? getCurrentScope() : undefined;
+	const prevScopeId = parent?.scopeId;
 	const scopeId = logScopeIdGenerator.next();
-	return createLogScope(scopeId, prevScopeId, `${getLoggableScopeBlock(scopeId, prevScopeId, label)} ${prefix}`);
+	return createLogScope(
+		scopeId,
+		prevScopeId,
+		`${getLoggableScopeBlock(scopeId, prevScopeId, label)} ${prefix}`,
+		parent,
+	);
 }
 
 /** Starts a scoped logger for use with the `using` keyword */

@@ -2,7 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { l10n, ProgressLocation } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
-import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils.js';
+import { getBranchMergeTarget } from '../git/utils/-webview/branch.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { prepareCompareDataForAIRequest } from '../plus/ai/utils/-webview/ai.utils.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
@@ -85,9 +85,10 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				}
 			} else {
 				// Fall back to automatic merge target detection
-				const baseBranchNameResult = await getBranchMergeTargetName(this.container, branch);
-				if (!baseBranchNameResult.paused) {
-					baseBranch = await svc.branches.getBranch(baseBranchNameResult.value);
+				// Keeps the default branch's own upstream, so one level with it has no changes rather than no base
+				const { target } = await getBranchMergeTarget(this.container, branch, { keepSelfAtTip: true });
+				if (target != null) {
+					baseBranch = await svc.branches.getBranch(target.ref);
 				}
 
 				if (!baseBranch) {

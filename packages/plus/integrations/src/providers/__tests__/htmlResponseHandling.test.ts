@@ -8,13 +8,13 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../../constants.js';
 import { AuthenticationError, RequestClientError } from '../../errors.js';
+import { parseFetchResponseForApi } from '../providerApiClient.js';
 import {
 	AnonymousResponseError,
 	isProviderIssueNotFoundError,
 	throwProviderError,
 	UnexpectedHtmlResponseError,
 } from '../providerErrors.js';
-import { parseFetchResponseForApi } from '../providersApi.js';
 
 const signInPage = '<!DOCTYPE html><html><body>Sign in to Azure DevOps</body></html>';
 

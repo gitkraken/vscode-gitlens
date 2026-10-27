@@ -31,14 +31,16 @@ const broken = {
 	resourceName: 'Site One',
 };
 
-function skipped(keys: string): CollectionMetadata {
+/** `complete: false` is a page that also skipped an issue with no key, which the SDK can't name. */
+function skipped(keys: string[], complete = true): CollectionMetadata {
 	return {
 		completeness: 'partial',
 		failures: [
 			{
 				scope: { providerId: 'jira', resourceId: 'site-1' },
 				kind: 'provider',
-				message: `Skipped Jira issues that could not be read: ${keys}.`,
+				message: `Skipped Jira issues that could not be read: ${keys.map(key => `${key} (boom)`).join(', ')}.`,
+				skippedItems: { keys: keys, total: keys.length + (complete ? 0 : 1), complete: complete },
 			},
 		],
 	};
@@ -93,7 +95,7 @@ const unreadable = (warning: ProviderWarning) => warning.kind === 'unreadable-it
 suite('Tracker read cut short beside a skipped issue', () => {
 	test('reports one project stopped at the backstop beside another that skipped an issue', async () => {
 		const manager = await connectedJira((projectKey, _scope, cursor) =>
-			projectKey === big.key ? endless(cursor) : { data: [], hasMore: false, metadata: skipped('BRK-7 (boom)') },
+			projectKey === big.key ? endless(cursor) : { data: [], hasMore: false, metadata: skipped(['BRK-7']) },
 		);
 
 		const result = await manager.listIssueTrackerIssuesPage({
@@ -126,7 +128,7 @@ suite('Tracker read cut short beside a skipped issue', () => {
 			if (projectKey !== big.key) return { data: [], hasMore: false };
 			if (scope.assigneeLogins != null) return endless(cursor);
 
-			return { data: [], hasMore: false, metadata: skipped('BIG-3 (boom)') };
+			return { data: [], hasMore: false, metadata: skipped(['BIG-3']) };
 		});
 
 		const result = await manager.listIssueTrackerIssuesPage({
@@ -157,12 +159,12 @@ suite('Tracker read cut short beside a skipped issue', () => {
 							data: [],
 							hasMore: true,
 							nextCursor: 'c1',
-							metadata: skipped('BIG-1 (boom), BIG-2 (boom)'),
+							metadata: skipped(['BIG-1', 'BIG-2']),
 						}
 					: {
 							data: [],
 							hasMore: false,
-							metadata: skipped('BIG-9 (boom) and 3 more'),
+							metadata: skipped(['BIG-9'], false),
 						}
 				: { data: [], hasMore: false },
 		);
@@ -188,7 +190,7 @@ suite('Tracker read cut short beside a skipped issue', () => {
 		const manager = await connectedJira((projectKey, _scope, cursor) =>
 			projectKey === big.key
 				? endless(cursor)
-				: { ...endless(cursor), ...(cursor == null ? { metadata: skipped('BRK-1 (boom)') } : {}) },
+				: { ...endless(cursor), ...(cursor == null ? { metadata: skipped(['BRK-1']) } : {}) },
 		);
 
 		const result = await manager.listIssueTrackerIssuesPage({

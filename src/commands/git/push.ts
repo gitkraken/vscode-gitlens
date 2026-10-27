@@ -1,4 +1,4 @@
-import { l10n, ThemeIcon, Uri } from 'vscode';
+import { l10n, ThemeIcon, Uri, window } from 'vscode';
 import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
@@ -12,7 +12,9 @@ import { pad, sortCompare } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
+import { showGitErrorMessage } from '../../messages.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
@@ -478,6 +480,45 @@ async function buildPublishItems(
 	return items;
 }
 
+/**
+ * The two ways forward when the repo has no remotes. Publishing the repository always publishes the CURRENT
+ * branch, so for another branch (`currentBranchName` given) it says so and Add Remote leads instead. A
+ * caller seeding `flags` with either row's flag picks that row instead of the default.
+ */
+function buildNoRemotesItems(
+	flags: Flags[],
+	branch: GitBranch | GitBranchReference,
+	currentBranchName: string | undefined,
+): FlagsQuickPickItem<Flags>[] {
+	const isCurrent = currentBranchName == null;
+	const seeded = flags.includes('--publish-repository') || flags.includes('--add-remote');
+
+	return [
+		createFlagsQuickPickItem<Flags>(flags, ['--publish-repository'], {
+			label: l10n.t('Publish Repository…'),
+			detail: isCurrent
+				? l10n.t('Will create a new remote repository and publish {0} to it', getReferenceLabel(branch))
+				: l10n.t(
+						'Will create a new remote repository and publish the current branch, {0}, to it',
+						currentBranchName,
+					),
+			// `undefined` lets the seeded flags decide
+			picked: seeded ? undefined : isCurrent,
+		}),
+		createFlagsQuickPickItem<Flags>(flags, ['--add-remote'], {
+			label: l10n.t('Add Remote…'),
+			detail: l10n.t('Will add a remote, then publish {0} to it', getReferenceLabel(branch)),
+			picked: seeded ? undefined : !isCurrent,
+		}),
+	];
+}
+
+/** Which of `repos` have at least one remote, in order */
+async function getReposWithRemotes(repos: readonly GlRepository[]): Promise<GlRepository[]> {
+	const results = await Promise.allSettled(repos.map(r => r.git.remotes.getRemotes()));
+	return repos.filter((_, i) => (getSettledValue(results[i])?.length ?? 0) > 0);
+}
+
 interface Context extends StepsContext<StepNames> {
 	repos: GlRepository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -515,16 +556,23 @@ export class PushGitCommand extends QuickCommand<State> {
 			return;
 		}
 
+		// A repo without remotes has nowhere to push — skip it rather than fail the whole batch
+		const repos = state.repos.length > 1 ? await getReposWithRemotes(state.repos) : state.repos;
+		if (!repos.length) {
+			void window.showWarningMessage(l10n.t('Cannot push; No remotes found'));
+			return;
+		}
+
 		const index = state.flags.indexOf('--set-upstream');
 		if (index !== -1) {
-			return this.container.git.pushAll(state.repos, {
+			return this.container.git.pushAll(repos, {
 				force: false,
 				publish: { remote: state.flags[index + 1] },
 				reference: state.reference,
 			});
 		}
 
-		return this.container.git.pushAll(state.repos, {
+		return this.container.git.pushAll(repos, {
 			force: state.flags.includes('--force'),
 			reference: state.reference,
 		});
@@ -598,9 +646,15 @@ export class PushGitCommand extends QuickCommand<State> {
 			assertStepState<State<GlRepository[]>>(state);
 
 			// An unpublished branch's confirm isn't a yes/no — it's where the publish remote gets
-			// picked — so a skipped confirmation must never skip that decision
+			// picked — so a skipped confirmation must never skip that decision. That includes a seeded
+			// `--publish-repository`/`--add-remote` flag (a Graph/view button), even if the branch has since
+			// gained an upstream: the chooser is a decision, never a yes/no a saved "yes" can answer
 			let confirmOverride: boolean | undefined;
 			if (!this.confirm(state.confirm) && state.repos.length === 1) {
+				if (state.flags.includes('--publish-repository') || state.flags.includes('--add-remote')) {
+					confirmOverride = true;
+				}
+
 				const branch = isBranchReference(state.reference)
 					? await state.repos[0].git.branches.getBranch(state.reference.name)
 					: await state.repos[0].git.branches.getBranch();
@@ -625,12 +679,24 @@ export class PushGitCommand extends QuickCommand<State> {
 			if (state.flags.includes('--add-remote')) {
 				using addStep = steps.enterStep(Steps.AddRemote);
 
-				const addResult = yield* getSteps(
-					this.container,
-					{ command: 'remote', state: { subcommand: 'add', repo: state.repos[0], reveal: false } },
-					context,
-					this.startedFrom,
-				);
+				let addResult;
+				try {
+					// No fetch (the publish that follows creates the tracking branch) and no confirm — the add
+					// wizard still forces its guard open when the URL doesn't answer
+					addResult = yield* getSteps(
+						this.container,
+						{
+							command: 'remote',
+							confirm: false,
+							state: { subcommand: 'add', repo: state.repos[0], reveal: false, flags: [], fetch: false },
+						},
+						context,
+						this.startedFrom,
+					);
+				} catch (ex) {
+					void showGitErrorMessage(ex, l10n.t('Unable to add remote'));
+					addResult = StepResultBreak;
+				}
 				if (addResult === StepResultBreak) {
 					state.flags = state.flags.filter(f => f !== '--add-remote');
 					if (addStep.goBack() == null) break;
@@ -669,25 +735,58 @@ export class PushGitCommand extends QuickCommand<State> {
 		const confirmForced = !this.confirm(state.confirm);
 		const forcePushMode = getForcePushMode(useForceWithLease, useForceIfIncludes);
 
-		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
+		let step: QuickPickStep<FlagsQuickPickItem<Flags> | DirectiveQuickPickItem>;
 
 		if (state.repos.length > 1) {
-			step = this.createConfirmStep(
-				appendReposToTitle(l10n.t('Confirm Push'), state, context),
-				[
+			const pushable = await getReposWithRemotes(state.repos);
+			if (!pushable.length) {
+				step = this.createConfirmStep(
+					appendReposToTitle(context.title, state, context),
+					[],
+					l10n.t('Cannot push; No remotes found'),
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
+						label: l10n.t('OK'),
+						detail: l10n.t('None of the selected repositories have remotes'),
+					}),
+				);
+			} else {
+				const rows = [
 					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
-						detail: l10n.t('Will push {0} repos', state.repos.length),
+						detail: l10n.t('Will push {0} repos', pushable.length),
 					}),
 					createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 						label: getForcePushLabel(forcePushMode),
 						description: getForcePushDescription(forcePushMode),
-						detail: getForcePushReposDetail(forcePushMode, state.repos.length),
+						detail: getForcePushReposDetail(forcePushMode, pushable.length),
 						iconPath: new ThemeIcon('warning'),
 					}),
-				],
-				l10n.t('Confirm Push'),
-			);
+				];
+
+				const skipped = state.repos.filter(r => !pushable.includes(r));
+				step = this.createConfirmStep<FlagsQuickPickItem<Flags> | DirectiveQuickPickItem>(
+					appendReposToTitle(l10n.t('Confirm Push'), state, context),
+					skipped.length
+						? [
+								createDirectiveQuickPickItem(Directive.Noop, false, {
+									label: l10n.t(
+										'{0} of {1} repositories have no remotes and will be skipped: {2}',
+										skipped.length,
+										state.repos.length,
+										skipped.map(r => r.name).join(', '),
+									),
+									iconPath: new ThemeIcon('warning'),
+								}),
+								createQuickPickSeparator<FlagsQuickPickItem<Flags>>(),
+								...rows,
+							]
+						: rows,
+					l10n.t('Confirm Push'),
+					undefined,
+					// The notice leads the list — keep Enter on the push row
+					{ selectedItems: [rows.find(r => r.picked) ?? rows[0]] },
+				);
+			}
 		} else {
 			const [repo] = state.repos;
 
@@ -721,28 +820,20 @@ export class PushGitCommand extends QuickCommand<State> {
 										appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 										items,
 										l10n.t('Confirm Publish'),
+										undefined,
+										{ skipConfirmToggle: false },
 									);
 						} else {
+							// Publish Repository publishes whatever is checked out, which may not be this branch
+							const currentName = branch.current
+								? undefined
+								: ((await repo.git.branches.getBranch())?.name ?? 'HEAD');
 							step = this.createConfirmStep(
 								appendReposToTitle(l10n.t('Publish'), state, context),
-								[
-									createFlagsQuickPickItem<Flags>(state.flags, ['--publish-repository'], {
-										label: l10n.t('Publish Repository…'),
-										detail: l10n.t(
-											'Will create a new remote repository and publish {0} to it',
-											getReferenceLabel(branch),
-										),
-										picked: true,
-									}),
-									createFlagsQuickPickItem<Flags>(state.flags, ['--add-remote'], {
-										label: l10n.t('Add Remote…'),
-										detail: l10n.t(
-											'Will add a remote, then publish {0} to it',
-											getReferenceLabel(branch),
-										),
-									}),
-								],
+								buildNoRemotesItems(state.flags, branch, currentName),
 								l10n.t('Cannot publish; No remotes found'),
+								undefined,
+								{ skipConfirmToggle: false },
 							);
 						}
 					} else if (branch?.upstream?.state.behind) {
@@ -858,28 +949,17 @@ export class PushGitCommand extends QuickCommand<State> {
 									appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 									items,
 									l10n.t('Confirm Publish'),
+									undefined,
+									{ skipConfirmToggle: false },
 								);
 					} else if (status.upstream == null || status.upstream.missing) {
 						step = this.createConfirmStep(
 							appendReposToTitle(l10n.t('Publish'), state, context),
-							[
-								createFlagsQuickPickItem<Flags>(state.flags, ['--publish-repository'], {
-									label: l10n.t('Publish Repository…'),
-									detail: l10n.t(
-										'Will create a new remote repository and publish {0} to it',
-										getReferenceLabel(branch),
-									),
-									picked: true,
-								}),
-								createFlagsQuickPickItem<Flags>(state.flags, ['--add-remote'], {
-									label: l10n.t('Add Remote…'),
-									detail: l10n.t(
-										'Will add a remote, then publish {0} to it',
-										getReferenceLabel(branch),
-									),
-								}),
-							],
+							// The status path always targets the checked-out branch
+							buildNoRemotesItems(state.flags, branch, undefined),
 							l10n.t('Cannot publish; No remotes found'),
+							undefined,
+							{ skipConfirmToggle: false },
 						);
 					} else {
 						step = this.createConfirmStep(
@@ -1014,6 +1094,10 @@ export class PushGitCommand extends QuickCommand<State> {
 		}
 
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
+
+		// Notice rows are no-ops the wizard never accepts; narrowed here for the type only
+		const [item] = selection;
+		return 'directive' in item ? StepResultBreak : item.item;
 	}
 }

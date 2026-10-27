@@ -1,5 +1,8 @@
-import ProviderApis, { GitIssueState } from '@gitkraken/provider-apis';
+import { GitIssueState } from '@gitkraken/provider-apis';
 import type {
+	AzureDevOpsRestResource,
+	AzureDevOpsRestResourceInfo,
+	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 	CollectionMetadata,
 	GitPullRequestState,
@@ -11,12 +14,14 @@ import type {
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { isIncompleteCollection, toCollectionScopeFailure } from '../collectionMetadata.js';
+import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
@@ -25,25 +30,24 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 	providerFanOutConcurrency,
 } from '../constants.js';
-import { getAuthenticatedUser, RequestNotFoundError, toError } from '../errors.js';
+import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type {
-	AzurePullRequest,
-	AzureWorkItemEtagRead,
-	AzureWorkItemResponse,
-	AzureWorkItemStateCategory,
-} from './azure/models.js';
+import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
 	azureIssueStateCategory,
 	azureWorkItemEtagFieldNames,
 	encodeAzurePathSegment,
 	fromAzureWorkItemToProviderIssue,
+	toAzureWorkItemDescriptionFields,
 } from './azure/models.js';
+import { AzureWorkItemDescriptionsCache } from './azure/workItemDescriptions.js';
 import type { AzureWorkItemStatesScope } from './azure/workItemStateCategories.js';
 import {
 	AzureWorkItemStatesCache,
 	getAzureWorkItemTypeStatesUrl,
 	getAzureWorkItemTypesUrl,
+	requireAzureWorkItemStateCategories,
+	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -91,34 +95,18 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 	ProviderRequestFunction,
-	ProviderRequestOptions,
-	ProviderRequestResponse,
 	Providers,
 	PullRequestFilter,
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
-import {
-	AnonymousResponseError,
-	getProviderResponseBodyMessage,
-	isAzureProviderId,
-	isProviderIssueNotFoundError,
-	throwProviderError,
-	UnexpectedHtmlResponseError,
-} from './providerErrors.js';
+import { createProviderApiRequest, createProviderApis } from './providerApiClient.js';
+import { isAzureProviderId, isProviderIssueNotFoundError, throwProviderError } from './providerErrors.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
 	parsePageCursor,
 	toPageCursor,
 } from './utils/providerPaging.js';
-
-// `@gitkraken/provider-apis` is published as CommonJS with its factory on the `default` export.
-// How that surfaces depends on the consuming bundler's CJS->ESM interop: esbuild yields the
-// callable factory directly, while webpack and Node surface the module namespace (with the
-// factory under `.default`). Normalize to the callable factory so every consumer resolves it.
-type ProviderApisFactory = typeof ProviderApis;
-const createProviderApis: ProviderApisFactory =
-	(ProviderApis as ProviderApisFactory & { default?: ProviderApisFactory }).default ?? ProviderApis;
 
 // Both GitHub and GitLab `getRepo` throw a missing-repo error whose message is exactly
 // `Repository <x> not found`. Anchoring to that shape (rather than a loose `not found` substring) keeps
@@ -294,7 +282,8 @@ function fromTrelloCard(
 
 /**
  * One Jira search page as the drains read it: `nextCursor` is the raw provider cursor (Jira offset / nextPageToken)
- * fed back verbatim as `options.cursor`, and `metadata` is the SDK's, kept only when it reported something.
+ * fed back verbatim as `options.cursor`, and `metadata` is the SDK's, kept only when it reported something and with its `skippedItems` checked, since the
+ * drains read nothing else of a page's failures.
  */
 function toJiraIssuePage(
 	result:
@@ -311,7 +300,33 @@ function toJiraIssuePage(
 		data: result.data,
 		hasMore: result.pageInfo?.hasNextPage ?? false,
 		nextCursor: result.pageInfo?.endCursor ?? undefined,
-		...(result.metadata != null ? { metadata: result.metadata } : {}),
+		...(result.metadata != null ? { metadata: withValidSkippedItems(result.metadata) } : {}),
+	};
+}
+
+function createAzureProviderInfo(
+	id: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+	azure: ReturnType<typeof createProviderApis>['azureDevOps'],
+): ProviderInfo {
+	return {
+		...providersMetadata[id],
+		provider: azure,
+		getRepoOfProjectFn: azure.getRepo.bind(azure),
+		getCurrentUserFn: azure.getCurrentUser.bind(azure),
+		getCurrentUserForInstanceFn: azure.getCurrentUserForInstance.bind(azure),
+		getAzureResourcesForUserFn:
+			id === GitCloudHostIntegrationId.AzureDevOps
+				? azure.getOrgsForUser.bind(azure)
+				: azure.getCollectionsForUser.bind(azure),
+		getAzureProjectsForResourceFn: azure.getAzureProjects.bind(azure),
+		getPullRequestsForReposFn: azure.getPullRequestsForRepos.bind(azure) as GetPullRequestsForReposFn,
+		getPullRequestsForRepoFn: azure.getPullRequestsForRepo.bind(azure),
+		getPullRequestForRepoFn: azure.getPullRequestForRepo.bind(azure),
+		getPullRequestsForAzureProjectsFn: azure.getPullRequestsForProjects.bind(azure),
+		getPullRequestsForAzureProjectFn: azure.getPullRequestsForProject.bind(azure),
+		getIssuesForAzureProjectFn: azure.getIssuesForAzureProject.bind(azure),
+		getReposForAzureProjectFn: azure.getReposForAzureProject.bind(azure),
+		mergePullRequestFn: azure.mergePullRequest.bind(azure),
 	};
 }
 
@@ -324,31 +339,25 @@ interface AzureClassifiableIssue {
 	state?: { readonly name: string; readonly category?: IssueProviderState['category'] } | null;
 }
 
-export class ProvidersApi {
+type AzureWorkItemStatesSnapshot = {
+	selection: AzureWorkItemTypeStates;
+	types: ReadonlyMap<string, Awaited<ReturnType<AzureWorkItemStatesCache['getStates']>> | undefined>;
+};
+
+export class ProvidersApi implements Disposable {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
+	private azureRestApi: ReturnType<typeof createProviderApis>['azureDevOps'];
+	private readonly disposable: Disposable | undefined;
 	constructor(
 		private readonly authenticationService: IntegrationAuthenticationService,
 		private readonly azureWorkItemTypeStates = new AzureWorkItemStatesCache(),
+		private readonly azureWorkItemDescriptions = new AzureWorkItemDescriptionsCache(),
 	) {
 		const http = authenticationService.ctx.http;
-		const userAgent = http.userAgent;
-		const customFetch: ProviderRequestFunction = async <T>({
-			url,
-			...options
-		}: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
-			const response = await http.fetch(url, {
-				...options,
-				headers: {
-					'User-Agent': userAgent,
-					...options.headers,
-				},
-			});
-
-			return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
-		};
-		this.request = customFetch;
-		const providerApis = createProviderApis({ request: customFetch });
+		this.request = createProviderApiRequest((input, init) => http.fetch(input, init), http.userAgent);
+		const providerApis = createProviderApis({ request: this.request });
+		this.azureRestApi = providerApis.azureDevOps;
 		this.providers = {
 			[GitCloudHostIntegrationId.GitHub]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitHub],
@@ -470,70 +479,14 @@ export class ProvidersApi {
 				),
 				mergePullRequestFn: providerApis.bitbucketServer.mergePullRequest.bind(providerApis.bitbucketServer),
 			},
-			[GitCloudHostIntegrationId.AzureDevOps]: {
-				...providersMetadata[GitCloudHostIntegrationId.AzureDevOps],
-				provider: providerApis.azureDevOps,
-				getRepoOfProjectFn: providerApis.azureDevOps.getRepo.bind(providerApis.azureDevOps),
-				getCurrentUserFn: providerApis.azureDevOps.getCurrentUser.bind(providerApis.azureDevOps),
-				getCurrentUserForInstanceFn: providerApis.azureDevOps.getCurrentUserForInstance.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureResourcesForUserFn: providerApis.azureDevOps.getOrgsForUser.bind(providerApis.azureDevOps),
-				getAzureProjectsForResourceFn: providerApis.azureDevOps.getAzureProjects.bind(providerApis.azureDevOps),
-				getPullRequestsForReposFn: providerApis.azureDevOps.getPullRequestsForRepos.bind(
-					providerApis.azureDevOps,
-				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
-				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
-					providerApis.azureDevOps,
-				),
-				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
-			},
-			[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
-				...providersMetadata[GitSelfManagedHostIntegrationId.AzureDevOpsServer],
-				provider: providerApis.azureDevOps,
-				getRepoOfProjectFn: providerApis.azureDevOps.getRepo.bind(providerApis.azureDevOps),
-				getCurrentUserFn: providerApis.azureDevOps.getCurrentUser.bind(providerApis.azureDevOps),
-				getCurrentUserForInstanceFn: providerApis.azureDevOps.getCurrentUserForInstance.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureResourcesForUserFn: providerApis.azureDevOps.getCollectionsForUser.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureProjectsForResourceFn: providerApis.azureDevOps.getAzureProjects.bind(providerApis.azureDevOps),
-				getPullRequestsForReposFn: providerApis.azureDevOps.getPullRequestsForRepos.bind(
-					providerApis.azureDevOps,
-				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
-				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
-					providerApis.azureDevOps,
-				),
-				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
-			},
+			[GitCloudHostIntegrationId.AzureDevOps]: createAzureProviderInfo(
+				GitCloudHostIntegrationId.AzureDevOps,
+				providerApis.azureDevOps,
+			),
+			[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: createAzureProviderInfo(
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				providerApis.azureDevOps,
+			),
 			[IssuesCloudHostIntegrationId.Jira]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Jira],
 				provider: providerApis.jira,
@@ -587,6 +540,25 @@ export class ProvidersApi {
 				getTrelloLabelsForBoardFn: providerApis.trello.getLabelsForBoard.bind(providerApis.trello),
 			},
 		};
+		this.disposable = authenticationService.ctx.config?.onDidChange(e => {
+			if (!e.httpProxy) return;
+
+			this.azureWorkItemTypeStates.clear();
+			this.azureWorkItemDescriptions.clear();
+			this.azureRestApi = createProviderApis({ request: this.request }).azureDevOps;
+			this.providers[GitCloudHostIntegrationId.AzureDevOps] = createAzureProviderInfo(
+				GitCloudHostIntegrationId.AzureDevOps,
+				this.azureRestApi,
+			);
+			this.providers[GitSelfManagedHostIntegrationId.AzureDevOpsServer] = createAzureProviderInfo(
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				this.azureRestApi,
+			);
+		});
+	}
+
+	dispose(): void {
+		this.disposable?.dispose();
 	}
 
 	getScopesForProvider(providerId: IntegrationIds): string[] | undefined {
@@ -773,7 +745,7 @@ export class ProvidersApi {
 			}
 			const continuationBroken = hasMore && (nextCursor === '{}' || nextCursor === cursor);
 			const normalizedMetadata = mergeCollectionMetadata(
-				result.metadata,
+				withValidSkippedItems(result.metadata),
 				continuationBroken ? { completeness: 'partial' } : undefined,
 			);
 
@@ -960,10 +932,11 @@ export class ProvidersApi {
 
 		let memberOf: unknown;
 		try {
+			const resource = await this.getAzureRestResource(tokenWithInfo, namespace, 'identities', options, '5.0');
 			const params = new URLSearchParams({
 				identityIds: userId,
 				queryMembership: 'Expanded',
-				'api-version': '5.0',
+				'api-version': resource.apiVersion,
 			});
 			const user = await this.request<{ value?: { memberOf?: unknown }[] }>({
 				url: `${base}/_apis/identities?${params.toString()}`,
@@ -987,9 +960,16 @@ export class ProvidersApi {
 		}
 		const batches: unknown[] = [];
 		try {
+			const resource = await this.getAzureRestResource(
+				tokenWithInfo,
+				namespace,
+				'identityBatch',
+				options,
+				'5.0-preview.1',
+			);
 			for (const descriptors of chunks) {
 				const batch = await this.request<{ value?: unknown }>({
-					url: `${base}/_apis/identitybatch?api-version=5.0-preview.1`,
+					url: `${base}/_apis/identitybatch?api-version=${resource.apiVersion}`,
 					method: 'POST',
 					headers: headers,
 					body: JSON.stringify({ descriptors: descriptors, queryMembership: 'None' }),
@@ -1049,6 +1029,27 @@ export class ProvidersApi {
 		}
 	}
 
+	private async getAzureRestResource(
+		token: TokenWithInfo,
+		namespace: string,
+		resource: AzureDevOpsRestResource,
+		options?: { isPAT?: boolean; baseUrl?: string },
+		version?: string,
+	): Promise<AzureDevOpsRestResourceInfo> {
+		try {
+			encodeAzurePathSegment(namespace);
+			const result = await this.azureRestApi.getRestApiResource(
+				{ namespace: namespace, resource: resource, version: version },
+				{ ...options, token: token.accessToken },
+			);
+			if (result == null) throw new Error(`Azure DevOps REST resource ${resource} is unavailable`);
+
+			return result;
+		} catch (ex) {
+			return this.handleProviderError(token, ex);
+		}
+	}
+
 	/**
 	 * One Azure DevOps work item by id, converted as provider-apis converts its list rows (see
 	 * {@link fromAzureWorkItemToProviderIssue}). provider-apis has no single work item read, so this asks Azure
@@ -1065,18 +1066,23 @@ export class ProvidersApi {
 		id: number,
 		options: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderIssue | undefined> {
-		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const { tokenWithInfo: providedToken } = await this.ensureProviderToken(tokenOptInfo);
+		const tokenWithInfo = { ...providedToken };
 		const token = tokenWithInfo.accessToken;
 
 		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
-		const params = new URLSearchParams({ $expand: 'Links', 'api-version': '6.0' });
-		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/${encodeAzurePathSegment(scope.project)}/_apis/wit/workitems/${id}?${params.toString()}`;
+		const requestOptions = { baseUrl: baseUrl, isPAT: options.isPAT ?? false };
+		const encodedProject = encodeAzurePathSegment(scope.project);
+		const resource = await this.getAzureRestResource(tokenWithInfo, scope.namespace, 'workItems', requestOptions);
+		const params = new URLSearchParams({ $expand: 'Links', 'api-version': resource.apiVersion });
+		const projectPath = resource.projectScoped ? `/${encodedProject}` : '';
+		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}${projectPath}/_apis/wit/workitems/${id}?${params.toString()}`;
 
 		let workItem: AzureWorkItemResponse | null | undefined;
 		try {
 			const result = await this.request<AzureWorkItemResponse | null>({
 				url: url,
-				headers: { Authorization: azureAuthorization(token, options.isPAT) },
+				headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
 			});
 			workItem = result.body;
 		} catch (e) {
@@ -1085,21 +1091,29 @@ export class ProvidersApi {
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
 
-		const issue =
-			workItem != null ? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project) : undefined;
-		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
-
 		// The route's project is not trusted to scope the read: work item ids are unique across the organization, and
 		// one from another project must not answer for this coordinate. Azure compares project names
 		// case-insensitively.
 		const project = workItem?.fields?.['System.TeamProject'];
-		if (typeof project === 'string' && project.toLowerCase() !== scope.project.toLowerCase()) {
+		if (typeof project !== 'string' || !project.trim()) {
+			throw new Error(`Azure DevOps work item ${id} has no project`);
+		}
+
+		if (project.toLowerCase() !== scope.project.toLowerCase()) {
 			throw new Error(`Azure DevOps work item ${id} is in project '${project}', not '${scope.project}'`);
 		}
 
-		// Outside the not-found handling above: a states read that 404s says nothing about the work item, so it fails
-		// the read rather than reading as an absent work item.
-		await this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, options);
+		const issue =
+			workItem != null ? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project) : undefined;
+		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
+
+		// Metadata failures say nothing about the work item's existence, so keep them outside the not-found handling.
+		const [htmlFields] = await Promise.all([
+			this.getAzureWorkItemHtmlFields(tokenWithInfo, scope, workItem?.fields, requestOptions),
+			this.classifyAzureIssueStates([issue], tokenWithInfo, scope.namespace, scope.project, requestOptions),
+		]);
+		Object.assign(issue, toAzureWorkItemDescriptionFields(workItem?.fields, htmlFields));
+
 		return issue;
 	}
 
@@ -1124,8 +1138,11 @@ export class ProvidersApi {
 		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
 		// Commas left unencoded, as Azure documents these lists. The same `api-version` as `getAzureWorkItem`, so a
 		// server that serves the full read also serves this check.
-		const query = `ids=${ids.join(',')}&fields=${azureWorkItemEtagFieldNames.join(',')}&errorPolicy=omit&api-version=6.0`;
-		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/${encodeAzurePathSegment(scope.project)}/_apis/wit/workitems?${query}`;
+		const encodedProject = encodeAzurePathSegment(scope.project);
+		const resource = await this.getAzureRestResource(tokenWithInfo, scope.namespace, 'workItems', options);
+		const query = `ids=${ids.join(',')}&fields=${azureWorkItemEtagFieldNames.join(',')}&errorPolicy=omit&api-version=${resource.apiVersion}`;
+		const projectPath = resource.projectScoped ? `/${encodedProject}` : '';
+		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}${projectPath}/_apis/wit/workitems?${query}`;
 
 		try {
 			const result = await this.request<{ value?: (AzureWorkItemResponse | null)[] } | null>({
@@ -1169,7 +1186,10 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 
 		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
-		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests/${id}?api-version=6.0`;
+		encodeAzurePathSegment(repo.project);
+		encodeAzurePathSegment(repo.name);
+		const resource = await this.getAzureRestResource(tokenWithInfo, repo.namespace, 'pullRequests', options);
+		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests/${id}?api-version=${resource.apiVersion}`;
 
 		try {
 			const result = await this.request<AzurePullRequest | null>({
@@ -2103,9 +2123,10 @@ export class ProvidersApi {
 
 		const allStates =
 			options?.states?.includes(GitIssueState.Open) && options.states.includes(GitIssueState.Closed);
-		const workItemTypeStates = allStates
+		const workflow = allStates
 			? undefined
 			: await this.getAzureProjectWorkItemStates(tokenWithInfo, namespace, project, options);
+		const workItemTypeStates = workflow?.selection;
 		const page = await this.getPagedResult<ProviderIssue>(
 			{ namespace: namespace, project: project, ...options, workItemTypeStates: workItemTypeStates },
 			provider.getIssuesForAzureProjectFn,
@@ -2131,7 +2152,7 @@ export class ProvidersApi {
 				namespace,
 				project,
 				options,
-				workItemTypeStates,
+				workflow?.types,
 			);
 		} catch (ex) {
 			// The rows are read; only some lack the category a failed states read would have given them. Keep them, as
@@ -2183,13 +2204,67 @@ export class ProvidersApi {
 		}
 	}
 
+	private async getAzureWorkItemHtmlFields(
+		tokenWithInfo: TokenWithInfo,
+		scope: { namespace: string },
+		fields: AzureWorkItemResponse['fields'],
+		requestOptions: { baseUrl: string; isPAT: boolean },
+	): Promise<readonly AzureWorkItemHtmlField[]> {
+		const token = tokenWithInfo.accessToken;
+		const baseUrl = requestOptions.baseUrl;
+		try {
+			return await this.azureWorkItemDescriptions.getFields(
+				fields,
+				{ baseUrl: baseUrl, namespace: scope.namespace, token: token, isPAT: requestOptions.isPAT },
+				async () => {
+					const resource = await this.getAzureRestResource(
+						tokenWithInfo,
+						scope.namespace,
+						'fields',
+						requestOptions,
+					);
+					return (
+						await this.request({
+							url: `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/_apis/wit/fields?api-version=${resource.apiVersion}`,
+							headers: { Authorization: azureAuthorization(token, requestOptions.isPAT) },
+						})
+					).body;
+				},
+			);
+		} catch (ex) {
+			Logger.warn(`Unable to read the Azure DevOps field catalog of '${scope.namespace}': ${String(ex)}`);
+			return [];
+		}
+	}
+
 	private getAzureTypeStates(token: TokenWithInfo, scope: AzureWorkItemStatesScope, type: string) {
-		return this.azureWorkItemTypeStates.getStates(scope, type, () =>
-			this.readAzureStatesMetadata(
-				token,
-				getAzureWorkItemTypeStatesUrl(scope.baseUrl, scope.namespace, scope.project, type),
-				scope.isPAT,
-			),
+		return this.azureWorkItemTypeStates.getStates(
+			scope,
+			type,
+			async () => {
+				const resource = await this.getAzureRestResource(token, scope.namespace, 'workItemTypeStates', scope);
+				return this.readAzureStatesMetadata(
+					token,
+					getAzureWorkItemTypeStatesUrl(
+						scope.baseUrl,
+						scope.namespace,
+						scope.project,
+						type,
+						resource.apiVersion,
+					),
+					scope.isPAT,
+				);
+			},
+			undefined,
+			async () => {
+				const resource = await this.getAzureRestResource(token, scope.namespace, 'backlogConfiguration', scope);
+				const path = `${encodeAzurePathSegment(scope.namespace)}/${encodeAzurePathSegment(scope.project)}/_apis/work/backlogconfiguration`;
+				return this.readAzureStatesMetadata(
+					token,
+					`${scope.baseUrl.replace(/\/$/, '')}/${path}?api-version=${resource.apiVersion}`,
+					scope.isPAT,
+				);
+			},
 		);
 	}
 
@@ -2198,34 +2273,45 @@ export class ProvidersApi {
 		namespace: string,
 		project: string,
 		options?: { baseUrl?: string; isPAT?: boolean },
-	): Promise<AzureWorkItemTypeStates> {
+	): Promise<AzureWorkItemStatesSnapshot> {
 		const scope = this.azureStatesScope(token, namespace, project, options);
 		const failureScope = { providerId: token.providerId, resourceId: namespace, projectId: project };
 		let types: string[];
 		try {
-			types = await this.azureWorkItemTypeStates.getTypes(scope, () =>
-				this.readAzureStatesMetadata(
+			types = await this.azureWorkItemTypeStates.getTypes(scope, async () => {
+				const resource = await this.getAzureRestResource(token, namespace, 'workItemTypes', scope);
+				return this.readAzureStatesMetadata(
 					token,
-					getAzureWorkItemTypesUrl(scope.baseUrl, namespace, project),
+					getAzureWorkItemTypesUrl(scope.baseUrl, namespace, project, resource.apiVersion),
 					scope.isPAT,
-				),
-			);
+				);
+			});
 		} catch (ex) {
 			return {
-				types: [],
-				metadata: { completeness: 'partial', failures: [toCollectionScopeFailure(failureScope, ex)] },
+				selection: {
+					types: [],
+					metadata: { completeness: 'partial', failures: [toCollectionScopeFailure(failureScope, ex)] },
+				},
+				types: new Map(),
 			};
 		}
-		const results = await mapSettledBounded(types, providerFanOutConcurrency, async type => ({
-			name: type,
-			states: await this.getAzureTypeStates(token, scope, type),
-		}));
+		const statesByType = new Map<string, Awaited<ReturnType<AzureWorkItemStatesCache['getStates']>> | undefined>(
+			types.map(type => [type, undefined]),
+		);
+		const results = await mapSettledBounded(types, providerFanOutConcurrency, async type => {
+			const states = await this.getAzureTypeStates(token, scope, type);
+			statesByType.set(type, states);
+			return { name: type, states: requireAzureWorkItemStateCategories(states) };
+		});
 		const failures = results.flatMap(r =>
 			r.status === 'rejected' ? [toCollectionScopeFailure(failureScope, r.reason)] : [],
 		);
 		return {
-			types: results.map((r, i) => (r.status === 'fulfilled' ? r.value : { name: types[i] })),
-			...(failures.length ? { metadata: { completeness: 'partial', failures: failures } } : {}),
+			selection: {
+				types: results.map((r, i) => (r.status === 'fulfilled' ? r.value : { name: types[i] })),
+				...(failures.length ? { metadata: { completeness: 'partial' as const, failures: failures } } : {}),
+			},
+			types: statesByType,
 		};
 	}
 
@@ -2235,10 +2321,10 @@ export class ProvidersApi {
 		namespace: string,
 		project: string,
 		options: { isPAT?: boolean; baseUrl?: string } | undefined,
-		snapshot?: AzureWorkItemTypeStates,
+		snapshot?: AzureWorkItemStatesSnapshot['types'],
 	): Promise<void> {
 		const scope = this.azureStatesScope(tokenWithInfo, namespace, project, options);
-		const snapshotTypes = new Map(snapshot?.types.map(type => [type.name, type.states]));
+		const snapshotTypes = new Map(snapshot);
 		const types = [
 			...new Set(issues.flatMap(i => (i.state?.name && i.type && !snapshotTypes.has(i.type) ? [i.type] : []))),
 		];
@@ -2251,19 +2337,23 @@ export class ProvidersApi {
 			...snapshotTypes,
 			...results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : [])),
 		]);
+		let categoryError: Error | undefined;
 		for (const issue of issues) {
 			const states = issue.type ? statesByType.get(issue.type) : undefined;
 			if (states == null || issue.state == null) continue;
 
-			issue.state = {
-				...issue.state,
-				category: azureIssueStateCategory(
-					states.find(s => s.name === issue.state?.name)?.category as AzureWorkItemStateCategory | undefined,
-				),
-			};
+			try {
+				issue.state = {
+					...issue.state,
+					category: azureIssueStateCategory(resolveAzureWorkItemStateCategory(states, issue.state.name)),
+				};
+			} catch (ex) {
+				categoryError ??= toError(ex);
+			}
 		}
 		const failure = results.find(r => r.status === 'rejected');
 		if (failure?.status === 'rejected') throw failure.reason;
+		if (categoryError != null) throw categoryError;
 	}
 
 	async getIssuesForProject(
@@ -2726,90 +2816,4 @@ export class ProvidersApi {
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
 	}
-}
-
-// This is copied over from the shared provider library because the current version is not respecting the "forceIsFetch: true"
-// option in the config and our custom fetch function isn't being wrapped by the necessary fetch wrapper. Remove this once the library
-// properly wraps our custom fetch and use `forceIsFetch: true` in the config.
-export async function parseFetchResponseForApi<T>(
-	response: Response,
-	sentCredential?: () => boolean,
-): Promise<ProviderRequestResponse<T>> {
-	// Media types are case-insensitive (RFC 9110 §8.3.1) and `fetch` hands the header back exactly as the server
-	// wrote it, so match on a lowercased copy rather than the raw value.
-	const contentType = (response.headers.get('content-type') || '').toLowerCase();
-
-	// A credential the server served as the anonymous user was rejected, whatever the body says; reading it as data
-	// reports an account with nothing in it (see `AnonymousResponseError`). Checked before the body is parsed, which
-	// may itself fail. A 401 already fails as the credential's rejection, with its body, and a throttle or a server
-	// failure keeps its own error: neither proves anything about the credential.
-	if (
-		response.status !== 401 &&
-		response.status !== 429 &&
-		response.status < 500 &&
-		getAuthenticatedUser(response.headers) === 'anonymous' &&
-		sentCredential?.() === true
-	) {
-		// Released rather than left for the collector: an unread body holds its connection.
-		void response.body?.cancel().catch(() => undefined);
-		throw new AnonymousResponseError(response.status, {
-			headers: Object.fromEntries(response.headers.entries()),
-			status: response.status,
-		});
-	}
-
-	let body;
-	let servedHtml = false;
-
-	// parse the response body
-	if (contentType.startsWith('application/json')) {
-		const text = await response.text();
-		// A sign-in page a server mislabels as JSON is the same page under another header, and `<` can never open
-		// valid JSON — so recognize it rather than letting JSON.parse throw a SyntaxError carrying no status.
-		if (text.trimStart().startsWith('<')) {
-			servedHtml = true;
-			body = text;
-		} else {
-			body = text.trim().length > 0 ? JSON.parse(text) : null;
-		}
-	} else if (contentType.startsWith('text/') || contentType === '') {
-		body = await response.text();
-		// An empty body is never a sign-in page, and a write answering `204` can carry a stale `text/html` from
-		// whatever its endpoint usually returns — so require actual markup, not just the header.
-		servedHtml = contentType.startsWith('text/html') && body.trim().length > 0;
-	} else if (contentType.startsWith('application/vnd.github.raw+json')) {
-		body = await response.arrayBuffer();
-	} else {
-		throw new Error(`Unsupported content-type: ${contentType}`);
-	}
-
-	const result = {
-		body: body,
-		headers: Object.fromEntries(response.headers.entries()),
-		status: response.status,
-		statusText: response.statusText,
-	};
-
-	// A 2xx carrying a page rather than data is a rejected credential wearing a success status (GKDEV-3617); a
-	// non-2xx keeps its own status error below, which is the better diagnostic.
-	if (response.ok && servedHtml) {
-		throw new UnexpectedHtmlResponseError(response.status, contentType, result);
-	}
-
-	// throw an error if the response is not ok
-	if (!response.ok) {
-		const status = `(${response.status})${response.statusText ? ` ${response.statusText}` : ''}.`;
-		const detail = getProviderResponseBodyMessage(body);
-		const error = new Error(detail != null ? `${status} ${detail}` : status);
-		Object.assign(error, { response: result });
-		throw error;
-	}
-
-	return result;
-}
-
-function hasAuthorization(headers: ProviderRequestOptions['headers']): boolean {
-	if (headers == null) return false;
-
-	return Object.entries(headers).some(([name, value]) => name.toLowerCase() === 'authorization' && Boolean(value));
 }

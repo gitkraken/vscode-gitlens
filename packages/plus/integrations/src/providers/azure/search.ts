@@ -1,3 +1,4 @@
+import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
 import { escapeWiqlString } from '@gitkraken/provider-apis';
 import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
@@ -17,6 +18,9 @@ export const azureWorkItemSearchResultLimit = 20000;
 
 /** The work items one detail read can resolve: `workitemsbatch` rejects more than 200 ids. */
 export const azureWorkItemBatchLimit = 200;
+
+export const azureWorkItemWiqlLengthLimit = 32000;
+const workItemAsOfLength = " ASOF '9999-12-31T23:59:59.9999999+23:59'".length;
 
 /**
  * A search page size from a caller's `itemsPerPage`, within `[1, max]`. A value that isn't a finite number takes the
@@ -52,7 +56,7 @@ export const azureWorkItemSearchRelationships = Object.keys(relationshipClauses)
  * process-template fields. On an on-premises collection running the XML process model, a field its process never
  * declared fails the whole query with `TF51005` rather than ordering nothing, so declaring them would turn a
  * working search into a refused one on exactly the installations this search exists for. Every key kept orders a
- * system field, except `closed`, whose column the open/closed filter below already depends on.
+ * system field, except `closed`, which explicitly requests the process-template close-date field.
  */
 const sortColumns: Partial<Record<IssueSorting, string>> = {
 	'updated:desc': '[System.ChangedDate] Desc',
@@ -78,9 +82,10 @@ export const azureWorkItemSearchSorts = Object.keys(sortColumns) as IssueSorting
  * The projects bound the query by name through `[System.TeamProject]`, so a repository scope reaches the work items
  * of its project; with no project the collection itself is the scope.
  *
- * The open/closed split mirrors the SDK's WIQL, so this search and the ordinary project read agree on which work
- * items are open. Free text is a `Contains` substring match on the title, and each label a `Contains` over the
- * tags, which Azure matches against whole tags — AND-ed, like the criteria model's labels.
+ * Workflow metadata selects state names per project and work item type: a name can belong to different categories
+ * in different workflows, and Removed work items need not have a closed date. Free text is a `Contains` substring
+ * match on the title, and each label a `Contains` over the tags, which Azure matches against whole tags, AND-ed like
+ * the criteria model's labels.
  *
  * Throws for a relationship or sort key it cannot express. The facade validates both against the declared
  * capability first, so reaching here with one means the declaration and this translation disagree.
@@ -89,21 +94,58 @@ export function toAzureWorkItemSearchWiql(
 	criteria: IssueSearchCriteria | undefined,
 	sort: IssueSorting,
 	projects: readonly string[] | undefined,
+	workflows?: ReadonlyMap<string, AzureWorkItemTypeStates>,
 ): string {
 	const clauses: string[] = [];
 	if (projects?.length) {
 		clauses.push(`[System.TeamProject] IN (${projects.map(p => `'${escapeWiqlString(p)}'`).join(', ')})`);
 	}
 
-	switch (criteria?.state ?? 'open') {
-		case 'open':
-			clauses.push("[Microsoft.VSTS.Common.ClosedDate] = ''", "[Microsoft.VSTS.Common.ResolvedDate] = ''");
-			break;
-		case 'closed':
-			clauses.push("([Microsoft.VSTS.Common.ClosedDate] <> '' OR [Microsoft.VSTS.Common.ResolvedDate] <> '')");
-			break;
-		case 'all':
-			break;
+	const state = criteria?.state ?? 'open';
+	if (state !== 'all') {
+		if (workflows == null) throw new Error('Azure DevOps state-filtered search requires workflow metadata');
+
+		const states: string[] = [];
+		for (const [project, workflow] of workflows) {
+			if (workflow.metadata != null) throw new Error('Azure DevOps returned incomplete workflow metadata');
+
+			const groups = new Map<string, { names: string[]; types: string[] }>();
+			for (const type of workflow.types) {
+				if (type.states == null) throw new Error('Azure DevOps returned no work item states');
+
+				const names = type.states.filter(s => {
+					switch (s.category) {
+						case 'Completed':
+						case 'Resolved':
+						case 'Removed':
+							return state === 'closed';
+						case 'Proposed':
+						case 'InProgress':
+							return state === 'open';
+						default:
+							throw new Error('Azure DevOps returned an unknown work item state category');
+					}
+				});
+				if (!names.length) continue;
+
+				const selected = [...new Set(names.map(s => s.name))];
+				const key = JSON.stringify([...selected].sort());
+				const group = groups.get(key);
+				if (group != null) {
+					group.types.push(type.name);
+				} else {
+					groups.set(key, { names: selected, types: [type.name] });
+				}
+			}
+			for (const group of groups.values()) {
+				const types = group.types.map(name => `'${escapeWiqlString(name)}'`);
+				const typeClause = types.length === 1 ? `= ${types[0]}` : `IN (${types.join(', ')})`;
+				states.push(
+					`([System.TeamProject] = '${escapeWiqlString(project)}' AND [System.WorkItemType] ${typeClause} AND [System.State] IN (${group.names.map(name => `'${escapeWiqlString(name)}'`).join(', ')}))`,
+				);
+			}
+		}
+		clauses.push(states.length ? `(${states.join(' OR ')})` : '[System.Id] = 0');
 	}
 
 	const relationships = [...new Set(criteria?.relationships ?? [])];
@@ -138,6 +180,60 @@ export function toAzureWorkItemSearchWiql(
 	// between two requests and be served twice or never.
 	const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
 	return `SELECT [System.Id] FROM WorkItems${where} ORDER BY ${column}, [System.Id] Desc`;
+}
+
+/** Splits only disjoint scope predicates, leaving every caller criterion on every query. */
+export function toAzureWorkItemSearchQueries(
+	criteria: IssueSearchCriteria | undefined,
+	sort: IssueSorting,
+	projects: readonly string[],
+	workflows?: ReadonlyMap<string, AzureWorkItemTypeStates>,
+): string[] {
+	const query = toAzureWorkItemSearchWiql(criteria, sort, projects, workflows);
+	if (query.length + workItemAsOfLength <= azureWorkItemWiqlLengthLimit) return [query];
+
+	if (projects.length > 1) {
+		const middle = Math.ceil(projects.length / 2);
+		return [projects.slice(0, middle), projects.slice(middle)].flatMap(names =>
+			toAzureWorkItemSearchQueries(
+				criteria,
+				sort,
+				names,
+				workflows == null ? undefined : new Map(names.map(name => [name, workflows.get(name)!])),
+			),
+		);
+	}
+
+	const project = projects[0];
+	const workflow = workflows?.get(project);
+	if (workflow != null && workflow.types.length > 1) {
+		const middle = Math.ceil(workflow.types.length / 2);
+		return [workflow.types.slice(0, middle), workflow.types.slice(middle)].flatMap(types =>
+			toAzureWorkItemSearchQueries(criteria, sort, projects, new Map([[project, { types: types }]])),
+		);
+	}
+
+	const type = workflow?.types[0];
+	if (type?.states != null && type.states.length > 1) {
+		const middle = Math.ceil(type.states.length / 2);
+		return [type.states.slice(0, middle), type.states.slice(middle)].flatMap(states =>
+			toAzureWorkItemSearchQueries(
+				criteria,
+				sort,
+				projects,
+				new Map([[project, { types: [{ ...type, states: states }] }]]),
+			),
+		);
+	}
+
+	throw new Error('Azure DevOps work item search query is too long; narrow the search');
+}
+
+export function toAzureWorkItemOrderQuery(ids: readonly number[], sort: IssueSorting): string {
+	const column = sortColumns[sort];
+	if (column == null) throw new Error(`Azure DevOps cannot order a work item search by '${sort}'`);
+
+	return `SELECT [System.Id] FROM WorkItems WHERE [System.Id] IN (${ids.join(', ')}) ORDER BY ${column}, [System.Id] Desc`;
 }
 
 /**

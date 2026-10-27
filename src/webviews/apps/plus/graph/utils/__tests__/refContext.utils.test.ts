@@ -95,6 +95,33 @@ suite('refContext.utils — branch webviewItem', () => {
 			'gitlens:branch',
 		);
 	});
+
+	test('+remotes marks a repository with remotes, and only when it is known to have one', () => {
+		assert.strictEqual(buildBranchWebviewItem(head(), { hasRemotes: true }), 'gitlens:branch+remotes');
+		assert.strictEqual(buildBranchWebviewItem(head(), { hasRemotes: false }), 'gitlens:branch');
+		assert.strictEqual(buildBranchWebviewItem(head(), {}), 'gitlens:branch');
+		assert.strictEqual(buildBranchWebviewItem(head()), 'gitlens:branch');
+	});
+
+	test('+remotes comes last, after +pinned', () => {
+		const item = buildBranchWebviewItem(
+			head({
+				isCurrentHead: true,
+				upstream: { ...upstream, state: { ahead: 2, behind: 3 } },
+				worktree: { id: 'wt', path: '/wt', isDefault: false },
+				starred: true,
+			}),
+			{ pinnedRefId: 'branch-id', hasRemotes: true },
+		);
+		assert.strictEqual(item, 'gitlens:branch+current+tracking+worktree+starred+ahead+behind+pinned+remotes');
+	});
+
+	test('+remotes never reads as the +remote (remote branch) marker', () => {
+		const item = buildBranchWebviewItem(head(), { hasRemotes: true });
+		// The same `\+remote\b` the publish `when` clauses use to exclude remote branches
+		assert.ok(!/\+remote\b/.test(item));
+		assert.ok(/\+remotes\b/.test(item));
+	});
 });
 
 suite('refContext.utils — remote branch and tag webviewItem', () => {

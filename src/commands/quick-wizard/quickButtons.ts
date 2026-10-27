@@ -300,6 +300,12 @@ export const OpenInNewWindowQuickInputButton: QuickInputButton = {
 	tooltip: l10n.t('Open in New Window'),
 };
 
+export const RetryQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('refresh'),
+	tooltip: l10n.t('Retry'),
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Input),
+};
+
 export const RevealInSideBarQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('search'),
 	tooltip: l10n.t('Reveal in Side Bar'),

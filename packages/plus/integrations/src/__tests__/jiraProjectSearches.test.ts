@@ -79,6 +79,7 @@ function droppedIssue(resourceId: string, key: string): CollectionMetadata {
 				scope: { providerId: 'jira', resourceId: resourceId },
 				kind: 'provider',
 				message: `Skipped Jira issues that could not be read: ${key} (Cannot read properties of undefined).`,
+				skippedItems: { keys: [key], total: 1, complete: true },
 			},
 		],
 	};
@@ -519,6 +520,62 @@ suite('Jira multi-project issue searches', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1-K0' });
+
+		manager.dispose();
+	});
+
+	test('a provider failure without skippedItems stays an unclassified failure, whatever its message says (#6035)', async () => {
+		const { manager } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			Promise.resolve({
+				data: [providerIssue('org-1-p0', 'A-1')],
+				hasMore: false,
+				nextCursor: undefined,
+				metadata: {
+					completeness: 'partial',
+					failures: [
+						{
+							scope: { providerId: 'jira', resourceId: 'org-1' },
+							kind: 'provider',
+							message: 'Skipped Jira issues that could not be read: A-2 (boom).',
+						},
+					],
+				},
+			}),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(warning => [warning.kind, warning.unreadableItems]),
+			[['other', undefined]],
+		);
+
+		manager.dispose();
+	});
+
+	test('reports the issues a page skipped as unreadable items by their kind (#6035)', async () => {
+		const { manager } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			Promise.resolve({
+				data: [providerIssue('org-1-p0', 'A-1')],
+				hasMore: false,
+				nextCursor: undefined,
+				metadata: droppedIssue('org-1', 'A-2'),
+			}),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+		});
+
+		assert.deepEqual(
+			result.warnings.map(warning => [warning.kind, warning.unreadableItems]),
+			[['unreadable-items', { keys: ['A-2'], complete: true }]],
+		);
 
 		manager.dispose();
 	});

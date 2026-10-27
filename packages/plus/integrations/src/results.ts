@@ -4,6 +4,7 @@ import type { IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
 import { isProviderUnreachableError } from './errors.js';
+import { UnexpectedResponseError } from './providers/providerErrors.js';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -44,15 +45,20 @@ export type ProviderWarningKind =
 /** The items an `'unreadable-items'` warning left out: see {@link ProviderWarning.unreadableItems}. */
 export interface ProviderWarningUnreadableItems {
 	/**
-	 * The provider's identifiers of the items left out (a Jira issue's key), without duplicates, in reported order. Read
-	 * from the provider's prose, it may also hold an identifier that only appeared in an item's error text, never lack
-	 * one it named: rely on an identifier's absence, not on its presence.
+	 * The provider's identifiers of the items left out (a Jira issue's key), without duplicates, in reported order. Each
+	 * one is an item the provider reported as skipped, so an identifier present is one that was left out, and one absent
+	 * was read when {@link complete}.
+	 *
+	 * Both hold only for the spelling the provider returned, which is also how a published issue's id spells its key: `keys`
+	 * doesn't answer a lookup by another spelling, such as a different case or the key an issue had before it moved. A
+	 * consumer comparing a key from elsewhere (one parsed from a branch name, say) must normalize the case of both sides,
+	 * and can't take an issue under a key it once had as read.
 	 */
 	keys: string[];
 	/**
-	 * Whether {@link keys} names every item left out. `false` when the provider named only some of them (Jira names at
-	 * most ten per page), named one by position rather than by key, or reported them in a form this layer could not
-	 * read, so an identifier absent from `keys` may still be one of them.
+	 * Whether {@link keys} names every item left out. `false` when an item left out had no key to report, when the
+	 * provider's report of them was malformed (no list of keys, or more than keys in it), or when it said items were left
+	 * out and named none, so an identifier absent from `keys` may still be one of them.
 	 */
 	complete: boolean;
 }
@@ -121,6 +127,10 @@ export interface ProviderWarningSelector {
  *   permission). Someone who administers it has to grant access.
  * - `conditional-access`: a Microsoft Entra Conditional Access policy blocked the request (Azure DevOps
  *   `VS403463`). Its admin has to exempt the request, e.g. by location or device.
+ * - `unexpected-response`: the provider answered, but not with data in the shape the read expects (a gateway's JSON
+ *   error on a 2xx, an empty object, `null`), so the read could not use it. Accompanies `kind: 'other'`, like
+ *   `unreachable`; a retry may succeed once the provider, or whatever answered in front of it, answers properly. A
+ *   page served instead of data keeps its own message, without this cause.
  *
  * None of these is healed by reconnecting, which is the point of naming them.
  */
@@ -128,7 +138,8 @@ export type ProviderWarningCauseReason =
 	| 'oauth-app-not-allowed'
 	| 'access-denied'
 	| 'conditional-access'
-	| 'unreachable';
+	| 'unreachable'
+	| 'unexpected-response';
 
 /** See {@link ProviderWarning.cause}. */
 export interface ProviderWarningCause {
@@ -224,8 +235,9 @@ export interface ProviderWarning {
 	 * Why the provider request failed, when the failure itself says so: see {@link ProviderWarningCauseReason}. Switch on
 	 * `reason` to recommend a fix instead of a reconnect; `message` then carries the same explanation as prose.
 	 *
-	 * `unreachable` accompanies a transport or server failure with `kind: 'other'`. Credential refusal causes are
-	 * set only on a scoped `auth` warning whose credential was confirmed first (see {@link scope}), because the
+	 * `unreachable` accompanies a transport or server failure with `kind: 'other'`, and `unexpected-response` a response
+	 * the read could not use, also with `kind: 'other'`. Credential refusal causes are set only on a scoped `auth`
+	 * warning whose credential was confirmed first (see {@link scope}), because the
 	 * refusals they name are indistinguishable from a dead credential until then: Azure DevOps answers a
 	 * third-party OAuth app its organization disallows exactly as it answers an expired token. Only Azure DevOps
 	 * reports one today. Its absence proves nothing about the cause.
@@ -364,6 +376,13 @@ export interface ProviderResult<T> {
 }
 
 export interface ProviderPagedResult<T> extends ProviderResult<T> {
+	/**
+	 * True when a request failed. Unlike `fetchFailed`, a collection read successfully that only left some of its items
+	 * unreadable doesn't set it; those items are named by their own warnings.
+	 */
+	requestFailed?: boolean;
+	/** True when the provider advertised continuation without a usable cursor or page position, or repeated one. */
+	unexpectedGap?: boolean;
 	page: ProviderPageInfo;
 	hasMore: boolean;
 	/**
@@ -525,6 +544,7 @@ export function toProviderWarning(
 		kind = 'other';
 	}
 
+	const cause = kind === 'other' ? getRequestFailureCause(ex) : undefined;
 	return {
 		providerId: providerId,
 		domain: domain,
@@ -532,8 +552,18 @@ export function toProviderWarning(
 		message: providerWarningMessage(ex),
 		kind: kind,
 		isAuth: kind === 'auth',
-		...(kind === 'other' && isProviderUnreachableError(ex) ? { cause: { reason: 'unreachable' as const } } : {}),
+		...(cause != null ? { cause: cause } : {}),
 	};
+}
+
+/**
+ * The cause a failed request's error names by itself, one that isn't the credential's (`unexpected-response` or
+ * `unreachable`), for a failure classified as no more specific than that.
+ */
+export function getRequestFailureCause(ex: unknown): ProviderWarningCause | undefined {
+	if (UnexpectedResponseError.is(ex)) return { reason: 'unexpected-response' };
+	if (isProviderUnreachableError(ex)) return { reason: 'unreachable' };
+	return undefined;
 }
 
 /**
@@ -645,7 +675,10 @@ export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderW
 
 	const existing = into[index];
 	const targetKeys = mergeTargetKeys(existing.targetKeys, warning.targetKeys);
-	const unreadableItems = mergeUnreadableItems(existing.unreadableItems, warning.unreadableItems);
+	const unreadableItems =
+		existing.unreadableItems != null && warning.unreadableItems != null
+			? mergeUnreadableItems(existing.unreadableItems, warning.unreadableItems)
+			: (existing.unreadableItems ?? warning.unreadableItems);
 	if (targetKeys === existing.targetKeys && unreadableItems === existing.unreadableItems) return;
 
 	const { targetKeys: _, ...rest } = existing;
@@ -672,13 +705,11 @@ function mergeTargetKeys(existing: string[] | undefined, next: string[] | undefi
  * `existing` when `next` adds nothing to it.
  */
 export function mergeUnreadableItems(
-	existing: ProviderWarningUnreadableItems | undefined,
-	next: ProviderWarningUnreadableItems | undefined,
-): ProviderWarningUnreadableItems | undefined {
-	if (existing == null) return next;
-	if (next == null) return existing;
-
-	const added = next.keys.filter(k => !existing.keys.includes(k));
+	existing: ProviderWarningUnreadableItems,
+	next: ProviderWarningUnreadableItems,
+): ProviderWarningUnreadableItems {
+	const known = new Set(existing.keys);
+	const added = next.keys.filter(k => !known.has(k));
 	const complete = existing.complete && next.complete;
 	if (!added.length && complete === existing.complete) return existing;
 

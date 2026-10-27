@@ -150,15 +150,54 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 	suite('fetch with explicit refspecs', () => {
 		let onChanged: sinon.SinonSpy;
+		/** What the ref snapshots taken around the fetch answer, in order; `undefined` fails the read */
+		let snapshots: (string | undefined)[];
+
+		/** Each remote's configured `remote.<name>.fetch` refspecs; `undefined` fails the config read */
+		let configured: Map<string, string[]> | undefined;
 
 		setup(() => {
 			onChanged = sandbox.spy();
 			const context = { hooks: { repository: { onChanged: onChanged } } } as unknown as GitServiceContext;
 			const cache = {} as unknown as Cache;
-			const provider = {} as unknown as CliGitProviderInternal;
+			configured = new Map([
+				['remote.origin.fetch', ['+refs/heads/*:refs/remotes/origin/*']],
+				['remote.upstream.fetch', ['+refs/heads/*:refs/remotes/upstream/*']],
+			]);
+			const provider = {
+				config: {
+					getConfigRegexAll: () =>
+						configured != null ? Promise.resolve(configured) : Promise.reject(new Error('unreadable')),
+				},
+			} as unknown as CliGitProviderInternal;
+
+			// By default git can't read the refs, so the fetch announces the kinds its refspecs may write, unnamed
+			snapshots = [];
+			(gitStub.run as sinon.SinonStub).callsFake(
+				async (_options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+					if (args[0] !== 'for-each-ref') return successResult();
+
+					const stdout = snapshots.shift();
+					return stdout != null
+						? { ...successResult(), stdout: stdout }
+						: ({
+								stdout: '',
+								stderr: 'fatal: not a git repository',
+								exitCode: 128,
+								completion: { status: 'exited', code: 128 },
+							} satisfies GitResult);
+				},
+			);
 
 			operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
 		});
+
+		function snapshotArgs(): string[][] {
+			return (gitStub.run as sinon.SinonStub)
+				.getCalls()
+				.filter(c => c.args[1] === 'for-each-ref')
+				.map(c => (c.args as unknown[]).slice(2).filter((a): a is string => typeof a === 'string'));
+		}
 
 		test('passes a single refspec after the remote', async () => {
 			await operations.fetch(repoPath, {
@@ -221,6 +260,105 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 		test('announces tags too for a refs/tags/ destination', async () => {
 			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['refs/tags/v1:refs/tags/v1'] });
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes', 'tags']]);
+		});
+
+		test('announces only the refs the fetch moved, read before and after it', async () => {
+			snapshots = [
+				'refs/heads/local\0aaa\nrefs/remotes/origin/a\0aaa\nrefs/remotes/origin/b\0bbb\n',
+				'refs/heads/local\0bbb\nrefs/remotes/origin/a\0aaa\nrefs/remotes/origin/b\0ccc\n',
+			];
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['main:local'] });
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['remotes', 'heads'],
+				['refs/heads/local', 'refs/remotes/origin/b'],
+			]);
+		});
+
+		test('announces nothing when no ref moved', async () => {
+			snapshots = ['refs/remotes/origin/a\0aaa\n', 'refs/remotes/origin/a\0aaa\n'];
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['+refs/heads/a:refs/remotes/origin/a'] });
+
+			assert.ok(onChanged.notCalled);
+		});
+
+		test('falls back to the unnamed kinds when the read after the fetch fails', async () => {
+			snapshots = ['refs/remotes/origin/a\0aaa\n'];
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['+refs/heads/a:refs/remotes/origin/a'] });
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes']]);
+		});
+
+		test("reads tags, each refspec's destination and the fetched remote's configured ones, widening a glob to its directory", async () => {
+			snapshots = ['', ''];
+
+			await operations.fetch(repoPath, {
+				remote: 'origin',
+				refspecs: ['refs/pull/*/head:refs/pull/*/head', 'main:local', 'refs/heads/x'],
+			});
+
+			const format = '--format=%(refname)%00%(objectname)%00%(symref)';
+			// Not `refs/remotes/upstream`: only the remote fetched from can write its refs
+			const patterns = [format, 'refs/tags', 'refs/pull', 'refs/heads/local', 'refs/remotes/origin'];
+			assert.deepStrictEqual(snapshotArgs(), [patterns, patterns]);
+		});
+
+		test("reads every local and remote-tracking branch for the configured refspecs it couldn't read", async () => {
+			snapshots = ['', ''];
+			configured = undefined;
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['refs/pull/*/head:refs/pull/*/head'] });
+
+			const format = '--format=%(refname)%00%(objectname)%00%(symref)';
+			const patterns = [format, 'refs/tags', 'refs/heads', 'refs/remotes', 'refs/pull'];
+			assert.deepStrictEqual(snapshotArgs(), [patterns, patterns]);
+		});
+
+		test("reads every remote's destinations for a remote with no refspecs of its own, like a remote group", async () => {
+			snapshots = ['refs/remotes/upstream/a\0aaa\n', 'refs/remotes/upstream/a\0bbb\n'];
+
+			// `remotes.both = origin upstream`: git fetches each remote of the group with its own refspecs
+			await operations.fetch(repoPath, { remote: 'both' });
+
+			const format = '--format=%(refname)%00%(objectname)%00%(symref)';
+			const patterns = [format, 'refs/tags', 'refs/remotes/origin', 'refs/remotes/upstream'];
+			assert.deepStrictEqual(snapshotArgs(), [patterns, patterns]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes'], ['refs/remotes/upstream/a']]);
+		});
+
+		test("announces a remote's HEAD moving to another branch at the same commit", async () => {
+			snapshots = [
+				'refs/remotes/origin/HEAD\0aaa\0refs/remotes/origin/main\nrefs/remotes/origin/main\0aaa\0\n',
+				'refs/remotes/origin/HEAD\0aaa\0refs/remotes/origin/trunk\nrefs/remotes/origin/main\0aaa\0\n',
+			];
+
+			await operations.fetch(repoPath, {
+				remote: 'origin',
+				refspecs: ['+refs/heads/trunk:refs/remotes/origin/trunk'],
+			});
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes'], ['refs/remotes/origin/HEAD']]);
+		});
+
+		test('falls back to the unnamed kinds when a ref of no announceable kind moved', async () => {
+			snapshots = ['', 'refs/pull/1/head\0aaa\n'];
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['refs/pull/1/head:refs/pull/1/head'] });
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes']]);
+		});
+
+		test('keeps the kinds it saw move, unnamed, beside a ref of no announceable kind', async () => {
+			// A notes refspec, and a tag that followed the fetched commits
+			snapshots = ['', 'refs/notes/commits\0aaa\0\nrefs/tags/v2\0bbb\0\n'];
+
+			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['+refs/notes/*:refs/notes/*'] });
 
 			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes', 'tags']]);
 		});
@@ -357,11 +495,17 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 	suite('onRebaseCapableOperation hook', () => {
 		let hookSpy: sinon.SinonSpy;
+		let onChanged: sinon.SinonSpy;
 
 		setup(() => {
 			hookSpy = sandbox.spy();
+			onChanged = sandbox.spy();
 			const context = {
-				hooks: { operations: { onRebaseCapableOperation: hookSpy } },
+				hooks: {
+					operations: { onRebaseCapableOperation: hookSpy },
+					cache: { onReset: () => {} },
+					repository: { onChanged: onChanged },
+				},
 			} as unknown as GitServiceContext;
 			const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
 			const provider = {
@@ -381,6 +525,15 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			assert.deepStrictEqual(hookSpy.args, [
 				[repoPath, 'rebase', 'started'],
 				[repoPath, 'rebase', 'ended'],
+			]);
+		});
+
+		test('rebase announces its HEAD rewrite as worktreeHead', async () => {
+			await operations.rebase(repoPath, 'origin/main');
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
 			]);
 		});
 
@@ -457,27 +610,43 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			assert.strictEqual(onChanged.callCount, 1);
 		});
 
-		test('checkout announces head, heads and index when git rejects', async () => {
+		test('checkout announces head, heads, index and the worktree HEAD when git rejects', async () => {
 			stubRunFailure("fatal: ambiguous argument 'badref': unknown revision or path not in the working tree.");
 
 			await assert.rejects(operations.checkout(repoPath, 'badref'), (ex: unknown) => CheckoutError.is(ex));
 
-			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+			]);
 			assert.strictEqual(onChanged.callCount, 1);
 		});
 
-		test('checkout -b from a remote-tracking ref announces config, for the tracking git writes', async () => {
+		test('checkout -b from a remote-tracking ref names the branch, and confines the tracking it writes to it', async () => {
 			await operations.checkout(repoPath, 'origin/main', { createBranch: 'feature' });
 
-			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['config', 'head', 'heads', 'index']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['config', 'head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+				['refs/heads/feature'],
+				{ configConfinedToRefs: true },
+			]);
 		});
 
-		test('checkout -b from a local ref, or with noTracking, announces no config', async () => {
+		test('checkout -b from a local ref, or with noTracking, names the branch and announces no config', async () => {
 			await operations.checkout(repoPath, 'main', { createBranch: 'feature' });
-			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+				['refs/heads/feature'],
+			]);
 
 			await operations.checkout(repoPath, 'origin/main', { createBranch: 'other', noTracking: true });
-			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+				['refs/heads/other'],
+			]);
 		});
 
 		test('merge announces once when it fails for a non-conflict reason', async () => {

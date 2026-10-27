@@ -16,6 +16,7 @@ import {
 import type { FileWatchingProvider } from './watching/provider.js';
 import type { WatchPollingOptions } from './watching/watchService.js';
 import { RepositoryWatchService } from './watching/watchService.js';
+import type { WorktreeSummaryServiceOptions } from './watching/worktreeSummary.js';
 import { WorktreeSummaryService } from './watching/worktreeSummary.js';
 
 export interface ProvidersChangeEvent {
@@ -83,16 +84,33 @@ interface MergeTargetsSource {
 export class GitService implements UnifiedDisposable {
 	private static _instance: GitService | undefined;
 
-	/** `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch */
+	/**
+	 * `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch,
+	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`),
+	 * and with it `options.readDirectory` lets it drop the reports of ignored worktrees (see
+	 * `WatchServiceOptions.readDirectory`).
+	 * `options.verifyBaseRemeasure` is for tests only (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`)
+	 */
 	static createSingleton(
 		watchingProvider?: FileWatchingProvider,
-		options?: { watchPolling?: WatchPollingOptions },
+		options?: {
+			watchPolling?: WatchPollingOptions;
+			readFile?: (path: string) => Promise<Uint8Array>;
+			readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>;
+			verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
+		},
 	): GitService {
 		if (GitService._instance != null) {
 			throw new Error('GitService already exists — only one instance is allowed');
 		}
 
-		const instance = new GitService(watchingProvider, options?.watchPolling);
+		const instance = new GitService(
+			watchingProvider,
+			options?.watchPolling,
+			options?.readFile,
+			options?.readDirectory,
+			options?.verifyBaseRemeasure,
+		);
 		GitService._instance = instance;
 		return instance;
 	}
@@ -121,22 +139,37 @@ export class GitService implements UnifiedDisposable {
 	private readonly _watchService: RepositoryWatchService | undefined;
 	private readonly _summaries: WorktreeSummaryService | undefined;
 
-	private constructor(watchingProvider?: FileWatchingProvider, watchPolling?: WatchPollingOptions) {
+	private constructor(
+		watchingProvider?: FileWatchingProvider,
+		watchPolling?: WatchPollingOptions,
+		readFile?: (path: string) => Promise<Uint8Array>,
+		readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>,
+		verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
+	) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
 				watchingProvider: watchingProvider,
 				polling: watchPolling,
+				readFile: readFile,
+				readDirectory: readDirectory,
 				getIgnoreFilter: (repoPath, gitDirPath) => {
 					return this.getProvider(repoPath)?.provider.getIgnoreFilter?.(repoPath, gitDirPath);
 				},
 				getIgnoredDirectories: repoPath =>
 					this.getProvider(repoPath)?.provider.getIgnoredDirectories?.(repoPath) ?? Promise.resolve([]),
+				getIgnoredWorktreeRoots: repoPath =>
+					this.getProvider(repoPath)?.provider.getIgnoredWorktreeRoots?.(repoPath) ?? Promise.resolve([]),
+				getIgnoredWorktreeFolders: repoPath =>
+					this.getProvider(repoPath)?.provider.getIgnoredWorktreeFolders?.(repoPath) ?? [],
 			});
 			this._summaries = new WorktreeSummaryService({
 				watchService: this._watchService,
 				getRepository: repoPath => this.forRepo(repoPath),
 				onDidChangeMergeTargets: this.onDidChangeMergeTargets,
 				getCommonPath: repoPath => this.getProvider(repoPath)?.provider.getCommonPath?.(repoPath),
+				// The host's polling stat, when it configured polling, answers whether an unwatched index file moved
+				stat: watchPolling?.stat,
+				verifyBaseRemeasure: verifyBaseRemeasure,
 			});
 		}
 
@@ -200,7 +233,11 @@ export class GitService implements UnifiedDisposable {
 			canHandle: canHandle,
 			announcements:
 				watchService != null
-					? provider.onDidAnnounceChanges?.(e => watchService.noteSelfWrite(e.repoPath, e.changes))
+					? provider.onDidAnnounceChanges?.(e =>
+							watchService.noteSelfWrite(e.repoPath, e.changes, e.refs, {
+								configConfinedToRefs: e.configConfinedToRefs,
+							}),
+						)
 					: undefined,
 		};
 		this._providers.push(entry);

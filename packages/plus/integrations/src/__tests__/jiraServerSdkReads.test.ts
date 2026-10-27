@@ -184,17 +184,43 @@ suite('Jira Data Center search pages', () => {
 		);
 		assert.equal(page.fetchFailed, true, 'the skipped issues are reported, not hidden');
 		assert.equal(page.warnings.length, 1);
-		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/);
+		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/, 'the message still names the skipped issues');
 		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: 'OPS' });
-		// By its kind and keys, not its text (#6011), read from the wording of the SDK this runs.
+		// By its kind and keys, not its text (#6011), read from the structured `skippedItems` of the SDK this runs.
 		assert.equal(page.warnings[0].kind, 'unreadable-items');
 		assert.deepEqual(page.warnings[0].unreadableItems, { keys: ['OPS-1', 'OPS-2'], complete: true });
 
 		manager.dispose();
 	});
 
-	test('names the skipped issues the SDK names, and says when it named only some', async () => {
-		// Twelve unreadable issues, the first without a key: provider-apis names ten and counts the rest.
+	test('names every skipped issue the SDK reports, past the ten its message names', async () => {
+		// Twelve unreadable issues, each with a key: the SDK's message names ten, `skippedItems` every one.
+		const issues = Array.from({ length: 12 }, (_, i) => ({ key: `OPS-${i + 1}`, fields: null }));
+		const { manager } = await connected([{ id: '101', key: 'OPS', name: 'OPS' }], () => ({
+			startAt: 0,
+			maxResults: 100,
+			total: issues.length,
+			issues: issues,
+		}));
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			org: domain,
+			project: 'OPS',
+			includeAllAssignees: true,
+		});
+
+		assert.deepEqual(
+			page.warnings.map(warning => [warning.kind, warning.unreadableItems]),
+			[['unreadable-items', { keys: issues.map(issue => issue.key), complete: true }]],
+		);
+
+		manager.dispose();
+	});
+
+	test('says when a skipped issue had no key to name', async () => {
+		// Twelve unreadable issues, the first without a key: the rest are named, and the list is not complete.
 		const issues = [
 			{ fields: null },
 			...Array.from({ length: 11 }, (_, i) => ({ key: `OPS-${i + 1}`, fields: null })),
@@ -216,15 +242,7 @@ suite('Jira Data Center search pages', () => {
 
 		assert.deepEqual(
 			page.warnings.map(warning => [warning.kind, warning.unreadableItems]),
-			[
-				[
-					'unreadable-items',
-					{
-						keys: ['OPS-1', 'OPS-2', 'OPS-3', 'OPS-4', 'OPS-5', 'OPS-6', 'OPS-7', 'OPS-8', 'OPS-9'],
-						complete: false,
-					},
-				],
-			],
+			[['unreadable-items', { keys: Array.from({ length: 11 }, (_, i) => `OPS-${i + 1}`), complete: false }]],
 		);
 
 		manager.dispose();

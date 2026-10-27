@@ -1,3 +1,4 @@
+import { isAbsolute } from '@gitlens/utils/path.js';
 import type { GitDirProbe } from './gitDirPoller.js';
 
 // Glob patterns for watching files inside the .git directory.
@@ -74,6 +75,12 @@ export const gitDirCommonProbes: readonly GitDirProbe[] = [
 	{ path: 'gk/config' },
 	{ path: 'info/exclude' },
 	{ path: 'refs/heads' },
+	// Moves as a remote's directory appears or goes: `git remote remove` and `git remote rename` delete or move each of
+	// its loose refs (a packed one is locked through a loose path too), and git removes the emptied directory. Reported
+	// as every remote-tracking ref possibly moved, since the poll can't tell which remote it was. A remote whose name
+	// nests under a directory another remote still uses (`foo/bar` beside `foo/baz`) leaves it unmoved, so only a named
+	// ref's probe sees that one go
+	{ path: 'refs/remotes' },
 	{ path: 'refs/tags' },
 	{ path: 'refs/stash' },
 	{ path: 'worktrees' },
@@ -122,6 +129,59 @@ export function getGitDirRefProbes(refs: Iterable<string>): GitDirProbe[] {
 		}
 	}
 	return Array.from(paths, path => ({ path: path }));
+}
+
+/**
+ * The top-level names under the `.git` directory that the globs above read or a poll stats, as one case-insensitive
+ * pattern (a folder may sit on a case-insensitive file system)
+ */
+const watchedGitDirNames = new Set(
+	[
+		...`${dotGitFiles},${dotGitCommonFiles}`.split(','),
+		...gitDirRootProbes.map(p => p.path),
+		...gitDirCommonProbes.map(p => p.path),
+	].map(p => p.split('/')[0]),
+);
+const watchedGitDirNameRegex = new RegExp(
+	`^(?:${Array.from(watchedGitDirNames, name => name.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')).join('|')})$`,
+	'i',
+);
+
+/**
+ * The registered folders whose worktrees core ignores, each as a `/`-separated literal path relative to a repository's
+ * common git dir, without `.` or empty segments; any other is dropped. A folder must lie strictly inside the common git
+ * dir (never absolute, never through `..`), name no glob syntax (a picomatch group or extglob's parentheses and `|`
+ * included) or `:` (a watcher's exclude would read it as a pattern, so `(refs|x)` would leave `refs` unwatched, or a
+ * drive), and not lie under `worktrees`, whose admin entries are what tells an ignored worktree apart.
+ */
+export function sanitizeIgnoredWorktreeFolders(folders: readonly string[] | undefined): string[] {
+	if (!folders?.length) return [];
+
+	const sanitized = new Set<string>();
+	for (const folder of folders) {
+		if (isAbsolute(folder) || /^[\\/]/.test(folder)) continue;
+
+		const segments = folder.split(/[\\/]/).filter(s => s && s !== '.');
+		if (
+			!segments.length ||
+			segments[0].toLowerCase() === 'worktrees' ||
+			segments.some(s => s === '..' || /[*?[\]{}()|!:]/.test(s))
+		) {
+			continue;
+		}
+
+		sanitized.add(segments.join('/'));
+	}
+	return [...sanitized];
+}
+
+/**
+ * The registered folders a `.git` watcher over the common git dir may leave unwatched: those of
+ * {@link sanitizeIgnoredWorktreeFolders} that share no top-level directory with anything the `.git` globs read, which an
+ * exclude would hide. Such a folder's worktrees are still ignored, only watched.
+ */
+export function getIgnoredWorktreeFolderExcludes(folders: readonly string[] | undefined): string[] {
+	return sanitizeIgnoredWorktreeFolders(folders).filter(f => !watchedGitDirNameRegex.test(f.split('/')[0]));
 }
 
 /**

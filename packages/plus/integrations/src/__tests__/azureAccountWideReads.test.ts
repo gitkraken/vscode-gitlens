@@ -3,7 +3,7 @@ import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { GitPullRequestReviewState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type {
 	CloudIntegrationAuthType,
@@ -15,6 +15,7 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
 import { PullRequestFilter } from '../providerFilters.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import {
@@ -49,13 +50,16 @@ function refusedCredential(): AuthenticationError {
 /**
  * The #5890 repro: an Azure DevOps connection whose profile and organization list succeed, and whose second
  * organization (third-party OAuth access disabled, another tenant, Conditional Access) answers its project
- * discovery with a 401. Discovery runs for real; only the SDK surface is stubbed. `probe` answers the uncached
- * profile request that confirms the credential.
+ * discovery with a 401, or, with `refuses: 'identity'`, its connection data, which the user's identity there is read
+ * from (#6032). Discovery runs for real; only the SDK surface is stubbed. `probe` answers the uncached profile request
+ * that confirms the credential.
  */
 async function azureWithRefusingOrg(
 	probe: () => Promise<unknown>,
-	options?: { refusal?: () => Error; type?: CloudIntegrationAuthType },
+	options?: { refusal?: () => Error; type?: CloudIntegrationAuthType; refuses?: 'projects' | 'identity' },
 ) {
+	const refuses = (what: 'projects' | 'identity', namespace: string) =>
+		namespace === 'Org Denied' && (options?.refuses ?? 'projects') === what;
 	const manager = createIntegrationManager(createFakeRuntime());
 	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
 	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
@@ -65,9 +69,13 @@ async function azureWithRefusingOrg(
 	};
 
 	stubApi(azure, {
+		getCurrentUserForInstance: (_t: unknown, namespace: string) =>
+			refuses('identity', namespace)
+				? Promise.reject((options?.refusal ?? refusedCredential)())
+				: Promise.resolve({ id: 'guid-1' }),
 		getAzureGroupIdsForUser: () => Promise.resolve([]),
 		getAzureProjectsForResource: (_t: unknown, resourceName: string) =>
-			resourceName === 'Org Denied'
+			refuses('projects', resourceName)
 				? Promise.reject((options?.refusal ?? refusedCredential)())
 				: Promise.resolve({
 						values: [{ id: 'p1', name: 'proj', namespace: resourceName }],
@@ -110,6 +118,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// The 'bad' project's read throws (e.g. a 429/403 mid-sweep); the 'good' project drains cleanly. The
 		// fan-out must be settled per-project so the failure doesn't take down the good project's PRs.
 		stubApi(azure, {
+			getCurrentUserForInstance: () => Promise.resolve({ id: 'guid-1' }),
 			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }) => {
 				if (project.project === 'bad') return Promise.reject(new Error('boom'));
@@ -172,6 +181,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// Both orgs surface a URL-less PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by
 		// id one would be dropped; keyed by repository + id both survive while authored/reviewer facets dedupe.
 		stubApi(azure, {
+			getCurrentUserForInstance: () => Promise.resolve({ id: 'guid-1' }),
 			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
 				Promise.resolve({
@@ -235,6 +245,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// A single project fans out into an authored + assigned read, so 2 × 20 = 40 calls for one project.
 		let calls = 0;
 		stubApi(azure, {
+			getCurrentUserForInstance: () => Promise.resolve({ id: 'guid-1' }),
 			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }, o?: { page?: number }) => {
 				calls += 1;
@@ -889,6 +900,7 @@ async function azureWithGroups(options: {
 	const readStates = new Map<string, GitPullRequestState[] | undefined>();
 	const groupReads: { namespace: string; userId: string }[] = [];
 	stubApi(azure, {
+		getCurrentUserForInstance: () => Promise.resolve({ id: 'me' }),
 		getAzureGroupIdsForUser: (_t: unknown, namespace: string, userId: string) => {
 			groupReads.push({ namespace: namespace, userId: userId });
 			return options.groups();
@@ -1107,6 +1119,9 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 			value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })),
 		});
 		runtime.http.fetch = (input, init) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
 			const url = String(input);
 			requests.push({
 				method: init?.method ?? 'GET',
@@ -1209,6 +1224,490 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 		await assert.rejects(
 			api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }),
 			/no group membership/,
+		);
+
+		manager.dispose();
+	});
+});
+
+/**
+ * An Azure DevOps connection whose profile id is known to none of its organizations (#6032): `Org One` (project
+ * `web`) and `Org Two` (project `api`) each know the user by an identity of their own, read from their connection
+ * data, which `failing` refuses for the organizations it names. Records every identity, filter and group read.
+ */
+async function azureWithOrganizationIdentities(failing: Set<string> = new Set()) {
+	const manager = createIntegrationManager(createFakeRuntime());
+	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+		...primarySession('t'),
+		domain: 'dev.azure.com',
+	};
+	const identities: Record<string, string> = { 'org one': 'one-id', 'org two': 'two-id', 'org three': 'three-id' };
+	const lookups: string[] = [];
+	const filters: { namespace: string; authorLogin?: string; reviewerId?: string }[] = [];
+	const groupReads: { namespace: string; userId: string }[] = [];
+	stubApi(azure, {
+		getCurrentUserForInstance: (_t: unknown, namespace: string) => {
+			lookups.push(namespace);
+			return failing.has(namespace)
+				? Promise.reject(new Error('connection data unavailable'))
+				: Promise.resolve({ id: identities[namespace.toLowerCase()] });
+		},
+		getAzureGroupIdsForUser: (_t: unknown, namespace: string, userId: string) => {
+			groupReads.push({ namespace: namespace, userId: userId });
+			return Promise.resolve([]);
+		},
+		getReposForAzureProject: () => Promise.resolve({ values: [] }),
+		// One work item per project, assigned to the user as its organization knows them.
+		getIssuesForAzureProject: (_t: unknown, namespace: string, project: string) =>
+			Promise.resolve({
+				values: [workItemIn(namespace, project, identities[namespace.toLowerCase()])],
+				paging: { more: false, cursor: '{}' },
+			}),
+		getPullRequestsForAzureProject: (
+			_t: unknown,
+			project: { namespace: string; project: string },
+			o?: { authorLogin?: string; reviewerId?: string },
+		) => {
+			filters.push({ namespace: project.namespace, authorLogin: o?.authorLogin, reviewerId: o?.reviewerId });
+			const userId = o?.authorLogin ?? o?.reviewerId;
+			return Promise.resolve({
+				data:
+					userId != null
+						? [
+								providerPr(`pr-${project.project}`, {
+									url: `https://dev.azure.com/${project.namespace}/${project.project}/_git/repo/pullrequest/1`,
+									author: person(userId),
+								}),
+							]
+						: [],
+				hasMore: false,
+				nextPage: null,
+			});
+		},
+	});
+	(
+		azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+	).getProviderCurrentAccount = () => Promise.resolve({ id: 'profile-id', username: 'me@example.com' });
+	(
+		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+	).getProviderResourcesForUser = () =>
+		Promise.resolve([
+			{ id: 'org-1', name: 'Org One' },
+			{ id: 'org-2', name: 'Org Two' },
+		]);
+	(
+		azure as unknown as {
+			getProviderProjectsForResources: () => Promise<{
+				values: { id: string; resourceId: string; resourceName: string; name: string }[];
+			}>;
+		}
+	).getProviderProjectsForResources = () =>
+		Promise.resolve({
+			values: [
+				{ id: 'web-id', resourceId: 'org-1', resourceName: 'Org One', name: 'web' },
+				{ id: 'api-id', resourceId: 'org-2', resourceName: 'Org Two', name: 'api' },
+			],
+		});
+
+	const read = (filters: PullRequestFilter[], state?: PullRequestStateFilter[]) =>
+		(
+			azure as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					filters?: PullRequestFilter[];
+					state?: PullRequestStateFilter[];
+				}) => Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult({ filters: filters, state: state });
+	return {
+		manager: manager,
+		azure: azure,
+		read: read,
+		lookups: lookups,
+		filters: filters,
+		groupReads: groupReads,
+	};
+}
+
+function person(id: string) {
+	return { id: id, name: id, username: id, email: null, avatarUrl: null, url: null };
+}
+
+/** A work item in `namespace`/`project`, assigned to `assigneeId` when given and created by someone else. */
+function workItemIn(namespace: string, project: string, assigneeId?: string, authorId: string | null = 'someone') {
+	return {
+		id: `wi-${project}`,
+		number: '1',
+		title: `Work item in ${project}`,
+		url: `https://dev.azure.com/${namespace}/${project}/_workitems/edit/1`,
+		createdDate: new Date(0),
+		updatedDate: new Date(1),
+		closedDate: null,
+		author: authorId != null ? person(authorId) : null,
+		assignees: assigneeId != null ? [person(assigneeId)] : [],
+		labels: [],
+		repository: null,
+		project: { namespace: namespace, name: project, resourceId: null, key: null, id: null },
+		commentCount: 0,
+		upvoteCount: 0,
+		description: null,
+		type: 'Task',
+	} as unknown as ProviderIssue;
+}
+
+suite('Azure DevOps organization identities (#6032)', () => {
+	test("filters and reads groups by each organization's own identity, never the profile id", async () => {
+		const { manager, read, lookups, filters, groupReads } = await azureWithOrganizationIdentities();
+
+		// Every state, so the closed reviewer read carries Azure's own reviewer filter.
+		const result = await read([PullRequestFilter.Author, PullRequestFilter.ReviewRequested], ['all']);
+		assert.deepEqual(result?.value?.metadata?.failures ?? [], []);
+		assert.deepEqual(lookups.sort(), ['Org One', 'Org Two']);
+		assert.deepEqual(
+			filters
+				.filter(f => f.authorLogin != null || f.reviewerId != null)
+				.map(f => [f.namespace, f.authorLogin ?? f.reviewerId])
+				.sort(),
+			[
+				['Org One', 'one-id'],
+				['Org One', 'one-id'],
+				['Org Two', 'two-id'],
+				['Org Two', 'two-id'],
+			],
+		);
+		assert.deepEqual(
+			groupReads.sort((a, b) => a.namespace.localeCompare(b.namespace)),
+			[
+				{ namespace: 'Org One', userId: 'one-id' },
+				{ namespace: 'Org Two', userId: 'two-id' },
+			],
+		);
+		assert.deepEqual(result?.value?.values.map(pr => pr.id).sort(), ['pr-api', 'pr-web']);
+
+		manager.dispose();
+	});
+
+	test("reads an organization's identity once, and reports one whose identity can't be read, which is read again", async () => {
+		const failing = new Set(['Org Two']);
+		const { manager, azure, read, lookups, filters } = await azureWithOrganizationIdentities(failing);
+
+		const failed = await read([PullRequestFilter.Author]);
+		assert.deepEqual(
+			failed?.value?.values.map(pr => pr.id),
+			['pr-web'],
+		);
+		assert.deepEqual(
+			filters.map(f => f.namespace),
+			['Org One'],
+			'nothing is read in an organization without its identity',
+		);
+		const failures = failed?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 1);
+		assert.deepEqual(failures[0].scope, {
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			resourceId: 'org-2',
+			projectId: 'api',
+		});
+		assert.equal(failed?.value?.metadata?.completeness, 'partial');
+		assert.equal(failed?.value?.paging?.truncated, true);
+
+		failing.clear();
+		const recovered = await read([PullRequestFilter.Author]);
+		assert.deepEqual(recovered?.value?.values.map(pr => pr.id).sort(), ['pr-api', 'pr-web']);
+		assert.deepEqual(lookups, ['Org One', 'Org Two', 'Org Two'], 'only the failed organization is read again');
+
+		await read([PullRequestFilter.Author]);
+		assert.equal(lookups.length, 3, 'a read once both are known costs no identity request');
+
+		azure.invalidateDiscoveryCaches();
+		await read([PullRequestFilter.Author]);
+		assert.equal(lookups.length, 5, 'a re-sync reads them again');
+
+		manager.dispose();
+	});
+
+	test("resolves each row's viewer as its organization knows the user, once per organization", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities(new Set(['Org Three']));
+		const inOrg = (id: string, org: string, authorId?: string, reviewerId?: string) =>
+			providerPr(id, {
+				author: authorId != null ? person(authorId) : null,
+				reviews: reviewerId != null ? [requestedFrom(reviewerId)] : null,
+				repository: { id: `repo-${id}`, name: 'repo', owner: { login: org }, remoteInfo: null },
+			});
+		const rows = [
+			inOrg('pr-1', 'Org One', 'one-id'),
+			inOrg('pr-2', 'org two', 'someone'),
+			inOrg('pr-3', 'Org Two', 'two-id'),
+			inOrg('pr-4', 'Org One'),
+			inOrg('pr-5', 'Org Three', 'three-id'),
+			// No author, but the user is asked to review it.
+			inOrg('pr-6', 'Org One', undefined, 'one-id'),
+		];
+
+		const viewers = await azure.getPullRequestViewers(rows);
+		assert.deepEqual(viewers, [
+			{ id: 'one-id' },
+			{ id: 'two-id' },
+			{ id: 'two-id' },
+			undefined,
+			// The organization whose identity can't be read, which marks the row unresolved.
+			null,
+			{ id: 'one-id' },
+		]);
+		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
+
+		await azure.getPullRequestViewers(rows);
+		assert.deepEqual(
+			lookups.sort(),
+			['Org One', 'Org Three', 'Org Three', 'org two'],
+			'only the organization whose identity failed is read again',
+		);
+
+		manager.dispose();
+	});
+
+	test("an account-wide read's rows keep the viewer that read resolved, and the legacy search maps them with it", async () => {
+		const { manager, azure, read, lookups } = await azureWithOrganizationIdentities();
+
+		const result = await read([PullRequestFilter.Author]);
+		const values = result?.value?.values ?? [];
+		assert.equal(lookups.length, 2);
+
+		// A re-sync drops the identities, so anything not kept from the read would have to be read again.
+		azure.invalidateDiscoveryCaches();
+		const viewers = await azure.getPullRequestViewers(values);
+		assert.deepEqual(values.map((pr, i) => [pr.id, viewers[i]?.id]).sort(), [
+			['pr-api', 'two-id'],
+			['pr-web', 'one-id'],
+		]);
+		assert.equal(lookups.length, 2, 'no identity read again');
+
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+		const legacy = await (
+			azure as unknown as {
+				searchProviderMyPullRequests: (
+					session: ProviderAuthenticationSession,
+				) => Promise<PullRequest[] | undefined>;
+			}
+		).searchProviderMyPullRequests(session);
+		assert.deepEqual(legacy?.map(pr => [pr.id, pr.viewer?.id, pr.authoredByMe]).sort(), [
+			['pr-api', 'two-id', true],
+			['pr-web', 'one-id', true],
+		]);
+
+		manager.dispose();
+	});
+
+	test("an account-wide read's rows keep their viewers once the session can't be resolved", async () => {
+		const { manager, azure, read, lookups } = await azureWithOrganizationIdentities();
+
+		const values = (await read([PullRequestFilter.Author]))?.value?.values ?? [];
+		assert.equal(lookups.length, 2);
+
+		let sessionReads = 0;
+		(
+			azure as unknown as { resolveReadSessionOrThrow: () => Promise<ProviderAuthenticationSession | undefined> }
+		).resolveReadSessionOrThrow = () => {
+			sessionReads++;
+			return Promise.reject(new Error('disconnected'));
+		};
+		const viewers = await azure.getPullRequestViewers(values);
+		assert.deepEqual(values.map((pr, i) => [pr.id, viewers[i]?.id]).sort(), [
+			['pr-api', 'two-id'],
+			['pr-web', 'one-id'],
+		]);
+		assert.equal(sessionReads, 0, 'no session read');
+		assert.equal(lookups.length, 2, 'no identity read');
+
+		manager.dispose();
+	});
+
+	test("rows no read resolved are unresolved, not unknown-provider, once the session can't be resolved (#6083)", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities();
+		(
+			azure as unknown as { resolveReadSessionOrThrow: () => Promise<ProviderAuthenticationSession | undefined> }
+		).resolveReadSessionOrThrow = () => Promise.reject(new Error('disconnected'));
+		const rows = [
+			providerPr('pr-1', {
+				author: person('one-id'),
+				repository: { id: 'repo-1', name: 'repo', owner: { login: 'Org One' }, remoteInfo: null },
+			}),
+			// Names no one, so nothing on it needed an identity.
+			providerPr('pr-2', {
+				author: null,
+				reviews: null,
+				repository: { id: 'repo-2', name: 'repo', owner: { login: 'Org One' }, remoteInfo: null },
+			}),
+		];
+
+		assert.deepEqual(await azure.getPullRequestViewers(rows), [null, undefined]);
+		assert.equal(lookups.length, 0, 'no identity read');
+
+		manager.dispose();
+	});
+
+	test('a row that names someone but no organization to ask is unresolved, not unknown-provider (#6083)', async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities();
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+
+		const prViewers = await azure.getPullRequestViewers([
+			providerPr('pr-1', { author: person('one-id'), repository: null as never }),
+		]);
+		const issueViewers = await (
+			azure as unknown as {
+				getIssueViewers: (
+					session: ProviderAuthenticationSession,
+					issues: readonly ProviderIssue[],
+				) => Promise<({ id: string } | null | undefined)[]>;
+			}
+		).getIssueViewers(session, [
+			{ ...workItemIn('Org One', 'web', 'one-id'), project: null } as unknown as ProviderIssue,
+		]);
+
+		assert.deepEqual(prViewers, [null]);
+		assert.deepEqual(issueViewers, [null]);
+		assert.equal(lookups.length, 0, 'no identity read');
+
+		manager.dispose();
+	});
+
+	test("an organization refusing its connection data is that organization's failure, named once the credential checks out", async () => {
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(
+			() => {
+				probes++;
+				return Promise.resolve({ id: 'guid-1' });
+			},
+			{ refusal: oauthAppNotAllowed, refuses: 'identity' },
+		);
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			assert.equal(result.items.length, 1, "the healthy organization's pull requests survive");
+			assert.equal(result.fetchFailed, true);
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.deepEqual(auth[0].scope, { resourceId: 'org-denied', projectId: 'proj' });
+			assert.equal(auth[0].cause?.reason, 'oauth-app-not-allowed');
+			assert.equal(probes, 1, 'the credential was confirmed before the refusal was trusted');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a refused credential still fails the read as a whole, not as one organization', async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.reject(refusedCredential()), {
+			refusal: oauthAppNotAllowed,
+			refuses: 'identity',
+		});
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(result.items, []);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test("stamps each account-wide work item with its organization's identity, once per organization (gitkraken/kepler#4291)", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities(new Set(['Org Two']));
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<IntegrationResult<{ values: IssueShape[] }>>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		assert.deepEqual(
+			result?.value?.values.map(i => [i.nodeId, i.viewer?.id, i.viewerUnresolved, i.assignees[0]?.id]).sort(),
+			[
+				['wi-api', undefined, true, 'two-id'],
+				['wi-web', 'one-id', undefined, 'one-id'],
+			],
+			"an organization whose identity can't be read keeps its work items, marked unresolved rather than without a viewer",
+		);
+		assert.deepEqual(
+			lookups.sort(),
+			['Org One', 'Org Two'],
+			'one identity read per organization, though each project is drained by assignee and author',
+		);
+
+		manager.dispose();
+	});
+
+	test("resolves each work item's viewer as its organization knows the user, once per organization", async () => {
+		const { manager, azure, lookups } = await azureWithOrganizationIdentities(new Set(['Org Three']));
+		const rows = [
+			workItemIn('Org One', 'web', 'one-id'),
+			workItemIn('org two', 'api', 'someone'),
+			workItemIn('Org Two', 'api', undefined, 'two-id'),
+			// Names no one, so nothing on it can be matched.
+			workItemIn('Org One', 'web', undefined, null),
+			workItemIn('Org Three', 'ops', 'three-id'),
+		];
+
+		const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+		const getIssueViewers = (
+			azure as unknown as {
+				getIssueViewers: (
+					session: ProviderAuthenticationSession,
+					issues: readonly ProviderIssue[],
+				) => Promise<({ id: string } | null | undefined)[]>;
+			}
+		).getIssueViewers.bind(azure);
+
+		const viewers = await getIssueViewers(session, rows);
+		// `null` for the organization whose identity can't be read; nothing for the row that names no one.
+		assert.deepEqual(viewers, [{ id: 'one-id' }, { id: 'two-id' }, { id: 'two-id' }, undefined, null]);
+		assert.deepEqual(lookups.sort(), ['Org One', 'Org Three', 'org two'], 'one identity read per organization');
+
+		await getIssueViewers(session, rows);
+		assert.deepEqual(
+			lookups.sort(),
+			['Org One', 'Org Three', 'Org Three', 'org two'],
+			'only the organization whose identity failed is read again',
+		);
+
+		manager.dispose();
+	});
+
+	test('classifies a refused connection data read for its own read only, leaving the shared one raw', async () => {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () =>
+			Promise.resolve(new Response('', { status: 401, headers: { 'www-authenticate': 'Basic realm="x"' } }));
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		const session = { ...primarySession('t'), domain: 'dev.azure.com' };
+		const api = await (manager as unknown as { getProvidersApi: () => Promise<ProvidersApi> }).getProvidersApi();
+		const token: TokenWithInfo<GitCloudHostIntegrationId.AzureDevOps> = {
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			accessToken: 't',
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: [],
+		};
+
+		// The repository-scoped filters (`GitHostIntegration.getFilterAccount`) handle the raw error themselves.
+		await assert.rejects(api.getCurrentUserForInstance(token, 'Org', { isPAT: true }), (ex: unknown) => {
+			assert.ok(!(ex instanceof AuthenticationError));
+			return true;
+		});
+		await assert.rejects(
+			(
+				azure as unknown as {
+					getFilterUserId: (
+						session: ProviderAuthenticationSession,
+						org: string,
+					) => Promise<string | undefined>;
+				}
+			).getFilterUserId(session, 'Org'),
+			AuthenticationError,
 		);
 
 		manager.dispose();

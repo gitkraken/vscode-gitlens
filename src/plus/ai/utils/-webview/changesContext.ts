@@ -25,7 +25,7 @@ export interface ChangesContextInput {
 export interface ChangesContextItem {
 	kind: 'pr' | 'issue';
 	id: string;
-	state: string;
+	state: string | undefined;
 	url: string;
 	title: string;
 	author?: string;

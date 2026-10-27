@@ -362,6 +362,10 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		const wtBranch = this.worktree.branch;
 		if (wtBranch != null) {
 			contextValue += '+branch';
+			// Per-repo (not workspace-wide) so the publish branch/repository menus pick the right action
+			if ((await this.view.container.git.getRepositoryService(this.repoPath).remotes.getRemotes()).length) {
+				contextValue += '+remotes';
+			}
 			if (wtBranch.starred) {
 				contextValue += '+starred';
 			}

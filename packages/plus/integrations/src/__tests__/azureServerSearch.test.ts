@@ -8,6 +8,7 @@ import { createIntegrationManager } from '../index.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { PullRequestSearchCriteria } from '../providerFilters.js';
 import { PullRequestFilter } from '../providerFilters.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
@@ -45,6 +46,8 @@ interface FakeCollection {
 	groups?: { id: string; members: string[] }[];
 	/** The category its process maps every work item state to; `InProgress` when omitted. */
 	stateCategory?: string;
+	stateCategoryByProject?: Record<string, string>;
+	failStates?: boolean;
 }
 
 interface Request {
@@ -89,6 +92,8 @@ function createServer(options: {
 	identities?: Record<string, string>;
 	/** Refuses the current user's connection data below these collections, as a transient outage would. */
 	failIdentityFor?: string[];
+	/** The status `failIdentityFor` refuses with: 500 when omitted. */
+	failIdentityStatus?: number;
 	/** Refuses the current user's server-level connection data, as a transient outage would. */
 	failServerIdentity?: boolean;
 }) {
@@ -118,6 +123,9 @@ function createServer(options: {
 	};
 
 	runtime.http.fetch = async (input, init) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input);
 		const authorization = new Headers(init?.headers).get('authorization') ?? '';
 		const basic = authorization.toLowerCase().startsWith('basic ');
@@ -146,8 +154,10 @@ function createServer(options: {
 		const serverRoute = (segments[0] === '_apis' ? segments : segments.slice(1)).join('/');
 		if (serverRoute.toLowerCase() === '_apis/connectiondata') {
 			const atServer = segments[0] === '_apis';
-			if (atServer ? options.failServerIdentity : options.failIdentityFor?.includes(segments[0])) {
-				return json({ message: 'boom' }, 500);
+			if (atServer) {
+				if (options.failServerIdentity) return json({ message: 'boom' }, 500);
+			} else if (options.failIdentityFor?.includes(segments[0])) {
+				return json({ message: 'boom' }, options.failIdentityStatus ?? 500);
 			}
 
 			const id = atServer ? `server-${me}` : (options.identities?.[segments[0]] ?? me);
@@ -259,11 +269,25 @@ function createServer(options: {
 				}),
 			});
 		}
+		if (/^[^/]+\/_apis\/wit\/workItemTypes$/.test(route)) {
+			return json({ value: [{ name: 'Task' }] });
+		}
 		if (/^[^/]+\/_apis\/wit\/workItemTypes\/[^/]+\/states$/.test(route)) {
+			if (collection.failStates) return json({ message: 'Unavailable' }, 503);
+
 			// Azure DevOps Server 2020 serves the states endpoint only as a preview.
 			assert.equal(url.searchParams.get('api-version'), '6.0-preview.1');
 			return json({
-				value: [{ name: 'Active', color: '', category: collection.stateCategory ?? 'InProgress' }],
+				value: [
+					{
+						name: 'Active',
+						color: '',
+						category:
+							collection.stateCategoryByProject?.[segments[1]] ??
+							collection.stateCategory ??
+							'InProgress',
+					},
+				],
 				count: 1,
 			});
 		}
@@ -331,6 +355,26 @@ function matchesWiql(w: FakeWorkItem, query: string, me: string): boolean {
 	if (projects != null) {
 		const names = Array.from(projects.matchAll(/'((?:[^']|'')*)'/g), m => m[1].replace(/''/g, "'"));
 		if (!names.includes(w.project)) return false;
+	}
+
+	if (query.includes('[System.Id] = 0')) return false;
+	if (query.includes("[Microsoft.VSTS.Common.ClosedDate] <> ''")) return false;
+
+	const stateClauses = [
+		...query.matchAll(
+			/\[System.TeamProject\] = '((?:''|[^'])*)' AND \[System.WorkItemType\] = '((?:''|[^'])*)' AND \[System.State\] IN \(([^)]*)\)/g,
+		),
+	];
+	if (
+		stateClauses.length &&
+		!stateClauses.some(
+			([, project, type, states]) =>
+				project.replaceAll("''", "'") === w.project &&
+				type.replaceAll("''", "'") === 'Task' &&
+				[...states.matchAll(/'((?:''|[^'])*)'/g)].some(([, state]) => state.replaceAll("''", "'") === 'Active'),
+		)
+	) {
+		return false;
 	}
 
 	const relationships = /AND \((\[System\.(?:CreatedBy|AssignedTo)\][^)]*)\)/.exec(query)?.[1];
@@ -683,6 +727,91 @@ suite('Azure DevOps Server filtered search', () => {
 			});
 		}
 
+		for (const [category, terminal] of [
+			['Proposed', false],
+			['InProgress', false],
+			['Resolved', true],
+			['Completed', true],
+			['Removed', true],
+		] as const) {
+			test(`${category} work items without dates appear in the matching search and count only`, async () => {
+				const server = createServer({
+					installation: 'https://server.test/tfs',
+					collections: [{ ...collection, stateCategory: category }],
+				});
+				await withManager(server, async (manager, target) => {
+					for (const state of ['open', 'closed'] as const) {
+						const result = await manager.searchIssuesPage({
+							...target,
+							org: collection.name,
+							criteria: { state: state },
+						});
+						assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+						const matches = terminal === (state === 'closed');
+						assert.equal(result.items.length, matches ? collection.workItems.length : 0);
+						for (const item of result.items) {
+							assert.equal(item.closedDate, undefined);
+							assert.equal(item.state, terminal ? 'closed' : 'opened');
+						}
+						const count = await manager.countIssues({
+							...target,
+							scopes: [{ key: state, org: collection.name, criteria: { state: state } }],
+						});
+						assert.equal(count.fetchFailed, undefined, JSON.stringify(count.warnings));
+						assert.equal(count.items[0].count, result.items.length);
+					}
+					assert.equal(
+						server.requests.filter(r => r.url.pathname.endsWith('/states')).length,
+						collection.projects.length,
+					);
+				});
+			});
+		}
+
+		test('the same state name in different projects follows each project workflow', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [
+					{ ...collection, stateCategoryByProject: { Web: 'Removed', 'Payments & Billing': 'InProgress' } },
+				],
+			});
+			await withManager(server, async (manager, target) => {
+				for (const state of ['open', 'closed'] as const) {
+					const result = await manager.searchIssuesPage({
+						...target,
+						org: collection.name,
+						criteria: { state: state },
+					});
+					assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+					assert.ok(result.items.length > 0);
+					assert.ok(result.items.every(item => (item.project?.name === 'Web') === (state === 'closed')));
+				}
+			});
+		});
+
+		test('failed workflow metadata fails filtered search and count instead of guessing from dates', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [{ ...collection, failStates: true }],
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchIssuesPage({
+					...target,
+					org: collection.name,
+					criteria: { state: 'closed' },
+				});
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(result.items, []);
+				const count = await manager.countIssues({
+					...target,
+					scopes: [{ key: 'closed', org: collection.name, criteria: { state: 'closed' } }],
+				});
+				assert.equal(count.fetchFailed, true);
+				assert.deepEqual(count.items, []);
+				assert.ok(!server.requests.some(r => r.url.pathname.endsWith('/wiql')));
+			});
+		});
+
 		test('bounds a repository scope by its project, with an encoded project name', async () => {
 			const server = createServer({ installation: 'https://server.test/tfs', collections: [collection] });
 			await withManager(server, async (manager, target) => {
@@ -897,6 +1026,32 @@ suite('Azure DevOps Server filtered search', () => {
 					[first, second, third].flatMap(r => r.items.map(i => i.id)),
 					['5', '4', '3', '2', '1'],
 					'every work item of the snapshot, once, whatever changed',
+				);
+			});
+		});
+
+		test('keeps a collection pagination when a count discovers a newly added project', async () => {
+			const mutable = {
+				...collection,
+				projects: [...collection.projects],
+				workItems: [5, 4, 3, 2, 1].map(id => ({ id: id, project: 'Web', title: `Item ${id}` })),
+			};
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [mutable] });
+			await withManager(server, async (manager, target) => {
+				const scope = { ...target, org: 'Default Collection', itemsPerPage: 2 };
+				const first = await manager.searchIssuesPage(scope);
+				mutable.projects.push('New project');
+				const count = await manager.countIssues({ ...target, scopes: [{ key: 'all', org: scope.org }] });
+				assert.equal(count.fetchFailed, undefined);
+				const requests = server.requests.length;
+				const second = await manager.searchIssuesPage({ ...scope, cursor: first.cursor });
+				assert.equal(second.fetchFailed, undefined, JSON.stringify(second.warnings));
+				assert.deepEqual(
+					second.items.map(i => i.id),
+					['3', '2'],
+				);
+				assert.ok(
+					!server.requests.slice(requests).some(r => /\/(?:wiql|workItemTypes|states)$/.test(r.url.pathname)),
 				);
 			});
 		});
@@ -1800,6 +1955,9 @@ suite('Azure DevOps Server filtered search', () => {
 			const server = createServer({ installation: 'https://server.test/tfs', collections: [collection] });
 			const fetch = server.runtime.http.fetch;
 			server.runtime.http.fetch = async (input, init) => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return discovery;
+
 				const url = new URL(input);
 				if (/\/Web\/_apis\/git\/pullRequests$/i.test(decodeURIComponent(url.pathname))) {
 					return json({ message: 'boom' }, 401);
@@ -2390,6 +2548,42 @@ suite('Azure DevOps Server current-account identity (#5916)', () => {
 							scope: { resourceId: 'Second-id', projectId: 'Api' },
 						},
 					],
+				);
+			}
+		});
+	});
+
+	test("a collection refusing the credential its identity is read with is that collection's auth failure (#6032)", async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+			failIdentityFor: ['Second'],
+			failIdentityStatus: 401,
+		});
+		// The server-level connection data, which the probe that confirms the credential reads.
+		const serverIdentityReads = () =>
+			server.requests.filter(r => r.url.pathname.toLowerCase() === '/tfs/_apis/connectiondata').length;
+		await withManager(server, async (manager, target) => {
+			const before = serverIdentityReads();
+			const page = await manager.listPullRequestsPage({ ...target, states: ['all'] });
+			assert.equal(serverIdentityReads(), before + 1, 'the credential was probed before the refusal was trusted');
+			const sweep = await manager.sweepPullRequests({ targets: [target], states: ['all'] });
+			assert.equal(serverIdentityReads(), before + 1, 'and the sweep reuses that probe');
+			for (const result of [page, sweep]) {
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(
+					rows(result.items),
+					[
+						{ pr: 'Default Collection/site#1', authoredByMe: true, viewer: 'me-a' },
+						{ pr: 'Default Collection/site#2', authoredByMe: false, viewer: 'me-a' },
+					],
+					"the other collection's pull requests survive",
+				);
+				assert.deepEqual(
+					result.warnings.map(w => ({ kind: w.kind, isAuth: w.isAuth, scope: w.scope })),
+					[{ kind: 'auth', isAuth: true, scope: { resourceId: 'Second-id', projectId: 'Api' } }],
+					'scoped to the collection, since the credential itself checks out',
 				);
 			}
 		});

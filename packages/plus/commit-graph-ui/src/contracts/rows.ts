@@ -104,6 +104,7 @@ export type CommitGraphRowAdapter<TRow extends CommitGraphSourceRow = CommitGrap
 	idLength: number,
 	repoPath?: string,
 	pinnedRefId?: string,
+	hasRemotes?: boolean,
 ) => CommitGraphView;
 
 /**

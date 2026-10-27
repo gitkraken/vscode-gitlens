@@ -14,7 +14,7 @@ import { createBranch, createTestRepo, createWorktree } from './helpers.js';
  */
 suite('Typed write announcements across worktrees', () => {
 	let repo: TestRepo;
-	let announced: { repoPath: string; changes: RepositoryChange[] }[];
+	let announced: { repoPath: string; changes: RepositoryChange[]; refs?: readonly string[] }[];
 	let onAnnounced: ((repoPath: string) => void) | undefined;
 	let worktree: ReturnType<typeof createWorktree>;
 	let mainPath: string;
@@ -26,8 +26,8 @@ suite('Typed write announcements across worktrees', () => {
 		repo = createTestRepo({
 			hooks: {
 				repository: {
-					onChanged: (repoPath, changes) => {
-						announced.push({ repoPath: repoPath, changes: changes });
+					onChanged: (repoPath, changes, refs) => {
+						announced.push({ repoPath: repoPath, changes: changes, refs: refs });
 						onAnnounced?.(repoPath);
 					},
 				},
@@ -57,6 +57,34 @@ suite('Typed write announcements across worktrees', () => {
 
 		assert.deepStrictEqual(announcementsTo(linkedPath), [['heads']]);
 		assert.deepStrictEqual(announcementsTo(mainPath), [['heads']]);
+	});
+
+	test('a named write reaches siblings with the names of the shared ref kinds they hear', async () => {
+		const watched: { repoPath: string; changes: readonly RepositoryChange[]; refs?: readonly string[] }[] = [];
+		repo.provider.onDidAnnounceChanges(e => watched.push(e));
+
+		await repo.provider.branches.createBranch(worktree.path, 'created', 'HEAD');
+		repo.provider.context.hooks!.repository!.onChanged!(
+			worktree.path,
+			['index', 'heads'],
+			['refs/heads/moved', 'refs/tags/not-announced'],
+		);
+
+		const named = (path: string) =>
+			announced.filter(a => a.repoPath === path).map(a => ({ changes: a.changes, refs: a.refs }));
+		assert.deepStrictEqual(named(linkedPath), [
+			{ changes: ['heads'], refs: ['refs/heads/created'] },
+			{ changes: ['index', 'heads'], refs: ['refs/heads/moved', 'refs/tags/not-announced'] },
+		]);
+		assert.deepStrictEqual(named(mainPath), [
+			{ changes: ['heads'], refs: ['refs/heads/created'] },
+			{ changes: ['heads'], refs: ['refs/heads/moved'] },
+		]);
+		assert.deepStrictEqual(
+			watched.filter(e => e.repoPath === mainPath).map(e => e.refs),
+			[['refs/heads/created'], ['refs/heads/moved']],
+			'the watch layer hears the same names',
+		);
 	});
 
 	test('a commit in a linked worktree announces only the shared part to the main checkout', async () => {
@@ -164,7 +192,7 @@ suite('Typed write announcements across worktrees', () => {
 
 		assert.deepStrictEqual(announcementsTo(linkedPath), [['unknown']]);
 		assert.deepStrictEqual(announcementsTo(mainPath), [
-			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'config'],
+			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'worktreeHead', 'config'],
 		]);
 	});
 
@@ -172,7 +200,7 @@ suite('Typed write announcements across worktrees', () => {
 		repo.provider.notifyChanged(worktree.path, []);
 
 		assert.deepStrictEqual(announcementsTo(mainPath), [
-			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'config'],
+			['heads', 'tags', 'stash', 'remotes', 'worktrees', 'worktreeHead', 'config'],
 		]);
 	});
 

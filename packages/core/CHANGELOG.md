@@ -6,6 +6,194 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-10-26
+
+### Changed
+
+- Imports `EntityIdentifierUtils` and `GitProviderUtils` from the `@gitkraken/provider-apis` main entry instead of its `/entity-identifiers` and `/provider-utils` subpaths. Those subpaths are standalone bundles that repeat code the main entry already ships, and core already loads the main entry, so a host that bundles core carried both copies. Same functions and behavior; a Node ESM consumer still links both names through the main entry's CommonJS export list ([#6086](https://github.com/gitkraken/vscode-gitlens/issues/6086)) (plus/integrations)
+
+## [0.20.0] - 2026-10-26
+
+### Added
+
+- Adds `requestFailed?: boolean` and `unexpectedGap?: boolean` to `ProviderPagedResult`, so a host can tell why a paged read is incomplete without reading its warnings. `requestFailed` is `fetchFailed` without the failures that only name items a successful read left unreadable, which those items' own warnings already report. `unexpectedGap` is set when the provider promised another page without a usable cursor or page position, or repeated the cursor it was given, including on a page walked internally to reach a requested page number. Both are set to an explicit boolean by `listPullRequestsPage`, `listIssuesPage` and `listIssueTrackerIssuesPage`, so their absence means a read that doesn't report them yet ([gitkraken/kepler#4398](https://github.com/gitkraken/kepler/issues/4398)) (plus/integrations)
+
+## [0.19.0] - 2026-10-26
+
+### Added
+
+- Adds `viewerUnresolved?: true` to `IssueShape`/`Issue` and `PullRequestShape`/`PullRequest`: set on an Azure DevOps or Azure DevOps Server work item or pull request that names someone when the user's identity in its organization (collection) couldn't be read, because its `ConnectionData` failed, answered without an identity or took more than 10 seconds. Such a row has no `viewer` and, on a pull request, no `authoredByMe`, and a host should treat whether it's the user's as unknown rather than match it against `getCurrentAccount`, whose id is the one that may not match there. Every read that stamps `viewer` on those rows sets it: `listIssuesPage`, `getIssuesBatch`, the work item point read and Azure DevOps Server's `searchIssuesPage`; the repository-scoped `listPullRequestsPage` and sweeps, `getPullRequestsBatch`, `getPullRequestsForBranches` and Azure DevOps Server's `searchPullRequestsPage` without a current-user relationship. The account-wide pull request reads and a relationship search still report such an organization as a failed scope instead, since they filter by that identity. Absent on every other row, so a row with neither field still means what it did. A pull request row marked this way never compares unchanged on `getPullRequestsBatch`'s etag check, as a work item already didn't, so it's read in full again once the identity can be read ([#6083](https://github.com/gitkraken/vscode-gitlens/issues/6083)) (git, plus/integrations)
+
+### Fixed
+
+- Fixes Azure DevOps Server's `searchPullRequestsPage` without a current-user relationship leaving its rows without `viewer` and `authoredByMe`: it now resolves the user's identity in the collection of each row it serves, as the other pull request reads do ([#6083](https://github.com/gitkraken/vscode-gitlens/issues/6083)) (plus/integrations)
+
+## [0.18.0] - 2026-10-25
+
+## [0.17.0] - 2026-10-25
+
+### Added
+
+- Adds `ignoredWorktreeFolders` to `CliGitProviderOptions` and `createCliGitService`: folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist, for a tool's throwaway worktrees (sync-tools' `sync-tools-worktrees`, say). They are matched under the common git dir as spelled and as it resolves through symlinks. They are left out of worktree lists, and adding, removing, locking, unlocking or moving one (by absolute path, in a `notify: 'infer'` run; the typed worktree writes still announce it) announces no `worktrees` change, so it no longer evicts every checkout's cached git results. The `.git` watchers leave the folders unwatched, so a throwaway checkout inside `.git` costs the watcher nothing. Nothing is ignored unless registered (git, git-cli)
+- Adds `readDirectory` to `GitService.createSingleton`'s options, shaped like `FileSystemProvider.readDirectory`, which `createCliGitService` passes from the host's file system. With it and `readFile`, the watcher lists and reads a repository's worktree admin entries once as it starts, so an ignored worktree's reports, every HEAD move of a rebase in one included, reach no session, while a known worktree's reports are told at once without a read (git, git-cli)
+- Adds `WorktreeSummaryService.getSummarySnapshot(repoPath, { probeDirty?, cancellation? })`, which answers a worktree's summary with `dirtyReadAt`, when its dirty flag was read: `undefined` for a subscribed worktree, whose summary follows its working tree. For a worktree without a subscription, `probeDirty` reads the dirty flag whatever its inputs say (git)
+- Adds `onDidStart` to `FileWatcherOptions`, passed to working-tree watchers only, with or without polling: a provider that places its watch asynchronously calls it once the watch is live, and core rescans the working tree once for whatever changed meanwhile (git)
+- Adds `stat` to `WorktreeSummaryServiceOptions`, which `GitService` fills from `watchPolling.stat`: with it, a worktree without a subscription re-reads its dirty flag only when its index file moved (git)
+- Adds `GitWorktree.branchName`: the branch `git worktree list` names, set even when the branch list has no match for it, which `GitWorktree.name` now falls back to (git, git-cli)
+- Adds a `force` option to `worktrees.getWorktrees(repoPath, options?, cancellation?)` and `worktrees.getWorktree(repoPath, predicate, options?, cancellation?)`: it re-reads `git worktree list` and evicts only the cached worktree list, for the repository and its sibling worktrees, unless a read whose git process hasn't started yet is pending, which it joins. Clearing the `'worktrees'` and `'branches'` cache types to get a fresh list made every sibling worktree re-run its branch, ref and log reads (git, git-cli)
+- Adds `onSpawn` to `GitRunOptions`, called once when the git process starts, after any wait in core's queue; a call sharing an identical run in flight is told when that run starts (git, git-cli)
+- Adds the `'worktreeHead'` repository change, a linked worktree's HEAD moving (a checkout in a worktree whose own `.git` isn't watched), which the `.git` watchers report beside `'worktrees'` for a worktree's `HEAD` and for an admin entry created or removed (a watcher may report a removal as its directory alone), and `git worktree add`, `remove` and `prune` (typed or `notify: 'infer'`) announce; and the `'worktreeList'` cache type, which evicts only the cached worktree list, for the repository and its sibling worktrees (git, git-cli)
+
+### Changed
+
+- **Breaking (git, git-cli)** — `worktrees.getWorktrees` and `worktrees.getWorktree` take `options` before `cancellation`, `getWorktrees(repoPath, options?, cancellation?)` and `getWorktree(repoPath, predicate, options?, cancellation?)`, like `branches.getBranch`. A caller passing a cancellation positionally must move it
+- **Breaking (git, git-cli)** — `RepositoryChange` gains `'worktreeHead'` and `CachedGitTypes` gains `'worktreeList'`, which breaks a host's exhaustive `switch` or `Record` over either. A host that refreshed on a linked worktree's checkout by `'worktrees'` still hears it, since its report carries both
+- Changes a lock or unlock of a worktree, typed or raw, a raw `git worktree move` or `repair`, and a watcher's report of a worktree's `locked` file, a `gitdir` written or an admin entry's directory changed, to evict only the cached worktree list rather than every worktree's cached git results and merge targets. An add, remove or prune, or a worktree's HEAD moving, still evicts them all (git, git-cli)
+- Changes a `'providers'`-only cache reset, which only touches remote-provider metadata, to leave in-flight git runs joinable in core's typed writes and `notifyChanged`, as it already did in GitLens (git, git-cli)
+- Changes a checkout, switch, rebase, bisect or `stash branch` core runs (typed or `notify: 'infer'`), and its move of a detached HEAD, to announce `'worktrees'` and `'worktreeHead'` beside its own kinds, so every other worktree takes the watchers' report of the rewritten HEAD for the write's own: it no longer hears it a second time as an outside change, nor evicts every worktree's cached git results again for it. A commit on a branch, which leaves the HEAD file as it was, announces neither (git-cli)
+- Changes `getSummary` of a worktree without a subscription to answer from its last read, kept for the 256 most recently asked, rather than reading every field afresh each time (4 to 7 git processes): it re-reads only what its inputs say moved since, all of them read from core's caches, so nothing moved means no git. HEAD's branch or commit moving reads everything; the upstream's tip or name, the branch; a ref the base depends on (for a remote's `HEAD` symref, where it points), the base, re-measured from the previous one as for a subscribed worktree; the config inputs the base read consulted, the branch and the base; the index file (with `stat`), the dirty flag; and core's own write of the branch's merge target or base, the stored base values. Only a `.git` watch of the worktree (or core's own writes) keeps those caches current, so a host watches the `.git` of a worktree it asks about. Concurrent reads of one worktree share a read, which still takes no read slot, so it never waits behind subscribed worktrees' runs; a caller after core's write of a merge target or base gets a read of its own. A subscription drops the last read, and so does a failed read (git)
+
+### Fixed
+
+- Fixes a write that creates or removes the directory holding its ref (the first `team/…` branch, say) also reaching watchers as an outside change of every branch: the watcher's report of that directory is now the write's own (git)
+- Fixes the first move of a base after a clone, or after the reflog lost the entries before it, re-measuring every worktree in full instead of in one shared read (git-cli)
+- Fixes a worktree list pairing a worktree with no branch, or a stale one, after a change the branch caches missed (a branch `git worktree add -b` created outside core, a worktree that switched branches, a commit), so a `pull` of a branch checked out in another worktree fetched into it and failed: where `git worktree list` contradicts the cached branch list, core re-reads the branches once, first dropping the branch caches of a worktree whose branch changed, and announces an unnamed `heads` change so a host's views of the branches refresh too. A contradiction the fresh branch list still shows (a layout where git's two listings never agree) isn't re-read again until the worktree list changes (git-cli)
+- Fixes a worktree whose HEAD points outside `refs/heads/` getting a garbled branch name; it has none (git-cli)
+
+## [0.16.5] - 2026-10-24
+
+### Added
+
+- Adds `viewer` to `IssueShape` and `Issue`: the current account as the issue's `author` and `assignees` identify it, where that can differ from the account `getCurrentAccount` returns. Set on Azure DevOps and Azure DevOps Server work items that name someone, from `listIssuesPage` (account-wide and repository-scoped), `getIssuesBatch` and the point read, and on Azure DevOps Server also from `searchIssuesPage`, to the user's identity in the work item's organization (collection). It's read from the organization's `ConnectionData`, with the same credential that read the rows, through the per-credential, per-organization cache the pull request reads use, so a host matches "assigned to me" and "authored by me" correctly for accounts whose profile id differs from that identity. A work item that names no one gets none, nor does one whose organization's identity can't be read within 10 seconds; such a row's `getIssuesBatch` etag never compares unchanged, so it's read in full again rather than kept without a viewer, and every Azure work item etag held from before this change is read in full once. Absent for every other provider ([gitkraken/kepler#4291](https://github.com/gitkraken/kepler/issues/4291)) (git, plus/integrations)
+
+## [0.16.4] - 2026-10-23
+
+### Added
+
+- Adds `branches.getMergeTarget(branch, options?)`: the ref any branch, checked out or not, is measured against, by `getAheadOfBase`'s rules, so every host names the same target. It answers `{ ref, forkPoint, tier }`, where `tier` adds `'pr'` and `'inferred'` to `AheadOfBaseTier`. Beyond `skipUserTarget` and `preferredTarget` it takes a host's sources: `getAssociatedPullRequest` (read only when no stored target is usable, tried after the detected target and recorded as it unless the pull request is stacked or the branch is a remote-tracking one), `inferBase` (VS Code's `vscode-merge-base`, and for a branch created from `HEAD` the branch HEAD was on when it was first checked out, read from that branch's worktree and never stored), `defaultBranch: 'remote'` (asks the remote only when local refs name no default), `getFallbackDefaultBranch` and `keepSelfAtTip`. Answers are cached against the ref tips, stored keys and config they were read from, so a warm call runs no git and a branch moving elsewhere re-measures nothing (git, git-cli, git-github)
+- Adds `getFallbackDefaultBranch` to `getBranchContributionsOverview`'s options (git, git-cli, git-github)
+
+### Changed
+
+- Changes `getBranchContributionsOverview` to measure against `getMergeTarget`, so its target follows `getAheadOfBase`'s rules: an out-of-date local target defers to its upstream, the default branch is read from local refs (`upstream`, then `origin`) before the remote, the default branch measures against its own upstream, and a branch is measured against the branch it was created from until that branch merges (git-cli, git-github)
+- Changes `getAheadOfBase` to keep a candidate whose check failed or timed out, rather than one git confirms is gone, so its count rejects instead of quietly measuring against the next candidate (git-cli)
+- Changes `getBaseBranchName` to no longer record its reflog guess as `gk-merge-base`, where every host read it as a base the branch was launched from (git-cli)
+
+### Removed
+
+- Removes `BranchTargetInfo` from `git/models/branch.js`; `branches.getMergeTarget` answers the merge target it described (git)
+
+### Fixed
+
+- Fixes `getReflogEntries`' `grep` matching nothing when the user's `grep.patternType` is `fixed`, which left `getBaseBranchName` with no reflog guess: the pattern is now always read as a basic regular expression (git-cli)
+- Fixes `getBaseBranchName` overwriting a recorded `gk-merge-base` with a reflog guess when checking the recorded branch failed rather than found it gone, and reading the checkout guess from the main worktree's HEAD reflog instead of the branch's own worktree (git-cli)
+- Fixes `getAheadOfBase` measuring a branch created from a full ref (`git switch -c topic refs/heads/develop`) against that ref as-is, never against its fresher upstream: the base is now its short name (`develop`), weighed against its tracking ref like any other (git-cli)
+
+## [0.16.3] - 2026-10-23
+
+### Fixed
+
+- Fixes a fetch that moves nothing reporting `refs/remotes/<remote>/HEAD` as changed, which refreshed every worktree whose base follows it: since git 2.48 every fetch locks that ref to check the remote's default branch, and a ref's lock file counted as a change of the ref. A branch, remote-tracking, tag or replace ref's lock no longer counts; its rename over the ref, or a `packed-refs` rewrite, does. The stash's lock still counts, since `git reflog expire` (as `gc` runs it) and `git reflog delete` rewrite its entries under it without touching the ref (git)
+- Fixes a fetch that moves a worktree's base still costing every worktree based on it a `rev-list --count` of its own to re-measure the base: with git 2.41 or later, each now finds its HEAD's count in one `for-each-ref` shared by every worktree the move reached, counting each local branch a worktree has checked out past the new tip by commit, so a detached HEAD at such a branch's commit and branches at one commit find theirs too, and an unrelated old or orphan branch (`gh-pages`) can't make the shared walk deeper than any worktree's own count. A count that differs from the previous one reads the base in full as before, with no process of the worktree's own, and an equal one is kept without one when the base's reflog reaches nothing off the new tip's history and the fork point is the old or new tip or a commit the reflog holds. Otherwise (another fork point, such as a merge base or one whose reflog entry expired, commits off the new tip's history, a HEAD at a commit no checked-out branch points at, or older git) the worktree runs its own `rev-list --count` as before. The shared read also asks for a commit-graph write, which speeds up its walk over every branch (git-cli)
+
+## [0.16.2] - 2026-10-23
+
+### Fixed
+
+- Fixes REST version and work item route failures on TFS 2018 for native issue, pull request and reviewer-group reads. Work item categories use explicit server metadata; unavailable categories keep list results partial and exact state-filtered searches unsupported ([#6048](https://github.com/gitkraken/vscode-gitlens/issues/6048)).
+
+## [0.16.1] - 2026-10-23
+
+### Added
+
+- Adds `GitOptions.spawn`, which launches the git process of every run and stream in place of Node's `spawn` (locating git still uses `execFile`), so a host whose process is large can start git from a helper process: on Linux a spawn forks the calling process, blocking its event loop for a time that grows with its memory. Exports `ProcessSpawner`, `ProcessSpawnOptions` and `SpawnedProcess` for it (git-cli, utils)
+
+### Fixed
+
+- Fixes a fetch that moves a remote-tracking ref making every worktree that asks for its push target re-run `rev-parse` to find its checked-out branch, one git process per worktree on top of the one shared ref list read: `getPushTarget` without a branch now takes the branch from the worktree's own `HEAD` file, so it runs no git process and is never older than the file. A `HEAD` file that can't say (reftable, an unreadable file, a branch that is a symbolic ref to another, such as a `master` kept pointing at `main`, or a HEAD kept as a symlink by `core.preferSymlinkRefs`, which reads as an object id like a detached HEAD but which the git dir's listing flags as a link) resolves the branch with git as before (git, git-cli)
+- Fixes a raw git write run with `notify: 'infer'` (a sync rebase, a compose run or an undo) making every worktree of the repository re-read its refs, because it announced whole ref kinds with no names: such a write now names the refs its argv proves it moved, as typed writes do since 0.15.5, so a host can skip worktrees that don't follow them. `update-ref` names its ref, and a write to a ref outside `refs/heads`, `refs/tags`, `refs/remotes` and `refs/stash` (a tool's own bookkeeping, such as `refs/undo/*`) announces nothing, as `updateReference` already did, and the file watcher no longer reports such a ref as an index, config or `HEAD` change when its name holds one of those words (`refs/kepler/sync/resolved/fix-index`); `branch`, `tag`, `checkout -b`/`switch -c`, `worktree add -b` and a plain `checkout <name>` name their branch or tag, with a branch's config change confined to its own section; `stash` writes name `refs/stash` (and `stash branch` the branch it creates), and `stash create` and `stash apply` move no ref; a detached checkout, a full-SHA checkout and every `worktree` subcommand other than `add` announce no branch. A `commit`, `reset`, `merge`, `cherry-pick`, `revert` or `am`, and a `rebase` with update-refs provably off, read the worktree's `HEAD` file before and after the run, without running git: on one branch both times they name it, and detached both times (a sync's scratch worktree) they announce no branch move at all; a `HEAD` kept as a symlink by `core.preferSymlinkRefs`, which reads as its branch's object id as a detached one does, counts as neither, so its branch move is announced unnamed. Anything the argv can't prove (`update-ref --stdin`, a rename of the current branch, a rebase that may update other branches) stays unnamed. With 60 linked worktrees, a sync rebase and apply of one branch went from ~420 git processes to ~65 and its undo from ~385 to ~30, none of them in the other worktrees (git, git-cli)
+- Fixes `updateReference` and `deleteReference` announcing their ref unnamed (a remote's `HEAD`, which an update moves through to the branch it points to, stays unnamed), and typed `reset`, `merge`, `cherryPick` and `revert` announcing their branch unnamed: they now name it, as `commit` does, and a detached HEAD's move announces no branch move. Such a move, raw or typed, still resets that worktree's branch and worktree lists, blame, diffs and contributors (git, git-cli)
+- Fixes `Git.stream` rejecting a stream its own `timeout` killed with a `CancelledRunError` whose reason is `'unknown'` rather than `'timeout'`, so a caller that branches on the reason read it as an outside kill; `run` already reported `'timeout'` (git-cli)
+
+## [0.16.0] - 2026-10-22
+
+### Fixed
+
+- Fixes a fetch that moves a worktree's base (usually `origin/main`) making every worktree summary based on it re-read its base, four or five git processes each: when the base ref is the only dependency that moved, by name, and it only fast-forwarded since the last read (by its reflog, since a commit of the branch's that the base held in between moves the fork point), the summary recounts ahead with one `rev-list --count`, past the new tip, the previous fork point and whatever the base's reflog reaches off the new tip's history, and, when the count is unchanged, keeps the target, tier and fork point, updating only the base's commit. The reflog and ancestry check is shared by every worktree of the repository, and anything else (the branch landing, a force-push, another dependency or an unnamed ref change moving, a base name another ref now also answers to, a remote `HEAD` retargeted so the default branch resolves differently, a fork point the base's reflog supplied, possibly since expired, a reflog entry holding the branch's commits, a shallow repository) re-reads the base in full. Adds an optional `GitBranchesSubProvider.getAheadOfBaseAfterBaseMove` for it, and an optional `AheadOfBase.defaultBranch`, the default branch a read resolved (`null` for none), which the re-measure compares and keeps (git, git-cli)
+- Fixes a `.git/config` write that leaves a worktree's base alone making its summary re-read it anyway, and every checkout list its config: a write confined to another branch's section (a task's new branch) woke no summary but left each one's config key stale, so the next unrelated write (`core.*`) re-read every base, 46 git processes over 8 linked worktrees, and any unconfined write listed the config once per checkout. A summary now keys its base on the remotes, `init.defaultBranch`, conditional includes and the tracking of only the branches its base read depended on, and the checkouts of a repository share one `git config` listing, read in the main checkout, unless it shows config that can differ by checkout (`extensions.worktreeConfig`, or an `includeIf` other than `hasconfig:` and `gitdir:`, such as `onbranch:`), when each checkout lists its own as before. A `gitdir:` include stays shared, as the common identity setup, so an edit to a file only some checkouts include goes unseen there until a change the shared listing sees. That write now costs 3 git processes, an unrelated write lists the config once rather than once per checkout, and a fetch after a write to another branch's section costs each linked worktree 1 process rather than 2 or 3. Adds an optional `GitBranchesSubProvider.getAheadOfBaseConfigEntries`, the entries `getAheadOfBaseConfigKey` is taken from, which a summary filters; with a provider without it, a summary keys on the whole snapshot as before (git, git-cli)
+- Fixes `getConfig` and `getConfigRegex` serving every worktree of a repository the answer of whichever one read first, so with `extensions.worktreeConfig` a worktree's own `config.worktree` values (its user identity or signing settings, read by `getCurrentUser` and `getSigningConfig`, or its pull and rebase settings) were missed or taken from another worktree: both are now cached per worktree, and a config write clears every worktree's entries (git, git-cli)
+- Fixes `createWorktree` announcing nothing about a branch git created on its own, from a branch name that exists only on a remote or, with no commitish, named after the path: it now announces `heads` with the branch's `refs/heads/<name>` and resets the branch and config caches, as with `createBranch`, and leaves the tracking config to the watcher's `.git/config` report. An add cancelled, timed out or refused a retry by the host, whose output (and so the name of any branch git created) is lost, announces `heads` unnamed (git-cli)
+
+## [0.15.7] - 2026-10-22
+
+### Added
+
+- Adds `bodyField` to `IssueShape` and `Issue`: the provider field `body` was read from, for providers whose issues keep it in different fields. Set on Azure DevOps work items (`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`), so a host can label the body by its field; absent for other providers and when there is no body (git, plus/integrations)
+
+### Fixed
+
+- Fixes Azure DevOps work items whose type keeps its content outside Description (Repro Steps on Agile, Scrum and CMMI Bugs, Acceptance Criteria, a custom HTML field on an inherited process) reading with no `body`. The body is now the work item's first rich text field with content: Description, then the built-in description fields, then any other `html` field from the organization's field catalog (custom fields first), in every read (lists, `getIssue`, `getIssuesBatch` and the work item search), as provider-apis converts its list rows. The catalog is read only for a work item no built-in field describes, once per organization and credential, kept for an hour; a failed read leaves the body to the built-in fields rather than failing the read. An Azure work item's etag now carries the rule its body is read by, so `getIssuesBatch` reads a row held from before in full once ([#6047](https://github.com/gitkraken/vscode-gitlens/issues/6047)) (plus/integrations)
+
+## [0.15.6] - 2026-10-22
+
+### Fixed
+
+- Fixes integration warnings carrying internal JavaScript error text (`response.body.map is not a function`, `Cannot read properties of undefined (reading 'id')`) when a provider answers a read with a 2xx whose JSON is not the shape the read expects, such as a gateway's JSON error on Jira Cloud's site list, Trello's boards or Linear's organization. The warning now reads "Expected data but the provider returned an unexpected response" and carries the new `cause.reason: 'unexpected-response'` on an `other` warning with `isAuth: false`; a scope failure of a fan-out core runs itself, such as Jira's per-site project reads, names the same cause. The read still fails as before, with the same `fetchFailed` and retry cursor, and the original error is logged. HTML pages, Linear GraphQL errors, transport failures and authentication, rate-limit and not-found failures keep their warnings ([#6046](https://github.com/gitkraken/vscode-gitlens/issues/6046)) (plus/integrations)
+
+## [0.15.5] - 2026-10-22
+
+### Added
+
+- Adds optional `refs` and `options.configConfinedToRefs` to `GitServiceHooks.repository.onChanged`: `refs` are the full ref names a write created, moved or deleted, and a ref kind with names among them is fully described by them, so a host can skip work for refs it doesn't follow; `configConfinedToRefs` says the write changed `.git/config` only in the `branch.<name>` sections of the local branches `refs` names. Siblings sharing the repository hear the names and the flag with the shared kinds. Branch create, delete, rename and upstream changes, `checkout -b`, a worktree's new branch, a commit (its branch, read from the worktree's `HEAD` before and after the run, and named only when both agree) and stash writes (`refs/stash`, by a pop only when it dropped the entry) name their refs; a host that ignores them treats every kind as unnamed, as before (git, git-cli)
+
+### Changed
+
+- Changes how the watch layer tells a write's own reports from outside changes once announcements name refs: a raw report is the write's echo only when every ref it names, or every branch whose config section it changed, is among those the write announced (or it reports `HEAD`, which a commit locks, under a write that announced `head`), and it arrives within the debounce delay of the announcement, so an outside change to another ref or config section, or a later change to the same ref, is kept and reaches its subscribers unannounced. A watch group now diffs the shared `.git/config` by section on each report (one read for every worktree of the repository) and delivers a change confined to `branch.<name>` sections as confined to those branches (`WatcherRepoChangeEvent.configBranches`, `mayHaveChangedConfig`), whoever wrote it; anything else, an unreadable or unparsable file, a read that doesn't settle within 5 seconds, or another config file is unconfined. Ref-filtered subscriptions and worktree summaries narrow a confined change like a named ref (git)
+
+### Fixed
+
+- Fixes worktree summaries keeping an outdated ahead-of-base target after checkout-specific Git configuration changes. Each checkout now compares its effective configuration, including branch-conditional includes, with the configuration used for its current base.
+- Fixes a fetch announcing `remotes` to every worktree of the repository, and resetting the branch and tag caches, whether or not anything moved, so each worktree summary re-read its base after every fetch: in a Kepler daemon with ~60 worktrees one task launch cost ~490 git processes. A fetch now compares the refs it can write (its refspecs' destinations, the fetched remotes' configured destinations, symref targets included, and tags) before and after it runs, announces nothing when none moved, and otherwise names exactly what moved; a snapshot it can't read falls back to the previous announcement (git-cli)
+- Fixes deleting, creating or renaming a branch making every worktree of the repository re-read its base, since the write's `.git/config` change and the watcher's later report of it reached every subscriber; one task removal cost ~460 git processes over ~60 worktrees (git, git-cli)
+
+## [0.15.4] - 2026-10-22
+
+### Added
+
+- Adds an optional `getPushTarget` to `GitBranchesSubProvider`: where a branch (the checked-out one by default) pushes to and its upstream, each as a full ref name with its commit, read from the cached ref list so a warm call runs no git. The destination is git's own `%(push)`, which follows `push.default`, `remote.pushDefault`, `branch.<name>.pushRemote`, push refspecs and mirror remotes, and is named even before its ref exists (with no commit). `known: false` means the ref list couldn't be read; a detached HEAD has no destination. The shared `for-each-ref` now reads `%(push)` for every ref, so `RefRecord` gains a `push` field (git, git-cli)
+- Adds an optional `getAheadOfBaseConfigKey` to `GitBranchesSubProvider`, an opaque snapshot of the Git config inputs to `getAheadOfBase` (every branch's tracking, the remotes and `init.defaultBranch`, not the stored gk merge targets or base): two equal snapshots mean that config can't have changed the base. `undefined` means it couldn't be read; the CLI provider reads it once for every worktree of a repository, and a provider without it leaves a worktree summary re-reading its base on every config change (git, git-cli)
+
+### Changed
+
+- Changes the `ref` that `WatchGroupHooks.onRepoChanged` and `RepositoryWatchSession.pushRepoChanges` take to `string | false`, where `false` reports a `.git/config` (or `config.worktree`) change that moved no ref. Its change kinds (`config`, `remotes`) still clear caches as before, but the event's `mayHaveChangedRef` no longer answers `true` for every remote-tracking ref because of it. A poll now also reads the `refs/remotes` directory, which `git remote remove` and `git remote rename` change whether the remote's refs are loose or packed, so a polled repository still reports a removed or renamed remote's refs as possibly moved, while a config write alone, like `git branch --set-upstream-to`, names no ref (git)
+- Changes `getGkConfig`, `getGkConfigRegex`, `getStoredDetectedMergeTargetBranchName` and `getStoredUserMergeTargetBranchName` to log at trace level rather than debug, and a gk config lookup to no longer enter (and log) the one-time `.git/gk/config` migration once it ran for the repository: they are served from the cached map, and a cold read's `git config` still logs its own line (git-cli)
+
+### Fixed
+
+- Fixes Azure DevOps filtered work item searches failing across large sets of project workflows or when workflow metadata changes during pagination. Search and count queries stay within the server's query length limit, preserve its ordering, and can be canceled without interrupting other reads ([#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041)).
+- Fixes every checkout sharing a `.git/gk/config` re-reading the whole file (a `git config --get-regex` each) when the watcher reports a change to it, core's own writes included, so a branch-activity stamp reported by three checkouts read it four times. A report of a file unchanged since the cached map was read (same inode, size and change times, with the read's stat taken safely after the file's last change: 2 seconds for a filesystem keeping whole-second times, 50 ms otherwise) now keeps the map, and still diffs it against the reconcile's baseline, so a read landing between another process's write and its report doesn't lose the change; a changed file is re-read as before (git, git-cli)
+- Fixes `getAheadOfBase` spawning a failing `git rev-parse <ref>@{u}` on every read whose candidate base is a remote-tracking ref or a tag (`origin/main`, the usual default branch), since git can't cache a failed lookup: a candidate the cached ref list shows can't have an upstream is no longer asked for one, and the result is unchanged. The base a branch's reflog says it was created from is checked the same way (git-cli)
+- Fixes a `.git/config` write making every subscribed worktree summary of the repository re-read its base at once, a full `getAheadOfBase` each: in a Kepler daemon over ~100 worktrees of one repository, one write cost ~65 reads in a burst. A summary now keeps its base when the config inputs to it (every branch's tracking, the remotes and `init.defaultBranch`), its stored merge targets, HEAD and upstream are unchanged, and at most four summaries of a repository, and eight across repositories, read at once, so a burst in one repository, or reads hung in it, never holds up another repository's summaries, and a start over many repositories never runs four reads for each. The config read itself (`git config --null --get-regexp`) is shared by every worktree of the repository rather than spawned by each, and any config change hard-evicts it, core's own writes included, so a read after the change never joins one that started before it (git, git-cli)
+- Fixes Azure DevOps Services account-wide pull request reads (`listPullRequestsPage`, the sweeps and the Launchpad search) returning no authored or review-requested pull requests, and failing the group read with "Azure DevOps returned no group membership for the current user", for accounts whose profile id differs from their identity in an organization: the creator and reviewer filters, the group read and each row's `viewer` and `authoredByMe` now use the user's identity in that organization, read from its `ConnectionData` once per credential and organization (in parallel, dropped on a re-sync), as Azure DevOps Server already did per collection; `getPullRequestsBatch` and `getPullRequestsForBranches` match authorship the same way. An organization whose identity can't be read is reported as a failure scoped to it while the others' pull requests are kept, as Azure DevOps Server already did per collection; an organization or collection refusing the credential (a 401 or 403) is now scoped the same way, where it failed the whole read, and a credential refused everywhere still fails it. A row with reviewers or assignees but no author now gets a `viewer`, and its `authoredByMe` is `undefined` rather than `false`, for every provider ([#6032](https://github.com/gitkraken/vscode-gitlens/issues/6032)) (plus/integrations)
+- Fixes Azure DevOps Server repository scopes that a caller parsed from a remote. Before, they were settled once to order `listIssuesPage` and then again for the read. Now the read gets the scopes that were counted, and a discovery that expires in between can't change them. Other fixes in the same reads:
+  - A scope that settles to a repository the connection doesn't serve is read as given and flagged as unsettled. A batch or branch miss for it is now rejected, and a list read reports it in a warning, instead of reporting a proven absence.
+  - When the connection addresses a collection, a scope naming that collection is read as given while the collection list can't be read. Before, it was flagged as unsettled, and its batch and branch misses were rejected. The address is presumed to name a collection when its collection list answers 404 and the collection's own connection data can't be read, for as long as that failed discovery is kept.
+  - A connection path segment with an encoded `/` no longer splits into two virtual directory segments, which left a scope below it unsettled.
+
+  `resolveRepositoryScopes` now returns `{ repos, unsettled }`. A failure to settle is reported as `{ error }` instead of returning the scopes as given ([#6040](https://github.com/gitkraken/vscode-gitlens/issues/6040)) (plus/integrations)
+
+## [0.15.3] - 2026-10-21
+
+### Fixed
+
+- Fixes Azure DevOps work items reporting an open state when their workflow category is unavailable and no closed date is known, including cheap etag reads. Filtered work item searches and counts now select by workflow category, so Removed work items without closed dates appear under Closed ([#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041)).
+
+## [0.15.2] - 2026-10-20
+
+### Changed
+
+- Changes the `'unreadable-items'` warning for a Jira or Jira Data Center issue that `@gitkraken/provider-apis` can't read to take its `unreadableItems` from the structured `skippedItems` of the failure instead of parsing its message, so a page that skipped more than ten issues now names every one of them and reports `complete: true`, where it named ten and reported `complete: false`, and a key-looking token in an error reason no longer adds a key. `complete` is `false` when a skipped issue had no key, when the SDK's report was malformed (no list of keys, or more than keys in it), or when it said issues were skipped and named none. `keys` holds the spelling Jira returned, which is also how a published issue's id spells its key, and doesn't answer a lookup by another case or by a key the issue had before it moved, so compare case-normalized on both sides. The raw `CollectionMetadata` a drained read returns (`getIssuesForProjectWithTruncationResult`, `searchMyIssuesWithTruncationResult`) now merges `skippedItems` across the pages of a drain (keys in order, totals added) and across the reads of a user's relationships, which are merged into one failure per scope however they word it or split the skipped issues over their pages (keys in order; `total` is the larger of their totals, at least the keys named), so a user's relationships publish one warning for a project's skipped issues, with the message of the report that names more keys. The `total` of a drain is the sum of its pages' totals, so a key repeated across pages that shifted counts once per page. Before, the pages of a drain were folded into the first page's failure. A failure that carries `skippedItems` is never classified by its message, so a skipped issue whose own error names a status (`401`) is not an authentication failure, and a failure that doesn't carry it is no longer taken for a skip, whatever its message says. Failures no longer carry the `unreadableItems` property #6011 added to them; the warning still does ([#6035](https://github.com/gitkraken/vscode-gitlens/issues/6035)) (plus/integrations)
+
 ## [0.15.1] - 2026-10-19
 
 ### Added
@@ -792,7 +980,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...HEAD
+[0.20.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.0...gitkraken:releases/core/v0.20.1
+[0.20.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.19.0...gitkraken:releases/core/v0.20.0
+[0.19.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.18.0...gitkraken:releases/core/v0.19.0
+[0.18.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.17.0...gitkraken:releases/core/v0.18.0
+[0.17.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.5...gitkraken:releases/core/v0.17.0
+[0.16.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.4...gitkraken:releases/core/v0.16.5
+[0.16.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.3...gitkraken:releases/core/v0.16.4
+[0.16.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.2...gitkraken:releases/core/v0.16.3
+[0.16.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.1...gitkraken:releases/core/v0.16.2
+[0.16.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.16.0...gitkraken:releases/core/v0.16.1
+[0.16.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.7...gitkraken:releases/core/v0.16.0
+[0.15.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...gitkraken:releases/core/v0.15.7
+[0.15.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...gitkraken:releases/core/v0.15.6
+[0.15.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...gitkraken:releases/core/v0.15.5
+[0.15.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...gitkraken:releases/core/v0.15.4
+[0.15.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...gitkraken:releases/core/v0.15.3
+[0.15.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...gitkraken:releases/core/v0.15.2
 [0.15.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...gitkraken:releases/core/v0.15.1
 [0.15.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.14.0...gitkraken:releases/core/v0.15.0
 [0.14.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...gitkraken:releases/core/v0.14.0

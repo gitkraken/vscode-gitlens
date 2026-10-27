@@ -1,9 +1,15 @@
 import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { AzureWorkItemStateCategory } from './models.js';
 import { azureIssueStateCategory, encodeAzurePathSegment } from './models.js';
 
-type WorkItemTypeStates = NonNullable<AzureWorkItemTypeStates['types'][number]['states']>;
+type WorkItemTypeStates = readonly { name: string; category?: string }[];
+type WorkItemTypeStatesSnapshot = {
+	states: WorkItemTypeStates;
+	usesLegacyMappings: boolean;
+};
+type WorkItemStateMappings = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
 export type AzureWorkItemStatesScope = {
 	baseUrl: string;
@@ -13,13 +19,24 @@ export type AzureWorkItemStatesScope = {
 	isPAT: boolean;
 };
 
-export function getAzureWorkItemTypesUrl(baseUrl: string, namespace: string, project: string): string {
-	return `${baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes?api-version=6.0`;
+// Older servers return a 404 page for unsupported API versions, so callers must supply the negotiated version.
+export function getAzureWorkItemTypesUrl(
+	baseUrl: string,
+	namespace: string,
+	project: string,
+	apiVersion: string,
+): string {
+	return `${baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes?api-version=${apiVersion}`;
 }
 
-// Server 2020 serves this endpoint only as a preview; Services accepts the same version.
-export function getAzureWorkItemTypeStatesPath(namespace: string, project: string, type: string): string {
-	return `${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(type)}/states?api-version=6.0-preview.1`;
+// Azure DevOps Server serves this endpoint only as a preview.
+export function getAzureWorkItemTypeStatesPath(
+	namespace: string,
+	project: string,
+	type: string,
+	apiVersion: string,
+): string {
+	return `${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(type)}/states?api-version=${apiVersion}`;
 }
 
 export function getAzureWorkItemTypeStatesUrl(
@@ -27,8 +44,9 @@ export function getAzureWorkItemTypeStatesUrl(
 	namespace: string,
 	project: string,
 	type: string,
+	apiVersion: string,
 ): string {
-	return `${baseUrl.replace(/\/$/, '')}/${getAzureWorkItemTypeStatesPath(namespace, project, type)}`;
+	return `${baseUrl.replace(/\/$/, '')}/${getAzureWorkItemTypeStatesPath(namespace, project, type, apiVersion)}`;
 }
 
 function parseWorkItemTypes(body: unknown): string[] {
@@ -46,28 +64,93 @@ function parseWorkItemTypes(body: unknown): string[] {
 	return [...new Set(names)];
 }
 
-function parseWorkItemStates(body: unknown): WorkItemTypeStates {
+function parseWorkItemStates(body: unknown, allowMissingCategory = false): WorkItemTypeStates {
 	const states = (body as { value?: unknown } | null)?.value;
 	if (!Array.isArray(states) || states.length === 0) throw new Error('Azure DevOps returned no work item states');
 
-	const parsed: { name: string; category: string }[] = [];
+	const parsed: { name: string; category?: string }[] = [];
 	for (const state of states as { name?: unknown; category?: unknown }[]) {
 		if (
 			typeof state?.name !== 'string' ||
 			!state.name.trim() ||
-			typeof state.category !== 'string' ||
-			azureIssueStateCategory(state.category as AzureWorkItemStateCategory) == null ||
+			(state.category === undefined
+				? !allowMissingCategory
+				: typeof state.category !== 'string' ||
+					azureIssueStateCategory(state.category as AzureWorkItemStateCategory) == null) ||
 			parsed.some(s => s.name === state.name && s.category !== state.category)
 		) {
 			throw new Error('Azure DevOps returned an invalid work item state');
 		}
 
-		parsed.push({ name: state.name, category: state.category });
+		parsed.push({ name: state.name, category: state.category as string | undefined });
 	}
 	return parsed;
 }
 
+export function resolveAzureWorkItemStateCategory(
+	snapshot: WorkItemTypeStatesSnapshot,
+	state: string,
+): AzureWorkItemStateCategory | undefined {
+	const matched = snapshot.states.find(s => s.name === state);
+	const category = matched?.category as AzureWorkItemStateCategory | undefined;
+	if ((snapshot.usesLegacyMappings || matched != null) && category == null) {
+		throw new Error(`Azure DevOps does not expose a category for work item state '${state}'`);
+	}
+
+	return category;
+}
+
+export function requireAzureWorkItemStateCategories(
+	snapshot: WorkItemTypeStatesSnapshot,
+): NonNullable<AzureWorkItemTypeStates['types'][number]['states']> {
+	return snapshot.states.map(state => {
+		if (state.category == null) throw new Error('Azure DevOps does not expose a category for this work item state');
+
+		return { name: state.name, category: state.category };
+	});
+}
+
+function parseWorkItemStateMappings(body: unknown): WorkItemStateMappings {
+	const types = (body as { workItemTypeMappedStates?: unknown } | null)?.workItemTypeMappedStates;
+	if (!Array.isArray(types)) throw new Error('Azure DevOps returned no workflow category mappings');
+
+	const result = new Map<string, Map<string, string>>();
+	for (const type of types as { workItemTypeName?: unknown; states?: unknown }[]) {
+		if (
+			typeof type?.workItemTypeName !== 'string' ||
+			!type.workItemTypeName.trim() ||
+			type.states == null ||
+			typeof type.states !== 'object' ||
+			Array.isArray(type.states)
+		) {
+			throw new Error('Azure DevOps returned invalid workflow category mappings');
+		}
+
+		const states = result.get(type.workItemTypeName) ?? new Map<string, string>();
+		for (const [name, category] of Object.entries(type.states)) {
+			if (
+				!name.trim() ||
+				typeof category !== 'string' ||
+				azureIssueStateCategory(category as AzureWorkItemStateCategory) == null ||
+				(states.has(name) && states.get(name) !== category)
+			) {
+				throw new Error('Azure DevOps returned invalid workflow category mappings');
+			}
+
+			states.set(name, category);
+		}
+		result.set(type.workItemTypeName, states);
+	}
+	return result;
+}
+
 function scopeKey(scope: AzureWorkItemStatesScope, type?: string): string {
+	encodeAzurePathSegment(scope.namespace);
+	encodeAzurePathSegment(scope.project);
+	if (type != null) {
+		encodeAzurePathSegment(type);
+	}
+
 	return JSON.stringify([
 		scope.baseUrl.replace(/\/$/, ''),
 		scope.namespace.toLowerCase(),
@@ -88,7 +171,12 @@ export class AzureWorkItemStatesCache {
 		createTTL: 5 * 60 * 1000,
 		capacity: 256,
 	});
-	private readonly states = new PromiseCache<string, PromiseSettledResult<WorkItemTypeStates>>({
+	private readonly states = new PromiseCache<string, PromiseSettledResult<WorkItemTypeStatesSnapshot>>({
+		createTTL: 5 * 60 * 1000,
+		capacity: 256,
+	});
+
+	private readonly mappings = new PromiseCache<string, PromiseSettledResult<WorkItemStateMappings>>({
 		createTTL: 5 * 60 * 1000,
 		capacity: 256,
 	});
@@ -96,32 +184,75 @@ export class AzureWorkItemStatesCache {
 	clear(): void {
 		this.types.clear();
 		this.states.clear();
+		this.mappings.clear();
 	}
 
-	getTypes(scope: AzureWorkItemStatesScope, read: () => Promise<unknown>): Promise<string[]> {
-		return this.read(this.types, scopeKey(scope), async () => parseWorkItemTypes(await read()));
+	getTypes(
+		scope: AzureWorkItemStatesScope,
+		read: (signal?: AbortSignal) => Promise<unknown>,
+		cancellation?: AbortSignal,
+	): Promise<string[]> {
+		return this.read(
+			this.types,
+			scopeKey(scope),
+			async signal => parseWorkItemTypes(await read(signal)),
+			cancellation,
+		);
 	}
 
 	getStates(
 		scope: AzureWorkItemStatesScope,
 		type: string,
-		read: () => Promise<unknown>,
-	): Promise<WorkItemTypeStates> {
-		return this.read(this.states, scopeKey(scope, type), async () => parseWorkItemStates(await read()));
+		read: (signal?: AbortSignal) => Promise<unknown>,
+		cancellation?: AbortSignal,
+		readMappings?: (signal?: AbortSignal) => Promise<unknown>,
+	): Promise<WorkItemTypeStatesSnapshot> {
+		return this.read(
+			this.states,
+			scopeKey(scope, type),
+			async signal => {
+				const states = parseWorkItemStates(await read(signal), readMappings != null);
+				if (readMappings == null || states.every(state => state.category != null)) {
+					return { states: states, usesLegacyMappings: false };
+				}
+
+				const mappings = await this.read(
+					this.mappings,
+					scopeKey(scope),
+					async aggregate => parseWorkItemStateMappings(await readMappings(aggregate)),
+					signal,
+				);
+				const mapped = mappings.get(type);
+				return {
+					states: states.map(state => ({
+						name: state.name,
+						category: state.category ?? mapped?.get(state.name),
+					})),
+					usesLegacyMappings: true,
+				};
+			},
+			cancellation,
+		);
 	}
 
 	private async read<T>(
 		cache: PromiseCache<string, PromiseSettledResult<T>>,
 		key: string,
-		load: () => Promise<T>,
+		load: (signal?: AbortSignal) => Promise<T>,
+		cancellation?: AbortSignal,
 	): Promise<T> {
-		const result = await cache.getOrCreate(key, async () => ({ status: 'fulfilled', value: await load() }), {
-			// Every caller must still see the failure; caching undefined would turn later pages into successes.
-			onError: error =>
-				cache.get(key) == null
-					? undefined
-					: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
-		});
+		const result = await cache.getOrCreate(
+			key,
+			async (_cacheable, signal) => ({ status: 'fulfilled', value: await load(signal) }),
+			{
+				cancellation: cancellation,
+				// Every caller must still see the failure; caching undefined would turn later pages into successes.
+				onError: error =>
+					isCancellationError(error) || cache.get(key) == null
+						? undefined
+						: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
+			},
+		);
 		if (result.status === 'rejected') throw result.reason;
 
 		return result.value;

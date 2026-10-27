@@ -203,6 +203,8 @@ export interface FlatDrainResult<T extends FlatPage> {
 	/** True when the requested page is past the provider's last one, so it is genuinely EMPTY. */
 	requestedPageMissing: boolean;
 	fetchFailed: boolean;
+	/** A walked page promised continuation but supplied none usable, or repeated one. */
+	unexpectedGap: boolean;
 }
 
 /**
@@ -242,6 +244,7 @@ export async function drainFlatPagesToRequestedPage<T extends FlatPage>(
 	let fetchFailed = first.warning != null && value == null;
 	let currentPage = value?.page ?? 1;
 	let truncated = value?.truncated ?? false;
+	let unexpectedGap = value?.hasMore === true && usableCursor(value.cursor) == null;
 
 	const walkable = options.suppliedCursor == null && options.requestedPage > 1;
 	if (walkable && value != null) {
@@ -264,8 +267,10 @@ export async function drainFlatPagesToRequestedPage<T extends FlatPage>(
 			truncated = truncated || value.truncated;
 			options.fold?.(value);
 			currentPage = value.page ?? currentPage + 1;
+			unexpectedGap ||= value.hasMore === true && usableCursor(value.cursor) == null;
 			if (usableCursor(value.cursor) === nextCursor) {
 				truncated = true;
+				unexpectedGap ||= value.hasMore === true;
 				break;
 			}
 		}
@@ -279,6 +284,7 @@ export async function drainFlatPagesToRequestedPage<T extends FlatPage>(
 		// no walk ran at all because the first page was already terminal.
 		requestedPageMissing: walkable && currentPage < options.requestedPage,
 		fetchFailed: fetchFailed,
+		unexpectedGap: unexpectedGap,
 	};
 }
 
@@ -288,6 +294,8 @@ export interface DrainState<T> {
 	paged: NormalizedPage;
 	metadata: CollectionMetadata | undefined;
 	fetchFailed: boolean;
+	/** A walked page promised continuation but supplied none usable, or repeated one. */
+	unexpectedGap?: boolean;
 }
 
 /**
@@ -318,6 +326,7 @@ export async function drainToRequestedPage<T>(
 	let currentPage = 1;
 	let currentCursor = usableCursor(state.paged.hasMore ? state.paged.cursor : undefined);
 	let currentHasMore = state.paged.hasMore && currentCursor != null;
+	let unexpectedGap = state.paged.hasMore && currentCursor == null;
 	let currentTruncated = state.paged.truncated;
 	// A page requested past the terminal cursor is that empty page N. Distinguished from the first read
 	// having failed outright, which is already reported as page N with no items by the caller's own state.
@@ -344,11 +353,12 @@ export async function drainToRequestedPage<T>(
 		}
 
 		items = value.values;
-		metadata = mergeCollectionMetadata(metadata, value.metadata);
+		metadata = mergeCollectionMetadata(metadata, value.metadata, 'disjoint');
 		const next = toProviderPageInfo(options.itemsPerPage ?? value.values.length, value.paging);
 		currentPage++;
 		currentTruncated ||= next.truncated;
 		const nextCursor = usableCursor(next.cursor);
+		unexpectedGap ||= next.hasMore && (nextCursor == null || nextCursor === currentCursor);
 		// A provider that hands back the same cursor (or none) isn't advancing; stop rather than refetch
 		// the same page forever.
 		if (nextCursor == null || nextCursor === currentCursor) {
@@ -375,5 +385,6 @@ export async function drainToRequestedPage<T>(
 		},
 		metadata: metadata,
 		fetchFailed: fetchFailed,
+		unexpectedGap: unexpectedGap,
 	};
 }

@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, teardown, test } from 'mocha';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { TokenWithInfo } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestNotFoundError } from '../errors.js';
 import { createIntegrationService } from '../integrationService.js';
 import {
 	azureProject,
 	azureProvider,
+	azureRestDiscoveryResponse,
 	azureToken,
 	azureWorkItemTypeStatesResponse,
 	createWorkItem,
@@ -21,8 +22,9 @@ import { AzureWorkItemStatesCache } from '../providers/azure/workItemStateCatego
 import type { ProviderIssue } from '../providers/models.js';
 import { fromProviderIssue, toIssueShape } from '../providers/models.js';
 import { ProvidersApi } from '../providers/providersApi.js';
+import { issueEtag, issueEtagFieldsFromShape } from '../reads/etag.js';
 import { createFakeRuntime } from './fakeRuntime.js';
-import { connectedAzure } from './sweepHelpers.js';
+import { connectedAzure, primarySession } from './sweepHelpers.js';
 
 /**
  * Azure DevOps work items carry their workflow state and its category (GKDEV-3655), which `ProvidersApi` reads from
@@ -88,6 +90,9 @@ function azureHarness() {
 	let maxActive = 0;
 
 	const fetch = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input.toString());
 		const path = url.pathname;
 		if (/\/_apis\/wit\/workItemTypes$/i.test(path)) {
@@ -252,7 +257,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			assert.deepEqual(issue.providerState, { name: name, category: category }, name);
 			assert.equal(issue.issueType, 'Bug', name);
 			assert.equal(issue.closed, closed, name);
-			assert.equal(issue.state, closed ? 'closed' : 'opened', name);
+			assert.equal(issue.state, upstream == null ? undefined : closed ? 'closed' : 'opened', name);
 		}
 
 		const stateless = createWorkItem();
@@ -335,7 +340,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		assert.equal(h.states[0].authorization, 'Bearer token');
 	});
 
-	test('a state the type does not list gets no category, and stays open', async () => {
+	test('a state the type does not list keeps its name and leaves its normalized state unset', async () => {
 		const h = azureHarness();
 		h.fixture.state = 'Mystery';
 
@@ -346,11 +351,118 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			assert.ok(raw?.state != null);
 			assert.equal(raw.state.name, 'Mystery');
 			assert.equal(raw.state.category, undefined);
-			assert.equal(toIssueShape(raw, azureProvider)?.state, 'opened');
+			assert.equal(toIssueShape(raw, azureProvider)?.state, undefined);
 		}
 		assert.equal(list.metadata, undefined);
 		assert.equal(h.states.length, 1, "the type's states were read, and don't list it");
 	});
+
+	for (const id of [GitCloudHostIntegrationId.AzureDevOps, GitSelfManagedHostIntegrationId.AzureDevOpsServer]) {
+		for (const [category, expected] of [
+			['Proposed', 'opened'],
+			['Removed', 'closed'],
+		] as const) {
+			test(`${id}: a held stateless issue is refreshed after metadata recovers as ${category}`, async () => {
+				const h = azureHarness();
+				h.fixture.failStates = 503;
+				const start = realNow();
+				Date.now = () => start;
+				const runtime = createFakeRuntime();
+				runtime.http.fetch = h.fetch;
+				const manager = createIntegrationService(runtime);
+				try {
+					const server = id === GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+					const domain = server ? 'server.test' : undefined;
+					const integration = await manager.get(id, domain);
+					assert.ok(integration != null);
+					(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+						...primarySession('token'),
+						domain: domain ?? 'dev.azure.com',
+					};
+					const api = await (
+						manager as unknown as { getProvidersApi(): Promise<ProvidersApi> }
+					).getProvidersApi();
+					const page = await api.getIssuesForAzureProject(
+						server ? serverToken : azureToken,
+						'org',
+						'project',
+						{
+							isPAT: true,
+							baseUrl: server ? 'https://server.test' : 'https://dev.azure.com',
+							states: allStates,
+						},
+					);
+					assert.equal(page.metadata?.completeness, 'partial');
+					const held = toIssueShape(page.values[0], integration);
+					assert.ok(held != null);
+					assert.equal(held.state, undefined);
+					const etag = issueEtag(issueEtagFieldsFromShape(held), []);
+					const targets = [
+						{ key: 'held', owner: 'org', repo: '', project: 'project', number: 1, etag: etag },
+					];
+					const failed = await manager.getIssuesBatch({ providerId: id, domain: domain, targets: targets });
+					assert.equal(failed.fetchFailed, true);
+					assert.deepEqual(failed.items, []);
+					assert.equal(h.states.length, 1);
+
+					h.fixture.failStates = undefined;
+					h.fixture.categoriesByType = { Task: category };
+					Date.now = () => start + 30 * 1000;
+					const recovered = await manager.getIssuesBatch({
+						providerId: id,
+						domain: domain,
+						targets: targets,
+					});
+					assert.equal(recovered.items.length, 1);
+					assert.notEqual(recovered.items[0].unchanged, true);
+					assert.equal(recovered.items[0].issue?.state, expected);
+					assert.deepEqual(recovered.items[0].issue?.updatedDate, held.updatedDate);
+					assert.notEqual(recovered.items[0].etag, etag);
+					assert.equal(recovered.fetchFailed, undefined);
+					assert.deepEqual(recovered.warnings, []);
+					assert.equal(h.states.length, 2);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		for (const closedDate of [undefined, date]) {
+			test(`${id}: an unknown category uses only a real closed date, with matching full and cheap etags (${closedDate})`, async () => {
+				const h = azureHarness();
+				h.fixture.state = 'Mystery';
+				h.fixture.closedDate = closedDate;
+				const runtime = createFakeRuntime();
+				const manager = createIntegrationService(runtime);
+				try {
+					const integration = await manager.get(
+						id,
+						id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ? 'server.test' : undefined,
+					);
+					assert.ok(integration != null);
+					const raw = await h.api.getAzureWorkItem(azureToken, scope, 1, {});
+					const [cheap] = await h.api.getAzureWorkItemsEtagFields(azureToken, scope, [1], {});
+					assert.ok(raw != null);
+					const expected = closedDate == null ? undefined : 'closed';
+					for (const shape of [toIssueShape(raw, integration), fromProviderIssue(raw, integration)]) {
+						assert.equal(shape?.state, expected);
+						assert.equal(shape?.closed, expected === 'closed');
+						assert.equal(shape?.providerState?.name, 'Mystery');
+					}
+					assert.equal(toAzureWorkItemEtagFields(cheap.workItem, 'project', cheap.category).state, expected);
+					const native = createWorkItem();
+					native.fields['System.State'] = 'Mystery';
+					if (closedDate != null) {
+						native.fields['Microsoft.VSTS.Common.ClosedDate'] = closedDate;
+					}
+
+					assert.equal(fromAzureWorkItem(native, azureProvider, azureProject).state, expected);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+	}
 
 	test('concurrent reads coalesce, and hosts and credentials never share a states read', async () => {
 		const h = azureHarness();
@@ -415,6 +527,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 
 		assert.deepEqual(categories(result.values), ['CANCELED', undefined, 'CANCELED']);
 		assert.deepEqual(result.values[1].state, { name: 'Descartado', color: null }, 'left untouched');
+		assert.equal(toIssueShape(result.values[1], azureProvider)?.state, undefined);
 		assert.equal(result.paging?.truncated, true);
 		assert.equal(result.metadata?.completeness, 'partial');
 		assert.equal(result.metadata?.failures?.length, 1);
@@ -442,6 +555,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			const result = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: allStates });
 			assert.equal(result.values.length, 1);
 			assert.deepEqual(result.values[0].state, { name: 'Descartado', color: null });
+			assert.equal(toIssueShape(result.values[0], azureProvider)?.state, undefined);
 			assert.equal(result.paging?.truncated, true);
 			assert.equal(result.metadata?.completeness, 'partial');
 			assert.equal(result.metadata?.failures?.[0].kind, kind);
@@ -522,7 +636,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		const states = await cache.getStates(coordinate, 'Task', async () => ({
 			value: [{ name: 'New', category: 'Proposed' }],
 		}));
-		assert.equal(states[0].category, 'Proposed');
+		assert.equal(states.states[0].category, 'Proposed');
 	});
 
 	test('manager list, point, etag and native presentation share one states read and invalidation', async () => {
@@ -858,13 +972,15 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			const raw = await h.api.getAzureWorkItem(azureToken, scope, 1, {});
 			const [cheap] = await h.api.getAzureWorkItemsEtagFields(azureToken, scope, [1], {});
 			assert.ok(raw != null && cheap != null);
-			const full = toIssueShape(raw, azureProvider);
+			// As the batch read maps it: with the organization's own identity, which the row's people carry.
+			const full = toIssueShape(raw, azureProvider, { viewer: { id: 'me' } });
 
 			assert.equal(full?.state, closed ? 'closed' : 'opened');
-			assert.deepEqual(toAzureWorkItemEtagFields(cheap.workItem, 'project', cheap.category), {
-				state: full?.state,
-				updatedDate: full?.updatedDate,
-			});
+			assert.ok(full != null);
+			assert.deepEqual(
+				toAzureWorkItemEtagFields(cheap.workItem, 'project', cheap.category),
+				issueEtagFieldsFromShape(full),
+			);
 			const fields = h.workItemReads.find(u => u.pathname.endsWith('/workitems'))?.searchParams.get('fields');
 			assert.ok(fields?.split(',').includes('System.State') && fields.split(',').includes('System.WorkItemType'));
 			assert.equal(h.states.length, 1, 'both reads share one states read');

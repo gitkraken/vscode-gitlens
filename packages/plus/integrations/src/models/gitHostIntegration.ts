@@ -123,7 +123,13 @@ type MyPullRequestsForReposOptions = {
 };
 
 /** A repository as the batch and branch reads name it. */
-type RepositoryCoordinate = { owner: string; repo: string; project?: string };
+export type RepositoryCoordinate = { owner: string; repo: string; project?: string };
+
+/**
+ * Repository scopes as the host settled them ({@link GitHostIntegration.resolveRepositoryScopes}), with the `unsettled`
+ * flag of each, in order. A repo-scoped read given these reads them as given rather than settling them again.
+ */
+export type SettledRepositoryScopes = { repos: ProviderReposInput; unsettled?: readonly boolean[] };
 
 /**
  * Rejects each slot that read nothing (`isMiss`) for a coordinate whose repository couldn't be settled (see
@@ -217,6 +223,9 @@ export abstract class GitHostIntegration<
 	 * order: those, unless the host names a caller's repository differently than the caller parsed it (see the Azure
 	 * DevOps Server override). `unsettled` flags a coordinate the host couldn't place, read as given; a batch or
 	 * branch slot that then reads nothing is rejected rather than reported as absent ({@link rejectUnsettledMisses}).
+	 *
+	 * The only hook a host overrides to settle a caller's repository: every read settles through it, the list and search
+	 * reads by way of {@link resolveRepositoryInputs}.
 	 */
 	protected resolveRepositoryCoordinates<T extends RepositoryCoordinate>(
 		_session: ProviderAuthenticationSession,
@@ -227,39 +236,60 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * {@link resolveRepositoryCoordinates} for the repository descriptors the list and search reads take: those, unless
-	 * the host overrides both. A scope flagged `unsettled` that then reads nothing is reported as a failure of the read
-	 * ({@link toUnsettledScopeFailure}) rather than as an empty scope.
+	 * {@link resolveRepositoryCoordinates} for the repository descriptors the list and search reads take. Not an override
+	 * point: a host settles its coordinates, which this maps `repos` through. A scope flagged `unsettled` that then reads
+	 * nothing is reported as a failure of the read ({@link toUnsettledScopeFailure}) rather than as an empty scope.
 	 */
-	protected resolveRepositoryInputs(
-		_session: ProviderAuthenticationSession,
+	protected async resolveRepositoryInputs(
+		session: ProviderAuthenticationSession,
 		repos: readonly ProviderRepoInput[],
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 	): Promise<{ repos: ProviderRepoInput[]; unsettled?: readonly boolean[] }> {
-		return Promise.resolve({ repos: [...repos] });
+		const { coordinates, unsettled } = await this.resolveRepositoryCoordinates(
+			session,
+			repos.map(r => ({ ...r, owner: r.namespace, repo: r.name })),
+			cancellation,
+		);
+		return {
+			repos: coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo })),
+			unsettled: unsettled,
+		};
 	}
 
 	/**
 	 * The repositories a repo-scoped read of `repos` addresses ({@link resolveRepositoryInputs}), for a caller that
-	 * shapes the read by them before making it. Resolves the session as that read does, and fails as it would: a
-	 * session that can't be resolved is the read's own failure (refreshing a refused token is claimed here), so the
-	 * caller reports it rather than making the read. Settling that fails leaves `repos` as given, for the read to
-	 * settle or report.
+	 * shapes the read by them before making it, and then hands them to that read so it doesn't settle them again.
+	 * Resolves the session as that read does, and fails as it would: a session that can't be resolved is the read's own
+	 * failure (refreshing a refused token is claimed here), so the caller reports it rather than making the read.
+	 * Settling that fails is the read's failure too, handled as the issue read handles it. Only the issue list hands its
+	 * read settled scopes today.
 	 */
 	async resolveRepositoryScopes(
 		repos: ProviderReposInput,
 		connectionId?: string,
-	): Promise<IntegrationResult<ProviderReposInput>> {
-		if (isRepoIdsInput(repos)) return { value: repos };
+	): Promise<IntegrationResult<SettledRepositoryScopes>> {
+		if (isRepoIdsInput(repos)) return { value: { repos: repos } };
 
 		const session = await this.resolveReadSession(connectionId, undefined);
 		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
-			return { value: (await this.resolveRepositoryInputs(session, repos)).repos };
-		} catch {
-			return { value: repos };
+			return { value: await this.resolveRepositoryInputs(session, repos) };
+		} catch (ex) {
+			this.handleProviderException('getIssuesForRepos', ex, { connectionId: connectionId });
+			return { error: toError(ex) };
 		}
+	}
+
+	/** `repos` as a repo-scoped read addresses them: settled by the caller already, or here. */
+	private settleRepositoryScopes(
+		session: ProviderAuthenticationSession,
+		repos: ProviderReposInput | SettledRepositoryScopes,
+	): Promise<SettledRepositoryScopes> {
+		if (!Array.isArray(repos)) return Promise.resolve(repos);
+		if (isRepoIdsInput(repos)) return Promise.resolve({ repos: repos });
+
+		return this.resolveRepositoryInputs(session, repos);
 	}
 
 	/**
@@ -941,7 +971,12 @@ export abstract class GitHostIntegration<
 		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
-		return (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
+		const value = (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
+		if (value == null) return undefined;
+
+		// The rows' viewers are only for the shapes this raw read is mapped to.
+		const { viewers: _viewers, ...result } = value;
+		return result;
 	}
 
 	/**
@@ -951,10 +986,19 @@ export abstract class GitHostIntegration<
 	 * rather than swallowing them to `undefined`.
 	 */
 	async getMyIssuesForReposResult(
-		repos: ProviderReposInput,
+		repos: ProviderReposInput | SettledRepositoryScopes,
 		options?: MyIssuesForReposOptions,
 		connectionId?: string,
-	): Promise<IntegrationResult<(PagedResult<ProviderIssue> & { metadata?: CollectionMetadata }) | undefined>> {
+	): Promise<
+		IntegrationResult<
+			| (PagedResult<ProviderIssue> & {
+					metadata?: CollectionMetadata;
+					/** Each row's viewer, in order, where the provider sets one (see {@link getIssueViewers}). */
+					viewers?: ({ id: string } | null | undefined)[];
+			  })
+			| undefined
+		>
+	> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderIssueStates(options?.state);
@@ -969,11 +1013,7 @@ export abstract class GitHostIntegration<
 		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
-			if (isRepoIdsInput(repos)) {
-				resolvedRepos = repos;
-			} else {
-				({ repos: resolvedRepos, unsettled } = await this.resolveRepositoryInputs(session, repos));
-			}
+			({ repos: resolvedRepos, unsettled } = await this.settleRepositoryScopes(session, repos));
 			customUrl =
 				options?.customUrl ??
 				(isGitSelfManagedHostIntegrationId(providerId)
@@ -1179,9 +1219,12 @@ export abstract class GitHostIntegration<
 
 				await this.confirmScopedAuthFailures(session, metadata);
 				this.resetRequestExceptionCount('getIssuesForRepos');
+				// With the session that read the rows, so a connection switched since can't lend them its identity.
+				const viewers = await this.getIssueViewers(session, data);
 				return {
 					value: {
 						values: data,
+						viewers: viewers,
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
@@ -1397,7 +1440,7 @@ export abstract class GitHostIntegration<
 	 * `getUsersIssuesForRepo`) reports `supportsIssues: false`, so the facade never reaches this for it.
 	 */
 	async getMyIssuesForReposAsShapesResult(
-		reposOrRepoIds: ProviderReposInput,
+		reposOrRepoIds: ProviderReposInput | SettledRepositoryScopes,
 		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<(PagedResult<IssueShape> & { metadata?: CollectionMetadata }) | undefined>> {
@@ -1406,10 +1449,11 @@ export abstract class GitHostIntegration<
 		if (result.error != null) return { error: result.error, duration: result.duration };
 		if (result.value == null) return { value: undefined, duration: result.duration };
 
-		const values = result.value.values
-			.map(issue => toIssueShape(issue, this, { projection: 'repos' }))
+		const { viewers, ...value } = result.value;
+		const values = value.values
+			.map((issue, i) => toIssueShape(issue, this, { projection: 'repos', viewer: viewers?.[i] }))
 			.filter((issue): issue is IssueShape => issue != null);
-		return { value: { ...result.value, values: values }, duration: result.duration };
+		return { value: { ...value, values: values }, duration: result.duration };
 	}
 
 	async getMyPullRequestsForRepos(
@@ -1445,11 +1489,7 @@ export abstract class GitHostIntegration<
 		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
-			if (isRepoIdsInput(repos)) {
-				resolvedRepos = repos;
-			} else {
-				({ repos: resolvedRepos, unsettled } = await this.resolveRepositoryInputs(session, repos));
-			}
+			({ repos: resolvedRepos, unsettled } = await this.settleRepositoryScopes(session, repos));
 			customUrl =
 				options?.customUrl ??
 				(isGitSelfManagedHostIntegrationId(providerId)
@@ -1858,16 +1898,31 @@ export abstract class GitHostIntegration<
 	/**
 	 * The current account as each of `pullRequests` identifies its members, in order: what a raw row's
 	 * `authoredByMe` and `viewer` are resolved against when it's mapped. Most hosts give a person one id, so every
-	 * row gets the account itself; Azure DevOps Server answers per collection (see `AzureDevOpsServerIntegration`).
-	 * Throws only when the account itself can't be read.
+	 * row gets the account itself; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`), with
+	 * `null` for a row whose organization's identity couldn't be read, which marks it `viewerUnresolved`.
+	 * Throws only when the account itself can't be read. Azure DevOps never throws: a session it can't resolve leaves
+	 * every row it would have asked an organization for `null` too.
 	 */
 	async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
-	): Promise<({ id: string; username?: string } | undefined)[]> {
+	): Promise<({ id: string; username?: string } | null | undefined)[]> {
 		const account = await this.getCurrentAccount({ connectionId: connectionId });
 		const viewer = account != null ? { id: account.id, username: account.username } : undefined;
 		return pullRequests.map(() => viewer);
+	}
+
+	/**
+	 * The current account as each of `issues`, read with `session`, identifies its members, in order, where that can
+	 * differ from the account itself: what a raw row's {@link IssueShape.viewer} is set to when it's mapped. Only
+	 * Azure DevOps sets one, per organization (see `AzureDevOpsIntegrationBase`); `undefined` leaves every row without.
+	 * Never throws: a viewer that can't be resolved is `null`, which marks the row {@link IssueShape.viewerUnresolved}.
+	 */
+	protected getIssueViewers(
+		_session: ProviderAuthenticationSession,
+		_issues: readonly ProviderIssue[],
+	): Promise<({ id: string } | null | undefined)[] | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	/**

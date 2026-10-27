@@ -19,6 +19,7 @@ import type {
 } from '../models/integration.js';
 import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
 import {
+	azureRestDiscoveryResponse,
 	azureWorkItemTypeStatesResponse,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
@@ -181,7 +182,8 @@ function kindOf(url: URL): RequestKind | undefined {
 
 /**
  * Answers every Azure DevOps request — provider-apis' pull request and repository GETs, the direct work item GET, the
- * cheap reads, and the work item type states both work item reads classify their states with — from `fixture`.
+ * cheap reads, the work item type states both work item reads classify their states with, and the organization's
+ * connection data — from `fixture`.
  * `override` may answer a request first.
  */
 function serveAzure(
@@ -191,7 +193,17 @@ function serveAzure(
 ): SentRequest[] {
 	const sent: SentRequest[] = [];
 	runtime.http.fetch = input => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return Promise.resolve(discovery);
+
 		const url = new URL(input.toString());
+		// The user's identity in the organization, which every full work item row's viewer is read from; not
+		// recorded, as it is read once per organization and cached, whatever the targets.
+		if (url.pathname.toLowerCase().endsWith('/_apis/connectiondata')) {
+			const user = { id: 'me', providerDisplayName: 'me', properties: { Account: { $value: 'me@example.com' } } };
+			return Promise.resolve(json(200, { authenticatedUser: user, authorizedUser: user }));
+		}
+
 		const kind = kindOf(url);
 		if (kind == null) return Promise.reject(new Error(`unexpected request: ${url.toString()}`));
 
@@ -802,7 +814,7 @@ suite('Azure DevOps work item etag agreement', () => {
 				'closed',
 				'closed',
 				'opened',
-				'opened',
+				undefined,
 				'opened',
 				'opened',
 				'opened',

@@ -11,7 +11,7 @@ import type { IntegrationResult } from '../models/integration.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { PullRequestFilter } from '../providerFilters.js';
 import type { ProviderPullRequest, ProviderReposInput, ProviderRepository } from '../providers/models.js';
-import { getProviderPullRequestIdentity } from '../providers/models.js';
+import { getProviderPullRequestIdentity, pullRequestNamesPeople } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
@@ -465,15 +465,15 @@ export async function getCurrentAccountIdentity(
 
 /**
  * The current account to map each raw row against, in order (see {@link GitHostIntegration.getPullRequestViewers}).
- * Rows with no author can't be matched, so a read of only those resolves nothing; a failed lookup leaves every row's
- * authorship unknown rather than failing the read.
+ * Rows that name no one can't be matched, so a read of only those resolves nothing; a failed lookup leaves every
+ * row's authorship unknown rather than failing the read.
  */
 export async function getPullRequestViewers(
 	integration: GitHostIntegration,
 	connectionId: string | undefined,
 	pullRequests: readonly (ProviderPullRequest | PullRequest)[],
-): Promise<({ id: string; username?: string } | undefined)[]> {
-	if (!pullRequests.some(pr => pr.author != null)) return pullRequests.map(() => undefined);
+): Promise<({ id: string; username?: string } | null | undefined)[]> {
+	if (!pullRequests.some(pullRequestNamesPeople)) return pullRequests.map(() => undefined);
 
 	try {
 		return await integration.getPullRequestViewers(pullRequests, connectionId);

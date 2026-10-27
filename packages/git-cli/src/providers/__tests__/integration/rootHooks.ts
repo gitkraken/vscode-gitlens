@@ -1,6 +1,7 @@
 /**
  * Mocha root hooks for the integration suite: attribute an unhandled rejection to the test that was
- * running when it fired, and print the git argv that produced it.
+ * running when it fired, and print the git argv that produced it. It also fails the test whose summary kept a base
+ * re-measure that a full read would not have answered (see `shadowCheck.ts`).
  *
  * These tests spawn real git against temp repos their own teardown deletes, so a git call a test
  * forgot to await (or cancel) fails LATER — after its repo is gone — and mocha blames whichever test
@@ -14,6 +15,7 @@
  * suite silently tolerate rejections it used to die on.
  */
 import type { Context } from 'mocha';
+import { takeBaseRemeasureMismatches } from './shadowCheck.js';
 
 // A host app can inject git config through the environment (`core.hooksPath`, ...), which every spawned git
 // would inherit and override the repos these tests set up
@@ -77,6 +79,14 @@ export const mochaHooks = {
 		const cmd = gitCommandOf(this.currentTest?.err);
 		if (cmd != null) {
 			console.error(`[LEAK] failing git command in "${previous}":\n[LEAK]   cmd: ${cmd}`);
+		}
+
+		// After the suite's own teardown, which disposes the services, so a read still running can't land later
+		const mismatches = takeBaseRemeasureMismatches();
+		if (mismatches.length) {
+			throw new Error(
+				`The base re-measure answered differently from a full read of the base (${mismatches.length}):\n${mismatches.map(m => m.message).join('\n---\n')}`,
+			);
 		}
 	},
 };

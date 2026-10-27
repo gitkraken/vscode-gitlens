@@ -393,6 +393,7 @@ export class GraphPanelsService {
 		const worktreesByBranch = data.worktreesByBranch ?? new Map();
 		const pinnedRefId = this.context.getPinnedRefId(data.repoPath);
 		const { hiddenIds } = this.getHiddenRefState(data.repoPath);
+		const hasRemotes = data.remotes.size > 0;
 
 		for (const branch of data.branches.values()) {
 			if (branch.remote) continue;
@@ -409,13 +410,27 @@ export class GraphPanelsService {
 						...toOverviewBranch(branch, worktreesByBranch, true),
 						// Same context vocabulary as the sidebar branches panel — see `buildBranchContext`.
 						// Overview never lists remote branches, so `hiddenByRemote` is always `false` here.
-						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+						context: this.buildBranchContext(
+							branch,
+							data.repoPath,
+							pinnedRefId,
+							hiddenIds,
+							false,
+							hasRemotes,
+						),
 					});
 					break;
 				case 'recent':
 					recent.push({
 						...toOverviewBranch(branch, worktreesByBranch, false),
-						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+						context: this.buildBranchContext(
+							branch,
+							data.repoPath,
+							pinnedRefId,
+							hiddenIds,
+							false,
+							hasRemotes,
+						),
 					});
 					break;
 				// 'stale' and `undefined` both fall outside the Recent threshold — pageable via "Load More"
@@ -423,7 +438,14 @@ export class GraphPanelsService {
 				default:
 					older.push({
 						...toOverviewBranch(branch, worktreesByBranch, false),
-						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+						context: this.buildBranchContext(
+							branch,
+							data.repoPath,
+							pinnedRefId,
+							hiddenIds,
+							false,
+							hasRemotes,
+						),
 					});
 					break;
 			}
@@ -552,6 +574,7 @@ export class GraphPanelsService {
 		pinnedRefId: string | undefined,
 		hiddenIds: Set<string>,
 		hiddenByRemote: boolean,
+		hasRemotes: boolean,
 	): GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin {
 		return {
 			webview: this.host.id,
@@ -561,6 +584,7 @@ export class GraphPanelsService {
 				pinnedRefId: pinnedRefId,
 				hiddenIds: hiddenIds,
 				hiddenByRemote: hiddenByRemote,
+				hasRemotes: hasRemotes,
 			}),
 			webviewItemValue: {
 				type: 'branch',
@@ -579,6 +603,7 @@ export class GraphPanelsService {
 		const providerByRemote = this.getProviderByRemote(graph);
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
 		const { hiddenIds, hiddenRemotes } = this.getHiddenRefState(graph.repoPath);
+		const hasRemotes = graph.remotes.size > 0;
 
 		const branchCfg = configuration.get('views.branches.branches');
 		// Shares the Branches view's setting, but not its dedupe — that view drops remote branches with a
@@ -632,7 +657,7 @@ export class GraphPanelsService {
 				providerIcon: provider?.icon,
 				starred: b.starred || undefined,
 				pinned: (pinnedRefId != null && b.id === pinnedRefId) || undefined,
-				context: this.buildBranchContext(b, graph.repoPath, pinnedRefId, hiddenIds, hiddenByRemote),
+				context: this.buildBranchContext(b, graph.repoPath, pinnedRefId, hiddenIds, hiddenByRemote, hasRemotes),
 			};
 		});
 		return {
@@ -1657,6 +1682,8 @@ export class GraphPanelsService {
 	private getSidebarWorktrees(graph: GitGraph, displayed?: boolean) {
 		const providerByRemote = this.getProviderByRemote(graph);
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		// Per repo, not the workspace-wide `gitlens:repos:withRemotes` — see `buildBranchContextSuffix`
+		const hasRemotes = graph.remotes.size > 0;
 
 		const wtCfg = configuration.get('views.worktrees.branches');
 		const worktrees =
@@ -1698,6 +1725,9 @@ export class GraphPanelsService {
 				}
 			} else if (w.type === 'detached') {
 				webviewItem += '+detached';
+			}
+			if (hasRemotes) {
+				webviewItem += '+remotes';
 			}
 
 			// The graph row this worktree's WIP anchors to — one path-keyed id per worktree, mirroring

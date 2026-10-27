@@ -100,12 +100,7 @@ import { showPatchesView } from '../../../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
 import { setupPullRequestBranch } from '../../../plus/launchpad/utils/-webview/startReview.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
-import {
-	executeActionCommand,
-	executeCommand,
-	executeCoreCommand,
-	executeCoreGitCommand,
-} from '../../../system/-webview/command.js';
+import { executeActionCommand, executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, setContext } from '../../../system/-webview/context.js';
 import { openTerminal } from '../../../system/-webview/terminal.js';
@@ -652,13 +647,16 @@ export class GraphCommands {
 	@command('gitlens.publishRepository:graph')
 	@debug()
 	private async publishRepository(item?: GraphItemContext | BranchRef) {
-		// Header publish button passes no branch context — fall back to the graph's repository
-		const repoPath = (await this.resolveBranchRef(item))?.repoPath ?? this.repository?.path;
-		if (repoPath == null) return;
+		let ref = await this.resolveBranchRef(item);
+		if (ref == null) {
+			// Header publish button passes no branch context — fall back to the current branch
+			const branch = await this.repository?.git.branches.getBranch();
+			ref = branch != null ? getReferenceFromBranch(branch) : undefined;
+		}
+		if (ref == null) return;
 
-		// With no remotes, VS Code's `git.publish` hands off to the GitHub extension's remote-source publisher
-		// (creates the hosted repo, adds `origin`, and pushes with upstream)
-		await executeCoreGitCommand('git.publish', Uri.file(repoPath));
+		// Opens the push wizard's no-remotes chooser (Publish Repository… / Add Remote…) with Publish Repository pre-selected
+		await RepoActions.push(ref.repoPath, undefined, ref, { flags: ['--publish-repository'] });
 	}
 
 	@command('gitlens.graph.rebaseOntoBranch')

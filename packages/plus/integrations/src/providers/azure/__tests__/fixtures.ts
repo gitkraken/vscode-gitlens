@@ -168,3 +168,53 @@ export function azureWorkItemTypeStatesResponse(
 		headers: { 'content-type': 'application/json' },
 	});
 }
+
+export function azureRestDiscoveryResponse(
+	input: string | URL,
+	options: {
+		maxVersion?: string;
+		releasedVersion?: string;
+		resourceVersion?: number;
+		previewOnlyResources?: readonly string[];
+	} = {},
+): Response | undefined {
+	const area = new URL(input.toString()).pathname.match(/\/_apis\/(wit|git|work|IMS)$/i)?.[1].toLowerCase();
+	if (area == null) return undefined;
+
+	const definitions = [
+		['wit', 'b51fd764-e5c2-4b9b-aaf7-3395cf4bdd94', '_apis/wit/fields'],
+		['wit', '1a9c53f7-f243-4447-b110-35ef023636e4', '{project}/{team}/_apis/wit/wiql'],
+		['wit', '72c7ddf8-2cdc-4f60-90cd-ab71c14a399b', '{project}/_apis/wit/workItems/{id}'],
+		['wit', '908509b6-4248-4475-a1cd-829139ba419f', '{project}/_apis/wit/workItemsBatch'],
+		['wit', '7c8d7a76-4a09-43e8-b5df-bd792f4ac6aa', '{project}/_apis/wit/workItemTypes/{type}'],
+		['wit', '7c9d7a76-4a09-43e8-b5df-bd792f4ac6aa', '{project}/_apis/wit/workItemTypes/{type}/states'],
+		[
+			'git',
+			'9946fd70-0d40-406e-b686-b4744cbbcc37',
+			'{project}/_apis/git/repositories/{repositoryId}/pullRequests/{pullRequestId}',
+		],
+		['git', '225f7195-f9c7-4d14-ab28-a83f7ff77e1f', '{project}/_apis/git/repositories/{repositoryId}'],
+		[
+			'git',
+			'b3a6eebe-9cf0-49ea-b6cb-1a4c5f5007b0',
+			'{project}/_apis/git/repositories/{repositoryId}/pullRequestQuery',
+		],
+		['work', '7799f497-3cb5-4f16-ad4f-5cd06012db64', '{project}/{team}/_apis/work/backlogconfiguration'],
+		['ims', '28010c54-d0c0-4c89-a5b0-1c9e188b9fb7', '_apis/identities/{identityId}'],
+		['ims', '299e50df-fe45-4d3a-8b5b-a5836fac74dc', '_apis/identityBatch'],
+	];
+	return Response.json({
+		value: definitions
+			.filter(([name]) => name === area)
+			.map(([, id, route]) => ({
+				id: id,
+				routeTemplate: route,
+				minVersion: '1.0',
+				maxVersion: options.maxVersion ?? '7.1',
+				releasedVersion: options.previewOnlyResources?.includes(route.split('/').at(-1)!)
+					? '0.0'
+					: (options.releasedVersion ?? '7.1'),
+				resourceVersion: options.resourceVersion ?? 3,
+			})),
+	});
+}

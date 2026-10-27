@@ -107,6 +107,7 @@ import { GlRepository } from '../../../git/models/repository.js';
 import { isSameRepoFamily } from '../../../git/models/repositoryShape.js';
 import {
 	getBranchAssociatedPullRequest,
+	getBranchMergeTarget,
 	getBranchMergeTargetInfo,
 	getBranchRemote,
 } from '../../../git/utils/-webview/branch.utils.js';
@@ -4246,38 +4247,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (branch == null) return undefined;
 
 		const cacheKey = branch.id;
-		const cached = this._scopeAnchorCache.get(cacheKey);
-		if (cached != null) return cached;
+		let anchor = this._scopeAnchorCache.get(cacheKey);
+		if (anchor == null) {
+			const promise = this.computeScopeAnchor(branch);
+			this._scopeAnchorCache.set(cacheKey, promise);
+			// Don't poison the cache with a rejection — refresh paths invalidate explicitly anyway, but
+			// a transient failure should be retryable on the next scope action.
+			promise.catch(() => {
+				if (this._scopeAnchorCache.get(cacheKey) === promise) {
+					this._scopeAnchorCache.delete(cacheKey);
+				}
+			});
+			anchor = promise;
+		}
 
-		const promise = this.computeScopeAnchor(branch);
-		this._scopeAnchorCache.set(cacheKey, promise);
-		// Don't poison the cache with a rejection — refresh paths invalidate explicitly anyway, but
-		// a transient failure should be retryable on the next scope action.
-		promise.catch(() => {
-			if (this._scopeAnchorCache.get(cacheKey) === promise) {
-				this._scopeAnchorCache.delete(cacheKey);
-			}
+		// A failed read anchors the focal branch alone, as a branch with no target does, rather than leaving the scope bare
+		return anchor.catch((ex: unknown) => {
+			Logger.error(ex, 'GraphWebviewProvider', 'resolveScopeAnchor');
+			return { focalBranchTipSha: branch.sha };
 		});
-		return promise;
 	}
 
 	private async computeScopeAnchor(branch: GitBranch): Promise<ResolvedScopeAnchor> {
 		const focalBranchTipSha = branch.sha;
 		const svc = this.container.git.getRepositoryService(branch.repoPath);
 
-		// Resolve target name — `getBranchMergeTargetInfo` already shares the underlying caches
-		// with `getBranchContributionsOverview` (`getStoredMergeTargetBranchName`/`getBaseBranchName`/
-		// `getDefaultBranchName`), so this doesn't add new git calls when the overview path also
-		// fires for the same branch.
-		const targetInfo = await getBranchMergeTargetInfo(this.container, branch, { timeout: 100 });
-		// Use the immediate value; ignore the paused PR-resolution continuation. Scope doesn't need
-		// to wait on PR API — base/default fall back covers the cold path while the eventual PR
-		// answer (if any) reaches the scope via overview enrichment, where `reconcileScopeMergeTarget`
-		// re-anchors live.
-		const targetName =
-			(targetInfo.mergeTargetBranch.paused ? undefined : targetInfo.mergeTargetBranch.value) ??
-			targetInfo.baseBranch ??
-			targetInfo.defaultBranch;
+		// The merge-target lookup shares its cached answer with `getBranchContributionsOverview`, so a warm one adds
+		// no git calls when the overview path also fires for the same branch. Use the immediate answer and
+		// ignore `pending`: scope doesn't wait on the PR API, and the late PR answer (if any) reaches the
+		// scope via overview enrichment, where `reconcileScopeMergeTarget` re-anchors live.
+		const { target } = await getBranchMergeTarget(this.container, branch, { timeout: 100, keepSelfAtTip: true });
+		const targetName = target?.ref;
 		if (targetName == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		// Prefer the in-memory branch list for the target tip, just like the focal branch above.
@@ -4290,8 +4290,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// older-history fold. Bailing there would leave the scope bare, and a bare scope dims everything off
 		// the focal first-parent line instead of scoping — for the default branch that line is the whole
 		// trunk, so almost nothing dims. Note `getBranchMergeTargetStatusInfo` (overviewEnrichment.utils.ts)
-		// still skips self-target status for the sidebars; that's safe because `reconcileScopeMergeTarget`
-		// only backfills anchors from enrichment, never strips them.
+		// still skips self-target status for the sidebars (its lookup omits `keepSelfAtTip`); that's safe
+		// because `reconcileScopeMergeTarget` only backfills anchors from enrichment, never strips them.
 		if (mergeTargetTipSha == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
@@ -4915,13 +4915,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// `_includedRefTipShas` itself — leave it alone here.
 				if (cancellation.token.isCancellationRequested) return { refs: {}, continuation: continuation };
 
-				let targetBranchName: string | undefined;
-				if (result.mergeTargetBranch?.paused) {
-					continuation = result.mergeTargetBranch.value.then(async target => {
+				if (result.pending != null) {
+					continuation = result.pending.then(async target => {
 						if (target == null || cancellation?.token.isCancellationRequested) return undefined;
 
 						const refs = await this.getVisibleRefs(graph, current, {
-							baseOrTargetBranchName: target,
+							baseOrTargetBranchName: target.ref,
 							defaultBranchName: result.defaultBranch,
 						});
 						// The continuation replaces the ref set resolved above, so it must replace the
@@ -4934,12 +4933,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						}
 						return Object.fromEntries(refs);
 					});
-				} else {
-					targetBranchName = result.mergeTargetBranch?.value;
 				}
 
 				refs = await this.getVisibleRefs(graph, current, {
-					baseOrTargetBranchName: targetBranchName ?? result.baseBranch,
+					baseOrTargetBranchName: result.target?.ref,
 					defaultBranchName: result.defaultBranch,
 				});
 
@@ -5795,7 +5792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Worktree registry for the webview — the Agent Activity treemap maps agent file activity
 			// to repo-relative keys against these. Fetched directly (not via the graph session, which isn't
 			// loaded yet on the deferred-rows build).
-			this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation.token)),
+			this.repository.git.worktrees?.getWorktrees(undefined, toAbortSignal(cancellation.token)),
 		]);
 		// Deferred worktree clean/dirty probe (see above) — surfaces changed worktrees in the WIP bar
 		// shortly after load without blocking or competing with the rows walk.

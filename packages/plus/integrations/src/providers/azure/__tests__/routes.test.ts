@@ -1,7 +1,14 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { AzureDevOpsApi } from '../azure.js';
-import { azureProject, azureProvider, azureToken, createAzureForkSource, createAzurePullRequest } from './fixtures.js';
+import {
+	azureProject,
+	azureProvider,
+	azureRestDiscoveryResponse,
+	azureToken,
+	createAzureForkSource,
+	createAzurePullRequest,
+} from './fixtures.js';
 
 async function readRoutes(
 	api: AzureDevOpsApi,
@@ -12,19 +19,31 @@ async function readRoutes(
 	value: string,
 ): Promise<void> {
 	const repo = `${project}/_git/${repository}`;
+	async function readWithDiscovery(read: Promise<unknown>): Promise<void> {
+		if (owner === '.' || owner === '..') {
+			await assert.rejects(read, /Invalid Azure path segment/);
+		} else {
+			await read;
+		}
+	}
+
 	await api.getPullRequestForBranch(azureProvider, azureToken, owner, repo, value, { baseUrl: baseUrl });
-	await api.getPullRequestForCommit(azureProvider, azureToken, owner, repo, value, baseUrl);
-	await api.getIssueOrPullRequest(azureProvider, azureToken, owner, repo, value, {
-		baseUrl: baseUrl,
-		type: 'issue',
-	});
+	await readWithDiscovery(api.getPullRequestForCommit(azureProvider, azureToken, owner, repo, value, baseUrl));
+	await readWithDiscovery(
+		api.getIssueOrPullRequest(azureProvider, azureToken, owner, repo, value, {
+			baseUrl: baseUrl,
+			type: 'issue',
+		}),
+	);
 	await api.getIssueOrPullRequest(azureProvider, azureToken, owner, repo, value, {
 		baseUrl: baseUrl,
 		type: 'pullrequest',
 	});
-	await api.getIssue(azureProvider, azureToken, { ...azureProject, resourceName: owner, name: project }, value, {
-		baseUrl: baseUrl,
-	});
+	await readWithDiscovery(
+		api.getIssue(azureProvider, azureToken, { ...azureProject, resourceName: owner, name: project }, value, {
+			baseUrl: baseUrl,
+		}),
+	);
 	await api.getAccountForCommit(azureProvider, azureToken, owner, repo, value, baseUrl);
 	const states = api.getWorkItemStateCategory(value, 'Active', azureProvider, azureToken, owner, project, {
 		baseUrl: baseUrl,
@@ -34,8 +53,8 @@ async function readRoutes(
 	} else {
 		await states;
 	}
-	await api.getRepositoryMetadata(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl });
-	await api.getDefaultBranch(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl });
+	await readWithDiscovery(api.getRepositoryMetadata(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl }));
+	await readWithDiscovery(api.getDefaultBranch(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl }));
 }
 
 suite('Azure REST route encoding', () => {
@@ -45,6 +64,9 @@ suite('Azure REST route encoding', () => {
 				const requests: { url: URL; init: RequestInit | undefined }[] = [];
 				const api = new AzureDevOpsApi({
 					fetch: (input, init) => {
+						const discovery = azureRestDiscoveryResponse(input);
+						if (discovery != null) return Promise.resolve(discovery);
+
 						requests.push({ url: new URL(input.toString()), init: init });
 						return Promise.resolve(
 							Response.json(
@@ -101,6 +123,9 @@ suite('Azure REST route encoding', () => {
 				const requests: string[] = [];
 				const api = new AzureDevOpsApi({
 					fetch: input => {
+						const discovery = azureRestDiscoveryResponse(input);
+						if (discovery != null) return Promise.resolve(discovery);
+
 						requests.push(input.toString());
 						return Promise.resolve(
 							Response.json(
@@ -140,6 +165,9 @@ suite('Azure REST route encoding', () => {
 		const requests: URL[] = [];
 		const api = new AzureDevOpsApi({
 			fetch: input => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return Promise.resolve(discovery);
+
 				const url = new URL(input.toString());
 				requests.push(url);
 				if (url.pathname.endsWith('/pullrequestquery')) {

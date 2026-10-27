@@ -24,6 +24,7 @@ import type {
 	GitOperationsSubProvider,
 } from '@gitlens/git/providers/operations.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
+import { getRefChangeKind } from '@gitlens/git/watching/changeEvent.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
 import { chunkByStringLength } from '@gitlens/utils/iterable.js';
@@ -42,11 +43,71 @@ import {
 	isRunHookFailure,
 	maxGitCliLength,
 } from '../exec/git.js';
+import type { HeadState } from '../exec/headState.js';
+import { getMovedHead, readHeadState } from '../exec/headState.js';
 import { resolveBranchRemote } from './branchRemote.js';
 import { parseGitBoolean } from './config.js';
 
 /** The remotes a fetch read with their configured refspecs: one named remote, all of them, or a bare fetch's default */
 type FetchedRemotes = { remote: string } | 'all' | 'default';
+
+/** The ref kinds a fetch can move, in the order its announcement lists them */
+const fetchRefChangeKinds: readonly RepositoryChange[] = ['remotes', 'heads', 'tags', 'stash'];
+
+/** The destinations a fetch's snapshot covers when the remotes' configured refspecs can't be read */
+const broadFetchDestinations: readonly string[] = ['refs/heads', 'refs/remotes'];
+
+/**
+ * The ref a fetch refspec stores into, qualified as git's fetch does — `heads/`, `tags/` and `remotes/` get `refs/`,
+ * and any other unqualified name is a local branch — or `undefined` when it stores nothing (no `:`, or nothing after
+ * it). A glob destination keeps its glob.
+ */
+function getRefspecDestination(refspec: string): string | undefined {
+	const stripped = refspec.startsWith('+') ? refspec.slice(1) : refspec;
+	const colonIndex = stripped.indexOf(':');
+	if (colonIndex === -1) return undefined;
+
+	const destination = stripped.slice(colonIndex + 1);
+	if (!destination) return undefined;
+	if (destination.startsWith('refs/')) return destination;
+
+	return /^(?:heads|tags|remotes)\//.test(destination) ? `refs/${destination}` : `refs/heads/${destination}`;
+}
+
+/**
+ * The for-each-ref patterns covering `destinations` (the refs a fetch may store into) and tags, which a fetch follows
+ * into what it fetched. A pattern's `*` doesn't match across `/`, so a glob destination is widened to the directory
+ * above its first glob.
+ */
+function getFetchSnapshotPatterns(destinations: Iterable<string>): string[] {
+	const patterns = ['refs/tags'];
+	for (let destination of destinations) {
+		const globIndex = destination.search(/[*?[]/);
+		if (globIndex !== -1) {
+			destination = destination.substring(0, destination.lastIndexOf('/', globIndex));
+		}
+		if (patterns.some(p => destination === p || destination.startsWith(`${p}/`))) continue;
+
+		patterns.push(destination);
+	}
+	return patterns;
+}
+
+/** The refs created, moved, retargeted or deleted between two snapshots */
+function getMovedRefs(before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>): string[] {
+	const moved: string[] = [];
+	for (const [ref, sha] of after) {
+		if (before.get(ref) !== sha) {
+			moved.push(ref);
+		}
+	}
+	for (const ref of before.keys()) {
+		if (!after.has(ref)) {
+			moved.push(ref);
+		}
+	}
+	return moved;
+}
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	/** The `commonPath\0remote` pairs {@link followRemoteHeads} has handled */
@@ -99,9 +160,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					),
 			);
 		} finally {
+			// `-b` moves only the branch it creates, and writes tracking to that branch's own config section
 			this.announceHeadChanged(
 				repoPath,
+				options?.createBranch ? { branch: `refs/heads/${options.createBranch}` } : undefined,
 				Boolean(options?.createBranch) && mayWriteTracking(ref, options?.noTracking),
+				true,
 			);
 		}
 	}
@@ -147,11 +211,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...revs);
 
 		try {
-			try {
-				await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -222,15 +284,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		params.push('-F', '-');
 
 		try {
-			try {
-				await this.git.run(
+			// A commit refused by a hook can still have restaged files, which the announcement covers too
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					{ cwd: repoPath, stdin: message, stdinEncoding: 'utf8', errors: 'throw', ...runOptions },
 					...params,
-				);
-			} finally {
-				// A commit refused by a hook can still have restaged files
-				this.announceHeadChanged(repoPath);
-			}
+				),
+			);
 			if (sign) {
 				// `-S` was passed and the commit succeeded, so signing is confirmed — fire the
 				// explicit-sign hook (same contract as the patch provider's `commit-tree -S` path).
@@ -287,11 +347,19 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const { branch, ...opts } = options ?? {};
 		let ran = false;
 		let fetched: FetchedRemotes | undefined;
+		let snapshot: { patterns: string[]; before: Map<string, string> | undefined } | undefined;
 		try {
 			if (isBranchReference(branch)) {
 				const resolved = await resolveBranchRemote(this.provider, repoPath, branch, runOptions?.cancellation);
 				if (resolved.remote == null) return;
 
+				// A pull fetch stores the upstream into the local branch (see `fetchCore`)
+				const patterns = await this.getFetchSnapshotPatterns(
+					repoPath,
+					resolved.remote,
+					options?.pull ? [`${resolved.upstream}:${resolved.name}`] : undefined,
+				);
+				snapshot = { patterns: patterns, before: await this.snapshotRefs(repoPath, patterns) };
 				ran = true;
 				await this.fetchCore(
 					repoPath,
@@ -305,6 +373,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					runOptions,
 				);
 			} else {
+				// A bare fetch reads its default remote, or all of them: every remote's refspecs cover either
+				const patterns = await this.getFetchSnapshotPatterns(repoPath, opts.remote, opts.refspecs);
+				snapshot = { patterns: patterns, before: await this.snapshotRefs(repoPath, patterns) };
 				ran = true;
 				await this.fetchCore(repoPath, opts, runOptions);
 				if (!opts.refspecs?.length) {
@@ -317,8 +388,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		} finally {
 			// A rejected fetch may have stored some of its refs before it failed
 			if (ran) {
-				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
-				this.context.hooks?.repository?.onChanged?.(repoPath, this.getFetchChanges(branch, options));
+				await this.announceFetch(repoPath, snapshot, () => this.getFetchChanges(branch, options));
 			}
 			if (fetched != null) {
 				void this.followRemoteHeads(repoPath, fetched);
@@ -394,6 +464,128 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		return remotes.length === 1 ? remotes[0].name : 'origin';
 	}
 
+	/**
+	 * The for-each-ref patterns covering every ref a fetch from `remote` (`undefined`: from any remote) may write: the
+	 * destinations of `refspecs`, those of the remote's configured `remote.<name>.fetch` refspecs (which a fetch of
+	 * explicit refspecs still updates opportunistically, and which may store into local branches, as a mirror's do),
+	 * and tags. A `remote` with no refspecs of its own may be a remote group (`remotes.<group>`), which fetches each of
+	 * its remotes, so every remote's destinations stand for it. When the configuration can't be read, all local and
+	 * remote-tracking branches stand for the configured destinations.
+	 */
+	private async getFetchSnapshotPatterns(
+		repoPath: string,
+		remote: string | undefined,
+		refspecs: readonly string[] | undefined,
+	): Promise<string[]> {
+		const destinations: string[] = [];
+		const add = (refspec: string): void => {
+			const destination = getRefspecDestination(refspec);
+			if (destination != null) {
+				destinations.push(destination);
+			}
+		};
+
+		for (const refspec of refspecs ?? []) {
+			add(refspec);
+		}
+
+		let configured: Map<string, string[]> | undefined;
+		try {
+			configured = await this.provider.config.getConfigRegexAll(repoPath, '^remote\\..+\\.fetch$');
+		} catch {
+			destinations.unshift(...broadFetchDestinations);
+		}
+		const ownKey = remote != null ? `remote.${remote}.fetch` : undefined;
+		const onlyKey = ownKey != null && configured?.has(ownKey) ? ownKey : undefined;
+		for (const [key, values] of configured ?? []) {
+			if (onlyKey != null && key !== onlyKey) continue;
+
+			for (const refspec of values) {
+				add(refspec);
+			}
+		}
+		return getFetchSnapshotPatterns(destinations);
+	}
+
+	/**
+	 * Announces what a fetch moved. Its refs are compared with the snapshot taken before it ran, so a fetch that
+	 * brought nothing new announces nothing (and resets nothing), and one that did names exactly the refs it moved,
+	 * letting every worktree that doesn't track them skip its refresh. When either snapshot is missing, it announces
+	 * `fallback()`'s kinds unnamed, as if every ref of them may have moved; when a ref moved outside the kinds an
+	 * announcement can name (`refs/notes/*`), the kinds it did see, together with `fallback()`'s, unnamed.
+	 */
+	private async announceFetch(
+		repoPath: string,
+		snapshot: { patterns: string[]; before: Map<string, string> | undefined } | undefined,
+		fallback: () => RepositoryChange[],
+	): Promise<void> {
+		const after = snapshot?.before != null ? await this.snapshotRefs(repoPath, snapshot.patterns) : undefined;
+
+		let changes: RepositoryChange[] | undefined;
+		let moved: string[] | undefined;
+		if (snapshot?.before != null && after != null) {
+			moved = getMovedRefs(snapshot.before, after);
+			if (!moved.length) return;
+
+			const kinds = new Set<RepositoryChange>();
+			let unnameable = false;
+			for (const ref of moved) {
+				const kind = ref.startsWith('refs/') ? getRefChangeKind(ref) : undefined;
+				if (kind != null) {
+					kinds.add(kind);
+				} else {
+					unnameable = true;
+				}
+			}
+			if (unnameable) {
+				for (const kind of fallback()) {
+					kinds.add(kind);
+				}
+				moved = undefined;
+			}
+			changes = fetchRefChangeKinds.filter(k => kinds.has(k));
+		}
+
+		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
+		if (changes != null && moved != null) {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes, moved);
+		} else {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes ?? fallback());
+		}
+	}
+
+	/**
+	 * Each ref under `patterns` (for-each-ref patterns) with its object and, for a symbolic ref, its target (a remote's
+	 * `HEAD` can move to another branch at the same commit), or `undefined` when git couldn't answer. A read, so it
+	 * announces nothing.
+	 */
+	private async snapshotRefs(
+		repoPath: string,
+		patterns: readonly string[],
+	): Promise<Map<string, string> | undefined> {
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, errors: 'ignore' },
+				'for-each-ref',
+				'--format=%(refname)%00%(objectname)%00%(symref)',
+				...patterns,
+			);
+			// `errors: 'ignore'` resolves a failed read empty, which would read as every ref deleted
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+
+			const refs = new Map<string, string>();
+			for (const line of result.stdout.split('\n')) {
+				const index = line.indexOf('\0');
+				if (index === -1) continue;
+
+				refs.set(line.substring(0, index), line.substring(index + 1).trim());
+			}
+			return refs;
+		} catch {
+			return undefined;
+		}
+	}
+
 	/** `remotes`, plus `heads`/`tags` for any local branch or tag the fetch writes — a `pull` fetch writes `<upstream>:<branch>` */
 	private getFetchChanges(
 		branch: GitBranchReference | undefined,
@@ -406,20 +598,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		const changes: RepositoryChange[] = ['remotes'];
 		for (const refspec of options.refspecs) {
-			const stripped = refspec.startsWith('+') ? refspec.slice(1) : refspec;
-			const colonIndex = stripped.indexOf(':');
-			if (colonIndex === -1) continue;
-
-			// Qualified as git's fetch does: an empty destination stores nothing, `heads/`/`tags/`/`remotes/`
-			// get `refs/`, and any other unqualified name is a local branch
-			let destination = stripped.slice(colonIndex + 1);
-			if (!destination) continue;
-
-			if (!destination.startsWith('refs/')) {
-				destination = /^(?:heads|tags|remotes)\//.test(destination)
-					? `refs/${destination}`
-					: `refs/heads/${destination}`;
-			}
+			const destination = getRefspecDestination(refspec);
+			if (destination == null) continue;
 
 			if (destination.startsWith('refs/tags/')) {
 				if (!changes.includes('tags')) {
@@ -550,15 +730,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(ref);
 
 		try {
-			try {
-				await this.git.run(
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					// Avoid a timeout since merges can take a long time (set to 0 to disable)
 					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
 					...args,
-				);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+				),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -607,7 +785,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				// Find the worktree where this branch is checked out (if any)
 				const worktree = await this.provider.worktrees?.getWorktree(
 					repoPath,
-					wt => wt.branch?.name === branch.name,
+					wt => wt.branchName === branch.name,
 				);
 				if (worktree != null) {
 					// Branch is checked out in a worktree — run git pull in that worktree's directory
@@ -1087,7 +1265,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					...args,
 				);
 			} finally {
-				this.announceHeadChanged(repoPath);
+				this.announceHeadChanged(repoPath, undefined, undefined, true);
 			}
 			return { conflicted: false };
 		} catch (ex) {
@@ -1128,12 +1306,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const scope = getScopedLogger();
 
 		try {
-			await this.resetCore(repoPath, rev, options?.mode, runOptions);
+			await this.runMovingHeadBranch(repoPath, () => this.resetCore(repoPath, rev, options?.mode, runOptions));
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
-		} finally {
-			this.announceHeadChanged(repoPath);
 		}
 	}
 
@@ -1260,15 +1436,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...refs);
 
 		try {
-			try {
-				await this.git.run(
+			await this.runMovingHeadBranch(repoPath, () =>
+				this.git.run(
 					// Avoid a timeout since reverts can take a long time (set to 0 to disable)
 					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
 					...args,
-				);
-			} finally {
-				this.announceHeadChanged(repoPath);
-			}
+				),
+			);
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -1326,13 +1500,61 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		);
 	}
 
-	/** Called once git has run, success or not — a rejected write can still have moved HEAD or left state behind */
-	private announceHeadChanged(repoPath: string, wroteTracking?: boolean): void {
+	/**
+	 * Called once git has run, success or not — a rejected write can still have moved HEAD or left state behind.
+	 * `moved` is the one branch the write could have moved, when it knows it, or `'detached'` when it moved a detached
+	 * HEAD and so no branch; `wroteTracking` says it wrote that branch's tracking, to its own config section.
+	 * `rewroteHead` says it rewrote the HEAD file (a checkout or rebase), as a detached HEAD's move always does: every other
+	 * worktree's watcher reports that as `worktreeHead`, so the kind is announced for them to take the report for the
+	 * write's own. A move of HEAD's branch alone (a commit) leaves the file be, and is announced without it.
+	 */
+	private announceHeadChanged(
+		repoPath: string,
+		moved?: HeadState,
+		wroteTracking?: boolean,
+		rewroteHead?: boolean,
+	): void {
+		if (moved === 'detached') {
+			// The worktree list carries this worktree's HEAD, which `heads` would otherwise have reset
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'index', 'worktrees', 'worktreeHead']);
+			return;
+		}
+
 		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-		this.context.hooks?.repository?.onChanged?.(
-			repoPath,
-			wroteTracking ? ['config', 'head', 'heads', 'index'] : ['head', 'heads', 'index'],
-		);
+
+		const changes: RepositoryChange[] = wroteTracking
+			? ['config', 'head', 'heads', 'index']
+			: ['head', 'heads', 'index'];
+		if (rewroteHead) {
+			changes.push('worktrees', 'worktreeHead');
+		}
+		if (moved == null) {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
+		} else if (wroteTracking) {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [moved.branch], {
+				configConfinedToRefs: true,
+			});
+		} else {
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes, [moved.branch]);
+		}
+	}
+
+	/**
+	 * Runs a write that moves only the branch HEAD is on (or no branch, on a detached HEAD), then announces it, success
+	 * or not. HEAD is read on both sides of the run: a hook or an outside `git switch` that moves it meanwhile leaves the
+	 * moved branch unknown, so then none is named.
+	 */
+	private async runMovingHeadBranch<T>(repoPath: string, write: () => Promise<T>): Promise<T> {
+		const before = await readHeadState(repoPath, this.context.fs, this.cache);
+		try {
+			return await write();
+		} finally {
+			this.announceHeadChanged(
+				repoPath,
+				getMovedHead(before, await readHeadState(repoPath, this.context.fs, this.cache)),
+			);
+		}
 	}
 
 	/** The caller has already announced the change — the conflict is what the failed run left behind */

@@ -4,11 +4,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-// `typescript-nightly` is the 7.x native compiler; its `unstable/sync` API is the only compiler API it exposes
-import { isInterfaceDeclaration, isTypeAliasDeclaration } from 'typescript-nightly/unstable/ast/is';
-import { API, SymbolFlags, TypeFlags } from 'typescript-nightly/unstable/sync';
-/** @import { SourceFile } from 'typescript-nightly/unstable/ast' */
-/** @import { Symbol, Type } from 'typescript-nightly/unstable/sync' */
+// `typescript-beta` is the 7.x native compiler; its `sync` API is the only compiler API it exposes
+import { isInterfaceDeclaration, isTypeAliasDeclaration } from 'typescript-beta/ast/is';
+import { API, SymbolFlags, TypeFlags } from 'typescript-beta/sync';
+/** @import { SourceFile } from 'typescript-beta/ast' */
+/** @import { Symbol, Type } from 'typescript-beta/sync' */
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
@@ -31,7 +31,7 @@ const remappedTypes = new Map([
 const api = new API();
 const tsconfigPath = path.join(__dirname, 'tsconfig.node.json');
 const parsedConfig = api.parseConfigFile(tsconfigPath);
-const program = api.createProgram(parsedConfig.fileNames, { compilerOptions: parsedConfig.options });
+const program = api.createProgram(parsedConfig.fileNames, parsedConfig.options);
 const project = program.getProject();
 const typeChecker = project.checker;
 

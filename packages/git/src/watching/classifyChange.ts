@@ -13,6 +13,7 @@ export const allWatchedRepositoryChanges: readonly RepositoryChange[] = [
 	'stash',
 	'remotes',
 	'worktrees',
+	'worktreeHead',
 	'config',
 	'cherryPick',
 	'merge',
@@ -25,6 +26,8 @@ export const allWatchedRepositoryChanges: readonly RepositoryChange[] = [
 
 const classifyRegex =
 	/(index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
+/** A ref, ref directory or ref lock in a namespace {@link classifyRegex} maps; of the locks, only the stash's counts */
+const watchedRefRegex = /^refs\/(?:heads|remotes|stash|tags|replace)(?:\/|\.lock$|$)/;
 
 /**
  * Maps a path relative to a `.git` directory to the corresponding
@@ -33,9 +36,10 @@ const classifyRegex =
  * to which logical repository changes.
  *
  * `worktrees` means the worktree list, or what `git worktree list` reports per worktree, changed:
- * `worktrees`, `worktrees/<n>` (add/remove/prune) and `worktrees/<n>/{HEAD,locked,gitdir}`. Any other
- * path under `worktrees/<n>/` (index, `*_HEAD`, `MERGE_*`, rebase state, logs, …) is that worktree's
- * own state, which its own gitdir watcher classifies, so it yields `undefined` here.
+ * `worktrees`, `worktrees/<n>` (add/remove/prune) and `worktrees/<n>/{HEAD,locked,gitdir}`. `worktrees/<n>/HEAD`
+ * is also `worktreeHead`: that worktree's HEAD moved, which can change what any worktree's git reads answer, where
+ * the rest changes only the list. Any other path under `worktrees/<n>/` (index, `*_HEAD`, `MERGE_*`, rebase state,
+ * logs, …) is that worktree's own state, which its own gitdir watcher classifies, so it yields `undefined` here.
  *
  * @param relativePath - Path relative to the common `.git` directory or a worktree's gitdir
  *   (e.g., `refs/heads/main`, `HEAD`, `config`, `worktrees/foo/HEAD`)
@@ -62,8 +66,23 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 			if (idEnd === -1) return relativePath.length > 10 ? ['worktrees'] : undefined;
 
 			const file = relativePath.substring(idEnd + 1);
-			return file === 'HEAD' || file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
+			if (file === 'HEAD') return ['worktrees', 'worktreeHead'];
+
+			return file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
 		}
+	}
+
+	// A ref outside the namespaces core reads (a tool's own, such as `refs/undo/*`) is no change, whatever words its
+	// name holds: `refs/kepler/x/fix-index` must not read as the index
+	if (relativePath.startsWith('refs/')) {
+		if (!watchedRefRegex.test(relativePath)) return undefined;
+
+		// A ref's lock file is no change of the ref (no ref name ends in `.lock`): git renames it over the ref, which
+		// reports the ref itself, or removes it with the ref unchanged, as every fetch does with
+		// `refs/remotes/<remote>/HEAD` to check the remote's default branch. Except the stash's: its entries are its
+		// reflog (`logs/`, unwatched), which `git reflog expire` (as `gc` runs it) and `git reflog delete` rewrite under
+		// that lock alone
+		if (relativePath.endsWith('.lock') && relativePath !== 'refs/stash.lock') return undefined;
 	}
 
 	const match = classifyRegex.exec(relativePath);

@@ -1,6 +1,8 @@
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WatchPollingOptions } from '@gitlens/git/watching/watchService.js';
+import type { WorktreeSummaryServiceOptions } from '@gitlens/git/watching/worktreeSummary.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderOptions } from './cliGitProvider.js';
 import { CliGitProvider } from './cliGitProvider.js';
 import type { GitLocation } from './exec/locator.js';
@@ -32,6 +34,9 @@ export interface CliGitServiceOptions {
 	/** Use an existing Cache instance, or one will be created */
 	cache?: CliGitProviderOptions['cache'];
 
+	/** Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist */
+	ignoredWorktreeFolders?: CliGitProviderOptions['ignoredWorktreeFolders'];
+
 	/**
 	 * Filesystem watching provider. When provided, the {@link GitService}
 	 * will watch repositories for changes (file creates, edits, deletes).
@@ -43,6 +48,9 @@ export interface CliGitServiceOptions {
 	 * watcher is asked.
 	 */
 	watchPolling?: WatchPollingOptions;
+
+	/** For tests only; production never passes it (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`) */
+	verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 }
 
 /**
@@ -65,7 +73,14 @@ export interface CliGitServiceOptions {
  * ```
  */
 export function createCliGitService(options: CliGitServiceOptions): GitService {
-	const service = GitService.createSingleton(options.watchingProvider, { watchPolling: options.watchPolling });
+	const service = GitService.createSingleton(options.watchingProvider, {
+		watchPolling: options.watchPolling,
+		verifyBaseRemeasure: options.verifyBaseRemeasure,
+		// The host's file system reads the shared `.git/config` the watch service compares reports of
+		readFile: path => options.context.fs.readFile(fileUri(path)),
+		// And lists the directory the admin entries of its worktrees are in
+		readDirectory: path => options.context.fs.readDirectory(fileUri(path)),
+	});
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
 	const provider = new CliGitProvider({
@@ -73,6 +88,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		locator: locator,
 		gitOptions: options.gitOptions,
 		cache: options.cache,
+		ignoredWorktreeFolders: options.ignoredWorktreeFolders,
 	});
 
 	service.register(provider, () => true);

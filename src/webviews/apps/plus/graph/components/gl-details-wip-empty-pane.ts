@@ -192,7 +192,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			});
 			steps.push({
 				icon: 'add',
-				label: l10n.t('Add a remote and publish {branch} to it', { branch: branch.name }),
+				label: l10n.t('Add a remote, then publish {branch} to it', { branch: branch.name }),
 				actionLabel: l10n.t('Add Remote'),
 				onClick: () => this.emit('add-remote'),
 			});

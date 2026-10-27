@@ -214,7 +214,8 @@ The hosts with a cheap check select only the change state:
   comment or a label, which its full row doesn't carry either, or a vote that keeps the reviewer's state, such as an
   approval becoming an approval with suggestions. A hash collision is the only way an edit it does see can hide,
   at about 2^-64. An Azure DevOps pull request etag from before the revision existed compares unequal once and costs
-  one full read.
+  one full read. A pull request or work item row marked `viewerUnresolved` (see `viewer` and `viewerUnresolved` below)
+  never compares unchanged, so it is read in full again rather than kept without its viewer until it changes.
 - **Bitbucket Cloud:** one list request per repository per 50 pull requests, by id and in every state, where the
   full read sends one request per pull request. A pull request missing from the list is proven absent, as the full
   read's 404 would prove it. Bitbucket Cloud's rows carry no mergeability or check rollup, so its etag
@@ -281,7 +282,25 @@ and `latestReviews` carry the collection's. So the pull request reads resolve th
 row whose `authoredByMe` was resolved also carries `viewer`, the identity it was matched against: per collection on
 Azure DevOps Server, the account itself everywhere else. To tell whether a review was requested from the current
 user, or which review is theirs, compare the reviewer entries against `viewer`, not against `getCurrentAccount`. A row
-whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`.
+whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`; on Azure
+DevOps it also says so (see `viewerUnresolved` below).
+
+Azure DevOps (Services, per organization) and Azure DevOps Server (per collection) work items carry `viewer` the same
+way: the identity a work item's `author` and `assignees` were read with, which is what "assigned to me" and "authored
+by me" compare against. Every other provider's issues have none, and are matched against `getCurrentAccount`.
+
+On Azure DevOps and Azure DevOps Server, that identity is read from the organization's `ConnectionData`, which a read
+that only enriches its rows with it waits on for at most 10 seconds. When that read fails, answers without an identity
+or doesn't answer in time, a pull request or work item row that names someone carries `viewerUnresolved: true` instead
+of `viewer` (and, on a pull request, `authoredByMe`): nobody can be matched against its people, `getCurrentAccount`
+included, since on those hosts that account's id is the one that may not match. Treat such a row's "mine" questions as
+unknown, not as "no". A later read resolves it once the organization answers; one that never does stays unresolved until
+its request fails at the transport (the host's `fetch` timeout; about 5 minutes on Node's) or the connection re-syncs,
+since reads don't wait on the same hung request again. `viewerUnresolved` is set on no other row, so a row with neither
+field still means what it did: a provider with no per-row identity, or a read that resolved none for another reason. The
+account-wide pull request reads (`listPullRequestsPage` and the sweeps without `repos`) and a relationship search are
+different: they need the identity to filter by, so they wait on it without that bound, and an organization whose
+identity can't be read is reported as a failed scope with its rows left out, never as marked rows.
 
 ### Field presence
 
@@ -314,9 +333,9 @@ reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
 the identity it was matched against) and `stack`. `statusCheckRollupState`, `commitCount` and `viewerCanUpdate` live on
-the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`),
-`assignees`, `labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`) and `access`
-(`repository.accessLevel`).
+the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`, and
+`bodyField` where the provider sets it, so take both from the same row), `assignees`, `labels`, `comments`
+(`commentsCount`), `reactions` (`thumbsUpCount`) and `access` (`repository.accessLevel`).
 
 Each table below covers a cloud host and its self-managed variant: where a cell reads `cloud / self-managed` the two
 differ, and `—` means that host never produces the tag.
@@ -757,11 +776,15 @@ prove from structured errors:
 | `other`            | Catch-all: malformed or contradictory input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure.                         | Preserve the warning and use the result flags; do not assume it is benign or non-retryable.                   |
 
 An `unreadable-items` warning carries `unreadableItems: { keys, complete }`: the identifiers of the items left out (Jira
-issue keys), and whether `keys` names all of them. `complete` is `false` when the provider named only some (Jira names
-at most ten per page) or named one by its position, so an identifier absent from `keys` is proven read only when every
-such warning is `complete`. The read still sets `fetchFailed`, but it retracts no omission: no request failed. On an
-issue tracker's project reads it never stands for a read that was also cut short: a project or relationship stopped
-by the page backstop, a stalled continuation or a failed page always adds a warning of another kind for it.
+issue keys), and whether `keys` names all of them. `complete` is `false` when an item left out had no key to report,
+when the provider's report of them was malformed (no list of keys, or more than keys in it), or when it said items were
+left out and named none, so an identifier absent from `keys` is proven read only when every such warning is `complete`;
+one present in `keys` was reported as skipped. Both hold for the spelling the provider returned only, which is also how
+a published issue's id spells its key: `keys` doesn't answer a lookup by another case or by a key the issue had before
+it moved, so a consumer comparing a key from elsewhere (one parsed from a branch name, say) normalizes the case of both
+sides. The read still sets `fetchFailed`, but it retracts no omission: no request failed. On an issue tracker's project
+reads it never stands for a read that was also cut short: a project or relationship stopped by the page backstop, a
+stalled continuation or a failed page always adds a warning of another kind for it.
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.
@@ -922,6 +945,20 @@ its repository resolves `undetermined`, as before. Neither the confirming read n
 reauthentication prompt (`onReauthenticationRequired`): an organization's restriction is not fixed by
 reauthenticating, and a credential the check refuses is reported by the resolution itself, as an unscoped `auth`
 warning.
+
+Two causes name a failure that isn't the credential's, so they come on a `kind: 'other'` warning instead, scoped or
+not, and need no confirmed credential:
+
+| `cause.reason`        | Means                                                                                                                                                                                                                   | Fixed by                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `unreachable`         | A transport failure (connection refused, DNS, timeout, TLS) or a `5xx` kept the provider from answering.                                                                                                                | A retry once the server is reachable again; reconnecting doesn't help.       |
+| `unexpected-response` | The provider, or a gateway in front of it, answered with a 2xx whose JSON isn't the shape the read expects (a JSON error body, `{}`, `null`), e.g. on Jira Cloud's site list, Trello's boards or Linear's organization. | A retry once the provider answers properly again; reconnecting doesn't help. |
+
+A page served instead of data keeps its own message, with no cause. `unexpected-response` is only named where the failed
+read goes through core's provider error handling. Two kinds of failure still carry the error's text and no cause: a
+scope that one of provider-apis' own fan-outs fails (GitLab issues or pull requests when core hands it several
+repositories at once, Bitbucket Data Center pull requests), and the current-user lookup a repository-scoped read makes
+to filter by the user.
 
 ### `omission` — succeeded, but withheld results
 
@@ -1267,8 +1304,8 @@ Linear reports its canceled and duplicate states as `CANCELED`.
 Azure DevOps reports a state in its `Removed` category as `CANCELED`, `Completed` and `Resolved` as `DONE`,
 `InProgress` as `IN_PROGRESS` and `Proposed` as `TO_DO`. No work item read carries the category, so every one (by id,
 the cheap etag check and the project list, on Azure DevOps Server too) classifies its rows from their type's states
-(`GET …/_apis/wit/workItemTypes/{type}/states?api-version=6.0-preview.1`, the preview version Azure DevOps Server 2020
-requires), keyed on the raw `System.State`, and caches each read for five minutes per host, project, type and
+(`GET …/_apis/wit/workItemTypes/{type}/states`, with a version selected from the installation's REST resource metadata;
+Services and Server 2020 use `6.0-preview.1`), keyed on the raw `System.State`, and caches each read for five minutes per host, project, type and
 credential. The category, never the name, decides: a state named `Canceled` in the `Completed` category is `DONE`, and
 a state its type doesn't list has no category. When a states read fails, a project list keeps its rows (the failed
 type's without a category) and reports the project as a partial collection with a failure scoped to it; a read by id
@@ -1278,14 +1315,25 @@ or resolved dates. Failed workflows fall back to dates with partial metadata; fa
 before retrying. List, identity and native presentation reads share one cache, including workflow expiry and HTTP
 proxy invalidation.
 
+TFS 2018 uses its advertised REST versions and collection-level work item routes. A work item must report the
+requested project, so a collection-level read cannot answer for another project's coordinate. If the type's states
+omit categories, core supplements them from the project's `backlogconfiguration.workItemTypeMappedStates`, using
+only explicit type/state pairs. Unmapped states, including Removed on some processes, remain unknown; neither
+state names, colors nor absence from the backlog imply a category. A point or etag read of such a state fails.
+Project lists retain mapped row categories and report incomplete workflows as partial collections; selection for
+an incomplete workflow retains the SDK's date fallback. Exact state-filtered searches and counts refuse incomplete
+workflow metadata. `criteria.state: 'all'` skips that selection requirement, although search hydration still fails
+if a returned row's state has no category. Legacy identity strings remain opaque values, never inferred GUIDs.
+
 `listIssuesPage` accepts `state: 'open' | 'closed' | 'all'` for Azure DevOps Services and Server, on repository,
 project and account-wide reads. Omitted means open only. `getSupportedFilters(providerId).issueStates` declares this
 capability. Other git hosts retain their open-only list default and refuse non-open state requests on this facade.
 
 A known Azure workflow category determines normalized `state` and `closed`, with `CANCELED` closing like `DONE`.
 A historical closed date remains available as data but does not close an issue whose category is now open.
-Identity and list reads fall back to the closed date only when the category is unknown. Other providers keep their
-existing derivation.
+Identity and list reads fall back to the closed date only when the category is unknown. Legacy workflows that
+needed backlog mappings instead refuse point reads and cheap etag checks for an absent or uncategorized current
+state, even when all returned states received mappings. Other providers keep their existing derivation.
 
 ### Sprints and iterations
 
@@ -1319,9 +1367,21 @@ while GitHub, GitLab, and Linear descriptions are Markdown. Jira issues therefor
 `bodyFormat: 'jira-wiki'`; an omitted `bodyFormat` means consumers should preserve the existing behavior and treat
 `body` as Markdown. The `'markdown'` value is reserved for providers that need to make that format explicit.
 
-Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items (`System.Description`) and Bitbucket
-Cloud issues (`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before
-treating either as Markdown.
+Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items and Bitbucket Cloud issues
+(`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before treating either
+as Markdown.
+
+An Azure DevOps work item's body is its first rich text field with content: `System.Description`, then the built-in
+description fields (`Microsoft.VSTS.TCM.ReproSteps`, `Microsoft.VSTS.Common.AcceptanceCriteria`,
+`Microsoft.VSTS.CMMI.Symptom`), then additional HTML fields declared by the organization's field catalog, custom fields
+first. Every read uses provider-apis' shared selector. `bodyField` names the selected field
+(`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`) so a host can label the body; it is absent when no body
+is available and for other providers. The catalog is read only when no built-in field describes the work item, and
+kept for an hour per organization, credential and client (provider-apis keeps its own for list rows). An unavailable
+or malformed catalog leaves the body to the built-in fields rather than failing the work item; the caller's
+cancellation still propagates.
+An empty Description is preserved when no field has visible content. Direct reads share a catalog cache scoped to
+the installation, collection, credential and authentication mode, cleared on HTTP proxy changes.
 
 Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
 Markdown by this package.
@@ -1406,7 +1466,10 @@ Markdown by this package.
     replaces it. A continuation whose snapshot is gone is refused (warning + `fetchFailed`) rather than resumed
     against a fresh query, where an item moved by the `updated` order could be skipped. Restart without the cursor.
     A cursor is bound to its query and refused under another one. `page` without a cursor walks from page 1 against
-    a fresh query. Requests use REST `api-version=5.0`, so Azure DevOps Server 2019 or later is required.
+    a fresh query. Requests negotiate REST versions from the installation's resource metadata, including TFS 2018.
+    Exact state-filtered searches and counts require complete workflow categories; `state: 'all'` skips that
+    selection requirement, but every hydrated row in a legacy workflow that needed backlog mappings still needs an
+    authoritative category.
   - **Pull requests** (`searchPullRequestsPage` / `countPullRequests`) drain every facet — each repository, or each
     project of the `org` (every visible project when only relationships bound the search), times each
     relationship — reading up to 1,000 pull requests per facet, then apply text, draft and dates, union by repository

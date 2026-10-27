@@ -367,9 +367,11 @@ suite('BranchesSubProvider — partial batch delete', () => {
 
 			await assert.rejects(hookedRepo.provider.branches.deleteLocalBranch(hookedRepo.path, ['gone', 'kept']));
 
-			assert.ok(
-				onChanged.calledWith(hookedRepo.path, ['config', 'heads']),
-				'a partial delete that removed a branch must fire the heads change',
+			// Naming only the branch that went: the watcher takes a report of a named ref for the write's own echo
+			assert.deepStrictEqual(
+				onChanged.lastCall?.args,
+				[hookedRepo.path, ['config', 'heads'], ['refs/heads/gone'], { configConfinedToRefs: true }],
+				'a partial delete that removed a branch must fire the heads change, naming only that branch',
 			);
 			assert.ok(onReset.calledWith(hookedRepo.path, 'branches'), 'and reset the branches cache');
 		} finally {
@@ -413,7 +415,13 @@ suite('BranchesSubProvider — config-writing writes announce config', () => {
 			onChanged.resetHistory();
 
 			await hookedRepo.provider.branches.setUpstreamBranch(hookedRepo.path, 'main', undefined);
-			assert.ok(onChanged.calledWith(hookedRepo.path, ['config', 'heads']));
+			// The upstream is the branch's own config section, so it names the branch and confines the change to it
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['config', 'heads'],
+				['refs/heads/main'],
+				{ configConfinedToRefs: true },
+			]);
 
 			onChanged.resetHistory();
 			await hookedRepo.provider.config.setConfig(hookedRepo.path, 'user.name', 'Someone');
@@ -423,7 +431,7 @@ suite('BranchesSubProvider — config-writing writes announce config', () => {
 		}
 	});
 
-	test('createBranch and createWorktree announce config only from a remote-tracking start point', async () => {
+	test('createBranch announces config, confined to the branch, only from a remote-tracking start point; createWorktree never announces it', async () => {
 		const onChanged = sinon.spy();
 		const hookedRepo = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
 		const worktrees: string[] = [];
@@ -435,33 +443,83 @@ suite('BranchesSubProvider — config-writing writes announce config', () => {
 			const { branches } = hookedRepo.provider;
 
 			await branches.createBranch(hookedRepo.path, 'from-remote', 'origin/main');
-			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['config', 'heads']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['config', 'heads'],
+				['refs/heads/from-remote'],
+				{ configConfinedToRefs: true },
+			]);
 
 			await branches.createBranch(hookedRepo.path, 'from-remote-untracked', 'origin/main', { noTracking: true });
-			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['heads']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['heads'],
+				['refs/heads/from-remote-untracked'],
+			]);
 
 			await branches.createBranch(hookedRepo.path, 'from-local', 'main');
-			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['heads']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['heads'], ['refs/heads/from-local']]);
 
 			const remoteWorktree = `${hookedRepo.path}-wt-remote`;
 			worktrees.push(remoteWorktree);
+			const onReset = sinon.spy(hookedRepo.provider.cache, 'evictCaches');
 			await hookedRepo.provider.worktrees.createWorktree(hookedRepo.path, remoteWorktree, {
 				createBranch: 'wt-remote',
 				commitish: 'refs/remotes/origin/main',
 			});
-			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['config', 'worktrees', 'heads']]);
+			// Git may write repository-wide keys beside the tracking, so the write leaves `config` to the watcher's report
+			// of the file, and only evicts what it cached of it
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['worktrees', 'worktreeHead', 'heads'],
+				['refs/heads/wt-remote'],
+			]);
+			assert.ok(onReset.calledWith(hookedRepo.path, 'branches', 'config', 'worktrees'));
+			onReset.restore();
 
 			const localWorktree = `${hookedRepo.path}-wt-local`;
 			worktrees.push(localWorktree);
 			await hookedRepo.provider.worktrees.createWorktree(hookedRepo.path, localWorktree, {
 				createBranch: 'wt-local',
 			});
-			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['worktrees', 'heads']]);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['worktrees', 'worktreeHead', 'heads'],
+				['refs/heads/wt-local'],
+			]);
 		} finally {
 			hookedRepo.cleanup();
 			for (const path of worktrees) {
 				rmSync(path, { recursive: true, force: true });
 			}
+		}
+	});
+
+	test('renameBranch and deleteLocalBranch name the refs they move', async () => {
+		const onChanged = sinon.spy();
+		const hookedRepo = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
+		try {
+			createBranch(hookedRepo.path, 'old-name');
+			createBranch(hookedRepo.path, 'other');
+			const { branches } = hookedRepo.provider;
+
+			await branches.renameBranch(hookedRepo.path, 'old-name', 'new-name');
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['config', 'heads'],
+				['refs/heads/old-name', 'refs/heads/new-name'],
+				{ configConfinedToRefs: true },
+			]);
+
+			await branches.deleteLocalBranch(hookedRepo.path, ['new-name', 'other'], { force: true });
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				hookedRepo.path,
+				['config', 'heads'],
+				['refs/heads/new-name', 'refs/heads/other'],
+				{ configConfinedToRefs: true },
+			]);
+		} finally {
+			hookedRepo.cleanup();
 		}
 	});
 });

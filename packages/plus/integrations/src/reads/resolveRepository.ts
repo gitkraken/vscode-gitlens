@@ -9,6 +9,7 @@ import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { getAzureRepositoryIdentity } from '../providers/azure/azure.utils.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 import type { ProviderWarning, RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';
@@ -258,7 +259,10 @@ export async function resolveRepository(
 				const failure = await integration.settleRepositoryRefusal(
 					{
 						owner: owner,
-						name: project != null ? getAzureRepositoryName(name) : name,
+						name:
+							project != null
+								? getAzureRepositoryIdentity({ owner: owner, name: name }).repositoryName
+								: name,
 						project: project,
 						connectionId: connectionId,
 					},
@@ -286,11 +290,6 @@ export async function resolveRepository(
 		}
 		return { resolution: resolution };
 	}
-}
-
-/** The repository an Azure remote's `{project}/_git/{repo}` name addresses, as a batch target names it. */
-function getAzureRepositoryName(name: string): string {
-	return /\/_git\/([^/]+)$/i.exec(name)?.[1] ?? name;
 }
 
 /** Whether `path` is `{x}/_git/{repo}`, the Azure repository path the remote parser reads without a project segment. */

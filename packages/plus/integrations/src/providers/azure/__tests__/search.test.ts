@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderPullRequest } from '../../models.js';
 import {
@@ -26,11 +27,31 @@ function pr(overrides: Partial<ProviderPullRequest>): ProviderPullRequest {
 	return fields as ProviderPullRequest;
 }
 
+const workflows: ReadonlyMap<string, AzureWorkItemTypeStates> = new Map([
+	[
+		'Project',
+		{
+			types: [
+				{
+					name: 'Task',
+					states: [
+						{ name: 'New', category: 'Proposed' },
+						{ name: 'Removed', category: 'InProgress' },
+						{ name: 'Resolved', category: 'Resolved' },
+						{ name: 'Done', category: 'Completed' },
+						{ name: 'Descartado', category: 'Removed' },
+					],
+				},
+			],
+		},
+	],
+]);
+
 suite('Azure work item search WIQL', () => {
 	test('defaults to open work items in the whole collection, ordered by last change with a total tiebreaker', () => {
 		assert.equal(
-			toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined),
-			"SELECT [System.Id] FROM WorkItems WHERE [Microsoft.VSTS.Common.ClosedDate] = '' AND [Microsoft.VSTS.Common.ResolvedDate] = '' ORDER BY [System.ChangedDate] Desc, [System.Id] Desc",
+			toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined, workflows),
+			"SELECT [System.Id] FROM WorkItems WHERE (([System.TeamProject] = 'Project' AND [System.WorkItemType] = 'Task' AND [System.State] IN ('New', 'Removed'))) ORDER BY [System.ChangedDate] Desc, [System.Id] Desc",
 		);
 	});
 
@@ -39,6 +60,7 @@ suite('Azure work item search WIQL', () => {
 			{ relationships: ['authored', 'assigned', 'authored'] },
 			'created:asc',
 			undefined,
+			workflows,
 		);
 		assert.match(wiql, /AND \(\[System\.CreatedBy\] = @Me OR \[System\.AssignedTo\] = @Me\) ORDER BY/);
 		assert.match(wiql, /ORDER BY \[System\.CreatedDate\] Asc, \[System\.Id\] Desc$/);
@@ -62,23 +84,64 @@ suite('Azure work item search WIQL', () => {
 		);
 	});
 
-	test('selects closed work items by either terminal date', () => {
+	test('selects all terminal categories, including Removed without requiring a terminal date', () => {
 		assert.match(
-			toAzureWorkItemSearchWiql({ state: 'closed', relationships: ['unassigned'] }, 'closed:desc', undefined),
-			/WHERE \(\[Microsoft\.VSTS\.Common\.ClosedDate\] <> '' OR \[Microsoft\.VSTS\.Common\.ResolvedDate\] <> ''\) AND \(\[System\.AssignedTo\] = ''\)/,
+			toAzureWorkItemSearchWiql(
+				{ state: 'closed', relationships: ['unassigned'] },
+				'updated:desc',
+				undefined,
+				workflows,
+			),
+			/WHERE \(\(\[System\.TeamProject\] = 'Project' AND \[System\.WorkItemType\] = 'Task' AND \[System\.State\] IN \('Resolved', 'Done', 'Descartado'\)\)\) AND \(\[System\.AssignedTo\] = ''\)/,
 		);
 	});
 
 	test('refuses a relationship, sort or date it cannot express rather than widening the query', () => {
-		assert.throws(() => toAzureWorkItemSearchWiql({ relationships: ['mentioned'] }, 'updated:desc', undefined));
-		assert.throws(() => toAzureWorkItemSearchWiql(undefined, 'priority:desc', undefined));
+		assert.throws(() =>
+			toAzureWorkItemSearchWiql({ relationships: ['mentioned'] }, 'updated:desc', undefined, workflows),
+		);
+		assert.throws(() => toAzureWorkItemSearchWiql(undefined, 'priority:desc', undefined, workflows));
 		for (const date of ['2026-02-30', '02/01/2026', "2026-01-01' OR 1=1 OR '"]) {
-			assert.throws(() => toAzureWorkItemSearchWiql({ updatedAfter: date }, 'updated:desc', undefined), date);
+			assert.throws(
+				() => toAzureWorkItemSearchWiql({ updatedAfter: date }, 'updated:desc', undefined, workflows),
+				date,
+			);
 		}
 	});
 
+	test('selects nothing when no workflow states match, and refuses missing or incomplete metadata', () => {
+		assert.match(
+			toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined, new Map()),
+			/WHERE \[System.Id\] = 0 ORDER BY/,
+		);
+		assert.throws(() => toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined));
+		for (const workflow of [
+			{ types: [{ name: 'Task' }] },
+			{ types: [], metadata: { completeness: 'partial' as const } },
+			{ types: [{ name: 'Task', states: [{ name: 'Mystery', category: 'Unknown' }] }] },
+		]) {
+			assert.throws(() =>
+				toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined, new Map([['Project', workflow]])),
+			);
+		}
+	});
+
+	test('keeps state names scoped to their project and type, escaping metadata literals', () => {
+		const scoped = new Map([
+			["A's", { types: [{ name: "Bug's", states: [{ name: "Can't do", category: 'Removed' }] }] }],
+			['B', { types: [{ name: 'Task', states: [{ name: "Can't do", category: 'InProgress' }] }] }],
+		]);
+		const wiql = toAzureWorkItemSearchWiql({ state: 'closed' }, 'updated:desc', undefined, scoped);
+		assert.match(
+			wiql,
+			/\[System.TeamProject\] = 'A''s' AND \[System.WorkItemType\] = 'Bug''s' AND \[System.State\] IN \('Can''t do'\)/,
+		);
+		assert.doesNotMatch(wiql, /TeamProject\] = 'B'/);
+		assert.doesNotMatch(wiql, /ClosedDate|ResolvedDate/);
+	});
+
 	test('binds a cursor to its query and refuses a foreign or malformed one', () => {
-		const wiql = toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined);
+		const wiql = toAzureWorkItemSearchWiql(undefined, 'updated:desc', undefined, workflows);
 		const key = toAzureWorkItemSearchCursorKey('Collection', wiql);
 		assert.notEqual(key, toAzureWorkItemSearchCursorKey('Other', wiql));
 		assert.deepEqual(

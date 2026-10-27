@@ -193,12 +193,36 @@ export interface IssueShape extends IssueOrPullRequest {
 	 * work items and Bitbucket Cloud issues carry HTML with no `bodyFormat` set.
 	 */
 	bodyFormat?: IssueBodyFormat;
+	/**
+	 * The provider field `body` was read from, for providers whose issues keep it in different fields: an Azure
+	 * DevOps work item's type decides it (Description, Repro Steps on a Bug, a custom field on an inherited process).
+	 * Absent when the provider has a single body field, or there is no body.
+	 */
+	bodyField?: IssueBodyField;
 	project?: IssueProject;
 	issueType?: string;
 	/** An issue can belong to several Jira sprints; Azure reports one iteration. */
 	iterations?: IssueIteration[];
 	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */
 	readonly projection?: IssueProjection;
+	/**
+	 * The current account as this issue's members identify it, present only where that can differ from the account
+	 * `getCurrentAccount` returns: Azure DevOps can know one person by another id in each organization (Azure DevOps
+	 * Server: collection) than the account's, and a work item's {@link author} and {@link assignees} carry the
+	 * organization's. A consumer matching them to the current user compares against this when present, and against
+	 * the account otherwise, unless {@link viewerUnresolved} is set. Absent on every other provider, and on an Azure
+	 * DevOps row whose organization's identity couldn't be read.
+	 */
+	readonly viewer?: { readonly id: string; readonly username?: string };
+	/**
+	 * Set, and only ever `true`, on an Azure DevOps row that names someone ({@link author} or {@link assignees}) whose
+	 * organization's (Azure DevOps Server: collection's) identity the read tried and failed to resolve: its
+	 * `ConnectionData` failed, answered without an identity, or didn't answer within 10 seconds. Such a row has no
+	 * {@link viewer}, and neither the account `getCurrentAccount` returns nor anyone else can be matched against its
+	 * people: whether it is the current user's is unknown, not "no". Absent everywhere else, so a row with neither
+	 * field is still one whose provider has no per-row identity, matched against the account.
+	 */
+	readonly viewerUnresolved?: true;
 }
 
 @loggable(i => i.id)
@@ -214,7 +238,7 @@ export class Issue implements IssueShape {
 		public readonly createdDate: Date,
 		public readonly updatedDate: Date,
 		public readonly closed: boolean,
-		public readonly state: IssueOrPullRequestState,
+		public readonly state: IssueOrPullRequestState | undefined,
 		public readonly author: IssueMember | undefined,
 		public readonly assignees: IssueMember[],
 		public readonly repository?: IssueRepository,
@@ -230,6 +254,9 @@ export class Issue implements IssueShape {
 		public readonly bodyFormat?: IssueBodyFormat,
 		public readonly iterations?: IssueIteration[],
 		public readonly projection?: IssueProjection,
+		public readonly bodyField?: IssueBodyField,
+		public readonly viewer?: { readonly id: string; readonly username?: string },
+		public readonly viewerUnresolved?: true,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
@@ -238,6 +265,13 @@ export class Issue implements IssueShape {
 }
 
 export type IssueBodyFormat = 'markdown' | 'jira-wiki';
+
+export interface IssueBodyField {
+	/** The provider's id for the field, e.g. `Microsoft.VSTS.TCM.ReproSteps`. */
+	readonly id: string;
+	/** The field's display name, e.g. `Repro Steps`. */
+	readonly name: string;
+}
 
 export const enum RepositoryAccessLevel {
 	Admin = 100,

@@ -87,5 +87,41 @@ suite('Worktree Parser Test Suite', () => {
 
 			assert.strictEqual(worktrees[1].prunable, 'gitdir\nmissing é');
 		});
+
+		test('carries the porcelain branch name even when no matching branch is known', () => {
+			const data = buildPorcelain(
+				mainWorktree,
+				'worktree /repo/wt\nHEAD 2222222222222222222222222222222222222222\nbranch refs/heads/feature/new',
+			);
+
+			const worktrees = parseGitWorktrees(data, '/repo', []);
+
+			assert.strictEqual(worktrees[1].branchName, 'feature/new');
+			assert.strictEqual(worktrees[1].branch, undefined);
+		});
+
+		test('has no branch name for detached and bare entries', () => {
+			const data = buildPorcelain(
+				'worktree /repo.git\nbare',
+				'worktree /repo/wt\nHEAD 2222222222222222222222222222222222222222\ndetached',
+			);
+
+			const worktrees = parseGitWorktrees(data, '/repo', []);
+
+			assert.strictEqual(worktrees[0].branchName, undefined);
+			assert.strictEqual(worktrees[1].branchName, undefined);
+		});
+
+		test('has no branch name for a HEAD outside refs/heads/', () => {
+			const data = buildPorcelain(
+				mainWorktree,
+				'worktree /repo/wt\nHEAD 2222222222222222222222222222222222222222\nbranch refs/remotes/origin/main',
+			);
+
+			const worktrees = parseGitWorktrees(data, '/repo', []);
+
+			assert.strictEqual(worktrees[1].branchName, undefined);
+			assert.strictEqual(worktrees[1].type, 'branch');
+		});
 	});
 });

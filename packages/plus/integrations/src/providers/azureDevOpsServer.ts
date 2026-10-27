@@ -1,7 +1,7 @@
 import type { CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
@@ -18,6 +18,7 @@ import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { RepositoryCoordinate } from '../models/gitHostIntegration.js';
 import type {
 	IntegrationKey,
 	ProviderIssueSearchPage,
@@ -25,6 +26,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
+import { getAzureRepositoryIdentity } from './azure/azure.utils.js';
 import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
 import {
@@ -42,7 +44,6 @@ import {
 	AzureDevOpsIntegrationBase,
 	findAzureRepositoryApiBaseUrl,
 	getAzureRepositoryApiBaseUrl,
-	getAzureRepositoryIdentity,
 	getAzureScopeVirtualDirectory,
 	isAzureProjectlessCandidate,
 	markMyGroupReviews,
@@ -61,9 +62,9 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
-	isNativePullRequest,
 	providersMetadata,
 	PullRequestFilter,
+	pullRequestNamesPeople,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
@@ -140,6 +141,8 @@ const pullRequestCountReuseTtl = 60 * 1000;
 interface AzurePullRequestSearchRow {
 	pr: ProviderPullRequest;
 	project: AzureProjectDescriptor;
+	collection: string;
+	/** The identity a relationship filter resolved in {@link collection}; without one, each page resolves it. */
 	currentAccount: { id: string } | undefined;
 	position: AzurePullRequestSearchPosition;
 }
@@ -255,14 +258,21 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	}
 
 	/**
-	 * The collection names per credential and installation, `undefined` when they couldn't be read. Only a
+	 * The collection names per credential and installation, `undefined` when they couldn't be read, and whether the
+	 * address is then presumed to name a collection ({@link requestResourcesForUser}). Only a
 	 * tie-breaker for {@link getRepositoryTarget}, so a failed read is kept (for {@link discoveryCacheTtl}) rather than
 	 * retried on every repository read; a successful one comes from the organizations, which are kept for the session.
 	 */
-	private readonly _collectionNames = new PromiseCache<string, string[] | undefined>({
+	private readonly _collectionNames = new PromiseCache<
+		string,
+		{ names: string[] | undefined; addressesCollection?: boolean }
+	>({
 		capacity: 10,
 		createTTL: discoveryCacheTtl,
 	});
+
+	/** The failures to read the collection an address names after its collection list answered with a 404. */
+	private readonly _collectionListRefusals = new WeakSet<object>();
 
 	/**
 	 * Settles which segment of a remote's path is the collection before reading the repository. Behind a virtual
@@ -287,6 +297,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	/**
 	 * The repository {@link getRepositoryTarget} reads `repo` as, and the base it reads it below: `undefined` when the
 	 * connection doesn't serve its virtual directory (another installation's) or that directory isn't a valid one.
+	 * `isCandidate` is whether `repo` can be project-less below the connection ({@link isAzureProjectlessCandidate} by
+	 * default), given whether the connection is known to address a collection rather than the installation.
 	 */
 	private async settleRepository<
 		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
@@ -294,20 +306,27 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		session: ProviderAuthenticationSession,
 		repo: T,
 		cancellation?: AbortSignal,
+		isCandidate?: (belowCollection: boolean) => boolean,
 	): Promise<{ repo: T; baseUrl: string | undefined; unsettled: boolean }> {
 		const baseUrl = this.apiBaseUrlFor(session);
+		const candidate =
+			isCandidate ?? (belowCollection => isAzureProjectlessCandidate(baseUrl, repo, belowCollection));
 		let unsettled = false;
-		if (isAzureProjectlessCandidate(baseUrl, repo)) {
+		if (candidate(false)) {
 			// The discovery is shared, so it takes no signal: one caller's abort must neither cancel it for the others
 			// nor be kept as its result.
-			const names = this._collectionNames.getOrCreate(this.discoveryKey(session), () =>
+			const discovery = this._collectionNames.getOrCreate(this.discoveryKey(session), () =>
 				this.getCollectionNames(session),
 			);
-			const collections = await (cancellation != null ? raceWithSignal(names, cancellation) : names);
-			if (collections != null) {
-				repo = resolveAzureProjectlessRepository(repo, collections);
+			const { names, addressesCollection } = await (cancellation != null
+				? raceWithSignal(discovery, cancellation)
+				: discovery);
+			if (names != null) {
+				repo = resolveAzureProjectlessRepository(repo, names);
 			} else {
-				unsettled = true;
+				// A path that is a candidate only below an installation the address itself is reads as given once the
+				// address is known to name a collection: it names that collection.
+				unsettled = candidate(addressesCollection === true);
 			}
 		}
 
@@ -321,7 +340,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * Only the coordinate is settled, and only to a repository the connection serves: each read places it below the
 	 * connection itself, so one settling elsewhere reads as given and fails its own read rather than every coordinate's.
 	 */
-	protected override async resolveRepositoryCoordinates<T extends { owner: string; repo: string; project?: string }>(
+	protected override async resolveRepositoryCoordinates<T extends RepositoryCoordinate>(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly T[],
 		cancellation?: AbortSignal,
@@ -346,37 +365,18 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 						virtualDirectory: virtualDirectory || undefined,
 					},
 					cancellation,
+					belowCollection => getAzureScopeVirtualDirectory(baseUrl, c.owner, belowCollection) != null,
 				);
-				// A repository this connection doesn't serve is another installation's: read the scope as given.
-				const settled = repo.owner !== c.owner && repoBaseUrl != null;
-				return {
-					coordinate: settled ? { ...c, owner: repo.owner, project: repo.project } : c,
-					unsettled: unsettled,
-				};
+				if (repo.owner === c.owner) return { coordinate: c, unsettled: unsettled };
+
+				// A repository this connection doesn't serve is another installation's: read the scope as given, which
+				// may not be the repository the caller named either, so its miss proves nothing.
+				return repoBaseUrl != null
+					? { coordinate: { ...c, owner: repo.owner, project: repo.project }, unsettled: unsettled }
+					: { coordinate: c, unsettled: true };
 			}),
 		);
 		return { coordinates: targets.map(t => t.coordinate), unsettled: targets.map(t => t.unsettled) };
-	}
-
-	/**
-	 * The searches and counts take only `repos`: they re-read the collections and refuse a scope whose collection
-	 * isn't one of them ({@link getSearchCollections}), and a scope read as parsed below a listed collection is what
-	 * settling it would read ({@link resolveAzureProjectlessRepository}), so a miss there is not `unsettled`.
-	 */
-	protected override async resolveRepositoryInputs(
-		session: ProviderAuthenticationSession,
-		repos: readonly ProviderRepoInput[],
-		cancellation?: AbortSignal,
-	): Promise<{ repos: ProviderRepoInput[]; unsettled?: readonly boolean[] }> {
-		const { coordinates, unsettled } = await this.resolveRepositoryCoordinates(
-			session,
-			repos.map(r => ({ ...r, owner: r.namespace, repo: r.name })),
-			cancellation,
-		);
-		return {
-			repos: coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo })),
-			unsettled: unsettled,
-		};
 	}
 
 	/**
@@ -384,17 +384,19 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * failure is `undefined`, so a read of a path it could have settled keeps a miss out of the caches (see
 	 * `readRepository`).
 	 */
-	private async getCollectionNames(session: ProviderAuthenticationSession): Promise<string[] | undefined> {
+	private async getCollectionNames(
+		session: ProviderAuthenticationSession,
+	): Promise<{ names: string[] | undefined; addressesCollection?: boolean }> {
 		try {
-			return (await this.getProviderResourcesForUser(session))?.map(r => r.name);
+			return { names: (await this.getProviderResourcesForUser(session))?.map(r => r.name) };
 		} catch (ex) {
-			if (ex instanceof AuthenticationError) return [];
+			if (ex instanceof AuthenticationError) return { names: [] };
 
 			Logger.debug(
 				`${this.name}: collections at ${this.apiBaseUrlFor(session)} couldn't be read to place a repository path`,
 				ex,
 			);
-			return undefined;
+			return { names: undefined, addressesCollection: this._collectionListRefusals.has(ex as object) };
 		}
 	}
 
@@ -406,7 +408,9 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	/**
 	 * Only the server level lists the collections: below one, Azure DevOps Server answers `projectCollections` with a
 	 * 404 page. On that 404 an address that names a collection reads the collection's own connection data, whose
-	 * `webApplicationRelativeDirectory` spells it, and reports it as the one collection visible there.
+	 * `webApplicationRelativeDirectory` spells it, and reports it as the one collection visible there. When that read
+	 * fails, the address is presumed to name a collection, which the failure carries (see {@link getCollectionNames}) for
+	 * as long as the failed discovery is kept; connection data that answers for the server says it doesn't.
 	 */
 	protected override async requestResourcesForUser(
 		session: ProviderAuthenticationSession,
@@ -418,11 +422,19 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			if (!(ex instanceof RequestNotFoundError)) throw ex;
 
 			const azure = await this.authenticationService.apis.azure;
-			const addressed = await azure?.getAddressedCollection(
-				this,
-				toTokenWithInfo(this.id, session),
-				this.apiBaseUrlFor(session),
-			);
+			let addressed;
+			try {
+				addressed = await azure?.getAddressedCollection(
+					this,
+					toTokenWithInfo(this.id, session),
+					this.apiBaseUrlFor(session),
+				);
+			} catch (collectionError) {
+				if (typeof collectionError === 'object' && collectionError != null) {
+					this._collectionListRefusals.add(collectionError);
+				}
+				throw collectionError;
+			}
 			if (addressed == null) throw ex;
 
 			return [addressed];
@@ -430,7 +442,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	}
 
 	/**
-	 * The filtered work-item search: one WIQL query per page over ONE collection, then one detail read for the
+	 * The filtered work-item search snapshots matching ids with bounded WIQL queries, then reads details for each
 	 * page's slice. See {@link resolveWorkItemSearchScope} for why a search never spans several collections.
 	 */
 	protected override async searchProviderIssuesPage(
@@ -466,7 +478,10 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 				criteria: options.criteria,
 				projectNames: scope.projectNames,
+				workflowProjectNames: scope.projects.map(p => p.name),
 				resolveProject: name => scope.projects.find(p => sameAzureName(p.name, name)),
+				// The collection's own identity, not the server-level account's.
+				viewer: () => this.getOrganizationViewers(session)(scope.collection),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
 			},
@@ -504,6 +519,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 						baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 						criteria: s.criteria,
 						projectNames: scope.projectNames,
+						workflowProjectNames: scope.projects.map(p => p.name),
 					},
 					cancellation,
 				);
@@ -635,11 +651,22 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const page = cursor?.page ?? 1;
 		const last = slice.at(-1);
 		const hasMore = last != null && start + slice.length < drain.rows.length;
+		// A search without a relationship resolved no collection's id for its filters, so a page resolves its rows'
+		// own, bounded like every other read's and only for a row that names someone. Per page rather than per drain,
+		// so a continuation asks again rather than serving the answer its first page got.
+		const viewerFor = this.getOrganizationViewers(session);
+		const viewers = await Promise.all(
+			slice.map(r =>
+				r.currentAccount == null && pullRequestNamesPeople(r.pr)
+					? viewerFor(r.collection)
+					: Promise.resolve(r.currentAccount),
+			),
+		);
 		return {
-			values: slice.map(r =>
+			values: slice.map((r, i) =>
 				fromProviderPullRequest(r.pr, this, {
 					project: r.project,
-					currentAccount: r.currentAccount,
+					currentAccount: viewers[i],
 					projection: options.summary ? 'search-summary' : 'search',
 				}),
 			),
@@ -901,6 +928,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				rows.set(identity, {
 					pr: markMyGroupReviews(pr, groupIds),
 					project: facet.project,
+					collection: facet.collection,
 					currentAccount: userId != null ? { id: userId } : undefined,
 					position: toAzurePullRequestSearchPosition(pr, sort, identity),
 				});
@@ -987,82 +1015,18 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		return projects.flat().map(p => ({ collection: p.resourceName, project: p }));
 	}
 
-	private readonly _collectionUserIds = new PromiseCache<string, string | undefined>({ capacity: 50 });
-
-	/**
-	 * The current user's identity id in `collection`, read from the collection's own connection data, which is
-	 * what Azure's creator and reviewer filters compare against. Cached per credential and collection, since it
-	 * can't change for either.
-	 */
-	protected override getFilterUserId(
+	/** Reads the collection's own connection data, at the installation's address. */
+	protected override async requestOrganizationUserId(
 		session: ProviderAuthenticationSession,
 		collection: string,
 	): Promise<string | undefined> {
-		const baseUrl = this.collectionApiBaseUrl(session, collection);
-		return this._collectionUserIds.getOrCreate(
-			JSON.stringify([session.accessToken, baseUrl, collection.toLowerCase()]),
-			async cacheable => {
-				const azure = await this.authenticationService.apis.azure;
-				const user = await azure?.getCurrentUserOnServer(
-					this,
-					toTokenWithInfo(this.id, session),
-					`${baseUrl}/${encodeURIComponent(collection)}`,
-				);
-				// A response without an identity must not refuse later relationship searches from a cached miss.
-				if (user?.id == null) {
-					cacheable.invalidate();
-				}
-
-				return user?.id;
-			},
+		const azure = await this.authenticationService.apis.azure;
+		const user = await azure?.getCurrentUserOnServer(
+			this,
+			toTokenWithInfo(this.id, session),
+			`${this.collectionApiBaseUrl(session, collection)}/${encodeURIComponent(collection)}`,
 		);
-	}
-
-	/**
-	 * Resolved per collection, which a raw row names as its repository owner: a collection's pull requests carry the
-	 * id {@link getFilterUserId} resolves there, never the server-level account's. A row that names no collection or
-	 * has no author to match gets no viewer, nor does one in a collection whose id can't be read: its authorship
-	 * stays unknown.
-	 */
-	override async getPullRequestViewers(
-		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
-		connectionId?: string,
-	): Promise<({ id: string; username?: string } | undefined)[]> {
-		const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
-		if (session == null) return pullRequests.map(() => undefined);
-
-		const viewerFor = this.getOrganizationViewers(session, undefined);
-		return Promise.all(
-			pullRequests.map(pr => {
-				// Azure DevOps Server's rows are provider-apis' own; only GitHub's are native.
-				const collection = isNativePullRequest(pr) ? undefined : pr.repository?.owner?.login;
-				return collection && pr.author != null ? viewerFor(collection) : Promise.resolve(undefined);
-			}),
-		);
-	}
-
-	/**
-	 * Ignores `account`: it is the server-level one, which no collection's pull requests carry. A collection whose id
-	 * can't be read resolves `undefined`, since authorship is optional enrichment and one collection's failed lookup
-	 * must not fail the read or blank the others; it is asked once per read, as a miss isn't cached.
-	 */
-	protected override getOrganizationViewers(
-		session: ProviderAuthenticationSession,
-		_account: { id: string; username?: string } | undefined,
-	): (collection: string) => Promise<{ id: string } | undefined> {
-		const viewers = new Map<string, Promise<{ id: string } | undefined>>();
-		return collection => {
-			const key = collection.toLowerCase();
-			let viewer = viewers.get(key);
-			if (viewer == null) {
-				viewer = this.getFilterUserId(session, collection).then(
-					id => (id != null ? { id: id } : undefined),
-					() => undefined,
-				);
-				viewers.set(key, viewer);
-			}
-			return viewer;
-		};
+		return user?.id;
 	}
 
 	/** Every collection the account can see, or a refusal when discovery itself failed. */
@@ -1136,7 +1100,6 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		super.providerOnDisconnect();
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
-		this._collectionUserIds.clear();
 		this._collectionNames.clear();
 	}
 

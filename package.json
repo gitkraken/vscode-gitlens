@@ -21543,7 +21543,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:views",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "inline@8"
+				},
+				{
+					"command": "gitlens.publishRepository:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@8"
 				},
 				{
@@ -21610,7 +21615,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:views",
-					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.publishRepository:views",
+					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+(closed|remote|tracking)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -23234,17 +23244,17 @@
 				},
 				{
 					"command": "gitlens.publishBranch:views",
-					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)(?=.*?\\b\\+remotes\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.publishRepository:views",
-					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:(missing|none)(?!.*?\\b\\+remotes\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.views.addRemote",
-					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:none/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:status(\\-branch)?:upstream:none(?!.*?\\b\\+remotes\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@2"
 				},
 				{
@@ -25563,7 +25573,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:views",
-					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "inline@8"
+				},
+				{
+					"command": "gitlens.publishRepository:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "inline@8"
 				},
 				{
@@ -25672,7 +25687,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:views",
-					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.publishRepository:views",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -28397,12 +28417,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.publishRepository:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -29509,12 +29529,12 @@
 				},
 				{
 					"command": "gitlens.publishBranch:graph",
-					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?=.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.publishRepository:graph",
-					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && !gitlens:repos:withRemotes",
+					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+remotes\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -30994,7 +31014,7 @@
 	"devDependencies": {
 		"@custom-elements-manifest/analyzer": "0.11.0",
 		"@e18e/eslint-plugin": "0.8.0",
-		"@modelcontextprotocol/sdk": "1.30.0",
+		"@modelcontextprotocol/sdk": "1.32.1",
 		"@octokit/request-error": "catalog:",
 		"@oxlint/plugins": "1.83.0",
 		"@playwright/test": "1.63.0",
@@ -31047,7 +31067,7 @@
 		"sass-embedded": "catalog:",
 		"sass-loader": "17.0.1",
 		"schema-utils": "4.5.0",
-		"sharp": "0.35.4",
+		"sharp": "0.35.5",
 		"sinon": "catalog:",
 		"stylelint": "17.15.0",
 		"stylelint-config-recess-order": "7.8.0",
@@ -31058,14 +31078,14 @@
 		"terser-webpack-plugin": "5.6.1",
 		"tinybench": "catalog:",
 		"typescript": "catalog:",
-		"typescript-nightly": "catalog:",
+		"typescript-beta": "catalog:",
 		"webpack": "5.111.0",
 		"webpack-bundle-analyzer": "5.3.3",
 		"webpack-cli": "7.2.3",
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6",
 		"yaml": "catalog:",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"lint-staged": {
 		"*.{ts,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"

@@ -544,6 +544,68 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			}
 		});
 
+		test('never asks a remote-tracking target for its upstream, which it cannot have', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				fetch(clone.path);
+				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const spy = sinon.spy(clone.provider.git, 'run');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(clone, 'feature');
+				} finally {
+					spy.restore();
+				}
+
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'origin/main'));
+				assertDependsOn(result, ['refs/remotes/origin/main']);
+				const upstreamReads = spy
+					.getCalls()
+					.filter(c => c.args.some(a => typeof a === 'string' && a.endsWith('@{u}')));
+				assert.deepStrictEqual(
+					upstreamReads.map(c => c.args.filter(a => typeof a === 'string').join(' ')),
+					[],
+				);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('asks a local target for its upstream, and measures against it when it forked nearer', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				fetch(clone.path);
+				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+				storeTargets(clone.path, 'feature', { detected: 'main' });
+
+				const spy = sinon.spy(clone.provider.git, 'run');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(clone, 'feature');
+				} finally {
+					spy.restore();
+				}
+
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/main']);
+				assert.ok(
+					spy.getCalls().some(c => c.args.includes('main@{u}')),
+					'the local target was asked for its upstream',
+				);
+			} finally {
+				cleanup();
+			}
+		});
+
 		test('keeps a merged-in default branch out of the count when local main is stale', async () => {
 			const { origin, clone, cleanup } = createClone();
 			try {
@@ -1342,8 +1404,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 		const repo = createCandidateRepo();
 		try {
 			storeTargets(repo.path, 'feature', { recorded: 'develop' });
-			// Cache `develop` as valid, then delete it: the base still resolves, but the count against it fails
-			await repo.provider.refs.validateReference(repo.path, 'develop');
+			// Cache the ref list naming `develop`, then delete it: the base still resolves, but the count against it fails
+			await repo.provider.refs.getRefs(repo.path);
 			git(repo.path, 'branch', '-D', 'develop');
 
 			await assert.rejects(

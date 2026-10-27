@@ -1,3 +1,5 @@
+import type { AzureWorkItemHtmlField } from '@gitkraken/provider-apis';
+import { getAzureWorkItemDescription } from '@gitkraken/provider-apis';
 import type { IssueIteration, IssueMember, IssueProjection, IssueProviderState } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -12,7 +14,11 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
-import { pullRequestRevision } from '../../models/integration.js';
+import {
+	azureWorkItemDescriptionRule,
+	azureWorkItemViewerRule,
+	pullRequestRevision,
+} from '../../models/integration.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 import {
 	fromProviderPullRequestMergeableState,
@@ -20,6 +26,8 @@ import {
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
+	toIssueBodyField,
+	toIssueViewer,
 } from '../models.js';
 import type { ProviderPullRequestReview } from '../pullRequestReviews.js';
 import {
@@ -97,8 +105,13 @@ export function isClosedAzureWorkItemStateCategory(category: AzureWorkItemStateC
 
 export function azureWorkItemsStateCategoryToState(
 	category: AzureWorkItemStateCategory | undefined,
-): IssueOrPullRequestState {
-	return isClosedAzureWorkItemStateCategory(category) ? 'closed' : 'opened';
+	closedDate?: Date,
+): IssueOrPullRequestState | undefined {
+	if (azureIssueStateCategory(category) != null) {
+		return isClosedAzureWorkItemStateCategory(category) ? 'closed' : 'opened';
+	}
+
+	return closedDate != null ? 'closed' : undefined;
 }
 
 export interface AzureLink {
@@ -166,9 +179,9 @@ export interface WorkItem {
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
-		'System.AssignedTo': AzureUser;
+		'System.AssignedTo': AzureUser | string;
 		'System.CreatedDate': string;
-		'System.CreatedBy': AzureUser;
+		'System.CreatedBy': AzureUser | string;
 		'System.ChangedDate': string;
 		'System.ChangedBy': AzureUser;
 		'System.CommentCount': number;
@@ -740,14 +753,30 @@ export function fromAzurePullRequest(
 	);
 }
 
+function fromAzureWorkItemUserToMember(user: AzureUser | string | undefined): IssueMember | undefined {
+	if (user == null || (typeof user === 'string' && !user.trim())) return undefined;
+
+	return typeof user === 'string' ? { id: user, name: user, username: user } : fromAzureUserToMember(user, 'issue');
+}
+
 export function fromAzureWorkItem(
 	workItem: WorkItem,
 	provider: Provider,
 	project: AzureProjectDescriptor,
 	stateCategory?: AzureWorkItemStateCategory,
 	projection?: IssueProjection,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
+	/** As `toIssueShape` takes it: `null` where the read couldn't resolve it. */
+	viewer?: { id: string } | null,
 ): Issue {
 	const state = workItem.fields['System.State'];
+	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
+	const closedDate = parseAzureWorkItemDate(workItem.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined;
+	const normalizedState = azureWorkItemsStateCategoryToState(stateCategory, closedDate);
+	const author = fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']);
+	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
+	const assignees = assignee != null ? [assignee] : [];
+	const viewerFields = toIssueViewer({ author: author, assignees: assignees }, viewer);
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -756,20 +785,16 @@ export function fromAzureWorkItem(
 		workItem._links.html.href,
 		new Date(workItem.fields['System.CreatedDate']),
 		new Date(workItem.fields['System.ChangedDate']),
-		isClosedAzureWorkItemStateCategory(stateCategory),
-		azureWorkItemsStateCategoryToState(stateCategory),
-		fromAzureUserToMember(workItem.fields['System.CreatedBy'], 'issue'),
-		workItem.fields['System.AssignedTo'] != null
-			? [fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')]
-			: [],
+		normalizedState === 'closed',
+		normalizedState,
+		author,
+		assignees,
 		undefined,
-		workItem.fields['Microsoft.VSTS.Common.ClosedDate']
-			? new Date(workItem.fields['Microsoft.VSTS.Common.ClosedDate'])
-			: undefined,
+		closedDate,
 		undefined,
 		workItem.fields['System.CommentCount'],
 		undefined,
-		workItem.fields['System.Description'],
+		description?.value,
 		project,
 		undefined,
 		workItem.fields['System.WorkItemType'],
@@ -779,6 +804,9 @@ export function fromAzureWorkItem(
 		undefined,
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
+		description != null ? toIssueBodyField(description.field) : undefined,
+		viewerFields?.viewer,
+		viewerFields?.viewerUnresolved,
 	);
 }
 
@@ -835,6 +863,7 @@ export function fromAzureWorkItemToProviderIssue(
 	workItem: AzureWorkItemResponse,
 	namespace: string,
 	project: string,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
 ): ProviderIssue | undefined {
 	const fields = workItem.fields;
 	const id = workItem.id;
@@ -858,7 +887,6 @@ export function fromAzureWorkItemToProviderIssue(
 	const tags = fields['System.Tags'];
 	const state = fields['System.State'];
 	const type = fields['System.WorkItemType'];
-	const description = fields['System.Description'];
 	return {
 		id: id.toString(),
 		number: id.toString(),
@@ -870,7 +898,7 @@ export function fromAzureWorkItemToProviderIssue(
 		updatedDate: parseAzureWorkItemDate(fields['System.ChangedDate']),
 		url: typeof url === 'string' ? url : null,
 		assignees: assignee != null ? [assignee] : [],
-		description: typeof description === 'string' ? description : null,
+		...toAzureWorkItemDescriptionFields(fields, htmlFields),
 		state: typeof state === 'string' && state ? { name: state, color: null } : null,
 		type: typeof type === 'string' ? type : null,
 		iteration: toAzureWorkItemIteration(fields['System.IterationPath']),
@@ -887,8 +915,25 @@ export function fromAzureWorkItemToProviderIssue(
 	};
 }
 
+export function toAzureWorkItemDescriptionFields(
+	fields: Readonly<Record<string, unknown>> | null | undefined,
+	htmlFields?: readonly AzureWorkItemHtmlField[],
+): Pick<ProviderIssue, 'description' | 'descriptionField'> {
+	const description = getAzureWorkItemDescription(fields, htmlFields);
+	return {
+		description: description?.value ?? null,
+		...(description != null ? { descriptionField: description.field } : {}),
+	};
+}
+
 /** An identity field, as provider-apis maps it: `name` from `uniqueName`, `username` from `displayName`. */
 function fromAzureWorkItemIdentity(value: unknown): ProviderAccount | null {
+	if (typeof value === 'string') {
+		if (!value.trim()) return null;
+
+		return { id: value, name: value, username: value, email: null, avatarUrl: null, url: null };
+	}
+
 	const identity = value as
 		| { id?: unknown; uniqueName?: unknown; displayName?: unknown; _links?: { avatar?: { href?: unknown } } }
 		| null
@@ -907,7 +952,7 @@ function fromAzureWorkItemIdentity(value: unknown): ProviderAccount | null {
 }
 
 /** Only a UTC ISO timestamp naming a real calendar date and time, as provider-apis accepts; anything else is `null`. */
-function parseAzureWorkItemDate(value: unknown): Date | null {
+export function parseAzureWorkItemDate(value: unknown): Date | null {
 	if (typeof value !== 'string') return null;
 
 	const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,7})?Z$/.exec(value);
@@ -963,7 +1008,11 @@ export function toAzureWorkItemEtagFields(
 ): IssueEtagFields {
 	const fields = workItem.fields;
 	const teamProject = fields?.['System.TeamProject'];
-	if (typeof teamProject === 'string' && teamProject.toLowerCase() !== project.toLowerCase()) {
+	if (typeof teamProject !== 'string' || !teamProject.trim()) {
+		throw new Error(`Azure DevOps work item ${String(workItem.id)} has no project`);
+	}
+
+	if (teamProject.toLowerCase() !== project.toLowerCase()) {
 		throw new Error(
 			`Azure DevOps work item ${String(workItem.id)} is in project '${teamProject}', not '${project}'`,
 		);
@@ -974,13 +1023,19 @@ export function toAzureWorkItemEtagFields(
 		throw new Error(`Azure DevOps returned work item ${String(workItem.id)} without a change date`);
 	}
 
-	const closed =
+	const state =
 		category != null
 			? isTerminalIssueStateCategory(category)
-			: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null;
+				? 'closed'
+				: 'opened'
+			: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null
+				? 'closed'
+				: undefined;
 	return {
-		state: closed ? 'closed' : 'opened',
+		state: state,
 		updatedDate: updatedDate,
+		descriptionRule: azureWorkItemDescriptionRule,
+		viewerRule: azureWorkItemViewerRule,
 	};
 }
 

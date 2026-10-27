@@ -43,10 +43,11 @@ export function push(
 	repos?: string | string[] | GlRepository | GlRepository[],
 	force?: boolean,
 	ref?: GitReference,
+	options?: { flags?: string[] },
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'push',
-		state: { repos: repos, flags: force ? ['--force'] : [], reference: ref },
+		state: { repos: repos, flags: [...(force ? ['--force'] : []), ...(options?.flags ?? [])], reference: ref },
 	});
 }
 
