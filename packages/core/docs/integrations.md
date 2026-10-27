@@ -1284,7 +1284,10 @@ as "unset". The sort vocabulary is narrower than the issue search's on purpose: 
 by a field a normalized pull request carries, and GitHub PRs have neither a priority nor a relevance that ranks
 stably under the result ceiling.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
-Linear + Trello `Assignee` · Bitbucket family none.
+Linear + Trello `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
+assigned issues plus the GitHub-synced issues the viewer created (a GitHub issue attachment, and `syncedWith` not
+`[]`), since Linear's GitHub Issues sync gives the copy of a GitHub issue its author (when linked) as creator but no
+assignee; `Assignee` by name reads the assigned issues only.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
 `Assignee, Author` · everything else none.
 Issue **search** criteria (`getSupportedFilters().issueSearch`): GitHub/GHE express all of them —

@@ -70,6 +70,7 @@ type IssuesCall = {
 	teams?: string[];
 	projects?: string[];
 	assignees?: string[];
+	githubSyncedCreators?: string[];
 	states?: GitIssueState[];
 	cursor?: string;
 	sort?: string;
@@ -103,13 +104,20 @@ async function connectedLinear(handlers: {
 		},
 		getLinearIssues: (
 			_token: unknown,
-			input: { teams?: string[]; projects?: string[]; assignees?: string[]; states?: GitIssueState[] },
+			input: {
+				teams?: string[];
+				projects?: string[];
+				assignees?: string[];
+				githubSyncedCreators?: string[];
+				states?: GitIssueState[];
+			},
 			options?: { cursor?: string; sort?: string },
 		) => {
 			const call: IssuesCall = {
 				teams: input.teams,
 				projects: input.projects,
 				assignees: input.assignees,
+				githubSyncedCreators: input.githubSyncedCreators,
 				states: input.states,
 				cursor: options?.cursor,
 				sort: options?.sort,
@@ -412,6 +420,7 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 				teams: ['team-1', 'team-2'],
 				projects: ['p1', 'p2'],
 				assignees: [viewerId],
+				githubSyncedCreators: [viewerId],
 				states: undefined,
 				cursor: undefined,
 				sort: 'updated:desc',
@@ -433,13 +442,39 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 		});
 
 		assert.deepEqual(
-			issueCalls.map(c => [c.teams, c.projects, c.assignees]),
-			[[['team-1'], ['p1'], [viewerId]]],
+			issueCalls.map(c => [c.teams, c.projects, c.assignees, c.githubSyncedCreators]),
+			[[['team-1'], ['p1'], [viewerId], [viewerId]]],
 		);
 		assert.deepEqual(
 			result.items.map(i => i.id),
 			['ENG-1'],
 		);
+
+		manager.dispose();
+	});
+
+	test("keeps the viewer's unassigned GitHub-synced issues in a Projects-narrowed read, and only those", async () => {
+		const filedOnGitHub = {
+			...linearIssue('ENG-3', 'someone-else'),
+			assignees: [],
+			author: { id: viewerId, name: 'Me', avatarUrl: null, url: null },
+			syncedWith: [{ service: 'github', id: '6063264575', owner: 'acme', repo: 'web', number: 2 }],
+		};
+		const unsyncedOfMine = { ...filedOnGitHub, id: 'id-ENG-4', number: 'ENG-4', syncedWith: [] };
+		const { manager, issueCalls } = await connectedLinear({
+			issues: () => done([linearIssue('ENG-1'), filedOnGitHub, unsyncedOfMine]),
+		});
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			linearProjects: ['p1'],
+		});
+
+		assert.deepEqual(
+			issueCalls.map(c => [c.projects, c.assignees, c.githubSyncedCreators]),
+			[[['p1'], [viewerId], [viewerId]]],
+		);
+		assert.deepEqual(result.items.map(i => i.id).sort(), ['ENG-1', 'ENG-3']);
 
 		manager.dispose();
 	});
@@ -456,8 +491,8 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 		});
 
 		assert.deepEqual(
-			issueCalls.map(c => [c.teams, c.projects, c.assignees]),
-			[[['team-1', 'team-2'], ['p1'], undefined]],
+			issueCalls.map(c => [c.teams, c.projects, c.assignees, c.githubSyncedCreators]),
+			[[['team-1', 'team-2'], ['p1'], undefined, undefined]],
 		);
 		assert.deepEqual(result.items.map(i => i.id).sort(), ['DES-2', 'ENG-1']);
 
@@ -475,8 +510,8 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 		});
 
 		assert.deepEqual(
-			issueCalls.map(c => [c.teams, c.projects, c.assignees]),
-			[[['team-2'], ['p1'], undefined]],
+			issueCalls.map(c => [c.teams, c.projects, c.assignees, c.githubSyncedCreators]),
+			[[['team-2'], ['p1'], undefined, undefined]],
 		);
 
 		manager.dispose();
@@ -499,6 +534,7 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 				teams: ['team-1'],
 				projects: ['p1'],
 				assignees: [viewerId],
+				githubSyncedCreators: [viewerId],
 				states: [GitIssueState.Open, GitIssueState.Closed],
 				cursor: undefined,
 				sort: 'updated:asc',

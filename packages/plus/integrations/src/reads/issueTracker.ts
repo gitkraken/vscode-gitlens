@@ -42,7 +42,10 @@ export function listIssueTrackerIssuesPage(
 		org?: string;
 		project?: string;
 		filters?: IssueFilter[];
-		/** Broadens the read to every assignee. Scopes to user-assigned issues when omitted. */
+		/**
+		 * Broadens the read to every assignee. Scopes to the user's issues when omitted: those assigned to them, and on
+		 * Linear also the GitHub-synced issues they created (unless `filters` asks for `Assignee` by name).
+		 */
 		includeAllAssignees?: boolean;
 		/**
 		 * How to order the issues, as `field:direction`. Omitted orders most-recently-updated-first where the
@@ -499,7 +502,7 @@ async function readIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
+	// Scope to the current user's issues unless the caller broadens to all assignees. Resolve the
 	// handle from each resource's own account (multi-account safe), capturing any error so its kind
 	// (e.g. auth) is preserved rather than collapsed to a generic warning.
 	let usersByResourceId: Map<string, string> | undefined;
