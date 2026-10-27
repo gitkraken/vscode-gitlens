@@ -213,7 +213,11 @@ export const githubGraphQLInt32Max = 2147483647;
 function isLinearRateLimitError(providerId: IntegrationIds, ex: unknown): boolean {
 	if (providerId !== IssuesCloudHostIntegrationId.Linear) return false;
 
-	const body = (ex as { response?: { body?: unknown } }).response?.body;
+	return isLinearRateLimitedBody((ex as { response?: { body?: unknown } }).response?.body);
+}
+
+/** Whether a Linear GraphQL response body reports throttling. */
+export function isLinearRateLimitedBody(body: unknown): boolean {
 	return getProviderGraphQLErrors(body).some(error => error.extensions?.code === 'RATELIMITED');
 }
 
