@@ -1,3 +1,4 @@
+import { l10n, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
@@ -9,6 +10,7 @@ import {
 	encodeIssueOrPullRequestForGitConfig,
 	getEntityIdentifierInput,
 	getIssueFromGitConfigEntityIdentifier,
+	getIssueOwner,
 	getProviderIdFromEntityIdentifier,
 } from '@gitlens/integrations/providers/utils.js';
 import {
@@ -45,15 +47,26 @@ export async function addAssociatedIssueToBranch(
 	container: Container,
 	branch: GitBranchReference,
 	issue: Issue,
-	owner: RepositoryDescriptor | IssueResourceDescriptor,
+	owner: RepositoryDescriptor | IssueResourceDescriptor | undefined = getIssueOwner(issue),
 	options?: {
 		cancellation?: AbortSignal;
 	},
 ): Promise<void> {
-	const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch);
 	if (options?.cancellation?.aborted) return;
 
 	try {
+		if (owner == null) throw new Error('Issue repository or project information is unavailable');
+
+		const config = container.git.getRepositoryService(branch.repoPath).config;
+		if (config.getGkConfig == null || config.setGkConfig == null) {
+			throw new Error('Repository does not support saving issue associations');
+		}
+
+		const { key, encoded } = await getConfigKeyAndEncodedAssociatedIssuesForBranch(container, branch, {
+			throwOnError: true,
+		});
+		if (options?.cancellation?.aborted) return;
+
 		const associatedIssues: GitConfigEntityIdentifier[] = encoded
 			? (JSON.parse(encoded) as GitConfigEntityIdentifier[])
 			: [];
@@ -82,15 +95,16 @@ export async function addAssociatedIssueToBranch(
 		} else {
 			associatedIssues.push(identifier);
 		}
-		await container.git
-			.getRepositoryService(branch.repoPath)
-			.config.setGkConfig?.(key, JSON.stringify(associatedIssues));
+		await config.setGkConfig(key, JSON.stringify(associatedIssues), { throwOnError: true });
 		container.events.fire('git:repo:change', {
 			repoPath: getRepositoryKey(branch.repoPath),
 			changes: ['gkConfig'],
 		});
 	} catch (ex) {
 		Logger.error(ex, 'addAssociatedIssueToBranch');
+		void window.showWarningMessage(
+			l10n.t("Unable to associate issue {0} with branch '{1}'.", issue.id, branch.name),
+		);
 	}
 }
 
@@ -188,8 +202,9 @@ export async function removeAssociatedIssueFromBranch(
 async function getConfigKeyAndEncodedAssociatedIssuesForBranch(
 	container: Container,
 	branch: GitBranchReference,
+	options?: { throwOnError?: boolean },
 ): Promise<{ key: GkConfigKeys; encoded: string | undefined }> {
 	const key = `branch.${branch.name}.gk-associated-issues` satisfies GkConfigKeys;
-	const encoded = await container.git.getRepositoryService(branch.repoPath).config.getGkConfig?.(key);
+	const encoded = await container.git.getRepositoryService(branch.repoPath).config.getGkConfig?.(key, options);
 	return { key: key, encoded: encoded };
 }

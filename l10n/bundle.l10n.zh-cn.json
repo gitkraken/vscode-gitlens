@@ -4581,6 +4581,7 @@
 	"Unable to archive Cloud Patch: {0}": "无法归档云补丁：{0}",
 	"Unable to archive Code Suggestion: {0}": "无法归档 Code Suggestion：{0}",
 	"Unable to archive draft '{0}'": "无法归档草稿 “{0}”",
+	"Unable to associate issue {0} with branch '{1}'.": "无法将问题 {0} 与分支 '{1}' 关联。",
 	"Unable to build a diff for the selected commit.": "无法为所选提交构建差异。",
 	"Unable to build a search from your description — {0}": "无法根据你的描述构建搜索 —— {0}",
 	"Unable to check for conflicts": "无法检查冲突",
