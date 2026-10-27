@@ -80,8 +80,8 @@ export function ensureCachedBranchNameRegexes(
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'branchNameRegexes'> {
 	if (ref.prefix?.length > 0) {
 		ref.branchNameRegexes ??= [
-			// Rule 1: Any prefixed ref followed by a 2+ digit number and either a connector or end-of-string after it
-			new RegExp(`(?<prefix>${escapeRegex(ref.prefix)})(?<issueKeyNumber>\\d{2,})(?:[\\/\\-\\_\\.]|$)`, 'i'),
+			// An explicit prefix disambiguates short issue numbers from unrelated branch numbers.
+			new RegExp(`(?<prefix>${escapeRegex(ref.prefix)})(?<issueKeyNumber>\\d+)(?:[\\/\\-\\_\\.]|$)`, 'i'),
 		];
 	} else {
 		ref.branchNameRegexes ??= [
