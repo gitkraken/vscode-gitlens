@@ -8,8 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds a _Notifications_ section to _GitLens Settings_ for messages from GitKraken about your account and organization &mdash; filter by all, unread, or read, mark notifications read or unread, delete them, and follow their links
-  - Shows the unread count in the settings navigation, and pops up only new security and system notices (never while the inbox is open)
+- Adds GitKraken notifications to GitLens for messages about your account and organization
+  - Adds a notifications bell to the _Commit Graph_ header with an unread badge &mdash; shows your newest notifications with quick actions to follow their links and mark them read
+  - Adds a _Notifications_ section to _GitLens Settings_, with an unread count in its navigation &mdash; filter by all, unread, or read, mark notifications read or unread, delete them, and follow their links
+  - Pops up only new security and system notices, and never while notifications are open
   - Paid plans can opt out of marketing notifications
 
 ### Changed

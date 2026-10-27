@@ -20,6 +20,7 @@ import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referenceP
 import type { RunningWorktreeTask } from '../../../worktrees/worktreeTaskService.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
+import type { NotificationsRpcService } from '../../rpc/services/notifications.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
 import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
@@ -1512,6 +1513,8 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly feedback: GraphFeedbackService;
 	readonly launchpad: GraphLaunchpadService;
 	readonly navigation: GraphNavigationService;
+	/** The GitKraken notifications inbox, for the header's bell */
+	readonly notifications: NotificationsRpcService;
 	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
 	readonly search: GraphSearchService;

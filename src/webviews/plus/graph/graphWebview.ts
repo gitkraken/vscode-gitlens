@@ -169,6 +169,7 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/event
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../../rpc/launchpadService.js';
 import { createSharedServices } from '../../rpc/services/common.js';
+import { NotificationsRpcService } from '../../rpc/services/notifications.js';
 import { proxyServices } from '../../rpc/services/proxy.js';
 import { WalkthroughService } from '../../rpc/walkthroughService.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
@@ -1326,6 +1327,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onRequestShow: this._requestShowFeedbackEvent.subscribe(buffer, tracker),
 			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
+			notifications: new NotificationsRpcService(this.container, this.host, buffer, tracker),
 			navigation: {
 				onRequestAction: this._requestActionEvent.subscribe(buffer, tracker),
 				onRequestOpenCompareMode: this._requestOpenCompareModeEvent.subscribe(buffer, tracker),

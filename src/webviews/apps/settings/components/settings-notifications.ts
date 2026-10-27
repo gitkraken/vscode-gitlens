@@ -8,16 +8,24 @@ import { live } from 'lit/directives/live.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { focusOutline, focusOutlineButton, srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GkNotification } from '@gitlens/notifications/models.js';
-import type { NotificationCategoryChip } from '@gitlens/notifications/presentation.js';
-import { getCategoryChip, getDisplayBody, toPlainText } from '@gitlens/notifications/presentation.js';
+import { getDisplayBody } from '@gitlens/notifications/presentation.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { NotificationsInboxState } from '../../../rpc/services/types.js';
+import {
+	formatProjectSharedBody,
+	getCategoryChipBadge,
+	getNeedsNewerVersionText,
+	getNotificationBodyText,
+	getNotificationHeaderText,
+	getNotificationHeadline,
+	getNotificationSender,
+	syncTruncationTooltips,
+} from '../../plus/shared/notifications.utils.js';
 import type { GlButton } from '../../shared/components/button.js';
 import type { GlSegmentedControl } from '../../shared/components/segmented/segmented.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
@@ -447,10 +455,14 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 	private _announceTimer: ReturnType<typeof setTimeout> | undefined;
 	/** The card a running action holds focus in, so focus moves on the render that removes it */
 	private _pendingFocusRestore: { cardId: string; index: number } | undefined;
+	/** Re-checks which headlines are truncated when the panel is resized */
+	private _resizeObserver: ResizeObserver | undefined;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		document.addEventListener('visibilitychange', this.onDocumentVisibilityChanged);
+		this._resizeObserver = new ResizeObserver(() => this.syncHeadlineTooltips());
+		this._resizeObserver.observe(this);
 		// A first connection is handled by the first update (see `willUpdate`); this is a re-connection
 		if (this.hasUpdated) {
 			this.reportShown();
@@ -460,6 +472,8 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 	override disconnectedCallback(): void {
 		document.removeEventListener('visibilitychange', this.onDocumentVisibilityChanged);
 		clearTimeout(this._announceTimer);
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
 		void this.actions?.setNotificationsInboxVisible(false);
 		super.disconnectedCallback?.();
 	}
@@ -489,6 +503,11 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 		// Covers a request arriving while the inbox is already open, as well as one waiting when it first renders
 		this.applyFocusRequest();
 		this.applyPendingFocusRestore();
+		this.syncHeadlineTooltips();
+	}
+
+	private syncHeadlineTooltips(): void {
+		syncTruncationTooltips(this.renderRoot, '.card__headline');
 	}
 
 	private onDocumentVisibilityChanged = (): void => {
@@ -918,11 +937,9 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 
 	private renderNotification(n: GkNotification) {
 		const read = n.readAt != null;
-		// The server's title, else its one-line summary. With neither, a Team Workspace share names itself; anything
-		// else gets no heading at all (a synthetic "GitKraken" heading says nothing), just a sender byline, and the
-		// card is named from its body instead
-		const headerText = n.headline ?? n.summary;
-		const headline = headerText ?? (n.event === 'projectShared' ? l10n.t('Team Workspace shared') : undefined);
+		// A card without a heading (see `getNotificationHeadline`) shows a sender byline and is named from its body
+		const headerText = getNotificationHeaderText(n);
+		const headline = getNotificationHeadline(n);
 		const failure = this._failures.get(n.id);
 		const cardId = getNotificationDomId(n.id);
 		const headlineId = `${cardId}-headline`;
@@ -931,8 +948,12 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 		// heading is named from the body's plain text instead
 		let bylineLabel: string | undefined;
 		if (headline == null) {
-			const plain = toPlainText(n.body ?? '');
-			const text = plain ? (plain.length > 150 ? `${plain.slice(0, 149).trimEnd()}…` : plain) : 'GitKraken';
+			const plain = getNotificationBodyText(n);
+			const text = plain
+				? plain.length > 150
+					? `${plain.slice(0, 149).trimEnd()}…`
+					: plain
+				: getNotificationSender();
 			bylineLabel = read ? text : l10n.t('Unread: {0}', text);
 		}
 
@@ -947,13 +968,17 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				<span class="card__dot" aria-hidden="true"></span>
 				${
 					headline != null
-						? html`<h3 class="card__headline" id=${headlineId}>
-								${read ? nothing : html`<span class="sr-only">${l10n.t('Unread:')}</span>`} ${headline}
-							</h3>`
-						: html`<span class="card__byline">GitKraken</span>`
+						? html`<gl-tooltip disabled placement="bottom-start">
+								<span slot="content" aria-hidden="true">${headline}</span>
+								<h3 class="card__headline" id=${headlineId}>
+									${read ? nothing : html`<span class="sr-only">${l10n.t('Unread:')}</span>`}
+									${headline}
+								</h3>
+							</gl-tooltip>`
+						: html`<span class="card__byline">${getNotificationSender()}</span>`
 				}
 				<span class="card__meta">
-					${this.renderChip(getCategoryChip(n.contentType))}
+					${this.renderChip(n)}
 					<span class="card__when">
 						<formatted-date class="card__time" .date=${new Date(n.createdAt)}></formatted-date>
 						<span class="card__actions">
@@ -1021,49 +1046,18 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 		</li>`;
 	}
 
-	private renderChip(chip: NotificationCategoryChip | undefined) {
-		switch (chip) {
-			case 'help':
-				return html`<gl-badge>${l10n.t('Help')}</gl-badge>`;
-			case 'offer':
-				return html`<gl-badge>${l10n.t('Offer')}</gl-badge>`;
-			case 'security':
-				return html`<gl-badge appearance="warning">${l10n.t('Security')}</gl-badge>`;
-			case 'system':
-				return html`<gl-badge appearance="warning">${l10n.t('System')}</gl-badge>`;
-			default:
-				return nothing;
-		}
+	private renderChip(n: GkNotification) {
+		const chip = getCategoryChipBadge(n);
+		if (chip == null) return nothing;
+
+		return html`<gl-badge appearance=${chip.warning ? 'warning' : nothing}>${chip.label}</gl-badge>`;
 	}
 
 	/** The card's body content, or `nothing` when there's none (so the card doesn't reserve an empty row) */
 	private renderBody(n: GkNotification, headline: string | undefined) {
 		const shared = n.projectShared;
 		if (n.event === 'projectShared' && shared != null) {
-			const project = html`<strong>${shared.project}</strong>`;
-			if (shared.teams.length) {
-				return html`<p>
-					${localizedContent(
-						l10n.t('In {organization}, {owner} created a new Team Workspace: {project} with {teams}'),
-						{
-							organization: shared.organization,
-							owner: shared.owner,
-							project: project,
-							teams: new Intl.ListFormat(undefined, { style: 'long', type: 'conjunction' }).format(
-								shared.teams,
-							),
-						},
-					)}
-				</p>`;
-			}
-
-			return html`<p>
-				${localizedContent(l10n.t('In {organization}, {owner} created a new Team Workspace: {project}'), {
-					organization: shared.organization,
-					owner: shared.owner,
-					project: project,
-				})}
-			</p>`;
+			return html`<p>${formatProjectSharedBody(shared, html`<strong>${shared.project}</strong>`)}</p>`;
 		}
 
 		const markdown = getDisplayBody(headline, n.body);
@@ -1074,11 +1068,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				? html`<gl-markdown untrusted density="document" .markdown=${markdown}></gl-markdown>`
 				: nothing
 		}
-		${
-			n.needsNewerVersion
-				? html`<p class="card__note">${l10n.t('This notification needs a newer version of GitLens.')}</p>`
-				: nothing
-		}`;
+		${n.needsNewerVersion ? html`<p class="card__note">${getNeedsNewerVersionText()}</p>` : nothing}`;
 	}
 
 	private renderFailure(failure: FailedAction, className: string) {
