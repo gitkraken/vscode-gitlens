@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes Linear's user-scoped tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProject*` with `options.user`) to also return the GitHub-synced issues the viewer created, not only those assigned to them. Linear's two-way GitHub Issues sync makes the author of a GitHub issue (one who linked their GitHub account to Linear) the creator of its Linear copy but assigns no one the GitHub issue doesn't, so the Linear copy of a GitHub issue the user filed was never read and a host showed only its GitHub copy. Only issues with a GitHub issue attachment and a GitHub sync link (`syncedWith` not `[]`) widen, so the rest of what the viewer created in Linear stays out; a synced row whose link list Linear failed to resolve is kept rather than silently dropped. Asking for `filters: [IssueFilter.Assignee]` by name still reads only assigned issues. Still one query per page; the wider match can take more pages. Requires `@gitkraken/provider-apis` with `LinearGetIssuesInput.githubSyncedCreators`; an older one ignores it and reads assigned issues only ([gitkraken/kepler#4480](https://github.com/gitkraken/kepler/issues/4480)) (plus/integrations)
+
 ## [0.23.0] - 2026-10-28
 
 ### Added

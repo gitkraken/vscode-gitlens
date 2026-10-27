@@ -103,6 +103,9 @@ function toApiIssue(node: LinearNode) {
 		team: { id: 'team-1', name: 'Team', key: 'TEAM', icon: null },
 		state: { id: `state-${node.type}`, name: node.type, color: '#000', type: node.type },
 		projectMilestone: null,
+		// Synced with nothing, as Linear answers for an issue outside its GitHub Issues sync: one the viewer created but
+		// someone else is assigned is not part of their issues.
+		syncedWith: [],
 	};
 }
 

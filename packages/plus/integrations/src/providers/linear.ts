@@ -31,6 +31,7 @@ import {
 	IssuesIntegration,
 	splitProjectIssuesSearch,
 } from '../models/issuesIntegration.js';
+import { IssueFilter } from '../providerFilters.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { linearIssuesEtagMaxNumbers, toLinearIssueEtagFields } from './linearIssuesEtag.js';
 import type {
@@ -79,6 +80,23 @@ export interface LinearOrganizationDescriptor extends IssueResourceDescriptor {
 }
 
 export interface LinearProjectDescriptor extends IssueResourceDescriptor {}
+
+/** The part of a team read's filter that narrows it to the viewer. */
+type LinearViewerScope = { assignees: string[]; githubSyncedCreators?: string[] };
+
+/**
+ * How a user-scoped team read narrows to the viewer: the issues assigned to them, plus, unless the caller asked for
+ * assigned issues by name, the GitHub-synced issues they created. Linear's GitHub Issues sync makes the GitHub author
+ * of an issue (one who linked their GitHub account) the creator of its Linear copy but assigns no one GitHub doesn't,
+ * so an assignee-only read never returns the copy of a GitHub issue the user filed (gitkraken/kepler#4480). Only
+ * synced issues widen, and only those the viewer created on either side: the rest of what the user created in Linear
+ * stays out of "my issues", as does a synced issue they merely follow.
+ */
+function viewerScope(viewerId: string, filters: IssueFilter[] | undefined): LinearViewerScope {
+	return filters?.includes(IssueFilter.Assignee)
+		? { assignees: [viewerId] }
+		: { assignees: [viewerId], githubSyncedCreators: [viewerId] };
+}
 
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
 	/**
@@ -507,7 +525,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			{
 				teams: [project.id],
 				...(options?.linearProjects?.length ? { projects: [...options.linearProjects] } : {}),
-				...(viewerId != null ? { assignees: [viewerId] } : {}),
+				...(viewerId != null ? viewerScope(viewerId, options?.filters) : {}),
 				states: toProviderIssueStates(options?.state),
 			},
 			options?.sort,
@@ -520,9 +538,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	}
 
 	/**
-	 * Searches every team of a user-scoped read together: one `getIssues` names all of them and the viewer as
-	 * assignee, so a team with none of the user's issues costs no request of its own. Linear's filter is a GraphQL
-	 * body, not a query string, so there is no key bound to chunk at.
+	 * Searches every team of a user-scoped read together: one `getIssues` names all of them and the viewer's scope
+	 * (see {@link viewerScope}), so a team with none of the user's issues costs no request of its own. Linear's filter
+	 * is a GraphQL body, not a query string, so there is no key bound to chunk at.
 	 *
 	 * A read narrowed to Linear Projects is searched together even across every assignee: the Projects already bound
 	 * it to a few teams' worth of issues, so a team holding none of them costs no request either. An unnarrowed read
@@ -539,6 +557,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 						options.userId ?? '',
 						options.sort ?? '',
 						options.state ?? '',
+						options.filters?.join(',') ?? '',
 						...(options.linearProjects ?? []),
 					].join('\0')
 				: undefined,
@@ -549,7 +568,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		requests: readonly ProjectIssuesRequest<ResourceDescriptor>[],
 	): Promise<IssueShape[][] | undefined> {
-		// Every request of a search shares its user and Linear Project scope (see `getProjectIssuesSearches`).
+		// Every request of a search shares every option read here (see the key in `getProjectIssuesSearches`).
 		const { options } = requests[0];
 		let viewerId: string | undefined;
 		if (options.user != null) {
@@ -568,7 +587,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			{
 				teams: teams.map(team => team.id),
 				...(options.linearProjects?.length ? { projects: [...options.linearProjects] } : {}),
-				...(viewerId != null ? { assignees: [viewerId] } : {}),
+				...(viewerId != null ? viewerScope(viewerId, options.filters) : {}),
 				states: toProviderIssueStates(options.state),
 			},
 			options.sort,
@@ -622,16 +641,17 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	 * Follows `getIssues`' cursor up to {@link maxPagesPerRequest}. `truncated` is set when that backstop stopped
 	 * the drain with more pages still available, when the provider stalled its cursor or flagged its paging as
 	 * truncated, or when a page after the first failed, which is recorded at `failureScope` while the prefix is
-	 * kept. A first-page failure throws, so the caller sees a hard error rather than an empty success.
+	 * kept. A failure before any issue was kept throws, so the caller sees a hard error rather than an empty success.
 	 */
 	private async drainIssues(
 		session: ProviderAuthenticationSession,
-		filter: { teams: string[]; projects?: string[]; assignees?: string[]; states?: GitIssueState[] },
+		filter: { teams: string[]; projects?: string[]; states?: GitIssueState[] } & Partial<LinearViewerScope>,
 		sort: IssuesForProjectOptions['sort'],
 		failureScope: CollectionScopeFailure['scope'],
 	): Promise<{ issues: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata }> {
 		const api = await this.getProvidersApi();
 		const assignees = filter.assignees?.length ? filter.assignees : undefined;
+		const syncedCreators = filter.githubSyncedCreators?.length ? filter.githubSyncedCreators : undefined;
 		let cursor: string | undefined;
 		let hasMore: boolean;
 		let requestCount = 0;
@@ -646,6 +666,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 					sort: sort,
 				});
 			} catch (ex) {
+				// Keyed on what was kept, not on the page: provider-apis can empty a page it filters after the query
+				// (synced-creator reads) and still report more, and a drain that kept nothing has nothing to serve, so
+				// its caller retries it rather than recording an empty prefix as read.
 				if (issues.length === 0) throw ex;
 
 				truncated = true;
@@ -662,9 +685,19 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			collectionMetadata = mergeCollectionMetadata(collectionMetadata, result.metadata);
 			for (const issue of result.values) {
 				const shape = toIssueShape(issue, this, { projection: 'project' });
-				// The query already scopes to the assignees; checking again keeps another user's issue out of "my
-				// issues" should the provider ever return one.
-				if (shape != null && (assignees == null || shape.assignees?.some(a => assignees.includes(a.id)))) {
+				// The read already scopes to the assignees and to the synced issues the creators filed, leaving out the
+				// issues with no GitHub sync link (`[]`) and keeping one whose link list Linear failed to resolve
+				// (absent). Checking again keeps another user's issue, or an unsynced one only its GitHub attachment
+				// matched, out of "my issues" should the provider ever return one.
+				if (
+					shape != null &&
+					(assignees == null ||
+						shape.assignees?.some(a => assignees.includes(a.id)) ||
+						(syncedCreators != null &&
+							shape.author != null &&
+							syncedCreators.includes(shape.author.id) &&
+							shape.syncedWith?.length !== 0))
+				) {
 					issues.push(shape);
 				}
 			}
