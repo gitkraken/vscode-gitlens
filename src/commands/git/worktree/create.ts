@@ -1,9 +1,11 @@
 import type { MessageItem } from 'vscode';
 import { l10n, ThemeIcon, Uri, window, workspace } from 'vscode';
 import { WorktreeCreateError } from '@gitlens/git/errors.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import {
+	createReference,
 	getReferenceLabel,
 	getReferenceNameWithoutRemote,
 	isBranchReference,
@@ -15,6 +17,7 @@ import { truncateLeft } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
 import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions/worktree.js';
 import type { GlRepository } from '../../../git/models/repository.js';
+import { addAssociatedIssueToBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
 import { getWorktreeForBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
@@ -102,6 +105,7 @@ interface State<Repo = string | GlRepository> {
 	reference?: GitReference;
 	addRemote?: { name: string; url: string };
 	createBranch?: string;
+	associateWithIssue?: IssueShape;
 	flags: Flags[];
 
 	result?: Deferred<GitWorktree | undefined>;
@@ -370,6 +374,30 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 							? { noTracking: true }
 							: undefined),
 					});
+					if (state.associateWithIssue != null) {
+						const issue = state.associateWithIssue;
+						const name = worktree?.branch?.name ?? worktree?.branchName;
+						if (name != null) {
+							await addAssociatedIssueToBranch(
+								this.container,
+								createReference(name, state.repo.path, {
+									refType: 'branch',
+									name: name,
+									remote: false,
+								}),
+								{ ...issue, type: 'issue' },
+							);
+						} else {
+							void window.showWarningMessage(
+								l10n.t(
+									"Unable to associate issue {0} with branch '{1}'.",
+									issue.id,
+									state.createBranch ?? state.reference.name,
+								),
+							);
+						}
+					}
+
 					state.result?.fulfill(worktree);
 
 					// Wire the chatAction to the new worktree. Two paths:

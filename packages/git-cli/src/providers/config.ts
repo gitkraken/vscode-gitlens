@@ -264,11 +264,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	/**
 	 * The latest pending `setGkConfig` write of each `commonPath\0key`. A call writing the same value with the same
-	 * skip option joins it; any other call chains after it, so one key's writes land in call order. Cleared on settle.
+	 * invalidation and error options joins it; any other call chains after it, so one key's writes land in call order. Cleared on settle.
 	 */
 	private readonly _pendingGkConfigWrites = new Map<
 		string,
-		{ value: string | undefined; skipKey: string; promise: Promise<void> }
+		{ value: string | undefined; skipKey: string; throwOnError: boolean; promise: Promise<void> }
 	>();
 
 	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
@@ -458,7 +458,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string | undefined,
 		key: string,
 		value: string | undefined,
-		options?: { file?: string; global?: boolean },
+		options?: { file?: string; global?: boolean; throwOnError?: boolean },
 	): Promise<void> {
 		const args: string[] = ['config'];
 
@@ -475,7 +475,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			args.push(key, value);
 		}
 
-		await this.git.run({ cwd: repoPath ?? '', runLocally: true }, ...args);
+		await this.git.run(
+			{ cwd: repoPath ?? '', runLocally: true, errors: options?.throwOnError ? 'throw' : undefined },
+			...args,
+		);
 
 		// Only invalidate cache when not using a custom file (custom files aren't cached)
 		if (!options?.file) {
@@ -606,12 +609,66 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@trace({ quiet: true })
-	async getGkConfig(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined> {
+	async getGkConfig(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { throwOnError?: boolean },
+	): Promise<string | undefined> {
+		if (options?.throwOnError) return this.getGkConfigStrict(repoPath, key);
+
 		// Served in-memory from a single bulk read of the whole `.git/gk/config` (no gk read needs `--type`).
 		// Canonicalize the key the way git does for `--get-regexp` output so subsection-less keys
 		// (e.g. `gk.defaultRemote`) match, and coerce an empty value to undefined to match the old
 		// `git config --get` (`.trim() || undefined`) contract.
-		return (await this.getGkConfigMap(repoPath)).get(canonicalizeGitConfigKey(key)) || undefined;
+		const map = await this.getGkConfigMap(repoPath);
+		return map.get(canonicalizeGitConfigKey(key)) || undefined;
+	}
+
+	private async getGkConfigStrict(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+	): Promise<string | undefined> {
+		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+		const path = await this.getGkConfigPath(repoPath);
+		if (path == null) throw new Error('Unable to locate GitKraken config storage');
+
+		try {
+			await fs.lstat(path);
+		} catch (ex) {
+			if ((ex as NodeJS.ErrnoException).code !== 'ENOENT') throw ex;
+
+			// Windows also reports ENOENT for a child beneath a file, so absence needs a directory parent.
+			for (const parent of [dirname(path), dirname(dirname(path))]) {
+				const entry = await fs.lstat(parent).catch((parentError: unknown) => {
+					if ((parentError as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+
+					throw parentError;
+				});
+				if (entry == null) continue;
+
+				if (entry.isDirectory() || (entry.isSymbolicLink() && (await fs.stat(parent)).isDirectory())) {
+					return undefined;
+				}
+				break;
+			}
+
+			throw ex;
+		}
+
+		// Listing has no ambiguous "no matching key" exit code; storage failures must stop read-modify-write.
+		const result = await this.git.run(
+			{ cwd: repoPath, errors: 'throw', runLocally: true },
+			'config',
+			'--null',
+			'--list',
+			'-f',
+			path,
+		);
+		if (result.completion.status !== 'exited' || result.exitCode !== 0) {
+			throw new Error('Unable to read GitKraken config');
+		}
+
+		return parseConfigRegexNullOutput(result.stdout).get(canonicalizeGitConfigKey(key))?.at(-1) || undefined;
 	}
 
 	@trace({ quiet: true })
@@ -741,7 +798,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string,
 		key: GkConfigKeys | DeprecatedGkConfigKeys,
 		value: string | undefined,
-		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
+		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[]; throwOnError?: boolean },
 	): Promise<void> {
 		// A self-write (with skip targets) and a user-driven write of the same value have different invalidation
 		// semantics, so only a matching skip option may join: otherwise the user-driven write would skip invalidation.
@@ -749,15 +806,23 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const commonPath = this.cache.getCommonPath(repoPath);
 		const skipKey = options?.skipInvalidation?.length ? options.skipInvalidation.toSorted().join(',') : '';
 		const pendingKey = `${commonPath}\0${key}`;
+		const throwOnError = options?.throwOnError === true;
 
 		const previous = this._pendingGkConfigWrites.get(pendingKey);
-		if (previous != null && previous.value === value && previous.skipKey === skipKey) return previous.promise;
+		if (
+			previous != null &&
+			previous.value === value &&
+			previous.skipKey === skipKey &&
+			previous.throwOnError === throwOnError
+		) {
+			return previous.promise;
+		}
 
 		const promise =
 			previous != null
 				? previous.promise.catch(() => {}).then(() => this.setGkConfigCore(repoPath, key, value, options))
 				: this.setGkConfigCore(repoPath, key, value, options);
-		const pending = { value: value, skipKey: skipKey, promise: promise };
+		const pending = { value: value, skipKey: skipKey, throwOnError: throwOnError, promise: promise };
 		this._pendingGkConfigWrites.set(pendingKey, pending);
 		// Swallow the cleanup chain's rejection so a failed write doesn't surface as an unhandled
 		// rejection separate from the caller's own handling of the returned promise.
@@ -775,16 +840,24 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string,
 		key: GkConfigKeys | DeprecatedGkConfigKeys,
 		value: string | undefined,
-		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
+		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[]; throwOnError?: boolean },
 	): Promise<void> {
 		const scope = getScopedLogger();
 
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		if (!gkConfigPath) return;
+		if (!gkConfigPath) {
+			if (options?.throwOnError) throw new Error('Unable to locate GitKraken config storage');
+
+			return;
+		}
 
 		const gkConfigFolder = joinPaths(gkConfigPath, '..');
 
-		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
+		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) {
+			if (options?.throwOnError) throw new Error('Unable to prepare GitKraken config storage');
+
+			return;
+		}
 
 		// Seed the reconcile snapshot from the pre-write file, so the write below can tell whether it changed the
 		// value (first tracked-key write per repository only; the bulk read is cached for everything else)
@@ -793,7 +866,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 
 		await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
-			this.setConfigCore(repoPath, key, value, { file: gkConfigPath }),
+			this.setConfigCore(repoPath, key, value, { file: gkConfigPath, throwOnError: options?.throwOnError }),
 		);
 
 		// Invalidate the bulk map (so the next read re-fetches) and the derived caches for this key's

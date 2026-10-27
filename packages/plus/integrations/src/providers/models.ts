@@ -1487,15 +1487,7 @@ export function toIssueShape(
 				avatarUrl: assignee.avatarUrl ?? undefined,
 				url: assignee.url ?? undefined,
 			})) ?? [],
-		project:
-			issue.project?.id && issue.project.resourceId && issue.project.namespace
-				? {
-						id: issue.project.id,
-						name: issue.project.name,
-						resourceId: issue.project.resourceId,
-						resourceName: issue.project.namespace,
-					}
-				: undefined,
+		project: toIssueProject(issue.project, provider),
 		repository:
 			issue.repository?.owner?.login != null
 				? {
@@ -1518,6 +1510,20 @@ export function toIssueShape(
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
 		...toIssueViewer(issue, options?.viewer),
+	};
+}
+
+function toIssueProject(project: ProviderIssue['project'], provider: ProviderReference): IssueProject | undefined {
+	if (!project?.id || !project.resourceId || (!project.namespace && !isJiraIntegrationId(provider.id))) {
+		return undefined;
+	}
+
+	return {
+		id: project.id,
+		name: project.name,
+		resourceId: project.resourceId,
+		// Jira identifies its site by resourceId; the API need not supply a display name for it.
+		resourceName: project.namespace ?? '',
 	};
 }
 
@@ -2097,14 +2103,7 @@ export function fromProviderIssue(
 					resourceId: options.project.resourceId,
 					resourceName: options.project.resourceName,
 				}
-			: issue.project?.id && issue.project?.resourceId && issue.project?.namespace
-				? {
-						id: issue.project.id,
-						name: issue.project.name,
-						resourceId: issue.project.resourceId,
-						resourceName: issue.project.namespace,
-					}
-				: undefined,
+			: toIssueProject(issue.project, integration),
 		identifier,
 		issue.type ?? undefined,
 		toIssueProviderState(issue.state),

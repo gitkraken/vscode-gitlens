@@ -4522,6 +4522,7 @@
 	"Unable to archive Cloud Patch: {0}": "No se pudo archivar el parche en la nube: {0}",
 	"Unable to archive Code Suggestion: {0}": "No se pudo archivar la sugerencia de código: {0}",
 	"Unable to archive draft '{0}'": "No se pudo archivar el borrador '{0}'",
+	"Unable to associate issue {0} with branch '{1}'.": "No se puede asociar el problema {0} con la rama '{1}'.",
 	"Unable to build a diff for the selected commit.": "No se pudo crear un diff para el commit seleccionado.",
 	"Unable to build a search from your description — {0}": "No se pudo crear una búsqueda a partir de su descripción — {0}",
 	"Unable to check for conflicts": "No se pudieron comprobar los conflictos",
