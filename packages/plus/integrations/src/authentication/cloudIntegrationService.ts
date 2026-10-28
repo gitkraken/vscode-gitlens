@@ -2,6 +2,7 @@ import { RequestRateLimitError } from '@gitlens/git/errors.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationIds } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
 	CloudIntegrationAuthenticationSession,
 	CloudIntegrationConnection,
@@ -233,7 +234,13 @@ export class CloudIntegrationService {
 		return data != null ? toSession(data) : undefined;
 	}
 
-	async disconnect(id: IntegrationIds): Promise<boolean> {
+	async disconnect(id: IntegrationIds, connectionId?: string): Promise<boolean> {
+		if (isSelfManagedHostIntegrationId(id)) {
+			if (!connectionId?.trim()) return false;
+
+			return this.disconnectConnection(id, connectionId);
+		}
+
 		const scope = getScopedLogger();
 
 		const cloudIntegrationType = toCloudIntegrationType[id];
