@@ -300,7 +300,8 @@ export const rebaseStyles = css`
 		box-sizing: border-box;
 		display: block;
 		flex: 1 1 0;
-		min-height: 0;
+		/* lit-virtualizer sets an inline min-height: 150px, which overflows (and clips) a shorter conflict split pane */
+		min-height: 0 !important;
 		overflow-x: hidden !important;
 		overflow-y: auto;
 		outline: none;
