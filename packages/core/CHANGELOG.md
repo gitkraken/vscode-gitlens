@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-28
+
 ### Fixed
 
 - Reports Jira issue reads against unknown sites or invalid installation paths as failures, preserving genuine missing-issue responses as absences ([#5981](https://github.com/gitkraken/vscode-gitlens/issues/5981)) (plus/integrations)
@@ -1008,7 +1010,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...HEAD
+[0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
 [0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
 [0.21.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...gitkraken:releases/core/v0.21.0
 [0.20.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.1...gitkraken:releases/core/v0.20.2
