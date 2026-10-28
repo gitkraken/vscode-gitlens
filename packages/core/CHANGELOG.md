@@ -8,14 +8,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `IntegrationManager.listLinearProjects(options?: { connectionId?; forceSync? })`, returning `ProviderResult<ProviderLinearProjectShape>` (`{ id; providerId; name; state; url }`): the Linear workspace's Projects, Linear's own `Project` entity, apart from the teams `listProjects` returns for Linear. Drained across Linear's pages up to 2,000 Projects and cached per connection like the team list; a drain it could not finish keeps what it read and is reported with a warning and `fetchFailed`, and is not cached ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
-- Adds `linearProjects?: string[]` to `listIssueTrackerIssuesPage`, narrowing a Linear read server-side to issues in any of those Projects (by `listLinearProjects`' `id`). It narrows each team's read rather than replacing the team window, so it combines with `org`/`project`, `includeAllAssignees`, `state` and `sort`, and a narrowed team that hits its backstop still reports `page.truncated`. Other trackers refuse it with a warning and `fetchFailed`, and a cursor minted under other Projects is refused ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
 
 ### Fixed
 
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
+
+## [0.23.0] - 2026-10-28
+
+### Added
+
+- Adds `IntegrationManager.listLinearProjects(options?: { connectionId?; forceSync? })`, returning `ProviderResult<ProviderLinearProjectShape>` (`{ id; providerId; name; state; url }`): the Linear workspace's Projects, Linear's own `Project` entity, apart from the teams `listProjects` returns for Linear. Drained across Linear's pages up to 2,000 Projects and cached per connection like the team list; a drain it could not finish keeps what it read and is reported with a warning and `fetchFailed`, and is not cached ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
+- Adds `linearProjects?: string[]` to `listIssueTrackerIssuesPage`, narrowing a Linear read server-side to issues in any of those Projects (by `listLinearProjects`' `id`). It narrows each team's read rather than replacing the team window, so it combines with `org`/`project`, `includeAllAssignees`, `state` and `sort`, and a narrowed team that hits its backstop still reports `page.truncated`. Other trackers refuse it with a warning and `fetchFailed`, and a cursor minted under other Projects is refused ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
 
 ## [0.22.1] - 2026-10-28
 
@@ -1021,7 +1026,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...HEAD
+[0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
 [0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
 [0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
 [0.21.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...gitkraken:releases/core/v0.21.0
