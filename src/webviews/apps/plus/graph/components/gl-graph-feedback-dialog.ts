@@ -148,10 +148,10 @@ export class GlGraphFeedbackDialog extends LitElement {
 				gap: var(--gl-space-12);
 				min-height: 0;
 				padding: var(--gl-space-16) var(--gl-space-20);
-				overflow: hidden auto;
 				/* The segment labels respond to the DIALOG's width, not the viewport's — the graph can be
 	docked into a narrow panel while the window stays wide. */
 				container-type: inline-size;
+				overflow: hidden auto;
 			}
 
 			.subtitle {
@@ -196,19 +196,19 @@ export class GlGraphFeedbackDialog extends LitElement {
 
 			.segmented button {
 				display: inline-flex;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: center;
 				min-width: 0;
 				height: 2.6rem;
 				padding: 0 var(--gl-space-4);
-				gap: var(--gl-space-6);
-				white-space: nowrap;
 				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
+				white-space: nowrap;
+				cursor: pointer;
 				background: transparent;
 				border: none;
 				border-radius: var(--gl-radius-xs);
-				cursor: pointer;
 			}
 
 			.segmented button:hover {

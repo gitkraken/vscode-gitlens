@@ -73,12 +73,12 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 			font: inherit;
 			font-size: var(--gl-font-md);
 			color: var(--vscode-textLink-foreground);
+			text-decoration: none;
 			cursor: pointer;
 			background: none;
 			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition: color var(--gl-duration-medium) ease;
-			text-decoration: none;
 		}
 
 		.strip__cta:hover {
