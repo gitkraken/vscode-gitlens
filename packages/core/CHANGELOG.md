@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `IntegrationManager.listLinearProjects(options?: { connectionId?; forceSync? })`, returning `ProviderResult<ProviderLinearProjectShape>` (`{ id; providerId; name; state; url }`): the Linear workspace's Projects, Linear's own `Project` entity, apart from the teams `listProjects` returns for Linear. Drained across Linear's pages up to 2,000 Projects and cached per connection like the team list; a drain it could not finish keeps what it read and is reported with a warning and `fetchFailed`, and is not cached ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
+- Adds `linearProjects?: string[]` to `listIssueTrackerIssuesPage`, narrowing a Linear read server-side to issues in any of those Projects (by `listLinearProjects`' `id`). It narrows each team's read rather than replacing the team window, so it combines with `org`/`project`, `includeAllAssignees`, `state` and `sort`, and a narrowed team that hits its backstop still reports `page.truncated`. Other trackers refuse it with a warning and `fetchFailed`, and a cursor minted under other Projects is refused ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
 
 ### Fixed
