@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-28
+
 ### Changed
 
 - Changes Linear's user-scoped tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProject*` with `options.user`) to also return the GitHub-synced issues the viewer created, not only those assigned to them. Linear's two-way GitHub Issues sync makes the author of a GitHub issue (one who linked their GitHub account to Linear) the creator of its Linear copy but assigns no one the GitHub issue doesn't, so the Linear copy of a GitHub issue the user filed was never read and a host showed only its GitHub copy. Only issues with a GitHub issue attachment and a GitHub sync link (`syncedWith` not `[]`) widen, so the rest of what the viewer created in Linear stays out; a synced row whose link list Linear failed to resolve is kept rather than silently dropped. Asking for `filters: [IssueFilter.Assignee]` by name still reads only assigned issues. Still one query per page; the wider match can take more pages. Requires `@gitkraken/provider-apis` with `LinearGetIssuesInput.githubSyncedCreators`; an older one ignores it and reads assigned issues only ([gitkraken/kepler#4480](https://github.com/gitkraken/kepler/issues/4480)) (plus/integrations)
@@ -1021,7 +1023,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...HEAD
+[0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
 [0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
 [0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
 [0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
