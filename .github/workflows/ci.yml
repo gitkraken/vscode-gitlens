@@ -116,11 +116,15 @@ jobs:
             - name: Run package unit tests
               run: pnpm run test:packages
 
+            # `--quick` skips the format, lint/type-check, dependency, and localization gates; the `build`
+            # job's production bundle already runs every one of them over the whole project.
             - name: Build test files
-              run: pnpm run build:tests
+              run: pnpm run build:tests --quick
 
+            # Invoke vscode-test directly: `pnpm run test` would rebuild the tests (its `pretest` hook) and
+            # re-run every package suite (`pnpm -r test`) that the steps above already ran.
             - name: Run unit tests
-              run: xvfb-run -a pnpm run test
+              run: xvfb-run -a pnpm exec vscode-test
 
             # Excluded from `pnpm run test` because they spawn real git against temp repos; run them
             # here so the provider suites that exercise actual git behavior still gate CI.
