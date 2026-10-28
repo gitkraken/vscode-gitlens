@@ -108,10 +108,11 @@ export interface ProviderWarningScope {
 
 /**
  * The selector of an issue-tracker project read that matched nothing: see {@link ProviderWarning.selector}. `kind`
- * names which one missed, and `value` is that selector exactly as the caller passed it.
+ * names which one missed, and `value` is that selector exactly as the caller passed it. `linearProject` is one of a
+ * Linear read's `linearProjects`, an id the workspace's Projects no longer list.
  */
 export interface ProviderWarningSelector {
-	kind: 'org' | 'project';
+	kind: 'org' | 'project' | 'linearProject';
 	value: string;
 }
 

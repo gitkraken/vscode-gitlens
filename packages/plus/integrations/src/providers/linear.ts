@@ -42,7 +42,7 @@ import type {
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
-import { mergeCollectionMetadata } from './utils/providerPaging.js';
+import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -264,11 +264,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	 *
 	 * Cached like the teams, and only when complete: a drain cut short by its backstop or a failed page is returned
 	 * with its `truncated`/`metadata` so the facade can say so, and read again next time. A first-page failure
-	 * rejects, which the result wrapper turns into `{ error }`.
+	 * rejects, which the result wrapper turns into `{ error }`. `fresh` reads past the cache and any read in flight,
+	 * for a caller that must not take a list from before what it needs to see (a Project created since).
 	 */
 	@trace()
 	async getWorkspaceProjectsResult(
 		connectionId?: string,
+		options?: { fresh?: boolean },
 	): Promise<IntegrationResult<ProviderHierarchyResult<ProviderLinearProject>>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -276,7 +278,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
-			const projects = await this.getWorkspaceProjects(session);
+			const projects = await this.getWorkspaceProjects(session, options?.fresh === true);
 			await this.confirmScopedAuthFailures(session, projects.metadata);
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return { value: projects };
@@ -288,74 +290,79 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	/** Expires, and is dropped on a re-sync, so a Project created or archived mid-session is picked up. */
 	private readonly _workspaceProjects = new DiscoveryCache<ProviderLinearProject[]>();
-	private async getWorkspaceProjects(
+	/**
+	 * In flight by token, with the cache generation it started under: concurrent cold reads share one drain, but a
+	 * read after the cache was dropped (a `forceSync`) never joins one started before, which could miss what it asks
+	 * to see.
+	 */
+	private readonly _workspaceProjectsReads = new Map<
+		string,
+		{ generation: number; read: Promise<ProviderHierarchyResult<ProviderLinearProject>> }
+	>();
+	private getWorkspaceProjects(
 		session: ProviderAuthenticationSession,
+		fresh: boolean,
 	): Promise<ProviderHierarchyResult<ProviderLinearProject>> {
 		const { accessToken } = session;
-		const cached = this._workspaceProjects.get(accessToken);
-		if (cached != null) return { values: cached };
-
 		const generation = this._workspaceProjects.generation;
-		const read = await this.readWorkspaceProjects(session);
-		if (read.truncated !== true && (read.metadata == null || read.metadata.completeness === 'complete')) {
-			this._workspaceProjects.set(accessToken, read.values, { generation: generation });
+		if (!fresh) {
+			const cached = this._workspaceProjects.get(accessToken);
+			if (cached != null) return Promise.resolve({ values: cached });
+
+			const inFlight = this._workspaceProjectsReads.get(accessToken);
+			if (inFlight?.generation === generation) return inFlight.read;
 		}
+
+		const read = this.readWorkspaceProjects(session).then(result => {
+			if (result.truncated !== true && (result.metadata == null || result.metadata.completeness === 'complete')) {
+				this._workspaceProjects.set(accessToken, result.values, { generation: generation });
+			}
+			return result;
+		});
+		const entry = { generation: generation, read: read };
+		this._workspaceProjectsReads.set(accessToken, entry);
+		void read
+			.finally(() => {
+				if (this._workspaceProjectsReads.get(accessToken) === entry) {
+					this._workspaceProjectsReads.delete(accessToken);
+				}
+			})
+			.catch(() => {});
 		return read;
 	}
 
 	/**
-	 * Follows the Projects cursor up to {@link maxWorkspaceProjectPages}. A first-page failure rejects, so the read
+	 * Drains the Projects cursor up to {@link maxWorkspaceProjectPages}. A first-page failure rejects, so the read
 	 * fails as the team read does rather than reading as a workspace with no Projects; a later one keeps the prefix
-	 * and records the failure, as does a stalled cursor or the backstop with pages left.
+	 * and records the failure, as do a stalled cursor and the backstop with pages left.
 	 */
 	private async readWorkspaceProjects(
 		session: ProviderAuthenticationSession,
 	): Promise<ProviderHierarchyResult<ProviderLinearProject>> {
 		const api = await this.getProvidersApi();
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
-		const values: ProviderLinearProject[] = [];
-		let metadata: CollectionMetadata | undefined;
-		let truncated = false;
-		let cursor: string | undefined;
-		for (let page = 1; ; page++) {
-			let result: Awaited<ReturnType<typeof api.getLinearProjects>>;
-			try {
-				result = await api.getLinearProjects(tokenWithInfo, { cursor: cursor });
-			} catch (ex) {
-				if (page === 1) throw ex;
+		let pagesRead = 0;
+		let firstPageError: Error | undefined;
+		const read = await collectProviderPagedResult(
+			async cursor => {
+				try {
+					const page = await api.getLinearProjects(tokenWithInfo, { cursor: cursor });
+					pagesRead++;
+					return page;
+				} catch (ex) {
+					if (pagesRead === 0) {
+						firstPageError = toError(ex);
+					}
+					throw ex;
+				}
+			},
+			maxWorkspaceProjectPages,
+			{ providerId: this.id },
+		);
+		// The drain records any failure against its scope and keeps the prefix; with no prefix, there is no list.
+		if (firstPageError != null) throw firstPageError;
 
-				truncated = true;
-				metadata = mergeCollectionMetadata(metadata, {
-					completeness: 'partial',
-					failures: [toCollectionScopeFailure({ providerId: this.id }, ex)],
-				});
-				break;
-			}
-
-			values.push(...result.values);
-			metadata = mergeCollectionMetadata(metadata, result.metadata, 'disjoint');
-			truncated ||= result.paging?.truncated === true;
-			if (!result.paging?.more) break;
-
-			const nextCursor = result.paging.cursor;
-			if (
-				nextCursor == null ||
-				nextCursor === '{}' ||
-				nextCursor === cursor ||
-				page >= maxWorkspaceProjectPages
-			) {
-				truncated = true;
-				break;
-			}
-
-			cursor = nextCursor;
-		}
-
-		return {
-			values: values,
-			...(truncated ? { truncated: true } : {}),
-			...(metadata != null ? { metadata: metadata } : {}),
-		};
+		return read;
 	}
 
 	protected override async getProviderResourcesForUser(
@@ -394,6 +401,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		this._organizations = undefined;
 		this._teams.clear();
 		this._workspaceProjects.clear();
+		this._workspaceProjectsReads.clear();
 		this._autolinks.clear();
 		this._recentAccounts.clear();
 	}
