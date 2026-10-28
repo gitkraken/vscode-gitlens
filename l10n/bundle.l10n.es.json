@@ -4681,7 +4681,7 @@
 	"Unable to detect agents. The review has been copied to your clipboard so you can paste it elsewhere.": "No se pudieron detectar los agentes. La revisión se ha copiado al portapapeles para que pueda pegarla en otro lugar.",
 	"Unable to detect agents: {0}": "No se pudieron detectar los agentes: {0}",
 	"Unable to detect conflicts": "No se pudieron detectar conflictos",
-	"Unable to detect conflicts because Git 2.38 or later is required": "No se pudieron detectar conflictos porque se requiere Git 2.38 o posterior",
+	"Unable to detect conflicts because Git 2.45 or later is required": "No se pudieron detectar conflictos porque se requiere Git 2.45 o posterior",
 	"Unable to detect conflicts because the branch or commit doesn't exist": "No se pudieron detectar conflictos porque la rama o el commit no existe",
 	"Unable to detect conflicts because the branches don't share a common history": "No se pudieron detectar conflictos porque las ramas no comparten un historial común",
 	"Unable to detect conflicts because the selection includes the initial commit": "No se pudieron detectar conflictos porque la selección incluye el commit inicial",

@@ -4681,7 +4681,7 @@
 	"Unable to detect agents. The review has been copied to your clipboard so you can paste it elsewhere.": "无法检测代理。审查内容已复制到剪贴板，你可以将其粘贴到其他地方。",
 	"Unable to detect agents: {0}": "无法检测代理：{0}",
 	"Unable to detect conflicts": "无法检测冲突",
-	"Unable to detect conflicts because Git 2.38 or later is required": "无法检测冲突，因为需要 Git 2.38 或更高版本",
+	"Unable to detect conflicts because Git 2.45 or later is required": "无法检测冲突，因为需要 Git 2.45 或更高版本",
 	"Unable to detect conflicts because the branch or commit doesn't exist": "无法检测冲突，因为分支或提交不存在",
 	"Unable to detect conflicts because the branches don't share a common history": "无法检测冲突，因为分支没有共同的历史",
 	"Unable to detect conflicts because the selection includes the initial commit": "无法检测冲突，因为所选内容包含初始提交",

@@ -1574,7 +1574,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
 						);
 						return createConflictDetectionError('noMergeBase');
-					} else if (ex instanceof GitError) {
+					} else if (ex instanceof GitError && ex.stdout) {
+						// A conflicted merge exits non-zero but still writes its result (at least the tree OID); a
+						// failure with no output is an error, not a clean merge
 						data = ex.stdout;
 					} else {
 						scope?.error(ex);
@@ -1609,9 +1611,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		ontoTreeOid: string,
 		cancellation?: AbortSignal,
 	): Promise<ConflictDetectionResult> {
-		// Requires Git v2.38+ for --write-tree with 3-arg form
-		// `runMergeTreeStep` relies on `--merge-base`
-		if (!(await this.git.supports('git:merge-tree:merge-base'))) {
+		// `runMergeTreeStep` passes a tree as `ours`, which needs Git v2.45+
+		if (!(await this.git.supports('git:merge-tree:trees'))) {
 			return createConflictDetectionError('unsupported');
 		}
 
@@ -1716,7 +1717,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			} else if (GitErrors.noMergeBase.test(msg)) {
 				scope?.error(ex, `Unable to merge '${ours}' and '${theirs}' as they have no common ancestor`);
 				return { ok: false, reason: 'noMergeBase' };
-			} else if (ex instanceof GitError) {
+			} else if (ex instanceof GitError && ex.stdout) {
+				// A conflicted merge exits non-zero but still writes its result (at least the tree OID); a failure
+				// with no output is an error, not a clean merge
 				data = ex.stdout;
 			} else {
 				scope?.error(ex, 'Failed to execute merge-tree for conflict check');
@@ -1736,9 +1739,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<ConflictDetectionResult> {
 		const scope = getScopedLogger();
 
-		// Requires Git v2.38+ for --write-tree with 3-arg form
-		// `runMergeTreeStep` relies on `--merge-base`
-		if (!(await this.git.supports('git:merge-tree:merge-base'))) {
+		// `runMergeTreeStep` passes a tree as `ours`, which needs Git v2.45+
+		if (!(await this.git.supports('git:merge-tree:trees'))) {
 			return createConflictDetectionError('unsupported');
 		}
 
