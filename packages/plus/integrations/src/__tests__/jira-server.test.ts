@@ -12,6 +12,7 @@ import {
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { GitConfigEntityIdentifier } from '../providers/models.js';
+import { markRequestError } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import {
 	encodeIssueOrPullRequestForGitConfig,
@@ -425,8 +426,13 @@ suite('Jira Server/Data Center (#5864)', () => {
 		// An autolink or a stored reference can name an issue that was deleted or never existed. Jira answers
 		// 404; translating that into a `RequestNotFoundError` would log an exception where Jira Cloud's
 		// `getJiraIssueByKey` and the generic `getIssue` both report nothing found.
-		provider.getJiraServerIssueFn = () =>
-			Promise.reject(Object.assign(new Error('Issue does not exist'), { response: { status: 404 } }));
+		provider.getJiraServerIssueFn = () => {
+			const error = Object.assign(new Error('Issue does not exist'), {
+				response: { status: 404, body: { errorMessages: ['Issue does not exist'] } },
+			});
+			markRequestError(error, { url: 'https://jira.example.com/rest/api/2/issue/PROJ-404' });
+			return Promise.reject(error);
+		};
 
 		assert.equal(
 			await api.getJiraServerIssue(

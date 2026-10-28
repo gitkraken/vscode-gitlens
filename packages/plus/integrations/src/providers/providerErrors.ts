@@ -5,6 +5,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import type { ResponseHeaders } from '../errors.js';
 import {
@@ -80,16 +81,21 @@ export class UnexpectedResponseError extends Error {
 }
 
 /** What the request function `ProvidersApi` hands `provider-apis` threw itself: see {@link markRequestError}. */
-const requestErrors = new WeakSet<object>();
+const requestErrors = new WeakMap<object, { path: string; method: string } | undefined>();
 
 /**
  * Records an error the request function threw itself (a transport failure, or a response it refused), so
  * {@link throwProviderError} never reads it as data a read could not handle, whatever the host's fetch throws.
  * Returns `ex`, to rethrow.
  */
-export function markRequestError(ex: unknown): unknown {
+export function markRequestError(ex: unknown, request?: { url: string; method?: string }): unknown {
 	if (ex != null && typeof ex === 'object') {
-		requestErrors.add(ex);
+		requestErrors.set(
+			ex,
+			request != null && URL.canParse(request.url)
+				? { path: new URL(request.url).pathname, method: (request.method ?? 'GET').toUpperCase() }
+				: undefined,
+		);
 	}
 	return ex;
 }
@@ -232,7 +238,25 @@ export function isProviderIssueNotFoundError(providerId: IntegrationIds, ex: unk
 		);
 	}
 
-	const status = (ex as { response?: { status?: unknown } }).response?.status;
+	const response = (ex as { response?: { status?: unknown; body?: unknown } } | null | undefined)?.response;
+	const status = response?.status;
+	if (
+		providerId === IssuesCloudHostIntegrationId.Jira ||
+		providerId === IssuesSelfManagedHostIntegrationId.JiraServer
+	) {
+		// SDK reads discover fields and sites first; only the issue endpoint can prove an issue's absence.
+		const request = ex != null && typeof ex === 'object' ? requestErrors.get(ex) : undefined;
+		const messages = (response?.body as { errorMessages?: unknown } | null | undefined)?.errorMessages;
+		return (
+			status === 404 &&
+			request?.method === 'GET' &&
+			/\/rest\/api\/[23]\/issue\/[^/]+$/.test(request.path) &&
+			Array.isArray(messages) &&
+			messages.length > 0 &&
+			messages.every(message => typeof message === 'string' && message.trim().length > 0)
+		);
+	}
+
 	return status === 404 || status === 410 || status === 422;
 }
 

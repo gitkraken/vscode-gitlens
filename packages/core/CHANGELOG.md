@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Reports Jira issue reads against unknown sites or invalid installation paths as failures, preserving genuine missing-issue responses as absences ([#5981](https://github.com/gitkraken/vscode-gitlens/issues/5981)) (plus/integrations)
+
 ## [0.22.0] - 2026-10-27
 
 ### Added
