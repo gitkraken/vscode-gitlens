@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Reports Jira issue reads against unknown sites or invalid installation paths as failures, preserving genuine missing-issue responses as absences ([#5981](https://github.com/gitkraken/vscode-gitlens/issues/5981)) (plus/integrations)
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
 

@@ -641,8 +641,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 *
 	 * Never proves an absence. Jira silently omits a key it can't find or show (listing it in no `issueErrors` either),
 	 * and answers a moved issue under its new key, which no longer matches the key asked for. Either way the target's
-	 * slot is rejected, so the full read, whose 404 does prove an absence, decides. When no target was answered and
-	 * nothing failed, the check declines instead, so a batch of only such keys costs a full read, not a failure.
+	 * slot is rejected, so the full read distinguishes a missing issue from a site failure. When no target was
+	 * answered and nothing failed, the check declines, so a batch of only such keys costs a full read, not a failure.
 	 */
 	protected override async getProviderIssuesEtagFieldsByResourceId(
 		session: ProviderAuthenticationSession,

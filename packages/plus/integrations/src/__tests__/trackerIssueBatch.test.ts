@@ -229,7 +229,9 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		let requests = 0;
 		runtime.http.fetch = () => {
 			requests++;
-			return Promise.resolve(jsonResponse(404, { message: 'Issue does not exist' }));
+			return Promise.resolve(
+				jsonResponse(404, { errorMessages: ['Issue does not exist or you do not have permission to see it.'] }),
+			);
 		};
 		const { manager } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Jira);
 
@@ -245,6 +247,105 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 
 		manager.dispose();
 	});
+
+	for (const resourceId of ['unknown-site-id', 'example']) {
+		test(`reports unknown Jira site ${resourceId} as failed and recovers on a valid site`, async () => {
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = input => {
+				const path = new URL(input.toString()).pathname;
+				return Promise.resolve(
+					path.includes('/ex/jira/org-1/')
+						? jsonResponse(200, jiraIssueResponse('ABC-123'))
+						: jsonResponse(404, { message: 'No message available', error: 'Not Found' }),
+				);
+			};
+			const { manager } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Jira);
+			try {
+				const failed = await manager.getIssuesBatch({
+					providerId: IssuesCloudHostIntegrationId.Jira,
+					targets: [{ ...jiraTarget('ABC-123'), resourceId: resourceId }],
+				});
+				assert.deepEqual(failed.items, []);
+				assert.equal(failed.fetchFailed, true);
+				assert.equal(failed.warnings.length, 1);
+
+				const recovered = await manager.getIssuesBatch({
+					providerId: IssuesCloudHostIntegrationId.Jira,
+					targets: [jiraTarget('ABC-123')],
+				});
+				assert.equal(recovered.items[0]?.issue?.id, 'ABC-123');
+				assert.notEqual(recovered.fetchFailed, true);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	for (const [name, body] of [
+		['missing issue', { errorMessages: ['Issue does not exist or you do not have permission to see it.'] }],
+		['localized missing issue', { errorMessages: ['DER VORGANG EXISTIERT NICHT.'] }],
+		['field failure', { errorMessages: ['DER VORGANG EXISTIERT NICHT.'] }],
+		['wrong context path', { message: 'Not Found' }],
+	] as const) {
+		test(`Data Center distinguishes ${name} from a site failure`, async () => {
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = input =>
+				Promise.resolve(
+					new URL(input.toString()).pathname.endsWith('/field') && name !== 'field failure'
+						? jsonResponse(200, [])
+						: jsonResponse(404, body),
+				);
+			const manager = createIntegrationManager(runtime);
+			const domain = 'jira.example.com';
+			const integration = (await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, domain))!;
+			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...trackerSession(domain),
+				type: 'pat',
+			};
+			try {
+				const result = await manager.getIssuesBatch({
+					providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+					domain: domain,
+					targets: [{ key: 'issue', resourceId: domain, identifier: 'ABC-123' }],
+				});
+				assert.deepEqual(result.items, name.includes('missing issue') ? [{ key: 'issue' }] : []);
+				assert.equal(result.fetchFailed === true, !name.includes('missing issue'));
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	for (const failedEndpoint of ['issue', 'field']) {
+		test(`Cloud SDK localized ${failedEndpoint} 404 preserves the operation's meaning`, async () => {
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = input => {
+				const path = new URL(input.toString()).pathname;
+				if (path.endsWith('/accessible-resources')) {
+					return Promise.resolve(
+						jsonResponse(200, [{ id: 'org-1', url: jiraResourceUrl, name: 'example', scopes: [] }]),
+					);
+				}
+				if (path.endsWith('/field') && failedEndpoint !== 'field') {
+					return Promise.resolve(jsonResponse(200, []));
+				}
+
+				return Promise.resolve(jsonResponse(404, { errorMessages: ['DER VORGANG EXISTIERT NICHT.'] }));
+			};
+			const { manager, integration } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Jira);
+			try {
+				const result = await integration.getIssueResult(
+					{ id: 'org-1', key: 'org-1', name: 'example' },
+					'ABC-404',
+				);
+				assert.ok(result != null);
+				assert.equal(result.value, undefined);
+				assert.equal(result.error != null, failedEndpoint === 'field');
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
 
 	test('reports Jira 410 or 422 responses as failures, never as proven absences', async () => {
 		for (const status of [410, 422]) {

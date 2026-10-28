@@ -2769,8 +2769,7 @@ export class ProvidersApi implements Disposable {
 		try {
 			return await requestJiraIssueByKey(this.request, tokenWithInfo.accessToken, resourceId, resourceUrl, key);
 		} catch (e) {
-			const status = (e as { response?: { status?: unknown } }).response?.status;
-			if (status === 404) return undefined;
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
