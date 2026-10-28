@@ -313,22 +313,26 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			if (inFlight?.generation === generation) return inFlight.read;
 		}
 
-		const read = this.readWorkspaceProjects(session).then(result => {
-			if (result.truncated !== true && (result.metadata == null || result.metadata.completeness === 'complete')) {
+		const entry = { generation: generation, read: this.readWorkspaceProjects(session) };
+		entry.read = entry.read.then(result => {
+			if (
+				this._workspaceProjectsReads.get(accessToken) === entry &&
+				result.truncated !== true &&
+				(result.metadata == null || result.metadata.completeness === 'complete')
+			) {
 				this._workspaceProjects.set(accessToken, result.values, { generation: generation });
 			}
 			return result;
 		});
-		const entry = { generation: generation, read: read };
 		this._workspaceProjectsReads.set(accessToken, entry);
-		void read
+		void entry.read
 			.finally(() => {
 				if (this._workspaceProjectsReads.get(accessToken) === entry) {
 					this._workspaceProjectsReads.delete(accessToken);
 				}
 			})
 			.catch(() => {});
-		return read;
+		return entry.read;
 	}
 
 	/**

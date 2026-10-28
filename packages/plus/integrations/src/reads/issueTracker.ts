@@ -321,7 +321,6 @@ async function readIssueTrackerIssuesPage(
 					value: missing,
 				}),
 			);
-			return emptyPage();
 		}
 	}
 
