@@ -302,6 +302,46 @@ suite('Linear workspace Projects (listLinearProjects)', () => {
 		manager.dispose();
 	});
 
+	test('an older fresh confirmation cannot overwrite a newer workspace list', async () => {
+		let reads = 0;
+		let started!: () => void;
+		const firstStarted = new Promise<void>(resolve => (started = resolve));
+		let release!: () => void;
+		const gate = new Promise<void>(resolve => (release = resolve));
+		const { manager } = await connectedLinear({
+			projects: async () => {
+				reads++;
+				if (reads === 1) return { values: [linearProject('p1')] };
+				if (reads === 2) {
+					started();
+					await gate;
+					return { values: [linearProject('p1'), linearProject('p9')] };
+				}
+				return { values: [linearProject('p1'), linearProject('p9'), linearProject('p10')] };
+			},
+		});
+
+		await manager.listLinearProjects();
+		const older = manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			linearProjects: ['p9'],
+		});
+		await firstStarted;
+		await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			linearProjects: ['p10'],
+		});
+		release();
+		await older;
+
+		assert.deepEqual(
+			(await manager.listLinearProjects()).items.map(project => project.id),
+			['p1', 'p9', 'p10'],
+		);
+		assert.equal(reads, 3);
+		manager.dispose();
+	});
+
 	test('fails rather than serving a prefix when a later page is cancelled', async () => {
 		const { manager, projectCursors } = await connectedLinear({
 			projects: cursor =>
@@ -573,22 +613,30 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 		manager.dispose();
 	});
 
-	test('reports a Project the workspace no longer lists as a selector miss, not an empty Project', async () => {
-		const { manager, issueCalls, projectCursors } = await connectedLinear({});
+	test('warns about a missing Project and still reads issues in the other selected Projects', async () => {
+		const { manager, issueCalls, projectCursors } = await connectedLinear({
+			issues: () => done([linearIssue('ENG-1')]),
+		});
 
 		const result = await manager.listIssueTrackerIssuesPage({
 			providerId: IssuesCloudHostIntegrationId.Linear,
 			linearProjects: ['p1', 'gone'],
 		});
 
-		assert.deepEqual(result.items, []);
+		assert.deepEqual(
+			result.items.map(issue => issue.id),
+			['ENG-1'],
+		);
 		assert.equal(result.fetchFailed, undefined);
 		assert.equal(result.cursor, undefined);
 		assert.equal(result.warnings.length, 1);
 		assert.equal(result.warnings[0]?.kind, 'not-found');
 		assert.deepEqual(result.warnings[0]?.selector, { kind: 'linearProject', value: 'gone' });
 		assert.equal(projectCursors.length, 2, 'the miss is confirmed against a list read past the cache');
-		assert.equal(issueCalls.length, 0);
+		assert.deepEqual(
+			issueCalls.map(call => call.projects),
+			[['gone', 'p1']],
+		);
 
 		manager.dispose();
 	});
