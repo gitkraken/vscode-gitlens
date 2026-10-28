@@ -1,7 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { CloudIntegrationService } from '../authentication/cloudIntegrationService.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '../constants.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 interface FetchCall {
@@ -459,5 +463,32 @@ suite('CloudIntegrationService error bodies', () => {
 		const service = new CloudIntegrationService(runtime);
 		await assert.rejects(service.getConnections(), e => e === error);
 		assert.deepEqual(runtime.emittedEvents, []);
+	});
+});
+
+suite('Self-managed reauthentication disconnect', () => {
+	for (const id of [
+		GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+		GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+		GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		GitSelfManagedHostIntegrationId.BitbucketServer,
+		IssuesSelfManagedHostIntegrationId.JiraServer,
+	]) {
+		test(`${id} deletes only the selected token and refuses an unscoped delete`, async () => {
+			const { service, calls } = createCloudService(() => ({ data: null }));
+			assert.equal(await service.disconnect(id), false);
+			assert.equal(await service.disconnect(id, ' '), false);
+			assert.deepEqual(calls, []);
+			assert.equal(await service.disconnect(id, 'host/token'), true);
+			assert.deepEqual(calls, [
+				{ path: 'v1/provider-tokens/tokens/host%2Ftoken', method: 'DELETE', body: undefined },
+			]);
+		});
+	}
+
+	test('cloud reauthentication keeps the provider-scoped endpoint', async () => {
+		const { service, calls } = createCloudService(() => ({ data: null }));
+		assert.equal(await service.disconnect(GitCloudHostIntegrationId.GitHub), true);
+		assert.deepEqual(calls, [{ path: 'v1/provider-tokens/github', method: 'DELETE', body: undefined }]);
 	});
 });
