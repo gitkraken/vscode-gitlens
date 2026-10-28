@@ -534,7 +534,7 @@ background-color: var(--gl-rollup-raised); */
 			return html`<div class="content">${this.renderPanelContent()}</div>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click">
+		return html`<gl-popover placement="bottom" trigger="hover focus click" interactive label=${l10n.t('Account')}>
 				<button id="chip" type="button" slot="anchor" class="chip" aria-label="Account — ${this.planTier}">
 					${
 						this.accountAvatar

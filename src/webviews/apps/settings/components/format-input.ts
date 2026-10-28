@@ -878,6 +878,8 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		return html`<gl-popover
 			trigger="click"
 			placement="bottom-end"
+			interactive
+			label=${l10n.t('Insert token')}
 			@gl-popover-after-show=${this.handleMenuShown}
 			@gl-popover-after-hide=${this.handleMenuHidden}
 		>

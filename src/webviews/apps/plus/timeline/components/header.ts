@@ -561,7 +561,12 @@ focus affordance to advertise interactivity. */
 	};
 
 	private renderConfigPopover() {
-		return html`<gl-popover placement="bottom" trigger="hover focus click">
+		return html`<gl-popover
+			placement="bottom"
+			trigger="hover focus click"
+			interactive
+			label=${l10n.t('Timeline Options')}
+		>
 			<gl-button slot="anchor" appearance="toolbar" aria-label=${l10n.t('Timeline Options')}>
 				<code-icon icon="settings"></code-icon>
 			</gl-button>

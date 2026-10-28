@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the interactive rebase editor reporting _No Conflicts Detected_ for a rebase that conflicts on Git versions before 2.45 &mdash; conflict detection now needs Git 2.45 or later, and when it can't run it says so instead of reporting no conflicts
 - Fixes the interactive rebase editor's commit list borders taking on the scrollbar color whenever the editor is hovered or focused &mdash; they now keep the theme's separator color
 - Fixes the interactive rebase editor cutting off the last commits in the list when the conflict panel is open and the list's pane is short &mdash; the list now fits its pane and scrolls to the end
+- Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 
 ## [19.5.0] - 2026-10-27
 

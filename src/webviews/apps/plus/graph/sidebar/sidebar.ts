@@ -882,6 +882,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			appearance="menu"
 			trigger="click focus"
 			placement="right-start"
+			interactive
+			label=${l10n.t('More')}
 			.distance=${4}
 			.arrow=${false}
 		>

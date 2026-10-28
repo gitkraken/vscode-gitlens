@@ -5,6 +5,7 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
 import type { OnboardingDismissals } from '../../../shared/contexts/onboardingDismissals.js';
@@ -365,6 +366,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		.lightbulb code-icon {
 			font-size: 1.2rem;
 		}
+
+		.sr-only {
+			${srOnlyStyles}
+		}
 	`;
 
 	@property()
@@ -397,6 +402,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 	@state()
 	private _open = false;
+
+	/** Text of the always-present polite status, set once the tip has opened — see `onPopoverAfterShow`. */
+	@state()
+	private _announcement?: { title: string; body: string };
 
 	/** Set just before the "Got it" hide so `onPopoverHide` can tell acknowledgment apart from a
 	 *  soft close (gl-popover emits no close reason). */
@@ -677,9 +686,25 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		this.show({ trigger: 'lightbulb' });
 	}
 
+	/** The tip opens by itself and leaves focus where it was, so nothing in it is announced. Filling the
+	 *  always-present status a frame after the popover shows makes it a change to an already-live region,
+	 *  which screen readers announce reliably (unlike content revealed in the render that makes it live). */
+	private onPopoverAfterShow(e: Event) {
+		if (e.target !== this._popover) return;
+
+		requestAnimationFrame(() => {
+			if (!this._open) return;
+
+			const body = this.renderRoot.querySelector('.coachmark__body')?.textContent ?? '';
+			this._announcement = { title: graphCoachMarks[this.mark].title, body: body.replace(/\s+/g, ' ').trim() };
+		});
+	}
+
 	private onPopoverHide(e: Event) {
 		if (e.target !== this._popover) return;
 
+		// First, so the next open is a fresh change to the status (and announced again)
+		this._announcement = undefined;
 		this.listenForDismissals(false);
 
 		if (openMark === this.mark) {
@@ -740,10 +765,17 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 					</gl-tooltip>`
 				: nothing;
 
-		return html`<gl-popover trigger="manual" placement=${this.placement} @gl-popover-hide=${this.onPopoverHide}>
-				<!-- No role/aria-live here: gl-popover's body already carries role="tooltip" and switches
-					 aria-live to polite while open, so the tip is announced once. A nested role="dialog"
-					 would both contradict that role and (without focus management) promise a modal. -->
+		return html`<gl-popover
+				trigger="manual"
+				placement=${this.placement}
+				interactive
+				label=${content.title}
+				@gl-popover-after-show=${this.onPopoverAfterShow}
+				@gl-popover-hide=${this.onPopoverHide}
+			>
+				<!-- Interactive: a named, non-modal dialog for anyone who Tabs or reads into its buttons. That
+					 also keeps gl-popover's body from being a live region, so the tip is announced once — by
+					 the status below, outside the popover — not twice. -->
 				<div slot="content" class="coachmark">
 					<div class="coachmark__header">
 						<span class="coachmark__title">
@@ -794,6 +826,14 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 					</div>
 				</div>
 			</gl-popover>
+			<div class="sr-only" role="status">
+				${
+					this._announcement != null
+						? html`<p>${this._announcement.title}</p>
+								<p>${this._announcement.body}</p>`
+						: nothing
+				}
+			</div>
 			${lightbulb}`;
 	}
 }

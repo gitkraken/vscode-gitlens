@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
@@ -149,6 +149,17 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 	@consume({ context: graphLaunchpadContext, subscribe: true })
 	private _state?: GraphLaunchpadState;
 
+	@state()
+	private _open = false;
+
+	private readonly onPopoverShow = (): void => {
+		this._open = true;
+	};
+
+	private readonly onPopoverHide = (): void => {
+		this._open = false;
+	};
+
 	private get summary(): LaunchpadSummaryResult | { error: Error } | undefined {
 		return this._state?.summary.get();
 	}
@@ -157,12 +168,22 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 		const connected = this._state?.connected.get();
 		const overlay = this.overlay;
 
-		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} .distance=${0}>
+		return html`<gl-popover
+			placement="bottom"
+			trigger="hover focus"
+			interactive
+			label=${l10n.t('Launchpad')}
+			?arrow=${false}
+			.distance=${0}
+			@gl-popover-show=${this.onPopoverShow}
+			@gl-popover-hide=${this.onPopoverHide}
+		>
 			<a
 				class="action-button"
 				slot="anchor"
 				href=${this.openLaunchpadLink}
 				aria-haspopup="dialog"
+				aria-expanded=${this._open}
 				aria-label=${this.buttonLabel}
 				aria-busy=${this._state?.loading.get() ?? false}
 			>

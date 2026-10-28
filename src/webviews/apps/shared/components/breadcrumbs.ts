@@ -353,7 +353,15 @@ export class GlBreadcrumbs extends LitElement {
 		const first = run.items[0];
 		const foldedIcon = first?.foldable && first.icon ? first.icon : undefined;
 		return html`<span class="overflow-wrapper" style=${cspStyleMap({ order: String(order) })}>
-			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} .distance=${0}>
+			<gl-popover
+				appearance="menu"
+				trigger="click focus"
+				placement="bottom-start"
+				interactive
+				label=${l10n.t('Hidden breadcrumbs')}
+				.arrow=${false}
+				.distance=${0}
+			>
 				<gl-breadcrumb-item
 					slot="anchor"
 					appearance="ellipsis"

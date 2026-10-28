@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -392,6 +392,22 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 	@query('gl-popover')
 	private _popover?: GlPopover;
 
+	@state()
+	private _open = false;
+
+	// The show/hide events bubble (composed), so ignore any from popovers nested in the panel
+	private readonly onPopoverShow = (e: Event): void => {
+		if (e.target !== e.currentTarget) return;
+
+		this._open = true;
+	};
+
+	private readonly onPopoverHide = (e: Event): void => {
+		if (e.target !== e.currentTarget) return;
+
+		this._open = false;
+	};
+
 	/**
 	 * Entitlement bucket behind the avatar's ring. Emphasis tracks how much the user needs to act, not tier
 	 * prestige, so `unpaid` (the upsell) is boldest and `paid` calmest — a paying customer shouldn't wear a
@@ -472,12 +488,22 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		const state = this.ringState;
 		const plan = state === 'trial' || state === 'paid' ? this.badgePlanId : undefined;
 
-		return html`<gl-popover placement="bottom-end" trigger="focus click" ?arrow=${false} .distance=${0}>
+		return html`<gl-popover
+			placement="bottom-end"
+			trigger="focus click"
+			interactive
+			label=${l10n.t('Account')}
+			?arrow=${false}
+			.distance=${0}
+			@gl-popover-show=${this.onPopoverShow}
+			@gl-popover-hide=${this.onPopoverHide}
+		>
 			<button
 				class="action-button account-button"
 				type="button"
 				slot="anchor"
-				aria-haspopup="true"
+				aria-haspopup="dialog"
+				aria-expanded=${this._open}
 				data-entitlement=${state}
 				aria-label=${plan != null ? l10n.t('Account — GitLens {plan}', { plan: plan === 'trial' ? l10n.t('Pro Trial') : getSubscriptionPlanName(plan) }) : accountButtonLabels[state]}
 			>

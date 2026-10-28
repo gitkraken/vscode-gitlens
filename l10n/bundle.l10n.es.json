@@ -2213,6 +2213,7 @@
 	"Helps above {threshold} working-tree entries; this repository has {files}.": "Resulta útil por encima de {threshold} entradas del árbol de trabajo; este repositorio tiene {files}.",
 	"Hidden": "Oculto",
 	"Hidden Branches / Tags": "Ramas / etiquetas ocultas",
+	"Hidden breadcrumbs": "Migas de pan ocultas",
 	"Hide": "Ocultar",
 	"Hide All Branches & Tags Containing this Commit": "Ocultar todas las ramas y etiquetas que contienen este commit",
 	"Hide Anyway": "Ocultar de todos modos",

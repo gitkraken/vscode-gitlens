@@ -2213,6 +2213,7 @@
 	"Helps above {threshold} working-tree entries; this repository has {files}.": "在工作樹條目超過 {threshold} 個時有效；此儲存庫有 {files} 個。",
 	"Hidden": "已隱藏",
 	"Hidden Branches / Tags": "隱藏的分支 / 標籤",
+	"Hidden breadcrumbs": "隱藏的麵包屑",
 	"Hide": "隱藏",
 	"Hide All Branches & Tags Containing this Commit": "隱藏包含此認可的所有分支和標籤",
 	"Hide Anyway": "仍然隱藏",

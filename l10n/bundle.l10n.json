@@ -2283,6 +2283,7 @@
 	"Helps above {threshold} working-tree entries; this repository has {files}.": "Helps above {threshold} working-tree entries; this repository has {files}.",
 	"Hidden": "Hidden",
 	"Hidden Branches / Tags": "Hidden Branches / Tags",
+	"Hidden breadcrumbs": "Hidden breadcrumbs",
 	"Hide": "Hide",
 	"Hide All Branches & Tags Containing this Commit": "Hide All Branches & Tags Containing this Commit",
 	"Hide Anyway": "Hide Anyway",
