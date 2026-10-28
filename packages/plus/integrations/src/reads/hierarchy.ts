@@ -10,9 +10,7 @@ import {
 	supportedOrderedCloudIssuesIntegrationIds,
 } from '../constants.js';
 import type { ListLinearProjectsOptions, ListOrgsOptions, ListProjectsOptions } from '../manager.js';
-import type { Integration } from '../models/integration.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
-import type { LinearIntegration } from '../providers/linear.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
 import { toProviderRepositoryShape } from '../providers/models.js';
 import type {
@@ -27,6 +25,7 @@ import { appendDedupedWarning } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
+	isLinearIntegration,
 	warnOnMissingSessionForDomain,
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
@@ -304,56 +303,35 @@ export async function listLinearProjects(
 		return { items: [], warnings: early.warnings, fetchFailed: early.fetchFailed || undefined };
 	}
 
-	const domain = ctx.domainForRead(integration, id, connectionId);
-	if (!isLinearIntegration(integration)) {
-		return {
-			items: [],
-			warnings: [
-				unsupportedWarning(id, domain, connectionId, `Linear Project discovery is not supported by '${id}'.`),
-			],
-			fetchFailed: true,
-		};
-	}
+	if (!isLinearIntegration(integration)) return { items: [], warnings: [] };
 
+	const domain = ctx.domainForRead(integration, id, connectionId);
 	await ctx.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
 
-	const items: ProviderLinearProjectShape[] = [];
 	const warnings: ProviderWarning[] = [];
-	let fetchFailed = false;
 	const { value: projects, warning } = await runCaptured(id, domain, connectionId, () =>
 		integration.getWorkspaceProjectsResult(connectionId),
 	);
+	// A warning with no value is a failed read, not a workspace with no Projects.
+	let fetchFailed = warning != null && projects == null;
 	if (warning != null) {
 		warnings.push(warning);
-		if (projects == null) {
-			fetchFailed = true;
-		}
 	}
-	if (projects != null) {
-		items.push(
-			...projects.values.map(project => ({
-				id: project.id,
-				providerId: id,
-				name: project.name,
-				state: project.state,
-				url: project.url,
-			})),
-		);
-
-		if (mergeHierarchyIncompleteness(warnings, id, domain, connectionId, projects, 'Project')) {
-			fetchFailed = true;
-		}
+	if (projects != null && mergeHierarchyIncompleteness(warnings, id, domain, connectionId, projects, 'Project')) {
+		fetchFailed = true;
 	}
 
-	return mergeHierarchyResults([{ items: items, warnings: warnings, fetchFailed: fetchFailed }]);
-}
-
-/** Checked by id and by the read, so the provider class stays out of this module's static imports (it is lazy). */
-function isLinearIntegration(integration: Integration): integration is LinearIntegration {
-	return (
-		integration.id === IssuesCloudHostIntegrationId.Linear &&
-		typeof (integration as Partial<LinearIntegration>).getWorkspaceProjectsResult === 'function'
-	);
+	return {
+		items: (projects?.values ?? []).map(project => ({
+			id: project.id,
+			providerId: id,
+			name: project.name,
+			state: project.state,
+			url: project.url,
+		})),
+		warnings: warnings,
+		fetchFailed: fetchFailed || undefined,
+	};
 }
 
 export async function listRepos(

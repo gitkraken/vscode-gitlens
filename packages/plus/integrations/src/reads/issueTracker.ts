@@ -9,17 +9,18 @@ import { toError } from '../errors.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueReads.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import type { LinearIntegration } from '../providers/linear.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
-import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, isLinearIntegration } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { linearProjectIds, parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { discoverResources, runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
-import type { SelectionTarget } from './selectionConfirmation.js';
+import type { SelectionTarget, TrackerSelectorKind } from './selectionConfirmation.js';
 import { confirmCredential, confirmSelection, toSelectionAction } from './selectionConfirmation.js';
 import {
 	incompleteReadWarning,
@@ -259,28 +260,31 @@ async function readIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	// Refused before any request like the state: another tracker would ignore it and publish its whole project. An
-	// entry that names no Project is caller input, refused rather than dropped, since dropping the last one widens the
-	// read to every issue.
-	if (options.linearProjects?.length) {
-		if (options.providerId !== IssuesCloudHostIntegrationId.Linear) {
+	// Refused before any request like the state. A value that is not a list of non-empty ids is caller input, refused
+	// rather than dropped, since dropping it (or its last entry) widens the read to every issue; another tracker would
+	// ignore it and publish its whole project.
+	if (options.linearProjects != null) {
+		if (
+			!Array.isArray(options.linearProjects) ||
+			options.linearProjects.some(id => typeof id !== 'string' || id.length === 0)
+		) {
+			warnings.push(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'Linear Projects must be a list of non-empty ids.',
+				),
+			);
+			return emptyPage(true);
+		}
+		if (options.linearProjects.length > 0 && options.providerId !== IssuesCloudHostIntegrationId.Linear) {
 			warnings.push(
 				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,
 					`Narrowing by Linear Project is not supported by '${options.providerId}'.`,
-				),
-			);
-			return emptyPage(true);
-		}
-		if (options.linearProjects.some(id => typeof id !== 'string' || id.length === 0)) {
-			warnings.push(
-				otherWarning(
-					options.providerId,
-					domain,
-					options.connectionId,
-					'Every Linear Project must be a non-empty id.',
 				),
 			);
 			return emptyPage(true);
@@ -305,6 +309,21 @@ async function readIssueTrackerIssuesPage(
 	}
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
+
+	// A Project id the workspace no longer lists narrows every team to nothing, which would read as a Project with no
+	// issues. Reported as a selector miss instead, as an `org` or `project` that matches nothing is.
+	if (linearProjects != null && isLinearIntegration(integration)) {
+		const missing = await findUnlistedLinearProject(integration, linearProjects, options.connectionId);
+		if (missing != null) {
+			warnings.push(
+				unmatchedSelectorWarning(options.providerId, domain, options.connectionId, {
+					kind: 'linearProject',
+					value: missing,
+				}),
+			);
+			return emptyPage();
+		}
+	}
 
 	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
@@ -353,7 +372,9 @@ async function readIssueTrackerIssuesPage(
 	 * a stale one is dropped and the read made once more over fresh lists; that read confirms the same way, since its
 	 * own discovery can still be joined to one started before the drop.
 	 */
-	const missSelection = async (selector: ProviderWarningSelector): Promise<ProviderPagedResult<IssueShape>> => {
+	const missSelection = async (
+		selector: ProviderWarningSelector & { kind: TrackerSelectorKind },
+	): Promise<ProviderPagedResult<IssueShape>> => {
 		const next = toSelectionAction(await confirmSelection(selectionTarget, selector.kind), refreshed);
 		switch (next.action) {
 			case 'unconfirmed':
@@ -835,4 +856,32 @@ async function readIssueTrackerIssuesPage(
 		requestFailed: requestFailed,
 		unexpectedGap: nextPage != null && cursor == null,
 	};
+}
+
+/**
+ * The first of `ids` the workspace's Projects don't list, confirmed against a list read past the cache, since a cached
+ * one can predate a Project created since. Undefined when every id is listed, or when no complete list can prove one
+ * missing: the read then goes ahead, and an id that names nothing reads as empty.
+ */
+async function findUnlistedLinearProject(
+	integration: LinearIntegration,
+	ids: readonly string[],
+	connectionId: string | undefined,
+): Promise<string | undefined> {
+	let unlisted: string | undefined;
+	for (const fresh of [false, true]) {
+		const projects = (await integration.getWorkspaceProjectsResult(connectionId, { fresh: fresh }))?.value;
+		if (
+			projects == null ||
+			projects.truncated === true ||
+			(projects.metadata != null && projects.metadata.completeness !== 'complete')
+		) {
+			return undefined;
+		}
+
+		const listed = new Set(projects.values.map(project => project.id));
+		unlisted = ids.find(id => !listed.has(id));
+		if (unlisted == null) return undefined;
+	}
+	return unlisted;
 }

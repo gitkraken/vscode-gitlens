@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
@@ -9,7 +10,7 @@ import { parseIssueTrackerPageCursor } from '../reads/cursors.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
- * Pins Linear's Project reads (gitkraken/vscode-gitlens#6100): `listLinearProjects` lists the workspace's Projects
+ * `listLinearProjects` lists the workspace's Projects
  * (Linear's own `Project` entity) apart from the teams `listProjects` returns for Linear, and
  * `listIssueTrackerIssuesPage({ linearProjects })` narrows the team-windowed issue read to them server-side.
  */
@@ -95,7 +96,10 @@ async function connectedLinear(handlers: {
 		getLinearCurrentUser: () => Promise.resolve({ id: viewerId, name: 'Me', displayName: 'me', email: null }),
 		getLinearProjects: (_token: unknown, options?: { cursor?: string }) => {
 			projectCursors.push(options?.cursor);
-			return (handlers.projects ?? (() => Promise.resolve({ values: [] })))(options?.cursor);
+			// The workspace lists the Projects the narrowing tests ask for, so a narrowed read finds them.
+			return (
+				handlers.projects ?? (() => Promise.resolve({ values: [linearProject('p1'), linearProject('p2')] }))
+			)(options?.cursor);
 		},
 		getLinearIssues: (
 			_token: unknown,
@@ -245,6 +249,72 @@ suite('Linear workspace Projects (listLinearProjects)', () => {
 
 		await manager.listLinearProjects();
 		assert.equal(projectCursors.length, 4, 'an incomplete list is read again, not served from the cache');
+
+		manager.dispose();
+	});
+
+	test('shares one drain between concurrent reads on a cold cache', async () => {
+		const { manager, projectCursors } = await connectedLinear({
+			projects: () => Promise.resolve({ values: [linearProject('p1')] }),
+		});
+
+		const [first, second] = await Promise.all([manager.listLinearProjects(), manager.listLinearProjects()]);
+
+		assert.equal(projectCursors.length, 1, 'the second read joins the first');
+		assert.deepEqual([first.items.map(p => p.id), second.items.map(p => p.id)], [['p1'], ['p1']]);
+
+		manager.dispose();
+	});
+
+	test('does not join a drain started before the cache was dropped', async () => {
+		let release!: () => void;
+		const gate = new Promise<void>(resolve => (release = resolve));
+		const { manager, linear, projectCursors } = await connectedLinear({
+			projects: async () => {
+				if (projectCursors.length === 1) {
+					await gate;
+					return { values: [linearProject('old')] };
+				}
+				return { values: [linearProject('new')] };
+			},
+		});
+
+		const before = manager.listLinearProjects();
+		await new Promise(resolve => setTimeout(resolve, 0));
+		linear.invalidateDiscoveryCaches();
+		const after = await manager.listLinearProjects();
+		release();
+
+		assert.deepEqual(
+			after.items.map(p => p.id),
+			['new'],
+		);
+		assert.deepEqual(
+			(await before).items.map(p => p.id),
+			['old'],
+		);
+		assert.deepEqual(
+			(await manager.listLinearProjects()).items.map(p => p.id),
+			['new'],
+			'the drain from before the drop is not cached',
+		);
+
+		manager.dispose();
+	});
+
+	test('fails rather than serving a prefix when a later page is cancelled', async () => {
+		const { manager, projectCursors } = await connectedLinear({
+			projects: cursor =>
+				cursor == null
+					? Promise.resolve({ values: [linearProject('p1')], paging: { more: true, cursor: 'c1' } })
+					: Promise.reject(new CancellationError()),
+		});
+
+		const result = await manager.listLinearProjects();
+
+		assert.equal(projectCursors.length, 2);
+		assert.deepEqual(result.items, [], 'a cancelled read is not reported as a partial workspace');
+		assert.equal(result.fetchFailed, true);
 
 		manager.dispose();
 	});
@@ -474,6 +544,115 @@ suite('Linear issue reads narrowed to Linear Projects (linearProjects)', () => {
 		assert.deepEqual(result.items, []);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings[0]?.kind, 'unsupported');
+
+		manager.dispose();
+	});
+
+	test('reads each team with the Projects when the search falls back team by team', async () => {
+		const { manager, issueCalls } = await connectedLinear({
+			issues: call =>
+				call.teams?.length === 1 ? done([]) : Promise.reject(new Error('500: Internal Server Error')),
+		});
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			includeAllAssignees: true,
+			linearProjects: ['p1'],
+		});
+
+		assert.equal(result.fetchFailed, undefined);
+		assert.deepEqual(
+			issueCalls.map(c => [c.teams, c.projects]),
+			[
+				[['team-1', 'team-2'], ['p1']],
+				[['team-1'], ['p1']],
+				[['team-2'], ['p1']],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('reports a Project the workspace no longer lists as a selector miss, not an empty Project', async () => {
+		const { manager, issueCalls, projectCursors } = await connectedLinear({});
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			linearProjects: ['p1', 'gone'],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, undefined);
+		assert.equal(result.cursor, undefined);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0]?.kind, 'not-found');
+		assert.deepEqual(result.warnings[0]?.selector, { kind: 'linearProject', value: 'gone' });
+		assert.equal(projectCursors.length, 2, 'the miss is confirmed against a list read past the cache');
+		assert.equal(issueCalls.length, 0);
+
+		manager.dispose();
+	});
+
+	test('finds a Project created after the cached list was read', async () => {
+		const { manager, issueCalls } = await connectedLinear({
+			projects: (() => {
+				let reads = 0;
+				return () => {
+					reads++;
+					return Promise.resolve({
+						values: reads === 1 ? [linearProject('p1')] : [linearProject('p1'), linearProject('p9')],
+					});
+				};
+			})(),
+		});
+
+		await manager.listLinearProjects();
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			project: 'team-1',
+			linearProjects: ['p9'],
+		});
+
+		assert.deepEqual(result.warnings, []);
+		assert.deepEqual(
+			issueCalls.map(c => c.projects),
+			[['p9']],
+		);
+
+		manager.dispose();
+	});
+
+	test('reads the Projects as asked when their list cannot be read completely', async () => {
+		const { manager, issueCalls } = await connectedLinear({
+			projects: () => Promise.reject(new Error('500: Internal Server Error')),
+		});
+
+		await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			project: 'team-1',
+			linearProjects: ['p1'],
+		});
+
+		assert.deepEqual(
+			issueCalls.map(c => c.projects),
+			[['p1']],
+		);
+
+		manager.dispose();
+	});
+
+	test('refuses a Projects value that is not a list rather than throwing or widening the read', async () => {
+		const { manager, issueCalls } = await connectedLinear({});
+
+		for (const value of ['p1', 42, {}]) {
+			const result = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				linearProjects: value as unknown as string[],
+			});
+			assert.equal(result.fetchFailed, true);
+			assert.equal(result.warnings[0]?.kind, 'other');
+		}
+		assert.equal(issueCalls.length, 0);
 
 		manager.dispose();
 	});
