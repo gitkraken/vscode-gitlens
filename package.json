@@ -30901,7 +30901,7 @@
 		"bundle:e2e": "node ./scripts/build.mjs --mode production --debug --quick",
 		"bundle:quick": "node ./scripts/build.mjs --mode production --quick",
 		"bundle:stats": "node ./scripts/build.mjs --mode production --stats",
-		"check": "pnpm run check:deps && oxlint --type-aware --type-check && pnpm run check:l10n",
+		"check": "pnpm run check:deps && pnpm run check:colors && oxlint --type-aware --type-check && pnpm run check:l10n",
 		"check:deps": "node ./scripts/check-deps.mjs",
 		"check:colors": "node ./scripts/check-color-tokens.mjs",
 		"check:fix": "oxlint --type-aware --type-check --fix && pnpm run check:deps && pnpm run check:l10n",
