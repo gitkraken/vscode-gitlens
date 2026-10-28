@@ -859,8 +859,8 @@ Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two w
 ### `selector` — a selection that no longer exists
 
 A `linearProjects` id absent from a complete workspace Project list is reported with `kind: 'linearProject'`
-after a fresh list confirms the miss. If the list cannot be read completely, the requested ids still reach the issue
-filter. Archived Projects are omitted by the upstream Project list, as in Linear's default paginated API responses.
+after a fresh list confirms the miss. The requested ids still reach the issue filter, so a missing Project does not
+suppress issues in the other selected Projects. The same filter is retained if the list cannot be read completely. Archived Projects are omitted by the upstream Project list, as in Linear's default paginated API responses.
 
 `listIssueTrackerIssuesPage` reports an `org` or `project` that matches nothing the connection discovered as one
 `kind: 'not-found'` warning carrying `selector: { kind: 'org' | 'project' | 'linearProject', value }` (`ProviderWarningSelector`),
