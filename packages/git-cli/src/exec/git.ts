@@ -1,4 +1,3 @@
-import { spawn } from 'child_process';
 import { resolve as resolvePath } from 'path';
 import * as process from 'process';
 import type {
@@ -34,6 +33,7 @@ import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitRunCancellation } from '@gitlens/git/run.types.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { spawnProcess } from '@gitlens/utils/env/node/exec.js';
 import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
 import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
@@ -653,7 +653,7 @@ export interface GitOptions {
 	hooks?: GitHooks;
 	/** Optional dedicated logger for git command logging */
 	logger?: LogChannel;
-	/** Launches the git process of every run and stream (not the locator's); defaults to Node's `spawn`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
+	/** Launches the git process of every run and stream (not the locator's); defaults to `spawnProcess`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
 	spawn?: ProcessSpawner;
 }
 
@@ -1588,7 +1588,7 @@ export class Git {
 		}
 
 		const command = await this.path();
-		const proc = (this.options.spawn ?? spawn)(command, runArgs, spawnOpts);
+		const proc = (this.options.spawn ?? spawnProcess)(command, runArgs, spawnOpts);
 
 		if (stdin) {
 			endStdin(proc.stdin, stdin, stdinEncoding);
