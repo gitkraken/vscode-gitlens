@@ -25,6 +25,7 @@ import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/p
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
+	ProviderLinearProjectShape,
 	ProviderOrganization,
 	ProviderPagedResult,
 	ProviderRepositoryShape,
@@ -259,6 +260,13 @@ export type GetAutolinkReferencesOptions = {
 	forceSync?: boolean;
 };
 
+/** Linear Project discovery reads one Linear connection: the primary, or the one `connectionId` names. */
+export type ListLinearProjectsOptions = {
+	connectionId?: string;
+	/** Drops the cached Project list and re-syncs the connection before reading, as the other reads' `forceSync`. */
+	forceSync?: boolean;
+};
+
 /**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
  * implementation details so SDK changes don't expand this contract.
@@ -337,6 +345,16 @@ export interface IntegrationManager {
 	 * references can contain compiled regular expressions and are not a wire format.
 	 */
 	getAutolinkReferences(options: GetAutolinkReferencesOptions): Promise<RefSet | undefined>;
+	/**
+	 * The Linear workspace's Projects: Linear's own `Project` entity, which can span several teams. Not what
+	 * {@link listProjects} returns for Linear, which is its teams (the tier a Linear issue read is windowed by).
+	 * Pass a Project's `id` to {@link listIssueTrackerIssuesPage}'s `linearProjects` to narrow an issue read to it.
+	 *
+	 * Drained across Linear's pages (100 Projects each, up to 2,000) and cached per connection like the team list,
+	 * for five minutes or until `forceSync`. A list the drain could not finish comes back with what it read, a
+	 * warning and `fetchFailed`, and is not cached.
+	 */
+	listLinearProjects(options?: ListLinearProjectsOptions): Promise<ProviderResult<ProviderLinearProjectShape>>;
 	listRepos(options: {
 		providerId: IntegrationIds;
 		org?: string;
@@ -863,6 +881,14 @@ export interface IntegrationManager {
 		 * `getSupportedFilters().issueStates` and are refused otherwise (warning + `fetchFailed`).
 		 */
 		state?: IssueStateFilter;
+		/**
+		 * Linear only: narrows the read to issues in any of these Linear Projects, by the `id`
+		 * {@link listLinearProjects} lists. Combines with `org`/`project` (a team), `includeAllAssignees`, `state`
+		 * and `sort`: the read stays windowed by team, and each team's issues are those in the Projects. Omitted or
+		 * empty narrows nothing; any other tracker refuses it (warning + `fetchFailed`). Part of a cursor's
+		 * fingerprint, so drop the cursor when you change it.
+		 */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		/**

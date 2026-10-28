@@ -503,6 +503,20 @@ export interface ProviderOrganization {
 	url: string;
 }
 
+/**
+ * A Linear Project (Linear's own `Project` entity, which can span several teams), as `listLinearProjects` lists it.
+ * Distinct from the teams `listProjects` publishes for Linear: pass its `id` to `listIssueTrackerIssuesPage`'s
+ * `linearProjects` to narrow an issue read to it.
+ */
+export interface ProviderLinearProjectShape {
+	id: string;
+	providerId: IntegrationIds;
+	name: string;
+	/** Linear's project state, as Linear names it (e.g. `planned`, `started`, `paused`, `completed`, `canceled`). */
+	state: string;
+	url: string;
+}
+
 /** Normalized repository shape returned by the provider facade. */
 export interface ProviderRepositoryShape {
 	id: string;

@@ -103,6 +103,11 @@ export type IssuesForProjectOptions = {
 	 * (Trello) refuses anything but `'open'` rather than serving its open cards as if they were the closed ones.
 	 */
 	state?: IssueStateFilter;
+	/**
+	 * Linear only: narrows the read to issues in any of these Linear Projects (Linear's `Project` entity, by id),
+	 * server-side. Validated by the facade, which refuses it for any other tracker; omitted or empty adds nothing.
+	 */
+	linearProjects?: readonly string[];
 };
 
 /** One project of a batched tracker read (`IssuesIntegration.getIssuesForProjectsWithTruncationResult`). */

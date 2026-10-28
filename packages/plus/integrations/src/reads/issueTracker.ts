@@ -4,7 +4,7 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { assessCollectionMetadata, mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueReads.js';
@@ -15,7 +15,7 @@ import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } fr
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
-import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
+import { linearProjectIds, parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { discoverResources, runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
@@ -68,6 +68,16 @@ export function listIssueTrackerIssuesPage(
 		 * another for `'closed'`/`'all'` refuses the read rather than serving its open issues.
 		 */
 		state?: IssueStateFilter;
+		/**
+		 * Linear only: narrows the read to issues in any of these Linear Projects (Linear's `Project` entity, by id).
+		 *
+		 * A narrowing of each team's read, not a scope of its own: the read is still windowed and selected by team
+		 * (`org`/`project`), and each team reports the issues in these Projects, server-side, so they don't count
+		 * against its page backstop. A Linear Project spans teams, so a read of every team is what reads a Project
+		 * whole. Refused by every other tracker rather than ignored, since ignoring it would publish the whole project.
+		 * Recorded in a composite cursor and checked on resume, as `state` is.
+		 */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
@@ -107,6 +117,7 @@ async function readIssueTrackerIssuesPage(
 		Math.trunc(compositeCursor?.currentPage ?? parsePageCursor(options.cursor) ?? options.page ?? 1),
 	);
 	const projectsPerPage = Math.max(1, Math.trunc(options.itemsPerPage ?? 20));
+	const linearProjects = linearProjectIds(options.linearProjects);
 
 	const items: IssueShape[] = [];
 	const warnings: ProviderWarning[] = [];
@@ -130,6 +141,7 @@ async function readIssueTrackerIssuesPage(
 						retryProjects: retry.projects ?? [],
 						completedProjects: retry.completedProjects ?? [],
 						state: options.state,
+						linearProjects: linearProjects,
 					})
 				: undefined;
 		return {
@@ -242,6 +254,51 @@ async function readIssueTrackerIssuesPage(
 				domain,
 				options.connectionId,
 				'The cursor belongs to a read of another issue state; start again without it.',
+			),
+		);
+		return emptyPage(true);
+	}
+
+	// Refused before any request like the state: another tracker would ignore it and publish its whole project. An
+	// entry that names no Project is caller input, refused rather than dropped, since dropping the last one widens the
+	// read to every issue.
+	if (options.linearProjects?.length) {
+		if (options.providerId !== IssuesCloudHostIntegrationId.Linear) {
+			warnings.push(
+				unsupportedWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					`Narrowing by Linear Project is not supported by '${options.providerId}'.`,
+				),
+			);
+			return emptyPage(true);
+		}
+		if (options.linearProjects.some(id => typeof id !== 'string' || id.length === 0)) {
+			warnings.push(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'Every Linear Project must be a non-empty id.',
+				),
+			);
+			return emptyPage(true);
+		}
+	}
+
+	// As with the state: a cursor resumed under other Projects skips teams drained under the ones it was minted for.
+	// Only a composite cursor records them, so any other cursor came from a read narrowed to none.
+	if (
+		options.cursor != null &&
+		(compositeCursor?.linearProjects ?? []).join('\0') !== (linearProjects ?? []).join('\0')
+	) {
+		warnings.push(
+			otherWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				'The cursor belongs to a read of other Linear Projects; start again without it.',
 			),
 		);
 		return emptyPage(true);
@@ -631,6 +688,7 @@ async function readIssueTrackerIssuesPage(
 					filters: options.filters,
 					sort: sort,
 					state: options.state,
+					...(linearProjects != null ? { linearProjects: linearProjects } : {}),
 				},
 			})),
 			options.connectionId,
@@ -764,6 +822,7 @@ async function readIssueTrackerIssuesPage(
 				? [...completedProjectKeys]
 				: [],
 		state: options.state,
+		linearProjects: linearProjects,
 	});
 	return {
 		items: orderedItems,

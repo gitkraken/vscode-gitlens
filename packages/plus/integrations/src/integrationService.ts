@@ -57,6 +57,7 @@ import { toError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
+	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
@@ -100,7 +101,7 @@ import type { CurrentAccountResult } from './reads/currentAccount.js';
 import { getCurrentAccount } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
-import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
+import { listLinearProjects, listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
@@ -118,6 +119,7 @@ import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
+	ProviderLinearProjectShape,
 	ProviderPagedResult,
 	ProviderResult,
 	ProviderSweepResult,
@@ -1138,6 +1140,15 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	/**
+	 * Lists the Linear workspace's Projects (Linear's `Project` entity), apart from the teams {@link listProjects}
+	 * returns for Linear. Narrow a Linear issue read to some of them with `listIssueTrackerIssuesPage`'s
+	 * `linearProjects`.
+	 */
+	async listLinearProjects(options?: ListLinearProjectsOptions): Promise<ProviderResult<ProviderLinearProjectShape>> {
+		return listLinearProjects(this, options);
+	}
+
+	/**
 	 * Lists repositories under an org for a git-host provider, one page at a time. Pass `page` (1-based)
 	 * to advance; the returned `cursor` is only meaningful for cursor-only hosts.
 	 */
@@ -1402,6 +1413,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * `getSupportedFilters().issueStates` and are refused otherwise.
 		 */
 		state?: IssueStateFilter;
+		/** Linear only: narrows the read to issues in any of these Linear Projects, by id. */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;

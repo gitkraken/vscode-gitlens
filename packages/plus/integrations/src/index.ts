@@ -110,6 +110,7 @@ export type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
 	IntegrationManager,
+	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	// Every option shape a caller has to BUILD is exported, not just the ones the manager returns:
@@ -219,6 +220,7 @@ export type {
 	ProviderWarningScope,
 	ProviderWarningSelector,
 	ProviderWarningUnreadableItems,
+	ProviderLinearProjectShape,
 	ProviderOrganization,
 	ProviderRepositoryShape,
 	RepositoryIdentity,
