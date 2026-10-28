@@ -10,14 +10,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
 
-### Changed
-
-- Changes Linear's user-scoped tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProject*` with `options.user`) to also return the GitHub-synced issues the viewer created, not only those assigned to them. Linear's two-way GitHub Issues sync makes the author of a GitHub issue (one who linked their GitHub account to Linear) the creator of its Linear copy but assigns no one the GitHub issue doesn't, so the Linear copy of a GitHub issue the user filed was never read and a host showed only its GitHub copy. Only issues with a GitHub issue attachment and a GitHub sync link (`syncedWith` not `[]`) widen, so the rest of what the viewer created in Linear stays out; a synced row whose link list Linear failed to resolve is kept rather than silently dropped. Asking for `filters: [IssueFilter.Assignee]` by name still reads only assigned issues. Still one query per page; the wider match can take more pages. Requires `@gitkraken/provider-apis` with `LinearGetIssuesInput.githubSyncedCreators`; an older one ignores it and reads assigned issues only ([gitkraken/kepler#4480](https://github.com/gitkraken/kepler/issues/4480)) (plus/integrations)
-
 ### Fixed
 
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
+
+## [0.24.0] - 2026-10-28
+
+### Changed
+
+- Changes Linear's user-scoped tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProject*` with `options.user`) to also return the GitHub-synced issues the viewer created, not only those assigned to them. Linear's two-way GitHub Issues sync makes the author of a GitHub issue (one who linked their GitHub account to Linear) the creator of its Linear copy but assigns no one the GitHub issue doesn't, so the Linear copy of a GitHub issue the user filed was never read and a host showed only its GitHub copy. Only issues with a GitHub issue attachment and a GitHub sync link (`syncedWith` not `[]`) widen, so the rest of what the viewer created in Linear stays out; a synced row whose link list Linear failed to resolve is kept rather than silently dropped. Asking for `filters: [IssueFilter.Assignee]` by name still reads only assigned issues. Still one query per page; the wider match can take more pages. Requires `@gitkraken/provider-apis` with `LinearGetIssuesInput.githubSyncedCreators`; an older one ignores it and reads assigned issues only ([gitkraken/kepler#4480](https://github.com/gitkraken/kepler/issues/4480)) (plus/integrations)
 
 ## [0.23.0] - 2026-10-28
 
@@ -1030,7 +1032,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...HEAD
+[0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
 [0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
 [0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
 [0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
