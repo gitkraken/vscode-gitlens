@@ -34,6 +34,7 @@ import type {
 	JiraServerProject,
 	Linear,
 	LinearOrganization,
+	LinearProject,
 	LinearTeam,
 	NumberedPageInput,
 	Organization,
@@ -241,6 +242,8 @@ export type ProviderJiraResource = JiraResource;
 export type ProviderJiraServerProject = JiraServerProject;
 export type ProviderLinearTeam = LinearTeam;
 export type ProviderLinearOrganization = LinearOrganization;
+// Linear's own `Project` entity, which can span several teams; not the teams core lists as a tracker's projects.
+export type ProviderLinearProject = LinearProject;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -663,6 +666,7 @@ export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Pr
 // Derived from the client method, like the Jira reads below, so a filter the SDK adds (`assignees`, `states`)
 // reaches the type system instead of being smuggled through `getPagedResult`'s `any`.
 export type GetLinearIssuesFn = Linear['getIssues'];
+export type GetLinearProjectsFn = Linear['getProjects'];
 /**
  * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
  * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
@@ -786,6 +790,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getLinearOrganizationFn?: GetLinearOrganizationFn;
 	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
 	getLinearIssuesFn?: GetLinearIssuesFn;
+	getLinearProjectsFn?: GetLinearProjectsFn;
 	getLinearCurrentUserFn?: GetLinearCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForCurrentUserFn?: GetBitbucketResourcesForCurrentUserFn;

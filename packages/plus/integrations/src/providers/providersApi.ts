@@ -88,6 +88,7 @@ import type {
 	ProviderJiraResource,
 	ProviderJiraServerProject,
 	ProviderLinearOrganization,
+	ProviderLinearProject,
 	ProviderLinearTeam,
 	ProviderOrganization,
 	ProviderPullRequest,
@@ -527,6 +528,7 @@ export class ProvidersApi implements Disposable {
 				getLinearOrganizationFn: providerApis.linear.getLinearOrganization.bind(providerApis.linear),
 				getLinearTeamsForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(providerApis.linear),
 				getLinearIssuesFn: providerApis.linear.getIssues.bind(providerApis.linear),
+				getLinearProjectsFn: providerApis.linear.getProjects.bind(providerApis.linear),
 				getLinearCurrentUserFn: providerApis.linear.getCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
@@ -1315,6 +1317,25 @@ export class ProvidersApi implements Disposable {
 		} catch (e) {
 			return this.handleProviderError<ProviderLinearTeam[] | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	/**
+	 * One page of the workspace's Linear Projects (Linear's `Project` entity, not its teams). Follow `paging.cursor`.
+	 */
+	async getLinearProjects(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderLinearProject>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getLinearProjectsFn',
+		);
+		return this.getPagedResult<ProviderLinearProject>(
+			{},
+			provider.getLinearProjectsFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
 	}
 
 	/**
