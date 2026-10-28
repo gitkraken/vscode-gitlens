@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-28
+
 ### Added
 
 - Adds `IntegrationManager.listLinearProjects(options?: { connectionId?; forceSync? })`, returning `ProviderResult<ProviderLinearProjectShape>` (`{ id; providerId; name; state; url }`): the Linear workspace's Projects, Linear's own `Project` entity, apart from the teams `listProjects` returns for Linear. Drained across Linear's pages up to 2,000 Projects and cached per connection like the team list; a drain it could not finish keeps what it read and is reported with a warning and `fetchFailed`, and is not cached ([#6100](https://github.com/gitkraken/vscode-gitlens/issues/6100)) (plus/integrations)
@@ -1015,7 +1017,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...HEAD
+[0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
 [0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
 [0.22.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.21.0...gitkraken:releases/core/v0.22.0
 [0.21.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.20.2...gitkraken:releases/core/v0.21.0
