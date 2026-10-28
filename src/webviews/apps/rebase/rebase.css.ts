@@ -283,17 +283,27 @@ export const rebaseStyles = css`
 	   Entries
 	   ========================================================================== */
 
+	/* Non-scrolling frame: the scrollable base style recolors the virtualizer's own border on hover/focus,
+	   so the divider borders live on this wrapper instead */
+	.entries-frame {
+		box-sizing: border-box;
+		display: flex;
+		flex: 1 1 0;
+		flex-direction: column;
+		min-height: 0;
+		margin: 0.5rem 1rem;
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
+	}
+
 	.entries {
 		box-sizing: border-box;
 		display: block;
 		flex: 1 1 0;
 		min-height: 0;
-		margin: 0.5rem 1rem;
 		overflow-x: hidden !important;
 		overflow-y: auto;
 		outline: none;
-		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
-		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 
 		--current-entry-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor, #c4a000);
 
@@ -358,7 +368,7 @@ export const rebaseStyles = css`
 		flex-direction: column;
 		overflow: hidden;
 
-		> .entries {
+		> .entries-frame {
 			border-bottom: none;
 		}
 	}

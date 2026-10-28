@@ -1474,25 +1474,27 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	}
 
 	private renderEntries(): unknown {
-		return html`<lit-virtualizer
-			role="list"
-			class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${
-				this.rebaseStatus?.hasConflicts ? ' has-conflicts' : ''
-			}"
-			autofocus
-			@click=${this.onListClick}
-			@keydown=${this.onListKeyDown}
-			@dragstart=${this.onDragStart}
-			@dragend=${this.onDragEnd}
-			@dragover=${this.onDragOver}
-			@dragleave=${this.onDragLeave}
-			@drop=${this.onDrop}
-			scroller
-			.items=${this._sortedEntries}
-			.keyFunction=${this.virtualizerKeyFn}
-			.layout=${flow({ direction: 'vertical' })}
-			.renderItem=${this.virtualizerRenderFn}
-		></lit-virtualizer>`;
+		return html`<div class="entries-frame">
+			<lit-virtualizer
+				role="list"
+				class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${
+					this.rebaseStatus?.hasConflicts ? ' has-conflicts' : ''
+				}"
+				autofocus
+				@click=${this.onListClick}
+				@keydown=${this.onListKeyDown}
+				@dragstart=${this.onDragStart}
+				@dragend=${this.onDragEnd}
+				@dragover=${this.onDragOver}
+				@dragleave=${this.onDragLeave}
+				@drop=${this.onDrop}
+				scroller
+				.items=${this._sortedEntries}
+				.keyFunction=${this.virtualizerKeyFn}
+				.layout=${flow({ direction: 'vertical' })}
+				.renderItem=${this.virtualizerRenderFn}
+			></lit-virtualizer>
+		</div>`;
 	}
 
 	private renderPreservesMergesBanner() {
