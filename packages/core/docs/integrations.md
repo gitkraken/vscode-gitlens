@@ -858,12 +858,14 @@ Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two w
 
 ### `selector` — a selection that no longer exists
 
-A `linearProjects` id absent from a complete workspace Project list is reported with `kind: 'linearProject'`
-after a fresh list confirms the miss. The requested ids still reach the issue filter, so a missing Project does not
-suppress issues in the other selected Projects. The same filter is retained if the list cannot be read completely. Archived Projects are omitted by the upstream Project list, as in Linear's default paginated API responses.
+A `linearProjects` id absent from a complete workspace Project list is reported with a `kind: 'not-found'`
+warning whose `selector` is `{ kind: 'linearProject', value: id }`, after a fresh list confirms the miss.
+The requested ids still reach the issue filter, so a missing Project does not suppress issues in the other
+selected Projects. The same filter is retained if the list cannot be read completely. Archived Projects are
+omitted by the upstream Project list, as in Linear's default paginated API responses.
 
 `listIssueTrackerIssuesPage` reports an `org` or `project` that matches nothing the connection discovered as one
-`kind: 'not-found'` warning carrying `selector: { kind: 'org' | 'project' | 'linearProject', value }` (`ProviderWarningSelector`),
+`kind: 'not-found'` warning carrying `selector: { kind: 'org' | 'project', value }` (`ProviderWarningSelector`),
 `value` being the selector exactly as passed. The page is empty, not `fetchFailed`, with `hasMore: false` and no
 cursor: the site or project was removed, renamed, or this connection can no longer see it, and a retry finds the
 same. A project miss under a given `org` is `kind: 'project'`, since the org matched. It carries no `scope`.

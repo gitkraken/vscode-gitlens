@@ -277,6 +277,8 @@ export interface ProviderWarning {
 	 * Present when an issue-tracker project read's `org` or `project` selector matched nothing the connection
 	 * discovered: the selection was removed, renamed, or is no longer visible to this connection. `kind` is
 	 * `'not-found'`, the page is empty and not `fetchFailed`, and it carries no cursor, since a retry finds the same.
+	 * A `linearProject` miss is diagnostic: the requested Project ids still filter the read, preserving issues in
+	 * other selected Projects. It therefore does not force an empty page or remove its continuation.
 	 *
 	 * Set only when discovery was complete. A read whose discovery failed or was truncated cannot tell a missing
 	 * selection from one it did not reach, so it keeps reporting that failure instead, without this field. A miss is
