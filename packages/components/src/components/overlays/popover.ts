@@ -260,7 +260,9 @@ export class GlPopover extends GlElement {
 				border-color: var(--gl-elevation-border-color, var(--color-contrast-border));
 			}
 
+			/* border-box so the cap includes the body's padding and border, which would otherwise overflow the view */
 			:host([auto-size-vertical]) .popover__body {
+				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
 				max-height: var(--auto-size-available-height);
