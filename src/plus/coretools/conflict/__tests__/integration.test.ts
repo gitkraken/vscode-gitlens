@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { Container } from '../../../../container.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ConflictToolsIntegration } from '../integration.js';
@@ -717,5 +718,54 @@ suite('coretools/conflict AI request attribution', () => {
 			['conv-42', 'conv-42'],
 			'every request in the loop carries the same conversation ID',
 		);
+	});
+
+	test('stops starting AI work once AI is unavailable, recording every remaining file with that error', async () => {
+		// A quota-exhausted account answers every request the same way, so the pool must not keep
+		// asking for the remaining files — one request, then the rest are accounted for with its error.
+		const quota = new AIError(AIErrorReason.UserQuotaExceeded);
+		let calls = 0;
+		const container = {
+			ai: {
+				sendRequest: () => {
+					calls++;
+					return Promise.reject(quota);
+				},
+			},
+		} as unknown as Container;
+		const { integration, svc } = makeToolGitFakes(dir, container);
+		const names = ['a.conf', 'b.conf', 'c.conf', 'd.conf'];
+		for (const name of names) {
+			await writeFile(join(dir, name), conflicted);
+		}
+		const failed: string[] = [];
+
+		const result = await integration.resolveAllParallel(
+			{
+				svc: svc,
+				entries: names.map(path => ({ path: path, reason: 'both-modified' })),
+				conversationId: 'conv-1',
+				concurrency: 1,
+				onProgress: e => {
+					if (e.type === 'resolution:failed') {
+						failed.push(e.filePath);
+					}
+				},
+			},
+			{ source: 'graph' },
+		);
+
+		assert.strictEqual(calls, 1, 'only the first file should reach the AI');
+		assert.deepStrictEqual(
+			result.errors.map(e => e.filePath),
+			names,
+			'every entry is accounted for',
+		);
+		assert.ok(
+			result.errors.every(e => e.error === quota),
+			'the remaining files carry the quota error',
+		);
+		assert.deepStrictEqual(failed, names, 'each file reports resolution:failed');
+		assert.strictEqual(result.resolutions.length, 0);
 	});
 });

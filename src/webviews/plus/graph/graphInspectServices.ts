@@ -23,6 +23,7 @@ import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
+import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -1902,6 +1903,18 @@ export class GraphInspectServices {
 			// is charged once for the whole session instead of once per AI request.
 			const conversationId = this.getOrCreateResolveConversationId(repoPath);
 
+			// Resolve the model once, up front, and hand it to every request: left to `sendRequest` it is
+			// resolved per request, so parallel files would race to open pickers (and an unconfigured user
+			// would refetch the models list before each one). Placed after the cheap refusals above so we
+			// never prompt only to report nothing to resolve.
+			const source: Source = {
+				source: 'graph',
+				detail: focused ? (focusedFilePaths.length === 1 ? 'resolveFile' : 'resolveFiles') : 'resolveAll',
+			};
+			const model = await this.container.ai.getModel({ scope: 'resolve' }, source);
+			// Dismissing the picker is a user cancel, not an error
+			if (model == null) return { cancelled: true };
+
 			// Resolve the conflicted files in a bounded-concurrency pool so one file's failure
 			// is isolated (recorded in `errors`) and the rest still resolve — and they run in
 			// parallel rather than one-at-a-time.
@@ -1913,11 +1926,9 @@ export class GraphInspectServices {
 					signal: resolveSignal,
 					onProgress: onProgress,
 					conversationId: conversationId,
+					model: model,
 				},
-				{
-					source: 'graph',
-					detail: focused ? (focusedFilePaths.length === 1 ? 'resolveFile' : 'resolveFiles') : 'resolveAll',
-				},
+				source,
 			);
 			const resolutions: ConflictToolsResolution[] = result.resolutions;
 
@@ -2010,6 +2021,13 @@ export class GraphInspectServices {
 			// row was already showing.
 			const consultations = new Map<string, ConsultedTool[]>();
 
+			// Resolve the model once up front rather than per request (no racing pickers, no repeated
+			// models fetch); after the cheap refusals above, so we never prompt for nothing to retry.
+			const source: Source = { source: 'graph', detail: 'resolveRetryFile' };
+			const model = await this.container.ai.getModel({ scope: 'resolve' }, source);
+			// Dismissing the picker is a user cancel, not an error
+			if (model == null) return { cancelled: true };
+
 			// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`, combined
 			// with the standing custom-instructions setting — a retry shouldn't drop it.
 			const resolution = await integration.resolveSingle(
@@ -2024,6 +2042,7 @@ export class GraphInspectServices {
 					// Same conversation as the run being retried (an active session implies
 					// the ID exists; minting here is just a defensive fallback).
 					conversationId: this.getOrCreateResolveConversationId(repoPath),
+					model: model,
 					onProgress: event => {
 						if (event.type !== 'resolver:tool-call') return;
 
@@ -2037,7 +2056,7 @@ export class GraphInspectServices {
 						});
 					},
 				},
-				{ source: 'graph', detail: 'resolveRetryFile' },
+				source,
 			);
 			if (resolveSignal?.aborted) return { cancelled: true };
 

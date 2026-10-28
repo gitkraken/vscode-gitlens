@@ -2,6 +2,8 @@ import { promises as fs } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
 import { CancellationTokenSource } from 'vscode';
+import type { AIError } from '@gitlens/ai/errors.js';
+import { isAIUnavailableError } from '@gitlens/ai/errors.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type {
 	AIChatMessage,
@@ -154,10 +156,14 @@ export class ConflictToolsIntegration {
 	 * Resolves the given unmerged files with AI, running up to `concurrency` resolutions in flight
 	 * at once (a rolling worker pool — always N busy, not naive batches). Each file is isolated: a
 	 * failure (extract or resolve) is recorded in `errors[]` and the pool keeps going, so one bad file
-	 * never stops the rest. Used instead of `@gitkraken/conflict-tools`' `resolveConflicts`, which is
-	 * sequential-only. Returns the same `StepResult` shape (`previousResolutions` chaining is dropped —
-	 * incompatible with parallelism). Every input entry is accounted for in the result — resolved,
-	 * errored, or skipped — so no conflicted file silently vanishes from the outcome.
+	 * never stops the rest — unless the failure means AI itself is unavailable for every remaining file
+	 * (quota exhausted, rate limited, unauthorized, offline, …; see `isAIUnavailableError`). That latches
+	 * the pool: no further AI work is started, and each remaining file is recorded in `errors[]` with that
+	 * same error. Files already in flight are left to finish or fail on their own. Used instead of
+	 * `@gitkraken/conflict-tools`' `resolveConflicts`, which is sequential-only. Returns the same
+	 * `StepResult` shape (`previousResolutions` chaining is dropped — incompatible with parallelism).
+	 * Every input entry is accounted for in the result — resolved, errored, or skipped — so no
+	 * conflicted file silently vanishes from the outcome.
 	 */
 	async resolveAllParallel(args: ResolveAllParallelArgs, telemetrySource: Source): Promise<StepResult> {
 		const git = createConflictGitPort(this.container, args.svc, {
@@ -168,6 +174,9 @@ export class ConflictToolsIntegration {
 		const resolutions: Resolution[] = [];
 		const errors: { filePath: string; error: Error }[] = [];
 		const skipped: { filePath: string; reason: string }[] = [];
+
+		// First "AI is unavailable" failure — once set, workers start no more AI work.
+		let unavailable: AIError | undefined;
 
 		let next = 0;
 		const worker = async (): Promise<void> => {
@@ -200,6 +209,13 @@ export class ConflictToolsIntegration {
 						confidence: 1,
 						description: description,
 					});
+					continue;
+				}
+
+				if (unavailable != null) {
+					// AI can't serve any remaining file, so don't extract or ask — just account for it.
+					errors.push({ filePath: filePath, error: unavailable });
+					args.onProgress?.({ type: 'resolution:failed', filePath: filePath, error: unavailable });
 					continue;
 				}
 
@@ -245,6 +261,9 @@ export class ConflictToolsIntegration {
 					});
 				} catch (ex) {
 					const error = ex instanceof Error ? ex : new Error(String(ex));
+					if (unavailable == null && isAIUnavailableError(ex)) {
+						unavailable = ex;
+					}
 					errors.push({ filePath: filePath, error: error });
 					args.onProgress?.({ type: 'resolution:failed', filePath: filePath, error: error });
 				}
