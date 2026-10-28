@@ -754,6 +754,8 @@ function createResolveProgressFake() {
 		// No `pausedOps` — conflicts can exist without a paused operation, and refs are optional here.
 		git: { getRepositoryService: () => ({}) },
 		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+		// Resolve All picks its model once up front; `undefined` would read as a dismissed picker and cancel.
+		ai: { getModel: async () => ({ id: 'test-model' }) },
 	} as unknown as Container;
 
 	// Stands in for the node-only conflict-tools integration: replays one consultation event through the
@@ -836,6 +838,7 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 	const container = {
 		git: { getRepositoryService: () => ({}) },
 		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+		ai: { getModel: async () => ({ id: 'test-model' }) },
 	} as unknown as Container;
 
 	const paths = metrics.map((_, i) => `src/${i}.ts`);
