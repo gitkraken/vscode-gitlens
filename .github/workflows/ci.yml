@@ -113,8 +113,11 @@ jobs:
             - name: Lint graph package CSS
               run: pnpm run lint:css:graph-packages
 
+            # `test:packages` without its dependency ordering (`--no-sort`): every package is already built above,
+            # so the ordering only held the slowest suite (plus/integrations) back until its dependencies' tests
+            # finished. Locally `test:packages` keeps the ordering, since a package's test may build what it needs.
             - name: Run package unit tests
-              run: pnpm run test:packages
+              run: pnpm -r --no-sort --filter "./packages/**" run test
 
             # `--quick` skips the format, lint/type-check, dependency, and localization gates; the `build`
             # job's production bundle already runs every one of them over the whole project.
