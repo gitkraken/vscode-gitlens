@@ -57,13 +57,9 @@ execSync('pnpm build', {
 	cwd: packageRoot,
 });
 
-// Generate Core's flattened exports before running the workspace fixture. CI additionally installs the packed
-// tarball via packages/core/scripts/verify-package.mjs, which catches pack-time manifest/export regressions.
-execSync('pnpm --filter @gitkraken/core-gitlens build', {
-	stdio: 'inherit',
-	cwd: workspaceRoot,
-});
-
+// The fixture's own `test` builds Core (`build:core`) before reading its flattened exports, so it isn't built here
+// too. CI additionally installs the packed tarball via packages/core/scripts/verify-package.mjs, which catches
+// pack-time manifest/export regressions.
 execSync('pnpm --filter @gitlens/integrations-consumer-fixture test', {
 	stdio: 'inherit',
 	cwd: workspaceRoot,
