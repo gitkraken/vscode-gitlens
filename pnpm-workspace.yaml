@@ -177,9 +177,10 @@ overrides:
     # GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g, both parse-side. Neither path reaches parse:
     # @modelcontextprotocol/sdk keeps express in its HTTP/auth transports and
     # scripts/mcp-vscode-server.mjs uses stdio, and typed-rest-client only calls qs.stringify.
-    # Fixed for hygiene.
-    'qs@<6.16.0': ^6.16.0
-    'serialize-javascript@<7.0.5': '^7.0.5'
+    # Fixed for hygiene. 6.16.1 adds GHSA-6pq8-jhm2-2vcw, a stringify-side DoS limited to
+    # `arrayFormat: 'comma'`.
+    'qs@<6.16.1': ^6.16.1
+    'serialize-javascript@<7.1.3': '^7.1.3'
 
 patchedDependencies:
     '@vscode/l10n-dev@0.0.35': patches/@vscode__l10n-dev@0.0.35.patch
