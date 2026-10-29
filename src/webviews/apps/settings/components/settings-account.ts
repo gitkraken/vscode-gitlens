@@ -115,7 +115,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			/* Outlined, matching settings-setup's .step — the card treatment the rest of this webview uses. */
 			.card {
 				background: transparent;
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -123,10 +123,15 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
   action. gl-button has no such appearance, so it's dialed in through the component's own
   custom properties rather than by adding a shared variant for one surface. */
 			.button--quiet {
-				--button-foreground: var(--color-foreground--75);
+				--button-foreground: var(--gl-color-action-quiet-fg);
 				--button-background: transparent;
-				--button-hover-background: var(--vscode-toolbar-hoverBackground);
-				--button-border: var(--vscode-widget-border, var(--color-foreground--25));
+				--button-hover-background: var(--gl-color-action-quiet-bg-hover);
+				--button-border: var(--gl-color-action-secondary-border);
+			}
+
+			.button--quiet:not([disabled], :focus-within):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			/* Squared off from gl-badge's pill default and tinted — at this size the elliptical outline read
@@ -134,7 +139,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
   than on the shared default, which other surfaces still want as a pill. The bottom padding buys
   back the room the all-caps text's missing descenders would otherwise leave under it. */
 			gl-badge {
-				--gl-badge-color: var(--color-foreground--75);
+				--gl-badge-color: var(--vscode-descriptionForeground);
 
 				display: inline-flex;
 				align-items: center;
@@ -165,10 +170,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-10);
 				align-items: flex-start;
 				padding: var(--gl-space-12) 1.4rem;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-warningBackground) 60%, transparent);
-				border: var(--gl-border-width) solid
-					color-mix(in srgb, var(--color-alert-warningBorder) 70%, transparent);
+				color: var(--gl-color-feedback-warning-fg);
+				background-color: var(--gl-color-feedback-warning-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -176,7 +180,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				flex: none;
 				margin-block-start: 0.1rem;
 				font-size: 1.4rem;
-				color: var(--vscode-charts-yellow);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.alert__body {
@@ -228,7 +232,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 			.identity__media code-icon {
 				font-size: 2rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.identity__text {
@@ -249,7 +253,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-md);
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -268,9 +272,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: 0.9rem var(--gl-space-16);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				color: var(--vscode-descriptionForeground);
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.identity__device {
@@ -339,7 +342,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				margin-block: var(--gl-space-6) 0;
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 				text-wrap: pretty;
 			}
 
@@ -372,13 +375,12 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				padding: 0 var(--gl-space-16) 1.4rem;
 				margin: 0;
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.plan__features {
 				padding: var(--gl-space-12) var(--gl-space-16) 1.4rem;
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Matches settings-detail's .preview__label — the same uppercase eyebrow, in the same pane */
@@ -386,7 +388,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				margin-block: 0 var(--gl-space-10);
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;
 			}
@@ -405,18 +407,18 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-8);
 				align-items: flex-start;
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.plan__feature code-icon {
 				flex: none;
 				margin-block-start: 0.1rem;
 				font-size: 1.3rem;
-				color: var(--gl-stat-added);
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.plan__features--locked .plan__feature code-icon {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.plan__feature span {
@@ -431,8 +433,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: 1.1rem var(--gl-space-16);
 				background: color-mix(in srgb, var(--vscode-textLink-foreground) 6%, transparent);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 				border-radius: 0 0 var(--gl-radius-md) var(--gl-radius-md);
 			}
 
@@ -440,7 +441,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				flex: 1;
 				min-width: 0;
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 				text-wrap: pretty;
 			}
 
@@ -458,7 +459,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 			.ai__icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.ai__title {
@@ -475,20 +476,20 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
-				color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			/* The end of the same escalation, in the error register: amber warns because there's still
   something left, and this is that warning's arrival. */
 			.ai__warning--exhausted {
-				color: var(--vscode-editorError-foreground, var(--vscode-charts-red));
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.ai__figure {
 				flex: none;
 				font-family: var(--vscode-editor-font-family);
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.ai__track {
@@ -506,11 +507,11 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			.ai__fill--warning {
-				background: var(--vscode-charts-yellow);
+				background: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.ai__fill--exhausted {
-				background: var(--vscode-charts-red);
+				background: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			/* Supplementary to the personal figure, so it stays in the subdued register of the reset line
@@ -522,7 +523,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				justify-content: space-between;
 				margin-block: var(--gl-space-20) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.ai__org-figure {
@@ -556,7 +557,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			/* Everyone else's draw is context rather than this user's standing, so it takes a muted
   foreground tint — clearly weaker than the progress fill, still clear of the track behind it. */
 			.ai__org-fill--rest {
-				background: var(--color-foreground--50);
+				background: var(--vscode-descriptionForeground);
 			}
 
 			/* A color key for the bar, sized as a supplementary row inside a card rather than a chart
@@ -568,7 +569,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-4) var(--gl-space-10);
 				margin-block: var(--gl-space-6) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.ai__legend-item {
@@ -589,18 +590,18 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			.ai__legend-swatch--rest {
-				background: var(--color-foreground--50);
+				background: var(--vscode-descriptionForeground);
 			}
 
 			/* Hollow, because "remaining" is the track showing through rather than anything painted on it. */
 			.ai__legend-swatch--remaining {
-				border: var(--gl-border-width) solid var(--color-foreground--50);
+				border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
 			}
 
 			.ai__reset {
 				margin-block: var(--gl-space-6) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* The card's footer action. A wider gap than the rows above it take from each other, so it reads
@@ -615,7 +616,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.ai__credits-note {
 				margin-block: var(--gl-space-16) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Stands in for the figure and the bar together, so the card holds roughly its loaded height
@@ -637,9 +638,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				margin-block-start: var(--gl-space-10);
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -666,7 +667,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.org__icon {
 				flex: none;
 				font-size: 1.8rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.org__text {
@@ -687,7 +688,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.org__meta {
 				margin-block: var(--gl-space-2) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* ── Refer a friend ── */
@@ -698,21 +699,21 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-10);
 				align-items: center;
 				padding: 1.1rem var(--gl-space-16);
-				border: var(--gl-border-width) dashed var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) dashed var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
 			.refer__icon {
 				flex: none;
 				font-size: 1.5rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.refer__text {
 				flex: 1;
 				min-width: 0;
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.refer a {
@@ -729,14 +730,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding-block-start: 1.4rem;
 				font-size: var(--gl-font-md);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.footer__note {
 				margin-inline-start: auto;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			@container (max-width: 520px) {

@@ -87,8 +87,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 					--vscode-notificationsInfoIcon-foreground,
 					var(--vscode-textLink-foreground)
 				);
-				--notification-border: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				--notification-border: var(--gl-border-width) solid var(--gl-color-border-raised);
 			}
 
 			.toolbar {
@@ -121,7 +120,6 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-8) var(--gl-space-12);
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
-				color: var(--color-foreground--85);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -130,14 +128,15 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			}
 
 			.banner--warning {
-				background-color: color-mix(in srgb, var(--color-alert-warningBackground) 60%, transparent);
-				border: var(--gl-border-width) solid
-					color-mix(in srgb, var(--color-alert-warningBorder) 70%, transparent);
+				color: var(--gl-color-feedback-warning-fg);
+				background-color: var(--gl-color-feedback-warning-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 			}
 
 			.banner--error {
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 			}
 
 			.list {
@@ -201,7 +200,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				font-size: var(--gl-font-base);
 				font-weight: var(--gl-font-weight-regular);
 				line-height: 1.4;
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.card__meta {
@@ -211,14 +210,14 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				align-items: center;
 				font-size: var(--gl-font-sm);
 				line-height: 1.8rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.card__body {
 				padding-inline-start: var(--gl-space-16);
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				overflow-wrap: anywhere;
 			}
 
@@ -229,7 +228,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			.card__note {
 				margin: var(--gl-space-4) 0 0;
 				font-style: italic;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* The time and the actions share one cell: hovering or focusing the card swaps one for the other
@@ -281,28 +280,25 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			   high-contrast themes draw too (their hover background is transparent, so the contrast border marks hover) */
 			.card:hover {
 				background-color: var(--vscode-list-hoverBackground);
-				border-color: var(
-					--vscode-contrastActiveBorder,
-					var(--vscode-widget-border, var(--color-foreground--25))
-				);
+				border-color: var(--vscode-contrastActiveBorder, var(--gl-color-border-raised));
 			}
 
 			.card:focus-within {
-				border-color: var(--vscode-focusBorder);
+				border-color: var(--gl-color-border-focus);
 			}
 
 			.card--read .card__dot {
 				background-color: transparent;
-				border-color: var(--color-foreground--50);
+				border-color: var(--vscode-descriptionForeground);
 			}
 
 			.card--read .card__headline {
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.card--read .card__body {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.card__error {
@@ -311,7 +307,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				align-items: center;
 				margin-inline-start: var(--gl-space-16);
 				font-size: var(--gl-font-md);
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.card__error span {
@@ -334,14 +330,14 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: var(--gl-space-24) var(--gl-space-16);
 				text-align: center;
-				border: var(--gl-border-width) dashed var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) dashed var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
 			.empty code-icon {
 				--code-icon-size: 2.4rem;
 
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.empty__title {
@@ -353,7 +349,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			.empty__text {
 				margin: 0;
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.more {
@@ -366,14 +362,14 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: var(--gl-space-6);
 				padding-block-start: var(--gl-space-12);
-				border-top: var(--notification-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.preferences__title {
 				margin: 0;
 				font-size: var(--gl-font-md);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 			}
 
 			.preferences__row {
@@ -387,7 +383,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 				align-items: center;
 				justify-content: center;
 				padding: var(--gl-space-2);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				cursor: help;
 				background: none;
 				border: none;
@@ -395,7 +391,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			}
 
 			.info-button:hover {
-				color: var(--color-foreground);
+				color: var(--gl-color-action-quiet-fg);
 			}
 
 			.info-button:focus-visible {
@@ -405,7 +401,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 			.preferences__error {
 				margin: 0;
 				font-size: var(--gl-font-md);
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			@media (prefers-reduced-motion: reduce) {

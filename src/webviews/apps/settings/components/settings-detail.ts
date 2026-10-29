@@ -48,7 +48,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 
 			.header {
 				padding: 2rem 2.6rem 1.6rem;
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.header__row {
@@ -81,7 +81,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			.header__hint {
 				margin: var(--gl-space-2) 0 0;
 				font-size: 1.2rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.header__tip {
@@ -90,7 +90,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				align-items: center;
 				margin: var(--gl-space-12) 0 0;
 				font-size: 1.15rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.header__tip code-icon {
@@ -98,7 +98,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			}
 
 			/* Pinned to the top of the detail scroller so the preview stays visible while
-  scrolling a long category. The background mixes against --color-background
+  scrolling a long category. The background mixes against --gl-color-surface-base
   (the pane's actual backdrop) rather than transparent — visually identical,
   but opaque so scrolled content can't show through. */
 			.preview {
@@ -106,15 +106,15 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				inset-block-start: 0;
 				z-index: 1;
 				padding: 1.6rem 2.6rem;
-				background-color: color-mix(in srgb, var(--vscode-sideBar-background) 60%, var(--color-background));
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				background-color: color-mix(in srgb, var(--gl-color-surface-aside) 60%, var(--gl-color-surface-base));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.preview__label {
 				margin: 0 0 var(--gl-space-8);
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;
 			}
@@ -134,7 +134,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				align-items: flex-start;
 				max-width: 64rem;
 				padding: 3.2rem 2.6rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.no-results__title {
@@ -159,8 +159,8 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				padding-top: var(--gl-space-16);
 				margin: 0 2.6rem 2.4rem;
 				font-size: 1.15rem;
-				color: var(--color-foreground--65);
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				color: var(--vscode-descriptionForeground);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.footer code {

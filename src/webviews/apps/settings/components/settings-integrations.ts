@@ -51,7 +51,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-12);
 
 				/* Semantic success token so custom/high-contrast themes keep contrast */
-				--status-color--connected: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+				--status-color--connected: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.rows {
@@ -68,7 +68,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-10);
 				align-items: center;
 				padding: 0.9rem 1.1rem;
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -78,7 +78,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			}
 
 			.row--disconnected .row__icon {
-				color: var(--color-foreground--25);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row__content {
@@ -96,12 +96,12 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 
 			.row__details {
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row--disconnected .row__title,
 			.row--disconnected .row__details {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row__actions {
@@ -132,9 +132,9 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 				border-radius: var(--gl-radius-md);
 			}
 

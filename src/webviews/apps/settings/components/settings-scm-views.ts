@@ -79,10 +79,10 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 				padding-block-end: var(--gl-space-4);
 				font-size: 1.1rem;
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				border-block-end: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-end: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.row {
@@ -98,21 +98,21 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 
 			.row__view code-icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row__note {
 				display: block;
 				font-size: 1.1rem;
 				line-height: 1.4;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.footnote {
 				margin-block-start: var(--gl-space-12);
 				font-size: 1.15rem;
 				line-height: 1.5;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			gl-checkbox {

@@ -29,7 +29,7 @@ export const settingsAppStyles = [
 			align-items: center;
 			justify-content: space-between;
 			padding: 1.2rem 1.8rem;
-			border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.header__brand {
@@ -56,14 +56,14 @@ export const settingsAppStyles = [
 
 		.header__version {
 			font-size: 1.05rem;
-			color: var(--color-foreground--50);
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 			text-decoration: none;
 		}
 
 		.header__version:hover,
 		.header__version:focus-visible {
-			color: var(--color-link-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: underline;
 		}
 
@@ -77,7 +77,7 @@ export const settingsAppStyles = [
 			position: absolute;
 			top: 50%;
 			left: 1rem;
-			color: var(--color-foreground--50);
+			color: var(--vscode-descriptionForeground);
 			pointer-events: none;
 			transform: translateY(-50%);
 		}
@@ -121,7 +121,7 @@ export const settingsAppStyles = [
 			gap: var(--gl-space-8);
 			align-items: center;
 			font-size: 1.2rem;
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 		}
 
@@ -153,8 +153,8 @@ export const settingsAppStyles = [
 			flex: none;
 			width: 24rem;
 			padding: 1.6rem 1.4rem;
-			background-color: var(--vscode-sideBar-background);
-			border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+			background-color: var(--gl-color-surface-aside);
+			border-right: var(--gl-border-width) solid var(--gl-color-border-aside);
 		}
 
 		.body--loading__detail {
@@ -176,16 +176,16 @@ export const settingsAppStyles = [
 		.body--error code-icon {
 			flex: none;
 			margin-block-start: var(--gl-space-2);
-			color: var(--vscode-errorForeground);
+			color: var(--gl-color-feedback-danger-quiet-fg);
 		}
 
 		.body--error a {
-			color: var(--color-link-foreground);
+			color: var(--gl-color-action-link-fg);
 		}
 
 		.body__nav {
-			background-color: var(--vscode-sideBar-background);
-			border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+			background-color: var(--gl-color-surface-aside);
+			border-right: var(--gl-border-width) solid var(--gl-color-border-aside);
 		}
 
 		.body__detail {

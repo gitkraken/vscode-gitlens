@@ -88,7 +88,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			.label__dirty {
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.field-wrap {
@@ -145,7 +145,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				margin: 0;
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -195,21 +195,25 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			}
 
 			.token code {
+				padding: 0.1rem 0.3rem;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.15rem;
-				color: var(--gl-chip-filtered-text-color, var(--color-link-foreground));
+				color: var(--vscode-textPreformat-foreground);
+				background-color: var(--vscode-textPreformat-background);
+				border: var(--gl-border-width) solid var(--vscode-textPreformat-border, transparent);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.token span {
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Modifier builder */
 			.mods {
 				display: flex;
 				flex-direction: column;
-				border-block-start: var(--gl-border-width) solid var(--vscode-menu-separatorBackground, transparent);
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.mods__toggle {
@@ -241,7 +245,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: 0.3rem;
 				font-size: 1.05rem;
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.mods__field input {
@@ -267,7 +271,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				padding: 0;
 				margin-block-end: 0.3rem;
 				font-size: 1.05rem;
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.mods__radio {
@@ -282,18 +286,22 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				grid-column: 1 / -1;
 				margin: 0;
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.mods__preview code {
+				padding: 0.1rem 0.3rem;
 				font-family: var(--vscode-editor-font-family);
-				color: var(--color-link-foreground);
+				color: var(--vscode-textPreformat-foreground);
+				background-color: var(--vscode-textPreformat-background);
+				border: var(--gl-border-width) solid var(--vscode-textPreformat-border, transparent);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.tokens__hint {
 				padding: 0.6rem 0.2rem 0.2rem;
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.example {
@@ -302,17 +310,17 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				align-items: baseline;
 				margin-block-start: 0.7rem;
 				font-size: 1.15rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.example__text {
 				font-style: italic;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 			}
 
 			.example--error .example__text {
 				font-style: normal;
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 		`,
 	];
