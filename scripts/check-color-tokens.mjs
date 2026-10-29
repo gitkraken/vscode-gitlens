@@ -81,9 +81,11 @@ async function main() {
 
 	/** @type {Map<string, number>} */
 	const uses = new Map([...tokens].map(name => [name, 0]));
+	// `walk` joins with the platform separator, so compare against the same — a `/` literal never matches on Windows
+	const tokenSourcePath = join(tokenSource);
 	for (const root of searchRoots) {
 		for await (const path of walk(root)) {
-			if (path === tokenSource) continue;
+			if (path === tokenSourcePath) continue;
 
 			const text = await readFile(join(repoRoot, path), 'utf8');
 			if (!text.includes('var(--gl-')) continue;
