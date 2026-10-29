@@ -715,16 +715,9 @@
 				],
 				"gitlens/scm/title/ai": [
 					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted",
+						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && config.gitlens.menus.scmRepository.generateCommitMessage",
 						"group": "1_gitlens",
 						"order": 1
-					}
-				],
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed && config.gitlens.menus.scmRepository.generateCommitMessage",
-						"group": "2_gitlens",
-						"order": 2
 					}
 				]
 			}
