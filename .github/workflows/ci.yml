@@ -129,11 +129,6 @@ jobs:
             - name: Run unit tests
               run: xvfb-run -a pnpm exec vscode-test
 
-            # Excluded from `pnpm run test` because they spawn real git against temp repos; run them
-            # here so the provider suites that exercise actual git behavior still gate CI.
-            - name: Run integration tests
-              run: pnpm --filter ./packages/git-cli run test:integration
-
             # The package tests are bundled by esbuild, so they resolve CommonJS dependencies through a
             # bundler's interop and never exercise Node's. Bundle and load the published tree the way an
             # external Node ESM consumer does, so an import that only a bundler can link fails here rather
@@ -152,6 +147,44 @@ jobs:
 
             - name: Verify packed graph packages as external consumers
               run: pnpm run verify:graph-packages
+
+    # Its own job so the slowest suite runs alongside Unit Tests rather than after it
+    integration-tests:
+        name: Integration Tests
+        runs-on: ubuntu-latest
+        if: ${{ !github.event.pull_request.draft || github.run_attempt != '1' }}
+        timeout-minutes: 10
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
+
+            - name: Setup pnpm
+              uses: pnpm/setup@v2
+              with:
+                  install: false
+                  cache: true
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build packages
+              run: pnpm run build:packages
+
+            # Excluded from `pnpm run test` because they spawn real git against temp repos; run them
+            # here so the provider suites that exercise actual git behavior still gate CI.
+            - name: Run integration tests
+              run: pnpm --filter ./packages/git-cli run test:integration
 
     derive-matrix:
         name: Derive editor matrix
