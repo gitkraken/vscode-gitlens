@@ -19,6 +19,7 @@ import {
 	getNotificationBodyText,
 	getNotificationHeadline,
 	getNotificationSender,
+	observeTruncationTargets,
 	syncTruncationTooltips,
 } from '../../shared/notifications.utils.js';
 import type { GraphNotificationsState } from '../graphNotificationsState.js';
@@ -295,9 +296,12 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 	@state()
 	private _error: { title: string; message: string } | undefined;
 
-	/** Re-checks which headlines are truncated when the panel is resized (including when the popover opens) */
+	/**
+	 * Re-checks which headlines are truncated when one's box changes: the panel resizing, the popover opening, or
+	 * a row's meta finishing its first render
+	 */
 	private _resizeObserver: ResizeObserver | undefined;
-	private _observedPanel: HTMLElement | undefined;
+	private readonly _observedHeadlines = new Set<Element>();
 
 	@state()
 	private _open = false;
@@ -315,7 +319,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 		document.removeEventListener('visibilitychange', this.onDocumentVisibilityChanged);
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = undefined;
-		this._observedPanel = undefined;
+		this._observedHeadlines.clear();
 		this.setOpen(false);
 		super.disconnectedCallback?.();
 	}
@@ -326,15 +330,8 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			this.setOpen(false);
 		}
 
-		const panel = this._panel;
-		if (panel !== this._observedPanel) {
-			this._resizeObserver?.disconnect();
-			this._observedPanel = panel;
-			if (panel != null) {
-				this._resizeObserver ??= new ResizeObserver(() => this.syncHeadlineTooltips());
-				this._resizeObserver.observe(panel);
-			}
-		}
+		this._resizeObserver ??= new ResizeObserver(() => this.syncHeadlineTooltips());
+		observeTruncationTargets(this._resizeObserver, this.renderRoot, '.row__headline', this._observedHeadlines);
 		this.syncHeadlineTooltips();
 	}
 

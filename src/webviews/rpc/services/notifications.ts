@@ -29,6 +29,7 @@ import type { Container } from '../../../container.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	AuthenticationRequiredError,
 	classifyNetworkError,
 	RequestRateLimitError,
 	RequestsAreBlockedTemporarilyError,
@@ -200,7 +201,23 @@ export class NotificationsRpcService implements Disposable {
  * operation, raw fetch text), not for display, so each known cause maps to a localized one.
  */
 function getNotificationsErrorMessage(ex: unknown): string {
-	if (NotificationsApiError.is(ex)) return l10n.t("GitKraken couldn't complete the request. Please try again.");
+	if (NotificationsApiError.is(ex)) {
+		// The connection hands back 4xx responses rather than throwing, so the status is the only signal here
+		switch (ex.status) {
+			case 401:
+				return l10n.t('Your GitKraken session has expired. Please sign in again.');
+			case 429:
+				return l10n.t('Too many requests to GitKraken. Please try again in a few minutes.');
+			case 503:
+				return l10n.t('GitKraken is temporarily unavailable. Please try again in a few minutes.');
+			default:
+				return l10n.t("GitKraken couldn't complete the request. Please try again.");
+		}
+	}
+	// No session to authenticate the request with
+	if (ex instanceof AuthenticationRequiredError) {
+		return l10n.t('Your GitKraken session has expired. Please sign in again.');
+	}
 	if (ex instanceof RequestsAreBlockedTemporarilyError) {
 		return l10n.t('GitKraken is temporarily unavailable. Please try again in a few minutes.');
 	}

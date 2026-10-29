@@ -264,10 +264,10 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					label: unread > 0 ? formatUnreadCount(unread) : '',
 					aria:
 						unread === 0
-							? l10n.t('Notifications, no unread')
+							? l10n.t('No unread')
 							: unread > 99
-								? l10n.t('Notifications, more than 99 unread')
-								: l10n.t('Notifications, {count} unread', { count: unread }),
+								? l10n.t('More than 99 unread')
+								: l10n.t('{count} unread', { count: unread }),
 				},
 			};
 		}

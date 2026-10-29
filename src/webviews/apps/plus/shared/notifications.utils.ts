@@ -115,3 +115,29 @@ export function syncTruncationTooltips(root: ParentNode, selector: string): void
 		}
 	}
 }
+
+/**
+ * Keeps `observer` watching exactly the elements under `root` that match `selector`: new matches are observed and
+ * ones no longer rendered are released (`observed` is the caller's record of them). A headline's box changes when
+ * the content beside it finishes rendering, which a host- or panel-level observer can't see.
+ */
+export function observeTruncationTargets(
+	observer: ResizeObserver,
+	root: ParentNode,
+	selector: string,
+	observed: Set<Element>,
+): void {
+	const current = new Set(root.querySelectorAll(selector));
+	for (const el of observed) {
+		if (!current.has(el)) {
+			observer.unobserve(el);
+			observed.delete(el);
+		}
+	}
+	for (const el of current) {
+		if (!observed.has(el)) {
+			observer.observe(el);
+			observed.add(el);
+		}
+	}
+}

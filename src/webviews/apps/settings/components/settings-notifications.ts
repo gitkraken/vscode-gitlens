@@ -24,6 +24,7 @@ import {
 	getNotificationHeaderText,
 	getNotificationHeadline,
 	getNotificationSender,
+	observeTruncationTargets,
 	syncTruncationTooltips,
 } from '../../plus/shared/notifications.utils.js';
 import type { GlButton } from '../../shared/components/button.js';
@@ -457,6 +458,8 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 	private _pendingFocusRestore: { cardId: string; index: number } | undefined;
 	/** Re-checks which headlines are truncated when the panel is resized */
 	private _resizeObserver: ResizeObserver | undefined;
+	/** The headlines the observer watches, so one whose meta row finishes rendering (and grows) re-syncs */
+	private readonly _observedHeadlines = new Set<Element>();
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -474,6 +477,7 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 		clearTimeout(this._announceTimer);
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = undefined;
+		this._observedHeadlines.clear();
 		void this.actions?.setNotificationsInboxVisible(false);
 		super.disconnectedCallback?.();
 	}
@@ -507,6 +511,9 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 	}
 
 	private syncHeadlineTooltips(): void {
+		if (this._resizeObserver != null) {
+			observeTruncationTargets(this._resizeObserver, this.renderRoot, '.card__headline', this._observedHeadlines);
+		}
 		syncTruncationTooltips(this.renderRoot, '.card__headline');
 	}
 
@@ -716,17 +723,43 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 		this._failures = failures;
 	}
 
+	/**
+	 * Drops the failures of cards a successful list action settled (e.g. Mark All as Read marking a card whose own
+	 * Mark as Read failed), so they don't keep offering a Retry for something already done
+	 */
+	private clearSettledFailures(readAtBefore: Map<string, number | undefined>): void {
+		if (!this._failures.size) return;
+
+		const items = this._state.notifications.get()?.items;
+		const failures = new Map(this._failures);
+		for (const id of this._failures.keys()) {
+			const n = items?.find(i => i.id === id);
+			if (n == null || n.readAt !== readAtBefore.get(id)) {
+				failures.delete(id);
+			}
+		}
+		if (failures.size !== this._failures.size) {
+			this._failures = failures;
+		}
+	}
+
 	/** Runs a list-wide action, recording (or clearing) its failure above the list */
 	private async runForList(failureTitle: string, action: () => Promise<void>): Promise<void> {
 		this._listFailure = undefined;
+		const inboxId = this._inboxId;
+		const readAtBefore = new Map(this._state.notifications.get()?.items.map(n => [n.id, n.readAt]));
 		try {
 			await action();
+			this.clearSettledFailures(readAtBefore);
 		} catch (ex) {
-			this._listFailure = {
-				title: failureTitle,
-				message: getErrorMessage(ex),
-				retry: () => this.runForList(failureTitle, action),
-			};
+			// Unless the inbox was replaced meanwhile: a Retry would run `action` against the new account
+			if (this._inboxId === inboxId) {
+				this._listFailure = {
+					title: failureTitle,
+					message: getErrorMessage(ex),
+					retry: () => this.runForList(failureTitle, action),
+				};
+			}
 		}
 	}
 
@@ -771,15 +804,19 @@ export class GlSettingsNotifications extends SignalWatcher(LitElement) {
 
 	private async setMarketingEnabled(enabled: boolean): Promise<void> {
 		this._settingsFailure = undefined;
+		const inboxId = this._inboxId;
 		try {
 			await this.actions?.updateNotificationSettings({ marketingEnabled: enabled });
 		} catch (ex) {
-			// The host restored the previous value; offer to apply the change again
-			this._settingsFailure = {
-				title: l10n.t('Couldn’t save your preferences.'),
-				message: getErrorMessage(ex),
-				retry: () => this.setMarketingEnabled(enabled),
-			};
+			// The host restored the previous value; offer to apply the change again (unless the inbox was replaced
+			// meanwhile: a Retry would change the new account's setting)
+			if (this._inboxId === inboxId) {
+				this._settingsFailure = {
+					title: l10n.t('Couldn’t save your preferences.'),
+					message: getErrorMessage(ex),
+					retry: () => this.setMarketingEnabled(enabled),
+				};
+			}
 		}
 	}
 
