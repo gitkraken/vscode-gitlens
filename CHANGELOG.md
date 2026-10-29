@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#4950](https://github.com/gitkraken/vscode-gitlens/issues/4950) - _Fetch_ on a remote branch in the _Commit Graph_ runs `git fetch <remote> <remote>` and fails &mdash; it now fetches the branch itself
 - Fixes _Generate Commit Message_ appearing twice in the _Source Control_ title bar &mdash; it now appears only in the GitLens AI (sparkle) menu ([#4396](https://github.com/gitkraken/vscode-gitlens/issues/4396))
+- Fixes _Compose Commits_ appearing in both the _Source Control_ title bar's GitLens AI (sparkle) menu and its overflow menu &mdash; it now appears only in the GitLens AI menu
 - Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
 - Fixes the _Commit Graph_'s _Pull Requests_ panel saying it can't list pull requests for Azure DevOps and Azure DevOps Server repositories &mdash; it now lists the repository's open pull requests
 - Fixes AI conflict resolution sending a request for every remaining file after AI becomes unavailable (e.g. the weekly AI allowance runs out mid-run) &mdash; it now stops starting new files and marks the rest with the same error, and the _Commit Graph_'s _Resolve_ mode now chooses the AI model once per run instead of once per request

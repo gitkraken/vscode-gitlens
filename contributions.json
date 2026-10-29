@@ -1135,13 +1135,6 @@
 						"order": 1
 					}
 				],
-				"gitlens/scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
-						"group": "1_gitlens",
-						"order": 1
-					}
-				],
 				"gitlens/scm/title/ai": [
 					{
 						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
@@ -1153,13 +1146,6 @@
 					{
 						"when": "scmResourceGroup =~ /^(workingTree|index)$/ && scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
 						"group": "1_modification_gitlens",
-						"order": 1
-					}
-				],
-				"scm/title": [
-					{
-						"when": "scmProvider == git && gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
-						"group": "2_gitlens",
 						"order": 1
 					}
 				]
