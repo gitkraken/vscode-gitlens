@@ -13,12 +13,15 @@ import {
 	getReviewReadingShortcut,
 	getReviewReplies,
 	getReviewThreadItems,
+	getStaleFindingIds,
 	isReviewComplete,
 	userFocusAreaId,
 	withFileExcluded,
 	withFilesViewed,
 	withFindingNote,
 	withFindingNoteText,
+	withFindingsContent,
+	withFindingsRequeued,
 	withFindingState,
 	withoutFindingNote,
 	withoutFindings,
@@ -72,13 +75,115 @@ suite('reviewSession — progress', () => {
 		session = withFileExcluded(session, c.path, true);
 		const files = [{ ...a, contentId: 'a2' }, b, c];
 		const progress = getReviewProgress(session, files);
-		assert.deepStrictEqual(progress, { viewed: 1, changed: 1, total: 2 });
+		assert.deepStrictEqual(progress, { viewed: 1, changed: 1, requeued: 0, total: 2 });
 		assert.strictEqual(isReviewComplete(progress), false);
 		assert.strictEqual(isReviewComplete(getReviewProgress(withFilesViewed(session, files, true), files)), true);
 	});
 
 	test('an empty walk is never complete', () => {
 		assert.strictEqual(isReviewComplete(getReviewProgress(emptyReviewSession, [])), false);
+	});
+});
+
+suite('reviewSession — re-queued for findings', () => {
+	const finding = (id: string, ...paths: string[]) => ({
+		id: id,
+		severity: 'warning',
+		title: id,
+		description: '',
+		...(paths.length > 1
+			? { filePath: paths[0], locations: paths.map(p => ({ filePath: p })) }
+			: { filePath: paths[0] }),
+	});
+	const resultOf = (...findings: ReturnType<typeof finding>[]) =>
+		({
+			overview: '',
+			mode: 'single-pass',
+			focusAreas: [
+				{ id: 'area', label: 'Area', rationale: '', severity: 'warning', files: [], findings: findings },
+			],
+		}) as unknown as AIReviewResult;
+
+	test('a viewed file that gains an open finding goes back in the queue; marking it again takes it out', () => {
+		const viewed = withFilesViewed(emptyReviewSession, [a, b], true);
+		const session = withFindingsRequeued(viewed, undefined, resultOf(finding('f1', a.path), finding('f2', c.path)));
+		assert.strictEqual(getReviewFileProgress(session, a), 'requeued');
+		assert.strictEqual(getReviewFileProgress(session, b), 'viewed', 'no finding on it');
+		assert.strictEqual(getReviewFileProgress(session, c), 'unviewed', 'never viewed — nothing to re-queue');
+		const progress = getReviewProgress(session, [a, b, c]);
+		assert.deepStrictEqual(progress, { viewed: 1, changed: 0, requeued: 1, total: 3 });
+
+		const again = withFilesViewed(session, [a], true);
+		assert.strictEqual(getReviewFileProgress(again, a), 'viewed');
+		assert.strictEqual(again.viewed.get(a.path)?.requeued, undefined);
+		assert.strictEqual(withFilesViewed(session, [a], false).viewed.has(a.path), false, 'un-marking drops it too');
+	});
+
+	test('a re-run that finds the same thing in a file re-queues nothing, even under another id', () => {
+		const viewed = withFilesViewed(emptyReviewSession, [a, b], true);
+		const earlier = resultOf({ ...finding('area-1-f1', a.path), title: 'Unhandled promise' });
+		const again = resultOf(
+			{ ...finding('area-2-f3', a.path), title: ' unhandled promise ' },
+			{ ...finding('area-1-f1', b.path), title: 'Signal ignored' },
+		);
+		const session = withFindingsRequeued(viewed, earlier, again);
+		assert.strictEqual(getReviewFileProgress(session, a), 'viewed', 'the same finding, renumbered');
+		assert.strictEqual(getReviewFileProgress(session, b), 'requeued', 'an id seen before, but somewhere else');
+	});
+
+	test('a change to the content wins over new findings', () => {
+		const session = withFindingsRequeued(
+			withFilesViewed(emptyReviewSession, [a], true),
+			undefined,
+			resultOf(finding('f1', a.path)),
+		);
+		assert.strictEqual(getReviewFileProgress(session, { ...a, contentId: 'a2' }), 'changed');
+	});
+
+	test('only findings new to the file count — not ones it had, closed ones, or the reader’s own', () => {
+		const viewed = withFilesViewed(emptyReviewSession, [a, b, c], true);
+		const prev = resultOf(finding('f1', a.path));
+		const dismissed = withFindingState(viewed, 'f2', 'dismissed');
+		const next = {
+			...resultOf(finding('f1', a.path), finding('f2', b.path)),
+			focusAreas: [
+				...resultOf(finding('f1', a.path), finding('f2', b.path)).focusAreas,
+				{
+					id: userFocusAreaId,
+					label: '',
+					rationale: '',
+					severity: 'suggestion',
+					files: [],
+					findings: [createReviewComment('u1', { path: c.path, line: 1, lineEnd: 1 }, 'mine')],
+				},
+			],
+		} as unknown as AIReviewResult;
+		assert.strictEqual(
+			withFindingsRequeued(dismissed, prev, next),
+			dismissed,
+			'nothing new and open — same session',
+		);
+
+		// A finding that was there reaches one more file: that file is new to it
+		const spread = withFindingsRequeued(viewed, prev, resultOf(finding('f1', a.path, c.path)));
+		assert.strictEqual(getReviewFileProgress(spread, a), 'viewed');
+		assert.strictEqual(getReviewFileProgress(spread, c), 'requeued');
+	});
+
+	test('a file already re-queued, or set aside, changes nothing more', () => {
+		const once = withFindingsRequeued(
+			withFilesViewed(emptyReviewSession, [a], true),
+			undefined,
+			resultOf(finding('f1', a.path)),
+		);
+		assert.strictEqual(withFindingsRequeued(once, undefined, resultOf(finding('f9', a.path))), once);
+		assert.strictEqual(
+			withFindingsRequeued(emptyReviewSession, undefined, resultOf(finding('f1', a.path))),
+			emptyReviewSession,
+		);
+
+		const excluded = withFileExcluded(once, a.path, true);
+		assert.deepStrictEqual(getReviewProgress(excluded, [a]), { viewed: 0, changed: 0, requeued: 0, total: 0 });
 	});
 });
 
@@ -657,5 +762,74 @@ suite('reviewSession — removing a finding', () => {
 			['a'],
 		);
 		assert.strictEqual(withoutResultFinding(result, 'nope'), result);
+	});
+});
+
+suite('reviewSession — findings on changed files', () => {
+	const findings = [
+		{ id: 'f1', severity: 'warning', title: 'one', description: '', filePath: 'src/a.ts' },
+		{
+			id: 'f2',
+			severity: 'critical',
+			title: 'two',
+			description: '',
+			filePath: 'src/b.ts',
+			locations: [{ filePath: 'src/b.ts' }, { filePath: 'src/a.ts' }],
+		},
+		{ id: 'f3', severity: 'suggestion', title: 'three', description: '', filePath: 'src/c.ts' },
+		{ id: 'f4', severity: 'suggestion', title: 'general', description: '' },
+		{ id: 'u1', severity: 'suggestion', title: '', description: 'mine', filePath: 'src/a.ts', source: 'user' },
+	] as const;
+	const result = {
+		overview: '',
+		mode: 'single-pass',
+		focusAreas: [{ id: 'area', label: 'Area', rationale: '', severity: 'warning', files: [], findings: findings }],
+	} as unknown as AIReviewResult;
+	const recorded = withFindingsContent(undefined, result.focusAreas[0].findings, [a, b, c])!;
+
+	test('records the content of each AI finding’s files, leaving out the reader’s comments and unknown content', () => {
+		assert.deepStrictEqual([...recorded.keys()], ['f1', 'f2']);
+		assert.deepStrictEqual(
+			[...recorded.get('f2')!],
+			[
+				['src/b.ts', 'b1'],
+				['src/a.ts', 'a1'],
+			],
+		);
+	});
+
+	test('nothing is stale while the files are as they were', () => {
+		assert.strictEqual(getStaleFindingIds(result, recorded, [a, b, c]).size, 0);
+	});
+
+	test('a finding is stale once any file it points at moved on', () => {
+		const a2 = { path: 'src/a.ts', contentId: 'a2' };
+		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [a2, b, c])], ['f1', 'f2']);
+
+		const b2 = { path: 'src/b.ts', contentId: 'b2' };
+		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [a, b2, c])], ['f2']);
+	});
+
+	test('an unknown side leaves the finding as it was', () => {
+		// No current content id, or the file gone from the scope
+		assert.strictEqual(
+			getStaleFindingIds(result, recorded, [{ path: 'src/a.ts', contentId: undefined }, b]).size,
+			0,
+		);
+		assert.strictEqual(getStaleFindingIds(result, recorded, [b]).size, 0);
+		// Nothing recorded at all
+		assert.strictEqual(getStaleFindingIds(result, undefined, [{ path: 'src/a.ts', contentId: 'a2' }]).size, 0);
+	});
+
+	test('a later report of a finding replaces its record; nothing to add keeps the same record', () => {
+		const a2 = { path: 'src/a.ts', contentId: 'a2' };
+		const again = withFindingsContent(recorded, [findings[0]], [a2, b]);
+		assert.notStrictEqual(again, recorded);
+		assert.deepStrictEqual([...again!.get('f1')!], [['src/a.ts', 'a2']]);
+		assert.deepStrictEqual([...getStaleFindingIds(result, again, [a2, b, c])], ['f2']);
+
+		assert.strictEqual(withFindingsContent(recorded, [findings[3], findings[4]], [a, b]), recorded);
+		assert.strictEqual(withFindingsContent(recorded, [], [a, b]), recorded);
+		assert.strictEqual(withFindingsContent(recorded, [findings[0]], undefined), recorded);
 	});
 });

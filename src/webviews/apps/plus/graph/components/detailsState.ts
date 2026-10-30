@@ -51,7 +51,7 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { createSignalGroup } from '../../../shared/state/signals.js';
-import type { ReviewSession } from './reviewSession.js';
+import type { ReviewFindingsContent, ReviewSession } from './reviewSession.js';
 
 /** Selection-shape vocabulary. Identifies which kind of selection the details panel is showing. */
 export type DetailsContext = 'wip' | 'commit' | 'multicommit';
@@ -153,6 +153,9 @@ export type RunningOperation =
 			focusAreaRuns?: ReadonlyMap<string, AbortController>;
 			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
 			session?: ReviewSession;
+			/** The content the AI findings were made against, to tell which describe a file that has moved
+			 *  on since; started over by each fresh result, added to as findings come in after it. */
+			findingsContent?: ReviewFindingsContent;
 			/** What the host reports about the editor: which review file is the active diff, and how many
 			 *  of its editor-made viewed marks the session has already taken. */
 			reading?: { active?: string; marksApplied: number };
