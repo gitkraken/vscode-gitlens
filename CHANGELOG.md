@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the interactive rebase editor's commit list borders taking on the scrollbar color whenever the editor is hovered or focused &mdash; they now keep the theme's separator color
 - Fixes the interactive rebase editor cutting off the last commits in the list when the conflict panel is open and the list's pane is short &mdash; the list now fits its pane and scrolls to the end
 - Fixes the icon buttons in _GitLens Settings_ (e.g. delete and expand on autolinks and custom remotes) showing no hover feedback in high contrast themes
+- Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
 

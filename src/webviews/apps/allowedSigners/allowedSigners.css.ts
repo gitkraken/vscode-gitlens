@@ -14,7 +14,7 @@ export const allowedSignersBaseStyles = css`
 	}
 
 	:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: 1px solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 `;
@@ -45,14 +45,16 @@ export const allowedSignersStyles = css`
 		gap: 0.8rem;
 		align-items: center;
 		padding: 0.8rem 1.2rem;
-		background: var(--vscode-inputValidation-warningBackground, rgb(255 191 0 / 10%));
-		border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground));
+		color: var(--gl-color-feedback-warning-fg);
+		background: var(--gl-color-feedback-warning-bg);
+		border: 1px solid var(--gl-color-feedback-warning-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
 	.notice--error {
-		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 10%));
-		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+		color: var(--gl-color-feedback-danger-fg);
+		background: var(--gl-color-feedback-danger-bg);
+		border-color: var(--gl-color-feedback-danger-border);
 	}
 
 	.toolbar {
@@ -60,7 +62,7 @@ export const allowedSignersStyles = css`
 		flex-direction: column;
 		gap: 1rem;
 		padding: 1.2rem;
-		border: 1px solid var(--vscode-panel-border);
+		border: 1px solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -102,12 +104,12 @@ export const allowedSignersStyles = css`
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--vscode-panel-border);
+		border: 1px solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-sm);
 	}
 
 	gl-signer-row:not(:last-child) {
-		border-bottom: 1px solid var(--vscode-panel-border);
+		border-bottom: 1px solid var(--gl-color-divider-base);
 	}
 
 	.list__group {
@@ -117,8 +119,7 @@ export const allowedSignersStyles = css`
 		color: var(--vscode-descriptionForeground);
 		text-transform: var(--gl-view-header-text-transform);
 		letter-spacing: var(--gl-view-header-letter-spacing, 0.04em);
-		background: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background));
-		border-bottom: 1px solid var(--vscode-panel-border);
+		border-bottom: 1px solid var(--gl-color-divider-base);
 	}
 
 	.empty {
@@ -138,11 +139,11 @@ export const allowedSignersStyles = css`
 	}
 
 	.status--success {
-		color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+		color: var(--gl-color-feedback-success-quiet-fg);
 	}
 
 	.status--error {
-		color: var(--vscode-errorForeground);
+		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
 	.loading {
