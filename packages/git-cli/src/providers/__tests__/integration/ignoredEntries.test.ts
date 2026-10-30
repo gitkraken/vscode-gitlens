@@ -314,7 +314,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.deepStrictEqual(await get('linked/dist'), []);
 			assert.deepStrictEqual(await get('linked/dist', 'node_modules/a'), ['node_modules/a/']);
 		} finally {
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -342,7 +342,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(run), 2);
 		} finally {
 			run.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -375,7 +375,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(run), 2);
 		} finally {
 			run.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 			rmSync(join(repo.path, ':odd.log'), { force: true });
 			rmSync(join(repo.path, ':late.log'), { force: true });
 		}
@@ -397,7 +397,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(run), 2);
 		} finally {
 			run.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -421,7 +421,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(run), 2);
 		} finally {
 			run.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -474,7 +474,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(run), 1);
 		} finally {
 			run.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -527,7 +527,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			assert.strictEqual(countCheckIgnoreRuns(stub), 2);
 		} finally {
 			stub.restore();
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
@@ -598,7 +598,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			]);
 		} finally {
 			writeFileSync(exclude, '');
-			rmSync(link, { force: true });
+			rmSync(link, { recursive: true, force: true });
 		}
 	});
 
