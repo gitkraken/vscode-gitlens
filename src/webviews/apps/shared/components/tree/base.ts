@@ -145,6 +145,19 @@ export interface TreeItemDecorationStack extends TreeItemDecorationBase {
 	tooltip?: string;
 }
 
+/** A glyph and a number — "3 findings", "2 comments" — colored for how urgent the count is, or muted when
+ *  it records something settled. Which glyph is the producer's call, so one shape serves every tally. */
+export interface TreeItemDecorationCount extends TreeItemDecorationBase {
+	type: 'count';
+	icon: string;
+	count: number;
+	tooltip?: string;
+	kind?: 'error' | 'warning' | 'info' | 'muted';
+	/** When set, the badge is a button: a click raises this as the row's action (see
+	 *  `gl-tree-generated-item-action-clicked`) instead of selecting the row. */
+	action?: string;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
@@ -153,7 +166,8 @@ export type TreeItemDecoration =
 	| TreeItemDecorationConflict
 	| TreeItemDecorationAgent
 	| TreeItemDecorationWip
-	| TreeItemDecorationStack;
+	| TreeItemDecorationStack
+	| TreeItemDecorationCount;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
