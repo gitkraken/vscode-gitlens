@@ -1209,6 +1209,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		summary?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		scopeConcurrency?: number;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
 	}
@@ -1260,6 +1262,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		cursor?: string;
 		itemsPerPage?: number;
 		forceSync?: boolean;
+		/** See {@link IntegrationManager.listIssuesPage}. */
+		scopeConcurrency?: number;
 		connectionId?: string;
 		/**
 		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;

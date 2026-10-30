@@ -186,6 +186,13 @@ type PullRequestSweepCommonOptions = {
 	includeReviews?: boolean;
 	forceSync?: boolean;
 	/**
+	 * Repo-scoped targets only: most per-repository requests one provider read keeps in flight. Defaults to 6.
+	 * Only hosts that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and
+	 * Azure DevOps; GitHub/GHE send one query whatever the repo count. A sweep runs up to 6 targets at once, each
+	 * with this bound.
+	 */
+	scopeConcurrency?: number;
+	/**
 	 * Page budget per provider. A stop at this budget with a resumable cursor is reported as
 	 * `pagination-incomplete` with `recovery: 'page-budget'`. A part no budget reaches is reported beside it
 	 * with `recovery: 'none'`: a `provider-limit` omission when the reported match count exceeds the provider's
@@ -420,6 +427,12 @@ export interface IntegrationManager {
 		 * ignores the option, so it is a hint rather than a guarantee about which fields are present.
 		 */
 		summary?: boolean;
+		/**
+		 * Repo-scoped only: most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts
+		 * that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and Azure
+		 * DevOps; GitHub/GHE send one query whatever the repo count. The account-wide read ignores it.
+		 */
+		scopeConcurrency?: number;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	/**
 	 * Pull requests matching structured criteria over a repository/organization or current-user relationship
@@ -566,6 +579,12 @@ export interface IntegrationManager {
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
+		/**
+		 * Most per-repository requests (per-project for Azure DevOps) one provider read keeps in flight. Defaults
+		 * to 6. Only GitLab, GitLab self-managed and Azure DevOps fan out; GitHub/GHE send one query whatever the
+		 * repo count. Account-wide reads ignore it.
+		 */
+		scopeConcurrency?: number;
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;

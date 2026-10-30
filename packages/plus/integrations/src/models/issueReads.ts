@@ -171,6 +171,12 @@ export type MyIssuesForReposOptions = {
 	 * that, because it is also the layer that can refuse a key no merge can honor.
 	 */
 	sort?: IssueSorting;
+	/**
+	 * Most per-repository requests (per-project for Azure DevOps) one provider read keeps in flight. Defaults to 6.
+	 * Only GitLab, GitLab self-managed and Azure DevOps fan out; GitHub/GHE send one query whatever the repo count.
+	 * A value that isn't a finite number >= 1 falls back to the default.
+	 */
+	scopeConcurrency?: number;
 };
 
 /**

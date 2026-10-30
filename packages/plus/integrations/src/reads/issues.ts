@@ -116,6 +116,8 @@ export interface ListIssuesPageOptions {
 	page?: number;
 	cursor?: string;
 	itemsPerPage?: number;
+	/** See {@link IntegrationManager.listIssuesPage}. */
+	scopeConcurrency?: number;
 	forceSync?: boolean;
 	connectionId?: string;
 	/**
@@ -549,6 +551,7 @@ async function readRepoScopedIssuesPage({
 					page: options.page != null ? page : undefined,
 					pageSize: options.itemsPerPage,
 					sort: ordering.sort,
+					scopeConcurrency: options.scopeConcurrency,
 				},
 				options.connectionId,
 			),
@@ -592,6 +595,7 @@ async function readRepoScopedIssuesPage({
 									cursor: cursor,
 									pageSize: options.itemsPerPage,
 									sort: ordering.sort,
+									scopeConcurrency: options.scopeConcurrency,
 								},
 								options.connectionId,
 							),
