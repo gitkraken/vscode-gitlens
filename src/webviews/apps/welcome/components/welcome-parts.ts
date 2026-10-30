@@ -43,7 +43,7 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			:host(:focus-within) {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -83,7 +83,7 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			:host([completed]) .status-icon {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.content {

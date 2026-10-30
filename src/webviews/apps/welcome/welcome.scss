@@ -1,17 +1,8 @@
 @use '../shared/styles/theme';
 @use '../shared/styles/tokens';
+@use '../shared/styles/colors';
 @use '../shared/styles/scrollbars';
 @use '../shared/styles/utils';
-
-@include utils.dark-theme {
-	--popover-bg: var(--color-background--lighten-15);
-	--gl-walkthrough-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 4%);
-}
-
-@include utils.light-theme {
-	--popover-bg: var(--color-background--darken-15);
-	--gl-walkthrough-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 2%);
-}
 
 * {
 	box-sizing: border-box;
@@ -40,8 +31,8 @@ body {
 	font-family: var(--font-family);
 	font-size: var(--vscode-font-size);
 	line-height: 1.4;
-	color: var(--color-view-foreground);
-	background-color: var(--color-view-background);
+	color: var(--vscode-foreground);
+	background-color: var(--gl-color-surface-base);
 }
 
 @include scrollbars.scrollbarFix;

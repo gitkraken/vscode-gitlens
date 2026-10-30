@@ -2,13 +2,12 @@ import { css } from 'lit';
 
 const colorScheme = css`
 	:host {
-		--accent-color: #cb64ff;
-		--text-color: var(--vscode-sideBar-foreground);
+		--text-color: var(--vscode-foreground);
 		--dimmed-text-color: var(--vscode-descriptionForeground);
-		--heading-color: var(--vscode-tab-activeForeground);
-		--em-color: var(--vscode-sideBar-foreground);
-		--link-color: var(--vscode-textLink-foreground);
-		--card-background: color-mix(in srgb, var(--vscode-descriptionForeground) 13%, var(--color-view-background));
+		--heading-color: var(--vscode-strongForeground, var(--vscode-foreground));
+		--em-color: var(--vscode-foreground);
+		--link-color: var(--gl-color-action-link-fg);
+		--card-background: color-mix(in srgb, var(--vscode-descriptionForeground) 13%, var(--gl-color-surface-base));
 
 		--hero-gradient: radial-gradient(76.32% 76.32% at 50% 7.24%, #7b00ff 29.72%, rgb(255 0 242 / 0%) 100%);
 		--trial-button-gradient: var(--gl-gradient-brand);
@@ -26,17 +25,9 @@ const colorScheme = css`
 
 	:host-context(.vscode-high-contrast) {
 		--hero-gradient: transparent;
-		--trial-button-gradient: var(--color-button-background);
-		--trial-button-border: 1px solid var(--vscode-button-border);
-		--trial-button-text-color: var(--color-button-foreground);
-	}
-
-	:host-context(.vscode-high-contrast-light) {
-		--accent-color: #500070;
-	}
-
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) {
-		--accent-color: #ffc0ff;
+		--trial-button-gradient: var(--gl-color-action-primary-bg);
+		--trial-button-border: 1px solid var(--gl-color-action-primary-border);
+		--trial-button-text-color: var(--gl-color-action-primary-fg);
 	}
 `;
 
@@ -158,10 +149,6 @@ const section = css`
 		margin-bottom: 0;
 	}
 
-	.section .accent {
-		color: var(--accent-color);
-	}
-
 	.section a {
 		color: var(--link-color);
 		text-decoration: none;
@@ -256,6 +243,7 @@ const cards = css`
 		padding: 1.5em;
 		text-align: initial;
 		background-color: var(--card-background);
+		border: var(--gl-border-width) solid var(--gl-color-border-contrast);
 		border-radius: 0.63em;
 	}
 
@@ -326,13 +314,6 @@ const cards = css`
 	}
 `;
 
-const scrollableFeatures = css`
-	gl-scrollable-features {
-		--side-shadow-padding: max(var(--page-margin-left), var(--page-margin-right));
-		--side-shadow-color: var(--page-background-color);
-	}
-`;
-
 const backLink = css`
 	.section--back {
 		align-items: flex-start;
@@ -351,14 +332,4 @@ const backLink = css`
 	}
 `;
 
-export const welcomeStyles = [
-	colorScheme,
-	typography,
-	main,
-	heroGradient,
-	section,
-	header,
-	scrollableFeatures,
-	cards,
-	backLink,
-];
+export const welcomeStyles = [colorScheme, typography, main, heroGradient, section, header, cards, backLink];
