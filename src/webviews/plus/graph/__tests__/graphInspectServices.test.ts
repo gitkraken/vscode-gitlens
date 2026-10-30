@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { commands } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
@@ -9,7 +10,10 @@ import type { ConflictProgressEvent } from '../../../../plus/coretools/conflict/
 import { GraphInspectServices } from '../graphInspectServices.js';
 import type {
 	ComposeSessionKey,
+	DeepReviewArgs,
 	DeepReviewAvailability,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphInspectService,
 	ResolveProgressUpdate,
 	ScopeSelection,

@@ -93,8 +93,179 @@ export const reviewModePanelStyles = css`
 		overflow: hidden;
 	}
 
-	.review-split__ai {
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+	/* A pane's content starts where its header's title does, with the chevron hanging to the left of
+	   both — the title sits past the header's padding, the chevron and the gap; the content's own column
+	   (the check-all box, the overview, the focus areas) is already --gl-space-12 in */
+	.review-split {
+		--review-pane-title-inset: calc(var(--gl-space-2) + 16px + var(--gl-space-4));
+	}
+
+	.review-split__body {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+		padding-left: calc(var(--review-pane-title-inset) - var(--gl-space-12));
+	}
+
+	.review-split__body[hidden] {
+		display: none;
+	}
+
+	/* Inside a pane the plan's document column starts on that same edge too (the group headings' chevron
+	   sits 2px in) */
+	.review-split__body .scope-files__tree--flow {
+		--review-document-inset: calc(var(--gl-space-12) + var(--gl-space-2));
+	}
+
+	/* A folded pane is its header alone: its track sizes to it, the open pane takes the rest, and the
+	   divider rests. These declarations come from outside the split's shadow root, so they win over its
+	   own :host track sizing. */
+	.review-split--folded {
+		--gl-split-panel-divider-width: 0px;
+	}
+
+	.review-split--folded::part(divider) {
+		visibility: hidden;
+	}
+
+	.review-split--folded-files {
+		grid-template-rows: auto 0 minmax(0, 1fr);
+	}
+
+	.review-split--folded-findings {
+		grid-template-rows: minmax(0, 1fr) 0 auto;
+	}
+
+	.review-split--folded-both {
+		grid-template-rows: auto 0 auto;
+		align-content: start;
+	}
+
+	.review-split--folded-files .review-split__files,
+	.review-split--folded-findings .review-split__ai,
+	.review-split--folded-both .review-split__files,
+	.review-split--folded-both .review-split__ai {
+		height: auto;
+	}
+
+	/* VS Code's view-pane header: a slim, uppercase bar that folds its pane */
+	.review-pane-header {
+		display: flex;
+		flex: none;
+		gap: var(--gl-space-4);
+		align-items: center;
+		width: 100%;
+		/* Tall enough that its title sits as far below the divider as the checklist header's does */
+		height: 3rem;
+		padding: 0 var(--gl-space-8) 0 var(--gl-space-2);
+		font-family: inherit;
+		font-size: var(--gl-font-sm);
+		font-weight: 700;
+		color: var(--vscode-sideBarSectionHeader-foreground, inherit);
+		text-align: left;
+		text-transform: uppercase;
+		cursor: pointer;
+		background: var(--vscode-sideBarSectionHeader-background, transparent);
+		border: none;
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
+	}
+
+	.review-pane-header:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	.review-pane-header__title {
+		flex: none;
+	}
+
+	.review-pane-header__actions {
+		display: inline-flex;
+		flex: none;
+		margin-left: auto;
+		text-transform: none;
+	}
+
+	/* The checklist's header is the reading strip: the strip's own type and its steps, at the pane header's
+	   edges — chevron, then the text where every pane's title starts */
+	.review-pane-header--checklist {
+		height: auto;
+		min-height: 2.2rem;
+		padding-block: var(--gl-space-4);
+		font-size: var(--gl-font-base);
+		font-weight: 400;
+		color: var(--vscode-foreground);
+		text-transform: none;
+	}
+
+	.review-pane-header--checklist .review-walk__body {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.review-pane-header--checklist .review-walk__actions {
+		margin-left: var(--gl-space-4);
+	}
+
+	.review-walk__title > .review-pane-header__description {
+		margin-left: 2em;
+	}
+
+	/* Folded, the file being read moves next to its steps: the title keeps its width, the path takes
+	   what is left and gives way from its start, so the file's name stays readable beside the buttons */
+	.review-pane-header--collapsed .review-walk__body {
+		flex: 0 1 auto;
+	}
+
+	.review-pane-header__file {
+		flex: 1 1 0;
+		min-width: 0;
+		margin-left: 2em;
+		overflow: hidden;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		text-align: right;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		direction: rtl;
+	}
+
+	.review-pane-header--collapsed .review-walk__title {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.review-pane-header__toggle {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		color: inherit;
+		cursor: pointer;
+		background: none;
+		border: none;
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-pane-header__toggle:focus-visible {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	/* The count sits well off the title — 2em of its own size — so the two read as a name and a figure.
+	   In the Findings header the flex gap is part of it; in the checklist's it is inline text */
+	.review-pane-header__description {
+		margin-left: calc(2em - var(--gl-space-4));
+		overflow: hidden;
+		font-size: var(--gl-font-sm);
+		font-weight: 400;
+		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		text-transform: none;
+		white-space: nowrap;
 	}
 
 	.review-results {
@@ -102,6 +273,11 @@ export const reviewModePanelStyles = css`
 		min-height: 0;
 		padding: var(--gl-space-12);
 		overflow-y: auto;
+	}
+
+	/* Under an error the error's own margin is the gap */
+	.review-results--after-error {
+		padding-top: 0;
 	}
 
 	.review-area__header-row {
@@ -301,14 +477,22 @@ export const reviewModePanelStyles = css`
 	}
 
 	/* The deep review's status strip */
+	/* Sits on top of the footer, with the actions it belongs beside */
 	.review-deep {
 		display: flex;
+		flex: none;
 		gap: var(--gl-space-6);
 		align-items: center;
-		padding: var(--gl-space-4) var(--gl-space-10);
-		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		justify-content: center;
+		padding: var(--gl-space-4) var(--gl-space-12) 0;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+	}
+
+	.review-deep + .review-footer,
+	.review-deep + .review-input-row {
+		border-top: none;
 	}
 
 	.review-deep__text {
@@ -625,6 +809,11 @@ export const reviewModePanelStyles = css`
 		border-left-color: var(--vscode-editorInfo-foreground);
 	}
 
+	/* The reader's own comment — no severity to color it by */
+	.review-finding[data-severity='comment'] {
+		border-left-color: var(--vscode-descriptionForeground);
+	}
+
 	.review-finding__header {
 		display: flex;
 		gap: 0.5rem;
@@ -677,6 +866,10 @@ export const reviewModePanelStyles = css`
 		overflow-wrap: anywhere;
 	}
 
+	.review-finding__title--reader {
+		color: var(--vscode-descriptionForeground);
+	}
+
 	.review-finding__description {
 		margin-bottom: var(--gl-space-4);
 		font-size: var(--gl-font-base);
@@ -697,9 +890,24 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-finding__note {
+		position: relative;
+		padding-right: 2.4rem;
 		font-size: var(--gl-font-sm);
 		line-height: 1.4;
 		overflow-wrap: anywhere;
+	}
+
+	/* A note's delete shows where the pointer or focus is, so a long thread doesn't read as a column of bins */
+	.review-finding__note-delete {
+		position: absolute;
+		top: -0.2rem;
+		right: 0;
+		opacity: 0;
+	}
+
+	.review-finding__note:hover .review-finding__note-delete,
+	.review-finding__note:focus-within .review-finding__note-delete {
+		opacity: 1;
 	}
 
 	.review-finding__note-author {
