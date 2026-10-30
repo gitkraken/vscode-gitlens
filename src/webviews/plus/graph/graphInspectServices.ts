@@ -1,5 +1,6 @@
 import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, l10n, ProgressLocation, TabInputTextDiff, Uri, window, workspace } from 'vscode';
+import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
 import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
@@ -122,11 +123,13 @@ import type {
 	ComposeSessionKey,
 	ConflictFallbackInfo,
 	ConflictSide,
+	DeepReviewAnchor,
 	DeepReviewArgs,
 	DeepReviewAvailability,
 	DeepReviewStartResult,
 	DeepReviewState,
 	GraphServices,
+	OrientInRepoArgs,
 	ProposedCommit,
 	QueuedTakeSide,
 	RegenerateProposedCommitMessageResult,
@@ -596,8 +599,8 @@ export class GraphInspectServices {
 						excludedFiles,
 						signal,
 					),
-				orientChanges: (repoPath, scope, prompt, excludedFiles, signal) =>
-					this.orientChanges(repoPath, scope, prompt, excludedFiles, signal),
+				orientChanges: (repoPath, scope, prompt, excludedFiles, inRepo, signal) =>
+					this.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, signal),
 				startDeepReview: args => this.startDeepReview(args),
 				stopDeepReview: () => {
 					this.stopDeepReview();
@@ -1522,6 +1525,7 @@ export class GraphInspectServices {
 		scope: ScopeSelection,
 		prompt?: string,
 		excludedFiles?: string[],
+		inRepo?: OrientInRepoArgs,
 		signal?: AbortSignal,
 	): Promise<ReviewOrientResult> {
 		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
@@ -1551,16 +1555,28 @@ export class GraphInspectServices {
 			const fileManifest = await this.buildFileManifest(data.diff);
 			signal?.throwIfAborted();
 
-			const result = await this.container.ai.actions.reviewOrient(
-				{
-					files: fileManifest,
-					message: data.message,
-					context: data.context,
-					instructions: prompt || undefined,
-				},
-				{ source: 'graph', context: { type: reviewType, mode: 'orient' } },
-				{ cancellation: cancellation },
-			);
+			let result;
+			try {
+				result = await this.container.ai.actions.reviewOrient(
+					{
+						files: fileManifest,
+						message: data.message,
+						context: data.context,
+						instructions: prompt || undefined,
+					},
+					{ source: 'graph', context: { type: reviewType, mode: 'orient' } },
+					{ cancellation: cancellation, tooLargeHandled: inRepo != null },
+				);
+			} catch (ex) {
+				// Too much for the model — its own limits or ours: the agent reads the changes itself instead,
+				// with no manifest to fit anywhere. Without an agent, the model's refusal stands
+				if (inRepo == null || !(ex instanceof AIError) || ex.reason !== AIErrorReason.RequestTooLarge) throw ex;
+
+				const viaAgent = await this.orientInRepo(repoPath, scope, prompt, inRepo, signal);
+				if (viaAgent == null) throw ex;
+
+				return viaAgent;
+			}
 			if (result === 'cancelled' || result == null) {
 				return { error: { message: l10n.t('Orient was cancelled.') } };
 			}
@@ -1691,30 +1707,10 @@ export class GraphInspectServices {
 					? this._deepReview
 					: undefined;
 			const reuse = open != null && (args.focus != null || open.state.purpose === 'ask');
-			if (!reuse) {
-				this.stopDeepReview();
-				const opened = new DeepReviewChannel(
-					this.container.ipc,
-					++this._deepReviewRuns,
-					args.anchor,
-					args.anchorKey,
-					state => {
-						if (this._deepReview !== opened) return;
-
-						this._deepReviewEvent.fire(state);
-						// A closed channel takes no more answers — a question still waiting on one gets none
-						if (!state.active) {
-							stopAskingReviewer(this);
-						}
-					},
-					uuid(),
-					args.focus != null ? 'ask' : 'review',
-				);
-				this._deepReview = opened;
-				this._deepReviewEvent.fire(opened.state);
-			}
 			// The channel is held open while this start's prompt is on its way
-			channel = this._deepReview!;
+			channel = reuse
+				? open
+				: this.openDeepReviewChannel(args.anchor, args.anchorKey, args.focus != null ? 'ask' : 'review');
 			if (args.focus != null) {
 				channel.beginQuestion();
 				// The finding's threads say an answer is on its way, until it shows in them
@@ -1789,6 +1785,103 @@ export class GraphInspectServices {
 	}
 
 	private _deepReviewRuns = 0;
+	/** Replaces the open channel, if any, with a new one for `anchor`'s review. */
+	private openDeepReviewChannel(
+		anchor: DeepReviewAnchor,
+		anchorKey: string,
+		purpose: DeepReviewState['purpose'],
+	): DeepReviewChannel {
+		this.stopDeepReview();
+		const opened = new DeepReviewChannel(
+			this.container.ipc,
+			++this._deepReviewRuns,
+			anchor,
+			anchorKey,
+			state => {
+				if (this._deepReview !== opened) return;
+
+				this._deepReviewEvent.fire(state);
+				// A closed channel takes no more answers — a question still waiting on one gets none
+				if (!state.active) {
+					stopAskingReviewer(this);
+				}
+			},
+			uuid(),
+			purpose,
+		);
+		this._deepReview = opened;
+		this._deepReviewEvent.fire(opened.state);
+		return opened;
+	}
+
+	/** Orient for a scope too large for the model: the plan comes from the CLI agent instead, which reads the
+	 *  changes itself — handed over like a question, into the review's open channel or one of its own, and
+	 *  awaited until the agent posts it. `undefined` when there is no agent to hand it to. */
+	private async orientInRepo(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt: string | undefined,
+		inRepo: OrientInRepoArgs,
+		signal: AbortSignal | undefined,
+	): Promise<ReviewOrientResult | undefined> {
+		if (!(await this.getDeepReviewAvailability()).available) return undefined;
+
+		// The local channel, started now if nothing has yet
+		if (this.container.ipc.address == null) {
+			await this.container.ipc.ensureStarted();
+		}
+		const endpoint = this.container.ipc.address;
+		if (endpoint == null) return undefined;
+
+		signal?.throwIfAborted();
+		const open =
+			this._deepReview?.state.active === true && this._deepReview.state.anchorKey === inRepo.anchorKey
+				? this._deepReview
+				: undefined;
+		const channel = open ?? this.openDeepReviewChannel(inRepo.anchor, inRepo.anchorKey, 'ask');
+		channel.beginQuestion();
+		// Waited on before the hand-over, so a plan the agent posts at once isn't missed
+		const plan = channel.waitForPlan(signal);
+		plan.catch(() => {});
+
+		try {
+			const endpoints = getReviewDiffEndpoints(scope);
+			const { prompt: agentPrompt } = await this.container.ai.getPrompt('deep-review-orient', undefined, {
+				scopeLabel: inRepo.scopeLabel,
+				diffCommand:
+					endpoints != null ? getDeepReviewDiffCommand(scope, endpoints.lhs, endpoints.rhs) : 'git diff',
+				endpoint: `${endpoint}/${channel.route}`,
+				// The channel's own bearer, never the server's: the prompt leaves this window with the agent
+				token: channel.token,
+				instructions: prompt,
+			});
+			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
+			const outcome = await executeCommand<RunPromptInAgentCommandArgs, RunPromptInAgentOutcome>(
+				'gitlens.runPromptInAgent',
+				{
+					prompt: agentPrompt,
+					cwd: repoPath,
+					mode: 'agent',
+					autoExecute: true,
+					source: 'graph',
+					// The review's CLI session: a Review in Repo after it goes on from what the agent read here
+					session: `review:${repoPath}`,
+					waitForRetry: true,
+				},
+			);
+			if (outcome !== 'dispatched') {
+				channel.questionFailed();
+				return { error: { message: l10n.t('Orient was cancelled.') } };
+			}
+
+			channel.questionDelivered();
+			return { result: await plan };
+		} catch (ex) {
+			channel.questionFailed();
+			throw ex;
+		}
+	}
+
 	/** Closes the channel; what the agent reported stays with the review. */
 	private stopDeepReview(): void {
 		this._deepReview?.close();

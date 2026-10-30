@@ -4413,6 +4413,7 @@
 	"The agent didn't start — see the notification": "El agente no se inició — consulte la notificación",
 	"The all-new Commit Graph has moved here, replacing the Home view.": "El nuevo Grafo de commits se ha movido aquí, en reemplazo de la vista de inicio.",
 	"The branch name format produces an empty or invalid branch name.": "El formato produce un nombre de rama vacío o no válido.",
+	"The channel to the agent closed before it sent a reading plan.": "El canal con el agente se cerró antes de que enviara un plan de lectura.",
 	"The cherry-pick is already continuing — waiting for it to finish.": "El cherry-pick ya está en curso — esperando a que termine.",
 	"The cherry-pick is waiting for you to save and close the commit message before it can finish.": "El cherry-pick está esperando a que guarde y cierre el mensaje de commit antes de poder finalizar.",
 	"The cherry-pick operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?": "La operación de cherry-pick no puede continuar porque {pausedAt} dio como resultado un commit vacío.\n\n¿Desea registrar {pausedAt} como un commit vacío u omitirlo?",

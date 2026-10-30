@@ -115,6 +115,16 @@ interface DeepReviewPromptTemplateContext {
 }
 
 /** A reader's question or remark on one finding, for the review agent to take up — not a whole review */
+interface DeepReviewOrientPromptTemplateContext {
+	scopeLabel: string;
+	/** Shell command that shows the changes under review */
+	diffCommand: string;
+	/** Where to POST, and the bearer token the request must carry */
+	endpoint: string;
+	token: string;
+	instructions?: string;
+}
+
 interface DeepReviewFocusPromptTemplateContext {
 	scopeLabel: string;
 	/** Shell command that shows the changes under review */
@@ -170,6 +180,7 @@ export type PromptTemplateType =
 	| 'address-review-findings'
 	| 'deep-review'
 	| 'deep-review-focus'
+	| 'deep-review-orient'
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
 
@@ -210,6 +221,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? DeepReviewPromptTemplateContext
 	: T extends 'deep-review-focus'
 	? DeepReviewFocusPromptTemplateContext
+	: T extends 'deep-review-orient'
+	? DeepReviewOrientPromptTemplateContext
 	: T extends 'start-review-pullRequest'
 	? ReviewPullRequestPromptTemplateContext
 	: T extends 'start-work-issue'
