@@ -221,6 +221,37 @@ Two side effects to know about:
   in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
   artifacts unless it is scanned first.
 
+In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the regular e2e legs run with
+`--grep-invert @signed-in` and hold no credentials. The job:
+
+- starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true`;
+- takes its secrets from the repository: `GK_E2E_ACCESS_TOKEN_COOKIE` (the staging test account's
+  `stagingAccessToken`), a Cloudflare Access service token (`GK_E2E_CF_ACCESS_CLIENT_ID` /
+  `GK_E2E_CF_ACCESS_CLIENT_SECRET`) and `GK_E2E_GITHUB_TOKEN`, read-only on the private test-data repository. Only
+  this job's steps reference them, but repository secrets reach any workflow run in the repository: anyone who can
+  push a branch can run a workflow that reads them (forks and their pull requests can't). The job's `if` lives in a
+  workflow file any branch can change, so it doesn't guard them. Keep the values narrow and replaceable — the
+  session ends when the test account signs out of the staging site, the GitHub token is scoped to the one repository,
+  and the service token can be reissued — and move them to an Environment restricted to `main` once one exists;
+- reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
+  GitHub URL fails the run instead of skipping it (`E2E_REQUIRE_SIGNIN`), while an unset `E2E_REQUIRED_INTEGRATIONS`
+  falls back to its default list;
+- runs with `--retries=0` whatever the config's CI default — a retry starts a new worker, and every worker sign-in
+  mints a token the backend never expires;
+- builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging, and before uploading
+  results runs `scripts/e2eScanForSecrets.mjs`: any output file holding a secret value (verbatim, base64, base64url
+  or URL-encoded, inside trace zips too), or one it can't read or mask, is deleted and the job fails; e-mail
+  addresses and JWT-shaped strings in text files are masked. Results are uploaded only after a complete scan, and
+  kept for a day. The scan is best-effort: it can't recognize values it wasn't given, such as the tokens a sign-in
+  mints.
+
+The repository is public, so the job's log and artifacts are too. The log itself is not scanned: a failed assertion
+on account UI prints the received text there, so keep signed-in assertions off the account's name and e-mail.
+
+The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
+to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`
+value — set it through `gh secret set …` reading from a prompt or a file, never as an argument.
+
 ### Login-walled forks (Cursor, Kiro)
 
 Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —
