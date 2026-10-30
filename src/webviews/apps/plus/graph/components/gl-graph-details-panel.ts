@@ -4543,8 +4543,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					'failure.error.message': result.error.message,
 				});
 			} else if ('result' in result && result.result) {
-				this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
-				panel?.updateFocusAreaFindings(focusAreaId, result.result);
+				const detail = this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
+				panel?.updateFocusAreaFindings(focusAreaId, detail);
 				const counts = countReviewFindingSeverities(result.result.findings);
 				this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/completed', {
 					...aiContext,

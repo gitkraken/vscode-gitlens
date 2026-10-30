@@ -53,7 +53,9 @@ import type {
 import {
 	agentFocusAreaId,
 	createReviewComment,
+	createReviewFindingIds,
 	emptyReviewSession,
+	getModelFindings,
 	withFileExcluded,
 	withFilesViewed,
 	withFindingNote,
@@ -69,6 +71,7 @@ import {
 	withReadingOrder,
 	withReviewComment,
 	withReviewCommentText,
+	withReviewFindingIds,
 } from './reviewSession.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
@@ -84,14 +87,21 @@ function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
 }
 
 /** The agent's findings join the result as their own focus area — the provenance the doc asks for sits on
- *  each finding (`source`), and the area keeps them apart from the model's own in the index. */
+ *  each finding (`source`), and the area keeps them apart from the model's own in the index. One with the
+ *  id of a finding already there is that finding reported again, and takes its place. */
 export function withAgentFindings(
 	result: AIReviewResult | undefined,
 	fresh: readonly AIReviewFinding[],
 ): AIReviewResult {
 	const areas = result?.focusAreas ?? [];
 	const existing = areas.find(a => a.id === agentFocusAreaId);
-	const findings = [...(existing?.findings ?? []), ...fresh];
+	const byId = new Map(fresh.map(f => [f.id, f]));
+	const kept = (existing?.findings ?? []).map(f => {
+		const again = byId.get(f.id);
+		byId.delete(f.id);
+		return again ?? f;
+	});
+	const findings = [...kept, ...byId.values()];
 	const severity = findings.some(f => f.severity === 'critical')
 		? 'critical'
 		: findings.some(f => f.severity === 'warning')
@@ -146,7 +156,8 @@ export function withoutReviewFinding(
 
 /** A thread without its opening words: the first reply opens it now. The thread stays where it was, with
  *  its state and the rest of its replies, as a comment of the review's own under the same id — an AI or
- *  agent finding leaves the result for it. With no reply to take over, the finding goes. */
+ *  agent finding leaves the result for it. The id is the comment's from here on: findings that come in later
+ *  never take an id a comment holds (see `createReviewFindingIds`). With no reply to take over, the finding goes. */
 export function withoutFindingOpening(
 	result: AIReviewResult | undefined,
 	session: ReviewSession,
@@ -1408,7 +1419,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
 			const sameRun = entry?.deepReview?.run === state.run;
 			const applied = sameRun ? (entry?.deepReview?.seqApplied ?? 0) : 0;
-			const fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
+			let fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
+			let runFindingIds = (sameRun ? entry?.deepReview?.runFindingIds : undefined) ?? [];
 			const current = entry?.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
 			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
 			let findingsContent = entry?.findingsContent;
@@ -1418,12 +1430,27 @@ export class DetailsWorkflowController implements ReactiveController {
 					entry?.result != null && 'error' in entry.result
 						? getAgentFocusArea(entry.preErrorValue)
 						: undefined;
-				result = {
-					result: withAgentFindings(
-						result?.result ?? (earlier != null ? withAgentFocusArea(undefined, earlier) : undefined),
-						fresh,
+				const base = result?.result ?? (earlier != null ? withAgentFocusArea(undefined, earlier) : undefined);
+				// The channel numbers what it takes per run, so its ids would repeat from one run to the next:
+				// each finding gets one of its own — the one it had, when the agent reports a finding again.
+				// Again means in a later run: this run's findings came in separate reports, and two alike are two
+				const agentFindings = getAgentFocusArea(base != null ? { result: base } : undefined)?.findings ?? [];
+				const thisRun = new Set(runFindingIds);
+				fresh = fresh.map(
+					createReviewFindingIds(
+						agentFindings.filter(f => !thisRun.has(f.id)),
+						[
+							...(base?.focusAreas
+								.filter(a => a.id !== agentFocusAreaId)
+								.flatMap(a => a.findings ?? [])
+								.map(f => f.id) ?? []),
+							...(entry?.session?.comments?.map(c => c.id) ?? []),
+							...thisRun,
+						],
 					),
-				};
+				);
+				runFindingIds = [...runFindingIds, ...fresh.map(f => f.id)];
+				result = { result: withAgentFindings(base, fresh) };
 				// The files in hand are the shown review's; a report for another one goes unrecorded
 				if (isCurrent) {
 					findingsContent = withFindingsContent(
@@ -1458,6 +1485,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				done: state.done,
 				count: state.findings.length,
 				seqApplied: state.findings.at(-1)?.seq ?? applied,
+				runFindingIds: runFindingIds,
 				notesApplied: state.notes.at(-1)?.seq ?? notesApplied,
 				...(sameRun && entry?.deepReview?.hidden ? { hidden: true } : {}),
 			};
@@ -1686,13 +1714,32 @@ export class DetailsWorkflowController implements ReactiveController {
 		// `entry.result ?? resource.value` — entry first — so mutating only the resource leaves
 		// a stale entry result that masks the new findings on the next render. Update both, entry
 		// first (same sequencing as `backFromError`), so the panel sees the enriched result.
-		enrichFocusAreaFindings: (focusAreaId: string, detail: AIReviewDetailResult): void => {
+		// Returns the area's findings with the ids they keep in the review.
+		enrichFocusAreaFindings: (focusAreaId: string, details: AIReviewDetailResult): AIReviewDetailResult => {
 			const anchor = this.currentAnchor();
 			const key = anchorKey(anchor);
 			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
 			const current = entry?.result ?? this.actions.resources.review.value.get();
-			if (current == null || !('result' in current)) return;
+			if (current == null || !('result' in current)) return details;
 
+			// A finding the area had (a re-analysis) or the run before had keeps its id — unless another area
+			// took it already
+			const analyzed = current.result.focusAreas.find(a => a.id === focusAreaId);
+			const detail: AIReviewDetailResult = {
+				...details,
+				findings: details.findings.map(
+					createReviewFindingIds(
+						getModelFindings([], [...(analyzed?.findings ?? []), ...(entry?.earlierFindings ?? [])]),
+						[
+							...current.result.focusAreas
+								.filter(a => a.id !== focusAreaId)
+								.flatMap(a => a.findings ?? [])
+								.map(f => f.id),
+							...(entry?.session?.comments?.map(c => c.id) ?? []),
+						],
+					),
+				),
+			};
 			const enriched: ReviewResult = {
 				result: {
 					...current.result,
@@ -1720,6 +1767,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				});
 			}
 			this.actions.resources.review.mutate(enriched);
+			return detail;
 		},
 		// Throws away the AI's findings, not the review: viewed marks, set-aside files, the reader's own
 		// comments and a running reading state stay, and the panel lands back on the checklist — or on the
@@ -1749,6 +1797,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			...entry,
 			focusAreaRuns: undefined,
 			findingsContent: undefined,
+			earlierFindings: undefined,
 			// The agent's findings go with the rest, so its channel closes too; the strip stays put away
 			deepReview: entry.deepReview != null ? { ...entry.deepReview, hidden: true } : undefined,
 			session: entry.session != null ? withoutFindings(entry.session) : undefined,
@@ -2840,11 +2889,20 @@ export class DetailsWorkflowController implements ReactiveController {
 					? priorReview.preErrorValue
 					: priorReview?.result,
 			);
+			const preErrorValue = this.actions.state.reviewPreErrorValue.get();
 			this.registerRunningOperation({
 				...operation,
 				kind: kind,
-				preErrorValue: this.actions.state.reviewPreErrorValue.get(),
+				preErrorValue: preErrorValue,
 				result: agentArea != null ? { result: withAgentFocusArea(undefined, agentArea) } : undefined,
+				// What the run replaces — the result it starts over (shown or stepped back from), the one Go
+				// Back would restore, and what came before those — is where its findings take their ids from
+				earlierFindings: getModelFindings(
+					[priorReview?.result, preErrorValue, priorReview?.preErrorValue].map(v =>
+						v != null && 'result' in v ? v.result : undefined,
+					),
+					priorReview?.earlierFindings,
+				),
 				// The reader's progress, the reading plan and the agent's channel belong to the changeset, not
 				// to the run that just started — and so does how much of the host's append-only thread-action
 				// journal is applied, or the next editor action would replay all of it on the new result.
@@ -3464,11 +3522,25 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState = 'complete';
 		}
 
+		// Review-only: the run's findings get the ids they keep in the review — a finding the run before found
+		// too keeps its id, and with it its state and notes; ids the review holds (the agent's findings carried
+		// through the run, the reader's comments) are never taken
+		const agentArea = current.kind === 'review' ? getAgentFocusArea(current.result) : undefined;
+		if (current.kind === 'review' && value != null && 'result' in value) {
+			const settled = value.result as AIReviewResult;
+			const withIds = withReviewFindingIds(settled, current.earlierFindings ?? [], [
+				...(agentArea?.findings?.map(f => f.id) ?? []),
+				...(current.session?.comments?.map(c => c.id) ?? []),
+			]);
+			if (withIds !== settled) {
+				value = { ...value, result: withIds };
+			}
+		}
+
 		// Review-only: the agent's findings the entry carried through the run (see `dispatchOperation`),
 		// with whatever the agent reported meanwhile, join what the run returned — or, when it failed, the
 		// value Go Back restores and a retry carries on from.
 		let reviewPreErrorValue: { preErrorValue?: ReviewResult } = {};
-		const agentArea = current.kind === 'review' ? getAgentFocusArea(current.result) : undefined;
 		if (agentArea != null) {
 			const reviewValue = value as ReviewResult | undefined;
 			if (reviewValue != null && 'result' in reviewValue) {
@@ -3529,19 +3601,34 @@ export class DetailsWorkflowController implements ReactiveController {
 			const review = current as Extract<RunningOperation, { kind: 'review' }>;
 			const settled = value as ReviewResult | undefined;
 			if (review.session != null && settled != null && 'result' in settled) {
-				// Known before: what the entry held through the run (the agent's findings) and the result the
-				// run replaces — kept as the value Go Back restores — so a re-run finding the same things
-				// re-queues nothing
+				// Known before: what the entry held through the run (the agent's findings), the result the run
+				// replaces — kept as the value Go Back restores — and the earlier findings the run's ids were
+				// matched against (they cover a re-run after stepping back), so a re-run finding the same
+				// things re-queues nothing
 				const held = review.result != null && 'result' in review.result ? review.result.result : undefined;
 				const replaced =
 					review.preErrorValue != null && 'result' in review.preErrorValue
 						? review.preErrorValue.result
 						: undefined;
+				const earlier: AIReviewFocusArea | undefined = review.earlierFindings?.length
+					? {
+							id: 'earlier',
+							label: '',
+							rationale: '',
+							severity: 'suggestion',
+							files: [],
+							findings: review.earlierFindings,
+						}
+					: undefined;
 				const known =
-					held != null || replaced != null
+					held != null || replaced != null || earlier != null
 						? {
-								...(replaced ?? held!),
-								focusAreas: [...(replaced?.focusAreas ?? []), ...(held?.focusAreas ?? [])],
+								...(replaced ?? held ?? { overview: '', mode: 'single-pass' as const }),
+								focusAreas: [
+									...(replaced?.focusAreas ?? []),
+									...(held?.focusAreas ?? []),
+									...(earlier != null ? [earlier] : []),
+								],
 							}
 						: undefined;
 				session = withFindingsRequeued(review.session, known, settled.result);
