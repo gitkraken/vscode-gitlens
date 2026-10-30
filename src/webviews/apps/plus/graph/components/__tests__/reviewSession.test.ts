@@ -4,13 +4,17 @@ import {
 	countReviewFindingStates,
 	emptyReviewSession,
 	getClosedFindingIds,
+	getReviewFileFindings,
 	getReviewFileProgress,
 	getReviewProgress,
+	getReviewReadingOrder,
+	getReviewReadingShortcut,
 	getReviewThreadItems,
 	isReviewComplete,
 	withFileExcluded,
 	withFilesViewed,
 	withFindingState,
+	withReadingOrder,
 } from '../reviewSession.js';
 
 const a = { path: 'src/a.ts', contentId: 'a1' };
@@ -96,6 +100,99 @@ suite('reviewSession — finding states', () => {
 	});
 });
 
+suite('reviewSession — findings by file', () => {
+	const result = {
+		overview: '',
+		mode: 'single-pass',
+		focusAreas: [
+			{
+				id: 'area',
+				label: 'Area',
+				rationale: '',
+				severity: 'warning',
+				files: [],
+				findings: [
+					{ id: 'f1', severity: 'warning', title: 'one', description: '', filePath: 'src/a.ts' },
+					{
+						id: 'f2',
+						severity: 'critical',
+						title: 'two',
+						description: '',
+						filePath: 'src/a.ts',
+						lineRange: { start: 10, end: 12 },
+					},
+					{
+						id: 'f3',
+						severity: 'suggestion',
+						title: 'three',
+						description: '',
+						filePath: 'src/b.ts',
+						lineRange: { start: 3, end: 3 },
+					},
+					{ id: 'f4', severity: 'critical', title: 'general', description: '' },
+				],
+			},
+			{
+				id: 'area2',
+				label: 'Area 2',
+				rationale: '',
+				severity: 'suggestion',
+				files: [],
+				findings: [
+					{
+						id: 'f5',
+						severity: 'suggestion',
+						title: 'five',
+						description: '',
+						filePath: 'src/a.ts',
+						lineRange: { start: 40, end: 41 },
+					},
+				],
+			},
+		],
+	} as unknown as AIReviewResult;
+
+	test('counts open and closed per file across areas, keeps the worst open severity, skips general findings', () => {
+		let byPath = getReviewFileFindings(result, emptyReviewSession);
+		assert.deepStrictEqual(
+			[...byPath.entries()],
+			[
+				['src/a.ts', { open: 3, closed: 0, severity: 'critical', target: { start: 10, end: 12 } }],
+				['src/b.ts', { open: 1, closed: 0, severity: 'suggestion', target: { start: 3, end: 3 } }],
+			],
+		);
+
+		let session = withFindingState(emptyReviewSession, 'f2', 'dismissed');
+		byPath = getReviewFileFindings(result, session);
+		assert.deepStrictEqual(byPath.get('src/a.ts'), {
+			open: 2,
+			closed: 1,
+			severity: 'warning',
+			target: { start: 40, end: 41 },
+		});
+
+		session = withFindingState(session, 'f3', 'dismissed');
+		byPath = getReviewFileFindings(result, session);
+		assert.deepStrictEqual(byPath.get('src/b.ts'), { open: 0, closed: 1, target: { start: 3, end: 3 } });
+	});
+
+	test('the target is the first open finding with a line; with none open, the first finding with a line', () => {
+		let session = withFindingState(emptyReviewSession, 'f2', 'dismissed');
+		session = withFindingState(session, 'f5', 'dismissed');
+		// f1 is open but has no line — the closed f2 still names where to land
+		assert.deepStrictEqual(getReviewFileFindings(result, session).get('src/a.ts'), {
+			open: 1,
+			closed: 2,
+			severity: 'warning',
+			target: { start: 10, end: 12 },
+		});
+	});
+
+	test('no result means no marks', () => {
+		assert.strictEqual(getReviewFileFindings(undefined, emptyReviewSession).size, 0);
+	});
+});
+
 suite('reviewSession — thread projection', () => {
 	test('only findings with a file and a line become threads, carrying their session state', () => {
 		const result = {
@@ -155,5 +252,95 @@ suite('reviewSession — thread projection', () => {
 			},
 		]);
 		assert.deepStrictEqual(getReviewThreadItems(undefined, session), []);
+	});
+});
+
+suite('reviewSession — walk order', () => {
+	test('tree order by default; a reading order goes first, with the rest after it and set-aside files out', () => {
+		const files = [{ path: 'src/z.ts' }, { path: 'src/a.ts' }, { path: 'src/m.ts' }, { path: 'test/t.ts' }];
+		assert.deepStrictEqual(getReviewReadingOrder(emptyReviewSession, files), [
+			'src/a.ts',
+			'src/m.ts',
+			'src/z.ts',
+			'test/t.ts',
+		]);
+
+		let session = withReadingOrder(emptyReviewSession, ['src/m.ts', 'gone.ts', 'src/z.ts']);
+		session = withFileExcluded(session, 'test/t.ts', true);
+		assert.deepStrictEqual(getReviewReadingOrder(session, files), ['src/m.ts', 'src/z.ts', 'src/a.ts']);
+
+		assert.strictEqual(
+			withReadingOrder(session, ['src/m.ts', 'gone.ts', 'src/z.ts']),
+			session,
+			'an equal order is a no-op',
+		);
+		assert.strictEqual(withReadingOrder(emptyReviewSession, undefined), emptyReviewSession);
+	});
+
+	test("getReviewReadingOrder follows the tree's rendered order for what the plan doesn't place", () => {
+		const files = [{ path: 'CHANGELOG.md' }, { path: 'src/b.ts' }, { path: 'src/a/x.ts' }, { path: 'src/c.ts' }];
+		const tree = ['src/a/x.ts', 'src/b.ts', 'src/c.ts', 'CHANGELOG.md'];
+		assert.deepStrictEqual(getReviewReadingOrder(emptyReviewSession, files, tree), tree);
+
+		const session = withReadingOrder(emptyReviewSession, ['src/c.ts']);
+		assert.deepStrictEqual(getReviewReadingOrder(session, files, tree), [
+			'src/c.ts',
+			'src/a/x.ts',
+			'src/b.ts',
+			'CHANGELOG.md',
+		]);
+
+		// A file the tree has not rendered yet trails, by path
+		assert.deepStrictEqual(getReviewReadingOrder(emptyReviewSession, files, ['src/c.ts', 'src/b.ts']), [
+			'src/c.ts',
+			'src/b.ts',
+			'CHANGELOG.md',
+			'src/a/x.ts',
+		]);
+	});
+
+	test("a plan's groups keep their order, and the files in each go as its pane shows them", () => {
+		// Orient listed the group's files its own way; the pane shows the folder first, then by name
+		const plan = [
+			'src/app.ts',
+			'contributions.json',
+			'l10n/bundle.l10n.json',
+			'l10n/bundle.l10n.es.json',
+			'package.nls.json',
+			'package.nls.es.json',
+			'CHANGELOG.md',
+		];
+		const files = plan.map(p => ({ path: p }));
+		const session = withReadingOrder(emptyReviewSession, plan);
+		const shown = [
+			'src/app.ts',
+			'l10n/bundle.l10n.es.json',
+			'l10n/bundle.l10n.json',
+			'contributions.json',
+			'package.nls.es.json',
+			'package.nls.json',
+			'CHANGELOG.md',
+		];
+		assert.deepStrictEqual(getReviewReadingOrder(session, files, shown), shown);
+
+		// The last group's pane hasn't said its order yet: the groups before follow theirs, it keeps the plan's
+		assert.deepStrictEqual(getReviewReadingOrder(session, files, shown.slice(0, 4)), [
+			'src/app.ts',
+			'l10n/bundle.l10n.es.json',
+			'l10n/bundle.l10n.json',
+			'contributions.json',
+			'package.nls.json',
+			'package.nls.es.json',
+			'CHANGELOG.md',
+		]);
+	});
+
+	test("getReviewReadingShortcut names the keymap's chord for each step, and nothing when shortcuts are off", () => {
+		assert.strictEqual(getReviewReadingShortcut('alternate', 'next', true), '⌥]');
+		assert.strictEqual(getReviewReadingShortcut('alternate', 'previous', false), 'Alt+[');
+		assert.strictEqual(getReviewReadingShortcut('chorded', 'markViewed', true), '⌘⌥G V');
+		assert.strictEqual(getReviewReadingShortcut('chorded', 'next', false), 'Ctrl+Shift+G ]');
+		assert.strictEqual(getReviewReadingShortcut('none', 'next', true), undefined);
+		assert.strictEqual(getReviewReadingShortcut(undefined, 'next', true), undefined);
 	});
 });

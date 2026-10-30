@@ -121,13 +121,19 @@ import type {
 	ReviewFilesViewedDetail,
 	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
+	ReviewReadingStepDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
-import { countReviewFindingStates, getReviewProgress, getReviewThreadItems } from './reviewSession.js';
+import {
+	countReviewFindingStates,
+	getReviewProgress,
+	getReviewReadingOrder,
+	getReviewThreadItems,
+} from './reviewSession.js';
 import type {
 	PullRequestSheetPayload,
 	PullRequestSheetTarget,
@@ -2434,8 +2440,79 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.setReviewThreads(args);
 	}
 
+	/** The review panel's reading order — the plan's order, then the checklist top to bottom as rendered. */
+	private _reviewReadingOrder?: readonly string[];
+
+	/** What the host currently holds as the review's files — identity of the inputs it was built from. */
+	private _reviewFilesSynced?: {
+		files: unknown;
+		order: unknown;
+		excluded: unknown;
+		scope: unknown;
+		repoPath: unknown;
+	};
+
+	/** Keeps the host's set of review files — the diffs that get the reading commands, in reading order —
+	 *  in step with the engaged review, re-sending only when an input changed and clearing once the
+	 *  review is left. */
+	private syncReviewFiles(): void {
+		if (this._actions == null) return;
+
+		const inReview = this._state.activeMode.get() === 'review';
+		const entry =
+			inReview && this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation : undefined;
+		const files = inReview ? this._actions.resources.scopeFiles.value.get() : undefined;
+		const order = inReview ? this._reviewReadingOrder : undefined;
+		const excluded = entry?.session?.excluded;
+		const scope = this._state.scope.get();
+		const repoPath = this.effectiveRepoPath;
+		const synced = this._reviewFilesSynced;
+		if (
+			synced != null &&
+			synced.files === files &&
+			synced.order === order &&
+			synced.excluded === excluded &&
+			synced.scope === scope &&
+			synced.repoPath === repoPath
+		) {
+			return;
+		}
+
+		const endpoints = getReviewDiffEndpoints(scope);
+		// The panel announces its order once rendered; until then the plan-then-path order stands in
+		const paths = inReview && files != null ? (order ?? getReviewReadingOrder(entry?.session, files)) : [];
+		if (paths.length === 0 || repoPath == null || endpoints == null) {
+			if (synced != null) {
+				this._reviewFilesSynced = undefined;
+				this._actions.setReviewFiles(undefined);
+			}
+			return;
+		}
+
+		this._reviewFilesSynced = { files: files, order: order, excluded: excluded, scope: scope, repoPath: repoPath };
+		this._actions.setReviewFiles({ repoPath: repoPath, lhs: endpoints.lhs, rhs: endpoints.rhs, paths: [...paths] });
+	}
+
+	/** Opens a review file's diff with the review's endpoints — from the checklist, a finding, or a plan —
+	 *  placed where the reading steps place theirs, so the panel stays in view to follow along. */
+	private openReviewFile(filePath: string, line?: number, lineEnd?: number): void {
+		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
+		const repoPath = this.effectiveRepoPath;
+		if (!endpoints || !repoPath) return;
+
+		this._actions.openReviewFile({
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs,
+			path: filePath,
+			line: line,
+			lineEnd: lineEnd,
+		});
+	}
+
 	override updated(changedProperties: Map<string, unknown>): void {
 		this.syncReviewThreads();
+		this.syncReviewFiles();
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
@@ -2783,17 +2860,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return undefined;
 	}
 
-	/** True when the active mode has reached its "results" sub-state — review showing
-	 *  findings or compose showing a plan. In that state the main header's close button is
-	 *  rendered as a back arrow so the user can pop back to the scope picker (the old
-	 *  sub-headers in the mode panels are gone; the main header carries this affordance). */
+	/** True when compose has reached its "results" sub-state — a plan showing. In that state the
+	 *  main header gains a Restart chip to pop back to the scope picker (the old sub-headers in
+	 *  the mode panels are gone; the main header carries this affordance). Review has no such
+	 *  state: its checklist stays up beside the findings, and Delete Findings is the way back,
+	 *  so a Restart there would only hide the findings while their threads stay in the diffs. */
 	private get inModeResultsView(): boolean {
-		const mode = this._state.activeMode.get();
-		if (mode !== 'compose' && mode !== 'review') return false;
+		if (this._state.activeMode.get() !== 'compose') return false;
 		// Only `'complete'` renders the results body. `'backed'` reverts to the scope picker
 		// with a Resume bar on top — same chrome as idle (Refresh + Close), not results
 		// chrome (Restart + Close), so Restart correctly disappears after the user clicks it.
-		return this.engagedModeStatus?.[mode]?.execState === 'complete';
+		return this.engagedModeStatus?.compose?.execState === 'complete';
 	}
 
 	private handleModeBack = (e: CustomEvent<{ mode: 'compose' | 'review' }>): void => {
@@ -2878,7 +2955,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
+		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
+		this._actions.deepReviewHandler = state => this._workflow.review.applyDeepReviewState(state);
 
 		if (this._pendingCompare != null) {
 			const { params, onReady, options } = this._pendingCompare;
@@ -3988,6 +4067,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.status=${mappedReviewStatus}
 			.errorMessage=${reviewError}
 			.session=${reviewEntry?.session}
+			.reading=${reviewEntry?.reading}
+			.orient=${reviewEntry?.orient}
+			?orient-running=${reviewEntry?.orientRun != null}
+			.orientError=${reviewEntry?.orientError}
+			.deepReview=${reviewEntry?.deepReview}
+			.deepReviewAvailability=${this._state.deepReviewAvailability.get()}
+			.keymap=${this._state.preferences.get()?.keymap}
 			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
@@ -4029,17 +4115,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
 			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
 				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
-			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) => {
-				const endpoints = getReviewDiffEndpoints(this._state.scope.get());
-				if (!endpoints) return;
+			@review-orient=${(e: CustomEvent<{ prompt?: string }>) => {
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel('review');
+					return;
+				}
 
-				this._actions.openFileByPath(e.detail.filePath, this.effectiveRepoPath, {
-					lhs: endpoints.lhs,
-					rhs: endpoints.rhs,
-					line: e.detail.line,
-					lineEnd: e.detail.lineEnd,
-				});
+				const panel = this.findReviewModePanel();
+				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
+				this._workflow.review.runOrient(this.effectiveRepoPath, e.detail?.prompt, excludedFiles);
 			}}
+			@review-orient-clear=${() => this._workflow.review.clearOrient()}
+			@review-deep-review=${(e: CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>) =>
+				void this._workflow.review.startDeepReview(
+					this.effectiveRepoPath,
+					e.detail.prompt,
+					e.detail.scopeLabel,
+					e.detail.files,
+				)}
+			@review-deep-review-stop=${() => this._workflow.review.stopDeepReview()}
+			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>
+				this._actions.stepReviewReading(e.detail.action, e.detail.path)}
+			@review-reading-order=${(e: CustomEvent<{ paths: string[] }>) => {
+				this._reviewReadingOrder = e.detail.paths;
+				this.requestUpdate();
+			}}
+			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) =>
+				this.openReviewFile(e.detail.filePath, e.detail.line, e.detail.lineEnd)}
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@review-error-back=${() => this._workflow.review.backFromError()}
 			@review-error-retry=${() => {
@@ -4300,13 +4402,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleReviewFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
 		// Open in a diff editor matching the review's reference frame, mirroring the AI link path.
-		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
-		if (!endpoints) return;
-
-		this._actions.openFileByPath(e.detail.path, this.effectiveRepoPath, {
-			lhs: endpoints.lhs,
-			rhs: endpoints.rhs,
-		});
+		this.openReviewFile(e.detail.path);
 	};
 
 	/** Opens the idle curation tree's files as a multi-diff in the scope's reference frame. */

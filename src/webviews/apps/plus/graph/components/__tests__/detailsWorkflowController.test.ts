@@ -6,6 +6,7 @@ import type {
 	BranchComparisonOptions,
 	ComposeResult,
 	ReviewResult,
+	ScopeFile,
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
@@ -14,7 +15,7 @@ import { abortRunningOperations, createGraphCrossPaneState } from '../../graphCr
 import { anchorKey } from '../anchorKey.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions } from '../detailsActions.js';
-import type { DetailsState } from '../detailsState.js';
+import type { DetailsState, RunningOperationBucket } from '../detailsState.js';
 import { createDetailsState } from '../detailsState.js';
 import type { DetailsSelection, DetailsWorkflowHost } from '../detailsWorkflowController.js';
 import { DetailsWorkflowController } from '../detailsWorkflowController.js';
@@ -644,43 +645,203 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
-	test('editor thread actions are applied once each, by sequence, and route send-to-agent to the host', () => {
-		const sent: string[] = [];
+	test('reading updates from the host land on the entry: the active file, and editor-made marks applied once', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		(host as unknown as { sendReviewFindingToAgent?: (id: string) => void }).sendReviewFindingToAgent = id =>
-			sent.push(id);
-		host.crossPaneState.runningOperations.set(
-			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('run'))]]),
-		);
 		state.activeMode.set('review');
 		state.activeModeContext.set('wip');
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.review.applyThreadActions({
-			actions: [
-				{ seq: 1, findingId: 'f1', action: 'dismiss' },
-				{ seq: 2, findingId: 'f2', action: 'dismiss' },
-			],
-		});
+		controller.review.applyReadingState({ active: 'src/a.ts', marked: [] });
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.session?.findingStates.get('f1'), 'dismissed');
-		assert.strictEqual(entry?.session?.findingStates.get('f2'), 'dismissed');
-		assert.strictEqual(entry?.threadActionsApplied, 2);
+		assert.strictEqual(entry?.execState, 'backed', 'reading before any run creates the idle entry');
+		assert.deepStrictEqual(entry?.reading, { active: 'src/a.ts', marksApplied: 0 });
 
-		// The panel reopens f1 itself; a replay of the same log must not dismiss it again.
-		controller.review.setFindingState('f1', undefined);
-		controller.review.applyThreadActions({
-			actions: [
-				{ seq: 1, findingId: 'f1', action: 'dismiss' },
-				{ seq: 2, findingId: 'f2', action: 'dismiss' },
-				{ seq: 3, findingId: 'f2', action: 'sendToAgent' },
+		controller.review.applyReadingState({ active: 'src/b.ts', marked: ['src/a.ts'] });
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), true, 'the editor mark reaches the session');
+		assert.deepStrictEqual(entry?.reading, { active: 'src/b.ts', marksApplied: 1 });
+
+		// The panel un-marks a file; the host's append-only list still names it, but it was applied already.
+		controller.review.setFilesViewed([{ path: 'src/a.ts' }], false);
+		controller.review.applyReadingState({ active: undefined, marked: ['src/a.ts', 'src/b.ts'] });
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), false, 'an already-applied mark is not re-applied');
+		assert.strictEqual(entry?.session?.viewed.has('src/b.ts'), true);
+		assert.deepStrictEqual(entry?.reading, { active: undefined, marksApplied: 2 }, 'no review diff is active');
+
+		controller.review.applyReadingState(undefined);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.reading, undefined, 'the review is left; the session stays');
+		assert.strictEqual(entry?.session?.viewed.has('src/b.ts'), true);
+	});
+
+	test('reading state survives a run being dispatched', async () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		controller.review.applyReadingState({ active: 'src/a.ts', marked: ['src/a.ts'] });
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(entry?.reading, { active: 'src/a.ts', marksApplied: 1 });
+	});
+
+	test('a reading plan lands with its order, is kept across runs, and clears back to tree order', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const orient = {
+			overview: 'plan',
+			groups: [
+				{
+					id: 'g1',
+					label: 'Core',
+					kind: 'core',
+					summary: 'the core',
+					files: [
+						{ path: 'src/b.ts', note: '' },
+						{ path: 'src/a.ts', note: '' },
+					],
+				},
+			],
+		} as const;
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => makeReviewResult('run') }),
+			createResources(),
+		);
+		actions.orientChanges = async () => ({ result: orient });
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		actions.resources.scopeFiles.mutate([{ path: 'src/a.ts' }, { path: 'src/b.ts' }] as never);
+
+		controller.review.runOrient('/A', undefined, undefined);
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.ok(entry?.orientRun, 'the plan is being made');
+		await flush();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.orientRun, undefined);
+		assert.strictEqual(entry?.orient, orient);
+		assert.deepStrictEqual(entry?.session?.order, ['src/b.ts', 'src/a.ts'], 'the order applies as the plan lands');
+
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.orient, orient, 'the plan outlives the run');
+		assert.deepStrictEqual(entry?.session?.order, ['src/b.ts', 'src/a.ts']);
+
+		controller.review.clearOrient();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.orient, undefined);
+		assert.strictEqual(entry?.session?.order, undefined, 'dismissing the plan drops its order too');
+	});
+
+	test('an Orient in flight outlives a Review Diff run, and lets go of the review once it is called off', async () => {
+		const { host, state } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => makeReviewResult('run') }),
+			createResources(),
+		);
+		let answer: ((result: { error: { message: string } }) => void) | undefined;
+		let signal: AbortSignal | undefined;
+		// The signal is the last argument, whatever comes before it
+		actions.orientChanges = (...args: unknown[]) => {
+			signal = args.at(-1) as AbortSignal;
+			return new Promise(resolve => (answer = resolve));
+		};
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const entry = () => host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+
+		controller.review.runOrient('/A', undefined, undefined);
+		const orientRun = entry()?.orientRun;
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		assert.strictEqual(entry()?.orientRun, orientRun, 'still planning');
+		assert.strictEqual(signal?.aborted, false);
+
+		controller.review.discard();
+		assert.strictEqual(signal?.aborted, true);
+		answer?.({ error: { message: 'Orient was cancelled.' } });
+		await flush();
+		assert.strictEqual(entry()?.orientRun, undefined, 'not left running');
+		assert.strictEqual(entry()?.orientError, undefined, 'a call-off is no failure');
+	});
+
+	test('what a deep review reports joins the result as the agent area, once per sequence, even before any run', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		const f1 = {
+			id: 'agent-1',
+			severity: 'warning',
+			title: 'one',
+			description: '',
+			filePath: 'a.ts',
+			source: 'agent',
+		} as const;
+		const f2 = {
+			id: 'agent-2',
+			severity: 'critical',
+			title: 'two',
+			description: '',
+			filePath: 'b.ts',
+			source: 'agent',
+		} as const;
+		controller.review.applyDeepReviewState({ active: true, done: false, findings: [{ seq: 1, finding: f1 }] });
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
+		assert.deepStrictEqual(entry?.deepReview, { active: true, done: false, count: 1, seqApplied: 1 });
+		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)]),
+			[['agent', ['agent-1']]],
+		);
+
+		controller.review.applyDeepReviewState({
+			active: false,
+			done: true,
+			findings: [
+				{ seq: 1, finding: f1 },
+				{ seq: 2, finding: f2 },
 			],
 		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.session?.findingStates.get('f1'), undefined, 'an applied action is not replayed');
-		assert.deepStrictEqual(sent, ['f2']);
-		assert.strictEqual(entry?.threadActionsApplied, 3);
+		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		const area = result?.focusAreas.find(a => a.id === 'agent');
+		assert.deepStrictEqual(
+			area?.findings?.map(f => f.id),
+			['agent-1', 'agent-2'],
+			'a replayed finding is not added twice',
+		);
+		assert.strictEqual(area?.severity, 'critical');
+		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
 	});
 
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {

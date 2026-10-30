@@ -179,6 +179,152 @@ export const reviewModePanelStyles = css`
 		gap: var(--gl-space-4);
 	}
 
+	/* The walk strip — Start Reading before a walk, the HUD during one */
+	/* Both states — a file being read, plain progress — keep one box: the same border (only its color
+	   changes) and a two-line body, so switching files doesn't shift everything below the strip */
+	.review-walk {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4) var(--gl-space-8);
+		align-items: center;
+		padding: var(--gl-space-6) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-walk--reading {
+		border-color: transparent;
+	}
+
+	.review-walk__hint {
+		overflow: hidden;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.review-walk__body {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.review-walk__title {
+		font-weight: 500;
+	}
+
+	.review-walk__file {
+		overflow: hidden;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		direction: rtl;
+		text-align: left;
+	}
+
+	.review-walk__actions {
+		display: flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+	}
+
+	/* The reading plan above the grouped checklist */
+	/* The plan reads as one document: a title, the overview, then each group's heading, summary and files,
+	   each as tall as it is — a collapsed group takes no room, a long one runs on — and the column scrolls */
+	.scope-files__tree--flow {
+		/* One left edge for the whole document — the strip above it, the overview, every group's heading
+		   (its chevron sits 2px into the pane) and summary: the strip's own inset, margin + border + padding */
+		--review-document-inset: calc(var(--gl-space-6) + var(--gl-border-width) + var(--gl-space-10));
+		display: block;
+		padding-left: calc(var(--review-document-inset) - var(--gl-space-2));
+		overflow: auto;
+	}
+
+	.scope-files__tree--flow webview-pane-group {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: var(--gl-space-20);
+		min-height: 0;
+		overflow: visible;
+	}
+
+	/* The overview stands apart from the first group the way the groups stand apart from each other, and
+	   starts on the document's left edge */
+	.scope-files__tree--flow .review-orient {
+		padding: var(--gl-space-6) 0 var(--gl-space-6) var(--gl-space-2);
+		margin: var(--gl-space-6) 0 var(--gl-space-12);
+	}
+
+	.review-orient {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4) var(--gl-space-8);
+		align-items: flex-start;
+		padding: var(--gl-space-6) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+	}
+
+	.review-orient__body {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.review-orient__title {
+		font-weight: 500;
+	}
+
+	.review-orient__overview,
+	.review-orient__group-summary {
+		margin: var(--gl-space-2) 0 0;
+		font-size: var(--gl-font-sm);
+		line-height: 1.4;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-orient__group-summary {
+		padding: 0 var(--gl-space-10) var(--gl-space-8) var(--gl-space-2);
+	}
+
+	.review-orient__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4);
+	}
+
+	.review-orient__error {
+		padding: var(--gl-space-4) var(--gl-space-8);
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-errorForeground);
+	}
+
+	/* The deep review's status strip */
+	.review-deep {
+		display: flex;
+		gap: var(--gl-space-6);
+		align-items: center;
+		padding: var(--gl-space-4) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-deep__text {
+		flex: 1 1 auto;
+	}
+
+	/* The author's name ("Agent", as in the threads and notes), set in capitals like the severity badge. */
+	.review-finding__source {
+		padding: 0 var(--gl-space-3);
+		font-size: var(--gl-font-sm);
+		text-transform: uppercase;
+		color: var(--vscode-descriptionForeground);
+		border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
+		border-radius: var(--gl-radius-sm);
+	}
+
 	.review-finding--closed {
 		opacity: 0.7;
 	}

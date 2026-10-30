@@ -44,6 +44,7 @@ import type {
 } from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
 import { clearResponseFormatRejections } from '@gitlens/ai/providers/responseFormatCache.js';
+import { getBackendActionType } from '@gitlens/ai/utils/ai.utils.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -194,6 +195,7 @@ export function scopeForAction(action: AIActionType): AIModelScope | undefined {
 		case 'generate-commits':
 			return 'compose';
 		case 'review-changes':
+		case 'review-orient':
 			return 'review';
 		case 'conflict-resolution':
 			return 'resolve';
@@ -2114,7 +2116,7 @@ export class AIProviderService implements AIService, Disposable {
 					provider: provider,
 					model: model,
 					task_type: 'message-prompt',
-					action: action,
+					action: getBackendActionType(action),
 					total_tokens: totalTokens,
 					...(inputTokens != null && { input_tokens: inputTokens }),
 				}),

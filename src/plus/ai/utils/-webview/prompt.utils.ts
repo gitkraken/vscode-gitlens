@@ -7,6 +7,7 @@ import type {
 } from '@gitlens/ai/models/promptTemplates.js';
 import {
 	addressReviewFindings,
+	deepReview,
 	explainChanges,
 	generateChangelog,
 	generateCommitMessage,
@@ -17,6 +18,7 @@ import {
 	generateStashMessage,
 	reviewChanges,
 	reviewDetail,
+	reviewOrient,
 	reviewOverview,
 	reviewPullRequest,
 	reviewRefine,
@@ -75,12 +77,16 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return reviewChanges as PromptTemplate<T>;
 		case 'review-overview':
 			return reviewOverview as PromptTemplate<T>;
+		case 'review-orient':
+			return reviewOrient as PromptTemplate<T>;
 		case 'review-detail':
 			return reviewDetail as PromptTemplate<T>;
 		case 'review-refine':
 			return reviewRefine as PromptTemplate<T>;
 		case 'address-review-findings':
 			return addressReviewFindings as PromptTemplate<T>;
+		case 'deep-review':
+			return deepReview as PromptTemplate<T>;
 		case 'start-review-pullRequest':
 			return reviewPullRequest as PromptTemplate<T>;
 		case 'start-work-issue':
