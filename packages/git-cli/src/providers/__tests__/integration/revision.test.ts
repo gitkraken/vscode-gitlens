@@ -3,9 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createTestRepo, getHeadSha } from './helpers.js';
+import { addCommit, createTestRepo, getHeadSha, revParse } from './helpers.js';
 
 suite('RevisionSubProvider.resolveShas', () => {
 	let repo: TestRepo;
@@ -295,5 +296,129 @@ suite('RevisionSubProvider scoped listings', () => {
 			assert.strictEqual(entry?.path, 'src/a.ts');
 			assert.strictEqual(scoped.length, 4);
 		});
+	});
+});
+
+suite('RevisionSubProvider glob-like file names', () => {
+	let repo: TestRepo;
+
+	function write(relativePath: string, content: string): void {
+		const path = join(repo.path, relativePath);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, content);
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		// `[id]` as a pathspec is a character class that also matches `i` and `d`
+		write('[id]/page.ts', 'one\n');
+		write('i/page.ts', 'two\n');
+		write('d/gone.ts', 'three\n');
+		execFileSync('git', ['add', '-A'], { cwd: repo.path });
+		execFileSync('git', ['commit', '-m', 'Add files'], { cwd: repo.path });
+
+		write('[id]/page.ts', 'one staged\n');
+		write('i/page.ts', 'two staged\n');
+		execFileSync('git', ['add', '-A'], { cwd: repo.path });
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('getBlobIds (index) reads only the literally named file', async () => {
+		const ids = await repo.provider.revision.getBlobIds(repo.path, ['[id]/page.ts'], 'index');
+
+		assert.deepStrictEqual([...ids], [['[id]/page.ts', revParse(repo.path, ':[id]/page.ts')]]);
+	});
+
+	test('getBlobIds (working) hashes the literally named file', async () => {
+		const ids = await repo.provider.revision.getBlobIds(repo.path, ['[id]/page.ts'], 'working');
+
+		assert.deepStrictEqual([...ids], [['[id]/page.ts', revParse(repo.path, ':[id]/page.ts')]]);
+	});
+
+	test('exists does not count a glob-matching sibling', async () => {
+		assert.strictEqual(await repo.provider.revision.exists(repo.path, '[d]/gone.ts'), false);
+		assert.strictEqual(await repo.provider.revision.exists(repo.path, 'd/gone.ts'), true);
+	});
+
+	test('getTreeEntryForRevision (staged) does not read a glob-matching sibling', async () => {
+		const missing = await repo.provider.revision.getTreeEntryForRevision(
+			repo.path,
+			'[i]/page.ts',
+			uncommittedStaged,
+		);
+		assert.strictEqual(missing, undefined);
+
+		const entry = await repo.provider.revision.getTreeEntryForRevision(
+			repo.path,
+			'[id]/page.ts',
+			uncommittedStaged,
+		);
+		assert.strictEqual(entry?.oid, revParse(repo.path, ':[id]/page.ts'));
+	});
+});
+
+suite('RevisionSubProvider.getBlobIds (working) with paths hash-object cannot read', () => {
+	let repo: TestRepo;
+	let submoduleHead: string;
+
+	function git(cwd: string, ...args: string[]): string {
+		return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
+	}
+
+	function hashObject(path: string): string {
+		return git(repo.path, 'hash-object', '--', path);
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		writeFileSync(join(repo.path, 'a.txt'), 'a\n');
+		writeFileSync(join(repo.path, 'b.txt'), 'b\n');
+		// A repository inside the working tree, added as a gitlink — what a submodule is to the outer index
+		const sub = join(repo.path, 'sub');
+		mkdirSync(sub);
+		git(sub, 'init', '-b', 'main');
+		git(sub, '-c', 'user.name=Test', '-c', 'user.email=test@gitlens.test', 'commit', '--allow-empty', '-m', 'one');
+		git(repo.path, 'add', 'a.txt', 'b.txt', 'sub');
+		git(repo.path, 'commit', '-m', 'Add files and a submodule');
+
+		// Changes on disk: both files, a new commit checked out in the submodule, and a plain directory
+		writeFileSync(join(repo.path, 'a.txt'), 'a changed\n');
+		writeFileSync(join(repo.path, 'b.txt'), 'b changed\n');
+		git(sub, '-c', 'user.name=Test', '-c', 'user.email=test@gitlens.test', 'commit', '--allow-empty', '-m', 'two');
+		submoduleHead = git(sub, 'rev-parse', 'HEAD');
+		mkdirSync(join(repo.path, 'dir'));
+		writeFileSync(join(repo.path, 'dir', 'c.txt'), 'c\n');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('hashes the paths after a submodule and a directory, and gives the submodule its checked-out commit', async () => {
+		const ids = await repo.provider.revision.getBlobIds(
+			repo.path,
+			['a.txt', 'sub', 'dir', 'b.txt', 'missing.txt', 'dir/c.txt'],
+			'working',
+		);
+
+		assert.deepStrictEqual(
+			new Map(ids),
+			new Map([
+				['a.txt', hashObject('a.txt')],
+				['sub', submoduleHead],
+				['b.txt', hashObject('b.txt')],
+				['dir/c.txt', hashObject('dir/c.txt')],
+			]),
+		);
+	});
+
+	test('the index records the submodule commit the same way', async () => {
+		const ids = await repo.provider.revision.getBlobIds(repo.path, ['sub'], 'index');
+
+		assert.deepStrictEqual([...ids], [['sub', revParse(repo.path, ':sub')]]);
+		assert.notStrictEqual(ids.get('sub'), submoduleHead);
 	});
 });
