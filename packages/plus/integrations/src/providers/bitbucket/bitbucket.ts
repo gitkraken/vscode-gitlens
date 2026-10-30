@@ -1222,6 +1222,7 @@ export class BitbucketApi implements Disposable {
 									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 							),
 						deferFailure,
+						token.connectionId,
 					);
 				}
 				return;

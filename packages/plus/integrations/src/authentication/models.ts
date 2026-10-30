@@ -91,6 +91,8 @@ export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationI
 
 export interface TokenWithInfo<T extends IntegrationIds = IntegrationIds> extends TokenInfo<T> {
 	readonly accessToken: string;
+	/** The token's connection (its session's id), which a failed request's strike counts against. */
+	readonly connectionId?: string;
 }
 
 export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
@@ -120,6 +122,7 @@ export function toTokenWithInfo<T extends IntegrationIds>(
 		...toTokenInfo(providerId, sessionToken, sessionInfo),
 		// use the actual token used for the request
 		accessToken: accessToken,
+		connectionId: session.id,
 	};
 }
 

@@ -17,7 +17,10 @@ import type { Source } from '../telemetry.js';
 import { isSelfManagedHostIntegrationId, supportedIntegrationIds } from '../utils/integration.utils.js';
 import type { CloudIntegrationService } from './cloudIntegrationService.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
-import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
+import type {
+	IntegrationAuthenticationProvider,
+	IntegrationAuthenticationSessionDescriptor,
+} from './integrationAuthenticationProvider.js';
 import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
@@ -75,6 +78,11 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	async get(providerId: IntegrationIds): Promise<IntegrationAuthenticationProvider> {
 		return this.ensureProvider(providerId);
+	}
+
+	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */
+	getPrimaryConnectionId(providerId: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
+		return this.configuredIntegrationService.resolveConnectionId(providerId, descriptor);
 	}
 
 	@debug()
