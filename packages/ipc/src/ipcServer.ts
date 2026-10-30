@@ -42,7 +42,10 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 }
 
 export class IpcServer<Request = unknown, Response = void> implements UnifiedDisposable {
-	private readonly handlers = new Map<string | undefined, IpcHandler<Request, Response>>();
+	private readonly handlers = new Map<
+		string | undefined,
+		{ handler: IpcHandler<Request, Response>; routeToken: string | undefined }
+	>();
 
 	constructor(
 		readonly ipcAddress: string,
@@ -75,13 +78,18 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 		});
 	}
 
-	registerHandler(name: string, handler: IpcHandler<Request, Response>): UnifiedDisposable {
+	/**
+	 * Registers a handler under `/{name}`. The server's token authorizes every route; a `routeToken`
+	 * additionally authorizes this route alone — for a caller that must reach one route (e.g. an agent
+	 * told where to report) without being handed the key to all of them.
+	 */
+	registerHandler(name: string, handler: IpcHandler<Request, Response>, routeToken?: string): UnifiedDisposable {
 		const path = `/${name}`;
 		if (this.handlers.has(path)) {
 			throw new Error(`IPC handler '${name}' is already registered`);
 		}
 
-		this.handlers.set(path, handler);
+		this.handlers.set(path, { handler: handler, routeToken: routeToken });
 		return createDisposable(() => this.handlers.delete(path));
 	}
 
@@ -100,8 +108,8 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 			pathname = req.url;
 		}
 
-		const handler = this.handlers.get(pathname);
-		if (handler == null) {
+		const registration = this.handlers.get(pathname);
+		if (registration == null) {
 			scope?.warn(`IPC handler for ${pathname} not found`);
 			res.writeHead(404);
 			res.end();
@@ -110,7 +118,10 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 
 		// Add bearer token authorization
 		const authHeader = req.headers['authorization'];
-		if (authHeader !== `Bearer ${this.ipcToken}`) {
+		if (
+			authHeader !== `Bearer ${this.ipcToken}` &&
+			(registration.routeToken == null || authHeader !== `Bearer ${registration.routeToken}`)
+		) {
 			Logger.warn(scope, `IPC handler for ${req.url} unauthorized`);
 			res.writeHead(401);
 			res.end();
@@ -147,7 +158,7 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 			}
 
 			try {
-				const result = await handler(data, searchParams);
+				const result = await registration.handler(data, searchParams);
 				if (result == null) {
 					res.writeHead(200);
 					res.end();

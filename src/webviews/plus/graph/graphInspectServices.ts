@@ -1,6 +1,7 @@
 import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -30,7 +31,7 @@ import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
-import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
+import type { RunPromptInAgentCommandArgs, RunPromptInAgentOutcome } from '../../../commands/runPromptInAgent.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
@@ -89,7 +90,7 @@ import {
 	isComposeInputError,
 	libraryPlanToProposedCommits,
 } from './compose/utils.js';
-import { DeepReviewChannel, deepReviewRoute, getDeepReviewDiffCommand } from './deepReview.js';
+import { DeepReviewChannel, getDeepReviewDiffCommand, getDeepReviewPriorFindingsSection } from './deepReview.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -1377,9 +1378,14 @@ export class GraphInspectServices {
 	}
 
 	/** {@link ReviewThreadsOwner} — a thread's title-bar command lands here and is relayed to the webview. */
-	reviewThreadAction(findingId: string, action: ReviewThreadAction): void {
+	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void {
 		const actions = this._reviewThreadActions.actions;
-		actions.push({ seq: (actions.at(-1)?.seq ?? 0) + 1, findingId: findingId, action: action });
+		actions.push({
+			seq: (actions.at(-1)?.seq ?? 0) + 1,
+			findingId: findingId,
+			action: action,
+			...(text != null ? { text: text } : {}),
+		});
 		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
 	}
 
@@ -1515,6 +1521,8 @@ export class GraphInspectServices {
 	 *  POSTed. One channel per instance; starting again replaces it. */
 	@debug()
 	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		let channel: DeepReviewChannel | undefined;
+		let hold: { pending: number; served: boolean } | undefined;
 		try {
 			const availability = await this.getDeepReviewAvailability();
 			// The local channel, started now if nothing has yet
@@ -1522,12 +1530,7 @@ export class GraphInspectServices {
 				await this.container.ipc.ensureStarted();
 			}
 			const endpoint = this.container.ipc.address;
-			const token = this.container.ipc.token;
-			if (
-				(!availability.available && availability.reason === 'no-channel') ||
-				endpoint == null ||
-				token == null
-			) {
+			if ((!availability.available && availability.reason === 'no-channel') || endpoint == null) {
 				void window.showWarningMessage(
 					l10n.t(
 						'Review in Repo needs the GitLens local channel, which is not available in this environment.',
@@ -1540,39 +1543,121 @@ export class GraphInspectServices {
 				return { ok: false, reason: availability.reason };
 			}
 
-			this.stopDeepReview();
-			const channel = new DeepReviewChannel(this.container.ipc, state => {
-				if (this._deepReview === channel) {
-					this._deepReviewEvent.fire(state);
-				}
-			});
-			this._deepReview = channel;
-			this._deepReviewEvent.fire(channel.state);
+			// A question on one finding goes into the channel that is open — the agent's answer is a comment
+			// on the finding, and a review that may be running keeps reporting; a whole review starts afresh
+			// …and a whole review goes into a channel that was open only for questions, rather than cutting
+			// off an answer that may still be coming
+			const open = this._deepReview?.state.active === true ? this._deepReview : undefined;
+			const reuse = open != null && (args.focus != null || open.state.purpose === 'ask');
+			if (reuse && args.focus == null) {
+				open.beginReview();
+			}
+			if (!reuse) {
+				this.stopDeepReview();
+				const opened = new DeepReviewChannel(
+					this.container.ipc,
+					++this._deepReviewRuns,
+					args.anchor,
+					state => {
+						if (this._deepReview === opened) {
+							this._deepReviewEvent.fire(state);
+						}
+					},
+					uuid(),
+					args.focus != null ? 'ask' : 'review',
+				);
+				this._deepReview = opened;
+				this._deepReviewEvent.fire(opened.state);
+			}
+			// This start holds the channel open until its prompt is handed over or fails
+			channel = this._deepReview!;
+			hold = this._deepReviewHolds.get(channel) ?? { pending: 0, served: false };
+			hold.pending++;
+			this._deepReviewHolds.set(channel, hold);
 
 			const endpoints = getReviewDiffEndpoints(args.scope);
-			const { prompt } = await this.container.ai.getPrompt('deep-review', undefined, {
-				scopeLabel: args.scopeLabel,
-				diffCommand:
-					endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff',
-				files: args.files.join('\n'),
-				endpoint: `${endpoint}/${deepReviewRoute}`,
-				token: token,
-				instructions: args.prompt,
-			});
+			const reportEndpoint = `${endpoint}/${channel.route}`;
+			// The channel's own bearer, never the server's: the prompt leaves this window with the agent
+			const token = channel.token;
+			const diffCommand =
+				endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff';
+			const { prompt } =
+				args.focus != null
+					? await this.container.ai.getPrompt('deep-review-focus', undefined, {
+							scopeLabel: args.scopeLabel,
+							diffCommand: diffCommand,
+							finding: args.focus.finding,
+							question: args.focus.question || 'The reader asked you to look at it again.',
+							endpoint: reportEndpoint,
+							token: token,
+						})
+					: await this.container.ai.getPrompt('deep-review', undefined, {
+							scopeLabel: args.scopeLabel,
+							diffCommand: diffCommand,
+							files: args.files.join('\n'),
+							endpoint: reportEndpoint,
+							token: token,
+							priorFindings: args.priorFindings
+								? getDeepReviewPriorFindingsSection(args.priorFindings, reportEndpoint, token)
+								: undefined,
+							instructions: args.prompt,
+						});
 			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
-			await executeCommand('gitlens.runPromptInAgent', {
-				prompt: prompt,
-				cwd: args.repoPath,
-				mode: 'agent',
-				autoExecute: true,
-				source: 'graph',
-			} as RunPromptInAgentCommandArgs);
+			const outcome = await executeCommand<RunPromptInAgentCommandArgs, RunPromptInAgentOutcome>(
+				'gitlens.runPromptInAgent',
+				{
+					prompt: prompt,
+					cwd: args.repoPath,
+					mode: 'agent',
+					autoExecute: true,
+					source: 'graph',
+					// Reviews of one repository share a CLI session: the next one is the next turn of the
+					// conversation, with everything the agent learned the last time
+					session: `review:${args.repoPath}`,
+				},
+			);
+			// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
+			// no agent to report — an open channel would read as a review that never arrives
+			if (outcome !== 'dispatched') {
+				this.releaseDeepReviewHold(channel, hold, false);
+				return { ok: false, reason: outcome === 'cancelled' ? 'cancelled' : 'error' };
+			}
+
+			this.releaseDeepReviewHold(channel, hold, true);
 			return { ok: true };
 		} catch (ex) {
-			this.stopDeepReview();
+			if (channel != null && hold != null) {
+				this.releaseDeepReviewHold(channel, hold, false);
+			} else {
+				this.stopDeepReview();
+			}
 			const message = getPresentableErrorMessage(ex);
 			void window.showWarningMessage(l10n.t('Unable to start a review in the repository: {0}', message));
 			return { ok: false, reason: 'error', message: message };
+		}
+	}
+
+	private _deepReviewRuns = 0;
+	/** Who is still handing a prompt over into each channel, and whether any hand-over got through: a
+	 *  channel no agent was given is closed once the last hand-over fails — not before, since a question on
+	 *  a finding may be going into the same channel as the review that opened it */
+	private readonly _deepReviewHolds = new WeakMap<DeepReviewChannel, { pending: number; served: boolean }>();
+
+	private releaseDeepReviewHold(
+		channel: DeepReviewChannel,
+		hold: { pending: number; served: boolean },
+		dispatched: boolean,
+	): void {
+		hold.pending--;
+		if (dispatched) {
+			hold.served = true;
+			return;
+		}
+
+		// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
+		// no agent to report — an open channel would read as a review that never arrives
+		if (!hold.served && hold.pending <= 0 && this._deepReview === channel) {
+			this.stopDeepReview();
 		}
 	}
 
@@ -1878,8 +1963,10 @@ export class GraphInspectServices {
 		const quoted = getAnnotatedNewLines(diff);
 		const paths = new Set<string>();
 		for (const f of findings) {
-			if (f.filePath != null && f.lineRange != null && quoted.has(f.filePath)) {
-				paths.add(f.filePath);
+			for (const location of getReviewFindingLocations(f)) {
+				if (location.lineRange != null && quoted.has(location.filePath)) {
+					paths.add(location.filePath);
+				}
 			}
 		}
 		if (rhs == null || !paths.size) return [...findings];
@@ -1902,17 +1989,33 @@ export class GraphInspectServices {
 			}),
 		);
 
+		const anchorLocation = (location: AIReviewFindingLocation): AIReviewFindingLocation => {
+			if (location.lineRange == null) return location;
+
+			const target = targets.get(location.filePath);
+			const lines = quoted.get(location.filePath);
+			if (target == null || lines == null) return location;
+
+			const range = reanchorLineRange(location.lineRange, lines, target);
+			if (range?.start === location.lineRange.start && range.end === location.lineRange.end) return location;
+
+			return { filePath: location.filePath, lineRange: range };
+		};
+
+		// Every place is re-pointed; the first stays the finding's own file and lines
 		return findings.map(f => {
-			if (f.filePath == null || f.lineRange == null) return f;
+			const before = getReviewFindingLocations(f);
+			if (before.length === 0) return f;
 
-			const target = targets.get(f.filePath);
-			const lines = quoted.get(f.filePath);
-			if (target == null || lines == null) return f;
+			const after = before.map(anchorLocation);
+			if (after.every((l, i) => l === before[i])) return f;
 
-			const range = reanchorLineRange(f.lineRange, lines, target);
-			if (range?.start === f.lineRange.start && range.end === f.lineRange.end) return f;
-
-			return { ...f, lineRange: range };
+			return {
+				...f,
+				filePath: after[0].filePath,
+				lineRange: after[0].lineRange,
+				...(after.length > 1 ? { locations: after } : {}),
+			};
 		});
 	}
 

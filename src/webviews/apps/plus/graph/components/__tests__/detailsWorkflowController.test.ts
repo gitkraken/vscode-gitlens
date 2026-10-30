@@ -185,6 +185,14 @@ class FakeHost implements DetailsWorkflowHost {
 	}
 
 	engagedIdleDraft: string | undefined;
+	readonly handOffs: string[] = [];
+	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
+		this.handOffs.push(`address:${findingId}:${instructions ?? ''}`);
+	}
+	askReviewerAboutFinding(findingId: string, question?: string): void {
+		this.handOffs.push(`ask:${findingId}:${question ?? ''}`);
+	}
+
 	readEngagedIdleDraft(): string | undefined {
 		return this.engagedIdleDraft;
 	}
@@ -791,6 +799,112 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry()?.orientError, undefined, 'a call-off is no failure');
 	});
 
+	test("a thread's reply records the note first, then asks the reviewer or hands the finding to the fixer", () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('r'), 'complete')]]),
+		);
+
+		controller.review.applyThreadActions({
+			actions: [
+				{ seq: 1, findingId: 'f1', action: 'reply', text: 'just a note' },
+				{ seq: 2, findingId: 'f1', action: 'askReviewer', text: 'is this reachable?' },
+				{ seq: 3, findingId: 'f2', action: 'askReviewer' },
+				{ seq: 4, findingId: 'f2', action: 'address', text: 'use the shared helper' },
+			],
+		});
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('f1')?.map(n => n.text),
+			['just a note', 'is this reachable?'],
+		);
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('f2')?.map(n => n.text),
+			['use the shared helper'],
+			'an ask with no words leaves no note',
+		);
+		assert.deepStrictEqual(host.handOffs, [
+			'ask:f1:is this reachable?',
+			'ask:f2:',
+			'address:f2:use the shared helper',
+		]);
+	});
+
+	test('a second deep review starts its counters over, and a report lands on the review it was started from', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
+		const finding = (id: string) =>
+			({ id: id, severity: 'warning', title: id, description: '', filePath: 'a.ts', source: 'agent' }) as const;
+
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			purpose: 'review',
+			active: false,
+			done: true,
+			findings: [
+				{ seq: 1, finding: finding('agent-1') },
+				{ seq: 2, finding: finding('agent-2') },
+			],
+			notes: [],
+		});
+		// The next run numbers from 1 again — its first findings must not read as already applied
+		controller.review.applyDeepReviewState({
+			run: 2,
+			anchor: anchor,
+			purpose: 'review',
+			active: true,
+			done: false,
+			findings: [{ seq: 1, finding: finding('agent-3') }],
+			notes: [],
+		});
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		const result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			result?.focusAreas.find(a => a.id === 'agent')?.findings?.map(f => f.id),
+			['agent-1', 'agent-2', 'agent-3'],
+		);
+		assert.deepStrictEqual(entry?.deepReview, {
+			run: 2,
+			purpose: 'review',
+			active: true,
+			done: false,
+			count: 1,
+			seqApplied: 1,
+			notesApplied: 0,
+		});
+
+		// The reader moved to a commit; the agent's next report still belongs to the WIP review
+		state.activeModeSha.set('c1');
+		controller.review.applyDeepReviewState({
+			run: 2,
+			anchor: anchor,
+			purpose: 'review',
+			active: true,
+			done: false,
+			findings: [
+				{ seq: 1, finding: finding('agent-3') },
+				{ seq: 2, finding: finding('agent-4') },
+			],
+			notes: [],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.deepReview?.seqApplied, 2);
+		assert.strictEqual(
+			host.crossPaneState.runningOperations.get().get(anchorKey({ sha: 'c1', shas: undefined, repoPath: '/A' })),
+			undefined,
+			'no entry is conjured for the review that happens to be shown',
+		);
+	});
+
 	test('what a deep review reports joins the result as the agent area, once per sequence, even before any run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		state.activeMode.set('review');
@@ -814,10 +928,27 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			filePath: 'b.ts',
 			source: 'agent',
 		} as const;
-		controller.review.applyDeepReviewState({ active: true, done: false, findings: [{ seq: 1, finding: f1 }] });
+		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			purpose: 'review',
+			active: true,
+			done: false,
+			findings: [{ seq: 1, finding: f1 }],
+			notes: [],
+		});
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
-		assert.deepStrictEqual(entry?.deepReview, { active: true, done: false, count: 1, seqApplied: 1 });
+		assert.deepStrictEqual(entry?.deepReview, {
+			run: 1,
+			purpose: 'review',
+			active: true,
+			done: false,
+			count: 1,
+			seqApplied: 1,
+			notesApplied: 0,
+		});
 		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
 		assert.deepStrictEqual(
 			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)]),
@@ -825,15 +956,25 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 
 		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			purpose: 'review',
 			active: false,
 			done: true,
 			findings: [
 				{ seq: 1, finding: f1 },
 				{ seq: 2, finding: f2 },
 			],
+			notes: [{ seq: 1, findingId: 'agent-1', text: 'the caller guards this' }],
 		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			entry?.session?.notes.get('agent-1')?.map(n => [n.author, n.text]),
+			[['agent', 'the caller guards this']],
+			'what the agent added to a finding lands as a note on it',
+		);
+		assert.strictEqual(entry?.deepReview?.notesApplied, 1);
 		const area = result?.focusAreas.find(a => a.id === 'agent');
 		assert.deepStrictEqual(
 			area?.findings?.map(f => f.id),
@@ -841,7 +982,34 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			'a replayed finding is not added twice',
 		);
 		assert.strictEqual(area?.severity, 'critical');
-		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
+		assert.deepStrictEqual(entry?.deepReview, {
+			run: 1,
+			purpose: 'review',
+			active: false,
+			done: true,
+			count: 2,
+			seqApplied: 2,
+			notesApplied: 1,
+		});
+
+		// Putting the strip away holds for the run — a later report of it doesn't bring it back; a new run does
+		controller.review.hideDeepReview();
+		const report = (run: number) =>
+			controller.review.applyDeepReviewState({
+				run: run,
+				anchor: anchor,
+				purpose: 'review',
+				active: true,
+				done: true,
+				findings: [],
+				notes: [],
+			});
+		report(1);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.deepReview?.hidden, true);
+		report(2);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.deepReview?.hidden, undefined);
 	});
 
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {

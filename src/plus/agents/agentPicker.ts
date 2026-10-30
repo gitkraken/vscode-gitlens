@@ -571,6 +571,8 @@ async function showAgentQuickPick(
 		getDefaultActive: (items: AgentItem[]) => AgentItem[] | undefined;
 		/** Runs before the picker resolves with an accepted row; returns `true` to keep the picker open instead */
 		onDidAccept: (qp: QuickPick<AgentItem>, item: AgentItem | undefined) => Promise<boolean>;
+		/** Keeps the picker open when the focus moves on while it opens */
+		ignoreFocusOut?: boolean;
 	},
 ): Promise<AgentDescriptor | undefined> {
 	const qp = window.createQuickPick<AgentItem>();
@@ -581,6 +583,7 @@ async function showAgentQuickPick(
 
 	try {
 		qp.title = options.title;
+		qp.ignoreFocusOut = options.ignoreFocusOut ?? false;
 		qp.placeholder = l10n.t('Loading...');
 		qp.busy = true;
 		qp.buttons = [settingsButton];
@@ -673,6 +676,9 @@ export async function pickAgentStandalone(
 				detectionFailed: detectionFailed,
 			}),
 		getDefaultActive: items => items.filter(i => i.picked),
+		// It opens on behalf of a flow that started elsewhere — a comment thread's button, a webview — where
+		// the focus can still move as it opens (a thread's reply box takes it back), which would close it
+		ignoreFocusOut: true,
 		onDidAccept: async (qp, item) => {
 			if (item === toggle) {
 				// Keeps the picker open, as `Directive.Noop` does inside the wizard

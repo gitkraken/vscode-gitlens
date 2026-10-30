@@ -120,6 +120,7 @@ suite('serializeReviewResult', () => {
 										description: 'Missing model title',
 										file: null,
 										lines: null,
+										locations: null,
 									},
 								],
 							},
@@ -280,6 +281,59 @@ suite('parseReviewResultJson', () => {
 				findings: null,
 			},
 		],
+	});
+
+	test('a finding with several places keeps them all, first place first, each once', () => {
+		const result = parseReviewResultJson(
+			JSON.stringify({
+				overview: 'o',
+				focusAreas: [
+					{
+						label: 'Dup',
+						rationale: 'r',
+						severity: 'suggestion',
+						files: ['src/a.ts', 'src/b.ts'],
+						findings: [
+							{
+								severity: 'suggestion',
+								title: 'Copied block',
+								description: 'd',
+								file: 'src/a.ts',
+								lines: { start: 10, end: 12 },
+								locations: [
+									{ file: 'src/a.ts', lines: { start: 10, end: 12 } },
+									{ file: 'src/b.ts', lines: { start: 30, end: 32 } },
+									{ file: 'src/c.ts', lines: null },
+								],
+							},
+							{
+								severity: 'warning',
+								title: 'First place only in locations',
+								description: 'd',
+								file: null,
+								lines: null,
+								locations: [{ file: 'src/d.ts', lines: { start: 1, end: 1 } }],
+							},
+						],
+					},
+				],
+			}),
+			'single-pass',
+		);
+		const [multi, single] = result.focusAreas[0].findings!;
+		assert.strictEqual(multi.filePath, 'src/a.ts');
+		assert.deepStrictEqual(multi.lineRange, { start: 10, end: 12 });
+		assert.deepStrictEqual(multi.locations, [
+			{ filePath: 'src/a.ts', lineRange: { start: 10, end: 12 } },
+			{ filePath: 'src/b.ts', lineRange: { start: 30, end: 32 } },
+			{ filePath: 'src/c.ts' },
+		]);
+		assert.strictEqual(single.filePath, 'src/d.ts');
+		assert.deepStrictEqual(single.lineRange, { start: 1, end: 1 });
+		assert.strictEqual(single.locations, undefined, 'one place is the finding itself, not a list');
+
+		const replayed = parseReviewResultJson(serializeReviewResult(result), 'single-pass');
+		assert.deepStrictEqual(replayed.focusAreas[0].findings, result.focusAreas[0].findings, 'round-trips');
 	});
 
 	test('parses the JSON shape with positional area/finding ids and null-normalized optionals', () => {

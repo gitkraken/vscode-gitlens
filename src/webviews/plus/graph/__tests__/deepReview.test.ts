@@ -1,5 +1,7 @@
 import * as assert from 'assert';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
+import { createIpcServer } from '@gitlens/ipc/ipcServer.js';
 import type { DeepReviewIpc } from '../deepReview.js';
 import { DeepReviewChannel, deepReviewRoute, getDeepReviewDiffCommand, parseDeepReviewReport } from '../deepReview.js';
 import type { DeepReviewState } from '../graphService.js';
@@ -62,7 +64,66 @@ suite("deepReview — the agent's report", () => {
 				},
 			],
 		);
-		assert.deepStrictEqual(parseDeepReviewReport(undefined, 1), { findings: [], done: false });
+		assert.deepStrictEqual(parseDeepReviewReport(undefined, 1), { findings: [], notes: [], done: false });
+	});
+
+	test('a finding may name several places; the first is its own file and lines', () => {
+		const { findings } = parseDeepReviewReport(
+			{
+				findings: [
+					{
+						title: 'Same guard missing',
+						file: 'src/a.ts',
+						lines: { start: 3, end: 4 },
+						locations: [
+							{ file: './src/b.ts', lines: { start: 8, end: 8 } },
+							{ file: 'src/a.ts', lines: { start: 3, end: 4 } },
+						],
+					},
+					{ title: 'Only in locations', locations: [{ file: 'src/c.ts' }] },
+				],
+			},
+			1,
+		);
+		assert.deepStrictEqual(
+			findings.map(f => [f.filePath, f.lineRange, f.locations]),
+			[
+				[
+					'src/a.ts',
+					{ start: 3, end: 4 },
+					[
+						{ filePath: 'src/a.ts', lineRange: { start: 3, end: 4 } },
+						{ filePath: 'src/b.ts', lineRange: { start: 8, end: 8 } },
+					],
+				],
+				['src/c.ts', undefined, undefined],
+			],
+		);
+	});
+
+	test('an item that names a finding is a note on it, not a finding; without a comment it is nothing', () => {
+		const { findings, notes } = parseDeepReviewReport(
+			{
+				findings: [
+					{
+						findingId: ' area-1-f2 ',
+						comment: ' The caller never passes a signal, so this cannot trigger. ',
+					},
+					{ findingId: 'area-1-f3' },
+					{ findingId: 'area-1-f1', comment: 'x', title: 'Not a new finding' },
+					{ title: 'A new one' },
+				],
+			},
+			1,
+		);
+		assert.deepStrictEqual(notes, [
+			{ findingId: 'area-1-f2', text: 'The caller never passes a signal, so this cannot trigger.' },
+			{ findingId: 'area-1-f1', text: 'x' },
+		]);
+		assert.deepStrictEqual(
+			findings.map(f => f.title),
+			['A new one'],
+		);
 	});
 
 	test('tells the agent the git command that shows the scope', () => {
@@ -79,49 +140,141 @@ suite("deepReview — the agent's report", () => {
 });
 
 suite('deepReview — the report channel', () => {
+	const anchor = { kind: 'wip', repoPath: '/r' };
 	function fakeIpc() {
 		const routes = new Map<string, (rq: unknown, params: URLSearchParams) => Promise<unknown>>();
+		const routeTokens = new Map<string, string | undefined>();
 		const ipc: DeepReviewIpc = {
 			address: 'http://127.0.0.1:1',
-			token: 't',
-			registerHandler: (name, handler) => {
+			registerHandler: (name, handler, routeToken) => {
 				routes.set(name, handler as (rq: unknown, params: URLSearchParams) => Promise<unknown>);
+				routeTokens.set(name, routeToken);
 				return { dispose: () => routes.delete(name), [Symbol.dispose]: () => routes.delete(name) };
 			},
 		};
-		return { ipc: ipc, routes: routes };
+		return { ipc: ipc, routes: routes, routeTokens: routeTokens };
 	}
 
-	test('owns the route while open, sequences what comes in, and closes itself on done', async () => {
+	test('owns the route while open, sequences what comes in, and takes reports after done until closed', async () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, s => changes.push(s));
-		assert.ok(routes.has(deepReviewRoute), 'the route is registered on open');
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
+		assert.strictEqual(channel.route, `${deepReviewRoute}/c1`);
+		assert.ok(routes.has(channel.route), 'the route is registered on open');
 
-		const post = routes.get(deepReviewRoute)!;
+		const post = routes.get(channel.route)!;
 		assert.deepStrictEqual(await post({ findings: [{ title: 'one' }, { title: 'two' }] }, new URLSearchParams()), {
 			accepted: 2,
 		});
+		assert.deepStrictEqual(
+			await post({ findings: [{ findingId: 'f9', comment: 'more on it' }] }, new URLSearchParams()),
+			{ accepted: 1 },
+		);
 		assert.deepStrictEqual(await post({ findings: [{ title: 'three' }], done: true }, new URLSearchParams()), {
 			accepted: 1,
 		});
-		assert.strictEqual(routes.has(deepReviewRoute), false, 'done closes the route');
+		assert.strictEqual(routes.has(channel.route), true, 'done marks the review finished but keeps the route');
+		assert.deepStrictEqual(await post({ findings: [{ title: 'after talking it over' }] }, new URLSearchParams()), {
+			accepted: 1,
+		});
+		channel.close();
+		assert.strictEqual(routes.has(channel.route), false, 'closing takes the route down');
 
 		assert.deepStrictEqual(
-			changes.map(c => [c.active, c.done, c.findings.map(f => f.seq)]),
+			changes.map(c => [c.run, c.anchor.repoPath]).every(([run, repo]) => run === 1 && repo === '/r'),
+			true,
+			'every report carries the run and the review it belongs to',
+		);
+		assert.deepStrictEqual(
+			changes.map(c => [c.active, c.done, c.findings.map(f => f.seq), c.notes.map(n => [n.seq, n.findingId])]),
 			[
-				[true, false, [1, 2]],
-				[false, true, [1, 2, 3]],
+				[true, false, [1, 2], []],
+				[true, false, [1, 2], [[1, 'f9']]],
+				[true, true, [1, 2, 3], [[1, 'f9']]],
+				[true, true, [1, 2, 3, 4], [[1, 'f9']]],
+				[false, true, [1, 2, 3, 4], [[1, 'f9']]],
 			],
 		);
 		assert.strictEqual(channel.report({ findings: [{ title: 'late' }] }), 0, 'a report after close is dropped');
-		assert.strictEqual(channel.state.findings.length, 3);
+		assert.strictEqual(channel.state.findings.length, 4);
+	});
+
+	test('each channel registers its route under a token of its own', () => {
+		const { ipc, routeTokens } = fakeIpc();
+		const first = new DeepReviewChannel(ipc, 1, anchor, () => {}, 'a');
+		const second = new DeepReviewChannel(ipc, 2, anchor, () => {}, 'b');
+		assert.ok(first.token, 'a channel has a token');
+		assert.strictEqual(routeTokens.get(first.route), first.token, 'the route is registered under it');
+		assert.strictEqual(routeTokens.get(second.route), second.token);
+		assert.notStrictEqual(first.token, second.token, 'no two channels share one');
+		assert.ok(!first.route.includes(first.token), 'the token is not part of the route, which is logged');
+	});
+
+	test("on the IPC server the channel's token opens its route and no other, and is not the server's", async () => {
+		const server = await createIpcServer<unknown, unknown>();
+		try {
+			server.registerHandler('gk/other', () => Promise.resolve('other'));
+			const channel = new DeepReviewChannel(
+				{
+					address: server.ipcAddress,
+					registerHandler: (name, handler, routeToken) =>
+						server.registerHandler(name, handler as IpcHandler<unknown, unknown>, routeToken),
+				},
+				1,
+				anchor,
+				() => {},
+				'live',
+			);
+			assert.notStrictEqual(channel.token, server.ipcToken, "the agent is never given the server's token");
+
+			const post = (route: string, body: unknown) =>
+				fetch(`${server.ipcAddress}/${route}`, {
+					method: 'POST',
+					headers: { Authorization: `Bearer ${channel.token}`, 'Content-Type': 'application/json' },
+					body: JSON.stringify(body),
+				});
+			const reported = await post(channel.route, { findings: [{ title: 'one' }] });
+			assert.strictEqual(reported.status, 200);
+			assert.deepStrictEqual(await reported.json(), { accepted: 1 });
+			assert.strictEqual((await post('gk/other', {})).status, 401, 'another route turns the token away');
+			channel.close();
+		} finally {
+			await server.shutdown();
+		}
+	});
+
+	test("two channels take routes of their own, so neither takes the other's reports", async () => {
+		const { ipc, routes } = fakeIpc();
+		const a: DeepReviewState[] = [];
+		const b: DeepReviewState[] = [];
+		const first = new DeepReviewChannel(ipc, 1, anchor, s => a.push(s), 'a');
+		const second = new DeepReviewChannel(ipc, 1, { kind: 'commit', repoPath: '/r', sha: 'x' }, s => b.push(s), 'b');
+		assert.notStrictEqual(first.route, second.route);
+		await routes.get(second.route)!({ findings: [{ title: 'for b' }] }, new URLSearchParams());
+		assert.strictEqual(a.length, 0);
+		assert.deepStrictEqual(
+			b.map(s => s.findings.map(f => f.finding.title)),
+			[['for b']],
+		);
+	});
+
+	test('a channel open for questions becomes a review when a whole review goes into it', () => {
+		const { ipc } = fakeIpc();
+		const changes: DeepReviewState[] = [];
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'q', 'ask');
+		assert.strictEqual(channel.state.purpose, 'ask');
+		channel.beginReview();
+		channel.beginReview();
+		assert.deepStrictEqual(
+			changes.map(c => c.purpose),
+			['review'],
+		);
 	});
 
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, s => changes.push(s));
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
 		channel.report({ findings: [{ title: 'one' }] });
 		channel.close();
 		channel.close();
