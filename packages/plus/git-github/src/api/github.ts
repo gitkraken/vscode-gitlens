@@ -3865,6 +3865,7 @@ export class GitHubApi {
 									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 							),
 						deferFailure,
+						token.connectionId,
 					);
 				}
 				return;
@@ -3877,6 +3878,7 @@ export class GitHubApi {
 						ex,
 						() => this.config.onRequestError?.(provider, `${provider?.name ?? 'GitHub'} request timed out`),
 						deferFailure,
+						token.connectionId,
 					);
 					return;
 				}
@@ -3897,6 +3899,7 @@ export class GitHubApi {
 								: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 						),
 					deferFailure,
+					token.connectionId,
 				);
 				return;
 			default:

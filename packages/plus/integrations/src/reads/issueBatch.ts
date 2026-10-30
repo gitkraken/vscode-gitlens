@@ -51,7 +51,7 @@ import {
  * ONE integration call per invocation when no target carries an `etag`, whatever the target count, as in
  * `getPullRequestsBatch`: the integration fans its targets out (chunked for GitHub/GHE, one request per target with
  * bounded concurrency on GitLab and Azure DevOps and on the trackers) and settles each independently, so failing
- * targets spend at most one strike of the integration's failure budget.
+ * targets spend at most one strike of the connection's failure budget.
  *
  * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps; Jira Cloud and Linear
  * among the trackers): the cheap check of the targets that carry one, a full read of the rest started alongside it,

@@ -251,7 +251,7 @@ never a false `unchanged`. A target the cheap check fails falls through to the f
 the warning if it fails too — except on an `auth`, `rate-limit` or `no-connection` failure, which the full read
 would only hit again: those targets are dropped with that warning and `fetchFailed`, exactly as a failed full read
 drops them. Each target is judged by its own failure, so one target's rate limit never drops another the check only
-failed to answer. The cheap check counts toward the integration's disconnect budget only when the credential is
+failed to answer. The cheap check counts toward its connection's failure budget only when the credential is
 refused; any other failure of it is left to the full reads, so a call counts at most twice, once per full read.
 
 `getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
