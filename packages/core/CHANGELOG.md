@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes `getRepositoryInfo` (and `Git.rev_parse__show_toplevel`) resolving a path inside a repository's `.git` folder — `.git/refs`, `.git/rebase-merge` during a rebase — to that `.git` folder as a bare repository when the repo's config has no `core.bare` line, so a host registered it as a second repository named `.git`. Git guesses "bare" from inside a git dir when `core.bare` is unset; a git dir whose parent folder is a working tree using it now resolves to that working tree. Real bare repos, including a bare clone named `.git` beside its worktrees and a `.bare` folder behind a `.git` file, still resolve to themselves (git-cli)
+- Fixes GitHub GraphQL throttling (HTTP 200 with an `errors` entry of type `RATE_LIMITED` or `RATE_LIMIT`) being reported as `kind: 'other'` instead of `'rate-limit'` on repo-scoped GitHub and GitHub Enterprise pull request and issue reads (`listPullRequestsPage`, `listIssuesPage` and the pull request sweeps with `repos`), which provider-apis serves and throws without a response status. Core's own GitHub reads now also classify a rate limit that isn't the first GraphQL error (plus/integrations, plus/git-github)
 
 ## [0.24.0] - 2026-10-28
 

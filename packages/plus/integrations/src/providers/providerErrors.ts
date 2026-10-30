@@ -216,6 +216,19 @@ export function isGitHubProviderId(
  */
 export const githubGraphQLInt32Max = 2147483647;
 
+function isGitHubGraphQLRateLimitError(providerId: IntegrationIds, ex: unknown): boolean {
+	if (!isGitHubProviderId(providerId)) return false;
+
+	const errors = (ex as { graphQLErrors?: unknown } | null | undefined)?.graphQLErrors;
+	return (
+		Array.isArray(errors) &&
+		errors.some(e => {
+			const type = (e as { type?: unknown } | null | undefined)?.type;
+			return type === 'RATE_LIMITED' || type === 'RATE_LIMIT';
+		})
+	);
+}
+
 function isLinearRateLimitError(providerId: IntegrationIds, ex: unknown): boolean {
 	if (providerId !== IssuesCloudHostIntegrationId.Linear) return false;
 
@@ -327,6 +340,11 @@ export function throwProviderError(tokenWithInfo: TokenWithInfo, error: unknown)
 
 	// Linear reports GraphQL throttling as HTTP 400, so its structured code must win over generic 4xx handling.
 	if (isLinearRateLimitError(providerId, error)) {
+		throw toRateLimitError(normalizedError, token);
+	}
+
+	// GitHub reports GraphQL throttling as HTTP 200 + `errors[].type`, which the SDK throws with no `response`.
+	if (isGitHubGraphQLRateLimitError(providerId, error)) {
 		throw toRateLimitError(normalizedError, token);
 	}
 
