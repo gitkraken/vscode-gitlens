@@ -378,6 +378,9 @@ export interface ReviewOpenFileArgs {
 /** The files a review is reading: any of their diffs gets the reading commands (title buttons and
  *  keybindings), which step through them in this order. */
 export interface ReviewFilesArgs {
+	/** The review the files are read for, as the panel keys its reviews — opaque to the host, which stamps
+	 *  what the editor does with it (see {@link ReviewReadingState}, {@link ReviewThreadActionsState}). */
+	anchor: string;
 	repoPath: string;
 	/** Refs the diffs open with — the same endpoints the panel's own file links use. */
 	lhs: string;
@@ -420,6 +423,8 @@ export interface ReviewThreadItem {
 }
 
 export interface ReviewThreadsArgs {
+	/** The review the threads show, as the panel keys its reviews — see {@link ReviewFilesArgs.anchor} */
+	anchor: string;
 	repoPath: string;
 	/** The side of the review's diff the threads sit on — what document they open in. */
 	rhs: string;
@@ -448,12 +453,16 @@ export interface ReviewCommentPlace {
 }
 
 /** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
- *  for a while applies exactly the ones it hasn't. A `reply` carries its text; a `comment` — a thread the
+ *  for a while applies exactly the ones it hasn't. The actions are one review's — the journal starts over
+ *  when the panel's review changes, and the sequence runs on across reviews, so the count a review has
+ *  applied never passes over actions made in it later. A `reply` carries its text; a `comment` — a thread the
  *  reader opened on a line — carries its text and place, and its `findingId` is the new comment's. `delete`
  *  removes the finding with all its threads; `deleteOpening` only its opening words, the first reply taking
  *  their place (the finding goes when there is none); `editNote` and `deleteNote` act on one note, by
  *  `noteId`. */
 export interface ReviewThreadActionsState {
+	/** The review the actions were taken in — the `anchor` of the threads and files they were made on */
+	anchor: string;
 	actions: {
 		seq: number;
 		findingId: string;
@@ -465,11 +474,16 @@ export interface ReviewThreadActionsState {
 }
 
 /** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only
- *  for one set of files, so a panel that was hidden for a while applies only the marks it hasn't seen. */
+ *  for one review's files, so a panel that was hidden for a while applies only the marks it hasn't seen. */
 export interface ReviewReadingState {
+	/** The review the files are read for — the `anchor` of the files the marks were made on */
+	anchor: string;
 	/** The review file whose diff is the active editor, when one is. */
 	active?: string;
 	marked: string[];
+	/** How many marks the editor made before the first of `marked` — numbered across reviews and across
+	 *  a reading let go and taken back, so the count a review has applied never passes over its new marks. */
+	markedBefore: number;
 }
 
 /**
@@ -809,6 +823,9 @@ export interface GraphInspectService {
 	setReviewThreads(args: ReviewThreadsArgs | undefined): Promise<void>;
 	/** Thread actions taken from the editor (resolve, dismiss, reopen, send to agent). */
 	readonly onReviewThreadActions: RpcEventSubscription<ReviewThreadActionsState | undefined>;
+	/** Tells the reader that a question for the reviewer, or a finding for the agent, taken from a thread
+	 *  was not sent: the review it was taken in is no longer the one shown. */
+	warnReviewHandOffDropped(to: 'reviewer' | 'agent'): Promise<void>;
 	/**
 	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
 	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce

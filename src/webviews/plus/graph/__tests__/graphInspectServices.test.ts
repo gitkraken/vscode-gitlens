@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { commands } from 'vscode';
+import { commands, Uri } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
@@ -16,8 +16,16 @@ import type {
 	DeepReviewState,
 	GraphInspectService,
 	ResolveProgressUpdate,
+	ReviewFilesArgs,
+	ReviewReadingAction,
+	ReviewReadingState,
+	ReviewThreadAction,
+	ReviewThreadActionsState,
 	ScopeSelection,
 } from '../graphService.js';
+import type { ReviewReadingOwner } from '../reviewReading.js';
+import { claimReviewFiles, releaseReviewFiles, stepReviewReading } from '../reviewReading.js';
+import { disposeReviewThreads } from '../reviewThreads.js';
 
 // `getDiffForScope` is private and only reaches `this.container.git.getRepositoryService(repoPath)` and
 // `this.buildChangesContext(...)`, so we exercise it against a minimal fake `this` rather than constructing
@@ -1788,5 +1796,343 @@ suite('graphInspectServices — a resolve run during an escalated automatic reba
 
 		assert.ok('result' in result, `expected resolutions: ${JSON.stringify(result)}`);
 		assert.strictEqual(result.result.autoRebase, undefined);
+	});
+});
+
+// The reading module's owner, kept here rather than in a test of its own: loaded first, its import chain
+// reaches the command registry before it is set up
+function createReadingOwner(): ReviewReadingOwner & {
+	reviewStep: sinon.SinonStub;
+	reviewFilesReleased: sinon.SinonStub;
+} {
+	return { reviewStep: sinon.stub().resolves(), reviewFilesReleased: sinon.stub() };
+}
+
+suite('reviewReading — one graph drives the editor', () => {
+	let owners: ReviewReadingOwner[] = [];
+
+	teardown(() => {
+		for (const owner of owners) {
+			releaseReviewFiles(owner);
+		}
+		owners = [];
+	});
+
+	test('tells the instance it was taken from, once, and the editor steps the new one', async () => {
+		const first = createReadingOwner();
+		const second = createReadingOwner();
+		owners = [first, second];
+
+		claimReviewFiles(first, []);
+		claimReviewFiles(first, []);
+		assert.strictEqual(first.reviewFilesReleased.callCount, 0, 'claiming again is not a hand-over');
+
+		claimReviewFiles(second, []);
+		assert.strictEqual(first.reviewFilesReleased.callCount, 1);
+		assert.strictEqual(second.reviewFilesReleased.callCount, 0);
+
+		await stepReviewReading('next');
+		assert.strictEqual(first.reviewStep.callCount, 0);
+		assert.strictEqual(second.reviewStep.callCount, 1);
+	});
+
+	test('a release by the instance the files were taken from leaves the new owner in place', async () => {
+		const first = createReadingOwner();
+		const second = createReadingOwner();
+		owners = [first, second];
+		// What a released graph does on its way out
+		first.reviewFilesReleased.callsFake(() => releaseReviewFiles(first));
+
+		claimReviewFiles(first, []);
+		claimReviewFiles(second, []);
+		releaseReviewFiles(first);
+
+		await stepReviewReading('previous');
+		assert.strictEqual(second.reviewStep.callCount, 1);
+	});
+});
+
+// With the graph open twice (sidebar and editor tab), each instance's review claims the one editor. Only the
+// review-files half of `GraphInspectServices` runs here: `setReviewFiles` reaches the repository service for
+// working-file URIs and fires the reading event; the rest of the instance is left out.
+type ReviewOwnerFake = {
+	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	reviewStep(action: ReviewReadingAction, from?: string): Promise<void>;
+	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void;
+	clearReviewFiles(): void;
+	_reviewFiles?: { paths: string[]; marked: string[] };
+	_reviewReadingEvent: { fire: sinon.SinonStub };
+	_reviewThreadActionsEvent: { fire: sinon.SinonStub };
+};
+
+function createReviewOwnerFake(): ReviewOwnerFake {
+	const container = {
+		git: {
+			getRepositoryService: () => ({
+				getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+			}),
+		},
+	} as unknown as Container;
+	return Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_reviewReadingEvent: { fire: sinon.stub(), subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { fire: sinon.stub(), subscribe: () => () => {} },
+		_reviewThreadActionsSeq: 0,
+		_reviewMarksMade: 0,
+		_reviewReleased: false,
+	}) as unknown as ReviewOwnerFake;
+}
+
+// The host doesn't read the anchor — a commit's key over the working tree's diff is enough to tell reviews apart
+function reviewFiles(paths: string[], anchor = 'wip|/repo'): ReviewFilesArgs {
+	return { anchor: anchor, repoPath: '/repo', lhs: 'HEAD', rhs: uncommitted, paths: paths };
+}
+
+suite('graphInspectServices — two graphs, one editor', () => {
+	let fakes: ReviewOwnerFake[] = [];
+
+	teardown(() => {
+		for (const fake of fakes) {
+			fake.clearReviewFiles();
+		}
+		fakes = [];
+		disposeReviewThreads();
+	});
+
+	test('the graph taken over lets its reading go, holds its review back, and takes it back when worked in', async () => {
+		const first = createReviewOwnerFake();
+		const second = createReviewOwnerFake();
+		fakes = [first, second];
+
+		await first.setReviewFiles(reviewFiles(['a.ts']));
+		await second.setReviewFiles(reviewFiles(['b.ts']));
+
+		assert.strictEqual(first._reviewFiles, undefined, 'the first lets its files go');
+		assert.strictEqual(
+			first._reviewReadingEvent.fire.lastCall.args[0],
+			undefined,
+			'and its panel stops following the editor',
+		);
+
+		// Its own changes meanwhile don't pull the editor back
+		await first.setReviewFiles(reviewFiles(['c.ts']));
+		assert.strictEqual(first._reviewFiles, undefined);
+		assert.deepStrictEqual(second._reviewFiles?.paths, ['b.ts']);
+
+		// Stepped from its panel, it takes the review back as it now stands
+		await first.reviewStep('markViewed', 'c.ts');
+		const reclaimed = first._reviewFiles as ReviewOwnerFake['_reviewFiles'];
+		assert.deepStrictEqual(reclaimed?.paths, ['c.ts']);
+		assert.deepStrictEqual(reclaimed?.marked, ['c.ts']);
+		assert.strictEqual(second._reviewFiles, undefined, 'and the second lets go in turn');
+		assert.strictEqual(second._reviewReadingEvent.fire.lastCall.args[0], undefined);
+	});
+});
+
+// `startDeepReview` reaches the IPC server, the prompt templates, usage and `gitlens.runPromptInAgent`, and keeps
+// its channel and holds on `this` — so a fake `this` with the real channel bookkeeping. The panel never holds
+// Review in Repo while a review runs (the agent may never say it is done), so a start over a running review must
+// replace it cleanly.
+
+type StartDeepReview = (args: DeepReviewArgs) => Promise<DeepReviewStartResult>;
+
+function createDeepReviewStarter() {
+	const routes = new Map<string, (rq: unknown) => Promise<unknown>>();
+	const proto = GraphInspectServices.prototype as unknown as Record<string, unknown>;
+	const fakeThis = {
+		container: {
+			ipc: {
+				address: 'http://127.0.0.1:1',
+				token: 'server-token',
+				registerHandler: (name: string, handler: (rq: unknown) => Promise<unknown>) => {
+					routes.set(name, handler);
+					return { dispose: () => routes.delete(name), [Symbol.dispose]: () => routes.delete(name) };
+				},
+			},
+			ai: { getPrompt: () => Promise.resolve({ prompt: 'review it' }) },
+			usage: { track: () => Promise.resolve() },
+		},
+		getDeepReviewAvailability: () => Promise.resolve({ available: true }),
+		_deepReview: undefined as { state: DeepReviewState; route: string } | undefined,
+		_deepReviewRuns: 0,
+		_deepReviewHolds: new WeakMap(),
+		_deepReviewEvent: { fire: sinon.spy() },
+		stopDeepReview: proto.stopDeepReview,
+		releaseDeepReviewHold: proto.releaseDeepReviewHold,
+	};
+	const fn = (proto as unknown as { startDeepReview: StartDeepReview }).startDeepReview;
+	return {
+		fakeThis: fakeThis,
+		routes: routes,
+		start: (args?: Partial<DeepReviewArgs>) =>
+			fn.call(fakeThis, {
+				repoPath: '/r',
+				anchor: { kind: 'wip', repoPath: '/r' },
+				scope: wipScope({ includeUnstaged: true }),
+				scopeLabel: 'working changes',
+				files: ['a.ts'],
+				...args,
+			}),
+	};
+}
+
+suite('graphInspectServices — Review in Repo starts the local channel when it hands a review over', () => {
+	let executeCommand: sinon.SinonStub;
+
+	setup(() => {
+		executeCommand = sinon.stub(commands, 'executeCommand').resolves('dispatched');
+	});
+
+	teardown(() => {
+		executeCommand.restore();
+	});
+
+	test('a server nothing has started yet is started then, and the review goes out on it', async () => {
+		const starter = createDeepReviewStarter();
+		const ipc = starter.fakeThis.container.ipc as { address?: string; ensureStarted?: () => Promise<boolean> };
+		ipc.address = undefined;
+		let started = 0;
+		ipc.ensureStarted = () => {
+			started++;
+			ipc.address = 'http://127.0.0.1:1';
+			return Promise.resolve(true);
+		};
+
+		assert.deepStrictEqual(await starter.start(), { ok: true });
+		assert.strictEqual(started, 1);
+		assert.strictEqual(starter.routes.size, 1, 'its channel is open on the server');
+	});
+});
+
+suite('graphInspectServices — Review in Repo over a running review', () => {
+	let executeCommand: sinon.SinonStub;
+
+	setup(() => {
+		executeCommand = sinon.stub(commands, 'executeCommand');
+	});
+
+	teardown(() => {
+		executeCommand.restore();
+	});
+
+	test('a new review closes the running one, opens its own channel and goes into the same CLI session', async () => {
+		executeCommand.resolves('dispatched');
+		const starter = createDeepReviewStarter();
+
+		assert.deepStrictEqual(await starter.start(), { ok: true });
+		const first = starter.fakeThis._deepReview!;
+		await starter.routes.get(first.route)!({ findings: [{ title: 'one' }] });
+		assert.strictEqual(first.state.active && !first.state.done, true, 'running, and the agent never said done');
+
+		assert.deepStrictEqual(await starter.start({ prompt: 'again' }), { ok: true });
+		const second = starter.fakeThis._deepReview!;
+
+		assert.notStrictEqual(second, first);
+		assert.strictEqual(starter.routes.has(first.route), false, "the running review's route is closed");
+		assert.deepStrictEqual(
+			[first.state.active, first.state.findings.length],
+			[false, 1],
+			'what it reported stays with it',
+		);
+		assert.deepStrictEqual(
+			[second.state.run, second.state.purpose, second.state.active, second.state.done],
+			[2, 'review', true, false],
+		);
+		assert.strictEqual(starter.routes.has(second.route), true);
+
+		// The panel hears the old run close and the new one open, in that order
+		const fired = starter.fakeThis._deepReviewEvent.fire.getCalls().map(c => {
+			const s = c.args[0] as DeepReviewState;
+			return [s.run, s.active, s.findings.length];
+		});
+		assert.deepStrictEqual(fired.slice(-2), [
+			[1, false, 1],
+			[2, true, 0],
+		]);
+
+		const sessions = executeCommand.getCalls().map(c => (c.args[1] as { session?: string }).session);
+		assert.deepStrictEqual(sessions, ['review:/r', 'review:/r'], 'the next turn of the same conversation');
+	});
+
+	test("a start still waiting on the agent picker doesn't close the review that replaced it", async () => {
+		let resolveFirst: ((outcome: string) => void) | undefined;
+		executeCommand.onFirstCall().returns(new Promise(resolve => (resolveFirst = resolve)));
+		executeCommand.onSecondCall().resolves('dispatched');
+		const starter = createDeepReviewStarter();
+
+		const firstStart = starter.start();
+		await settle();
+		const first = starter.fakeThis._deepReview!;
+
+		assert.deepStrictEqual(await starter.start(), { ok: true });
+		const second = starter.fakeThis._deepReview!;
+		assert.notStrictEqual(second, first);
+
+		resolveFirst?.('cancelled');
+		assert.deepStrictEqual(await firstStart, { ok: false, reason: 'cancelled' });
+		assert.strictEqual(second.state.active, true, 'the new review keeps its channel');
+		assert.strictEqual(starter.routes.has(second.route), true);
+	});
+});
+
+suite('graphInspectServices — what the editor does belongs to one review', () => {
+	let fake: ReviewOwnerFake | undefined;
+
+	teardown(() => {
+		fake?.clearReviewFiles();
+		fake = undefined;
+	});
+
+	const journal = (f: ReviewOwnerFake) =>
+		f._reviewThreadActionsEvent.fire.lastCall.args[0] as ReviewThreadActionsState;
+	const reading = (f: ReviewOwnerFake) => f._reviewReadingEvent.fire.lastCall.args[0] as ReviewReadingState;
+
+	test('stamps thread actions and viewed marks with the review, and starts both over for another — numbering on', async () => {
+		const f = createReviewOwnerFake();
+		fake = f;
+		const commit = 'commit|/repo|c1';
+
+		f.reviewThreadAction('f1', 'dismiss');
+		assert.strictEqual(f._reviewThreadActionsEvent.fire.callCount, 0, 'no review yet, nothing to stamp');
+
+		await f.setReviewFiles(reviewFiles(['a.ts']));
+		f.reviewThreadAction('f1', 'dismiss');
+		await f.reviewStep('markViewed', 'a.ts');
+		assert.deepStrictEqual(journal(f), {
+			anchor: 'wip|/repo',
+			actions: [{ seq: 1, findingId: 'f1', action: 'dismiss' }],
+		});
+		assert.deepStrictEqual(
+			{ ...reading(f), active: undefined },
+			{ anchor: 'wip|/repo', active: undefined, marked: ['a.ts'], markedBefore: 0 },
+		);
+
+		// Reshaping the same review keeps its marks
+		await f.setReviewFiles(reviewFiles(['b.ts', 'a.ts']));
+		assert.deepStrictEqual(reading(f).marked, ['a.ts']);
+
+		// A commit of the same repo is another review: neither the marks nor the actions carry over
+		await f.setReviewFiles(reviewFiles(['a.ts'], commit));
+		assert.deepStrictEqual(
+			{ ...reading(f), active: undefined },
+			{ anchor: commit, active: undefined, marked: [], markedBefore: 1 },
+		);
+		f.reviewThreadAction('f1', 'reply', 'fine');
+		assert.deepStrictEqual(journal(f), {
+			anchor: commit,
+			actions: [{ seq: 2, findingId: 'f1', action: 'reply', text: 'fine' }],
+		});
+		await f.reviewStep('markViewed', 'a.ts');
+
+		// Back on the working tree, both start over again and number on from the commit's
+		await f.setReviewFiles(reviewFiles(['a.ts']));
+		assert.strictEqual(reading(f).anchor, 'wip|/repo');
+		assert.deepStrictEqual(reading(f).marked, []);
+		assert.strictEqual(reading(f).markedBefore, 2);
+		f.reviewThreadAction('f2', 'reopen');
+		assert.deepStrictEqual(journal(f), {
+			anchor: 'wip|/repo',
+			actions: [{ seq: 3, findingId: 'f2', action: 'reopen' }],
+		});
 	});
 });

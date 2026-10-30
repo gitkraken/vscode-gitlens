@@ -1,8 +1,16 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import { Uri } from 'vscode';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../../container.js';
-import { getReviewSideUri, isReviewWorkingSide } from '../reviewThreads.js';
+import type { ReviewThreadsOwner } from '../reviewThreads.js';
+import {
+	disposeReviewThreads,
+	getReviewSideUri,
+	isReviewWorkingSide,
+	releaseReviewThreads,
+	setReviewThreads,
+} from '../reviewThreads.js';
 
 suite('reviewThreads — the right side of a review diff', () => {
 	test('is the working file only for an unstaged diff', () => {
@@ -24,5 +32,47 @@ suite('reviewThreads — the right side of a review diff', () => {
 		const uri = getReviewSideUri(container, '/repo', uncommitted, 'src/a.ts');
 
 		assert.strictEqual(uri.toString(), Uri.file('/repo/src/a.ts').toString());
+	});
+});
+
+function createThreadsOwner(): ReviewThreadsOwner & { reviewThreadsReleased: sinon.SinonStub } {
+	return {
+		reviewThreadAction: sinon.stub(),
+		reviewCommentPath: () => undefined,
+		reviewThreadsReleased: sinon.stub(),
+	};
+}
+
+suite('reviewThreads — one graph shows its threads in the editor', () => {
+	// No items, so no comment controller is made
+	const container = {} as unknown as Container;
+
+	teardown(() => disposeReviewThreads());
+
+	test('tells the instance the threads were taken from, once', () => {
+		const first = createThreadsOwner();
+		const second = createThreadsOwner();
+
+		setReviewThreads(container, first, undefined);
+		setReviewThreads(container, first, undefined);
+		assert.strictEqual(first.reviewThreadsReleased.callCount, 0, 'setting again is not a hand-over');
+
+		setReviewThreads(container, second, undefined);
+		assert.strictEqual(first.reviewThreadsReleased.callCount, 1);
+		assert.strictEqual(second.reviewThreadsReleased.callCount, 0);
+	});
+
+	test('a release by an instance the threads were taken from leaves the new owner in place', () => {
+		const first = createThreadsOwner();
+		const second = createThreadsOwner();
+		// What a released graph does on its way out
+		first.reviewThreadsReleased.callsFake(() => releaseReviewThreads(first));
+
+		setReviewThreads(container, first, undefined);
+		setReviewThreads(container, second, undefined);
+		releaseReviewThreads(first);
+
+		setReviewThreads(container, first, undefined);
+		assert.strictEqual(second.reviewThreadsReleased.callCount, 1, 'the second still had the threads to lose');
 	});
 });
