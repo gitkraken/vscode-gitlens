@@ -1,4 +1,4 @@
-import type { CommentThread, TextEditor, Uri } from 'vscode';
+import type { CommentReply, CommentThread, TextEditor, Uri } from 'vscode';
 import { Disposable, l10n, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -37,7 +37,7 @@ import type {
 	VisualizationMode,
 } from './protocol.js';
 import { stepReviewReading } from './reviewReading.js';
-import { disposeReviewThreads, runReviewThreadAction } from './reviewThreads.js';
+import { disposeReviewThreads, runReviewThreadAction, runReviewThreadReply } from './reviewThreads.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
@@ -285,6 +285,13 @@ export function registerGraphWebviewCommands<T>(
 		),
 		registerCommand('gitlens.review.sendFindingToAgent', (thread?: CommentThread) =>
 			runReviewThreadAction(thread, 'sendToAgent'),
+		),
+		registerCommand('gitlens.review.replyToFinding', (reply?: CommentReply) => runReviewThreadReply(reply)),
+		registerCommand('gitlens.review.replyAndAskReviewer', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'askReviewer'),
+		),
+		registerCommand('gitlens.review.replyAndAddress', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'address'),
 		),
 		{ dispose: () => disposeReviewThreads() },
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {

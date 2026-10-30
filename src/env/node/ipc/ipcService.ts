@@ -121,11 +121,13 @@ export class IpcService implements Disposable {
 	/**
 	 * Registers a handler under `/{name}`. Returns a disposable immediately; the
 	 * registration completes asynchronously once the server is running. Disposing
-	 * before the server starts cancels the pending registration.
+	 * before the server starts cancels the pending registration. A `routeToken`
+	 * authorizes this route alone, besides the server's own token.
 	 */
 	registerHandler<Request = unknown, Response = unknown>(
 		name: string,
 		handler: IpcHandler<Request, Response>,
+		routeToken?: string,
 	): UnifiedDisposable {
 		let inner: UnifiedDisposable | undefined;
 		let disposed = false;
@@ -136,7 +138,7 @@ export class IpcService implements Disposable {
 			try {
 				// Cast through unknown — the underlying server uses unknown/unknown but each
 				// handler typically narrows its own request/response shape.
-				inner = server.registerHandler(name, handler as unknown as IpcHandler<unknown, unknown>);
+				inner = server.registerHandler(name, handler as unknown as IpcHandler<unknown, unknown>, routeToken);
 			} catch (ex) {
 				// e.g., a duplicate handler name from a partial start retry.
 				Logger.error(ex, `${formatLoggableScopeBlock('IPC')} Failed to register handler '${name}'`);

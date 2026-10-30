@@ -685,6 +685,52 @@ export const reviewModePanelStyles = css`
 		overflow-wrap: anywhere;
 	}
 
+	/* What was said about the finding after the fact: a quiet column under the description, each
+	   note led by who said it, so the finding's own text stays the thing that is read first */
+	.review-finding__notes {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-4);
+		margin-bottom: var(--gl-space-6);
+		padding-left: var(--gl-space-8);
+		border-left: 2px solid color-mix(in srgb, transparent 70%, var(--vscode-descriptionForeground));
+	}
+
+	.review-finding__note {
+		font-size: var(--gl-font-sm);
+		line-height: 1.4;
+		overflow-wrap: anywhere;
+	}
+
+	.review-finding__note-author {
+		margin-right: var(--gl-space-4);
+		font-weight: 600;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-finding__reply {
+		display: flex;
+		gap: var(--gl-space-6);
+		align-items: center;
+	}
+
+	.review-finding__reply-input {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding: var(--gl-space-4) var(--gl-space-6);
+		font-family: inherit;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-input-foreground);
+		background: var(--vscode-input-background);
+		border: 1px solid var(--vscode-input-border, transparent);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-finding__reply-input:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
 	.review-finding__location {
 		display: flex;
 		gap: 0.3rem;
