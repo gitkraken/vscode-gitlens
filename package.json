@@ -9631,6 +9631,24 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "gitlens.review.dismissFinding",
+				"title": "%command.gitlens.review.dismissFinding.title%",
+				"category": "%command.category%",
+				"icon": "$(check)"
+			},
+			{
+				"command": "gitlens.review.reopenFinding",
+				"title": "%command.gitlens.review.reopenFinding.title%",
+				"category": "%command.category%",
+				"icon": "$(issue-reopened)"
+			},
+			{
+				"command": "gitlens.review.sendFindingToAgent",
+				"title": "%command.gitlens.review.sendFindingToAgent.title%",
+				"category": "%command.category%",
+				"icon": "$(comment-discussion-sparkle)"
+			},
+			{
 				"command": "gitlens.reviewChanges:graph",
 				"title": "%command.gitlens.reviewChanges:graph.title%",
 				"icon": "$(checklist)"
@@ -18092,6 +18110,23 @@
 				{
 					"command": "gitlens.whatsNew",
 					"when": "false"
+				}
+			],
+			"comments/commentThread/title": [
+				{
+					"command": "gitlens.review.reopenFinding",
+					"when": "commentController == gitlens.review && commentThread == dismissed",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.dismissFinding",
+					"when": "commentController == gitlens.review && commentThread == open",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.review.sendFindingToAgent",
+					"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
+					"group": "inline@3"
 				}
 			],
 			"editor/context": [

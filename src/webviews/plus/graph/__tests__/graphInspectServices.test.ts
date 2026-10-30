@@ -458,6 +458,8 @@ function createReviewFake(
 		_reviewHistoryCache: new LruMap(4),
 		_composeProgressEvent: noopEvent,
 		_resolveProgressEvent: noopEvent,
+		_reviewThreadActionsEvent: noopEvent,
+		_reviewThreadActions: { actions: [] },
 	});
 
 	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
@@ -860,6 +862,8 @@ function createResolveProgressFake() {
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		_resolveProgressEvent: {
 			subscribe: () => () => {},
 			fire: (update: ResolveProgressUpdate | undefined) => void fired.push(update),
@@ -939,6 +943,8 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
 
@@ -1073,6 +1079,8 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_autoRebaseOwnedConversations: new Set<string>(),
 		_composeProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
 		// nothing to do with the conversation lifecycle under test. Doubles as the seam for a
@@ -1387,6 +1395,7 @@ function createResolveUnavailableFake(opts: {
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
@@ -1445,6 +1454,7 @@ function createSeededHandoffFake(handoff: {
 		_resolveConversationIds: new Map(),
 		_autoRebaseOwnedConversations: new Set(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 	});
 
@@ -1590,6 +1600,7 @@ function createResolveDuringAutoRebaseFake(opts: { session: { phase: string } | 
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});

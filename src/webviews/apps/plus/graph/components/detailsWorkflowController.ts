@@ -15,6 +15,7 @@ import type {
 	ResolvedFileSummary,
 	ResolveResult,
 	ReviewResult,
+	ReviewThreadActionsState,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
@@ -124,6 +125,8 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
 	readEngagedIdleDraft(): string | undefined;
+	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown. */
+	sendReviewFindingToAgent?(findingId: string): void;
 	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
@@ -1065,6 +1068,38 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
 		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
 			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		/** Folds editor-made thread actions into the session — only the ones past the last applied sequence. */
+		applyThreadActions: (state: ReviewThreadActionsState | undefined): void => {
+			if (state == null) return;
+
+			const anchor = this.currentAnchor();
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			if (entry == null) return;
+
+			const applied = entry.threadActionsApplied ?? 0;
+			const fresh = state.actions.filter(a => a.seq > applied);
+			if (fresh.length === 0) return;
+
+			let session = entry.session ?? emptyReviewSession;
+			for (const { findingId, action } of fresh) {
+				switch (action) {
+					case 'dismiss':
+						session = withFindingState(session, findingId, 'dismissed');
+						break;
+					case 'reopen':
+						session = withFindingState(session, findingId, undefined);
+						break;
+					case 'sendToAgent':
+						this.host.sendReviewFindingToAgent?.(findingId);
+						break;
+				}
+			}
+			this.registerRunningOperation({
+				...entry,
+				session: session,
+				threadActionsApplied: fresh.at(-1)!.seq,
+			});
+		},
 		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
 		// the entry aborts it too. Re-running an area supersedes its earlier run.
 		startFocusAreaRun: (focusAreaId: string): { signal: AbortSignal; prompt: string | undefined } | undefined => {
@@ -3064,7 +3099,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey &&
 			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
 				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
-			(existing as { session?: unknown }).session === (op as { session?: unknown }).session
+			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
+			(existing as { threadActionsApplied?: number }).threadActionsApplied ===
+				(op as { threadActionsApplied?: number }).threadActionsApplied
 		) {
 			return;
 		}
