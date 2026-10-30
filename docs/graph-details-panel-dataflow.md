@@ -231,6 +231,33 @@ set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus
 are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
 `abortRunningOperation`).
 
+**Reading** is host-driven but editor-anchored: `gl-graph-details-panel.syncReviewFiles()` sends the
+review's files in reading order (`getReviewReadingOrder`: the plan's order first, then the checklist
+top to bottom as its `gl-file-tree-pane`s render it — each pane announces its order with
+`tree-order-changed`, the panel folds them into `review-reading-order` — minus set-aside files) over `graphInspect.setReviewFiles` whenever an input changes, and clears them
+on leaving the mode. The host (`reviewReading.ts` owner registry, `gitlens:review:reading` /
+`gitlens:review:files` context keys) lights the diff title buttons and keybindings on those documents,
+follows the active tab to name the file being read, and steps from the file a command was invoked on —
+so several open diffs each step from their own. Its `onReviewReading` event carries the active file
+and an append-only list of editor-made viewed marks; `review.applyReadingState` folds the marks past
+`entry.reading.marksApplied` into the session and keeps the active file on the entry for the panel's
+strip and for the checklist, which selects and scrolls to its row (`gl-file-tree-pane.revealPath` →
+`gl-tree-view.focusedPath`, opening collapsed folders above it). There is no cursor: the panel's own buttons pass the active file explicitly.
+
+The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
+manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
+`entry.orientRun` like a focus-area run; as it lands, its order is written into `session.order`, which
+`getReviewReadingOrder` puts ahead of tree order, and the panel regroups the checklist by its groups —
+the plan _is_ the reading order, with one button to dismiss it. Like the session, the plan is carried across AI runs.
+
+The **deep** depth (`graphInspect.startDeepReview`) opens a report channel on the IPC server
+(`review/findings`, `deepReview.ts` parses the agent's POSTs) and dispatches the `deep-review` prompt
+— which carries the channel's address and token — through `gitlens.runPromptInAgent`. Reported
+findings fire `onDeepReview` as an append-only, sequenced list; `review.applyDeepReviewState` folds
+the new ones into the result as the `agent` focus area (`withAgentFindings`), creating a complete
+entry when no run ever happened, so the panel, the threads and the counts take them like any other.
+`entry.deepReview` carries the channel's status for the panel's strip.
+
 The review's findings are mirrored into the diff editors as **comment threads** (`reviewThreads.ts`,
 one `CommentController` for the extension): `gl-graph-details-panel.syncReviewThreads()` projects
 the engaged result plus the session's finding states (`getReviewThreadItems`) and sends it over

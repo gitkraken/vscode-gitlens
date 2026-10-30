@@ -92,6 +92,25 @@ interface ReviewOverviewPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewOrientPromptTemplateContext {
+	files: string;
+	message: string;
+	context?: string;
+	instructions?: string;
+}
+
+interface DeepReviewPromptTemplateContext {
+	scopeLabel: string;
+	/** Shell command that shows the changes under review */
+	diffCommand: string;
+	/** The changed files, one per line */
+	files: string;
+	/** Where to POST findings, and the bearer token the request must carry */
+	endpoint: string;
+	token: string;
+	instructions?: string;
+}
+
 interface ReviewDetailPromptTemplateContext {
 	diff: string;
 	overview: string;
@@ -127,9 +146,11 @@ export type PromptTemplateType =
 	| 'explain-changes'
 	| 'review-changes'
 	| 'review-overview'
+	| 'review-orient'
 	| 'review-detail'
 	| 'review-refine'
 	| 'address-review-findings'
+	| 'deep-review'
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
 
@@ -158,12 +179,16 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? ReviewChangesPromptTemplateContext
 	: T extends 'review-overview'
 	? ReviewOverviewPromptTemplateContext
+	: T extends 'review-orient'
+	? ReviewOrientPromptTemplateContext
 	: T extends 'review-detail'
 	? ReviewDetailPromptTemplateContext
 	: T extends 'review-refine'
 	? ReviewRefinePromptTemplateContext
 	: T extends 'address-review-findings'
 	? AddressReviewFindingsPromptTemplateContext
+	: T extends 'deep-review'
+	? DeepReviewPromptTemplateContext
 	: T extends 'start-review-pullRequest'
 	? ReviewPullRequestPromptTemplateContext
 	: T extends 'start-work-issue'

@@ -86,8 +86,8 @@ export class GlDetailsHeader extends LitElement {
 		Record<Mode, { execState: RunningOperationExecState; hasResult: boolean }>
 	>;
 
-	/** True when the mode is in its drilled-in "results" sub-state (e.g. review showing
-	 *  findings, compose showing a plan). When true, the action cluster gains a Restart
+	/** True when the mode is in its drilled-in "results" sub-state (compose showing a plan;
+	 *  review keeps its checklist up and never drills in). When true, the action cluster gains a Restart
 	 *  chip alongside the close — Restart pops back to the scope picker (so the user can
 	 *  re-run with different scope) and dispatches `mode-back`, which the host routes to
 	 *  the appropriate workflow `.back()` method. Close still exits the mode entirely. */

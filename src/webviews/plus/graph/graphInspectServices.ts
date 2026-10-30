@@ -1,10 +1,11 @@
-import type { CancellationTokenSource, Disposable } from 'vscode';
-import { env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
+import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import {
@@ -15,15 +16,17 @@ import {
 } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import { annotateDiffWithNewLineNumbers, getAnnotatedNewLines, reanchorLineRange } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { normalizePath } from '@gitlens/utils/path.js';
+import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
+import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
@@ -31,6 +34,7 @@ import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInA
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
+import { GitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTarget } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
@@ -66,6 +70,7 @@ import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../syste
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
+import { getTabUris } from '../../../system/-webview/vscode/tabs.js';
 import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import { getCoreCommitDetails } from '../../commitDetails/commitDetailsWebview.utils.js';
@@ -84,6 +89,7 @@ import {
 	isComposeInputError,
 	libraryPlanToProposedCommits,
 } from './compose/utils.js';
+import { DeepReviewChannel, deepReviewRoute, getDeepReviewDiffCommand } from './deepReview.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -120,6 +126,10 @@ import type {
 	ComposeSessionKey,
 	ConflictFallbackInfo,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewAvailability,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphServices,
 	ProposedCommit,
 	QueuedTakeSide,
@@ -132,6 +142,11 @@ import type {
 	ResolveSkippedFile,
 	ReviewChangesOptions,
 	ReviewDetailResult,
+	ReviewFilesArgs,
+	ReviewOpenFileArgs,
+	ReviewOrientResult,
+	ReviewReadingAction,
+	ReviewReadingState,
 	ReviewResult,
 	ReviewThreadAction,
 	ReviewThreadActionsState,
@@ -144,6 +159,7 @@ import type {
 import type { ResolveRunErrors } from './resolveAIUnavailable.js';
 import { classifyResolveRunErrors, findAIUnavailableError, isAIQuotaExceededError } from './resolveAIUnavailable.js';
 import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
+import { claimReviewFiles, releaseReviewFiles } from './reviewReading.js';
 import { releaseReviewThreads, setReviewThreads } from './reviewThreads.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
@@ -154,6 +170,8 @@ export type GraphInspectServicesContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getSession: () => GitGraphSession | undefined;
+	/** Where an editor opened from the graph goes (beside an editor-hosted graph) — the review walk opens its stops there. */
+	getOpenEditorShowOptions: () => TextDocumentShowOptions | undefined;
 	getWipForRepoAndStats: (
 		repo: GlRepository,
 		signal?: AbortSignal,
@@ -332,15 +350,33 @@ export class GraphInspectServices {
 		'resolveProgress',
 		'save-last',
 	);
+	private readonly _reviewReadingEvent = createRpcEvent<ReviewReadingState | undefined>('reviewReading', 'save-last');
 	private readonly _reviewThreadActionsEvent = createRpcEvent<ReviewThreadActionsState | undefined>(
 		'reviewThreadActions',
 		'save-last',
 	);
 	/** Thread actions taken from the editor, kept append-only so a hidden panel catches up on all of them. */
 	private readonly _reviewThreadActions: ReviewThreadActionsState = { actions: [] };
+	private readonly _deepReviewEvent = createRpcEvent<DeepReviewState | undefined>('deepReview', 'save-last');
+	/** The deep review's report channel — what the agent reported stays readable after it closes. */
+	private _deepReview?: DeepReviewChannel;
+	/** The review's files, the working-tree paths their diffs open under, which one the editor is on, and
+	 *  what the editor marked viewed — host-owned so the keybindings keep working and the panel can follow
+	 *  the reader while the graph webview is hidden behind the diff. */
+	private _reviewFiles?: ReviewFilesArgs & {
+		byPath: Map<string, string>;
+		marked: string[];
+		active?: string;
+		/** Pending confirmation that no review diff is active — see `updateActiveReviewFile` */
+		activeSettling?: ReturnType<typeof setTimeout>;
+		tracking: Disposable;
+	};
 
 	dispose(): void {
+		this.clearReviewFiles();
 		releaseReviewThreads(this);
+		this._deepReview?.close();
+		this._deepReview = undefined;
 		// AI runs (generate/review/compose) are driven by the webview's AbortController, which can't
 		// fire once the webview is gone — cancel host-side so the AI call doesn't run for a discarded result.
 		cancelAndDispose(this._aiCancellations);
@@ -537,6 +573,25 @@ export class GraphInspectServices {
 						excludedFiles,
 						signal,
 					),
+				orientChanges: (repoPath, scope, prompt, excludedFiles, signal) =>
+					this.orientChanges(repoPath, scope, prompt, excludedFiles, signal),
+				startDeepReview: args => this.startDeepReview(args),
+				stopDeepReview: () => {
+					this.stopDeepReview();
+					return Promise.resolve();
+				},
+				getDeepReviewAvailability: () => this.getDeepReviewAvailability(),
+				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
+				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
+				setReviewFiles: args => this.setReviewFiles(args),
+				reviewStep: (action, path) => this.reviewStep(action, path),
+				openReviewFile: args => {
+					this.openReviewFile(args);
+					return Promise.resolve();
+				},
+				onReviewReading: this._reviewReadingEvent.subscribe(buffer, tracker, () =>
+					this.getReviewReadingState(),
+				),
 				setReviewThreads: args => {
 					setReviewThreads(this.container, this, args);
 					return Promise.resolve();
@@ -1289,26 +1344,8 @@ export class GraphInspectServices {
 			}
 
 			// Two-pass: build file manifest from the (already filtered) diff
-			const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
-				() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-			);
+			const fileManifest = await this.buildFileManifest(data.diff);
 			signal?.throwIfAborted();
-			// Pass 1 has nothing but this manifest to rank focus areas from — no diff content — so
-			// every field has to be what git would report: the parsed status per file (not a blanket
-			// "modified", which reads an added file as having a previous version to compare against),
-			// and changed-line counts that exclude unchanged context (see
-			// `countDiffInsertionsAndDeletions`).
-			const parsed = parseGitDiff(data.diff);
-			const parsedFiles = parsed.files.map(f => {
-				const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
-				return {
-					path: f.path,
-					status: f.status,
-					additions: insertions,
-					deletions: deletions,
-				};
-			});
-			const fileManifest = JSON.stringify(parsedFiles);
 
 			const overviewResult = await this.container.ai.actions.reviewOverview(
 				{
@@ -1344,6 +1381,382 @@ export class GraphInspectServices {
 		const actions = this._reviewThreadActions.actions;
 		actions.push({ seq: (actions.at(-1)?.seq ?? 0) + 1, findingId: findingId, action: action });
 		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
+	}
+
+	/** The manifest a diff-less pass (two-pass overview, orient) reads instead of the diff: every
+	 *  field is what git would report — the parsed status per file (not a blanket "modified", which
+	 *  reads an added file as having a previous version), and changed-line counts that exclude
+	 *  unchanged context (see `countDiffInsertionsAndDeletions`). */
+	private async buildFileManifest(diff: string): Promise<string> {
+		const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
+			() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+		);
+		const parsed = parseGitDiff(diff);
+		return JSON.stringify(
+			parsed.files.map(f => {
+				const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
+				return { path: f.path, status: f.status, additions: insertions, deletions: deletions };
+			}),
+		);
+	}
+
+	@debug()
+	private async orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+	): Promise<ReviewOrientResult> {
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		try {
+			signal?.throwIfAborted();
+
+			const reviewType = this.getReviewTypeForScope(scope);
+			const excluded = this.getNormalizedExclusions(excludedFiles);
+			// The diff cache is shared with the review runs under the same key — an orient that lands
+			// first leaves a filtered diff for the review to reuse, and the other way round.
+			const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+			const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
+			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
+			if (!data) return { error: { message: l10n.t('No changes found.') } };
+
+			if (cachedData == null) {
+				data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
+				if (!data.diff?.trim()) return { error: { message: l10n.t('No changes found.') } };
+
+				this._graphDetailsDiffCache.set(diffCacheKey, {
+					diff: data.diff,
+					message: data.message,
+					context: data.context,
+				});
+			}
+
+			const fileManifest = await this.buildFileManifest(data.diff);
+			signal?.throwIfAborted();
+
+			const result = await this.container.ai.actions.reviewOrient(
+				{
+					files: fileManifest,
+					message: data.message,
+					context: data.context,
+					instructions: prompt || undefined,
+				},
+				{ source: 'graph', context: { type: reviewType, mode: 'orient' } },
+				{ cancellation: cancellation },
+			);
+			if (result === 'cancelled' || result == null) {
+				return { error: { message: l10n.t('Orient was cancelled.') } };
+			}
+
+			const response = await result.promise;
+			if (response === 'cancelled' || response == null) {
+				return { error: { message: l10n.t('Orient was cancelled.') } };
+			}
+
+			return { result: response.result };
+		} catch (ex) {
+			return { error: { message: getPresentableErrorMessage(ex) } };
+		} finally {
+			disposeCancellation();
+		}
+	}
+
+	/** The channel is known up front; the agents take a detection pass, so the result is a snapshot. A failed CLI
+	 *  detection leaves the CLI agents unknown rather than absent, so it doesn't count as "no agents". */
+	private async getDeepReviewAvailability(): Promise<DeepReviewAvailability> {
+		// The server starts on first use, and with AI off nothing else may have used it yet: a server that can
+		// start counts — it is started when a review is handed over, not for asking
+		if (this.container.ipc.address == null && !this.container.ipc.canStart) {
+			return { available: false, reason: 'no-channel' };
+		}
+
+		const load = loadSupportedAgentsInStages(this.container);
+		if ((await load.nonCli).length > 0) return { available: true };
+
+		const { agents, cliDetectionFailed } = await load.all;
+		if (agents.length === 0 && !cliDetectionFailed) return { available: false, reason: 'no-agents' };
+		return { available: true };
+	}
+
+	/** Backs `onDeepReviewAvailability`. The panel asks once when it mounts, which can be before the IPC server is
+	 *  up (right after activation, or until AI is enabled) or before an agent CLI is installed — so the answer is
+	 *  sent again when the server starts and when the agents list changes. */
+	private subscribeToDeepReviewAvailability(
+		buffer: EventVisibilityBuffer | undefined,
+		tracker: SubscriptionTracker | undefined,
+	): RpcEventSubscription<DeepReviewAvailability> {
+		return createRpcEventSubscription<DeepReviewAvailability>(
+			buffer,
+			'deepReviewAvailability',
+			'save-last',
+			handler => {
+				// Agent detection takes a while, so answers can settle out of order — only the latest one is sent
+				let pending = 0;
+				const update = async () => {
+					const current = ++pending;
+					const availability = await this.getDeepReviewAvailability();
+					if (current !== pending) return;
+
+					handler(availability);
+				};
+				return Disposable.from(
+					this.container.ipc.onDidStart(() => void update()),
+					this.container.agents.onDidChangeAgents(() => void update()),
+				);
+			},
+			undefined,
+			tracker,
+		);
+	}
+
+	/** Opens a report channel on the IPC server and hands the scope to an agent whose prompt carries the
+	 *  channel's address and token — findings come back through {@link _deepReviewEvent} as they are
+	 *  POSTed. One channel per instance; starting again replaces it. */
+	@debug()
+	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		try {
+			const availability = await this.getDeepReviewAvailability();
+			// The local channel, started now if nothing has yet
+			if (availability.available && this.container.ipc.address == null) {
+				await this.container.ipc.ensureStarted();
+			}
+			const endpoint = this.container.ipc.address;
+			const token = this.container.ipc.token;
+			if (
+				(!availability.available && availability.reason === 'no-channel') ||
+				endpoint == null ||
+				token == null
+			) {
+				void window.showWarningMessage(
+					l10n.t(
+						'Review in Repo needs the GitLens local channel, which is not available in this environment.',
+					),
+				);
+				return { ok: false, reason: 'no-channel' };
+			}
+			if (!availability.available) {
+				void window.showWarningMessage(l10n.t('No supported AI agent is available in this editor.'));
+				return { ok: false, reason: availability.reason };
+			}
+
+			this.stopDeepReview();
+			const channel = new DeepReviewChannel(this.container.ipc, state => {
+				if (this._deepReview === channel) {
+					this._deepReviewEvent.fire(state);
+				}
+			});
+			this._deepReview = channel;
+			this._deepReviewEvent.fire(channel.state);
+
+			const endpoints = getReviewDiffEndpoints(args.scope);
+			const { prompt } = await this.container.ai.getPrompt('deep-review', undefined, {
+				scopeLabel: args.scopeLabel,
+				diffCommand:
+					endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff',
+				files: args.files.join('\n'),
+				endpoint: `${endpoint}/${deepReviewRoute}`,
+				token: token,
+				instructions: args.prompt,
+			});
+			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
+			await executeCommand('gitlens.runPromptInAgent', {
+				prompt: prompt,
+				cwd: args.repoPath,
+				mode: 'agent',
+				autoExecute: true,
+				source: 'graph',
+			} as RunPromptInAgentCommandArgs);
+			return { ok: true };
+		} catch (ex) {
+			this.stopDeepReview();
+			const message = getPresentableErrorMessage(ex);
+			void window.showWarningMessage(l10n.t('Unable to start a review in the repository: {0}', message));
+			return { ok: false, reason: 'error', message: message };
+		}
+	}
+
+	/** Closes the channel; what the agent reported stays with the review. */
+	private stopDeepReview(): void {
+		this._deepReview?.close();
+	}
+
+	private getReviewReadingState(): ReviewReadingState | undefined {
+		const files = this._reviewFiles;
+		if (files == null) return undefined;
+
+		return { active: files.active, marked: [...files.marked] };
+	}
+
+	@debug()
+	async setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void> {
+		if (args == null || args.paths.length === 0) {
+			this.clearReviewFiles();
+			this._reviewReadingEvent.fire(undefined);
+			return;
+		}
+
+		// Reshaping the set (the list moved, a plan was applied) keeps the marks; another review starts clean
+		const prior = this._reviewFiles;
+		const marked = prior?.repoPath === args.repoPath ? prior.marked : [];
+		prior?.tracking.dispose();
+		// The old set's wait for a settled active tab would fire on the new one
+		if (prior?.activeSettling != null) {
+			clearTimeout(prior.activeSettling);
+		}
+
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+		const uris: Uri[] = [];
+		const byPath = new Map<string, string>();
+		for (const path of args.paths) {
+			const uri = svc.getAbsoluteUri(path, args.repoPath);
+			uris.push(uri);
+			byPath.set(uri.path, path);
+			// Anything but the working tree opens as a revision document (a staged side included), which is
+			// what the title buttons must match on
+			if (!isUncommitted(args.rhs) || isUncommittedStaged(args.rhs)) {
+				uris.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
+			}
+		}
+
+		const tracking = Disposable.from(
+			window.tabGroups.onDidChangeTabs(() => this.updateActiveReviewFile()),
+			window.tabGroups.onDidChangeTabGroups(() => this.updateActiveReviewFile()),
+		);
+		this._reviewFiles = { ...args, byPath: byPath, marked: marked, tracking: tracking };
+		this._reviewFiles.active = this.findActiveReviewFile();
+		claimReviewFiles(this, uris);
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
+		return Promise.resolve();
+	}
+
+	private clearReviewFiles(): void {
+		if (this._reviewFiles?.activeSettling != null) {
+			clearTimeout(this._reviewFiles.activeSettling);
+		}
+		this._reviewFiles?.tracking.dispose();
+		this._reviewFiles = undefined;
+		releaseReviewFiles(this);
+	}
+
+	/** The review file under the active editor: the active group's tab first, then any other group's —
+	 *  a diff open beside the graph counts as being read even while the graph has focus. */
+	private findActiveReviewFile(): string | undefined {
+		if (this._reviewFiles == null) return undefined;
+
+		const active = window.tabGroups.activeTabGroup;
+		for (const group of [active, ...window.tabGroups.all.filter(g => g !== active)]) {
+			const path = this.getReviewFilePath(getTabUris(group.activeTab).modified);
+			if (path != null) return path;
+		}
+		return undefined;
+	}
+
+	/** Matches by path, so either side of a diff — revision document or working file — names its review file. */
+	private getReviewFilePath(uri: Uri | undefined): string | undefined {
+		const files = this._reviewFiles;
+		if (uri == null || files == null) return undefined;
+
+		for (const [absolute, path] of files.byPath) {
+			if (arePathsEqual(absolute, uri.path)) return path;
+		}
+		return undefined;
+	}
+
+	private updateActiveReviewFile(): void {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const active = this.findActiveReviewFile();
+		if (files.activeSettling != null) {
+			clearTimeout(files.activeSettling);
+			files.activeSettling = undefined;
+		}
+		if (active === files.active) return;
+
+		// Replacing a preview tab passes through a moment with no review diff active; waiting it out
+		// keeps the panel from flashing its progress state between two files
+		if (active == null) {
+			files.activeSettling = setTimeout(() => {
+				files.activeSettling = undefined;
+				const settled = this.findActiveReviewFile();
+				if (settled === files.active) return;
+
+				files.active = settled;
+				this._reviewReadingEvent.fire(this.getReviewReadingState());
+			}, 250);
+			return;
+		}
+
+		files.active = active;
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
+	}
+
+	/** Steps from a path (the panel's buttons), from an editor's resource (the diff title buttons), or from
+	 *  the active editor (the keybindings) — so several open diffs each step from their own file. */
+	@debug()
+	async reviewStep(action: ReviewReadingAction, from?: string | Uri): Promise<void> {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const path =
+			typeof from === 'string'
+				? from
+				: (this.getReviewFilePath(from ?? window.activeTextEditor?.document.uri) ??
+					this.findActiveReviewFile());
+		const index = path != null ? files.paths.indexOf(path) : -1;
+		if (index < 0) return;
+
+		const open = (path: string) =>
+			this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: path });
+		// The order loops: after the last file comes the first, before the first the last
+		const count = files.paths.length;
+		switch (action) {
+			case 'markViewed':
+				files.marked.push(files.paths[index]);
+				if (count > 1) {
+					open(files.paths[(index + 1) % count]);
+				}
+				break;
+			case 'next':
+				if (count > 1) {
+					open(files.paths[(index + 1) % count]);
+				}
+				break;
+			case 'previous':
+				if (count > 1) {
+					open(files.paths[(index - 1 + count) % count]);
+				}
+				break;
+		}
+
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
+		return Promise.resolve();
+	}
+
+	/** One preview tab, reused file after file, beside an editor-hosted graph — so the panel stays in
+	 *  view to follow along. The checklist, a finding and a plan open through here too, so the first
+	 *  file lands where the steps will keep it. */
+	private openReviewFile(args: ReviewOpenFileArgs): void {
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+		const fileUri = svc.getAbsoluteUri(args.path, args.repoPath);
+		const range: DiffRange | undefined =
+			args.line != null && args.line > 0
+				? {
+						startLine: args.line,
+						startCharacter: 1,
+						endLine: args.lineEnd ?? args.line,
+						endCharacter: 1,
+						active: 'start',
+					}
+				: undefined;
+		void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+			repoPath: args.repoPath,
+			lhs: { sha: args.lhs, uri: fileUri },
+			rhs: { sha: args.rhs, uri: fileUri },
+			range: range,
+			showOptions: { preview: true, preserveFocus: false, ...this.context.getOpenEditorShowOptions() },
+		});
 	}
 
 	private async reviewFocusArea(

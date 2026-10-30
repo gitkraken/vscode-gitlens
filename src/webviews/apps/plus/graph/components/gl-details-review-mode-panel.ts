@@ -3,10 +3,13 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { repeat } from 'lit/directives/repeat.js';
+import { isMac } from '@env/platform.js';
 import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
 	AIReviewFocusArea,
+	AIReviewOrientResult,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
 import { redispatch } from '@gitlens/components/components/element.js';
@@ -20,11 +23,16 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
-import type { ViewFilesLayout } from '../../../../../config.js';
+import type { KeyMap, ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type {
+	DeepReviewAvailability,
+	ReviewReadingAction,
+	ScopeFile,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import type {
@@ -53,6 +61,7 @@ import {
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
 import type {
+	ReviewFileFindings,
 	ReviewFileIdentity,
 	ReviewFindingCounts,
 	ReviewFindingState,
@@ -63,8 +72,11 @@ import {
 	countReviewFindingStates,
 	emptyReviewSession,
 	getClosedFindingIds,
+	getReviewFileFindings,
 	getReviewFileProgress,
 	getReviewProgress,
+	getReviewReadingOrder,
+	getReviewReadingShortcut,
 	isReviewComplete,
 } from './reviewSession.js';
 import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
@@ -83,6 +95,12 @@ import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-categorizing-loading-animation.js';
 import './gl-commits-scope-pane.js';
+
+/** A plan's group is already an ordering — its pane lists files flat, in that order. */
+export interface ReviewReadingStepDetail {
+	action: ReviewReadingAction;
+	path: string;
+}
 
 export interface ReviewOpenFileDetail {
 	filePath: string;
@@ -118,6 +136,11 @@ export interface ReviewSendToChatDetail {
 
 export interface ReviewCopiedDetail {
 	granularity: 'review' | 'focusArea' | 'finding';
+}
+
+/** A reading plan's pane's key — its group's place in the plan, -1 for the files the plan left out. */
+function orientPaneKey(index: number): string {
+	return `orient:${index}`;
 }
 
 /** True when `next` is a same-run delta of `prev` — same focus areas (count + ids in same
@@ -189,7 +212,39 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	session?: ReviewSession;
 
-	/** Whether AI review is on at all. The walk and its checklist don't need it. */
+	/** What the host reports about the editor: the review file whose diff is active, when one is. */
+	@property({ attribute: false })
+	reading?: { active?: string };
+
+	/** The orient depth's reading plan: groups the checklist by concern with a line of context per file. */
+	@property({ attribute: false })
+	orient?: AIReviewOrientResult;
+
+	@property({ type: Boolean, attribute: 'orient-running' })
+	orientRunning = false;
+
+	@property()
+	orientError?: string;
+
+	/** The delegated deep review on this anchor, while one is open or once it reported done. */
+	@property({ attribute: false })
+	deepReview?: { active: boolean; done: boolean; count: number };
+
+	/** Whether a deep review can start here at all; unknown (`undefined`) keeps the depth offered. */
+	@property({ attribute: false })
+	deepReviewAvailability?: DeepReviewAvailability;
+
+	/** `gitlens.keymap`, for naming the reading shortcuts in the panel's hints. */
+	@property()
+	keymap?: KeyMap;
+
+	/** Notes from the reading plan by path, for the file rows' decorations. */
+	private _orientNotes?: ReadonlyMap<string, string>;
+
+	/** Findings by path, for the file rows' marks — open count and worst severity, or all closed. */
+	private _fileFindings?: ReadonlyMap<string, ReviewFileFindings>;
+
+	/** Whether AI review is on at all. Reading the files and the checklist don't need it. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
 	aiEnabled = false;
 
@@ -254,6 +309,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return this._runExclusions;
 	}
 	@state() private _runExclusions: ReadonlySet<string> = emptyReviewSession.excluded;
+
+	/** Each checklist pane's files in the order it renders them, by pane key — the reading order's source. */
+	@state() private _treeOrders: ReadonlyMap<string, readonly string[]> = new Map();
+	/** The reading order last announced to the host-facing side, to announce only changes. */
+	private _announcedOrder?: readonly string[];
 	/** Bumped with the session so the file tree re-reads its callbacks (decorations, row actions). */
 	@state() private _sessionRevision = 0;
 
@@ -294,10 +354,25 @@ export class GlDetailsReviewModePanel extends LitElement {
 			this._aiExcludedSet = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
 		}
 
+		if (changedProperties.has('orient')) {
+			this._orientNotes = this.orient
+				? new Map(this.orient.groups.flatMap(g => g.files.map(f => [f.path, f.note] as const)))
+				: undefined;
+			this._sessionRevision++;
+		}
+
 		if (changedProperties.has('aiExcludedFiles') || changedProperties.has('session')) {
 			const excluded = this.session?.excluded ?? emptyReviewSession.excluded;
 			this._runExclusions = this._aiExcludedSet?.size ? new Set([...excluded, ...this._aiExcludedSet]) : excluded;
 			this._sessionRevision++;
+		}
+
+		if (changedProperties.has('result') || changedProperties.has('session')) {
+			const findings = getReviewFileFindings(this.result, this.session);
+			this._fileFindings = findings.size ? findings : undefined;
+			if (changedProperties.has('result')) {
+				this._sessionRevision++;
+			}
 		}
 
 		if (changedProperties.has('files')) {
@@ -345,7 +420,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
-		this.setAttribute('aria-label', l10n.t('AI Code Review'));
+		this.setAttribute('aria-label', l10n.t('Review Changes'));
 	}
 
 	override render() {
@@ -362,11 +437,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (this.status === 'error') {
-			return renderErrorState(
-				this.errorMessage,
-				l10n.t('An error occurred during review.'),
-				'review-error-retry',
-				'review-error-back',
+			return this.renderWithChecklist(
+				renderErrorState(
+					this.errorMessage,
+					l10n.t('An error occurred during review.'),
+					'review-error-retry',
+					'review-error-back',
+				),
 			);
 		}
 
@@ -459,6 +536,23 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<code-icon icon="sparkle" slot="prefix"></code-icon>
 				${l10n.t('Follow-Up')}
 				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="secondary"
+				tooltip=${l10n.t('Orient: group and order the files with one line of context each — a map for your own read, not findings')}
+				?disabled=${this.orientRunning || this.getEffectiveFileCount() === 0}
+				@click=${this.handleOrient}
+			>
+				<code-icon icon=${this.orientRunning ? 'loading' : 'zap'} slot="prefix"></code-icon>${l10n.t('Orient')}
+			</gl-button>
+			<gl-button
+				appearance="secondary"
+				tooltip=${l10n.t('Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review')}
+				?disabled=${this.deepReview?.active || this.getEffectiveFileCount() === 0}
+				@click=${this.handleDeepReview}
+			>
+				<code-icon icon=${this.deepReview?.active ? 'loading' : 'robot'} slot="prefix"></code-icon
+				>${l10n.t('Review in Repo')}
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Delete Findings')}</gl-button>
 		</div>`;
@@ -665,7 +759,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
 		if (!scope) return nothing;
 
-		// Disable Start Review when there are no effectively-included files (after both user
+		// Disable Review Diff when there are no effectively-included files (after both user
 		// exclusions and AI-ignored exclusions). Stale exclusions are pruned in willUpdate.
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
@@ -704,8 +798,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 									multiline
 									active
 									rows="2"
-									button-label=${l10n.t('Start Review')}
-									busy-label=${l10n.t('Reviewing changes…')}
+									button-label=${l10n.t('Review Diff')}
+									busy-label=${l10n.t('Reviewing the diff…')}
 									event-name="review-run"
 									placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
 									.value=${this.idleDraft ?? this.lastPrompt}
@@ -713,18 +807,181 @@ export class GlDetailsReviewModePanel extends LitElement {
 									@input=${this.onAiInputType}
 								>
 									<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+									<gl-button
+										slot="footer"
+										class="review-orient__button"
+										appearance="toolbar"
+										density="compact"
+										tooltip=${l10n.t(
+											'Orient: group and order the files with one line of context each — a map for your own read, not findings',
+										)}
+										?disabled=${this.orientRunning || !hasSelectedFiles}
+										@click=${this.handleOrient}
+									>
+										<code-icon
+											icon=${this.orientRunning ? 'loading' : 'zap'}
+											slot="prefix"
+										></code-icon>
+										${this.orientRunning ? l10n.t('Orienting…') : l10n.t('Orient')}
+									</gl-button>
+									<gl-button
+										slot="footer"
+										class="review-deep__button"
+										appearance="toolbar"
+										density="compact"
+										tooltip=${
+											this.deepReviewUnavailableReason ??
+											l10n.t(
+												'Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review',
+											)
+										}
+										?disabled=${
+											this.deepReview?.active ||
+											!hasSelectedFiles ||
+											this.deepReviewUnavailableReason != null
+										}
+										@click=${this.handleDeepReview}
+									>
+										<code-icon
+											icon=${this.deepReview?.active ? 'loading' : 'robot'}
+											slot="prefix"
+										></code-icon>
+										${this.deepReview?.active ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
+									</gl-button>
 								</gl-ai-input>`,
 							)}
+							${this.orientError ? html`<div class="review-orient__error">${this.orientError}</div>` : nothing}
 						</div>`
 					: nothing
 			}
 		`;
 	}
 
-	/** The review's ending — shown once every file in the walk is viewed, with a summary to take away. */
+	/** Why the deep depth is off here, when the host has said it can't start — the button's tooltip. */
+	private get deepReviewUnavailableReason(): string | undefined {
+		const availability = this.deepReviewAvailability;
+		if (availability == null || availability.available) return undefined;
+		return availability.reason === 'no-channel'
+			? l10n.t('Review in Repo needs the GitLens local channel, which is not available in this environment')
+			: l10n.t('Review in Repo needs an AI agent, and none is available in this editor');
+	}
+
+	private readingShortcut(key: ReviewReadingAction): string | undefined {
+		return getReviewReadingShortcut(this.keymap, key, isMac);
+	}
+
+	/** A control's label with its shortcut after it, when the keymap has one. */
+	private withReadingShortcut(label: string, key: ReviewReadingAction): string {
+		const shortcut = this.readingShortcut(key);
+		return shortcut == null ? label : l10n.t('{label} ({shortcut})', { label: label, shortcut: shortcut });
+	}
+
+	private onTreeOrderChanged(key: string, e: CustomEvent<{ paths: string[] }>): void {
+		e.stopPropagation();
+		const paths = e.detail.paths;
+		const known = this._treeOrders.get(key);
+		if (known != null && known.length === paths.length && known.every((p, i) => p === paths[i])) return;
+
+		const next = new Map(this._treeOrders);
+		next.set(key, paths);
+		this._treeOrders = next;
+	}
+
+	/** The plan's panes, kept across renders while the plan and the files are the same objects — a fresh
+	 *  `files` array per render would make every pane rebuild its model on every render. */
+	private _orientPanes?: {
+		orient: AIReviewOrientResult;
+		files: readonly ScopeFile[];
+		panes: { key: string; label: string; summary?: string; files: ScopeFile[] }[];
+	};
+
+	private getOrientPanes(orient: AIReviewOrientResult, renderFiles: readonly ScopeFile[]) {
+		const cached = this._orientPanes;
+		if (cached?.orient === orient && cached.files === renderFiles) return cached.panes;
+
+		const byPath = new Map(renderFiles.map(f => [f.path, f]));
+		const placed = new Set<string>();
+		const panes: { key: string; label: string; summary?: string; files: ScopeFile[] }[] = [];
+		for (const [index, group] of orient.groups.entries()) {
+			const files: ScopeFile[] = [];
+			for (const { path } of group.files) {
+				const file = byPath.get(path);
+				if (file == null || placed.has(path)) continue;
+
+				placed.add(path);
+				files.push(file);
+			}
+			if (files.length === 0) continue;
+
+			// The label and summary say what the group is; its kind only ordered it
+			// Keyed by the group's place in the plan, which a group emptied out of the scope doesn't shift
+			panes.push({
+				key: orientPaneKey(index),
+				label: getReviewFocusAreaLabel(group),
+				summary: group.summary || undefined,
+				files: files,
+			});
+		}
+		const rest = renderFiles.filter(f => !placed.has(f.path));
+		if (rest.length > 0) {
+			panes.push({ key: orientPaneKey(-1), label: l10n.t('Not in the plan'), files: rest });
+		}
+
+		this._orientPanes = { orient: orient, files: renderFiles, panes: panes };
+		return panes;
+	}
+
+	/** The checklist's files top to bottom: the plan's panes in turn, or the one tree. */
+	private get treeOrder(): string[] | undefined {
+		// A plan's panes go by their place, not their label — two groups can read the same — and each keeps
+		// only its own files, so an order left by an earlier plan's pane in that place can't pull a file
+		// across groups
+		const panes = this.orient != null ? this._orientPanes?.panes : undefined;
+		const paths =
+			panes != null
+				? panes.flatMap(pane => {
+						const own = new Set(pane.files.map(f => f.path));
+						return (this._treeOrders.get(pane.key) ?? []).filter(p => own.has(p));
+					})
+				: [...(this._treeOrders.get('tree') ?? [])];
+		return paths.length > 0 ? paths : undefined;
+	}
+
+	/** The files to read in order — the plan's order first, then the checklist top to bottom. */
+	get readingOrder(): string[] {
+		return getReviewReadingOrder(this.session, this.files, this.treeOrder);
+	}
+
+	override updated(): void {
+		const order = this.readingOrder;
+		const announced = this._announcedOrder;
+		if (announced != null && announced.length === order.length && announced.every((p, i) => p === order[i])) {
+			return;
+		}
+
+		this._announcedOrder = order;
+		this.dispatchEvent(
+			new CustomEvent<{ paths: string[] }>('review-reading-order', {
+				detail: { paths: order },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	/** The strip above the checklist: the file being read and its steps while a review diff is active, the
+	 *  progress otherwise, and the review's ending — with a summary to take away — once every file is viewed. */
 	private renderDoneCard() {
+		return html`${this.renderDeepReviewStrip()}`;
+	}
+
+	private renderReadingOrEnding() {
 		const progress = getReviewProgress(this.session, this.files);
-		if (!isReviewComplete(progress)) return nothing;
+		if (!isReviewComplete(progress)) {
+			if (progress.total === 0) return nothing;
+
+			return this.renderReadingStrip(progress);
+		}
 
 		const counts = countReviewFindingStates(this.result, this.session);
 		const parts = [
@@ -777,6 +1034,78 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
+	private renderReadingHint() {
+		const shortcut = this.readingShortcut('markViewed');
+		return shortcut == null
+			? l10n.t('Open a file to read it; mark files viewed as you go')
+			: l10n.t('Open a file to read it; {shortcut} in the diff marks it viewed and opens the next', {
+					shortcut: shortcut,
+				});
+	}
+
+	/** Follows the editor: the review file whose diff is active gets its place in the order and the steps
+	 *  from there; with no review diff active the strip reads as plain progress. */
+	private renderReadingStrip(progress: ReviewProgress) {
+		const paths = this.readingOrder;
+		const index = this.reading?.active != null ? paths.indexOf(this.reading.active) : -1;
+		const active = paths[index];
+		if (active == null) {
+			return html`<div class="review-walk" role="status">
+				<div class="review-walk__body">
+					<div class="review-walk__title">
+						${l10n.t('{viewed} of {total} viewed', { viewed: progress.viewed, total: progress.total })}
+					</div>
+					<div class="review-walk__hint">${this.renderReadingHint()}</div>
+				</div>
+			</div>`;
+		}
+
+		return html`<div class="review-walk review-walk--reading" role="status">
+			<div class="review-walk__body">
+				<div class="review-walk__title">
+					${l10n.t('Reading {index} of {total}', { index: index + 1, total: paths.length })}
+				</div>
+				<div class="review-walk__file">${active}</div>
+			</div>
+			<div class="review-walk__actions">
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${this.withReadingShortcut(l10n.t('Previous File in Review'), 'previous')}
+					@click=${() => this.handleReadingStep('previous', active)}
+				>
+					<code-icon icon="arrow-left"></code-icon>
+				</gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${this.withReadingShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
+					@click=${() => this.handleReadingStep('markViewed', active)}
+				>
+					<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
+				</gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${this.withReadingShortcut(l10n.t('Next File in Review'), 'next')}
+					@click=${() => this.handleReadingStep('next', active)}
+				>
+					<code-icon icon="arrow-right"></code-icon>
+				</gl-button>
+			</div>
+		</div>`;
+	}
+
+	private handleReadingStep(action: ReviewReadingAction, path: string): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewReadingStepDetail>('review-reading-step', {
+				detail: { action: action, path: path },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
 	private formatSummaryMarkdown(progress: ReviewProgress, counts: ReviewFindingCounts): string {
 		const lines = [
 			`## ${l10n.t('Review of {scope}', { scope: this.scopeContextLabel() })}`,
@@ -811,6 +1140,36 @@ export class GlDetailsReviewModePanel extends LitElement {
 			this.dispatchEvent(new CustomEvent('review-forward-invalidate', { bubbles: true, composed: true }));
 		}
 	};
+
+	/** Each plan group's own layout — the groups' toggles are independent, starting from the checklist's
+	 *  layout. Kept per plan, so a plan's panes don't take another plan's toggles at the same place, and a
+	 *  plan shown again has its own back. Memoized per group for the same reason as `paneFilesLayout`. */
+	private readonly _orientPaneLayouts = new WeakMap<AIReviewOrientResult, Map<string, { layout: ViewFilesLayout }>>();
+	private getOrientPaneLayouts(): Map<string, { layout: ViewFilesLayout }> {
+		// Only the plan's panes ask, so there is one
+		const orient = this.orient!;
+		let layouts = this._orientPaneLayouts.get(orient);
+		if (layouts == null) {
+			layouts = new Map();
+			this._orientPaneLayouts.set(orient, layouts);
+		}
+		return layouts;
+	}
+
+	private orientPaneLayout(key: string): { layout: ViewFilesLayout } {
+		const layouts = this.getOrientPaneLayouts();
+		let cached = layouts.get(key);
+		if (cached == null) {
+			cached = { layout: this.fileLayout };
+			layouts.set(key, cached);
+		}
+		return cached;
+	}
+
+	private setOrientPaneLayout(key: string, layout: ViewFilesLayout): void {
+		this.getOrientPaneLayouts().set(key, { layout: layout });
+		this.requestUpdate();
+	}
 
 	/** Memoized `.filesLayout` payload for the inner pane — a fresh literal per render would trip
 	 * the pane's tree-model rebuild via Lit's reference-equality dirty check. */
@@ -847,7 +1206,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const renderFiles = files ?? this.files ?? [];
 
 		// The checkbox is the reader's Viewed mark. Set-aside files keep their row (so they can be
-		// brought back) but leave the walk; AI-ignore only annotates — a human may still want to skim
+		// brought back) but leave the reading order; AI-ignore only annotates — a human may still want to skim
 		// what the AI shouldn't read.
 		const session = this.session;
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
@@ -859,63 +1218,214 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
-		return html`<div class="scope-files__tree">
-			<webview-pane-group flexible>
-				<gl-file-tree-pane
-					.files=${renderFiles}
-					?checkable=${true}
-					?multi-selectable=${true}
-					?show-file-icons=${true}
-					.collapsable=${false}
-					.filesLayout=${this.paneFilesLayout}
-					.checkableStates=${checkableStates}
-					.fileActions=${this.fileActionsForFile}
-					.fileDecorations=${this.decorationsForFile}
-					.fileContext=${this.getFileContext}
-					.contextRevision=${`${this.contextRevision}:${this._sessionRevision}`}
-					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
-					selection-action="file-compare-range"
-					@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
-						this.handleOpenFile(e.detail.path)}
-					.searchContext=${this.searchContext}
-					.showSearchBox=${this.showSearchBox}
-					.searchBoxFilter=${this.searchBoxFilter}
-					check-action="viewed"
-					empty-text=${l10n.t('No files changed')}
-					@file-checked=${this.onFileChecked}
-					@gl-check-all=${this.onToggleCheckAll}
-					@review-file-exclude=${(e: CustomEvent<FileChangeListItemDetail>) =>
-						this.dispatchFileExcluded(e.detail.path, true)}
-					@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
-						this.dispatchFileExcluded(e.detail.path, false)}
-					@file-open=${this.redispatch}
-					@file-stage=${this.redispatch}
-					@file-unstage=${this.redispatch}
-					@file-compare-working=${this.redispatch}
-					@file-open-on-remote=${this.redispatch}
-					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
-						(this._selectedFiles = e.detail?.files ?? [])}
-					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
-						this.fileLayout = e.detail.layout;
-					}}
-				>
-					${
-						renderFiles.length > 0
-							? renderOpenChangesAction({
-									selectedCount: this._selectedFiles.length,
-									slot: 'leading-actions',
-									onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
-									onOpenSelected: () => {
-										const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
-										this.onOpenScopeMultiDiff(renderFiles.filter(f => selectedPaths.has(f.path)));
-									},
-								})
-							: nothing
-					}
-				</gl-file-tree-pane>
-			</webview-pane-group>
+		if (this.orient != null) return this.renderOrientPlan(renderFiles, checkableStates);
+
+		return html`${this.renderReadingOrEnding()}
+			<div class="scope-files__tree">
+				<webview-pane-group flexible>
+					<gl-file-tree-pane
+						.files=${renderFiles}
+						?checkable=${true}
+						?multi-selectable=${true}
+						?show-file-icons=${true}
+						.collapsable=${false}
+						.revealPath=${this.reading?.active}
+						reveal-only
+						@tree-order-changed=${(e: CustomEvent<{ paths: string[] }>) => this.onTreeOrderChanged('tree', e)}
+						.filesLayout=${this.paneFilesLayout}
+						.checkableStates=${checkableStates}
+						.fileActions=${this.fileActionsForFile}
+						.fileDecorations=${this.decorationsForFile}
+						.fileContext=${this.getFileContext}
+						.contextRevision=${`${this.contextRevision}:${this._sessionRevision}`}
+						.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+						selection-action="file-compare-range"
+						@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.handleOpenFile(e.detail.path)}
+						.searchContext=${this.searchContext}
+						.showSearchBox=${this.showSearchBox}
+						.searchBoxFilter=${this.searchBoxFilter}
+						check-action="viewed"
+						empty-text=${l10n.t('No files changed')}
+						@file-checked=${this.onFileChecked}
+						@gl-check-all=${this.onToggleCheckAll}
+						@review-file-exclude=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.dispatchFileExcluded(e.detail.path, true)}
+						@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.dispatchFileExcluded(e.detail.path, false)}
+						@review-file-findings=${this.onOpenFileFindings}
+						@file-open=${this.redispatch}
+						@file-stage=${this.redispatch}
+						@file-unstage=${this.redispatch}
+						@file-compare-working=${this.redispatch}
+						@file-open-on-remote=${this.redispatch}
+						@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+							(this._selectedFiles = e.detail?.files ?? [])}
+						@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
+							this.fileLayout = e.detail.layout;
+						}}
+					>
+						${
+							renderFiles.length > 0
+								? renderOpenChangesAction({
+										selectedCount: this._selectedFiles.length,
+										slot: 'leading-actions',
+										onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
+										onOpenSelected: () => {
+											const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
+											this.onOpenScopeMultiDiff(
+												renderFiles.filter(f => selectedPaths.has(f.path)),
+											);
+										},
+									})
+								: nothing
+						}
+					</gl-file-tree-pane>
+				</webview-pane-group>
+			</div>`;
+	}
+
+	/** The checklist reshaped by the reading plan: one pane per group, in reading order, each file with
+	 *  its line of context; files the plan didn't place come last. */
+	private renderOrientPlan(
+		renderFiles: readonly ScopeFile[],
+		checkableStates: Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>,
+	) {
+		const orient = this.orient!;
+		const panes = this.getOrientPanes(orient, renderFiles);
+
+		return html`${this.renderReadingOrEnding()}
+			<div class="scope-files__tree scope-files__tree--flow">
+				<div class="review-orient">
+					<div class="review-orient__body">
+						<div class="review-orient__title">${l10n.t('Reading plan')}</div>
+						<p class="review-orient__overview">${orient.overview}</p>
+					</div>
+					<div class="review-orient__actions">
+						<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip=${l10n.t('Drop the plan and go back to the file tree')}
+							@click=${this.handleOrientClear}
+						>
+							${l10n.t('Dismiss Plan')}
+						</gl-button>
+					</div>
+				</div>
+				<webview-pane-group>
+					${repeat(
+						panes,
+						pane => pane.key,
+						pane => html`<gl-file-tree-pane
+							flow
+							header=${pane.label}
+							.files=${pane.files}
+							.revealPath=${this.reading?.active}
+							reveal-only
+							@tree-order-changed=${(e: CustomEvent<{ paths: string[] }>) =>
+								this.onTreeOrderChanged(pane.key, e)}
+							?checkable=${true}
+							?multi-selectable=${true}
+							?show-file-icons=${true}
+							.filesLayout=${this.orientPaneLayout(pane.key)}
+							@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) =>
+								this.setOrientPaneLayout(pane.key, e.detail.layout)}
+							.checkableStates=${checkableStates}
+							.fileActions=${this.fileActionsForFile}
+							.fileDecorations=${this.decorationsForFile}
+							.fileContext=${this.getFileContext}
+							.contextRevision=${`${this.contextRevision}:${this._sessionRevision}`}
+							.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+							selection-action="file-compare-range"
+							@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
+								this.handleOpenFile(e.detail.path)}
+							check-action="viewed"
+							@file-checked=${this.onFileChecked}
+							@gl-check-all=${this.onToggleCheckAll}
+							@review-file-exclude=${(e: CustomEvent<FileChangeListItemDetail>) =>
+								this.dispatchFileExcluded(e.detail.path, true)}
+							@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
+								this.dispatchFileExcluded(e.detail.path, false)}
+							@review-file-findings=${this.onOpenFileFindings}
+							@file-open=${this.redispatch}
+							@file-stage=${this.redispatch}
+							@file-unstage=${this.redispatch}
+							@file-compare-working=${this.redispatch}
+							@file-open-on-remote=${this.redispatch}
+						>
+							${
+								pane.summary
+									? html`<p slot="before-tree" class="review-orient__group-summary">
+											${pane.summary}
+										</p>`
+									: nothing
+							}
+						</gl-file-tree-pane>`,
+					)}
+				</webview-pane-group>
+			</div>`;
+	}
+
+	private handleOrient = (): void => {
+		this.dispatchEvent(
+			new CustomEvent<{ prompt?: string }>('review-orient', {
+				detail: { prompt: this.idleDraftLive || undefined },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleDeepReview = (): void => {
+		this.dispatchEvent(
+			new CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>('review-deep-review', {
+				detail: {
+					prompt: this.idleDraftLive || undefined,
+					scopeLabel: this.scopeContextLabel(),
+					files: this.readingOrder,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleDeepReviewStop = (): void => {
+		this.dispatchEvent(new CustomEvent('review-deep-review-stop', { bubbles: true, composed: true }));
+	};
+
+	/** The deep review's status strip — while the agent works and once it reported done. */
+	private renderDeepReviewStrip() {
+		const deep = this.deepReview;
+		if (deep == null || (!deep.active && !deep.done)) return nothing;
+
+		const count = formatPlural(
+			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
+			{ count: deep.count },
+		);
+		return html`<div class="review-deep" role="status">
+			<code-icon class="review-deep__icon" icon=${deep.active ? 'loading' : 'robot'}></code-icon>
+			<span class="review-deep__text"
+				>${deep.active ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${count}</span
+			>
+			${
+				deep.active
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip=${l10n.t('Stop')}
+							@click=${this.handleDeepReviewStop}
+						>
+							<code-icon icon="close"></code-icon>
+						</gl-button>`
+					: nothing
+			}
 		</div>`;
 	}
+
+	private handleOrientClear = (): void => {
+		this.dispatchEvent(new CustomEvent('review-orient-clear', { bubbles: true, composed: true }));
+	};
 
 	private fileActionsForFile = (file: GitFileChangeShape): TreeItemAction[] => {
 		const excluded = this.session?.excluded.has(file.path) ?? false;
@@ -969,7 +1479,71 @@ export class GlDetailsReviewModePanel extends LitElement {
 				position: 'before',
 			});
 		}
+		const findings = this._fileFindings?.get(file.path);
+		if (findings != null) {
+			decorations.push(this.getFindingsDecoration(findings));
+		}
+		const note = this._orientNotes?.get(file.path);
+		if (note) {
+			decorations.push({ type: 'text', label: note, tooltip: note, kind: 'muted', position: 'after' });
+		}
 		return decorations.length ? decorations : undefined;
+	};
+
+	/** The row's findings mark: the open count in the color of the worst one, or the closed count, muted,
+	 *  once every finding on the file has been dismissed. The findings themselves sit in the
+	 *  diff as comment threads, which the tooltip says. */
+	private getFindingsDecoration(findings: ReviewFileFindings): TreeItemDecoration {
+		const action = findings.target != null ? 'review-file-findings' : undefined;
+		if (findings.open === 0) {
+			const closed = formatPlural(
+				l10n.t('{count, plural, one{{count} finding, dismissed} other{{count} findings, all dismissed}}'),
+				{ count: findings.closed },
+			);
+			return {
+				type: 'count',
+				icon: 'comment',
+				count: findings.closed,
+				kind: 'muted',
+				label: closed,
+				tooltip: action ? `${closed} · ${l10n.t('Click to open the diff on the first one')}` : closed,
+				position: 'after',
+				...(action ? { action: action } : {}),
+			};
+		}
+
+		const open = formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
+			count: findings.open,
+		});
+		const severity =
+			findings.severity === 'critical'
+				? l10n.t('Critical')
+				: findings.severity === 'warning'
+					? l10n.t('Warning')
+					: l10n.t('Suggestion');
+		const parts = [open, l10n.t('{severity} at worst', { severity: severity })];
+		if (findings.closed > 0) {
+			parts.push(l10n.t('{count} dismissed', { count: findings.closed }));
+		}
+		parts.push(
+			action ? l10n.t('Click to open the diff on the first open one') : l10n.t('Shown as comments in the diff'),
+		);
+		return {
+			type: 'count',
+			icon: 'comment',
+			count: findings.open,
+			kind: findings.severity === 'critical' ? 'error' : findings.severity === 'warning' ? 'warning' : 'info',
+			label: open,
+			tooltip: parts.join(' · '),
+			position: 'after',
+			...(action ? { action: action } : {}),
+		};
+	}
+
+	/** The mark's click: the diff, on the file's first open finding (or first of all, once closed). */
+	private onOpenFileFindings = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		const target = this._fileFindings?.get(e.detail.path)?.target;
+		this.handleOpenFile(e.detail.path, target?.start, target?.end);
 	};
 
 	private getFileContext = (file: ScopeFile): string | undefined => {
@@ -1248,8 +1822,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 									// muted color (it's a locator, not part of the path).
 									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
 									const path = match?.[1] ?? f;
-									const start = match?.[2] != null ? Number(match[2]) : undefined;
-									const end = match?.[3] != null ? Number(match[3]) : start;
+									let start = match?.[2] != null ? Number(match[2]) : undefined;
+									let end = match?.[3] != null ? Number(match[3]) : start;
+									// Without a locator of its own, the link lands on the area's first finding in
+									// the file — the thread is there, not at the top
+									if (start == null) {
+										const first = area.findings?.find(
+											fi => fi.filePath === path && fi.lineRange != null,
+										);
+										start = first?.lineRange?.start;
+										end = first?.lineRange?.end ?? start;
+									}
 									const lineRange =
 										start == null ? '' : end !== start ? `:${start}-${end}` : `:${start}`;
 									return html`<button
@@ -1402,6 +1985,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 					${severityLabel}
 				</span>
 				<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>
+				${
+					finding.source === 'agent'
+						? html`<span class="review-finding__source" title=${l10n.t('Reported by your agent')}
+								>${l10n.t('Agent')}</span
+							>`
+						: nothing
+				}
 				${state != null ? html`<span class="review-finding__state">${l10n.t('Dismissed')}</span>` : nothing}
 				<span class="review-finding__actions">
 					<gl-copy-container
