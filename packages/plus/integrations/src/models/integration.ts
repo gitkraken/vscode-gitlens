@@ -745,26 +745,59 @@ export abstract class IntegrationBase<
 	}
 
 	private static readonly requestExceptionLimit = 5;
+	/** The primary connection's strikes (see {@link trackRequestException}). */
 	private requestExceptionCount = 0;
+	/** The strikes of every other connection, by connection id. */
+	private readonly connectionRequestExceptionCounts = new Map<string, number>();
+
+	/**
+	 * The connection a read's strikes and successes count against: `undefined` for the primary, which a read reaches
+	 * by omitting `connectionId` or by naming it, else the connection named. The primary is named by its session's id,
+	 * which is its connection's id, or, before that session is resolved, by the connection configured as primary.
+	 */
+	private getSecondaryConnectionId(connectionId: string | undefined): string | undefined {
+		if (!connectionId || connectionId === this._session?.id) return undefined;
+		if (
+			connectionId ===
+			this.authenticationService.getPrimaryConnectionId(this.authProvider.id, this.authProviderDescriptor)
+		) {
+			return undefined;
+		}
+
+		return connectionId;
+	}
 
 	private resetRecoveryAccounting(): void {
 		this.requestExceptionCount = 0;
+		this.connectionRequestExceptionCounts.clear();
 		this._syncRequestsPerFailedUsecase.clear();
 		this._rejectedTokens.clear();
 	}
 
-	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all'): void {
-		this.requestExceptionCount = 0;
+	/**
+	 * Clears the strikes of the connection `connectionId` names (the primary when omitted) after a read of it
+	 * succeeded, or of every connection for `'all'`.
+	 */
+	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all', connectionId?: string): void {
 		if (syncReqUsecase === 'all') {
 			this.resetRecoveryAccounting();
 			this.invalidateDiscoveryCaches();
-		} else {
-			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
+			return;
 		}
+
+		const secondary = this.getSecondaryConnectionId(connectionId);
+		if (secondary != null) {
+			this.connectionRequestExceptionCounts.delete(secondary);
+			return;
+		}
+
+		this.requestExceptionCount = 0;
+		// Only the primary session's refused token requests a re-sync, so only a read of the primary settles one.
+		this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
 	}
 
 	/**
-	 * Resets request exceptions without resetting the amount of syncs
+	 * Resets the primary connection's request exceptions without resetting the amount of syncs
 	 */
 	smoothifyRequestExceptionCount(): void {
 		// On resync we reset exception count only to avoid infinitive syncs on failure
@@ -787,6 +820,9 @@ export abstract class IntegrationBase<
 		// A connection was deleted, or a different one became primary. Ahead of the guard — see
 		// `onStoredTokensReplaced`.
 		this.onStoredTokensReplaced();
+		// The strikes are kept by role, so the former primary's would otherwise pass to the new one.
+		this.requestExceptionCount = 0;
+		this.connectionRequestExceptionCounts.clear();
 
 		// Queued, so a resolution already running finishes with the former primary and this one then re-resolves.
 		return this.runSessionTransition(async () => {
@@ -1057,11 +1093,13 @@ export abstract class IntegrationBase<
 	 * Shows one notice, and spends at most one strike, for a batch read whose targets failed with a server error or a
 	 * timeout. Our own clients leave both to the batch (see `reportRequestFailure`) instead of spending them per
 	 * target. `strike` is true only when every target failed and the call's own failure spent none: a call that
-	 * answered some targets showed the host is up, and budgets strikes the same way as the rest of its failures.
+	 * answered some targets showed the host is up, and budgets strikes the same way as the rest of its failures. The
+	 * strike is `connectionId`'s, the connection the call read.
 	 */
 	protected reportDeferredRequestFailures(
 		slots: readonly PromiseSettledResult<unknown>[] | undefined,
 		strike: boolean,
+		connectionId: string | undefined,
 	): void {
 		let notify: (() => void) | undefined;
 		for (const slot of slots ?? []) {
@@ -1074,7 +1112,7 @@ export abstract class IntegrationBase<
 		if (notify == null) return;
 
 		if (strike) {
-			this.trackRequestException();
+			this.trackRequestException({ connectionId: connectionId });
 		}
 		notify();
 	}
@@ -1143,7 +1181,7 @@ export abstract class IntegrationBase<
 		attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
 	}
 
-	/** Returns whether it spent a strike toward disconnecting (see {@link trackRequestException}). */
+	/** Returns whether it spent a strike (see {@link trackRequestException}). */
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
@@ -1170,8 +1208,8 @@ export abstract class IntegrationBase<
 		// uninstalled app) is not self-healing, so the read failed identically until the user reconnected
 		// by hand. Record the rejection against the connection instead; `resolveReadSession` consumes it
 		// and forces the cloud `/refresh` on the next read of that connection. When there is nothing to
-		// recover, fall through to the shared failure budget, which disconnects after
-		// `requestExceptionLimit` and surfaces the reconnect prompt.
+		// recover, fall through to that connection's failure budget (see `trackRequestException`), which for
+		// the primary disconnects after `requestExceptionLimit` and surfaces the reconnect prompt.
 		if (ex instanceof AuthenticationError && options?.connectionId) {
 			if (this._rejectedTokens.recordRejection(options.connectionId)) return false;
 
@@ -1251,8 +1289,27 @@ export abstract class IntegrationBase<
 		return undefined;
 	}
 
+	/**
+	 * Spends a strike against the connection `connectionId` names (the primary when omitted); a server error or timeout
+	 * our API clients report names the connection whose token made the request (see `reportRequestFailure`). At
+	 * `requestExceptionLimit` the primary session is dropped for this session of the host. Another connection has no
+	 * cached session to drop, since each read resolves its own, so its failures go on surfacing on its reads, and
+	 * reaching the limit leaves the primary and every other connection as they are.
+	 */
 	@trace()
-	trackRequestException(options?: { silent?: boolean }): void {
+	trackRequestException(options?: { silent?: boolean; connectionId?: string }): void {
+		const secondary = this.getSecondaryConnectionId(options?.connectionId);
+		if (secondary != null) {
+			const count = (this.connectionRequestExceptionCounts.get(secondary) ?? 0) + 1;
+			this.connectionRequestExceptionCounts.set(secondary, count);
+			if (count === IntegrationBase.requestExceptionLimit) {
+				Logger.warn(
+					`${this.name} connection '${secondary}' has failed ${count} requests since its last success; it is not the primary, so nothing is disconnected`,
+				);
+			}
+			return;
+		}
+
 		this.requestExceptionCount++;
 
 		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
@@ -1511,7 +1568,7 @@ export abstract class IntegrationBase<
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount('searchMyIssues');
+			this.resetRequestExceptionCount('searchMyIssues', connectionId);
 			return { value: issues, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
@@ -1564,7 +1621,7 @@ export abstract class IntegrationBase<
 				options,
 			);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('searchMyIssues');
+			this.resetRequestExceptionCount('searchMyIssues', connectionId);
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
@@ -1660,7 +1717,7 @@ export abstract class IntegrationBase<
 				load: async () => {
 					try {
 						const issue = await getProviderIssue(session);
-						this.resetRequestExceptionCount('getIssue');
+						this.resetRequestExceptionCount('getIssue', connectionId);
 						return issue;
 					} catch (ex) {
 						if (!isCancellationError(ex)) {
@@ -1710,7 +1767,7 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const account = await this.getProviderCurrentAccount?.(session, opts);
-						this.resetRequestExceptionCount('getCurrentAccount');
+						this.resetRequestExceptionCount('getCurrentAccount', connectionId);
 						return account;
 					} catch (ex) {
 						if (isCancellationError(ex) && !isProviderUnreachableError(ex)) {

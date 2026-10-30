@@ -2263,23 +2263,25 @@ export class RequestRateLimitError extends Error {
 const deferredRequestFailures = new WeakMap<Error, () => void>();
 
 /**
- * Spends `provider`'s strike toward disconnecting for a request that failed with a server error or timed out, and
- * shows `notify`'s notice; or, with `defer`, leaves both to the batch read that made the request, which counts its
- * failed requests once for the whole call (see {@link getDeferredRequestFailure}). A batch fans out into a request
- * per target, so one outage would otherwise disconnect the integration in the middle of a batch.
+ * Spends a strike toward disconnecting `provider`'s connection `connectionId` (the one whose token made the request;
+ * the primary when omitted) for a request that failed with a server error or timed out, and shows `notify`'s notice;
+ * or, with `defer`, leaves both to the batch read that made the request, which counts its failed requests once for
+ * the whole call (see {@link getDeferredRequestFailure}). A batch fans out into a request per target, so one outage
+ * would otherwise disconnect the integration in the middle of a batch.
  */
 export function reportRequestFailure(
 	provider: Provider | undefined,
 	ex: Error,
 	notify: () => void,
 	defer: boolean | undefined,
+	connectionId: string | undefined,
 ): void {
 	if (defer) {
 		deferredRequestFailures.set(ex, notify);
 		return;
 	}
 
-	provider?.trackRequestException();
+	provider?.trackRequestException({ connectionId: connectionId });
 	notify();
 }
 

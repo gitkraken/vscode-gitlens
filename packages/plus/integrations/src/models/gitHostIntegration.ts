@@ -656,7 +656,7 @@ export abstract class GitHostIntegration<
 					{ scope: scope, connectionId: connectionId },
 				);
 			} else {
-				this.resetRequestExceptionCount('getOrganizationsForUser');
+				this.resetRequestExceptionCount('getOrganizationsForUser', connectionId);
 			}
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -697,7 +697,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderProjectsForOrg(session, org);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getProjectsForOrg');
+			this.resetRequestExceptionCount('getProjectsForOrg', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForOrg', ex, { scope: scope, connectionId: connectionId });
@@ -735,7 +735,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderRepositoriesForOrg?.(session, org, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getRepositoriesForOrg');
+			this.resetRequestExceptionCount('getRepositoriesForOrg', options?.connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForOrg', ex, {
@@ -777,7 +777,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderRepositoriesForUser(session, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getRepositoriesForUser');
+			this.resetRequestExceptionCount('getRepositoriesForUser', options?.connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForUser', ex, {
@@ -1236,7 +1236,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getIssuesForRepos');
+				this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 				// With the session that read the rows, so a connection switched since can't lend them its identity.
 				const viewers = await this.getIssueViewers(session, data);
 				return {
@@ -1377,7 +1377,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getIssuesForRepos');
+				this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 				return {
 					value: {
 						values: data,
@@ -1431,7 +1431,7 @@ export abstract class GitHostIntegration<
 			}
 
 			await this.confirmScopedAuthFailures(session, result.metadata);
-			this.resetRequestExceptionCount('getIssuesForRepos');
+			this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForRepos', ex, {
@@ -1758,7 +1758,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getPullRequestsForRepos');
+				this.resetRequestExceptionCount('getPullRequestsForRepos', connectionId);
 				return {
 					value: {
 						values: data,
@@ -1800,7 +1800,7 @@ export abstract class GitHostIntegration<
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			await this.confirmScopedAuthFailures(session, result.metadata);
-			this.resetRequestExceptionCount('getPullRequestsForRepos');
+			this.resetRequestExceptionCount('getPullRequestsForRepos', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getPullRequestsForRepos', ex, {
@@ -1832,7 +1832,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 				searchOptions,
 			);
-			this.resetRequestExceptionCount('searchMyPullRequests');
+			this.resetRequestExceptionCount('searchMyPullRequests', connectionId);
 			return { value: prs, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyPullRequests', ex, {
@@ -1880,7 +1880,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderMyPullRequestsForUser(session, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getMyPullRequestsForUser');
+			this.resetRequestExceptionCount('getMyPullRequestsForUser', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getMyPullRequestsForUser', ex, {
@@ -1996,7 +1996,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.searchProviderPullRequestsPage?.(session, options, cancellation);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('searchPullRequestsPage');
+			this.resetRequestExceptionCount('searchPullRequestsPage', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchPullRequestsPage', ex, { scope: scope, connectionId: connectionId });
@@ -2041,7 +2041,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 				searchOptions,
 			);
-			this.resetRequestExceptionCount('searchPullRequests');
+			this.resetRequestExceptionCount('searchPullRequests', connectionId);
 			return prs;
 		} catch (ex) {
 			this.handleProviderException('searchPullRequests', ex, { scope: scope, connectionId: connectionId });
@@ -2090,7 +2090,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.searchProviderIssuesPage?.(session, options, cancellation);
-			this.resetRequestExceptionCount('searchIssuesPage');
+			this.resetRequestExceptionCount('searchIssuesPage', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchIssuesPage', ex, { scope: scope, connectionId: connectionId });
@@ -2137,7 +2137,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const counts = await this.countProviderIssues?.(session, scopes, cancellation);
-			this.resetRequestExceptionCount('countIssues');
+			this.resetRequestExceptionCount('countIssues', connectionId);
 			return { value: counts, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('countIssues', ex, { scope: scope, connectionId: connectionId });
@@ -2198,21 +2198,21 @@ export abstract class GitHostIntegration<
 			const targets = await this.resolveRepositoryCoordinates(session, coordinates, cancellation);
 			slots = await this.getProviderIssuesBatch?.(session, targets.coordinates, cancellation);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getIssuesBatch');
+				this.resetRequestExceptionCount('getIssuesBatch', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, issue => issue == null);
 
-			this.resetRequestExceptionCount('getIssuesBatch');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getIssuesBatch', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getIssuesBatch', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2266,21 +2266,21 @@ export abstract class GitHostIntegration<
 			const targets = await this.resolveRepositoryCoordinates(session, coordinates, cancellation);
 			slots = await this.getProviderPullRequestsBatch?.(session, targets.coordinates, options, cancellation);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getPullRequestsBatch');
+				this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, pr => pr == null);
 
-			this.resetRequestExceptionCount('getPullRequestsBatch');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getPullRequestsBatch', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2338,7 +2338,7 @@ export abstract class GitHostIntegration<
 			});
 
 			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields');
+				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2396,7 +2396,7 @@ export abstract class GitHostIntegration<
 			});
 
 			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getPullRequestsEtagFields');
+				this.resetRequestExceptionCount('getPullRequestsEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2459,7 +2459,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 			);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getPullRequestsForBranches');
+				this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
@@ -2470,15 +2470,15 @@ export abstract class GitHostIntegration<
 				found => found.pullRequests.length === 0 && !found.truncated,
 			);
 
-			this.resetRequestExceptionCount('getPullRequestsForBranches');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getPullRequestsForBranches', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2520,7 +2520,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const counts = await this.countProviderPullRequests?.(session, scopes, cancellation);
-			this.resetRequestExceptionCount('countPullRequests');
+			this.resetRequestExceptionCount('countPullRequests', connectionId);
 			return { value: counts, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('countPullRequests', ex, { scope: scope, connectionId: connectionId });

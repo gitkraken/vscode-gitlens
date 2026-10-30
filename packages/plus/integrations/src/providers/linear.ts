@@ -298,7 +298,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		try {
 			const projects = await this.getWorkspaceProjects(session, options?.fresh === true);
 			await this.confirmScopedAuthFailures(session, projects.metadata);
-			this.resetRequestExceptionCount('getProjectsForResources');
+			this.resetRequestExceptionCount('getProjectsForResources', connectionId);
 			return { value: projects };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForResources', ex, { connectionId: connectionId });

@@ -275,7 +275,7 @@ export abstract class IssuesIntegration<
 
 			const settled = await this.settleBatchRefusals(session, targets, slots);
 
-			this.resetRequestExceptionCount('getIssue');
+			this.resetRequestExceptionCount('getIssue', connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssue', ex, { scope: scope, connectionId: connectionId });
@@ -320,7 +320,7 @@ export abstract class IssuesIntegration<
 			const settled = await this.settleBatchRefusals(session, targets, slots, { keepOtherFailures: true });
 
 			if (slots.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields');
+				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -367,7 +367,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const account = await this.getProviderAccountForResource(session, resource);
-			this.resetRequestExceptionCount('getAccountForResource');
+			this.resetRequestExceptionCount('getAccountForResource', connectionId);
 			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
@@ -399,7 +399,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const resources = await this.getProviderResourcesForUser(session);
-			this.resetRequestExceptionCount('getResourcesForUser');
+			this.resetRequestExceptionCount('getResourcesForUser', connectionId);
 			return { value: resources };
 		} catch (ex) {
 			this.handleProviderException('getResourcesForUser', ex, { connectionId: connectionId });
@@ -444,7 +444,7 @@ export abstract class IssuesIntegration<
 				return { value: projects };
 			}
 
-			this.resetRequestExceptionCount('getProjectsForResources');
+			this.resetRequestExceptionCount('getProjectsForResources', connectionId);
 			return { value: projects };
 		} catch (ex) {
 			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
@@ -514,7 +514,7 @@ export abstract class IssuesIntegration<
 				return undefined;
 			}
 
-			this.resetRequestExceptionCount('getResourcesForUser');
+			this.resetRequestExceptionCount('getResourcesForUser', connectionId);
 			if (resources == null) {
 				return {
 					value: {
@@ -539,7 +539,7 @@ export abstract class IssuesIntegration<
 				return undefined;
 			}
 
-			this.resetRequestExceptionCount('getProjectsForResources');
+			this.resetRequestExceptionCount('getProjectsForResources', connectionId);
 			return {
 				value: {
 					resources: resources,
@@ -574,7 +574,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const account = await this.getProviderUncachedAccountForResource(session, resource);
-			this.resetRequestExceptionCount('getAccountForResource');
+			this.resetRequestExceptionCount('getAccountForResource', connectionId);
 			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
@@ -635,7 +635,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const issues = await this.getProviderIssuesForProject(session, project, options);
-			this.resetRequestExceptionCount('getIssuesForProject');
+			this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
@@ -661,7 +661,7 @@ export abstract class IssuesIntegration<
 		try {
 			const result = await this.getProviderIssuesForProjectWithTruncation(session, project, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getIssuesForProject');
+			this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
@@ -708,7 +708,7 @@ export abstract class IssuesIntegration<
 					return;
 				}
 
-				this.resetRequestExceptionCount('getIssuesForProject');
+				this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 				indices.forEach((index, i) => {
 					results[index] = { value: { values: values[i], truncated: false } };
 				});
