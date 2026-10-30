@@ -3609,6 +3609,23 @@ export class GitHubApi {
 				return allowPartialNotFound === 'aliased' ? { data: data, errors: [] } : data;
 			} catch (ex) {
 				if (ex instanceof GraphqlResponseError) {
+					// Throttling is a fact about the whole request, so it wins over whichever error happens to be first,
+					// and over an alias it happens to name. GitHub answers 200 + `RATE_LIMIT` (code `graphql_rate_limit`)
+					// when the primary limit is exhausted.
+					if (ex.errors?.some(e => e.type === 'RATE_LIMIT' || e.type === 'RATE_LIMITED')) {
+						let resetAt: number | undefined;
+
+						const reset = ex.headers?.['x-ratelimit-reset'];
+						if (reset != null) {
+							resetAt = parseInt(reset, 10);
+							if (Number.isNaN(resetAt)) {
+								resetAt = undefined;
+							}
+						}
+
+						throw new RequestRateLimitError(ex, accessToken, resetAt);
+					}
+
 					if (
 						allowPartialNotFound === 'aliased' &&
 						ex.data != null &&
@@ -3617,8 +3634,8 @@ export class GitHubApi {
 					) {
 						// Every alias-scoped error's `path[0]` names a top-level key in `ex.data` — these queries
 						// have no other top-level fields. An error with no `path`, or naming something outside
-						// `data` (rate limits, bad credentials, query-cost errors), isn't alias-scoped and falls
-						// through to the whole-request classification below, unchanged.
+						// `data` (bad credentials, query-cost errors), isn't alias-scoped and falls through to the
+						// whole-request classification below, unchanged.
 						const aliasScoped = ex.errors.every(
 							e => e.path != null && e.path.length > 0 && e.path[0] in (ex.data as object),
 						);
@@ -3630,21 +3647,6 @@ export class GitHubApi {
 							throw new RequestNotFoundError(ex);
 						case 'FORBIDDEN':
 							throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
-						// GitHub answers 200 + `RATE_LIMIT` (code `graphql_rate_limit`) when the primary limit is exhausted
-						case 'RATE_LIMIT':
-						case 'RATE_LIMITED': {
-							let resetAt: number | undefined;
-
-							const reset = ex.headers?.['x-ratelimit-reset'];
-							if (reset != null) {
-								resetAt = parseInt(reset, 10);
-								if (Number.isNaN(resetAt)) {
-									resetAt = undefined;
-								}
-							}
-
-							throw new RequestRateLimitError(ex, accessToken, resetAt);
-						}
 					}
 
 					if (Logger.isDebugging) {
