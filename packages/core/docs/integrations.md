@@ -594,8 +594,8 @@ Invariants worth relying on:
 - `page.itemsPerPage` describes the page that came back; don't infer totals or "last page" from it.
 - Composite fan-out cursors retain each scope's exact continuation or retry position. Round-trip the cursor
   even after a partial result: healthy scopes advance while a failed scope retries the page it missed.
-- A repo-scoped read on a host that reads repository by repository (GitLab, GitLab self-managed, Bitbucket Cloud
-  and Azure DevOps; Azure DevOps issues per project) keeps at most 6 of those requests in
+- A repo-scoped read on a host that reads repository by repository (GitLab, GitLab self-managed, Bitbucket Cloud,
+  Bitbucket Data Center and Azure DevOps; Azure DevOps issues per project) keeps at most 6 of those requests in
   flight, whatever the repo count. `scopeConcurrency` on `listPullRequestsPage`, `listIssuesPage` and the pull
   request sweeps lowers or raises it; a sweep runs up to 6 targets at once, each with this bound. GitHub/GHE send
   one query regardless.
@@ -972,7 +972,7 @@ not, and need no confirmed credential:
 A page served instead of data keeps its own message, with no cause. `unexpected-response` is only named where the failed
 read goes through core's provider error handling. Two kinds of failure still carry the error's text and no cause: a
 scope that one of provider-apis' own fan-outs fails (GitLab issues or pull requests when core hands it several
-repositories at once, Bitbucket Data Center pull requests), and the current-user lookup a repository-scoped read makes
+repositories at once), and the current-user lookup a repository-scoped read makes
 to filter by the user.
 
 ### `omission` — succeeded, but withheld results

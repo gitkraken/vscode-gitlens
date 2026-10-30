@@ -187,9 +187,9 @@ type PullRequestSweepCommonOptions = {
 	forceSync?: boolean;
 	/**
 	 * Repo-scoped targets only: most per-repository requests one provider read keeps in flight. Defaults to 6.
-	 * Only hosts that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and
-	 * Azure DevOps; GitHub/GHE send one query whatever the repo count. A sweep runs up to 6 targets at once, each
-	 * with this bound.
+	 * Only hosts that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud,
+	 * Bitbucket Data Center and Azure DevOps; GitHub/GHE send one query whatever the repo count. A sweep runs up
+	 * to 6 targets at once, each with this bound.
 	 */
 	scopeConcurrency?: number;
 	/**
@@ -429,8 +429,9 @@ export interface IntegrationManager {
 		summary?: boolean;
 		/**
 		 * Repo-scoped only: most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts
-		 * that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and Azure
-		 * DevOps; GitHub/GHE send one query whatever the repo count. The account-wide read ignores it.
+		 * that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud,
+		 * Bitbucket Data Center and Azure DevOps; GitHub/GHE send one query whatever the repo count. The
+		 * account-wide read ignores it.
 		 */
 		scopeConcurrency?: number;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
