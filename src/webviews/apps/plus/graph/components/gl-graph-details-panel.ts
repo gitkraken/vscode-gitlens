@@ -42,6 +42,7 @@ import type {
 	State,
 } from '../../../../plus/graph/protocol.js';
 import { isWipSelectionSha } from '../../../../plus/graph/protocol.js';
+import { getReviewDiffEndpoints } from '../../../../plus/graph/reviewDiffEndpoints.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
@@ -87,7 +88,7 @@ import {
 	resolveBranchSheetScope,
 } from './branchSheet.utils.js';
 import type { DetailsActions } from './detailsActions.js';
-import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
+import { countReviewFindingSeverities, scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
 import type {
