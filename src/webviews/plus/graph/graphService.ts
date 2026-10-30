@@ -295,6 +295,10 @@ export type ScopeFile = GitFileChangeShape & {
 	anchorSha?: string;
 	/** Resolved base (parent of the oldest included sha) of the range diff; absent for root-anchored ranges */
 	anchorBaseSha?: string;
+	/** Identity of the content under review — a blob id for working-tree/index files, the anchor sha for
+	 *  committed ones. A review session compares it to decide whether a viewed mark still holds. Absent
+	 *  when the provider can't compute it (the mark then never goes stale). */
+	contentId?: string;
 };
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
@@ -311,9 +315,7 @@ export type ReviewChangesOptions = {
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
 
-export type AddressReviewFindingsResult =
-	| { ok: true }
-	| { ok: false; reason: 'no-agents' | 'no-ai-model' | 'error'; message?: string };
+export type AddressReviewFindingsResult = { ok: true } | { ok: false; reason: 'no-agents' | 'error'; message?: string };
 
 export interface AddressReviewFindingsArgs {
 	repoPath: string;

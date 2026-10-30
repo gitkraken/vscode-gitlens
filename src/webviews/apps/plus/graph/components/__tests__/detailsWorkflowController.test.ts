@@ -541,6 +541,128 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.prompt, 'my prompt', 'prompt preserved on entry for AI input seed');
 	});
 
+	test('focus-area runs ride on the review entry: superseded on re-run, aborted by discard, cleared on settle', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('two-pass'), 'complete', 'my prompt')]]),
+		);
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		const first = controller.review.startFocusAreaRun('area-1');
+		assert.ok(first);
+		assert.strictEqual(first.prompt, 'my prompt', "the overview run's instructions reach the detail run");
+		const other = controller.review.startFocusAreaRun('area-2');
+		assert.ok(other);
+
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.focusAreaRuns?.size, 2, 'both runs tracked on the entry');
+
+		// Re-running the same area supersedes its earlier run; the other area is untouched.
+		const second = controller.review.startFocusAreaRun('area-1');
+		assert.ok(second);
+		assert.strictEqual(first.signal.aborted, true);
+		assert.strictEqual(second.signal.aborted, false);
+		assert.strictEqual(other.signal.aborted, false);
+
+		// Settling with a stale signal is a no-op; settling the live one drops it.
+		controller.review.settleFocusAreaRun('area-1', first.signal);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.focusAreaRuns?.get('area-1')?.signal, second.signal);
+		controller.review.settleFocusAreaRun('area-1', second.signal);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.focusAreaRuns?.has('area-1'), false);
+		assert.strictEqual(entry?.focusAreaRuns?.size, 1);
+
+		// Discard drops the findings along with every run still riding on them.
+		controller.review.discard();
+		assert.strictEqual(other.signal.aborted, true, 'discard aborts the in-flight detail run');
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.focusAreaRuns, undefined);
+		assert.strictEqual(entry?.result, undefined);
+	});
+
+	test('review session lives on the entry before any run and survives a run being dispatched', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => makeReviewResult('run') }),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		// No run yet — marking a file creates the idle entry that carries the session.
+		controller.review.setFilesViewed([{ path: 'src/a.ts', contentId: 'a1' }], true);
+		controller.review.setFileExcluded('src/b.ts', true);
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'backed');
+		assert.strictEqual(entry?.result, undefined);
+		assert.strictEqual(entry?.session?.viewed.get('src/a.ts')?.contentId, 'a1');
+		assert.strictEqual(entry?.session?.excluded.has('src/b.ts'), true);
+
+		// A no-op edit leaves the registry untouched.
+		const before = host.crossPaneState.runningOperations.get();
+		controller.review.setFileExcluded('src/b.ts', true);
+		assert.strictEqual(host.crossPaneState.runningOperations.get(), before);
+
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'complete');
+		assert.strictEqual(entry?.session?.viewed.get('src/a.ts')?.contentId, 'a1', 'progress outlives the run');
+
+		controller.review.setFindingState('f1', 'dismissed');
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.session?.findingStates.get('f1'), 'dismissed');
+
+		// Discarding the findings keeps the reader's progress and the mode.
+		controller.review.discard();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'backed');
+		assert.strictEqual(entry?.result, undefined);
+		assert.strictEqual(actions.resources.review.value.get(), undefined);
+		assert.strictEqual(entry?.session?.viewed.get('src/a.ts')?.contentId, 'a1', 'viewed marks survive discard');
+		assert.strictEqual(entry?.session?.excluded.has('src/b.ts'), true);
+		assert.strictEqual(entry?.session?.findingStates.size, 0, 'finding states go with the findings');
+		assert.strictEqual(state.activeMode.get(), 'review');
+		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
+	});
+
+	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('two-pass'))]]),
+		);
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		const run = controller.review.startFocusAreaRun('area-1');
+		assert.ok(run);
+
+		abortRunningOperations(host.crossPaneState);
+
+		assert.strictEqual(run.signal.aborted, true);
+		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0);
+	});
+
 	test('toggle-out (toggleMode early-exit on review/compose) leaves the registry entry intact', () => {
 		// User toggles Review off while a complete operation is registered — hideMode path:
 		// activeMode clears, registry entry stays.

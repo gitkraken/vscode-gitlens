@@ -38,7 +38,6 @@ import {
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
-	resumeBarStyles,
 } from './gl-details-compose-mode-panel.css.js';
 import {
 	checkAllExclusion,
@@ -123,7 +122,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
-		resumeBarStyles,
 		composeModePanelStyles,
 	];
 
@@ -299,16 +297,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 		);
 	}
 
-	/** Pushed by the orchestrator from `state.composeForwardAvailable`. See review panel for the
-	 * full restore-vs-rerun rationale — bar click emits `compose-forward` for the orchestrator
-	 * to mutate the resource back to the snapshot (no AI re-run). */
+	/** Pushed by the orchestrator from `state.composeForwardAvailable`. See the review panel for
+	 * the restore-vs-rerun rationale — the panel only emits `compose-forward-invalidate` when
+	 * the user edits the idle inputs. */
 	@property({ type: Boolean, attribute: 'forward-available', reflect: true })
 	forwardAvailable = false;
-
-	/** Preview metadata pushed from `state.composeBackPreview` — drives the count display on the
-	 * resume bar. Cleared by the orchestrator in lockstep with `forwardAvailable`. */
-	@property({ type: Object, attribute: false })
-	backPreview?: { commitCount: number; fileCount: number };
 
 	/** Commit ids the user has excluded from the AI recompose (checkbox unchecked in recompose
 	 *  mode). Pushed by the orchestrator from `state.composeRefineExcludedCommitIds`; toggling a
@@ -467,10 +460,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private detachDragBoundaryListeners(): void {
 		document.removeEventListener('pointermove', this._onDragPointerMove);
 	}
-
-	private handleForward = (): void => {
-		this.dispatchEvent(new CustomEvent('compose-forward', { bubbles: true, composed: true }));
-	};
 
 	private onAiInputType = (): void => {
 		this.invalidateForward();
