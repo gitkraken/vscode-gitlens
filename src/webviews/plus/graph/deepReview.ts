@@ -1,4 +1,11 @@
-import type { AIReviewFinding, AIReviewFindingLocation, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import { l10n } from 'vscode';
+import type {
+	AIReviewFinding,
+	AIReviewFindingLocation,
+	AIReviewOrientResult,
+	AIReviewSeverity,
+} from '@gitlens/ai/models/results.js';
+import { parseReviewOrientJson } from '@gitlens/ai/utils/results.utils.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
@@ -44,6 +51,11 @@ export class DeepReviewChannel {
 	 *  (an answer may carry a finding), so then only the review's own dispatch or its `done` proves the
 	 *  review arrived */
 	private _questionsAnswering = false;
+	/** Who waits on a reading plan from the agent (an Orient the model couldn't take) */
+	private readonly _planWaiters = new Set<{
+		resolve: (plan: AIReviewOrientResult) => void;
+		reject: (reason: Error) => void;
+	}>();
 
 	constructor(
 		ipc: DeepReviewIpc,
@@ -147,9 +159,65 @@ export class DeepReviewChannel {
 		this.closeIfIdle();
 	}
 
-	/** Takes a report in: returns how many findings and notes it kept. A report after the channel closed is dropped. */
+	/** The reading plan the agent posts next — settles when one that parses arrives, and fails when the
+	 *  channel closes first or `signal` aborts. */
+	waitForPlan(signal?: AbortSignal): Promise<AIReviewOrientResult> {
+		return new Promise((resolve, reject) => {
+			if (!this._state.active) {
+				reject(new Error(l10n.t('The channel to the agent closed before it sent a reading plan.')));
+				return;
+			}
+			if (signal?.aborted) {
+				reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+				return;
+			}
+
+			// Settled once: a late abort after the plan came finds the promise settled and the waiter gone
+			const waiter = { resolve: resolve, reject: reject };
+			this._planWaiters.add(waiter);
+			signal?.addEventListener(
+				'abort',
+				() => {
+					this._planWaiters.delete(waiter);
+					reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+				},
+				{ once: true },
+			);
+		});
+	}
+
+	/** Takes a report in: returns how many findings, notes and plans it kept. A report after the channel closed is dropped. */
 	report(body: DeepReviewReport | undefined): number {
 		if (!this._state.active) return 0;
+
+		// A reading plan answers whoever waits on one; it is the questions' kind of report, not the review's
+		if (body?.plan != null && typeof body.plan === 'object') {
+			let plan: AIReviewOrientResult | undefined;
+			try {
+				plan = parseReviewOrientJson(JSON.stringify(body.plan));
+			} catch (ex) {
+				Logger.debug(`DeepReview(run ${this._state.run}): plan rejected: ${String(ex)}`);
+			}
+			if (plan == null || plan.groups.length === 0 || this._planWaiters.size === 0) return 0;
+
+			// The agent read the files from the shell, where a path may come as `./path`
+			plan = {
+				...plan,
+				groups: plan.groups.map(g => ({
+					...g,
+					files: g.files.map(f => ({ ...f, path: f.path.replace(/^\.\//, '') })),
+				})),
+			};
+
+			Logger.debug(`DeepReview(run ${this._state.run}): plan accepted with ${plan.groups.length} groups`);
+			for (const waiter of this._planWaiters) {
+				waiter.resolve(plan);
+			}
+			this._planWaiters.clear();
+			this._questions.delivered = true;
+			this.changed();
+			return 1;
+		}
 
 		const next = (this._state.findings.at(-1)?.seq ?? 0) + 1;
 		const { findings, notes, done } = parseDeepReviewReport(body, next);
@@ -191,6 +259,10 @@ export class DeepReviewChannel {
 		this._state.active = false;
 		this._route?.dispose();
 		this._route = undefined;
+		for (const waiter of this._planWaiters) {
+			waiter.reject(new Error(l10n.t('The channel to the agent closed before it sent a reading plan.')));
+		}
+		this._planWaiters.clear();
 		this.onChange(this.state);
 	}
 
@@ -219,6 +291,8 @@ export class DeepReviewChannel {
 export interface DeepReviewReport {
 	findings?: unknown;
 	done?: unknown;
+	/** A reading plan, in the shape Orient answers with */
+	plan?: unknown;
 }
 
 function severityOf(value: unknown): AIReviewSeverity {

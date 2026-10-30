@@ -1991,6 +1991,7 @@ function createDeepReviewStarter() {
 		_deepReviewRuns: 0,
 		_deepReviewEvent: { fire: sinon.spy() },
 		stopDeepReview: proto.stopDeepReview,
+		openDeepReviewChannel: proto.openDeepReviewChannel,
 	};
 	const fn = (proto as unknown as { startDeepReview: StartDeepReview }).startDeepReview;
 	return {
@@ -2560,5 +2561,163 @@ suite('graphInspectServices — what the editor does belongs to one review', () 
 			anchor: 'wip|/repo',
 			actions: [{ seq: 3, findingId: 'f2', action: 'reopen' }],
 		});
+	});
+});
+
+suite('graphInspectServices — an Orient too large for the model goes to the agent', () => {
+	let executeCommand: sinon.SinonStub;
+
+	setup(() => {
+		executeCommand = sinon.stub(commands, 'executeCommand');
+	});
+
+	teardown(() => {
+		executeCommand.restore();
+	});
+
+	const wip = { kind: 'wip', repoPath: '/r' };
+	const inRepo = { anchor: wip, anchorKey: 'wip|/r', scopeLabel: 'working changes' };
+	const plan = {
+		overview: 'A change',
+		groups: [{ label: 'Core', kind: 'core', summary: '', files: [{ path: './src/a.ts', note: 'first' }] }],
+	};
+
+	type OrientInRepo = (
+		repoPath: string,
+		scope: unknown,
+		prompt: string | undefined,
+		args: typeof inRepo,
+		signal: AbortSignal | undefined,
+	) => Promise<unknown>;
+
+	function orienter() {
+		const starter = createDeepReviewStarter();
+		const proto = GraphInspectServices.prototype as unknown as Record<string, unknown>;
+		const fakeThis = Object.assign(starter.fakeThis, {
+			container: {
+				...starter.fakeThis.container,
+				ai: { getPrompt: sinon.stub().resolves({ prompt: 'plan it' }) },
+			},
+		});
+		const fn = proto.orientInRepo as OrientInRepo;
+		return {
+			...starter,
+			fakeThis: fakeThis,
+			orient: (signal?: AbortSignal) =>
+				fn.call(fakeThis, '/r', wipScope({ includeUnstaged: true }), undefined, inRepo, signal),
+		};
+	}
+
+	test('hands the plan to the agent in a channel of its own, and answers with what the agent posts', async () => {
+		executeCommand.resolves('dispatched');
+		const o = orienter();
+
+		const result = o.orient();
+		await settle();
+		const channel = o.fakeThis._deepReview!;
+		assert.strictEqual(channel.state.purpose, 'ask', 'no review strip for a plan');
+		assert.strictEqual(
+			(executeCommand.firstCall.args[1] as { session?: string }).session,
+			'review:/r',
+			"the review's CLI session",
+		);
+		assert.strictEqual(
+			(o.fakeThis.container.ai.getPrompt as sinon.SinonStub).firstCall.args[0],
+			'deep-review-orient',
+		);
+
+		assert.deepStrictEqual(await o.routes.get(channel.route)!({ plan: plan }), { accepted: 1 });
+		const answer = (await result) as { result: { groups: { files: { path: string }[] }[] } };
+		assert.deepStrictEqual(
+			answer.result.groups[0].files.map(f => f.path),
+			['src/a.ts'],
+			'the shell path is read as the diff shows it',
+		);
+		assert.strictEqual(channel.state.active, true, 'the channel stays for what comes next');
+	});
+
+	test("goes into the review's open channel rather than replacing it", async () => {
+		executeCommand.resolves('dispatched');
+		const o = orienter();
+		assert.deepStrictEqual(await o.start(), { ok: true });
+		const review = o.fakeThis._deepReview!;
+
+		const result = o.orient();
+		await settle();
+		assert.strictEqual(o.fakeThis._deepReview, review);
+		await o.routes.get(review.route)!({ plan: plan });
+		assert.ok(((await result) as { result?: unknown }).result != null);
+		assert.deepStrictEqual([review.state.purpose, review.state.active], ['review', true]);
+	});
+
+	test('a backed-out picker ends it as cancelled, and a channel opened for it closes', async () => {
+		executeCommand.resolves('cancelled');
+		const o = orienter();
+		assert.deepStrictEqual(await o.orient(), { error: { message: 'Orient was cancelled.' } });
+		assert.strictEqual(o.fakeThis._deepReview?.state.active, false);
+	});
+
+	test('only a too-large refusal goes to the agent, and only for a review that said which it is', async () => {
+		const proto = GraphInspectServices.prototype as unknown as Record<string, unknown>;
+		const scope = wipScope({ includeUnstaged: true });
+		const tooLarge = new AIError(AIErrorReason.RequestTooLarge);
+		const viaAgent = { result: { overview: 'from the agent', groups: [] } };
+		function orientWith(error: Error, args?: typeof inRepo) {
+			const fakeThis: Record<string, unknown> = {
+				_aiCancellations: new Set(),
+				_graphDetailsDiffCache: new LruMap(4),
+				getDiffCacheKey: proto.getDiffCacheKey,
+				getNormalizedExclusions: proto.getNormalizedExclusions,
+				getReviewTypeForScope: proto.getReviewTypeForScope,
+				buildFileManifest: () => Promise.resolve('[]'),
+				orientInRepo: sinon.stub().resolves(viaAgent),
+				// The request starts at once; a refusal comes through its promise, as from `sendRequest`
+				container: {
+					ai: {
+						actions: {
+							reviewOrient: sinon.stub().callsFake(() => {
+								const promise = Promise.reject(error);
+								promise.catch(() => {});
+								return Promise.resolve({ promise: promise });
+							}),
+						},
+					},
+				},
+			};
+			(fakeThis._graphDetailsDiffCache as LruMap<string, unknown>).set(
+				(proto.getDiffCacheKey as (...a: unknown[]) => string).call(fakeThis, '/r', scope, undefined),
+				{ diff: 'diff --git a/a b/a', message: '', context: '' },
+			);
+			const fn = proto.orientChanges as (...a: unknown[]) => Promise<unknown>;
+			return {
+				fakeThis: fakeThis,
+				result: fn.call(fakeThis, '/r', scope, undefined, undefined, args, undefined),
+			};
+		}
+
+		const routed = orientWith(tooLarge, inRepo);
+		assert.deepStrictEqual(await routed.result, viaAgent);
+		const reviewOrient = (routed.fakeThis.container as { ai: { actions: { reviewOrient: sinon.SinonStub } } }).ai
+			.actions.reviewOrient;
+		assert.strictEqual(
+			(reviewOrient.firstCall.args[2] as { tooLargeHandled?: boolean }).tooLargeHandled,
+			true,
+			'the model is told the refusal is handled, so it shows no notification',
+		);
+
+		const other = orientWith(new Error('rate limited'), inRepo);
+		assert.deepStrictEqual(await other.result, { error: { message: 'rate limited' } });
+		assert.strictEqual((other.fakeThis.orientInRepo as sinon.SinonStub).callCount, 0);
+
+		const unsaid = orientWith(tooLarge);
+		assert.ok(((await unsaid.result) as { error?: unknown }).error != null);
+		assert.strictEqual((unsaid.fakeThis.orientInRepo as sinon.SinonStub).callCount, 0);
+	});
+
+	test('no agent to hand it to leaves the decision to the caller', async () => {
+		const o = orienter();
+		Object.assign(o.fakeThis, { getDeepReviewAvailability: () => Promise.resolve({ available: false }) });
+		assert.strictEqual(await o.orient(), undefined);
+		assert.strictEqual(executeCommand.callCount, 0);
 	});
 });
