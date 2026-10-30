@@ -518,6 +518,14 @@ export const reviewModePanelStyles = css`
 		color: var(--vscode-descriptionForeground);
 	}
 
+	/* Same color as the checklist's "changed since viewed" */
+	.review-finding__stale,
+	.review-area__stale {
+		flex-shrink: 0;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-gitDecoration-modifiedResourceForeground);
+	}
+
 	/* Foreground extras layered on the shared .panel-loading-stage__foreground base — the in-flight
 	   review centers the spinner + Cancel chip as a vertical column so the spinner stays anchored. */
 	.review-loading-wrap {

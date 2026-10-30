@@ -4130,6 +4130,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.status=${mappedReviewStatus}
 			.errorMessage=${reviewError}
 			.session=${reviewEntry?.session}
+			.findingsContent=${reviewEntry?.findingsContent}
 			.reading=${reviewEntry?.reading}
 			.orient=${reviewEntry?.orient}
 			?orient-running=${reviewEntry?.orientRun != null}
