@@ -63,6 +63,8 @@ import type {
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewResult,
+	ReviewThreadActionsState,
+	ReviewThreadsArgs,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -625,6 +627,7 @@ export class DetailsActions {
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
 				}),
+			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
 					this.state.resolveProgressMessage.set(event?.message);
@@ -2897,6 +2900,12 @@ export class DetailsActions {
 		return current;
 	}
 
+	/** Likewise for thread actions taken in the editor. */
+	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+
+	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
+		void this.services.graphInspect.setReviewThreads(args);
+	}
 	openFileByPath(
 		filePath: string,
 		repoPath: string | undefined,

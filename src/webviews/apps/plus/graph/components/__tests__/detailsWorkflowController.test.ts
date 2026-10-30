@@ -644,6 +644,45 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
+	test('editor thread actions are applied once each, by sequence, and route send-to-agent to the host', () => {
+		const sent: string[] = [];
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		(host as unknown as { sendReviewFindingToAgent?: (id: string) => void }).sendReviewFindingToAgent = id =>
+			sent.push(id);
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('run'))]]),
+		);
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		controller.review.applyThreadActions({
+			actions: [
+				{ seq: 1, findingId: 'f1', action: 'dismiss' },
+				{ seq: 2, findingId: 'f2', action: 'dismiss' },
+			],
+		});
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.session?.findingStates.get('f1'), 'dismissed');
+		assert.strictEqual(entry?.session?.findingStates.get('f2'), 'dismissed');
+		assert.strictEqual(entry?.threadActionsApplied, 2);
+
+		// The panel reopens f1 itself; a replay of the same log must not dismiss it again.
+		controller.review.setFindingState('f1', undefined);
+		controller.review.applyThreadActions({
+			actions: [
+				{ seq: 1, findingId: 'f1', action: 'dismiss' },
+				{ seq: 2, findingId: 'f2', action: 'dismiss' },
+				{ seq: 3, findingId: 'f2', action: 'sendToAgent' },
+			],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.session?.findingStates.get('f1'), undefined, 'an applied action is not replayed');
+		assert.deepStrictEqual(sent, ['f2']);
+		assert.strictEqual(entry?.threadActionsApplied, 3);
+	});
+
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		host.crossPaneState.runningOperations.set(
