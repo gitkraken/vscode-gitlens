@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "32ccb865405b79ca4fdb6ba468b503d9083ffd8b",
+	"sourceCommit": "be8dd1f31a165fa4f71b23ad55dc98269729e97a",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for loading the color design tokens (colors.scss) in every webview, so shared components can consume them: +14.1 KiB on the entrypoint since the notifications bell baseline, of which +7.8 KiB is graph.js, +4.3 KiB graph.css and +2.0 KiB shared.js. About 9.8 KiB (all of the graph.js and shared.js growth) had accumulated within headroom from later work; the tokens added the 4.3 KiB of graph.css, which is the token palette itself as custom-property declarations on :root, the same block the settings, welcome, rebase and allowedSigners webviews already ship, and pushed the entrypoint 2.2 KiB over. Growth is the shared style palette, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for review mode as a review session (#100) on top of the color design tokens baseline: +72.8 KiB on the entrypoint, of which +65.3 KiB is graph.js and +7.5 KiB shared.js; graph.css unchanged. The growth is feature code in the Commit Graph's Review Changes mode — the review session and its checklist (viewed marks, re-queued files, reading controls, scope presets), findings as diff comment threads with the reader's own comments and thread editing, Orient's reading plan (handed to the CLI agent when too large for the model), Review in Repo's agent channel and its hand-off status, the collapsible checklist and findings panes — and their localized messages; shared.js carries the tree view's count decoration, flow mode and reveal path the checklist uses, and the copy control's status region. Not a new dependency or a module moving between chunks. It takes the entrypoint past webpack's 3 MiB webview limit, which moved to 3.25 MiB with it (see webpack.config.mjs). Before it: the color design tokens (+14.1 KiB since the notifications bell baseline, see its commit). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3144385,
-		"graph.js": 1999399,
+		"entrypoint": 3218896,
+		"graph.js": 2066256,
 		"graph.css": 165813,
-		"shared.js": 979173
+		"shared.js": 986827
 	},
 	"maximumBytes": {
-		"entrypoint": 3156673,
-		"graph.js": 1999399,
+		"entrypoint": 3231184,
+		"graph.js": 2066256,
 		"graph.css": 172694,
-		"shared.js": 983269
+		"shared.js": 990923
 	}
 }
