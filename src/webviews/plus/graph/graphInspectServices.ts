@@ -1962,6 +1962,10 @@ export class GraphInspectServices {
 
 			const summaries = this.seedResolveSession(repoPath, resolutions, conflictedContents, consultations);
 
+			// A Retry or Refine of an escalated automatic rebase's step is still mid-run, so keep
+			// offering "Apply & Resume with AI" — not only on the result seeded from the handoff.
+			const autoRebase = await this.getPausedEscalatedAutoRebase(repoPath);
+
 			return {
 				result: {
 					resolutions: summaries,
@@ -1969,6 +1973,14 @@ export class GraphInspectServices {
 					skipped: skipped.length > 0 ? skipped : undefined,
 					metrics: sumResolutionEffort(resolutions),
 					aiUnavailable: runErrors.aiUnavailable,
+					autoRebase:
+						autoRebase != null
+							? {
+									sessionId: autoRebase.id,
+									stepNumber: autoRebase.escalation?.stepNumber,
+									totalSteps: autoRebase.escalation?.totalSteps,
+								}
+							: undefined,
 				},
 			};
 		} catch (ex) {
@@ -2285,12 +2297,11 @@ export class GraphInspectServices {
 		}
 	}
 
-	private async getSeededResolveSession(repoPath: string): Promise<ResolveResult | undefined> {
-		// The escalated session lingers if its rebase is ended outside the service (external
-		// abort, or a manual continue/finish) — nothing transitions it off `escalated`. Only
-		// adopt the one-shot handoff if that same rebase is still paused here (orig-head
-		// matches), so a stale handoff can't seed — and clobber the AI conversation of — an
-		// unrelated later resolve in this repo.
+	/** Gets the repo's escalated automatic rebase session, but only while that same rebase is still
+	 *  paused here. The escalated session lingers if its rebase is ended outside the service (external
+	 *  abort, or a manual continue/finish) — nothing transitions it off `escalated` — so the orig-head
+	 *  must match before anything treats a resolve as mid-run. */
+	private async getPausedEscalatedAutoRebase(repoPath: string): Promise<AutoRebaseSession | undefined> {
 		const session = this.container.autoRebase.getSession(repoPath);
 		if (session?.phase !== 'escalated') return undefined;
 
@@ -2299,6 +2310,16 @@ export class GraphInspectServices {
 		if (status?.type !== 'rebase' || !status.isPaused || status.source.ref !== session.preRun.headSha) {
 			return undefined;
 		}
+
+		return session;
+	}
+
+	private async getSeededResolveSession(repoPath: string): Promise<ResolveResult | undefined> {
+		// Only adopt the one-shot handoff if the escalated rebase is still paused here, so a stale
+		// handoff can't seed — and clobber the AI conversation of — an unrelated later resolve in
+		// this repo.
+		const session = await this.getPausedEscalatedAutoRebase(repoPath);
+		if (session == null) return undefined;
 
 		const handoff = this.container.autoRebase.takeEscalationHandoff(repoPath);
 		if (handoff == null) return undefined;

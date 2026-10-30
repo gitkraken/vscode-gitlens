@@ -268,7 +268,7 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(result.type, 'escalated');
 		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'ai-unavailable');
 		assert.strictEqual(
-			result.type === 'escalated' && /token limit/i.test(result.escalation.message),
+			result.type === 'escalated' && /weekly AI usage/i.test(result.escalation.message),
 			true,
 			'the message must carry the real cause, not the file name',
 		);

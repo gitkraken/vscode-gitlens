@@ -69,8 +69,8 @@ export function classifyResolveRunErrors(
 }
 
 function getAIUnavailableNotice(error: Error, canPurchaseCredits: boolean): ResolveAIUnavailable {
-	// The quota error's own text ("You have exceeded your user token limit") predates usage-based plans;
-	// say what the service's quota notification says instead.
+	// The quota error's own text only states the reason; add what the user can do about it, as the
+	// service's quota notification does.
 	if (isAIQuotaExceededError(error)) {
 		return canPurchaseCredits
 			? {

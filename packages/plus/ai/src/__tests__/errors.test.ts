@@ -22,15 +22,22 @@ function withCode(code: string): Error & { code: string } {
 
 suite('AIError diagnostics', () => {
 	test('keeps telemetry text canonical when the display message is translated', () => {
-		l10n.config({ contents: { 'Rate limit exceeded': 'Límite de solicitudes excedido' } });
+		l10n.config({ contents: { 'Rate limit exceeded.': 'Límite de solicitudes excedido.' } });
 		try {
 			const error = new AIError(AIErrorReason.RateLimitExceeded);
 
-			assert.strictEqual(error.message, 'Límite de solicitudes excedido');
+			assert.strictEqual(error.message, 'Límite de solicitudes excedido.');
 			assert.strictEqual(error.diagnosticString, 'Error: Rate limit exceeded');
 		} finally {
 			l10n.config({ contents: {} });
 		}
+	});
+
+	test('describes an exhausted quota as the plan’s weekly AI usage', () => {
+		const error = new AIError(AIErrorReason.UserQuotaExceeded);
+
+		assert.strictEqual(error.message, 'You’ve reached the weekly AI usage included in your plan.');
+		assert.strictEqual(error.diagnosticString, 'Error: You have exceeded your user token limit');
 	});
 });
 

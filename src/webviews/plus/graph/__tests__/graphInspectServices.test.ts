@@ -757,6 +757,8 @@ function createResolveProgressFake() {
 		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
 		// Resolve All picks its model once up front; `undefined` would read as a dismissed picker and cancel.
 		ai: { getModel: async () => ({ id: 'test-model' }) },
+		// No automatic rebase run, so the result isn't marked mid-run.
+		autoRebase: { getSession: () => undefined },
 	} as unknown as Container;
 
 	// Stands in for the node-only conflict-tools integration: replays one consultation event through the
@@ -840,6 +842,7 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		git: { getRepositoryService: () => ({}) },
 		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
 		ai: { getModel: async () => ({ id: 'test-model' }) },
+		autoRebase: { getSession: () => undefined },
 	} as unknown as Container;
 
 	const paths = metrics.map((_, i) => `src/${i}.ts`);
@@ -1289,6 +1292,7 @@ function createResolveUnavailableFake(opts: {
 				activeOrganization: opts.role != null ? { role: opts.role } : undefined,
 			}),
 		},
+		autoRebase: { getSession: () => undefined },
 	} as unknown as Container;
 
 	const integration = {
@@ -1424,7 +1428,7 @@ suite('graphInspectServices — AI unavailable during a resolve run', () => {
 			result.result.resolutions.map(r => r.filePath),
 			['done.ts'],
 		);
-		assert.deepStrictEqual(result.result.aiUnavailable, { message: 'Rate limit exceeded' });
+		assert.deepStrictEqual(result.result.aiUnavailable, { message: 'Rate limit exceeded.' });
 		assert.deepStrictEqual(
 			result.result.errors?.map(e => ({ filePath: e.filePath, message: e.message })),
 			[
@@ -1460,5 +1464,106 @@ suite('graphInspectServices — AI unavailable during a resolve run', () => {
 		assert.strictEqual(result.result.autoRebase?.sessionId, 'run-1');
 		assert.ok(result.result.aiUnavailable != null);
 		assert.strictEqual(result.result.errors?.[0].message, undefined);
+	});
+});
+
+// "Apply & Resume with AI" used to ride only the result seeded from an escalation's one-shot handoff, so
+// a Retry (after an `ai-unavailable` handoff opened as an error, or after a failed apply) or a Refine —
+// each a fresh `resolveConflicts` run — dropped back to a plain Apply while the run sat paused mid-rebase.
+
+/** A resolve run in a repo whose automatic rebase is in the given state. */
+function createResolveDuringAutoRebaseFake(opts: { session: { phase: string } | undefined; pausedOrigHead: string }) {
+	const container = {
+		git: {
+			getRepositoryService: () => ({
+				pausedOps: {
+					getPausedOperationStatus: async () => ({
+						type: 'rebase',
+						isPaused: true,
+						HEAD: { ref: 'step-commit' },
+						onto: { ref: 'onto' },
+						source: { ref: opts.pausedOrigHead },
+						steps: { current: { commit: { ref: 'step-commit' } } },
+					}),
+				},
+			}),
+		},
+		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+		ai: { getModel: async () => ({ id: 'test-model' }) },
+		autoRebase: {
+			getSession: () =>
+				opts.session != null
+					? {
+							...opts.session,
+							id: 'run-1',
+							preRun: { headSha: 'orig-head' },
+							escalation: { reason: 'ai-unavailable', message: 'stopped', stepNumber: 2, totalSteps: 5 },
+						}
+					: undefined,
+		},
+	} as unknown as Container;
+
+	const integration = {
+		listUnmergedEntries: () => Promise.resolve([{ path: 'src/a.ts', reason: 'both-modified' }]),
+		resolveAllParallel: () =>
+			Promise.resolve({
+				resolutions: [
+					{ filePath: 'src/a.ts', content: 'resolved', strategy: 'ai', confidence: 0.9, description: 'why' },
+				],
+				errors: [],
+				skipped: [],
+			}),
+		readWorkingFiles: () => Promise.resolve(new Map([['src/a.ts', 'conflicted']])),
+	};
+
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_aiCancellations: new Set(),
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map(),
+		_composeProgressEvent: { subscribe: () => () => {} },
+		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
+	});
+
+	return (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(fakeThis).graphInspect;
+}
+
+suite('graphInspectServices — a resolve run during an escalated automatic rebase', () => {
+	test('is marked mid-run, with the escalated step, so the panel offers Apply & Resume', async () => {
+		const graphInspect = createResolveDuringAutoRebaseFake({
+			session: { phase: 'escalated' },
+			pausedOrigHead: 'orig-head',
+		});
+
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok('result' in result, `expected resolutions: ${JSON.stringify(result)}`);
+		assert.deepStrictEqual(result.result.autoRebase, { sessionId: 'run-1', stepNumber: 2, totalSteps: 5 });
+	});
+
+	test('is not marked mid-run when no automatic rebase is escalated', async () => {
+		for (const session of [undefined, { phase: 'running' }, { phase: 'completed' }]) {
+			const graphInspect = createResolveDuringAutoRebaseFake({ session: session, pausedOrigHead: 'orig-head' });
+
+			const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+			assert.ok('result' in result, `expected resolutions: ${JSON.stringify(result)}`);
+			assert.strictEqual(result.result.autoRebase, undefined, `phase: ${session?.phase}`);
+		}
+	});
+
+	test('is not marked mid-run when the paused rebase is not the escalated one', async () => {
+		// The escalated session lingers when its rebase ends outside the service — a later, unrelated
+		// rebase in the same repo must not offer to resume it.
+		const graphInspect = createResolveDuringAutoRebaseFake({
+			session: { phase: 'escalated' },
+			pausedOrigHead: 'other-head',
+		});
+
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok('result' in result, `expected resolutions: ${JSON.stringify(result)}`);
+		assert.strictEqual(result.result.autoRebase, undefined);
 	});
 });

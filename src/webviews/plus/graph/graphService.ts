@@ -166,8 +166,8 @@ export type ResolveResult =
 				resolutions: ResolvedFileSummary[];
 				errors?: ResolveFileError[];
 				skipped?: ResolveSkippedFile[];
-				/** Present only when seeded from an automatic-rebase escalation — tells the panel the
-				 *  run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
+				/** Present while an escalated automatic rebase is paused on this rebase (seeded from its
+				 *  handoff, or a Retry/Refine of that step) — tells the panel the run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
 				autoRebase?: { sessionId: string; stepNumber?: number; totalSteps?: number };
 				/** Present when AI became unavailable after some files were already resolved. The files it left
 				 *  unresolved stay in `errors` without a `message` of their own. */
