@@ -45,9 +45,16 @@ export interface ProviderRepositoryInput {
 export type ProviderRepositoriesInput = (string | number)[] | ProviderRepositoryInput[];
 
 /**
- * One provider slice in a pull-request sweep.
+ * One provider slice in a pull-request sweep: a provider, optionally pinned to one of its connections.
  *
- * A sweep accepts at most one target per provider because its failure attribution is provider-scoped.
+ * A sweep may carry several targets of one provider, one per connection (two GitHub Enterprise installations,
+ * two Bitbucket Data Center servers, two github.com accounts). A target is identified by its provider,
+ * `connectionId` and the host its `domain` names; repeating one throws a `TypeError`. When a provider has more
+ * than one target, every one of them must name a `connectionId` or, on a self-managed provider, a `domain` (a cloud
+ * provider's read ignores `domain`): an unnamed target reads the provider's primary connection, which may be one
+ * of the named ones, so it would be read twice and its rows attributed ambiguously. A single unnamed target reads
+ * the primary connection.
+ *
  * `domain` is a fallback for self-managed hosts whose authentication provider doesn't persist a configured
  * connection; a configured `connectionId` domain takes precedence when both are supplied. It must come from
  * the trusted authentication configuration, not repository or remote data.
@@ -57,7 +64,13 @@ export interface ProviderSweepTarget {
 	connectionId?: string;
 	domain?: string;
 	/**
-	 * Relationship filters for this provider slice. With sweep-level `repos`, members are provider query
+	 * Repositories this target reads, so each connection can carry its own. It overrides the sweep-level `repos`
+	 * for this target, like `filters`; an empty array reads the target account-wide, as an empty sweep-level
+	 * one does.
+	 */
+	repos?: ProviderRepositoriesInput;
+	/**
+	 * Relationship filters for this provider slice. With `repos`, members are provider query
 	 * constraints; without `repos`, they form an exact OR union. The whole set is validated against the
 	 * selected path's capabilities.
 	 *
@@ -154,6 +167,7 @@ export interface ProviderBroadenOrg {
 }
 
 type PullRequestSweepCommonOptions = {
+	/** Repositories every target reads unless it carries its own `repos`. */
 	repos?: ProviderRepositoriesInput;
 	/** Named `states` to match {@link IntegrationManager.listPullRequestsPage}; a mismatch here read as silently ignored. */
 	states?: PullRequestStateFilter[];

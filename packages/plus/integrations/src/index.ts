@@ -209,6 +209,7 @@ export type {
 	ProviderPageInfo,
 	ProviderResult,
 	ProviderSweepResult,
+	ProviderSweepTargetRef,
 	ProviderWarning,
 	ProviderWarningCause,
 	ProviderWarningCauseReason,

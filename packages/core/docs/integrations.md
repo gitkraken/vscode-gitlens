@@ -602,6 +602,14 @@ Invariants worth relying on:
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
+- A sweep's `targets` may hold several targets of one provider, one per connection (two GitHub Enterprise
+  installations, two Bitbucket Data Center servers, two github.com accounts), each with its own `repos` and
+  `filters` that override the sweep-level ones. Every target of such a provider must name a `connectionId` or,
+  on a self-managed host, a `domain` (a cloud provider's read ignores it), since an unnamed one reads the primary
+  connection and would read it twice; a repeat throws, matched by host however its `domain` is spelled.
+  Read failures per connection from `failedTargets`/`incompleteTargets` — each ref carries the `connectionId`
+  and resolved `domain` its `onTargetSettled` event does — and treat `failedProviderIds`/`incompleteProviderIds`
+  as the per-provider summary: a provider is failed only when all its targets failed.
 
 ### The filtered pull request search
 
@@ -1051,6 +1059,8 @@ scope stay two warnings even if their messages ever converge.
 | `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                                           |
 | `failedProviderIds`     | Sweeps/broadens: providers whose requested scopes produced no usable result.                                                                  |
 | `incompleteProviderIds` | Sweeps/broadens: providers with a usable result plus a failed, partial, or truncated sibling scope.                                           |
+| `failedTargets`         | Sweeps only: the targets (provider, `connectionId`, `domain`) that produced no usable result. Authoritative when a provider has several.      |
+| `incompleteTargets`     | Sweeps only: the targets that returned a slice with a gap. Never also in `failedTargets`.                                                     |
 
 An omission pairs with `page.truncated: true` — results are missing — and typically with `fetchFailed: false`,
 since nothing failed. But the flags are **per result** and `omission` is **per warning**, so the two can differ

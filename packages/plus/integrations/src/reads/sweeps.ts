@@ -9,7 +9,7 @@ import type {
 	PullRequestSweepOptions,
 } from '../manager.js';
 import { toPullRequestRow } from '../providers/models.js';
-import type { ProviderSweepResult, ProviderWarning } from '../results.js';
+import type { ProviderSweepResult, ProviderSweepTargetRef, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
@@ -27,9 +27,10 @@ import {
  *
  * A sweep exposes no continuation of its own — it drains everything it can reach — so its whole contract lives in
  * the completeness signals it returns: `page.allPages` asserts every page of every target was read,
- * `page.truncated` says pages remain unread, and `failedProviderIds`/`incompleteProviderIds` separate a provider
- * that produced nothing from one that produced a slice with a gap. That split is why the aggregation below can't
- * be collapsed into the generic fan-out merge the hierarchy reads use.
+ * `page.truncated` says pages remain unread, and `failedTargets`/`incompleteTargets` (summarized per provider by
+ * `failedProviderIds`/`incompleteProviderIds`) separate a target that produced nothing from one that produced a
+ * slice with a gap. That split is why the aggregation below can't be collapsed into the generic fan-out merge
+ * the hierarchy reads use.
  */
 
 /** One provider target's drained slice, before the cross-provider aggregation. */
@@ -57,7 +58,7 @@ async function sweepTarget(
 	attributeUnavailableProviders: boolean,
 ): Promise<SweepSlice | undefined> {
 	const { providerId: id, connectionId, domain: requestedDomain } = target;
-	const repos = options?.repos ?? [];
+	const repos = target.repos ?? options?.repos ?? [];
 	const maxPages = options?.maxPages ?? 100;
 	/** A target that never reached a drain: the provider itself failed, so its slice is empty and attributed. */
 	const rejectedTarget = (warnings: ProviderWarning[]): SweepSlice => ({
@@ -202,16 +203,18 @@ export async function sweepPullRequests(
 		const reportSettled = beginTarget?.(target);
 		const slice = await sweepTarget(ctx, options, target, attributeUnavailableProviders);
 		reportSettled?.(slice);
-		return slice;
+		return { target: target, slice: slice };
 	});
 
 	const items: PullRequestShape[] = [];
 	const warnings: ProviderWarning[] = [];
-	const failedProviderIds = new Set<IntegrationIds>();
-	const incompleteProviderIds = new Set<IntegrationIds>();
+	const failedTargets: ProviderSweepTargetRef[] = [];
+	const incompleteTargets: ProviderSweepTargetRef[] = [];
+	// Per provider: attributed (non-skipped) targets, and how many of them failed or came back incomplete.
+	const attributed = new Map<IntegrationIds, { total: number; failed: number; incomplete: number }>();
 	let fetchFailed = false;
 	let truncated = false;
-	for (const drain of results) {
+	for (const { target, slice: drain } of results) {
 		if (drain == null) {
 			continue;
 		}
@@ -223,13 +226,42 @@ export async function sweepPullRequests(
 		if (drain.fetchFailed) {
 			fetchFailed = true;
 		}
-		if (drain.failedProvider) {
-			failedProviderIds.add(drain.providerId);
-		} else if (drain.fetchFailed || drain.truncated) {
-			incompleteProviderIds.add(drain.providerId);
+
+		let counts = attributed.get(drain.providerId);
+		if (counts == null) {
+			counts = { total: 0, failed: 0, incomplete: 0 };
+			attributed.set(drain.providerId, counts);
+		}
+		counts.total++;
+
+		if (drain.failedProvider || drain.fetchFailed || drain.truncated) {
+			// The same ref the target's settle event carries, so a consumer can join the two.
+			const ref: ProviderSweepTargetRef = {
+				providerId: target.providerId,
+				connectionId: target.connectionId,
+				domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
+			};
+			if (drain.failedProvider) {
+				counts.failed++;
+				failedTargets.push(ref);
+			} else {
+				counts.incomplete++;
+				incompleteTargets.push(ref);
+			}
 		}
 		if (drain.truncated) {
 			truncated = true;
+		}
+	}
+
+	// A provider is failed only when every target of it failed; any lesser trouble leaves it incomplete.
+	const failedProviderIds: IntegrationIds[] = [];
+	const incompleteProviderIds: IntegrationIds[] = [];
+	for (const [providerId, { total, failed, incomplete }] of attributed) {
+		if (failed === total) {
+			failedProviderIds.push(providerId);
+		} else if (failed + incomplete !== 0) {
+			incompleteProviderIds.push(providerId);
 		}
 	}
 
@@ -251,8 +283,10 @@ export async function sweepPullRequests(
 		// `hasMore` re-run the identical sweep forever with no cursor to advance.
 		hasMore: false,
 		fetchFailed: fetchFailed || undefined,
-		failedProviderIds: [...failedProviderIds],
-		incompleteProviderIds: [...incompleteProviderIds],
+		failedProviderIds: failedProviderIds,
+		incompleteProviderIds: incompleteProviderIds,
+		failedTargets: failedTargets,
+		incompleteTargets: incompleteTargets,
 	};
 }
 

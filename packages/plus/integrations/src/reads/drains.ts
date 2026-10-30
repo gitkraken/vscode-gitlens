@@ -14,7 +14,8 @@ import type { ProviderPullRequest, ProviderReposInput, ProviderRepository } from
 import { getProviderPullRequestIdentity, pullRequestNamesPeople } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
-import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { hostFromDomain } from '../utils/domain.utils.js';
+import { isIssuesHostIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import {
 	cappedBesideBudgetWarning,
 	noConnectionWarning,
@@ -426,6 +427,17 @@ export async function drainRepositories(
 	}
 }
 
+function describeSweepTargetSelector(target: ProviderSweepTarget): string {
+	const parts: string[] = [];
+	if (target.connectionId != null) {
+		parts.push(`connectionId '${target.connectionId}'`);
+	}
+	if (target.domain != null) {
+		parts.push(`domain '${target.domain}'`);
+	}
+	return parts.length !== 0 ? ` (${parts.join(', ')})` : '';
+}
+
 export function resolvePullRequestSweepTargets(options: PullRequestSweepOptions | undefined): {
 	targets: readonly ProviderSweepTarget[];
 	attributeUnavailableProviders: boolean;
@@ -435,15 +447,35 @@ export function resolvePullRequestSweepTargets(options: PullRequestSweepOptions 
 			throw new TypeError("Pull request sweep 'targets' cannot be combined with 'providerIds' or 'connectionId'");
 		}
 
-		const seenProviderIds = new Set<IntegrationIds>();
+		// Keyed by the selector as the read resolves it, so a repeat is a duplicate however its domain is spelled.
+		// Several targets of one provider are legitimate (one per connection), but each must name its connection:
+		// an unnamed one reads the primary connection, which may be one of the named ones. A domain names a host
+		// only on a self-managed provider; a cloud provider's read ignores it.
+		const seenTargets = new Set<string>();
+		const targetCounts = new Map<IntegrationIds, number>();
+		const unnamedTargets: ProviderSweepTarget[] = [];
 		for (const target of options.targets) {
-			if (seenProviderIds.has(target.providerId)) {
+			const host = isSelfManagedHostIntegrationId(target.providerId) ? hostFromDomain(target.domain) : undefined;
+			const key = JSON.stringify([target.providerId, target.connectionId ?? '', host ?? '']);
+			if (seenTargets.has(key)) {
 				throw new TypeError(
-					`Pull request sweep targets must contain at most one target per provider; duplicate '${target.providerId}'`,
+					`Pull request sweep targets must be unique; duplicate '${target.providerId}' target${describeSweepTargetSelector(target)}`,
 				);
 			}
 
-			seenProviderIds.add(target.providerId);
+			seenTargets.add(key);
+			targetCounts.set(target.providerId, (targetCounts.get(target.providerId) ?? 0) + 1);
+			if (target.connectionId == null && host == null) {
+				unnamedTargets.push(target);
+			}
+		}
+
+		for (const target of unnamedTargets) {
+			if ((targetCounts.get(target.providerId) ?? 0) > 1) {
+				throw new TypeError(
+					`Pull request sweep targets for '${target.providerId}' must each name a connectionId or domain when there is more than one (a domain only on a self-managed host); an unnamed target reads the primary connection`,
+				);
+			}
 		}
 
 		return { targets: options.targets, attributeUnavailableProviders: true };
