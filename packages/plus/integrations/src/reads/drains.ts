@@ -110,12 +110,15 @@ export async function drainPullRequests(
 	filters: PullRequestFilter[] | undefined,
 	/**
 	 * The sweep options the drain reads beyond its query: the breadth opt-ins only the account-wide read can
-	 * express, and the repo-scoped read's fan-out bound. Grouped rather than passed positionally because the
-	 * opt-ins are same-typed neighbors a transposition would silently swap, and picked from the sweep options
-	 * rather than restated so a new one is declared once.
+	 * express, and the repo-scoped read's fan-out bound and clone-URL lookup. Grouped rather than passed
+	 * positionally because the opt-ins are same-typed neighbors a transposition would silently swap, and picked
+	 * from the sweep options rather than restated so a new one is declared once.
 	 */
 	sweepOptions:
-		| Pick<PullRequestSweepOptions, 'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency'>
+		| Pick<
+				PullRequestSweepOptions,
+				'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency' | 'includeRemoteInfo'
+		  >
 		| undefined,
 	connectionId: string | undefined,
 	maxPages: number,
@@ -188,6 +191,7 @@ export async function drainPullRequests(
 							filters: filters,
 							cursor: pageCursor,
 							scopeConcurrency: sweepOptions?.scopeConcurrency,
+							includeRemoteInfo: sweepOptions?.includeRemoteInfo,
 						},
 						connectionId,
 					),

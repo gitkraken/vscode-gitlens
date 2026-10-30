@@ -599,6 +599,10 @@ Invariants worth relying on:
   flight, whatever the repo count. `scopeConcurrency` on `listPullRequestsPage`, `listIssuesPage` and the pull
   request sweeps lowers or raises it; a sweep runs up to 6 targets at once, each with this bound. GitHub/GHE send
   one query regardless.
+- A repo-scoped Azure DevOps pull request read makes one extra request per repository (and fork source) per page to
+  fill each row's clone URLs (`refs.base.url`, `refs.head.url`, `cloneHttps`/`cloneSsh`), which `summary` does not
+  skip. `includeRemoteInfo: false` on `listPullRequestsPage` and the pull request sweeps drops that lookup and
+  those fields; leave it on for rows that will be checked out or matched to local remotes. Other providers ignore it.
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
