@@ -3,6 +3,7 @@ import { l10n, ThemeIcon } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { md5 } from '@gitlens/utils/crypto.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { executeGitCommand } from '../../git/actions.js';
 import type { CommitsQueryResults } from '../../git/queryResults.js';
@@ -22,6 +23,7 @@ interface SearchQueryResults {
 export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', SearchAndCompareView> {
 	private _search: SearchQuery;
 	private _storedAt: number;
+	private _name: string | undefined;
 
 	constructor(
 		view: SearchAndCompareView,
@@ -34,6 +36,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 			| GitLog
 			| undefined,
 		storedAt: number = 0,
+		name?: string,
 	) {
 		const query = createSearchQuery(view, repoPath, search, searchQueryOrLog);
 		const deferred = searchQueryOrLog == null;
@@ -50,6 +53,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 
 		this._search = search;
 		this._storedAt = storedAt;
+		this._name = name;
 
 		this.updateContext({ searchId: getSearchQueryComparisonKey(this._search) });
 		this._uniqueId = getViewNodeId('search-results', this.context);
@@ -77,6 +81,14 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 		return this._search;
 	}
 
+	get name(): string | undefined {
+		return this._name;
+	}
+
+	getDefaultLabel(): string {
+		return l10n.t('Search results for {0}', this.search.query);
+	}
+
 	dismiss(): void {
 		void this.remove(true);
 	}
@@ -84,7 +96,11 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 	override async getTreeItem(): Promise<TreeItem> {
 		const item = await super.getTreeItem();
 		if (this._results.deferred) {
-			item.label = l10n.t('Search results for {0}', this.search.query);
+			item.label = this.getDefaultLabel();
+		}
+		if (this._name != null) {
+			item.tooltip = typeof item.label === 'string' ? item.label : item.label?.label;
+			item.label = this._name;
 		}
 		item.id = this.id;
 		item.contextValue = ContextValues.SearchResults;
@@ -125,6 +141,14 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 		void this.view.reveal(this, { expand: true, focus: true, select: true });
 	}
 
+	@debug()
+	async rename(name: string | undefined): Promise<void> {
+		this._name = name || undefined;
+		await this.store(true);
+
+		void this.triggerChange(false);
+	}
+
 	private getStorageId() {
 		return md5(`${this.repoPath}|${getSearchQueryComparisonKey(this.search)}`, 'base64');
 	}
@@ -145,6 +169,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 				type: 'search',
 				timestamp: this._storedAt,
 				path: this.repoPath,
+				name: this._name,
 				search: getStoredSearchQuery(this.search),
 			},
 			silent,
