@@ -392,6 +392,42 @@ suite('GlDetailsReviewModePanel icon-only buttons', () => {
 	});
 });
 
+suite('GlDetailsReviewModePanel Review in Repo strip', () => {
+	const renderStrip: (this: object) => unknown = Reflect.get(
+		GlDetailsReviewModePanel.prototype,
+		'renderDeepReviewStrip',
+	);
+
+	/** The strip's icon and text, as bound into its template. */
+	function strip(deepReview: object): string[] {
+		const [template] = collectTemplates(renderStrip.call({ deepReview: deepReview }));
+		return template.values.filter((v): v is string => typeof v === 'string');
+	}
+
+	test('says the agent is starting until it has the prompt — nothing runs yet', () => {
+		assert.deepStrictEqual(strip({ active: true, done: false, count: 0, handOff: 'pending' }).slice(0, 2), [
+			'loading',
+			'Starting the agent…',
+		]);
+	});
+
+	test("says the agent didn't start while a failed hand-over's Retry waits in a notification", () => {
+		assert.deepStrictEqual(strip({ active: true, done: false, count: 0, handOff: 'failed' }).slice(0, 2), [
+			'warning',
+			"The agent didn't start — see the notification",
+		]);
+	});
+
+	test('runs once the prompt got through — and reads so when the state predates the hand-over', () => {
+		for (const handOff of ['delivered', undefined]) {
+			assert.deepStrictEqual(strip({ active: true, done: false, count: 2, handOff: handOff }).slice(0, 2), [
+				'loading',
+				'Review in Repo running · 2 findings so far',
+			]);
+		}
+	});
+});
+
 suite('GlDetailsReviewModePanel reading plan order', () => {
 	const treeOrder: PropertyDescriptor['get'] = Object.getOwnPropertyDescriptor(
 		GlDetailsReviewModePanel.prototype,

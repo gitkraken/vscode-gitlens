@@ -7472,7 +7472,7 @@
 			"menus": {
 				"comments/commentThread/context": [
 					{
-						"when": "commentController == gitlens.review",
+						"when": "commentController == gitlens.review && gitlens:review:canAsk",
 						"group": "inline",
 						"order": 2
 					}

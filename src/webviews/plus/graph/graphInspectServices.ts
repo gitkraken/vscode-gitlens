@@ -64,6 +64,7 @@ import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker
 import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import { setContext } from '../../../system/-webview/context.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { getTabUris } from '../../../system/-webview/vscode/tabs.js';
 import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
@@ -161,9 +162,11 @@ import {
 	claimReviewCommenting,
 	getReviewSideUri,
 	isReviewWorkingSide,
+	markReviewerAsked,
 	refreshReviewCommenting,
 	releaseReviewThreads,
 	setReviewThreads,
+	stopAskingReviewer,
 } from './reviewThreads.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
@@ -600,7 +603,7 @@ export class GraphInspectServices {
 					this.stopDeepReview();
 					return Promise.resolve();
 				},
-				getDeepReviewAvailability: () => this.getDeepReviewAvailability(),
+				getDeepReviewAvailability: () => this.refreshDeepReviewAvailability(),
 				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewFiles: args => this.setReviewFiles(args),
@@ -1592,6 +1595,20 @@ export class GraphInspectServices {
 		return { available: true };
 	}
 
+	private _deepReviewAvailabilityChecks = 0;
+
+	/** {@link getDeepReviewAvailability}, with the threads' Ask Reviewer button kept to the same answer — a
+	 *  question on a thread goes to the agent through the same channel. Agent detection takes a while, so
+	 *  answers can settle out of order: only the latest one sets the button. */
+	private async refreshDeepReviewAvailability(): Promise<DeepReviewAvailability> {
+		const current = ++this._deepReviewAvailabilityChecks;
+		const availability = await this.getDeepReviewAvailability();
+		if (current === this._deepReviewAvailabilityChecks) {
+			void setContext('gitlens:review:canAsk', availability.available);
+		}
+		return availability;
+	}
+
 	/** Backs `onDeepReviewAvailability`. The panel asks once when it mounts, which can be before the IPC server is
 	 *  up (right after activation, or until AI is enabled) or before an agent CLI is installed — so the answer is
 	 *  sent again when the server starts and when the agents list changes. */
@@ -1608,7 +1625,7 @@ export class GraphInspectServices {
 				let pending = 0;
 				const update = async () => {
 					const current = ++pending;
-					const availability = await this.getDeepReviewAvailability();
+					const availability = await this.refreshDeepReviewAvailability();
 					if (current !== pending) return;
 
 					handler(availability);
@@ -1628,8 +1645,21 @@ export class GraphInspectServices {
 	 *  POSTed. One channel per instance; starting again replaces it. */
 	@debug()
 	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		// The channel this start hands its prompt over into, once it has begun to
 		let channel: DeepReviewChannel | undefined;
-		let hold: { pending: number; served: boolean } | undefined;
+		// Backing out of the agent picker, a dispatch that failed (the command has said so) or a throw: the
+		// channel learns its review or question has no agent, and closes if nothing else holds it. A start
+		// that never got as far as a channel leaves alone whatever is open — another start's
+		const giveUp = (): void => {
+			if (channel == null) return;
+
+			if (args.focus != null) {
+				channel.questionFailed();
+				stopAskingReviewer(this, args.focus.findingId);
+			} else {
+				channel.reviewFailed();
+			}
+		};
 		try {
 			const availability = await this.getDeepReviewAvailability();
 			// The local channel, started now if nothing has yet
@@ -1653,21 +1683,28 @@ export class GraphInspectServices {
 			// A question on one finding goes into the channel that is open — the agent's answer is a comment
 			// on the finding, and a review that may be running keeps reporting; a whole review starts afresh
 			// …and a whole review goes into a channel that was open only for questions, rather than cutting
-			// off an answer that may still be coming
-			const open = this._deepReview?.state.active === true ? this._deepReview : undefined;
+			// off an answer that may still be coming. Only a channel of the same review, though: what comes
+			// in by it lands in the review it was opened for, so another review's is replaced as by a fresh
+			// run — its strip reads as stopped, and a question still waiting on it gets no answer
+			const open =
+				this._deepReview?.state.active === true && this._deepReview.state.anchorKey === args.anchorKey
+					? this._deepReview
+					: undefined;
 			const reuse = open != null && (args.focus != null || open.state.purpose === 'ask');
-			if (reuse && args.focus == null) {
-				open.beginReview();
-			}
 			if (!reuse) {
 				this.stopDeepReview();
 				const opened = new DeepReviewChannel(
 					this.container.ipc,
 					++this._deepReviewRuns,
 					args.anchor,
+					args.anchorKey,
 					state => {
-						if (this._deepReview === opened) {
-							this._deepReviewEvent.fire(state);
+						if (this._deepReview !== opened) return;
+
+						this._deepReviewEvent.fire(state);
+						// A closed channel takes no more answers — a question still waiting on one gets none
+						if (!state.active) {
+							stopAskingReviewer(this);
 						}
 					},
 					uuid(),
@@ -1676,11 +1713,15 @@ export class GraphInspectServices {
 				this._deepReview = opened;
 				this._deepReviewEvent.fire(opened.state);
 			}
-			// This start holds the channel open until its prompt is handed over or fails
+			// The channel is held open while this start's prompt is on its way
 			channel = this._deepReview!;
-			hold = this._deepReviewHolds.get(channel) ?? { pending: 0, served: false };
-			hold.pending++;
-			this._deepReviewHolds.set(channel, hold);
+			if (args.focus != null) {
+				channel.beginQuestion();
+				// The finding's threads say an answer is on its way, until it shows in them
+				markReviewerAsked(this, args.focus.findingId);
+			} else if (reuse) {
+				channel.beginReview();
+			}
 
 			const endpoints = getReviewDiffEndpoints(args.scope);
 			const reportEndpoint = `${endpoint}/${channel.route}`;
@@ -1721,23 +1762,26 @@ export class GraphInspectServices {
 					// Reviews of one repository share a CLI session: the next one is the next turn of the
 					// conversation, with everything the agent learned the last time
 					session: `review:${args.repoPath}`,
+					// The channel stays open while a failed hand-over's Retry is on offer — a retry that gets
+					// through reports into it
+					waitForRetry: true,
+					// …and its strip says no agent has the review yet, rather than reading as a review running
+					onRetryOffer: args.focus == null ? offered => channel?.reviewOffered(offered) : undefined,
 				},
 			);
-			// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
-			// no agent to report — an open channel would read as a review that never arrives
 			if (outcome !== 'dispatched') {
-				this.releaseDeepReviewHold(channel, hold, false);
+				giveUp();
 				return { ok: false, reason: outcome === 'cancelled' ? 'cancelled' : 'error' };
 			}
 
-			this.releaseDeepReviewHold(channel, hold, true);
+			if (args.focus != null) {
+				channel.questionDelivered();
+			} else {
+				channel.reviewDelivered();
+			}
 			return { ok: true };
 		} catch (ex) {
-			if (channel != null && hold != null) {
-				this.releaseDeepReviewHold(channel, hold, false);
-			} else {
-				this.stopDeepReview();
-			}
+			giveUp();
 			const message = getPresentableErrorMessage(ex);
 			void window.showWarningMessage(l10n.t('Unable to start a review in the repository: {0}', message));
 			return { ok: false, reason: 'error', message: message };
@@ -1745,29 +1789,6 @@ export class GraphInspectServices {
 	}
 
 	private _deepReviewRuns = 0;
-	/** Who is still handing a prompt over into each channel, and whether any hand-over got through: a
-	 *  channel no agent was given is closed once the last hand-over fails — not before, since a question on
-	 *  a finding may be going into the same channel as the review that opened it */
-	private readonly _deepReviewHolds = new WeakMap<DeepReviewChannel, { pending: number; served: boolean }>();
-
-	private releaseDeepReviewHold(
-		channel: DeepReviewChannel,
-		hold: { pending: number; served: boolean },
-		dispatched: boolean,
-	): void {
-		hold.pending--;
-		if (dispatched) {
-			hold.served = true;
-			return;
-		}
-
-		// Backing out of the agent picker, or a dispatch that failed (the command has said so), leaves
-		// no agent to report — an open channel would read as a review that never arrives
-		if (!hold.served && hold.pending <= 0 && this._deepReview === channel) {
-			this.stopDeepReview();
-		}
-	}
-
 	/** Closes the channel; what the agent reported stays with the review. */
 	private stopDeepReview(): void {
 		this._deepReview?.close();
@@ -2194,14 +2215,20 @@ export class GraphInspectServices {
 
 			// Review-level is a conversational opener; area/finding-level are self-contained
 			// tasks that should auto-submit.
-			await executeCommand('gitlens.runPromptInAgent', {
-				prompt: prompt,
-				cwd: args.repoPath,
-				mode: 'agent',
-				autoExecute: args.granularity !== 'review',
-				source: 'graph',
-			} as RunPromptInAgentCommandArgs);
-			return { ok: true };
+			const outcome = await executeCommand<RunPromptInAgentCommandArgs, RunPromptInAgentOutcome>(
+				'gitlens.runPromptInAgent',
+				{
+					prompt: prompt,
+					cwd: args.repoPath,
+					mode: 'agent',
+					autoExecute: args.granularity !== 'review',
+					source: 'graph',
+				},
+			);
+			if (outcome === 'dispatched') return { ok: true };
+
+			// A failed hand-over has been reported by the command, with a Retry that runs on its own
+			return { ok: false, reason: outcome === 'cancelled' ? 'cancelled' : 'error' };
 		} catch (ex) {
 			const message = getPresentableErrorMessage(ex);
 			void window.showWarningMessage(l10n.t('Unable to send review findings to chat: {0}', message));
