@@ -2671,7 +2671,18 @@ suite('graphInspectServices — an Orient too large for the model goes to the ag
 				getReviewTypeForScope: proto.getReviewTypeForScope,
 				buildFileManifest: () => Promise.resolve('[]'),
 				orientInRepo: sinon.stub().resolves(viaAgent),
-				container: { ai: { actions: { reviewOrient: sinon.stub().rejects(error) } } },
+				// The request starts at once; a refusal comes through its promise, as from `sendRequest`
+				container: {
+					ai: {
+						actions: {
+							reviewOrient: sinon.stub().callsFake(() => {
+								const promise = Promise.reject(error);
+								promise.catch(() => {});
+								return Promise.resolve({ promise: promise });
+							}),
+						},
+					},
+				},
 			};
 			(fakeThis._graphDetailsDiffCache as LruMap<string, unknown>).set(
 				(proto.getDiffCacheKey as (...a: unknown[]) => string).call(fakeThis, '/r', scope, undefined),

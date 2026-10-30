@@ -1555,9 +1555,9 @@ export class GraphInspectServices {
 			const fileManifest = await this.buildFileManifest(data.diff);
 			signal?.throwIfAborted();
 
-			let result;
+			let response;
 			try {
-				result = await this.container.ai.actions.reviewOrient(
+				const result = await this.container.ai.actions.reviewOrient(
 					{
 						files: fileManifest,
 						message: data.message,
@@ -1567,6 +1567,13 @@ export class GraphInspectServices {
 					{ source: 'graph', context: { type: reviewType, mode: 'orient' } },
 					{ cancellation: cancellation, tooLargeHandled: inRepo != null },
 				);
+				if (result === 'cancelled' || result == null) {
+					return { error: { message: l10n.t('Orient was cancelled.') } };
+				}
+
+				// The request is under way by now: a refusal — ours before sending, or the provider's — comes
+				// through its promise
+				response = await result.promise;
 			} catch (ex) {
 				// Too much for the model — its own limits or ours: the agent reads the changes itself instead,
 				// with no manifest to fit anywhere. Without an agent, the model's refusal stands
@@ -1577,11 +1584,6 @@ export class GraphInspectServices {
 
 				return viaAgent;
 			}
-			if (result === 'cancelled' || result == null) {
-				return { error: { message: l10n.t('Orient was cancelled.') } };
-			}
-
-			const response = await result.promise;
 			if (response === 'cancelled' || response == null) {
 				return { error: { message: l10n.t('Orient was cancelled.') } };
 			}
