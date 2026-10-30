@@ -22,12 +22,11 @@ import { appendDedupedWarning } from '../results.js';
  * Only `PagingMode.Repos` (GitHub/GHE) is excluded: its read is cursor-only, so it accepts a page number and
  * ignores it, answering with page 1 — which is why {@link drainToRequestedPage} exists for that mode.
  *
- * Every other provider, including one with no declared mode (Bitbucket Data Center), reads `page` as a 1-based
- * page number. That last part is only true as of `@gitkraken/provider-apis` 0.54.0: before it, Bitbucket Data
- * Center consumed `page` as a raw `start` ITEM OFFSET, so a synthesized page 3 asked for `start=3` — a window
- * overlapping page 1 — and this facade had to withhold the synthesized cursor from it. The SDK now converts
- * (`start = (page - 1) * limit`) and reports `nextPage` as a page number, so the guard is gone and that host
- * can be advanced by number like the rest.
+ * Every other provider reads `page` as a 1-based page number. For Bitbucket Data Center that is only true as of
+ * `@gitkraken/provider-apis` 0.54.0: before it, it consumed `page` as a raw `start` ITEM OFFSET, so a synthesized
+ * page 3 asked for `start=3` — a window overlapping page 1 — and this facade had to withhold the synthesized cursor
+ * from it. The SDK now converts `page` to an offset and reports `nextPage` as a page number, so that host can be
+ * advanced by number like the rest.
  */
 export function isPageNumberAdvanceable(mode: PagingMode | undefined): boolean {
 	return mode !== PagingMode.Repos;

@@ -345,7 +345,7 @@ suite('facade contract regressions', () => {
 		manager.dispose();
 	});
 
-	test('a numbered host with no declared paging mode is advanced by page number', async () => {
+	test('a numbered per-repository host is advanced by page number', async () => {
 		const runtime = createFakeRuntime();
 		await runtime.storage.store('integrations:configured', {
 			[GitSelfManagedHostIntegrationId.BitbucketServer]: [
@@ -368,18 +368,13 @@ suite('facade contract regressions', () => {
 
 		assert.equal(
 			providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer]?.pullRequestsPagingMode,
-			undefined,
-			'guard: this host declares no paging mode',
+			PagingMode.Repo,
+			'guard: this host reads repository by repository',
 		);
 
-		// Bitbucket Data Center declares no paging mode but DOES page by number: as of provider-apis 0.54.0 it
-		// converts `page` into the REST `start` offset itself (`start = (page - 1) * limit`) and reports `nextPage`
-		// as a page number. So the facade must synthesize a page-number cursor for it and report the requested
-		// page — absence of a declared mode is not evidence that a host can't be advanced by number.
-		//
-		// Before 0.54.0 it consumed `page` as a raw `start` offset, so page 3 asked for `start=3` and returned a
-		// window overlapping page 1; this facade withheld the cursor to avoid that, and this test asserted the
-		// opposite of what it asserts now.
+		// Bitbucket Data Center pages by number: provider-apis converts `page` into the REST `start` offset
+		// itself and reports `nextPage` as a page number. So the facade must synthesize a page-number cursor
+		// for it and report the requested page.
 		let capturedCursor: string | undefined | 'unset' = 'unset';
 		(
 			bbs as unknown as {
