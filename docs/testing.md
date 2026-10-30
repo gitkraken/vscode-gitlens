@@ -202,6 +202,11 @@ fetches; teardown removes it from that config and deletes the clone, also when t
 PR titles and branch names from that repository can appear in the job log (the spec prints what the tools returned
 and, on failure, GitLens log lines), so keep nothing sensitive in its test data.
 
+The signed-in Launchpad spec (`launchpadSignedIn.test.ts`) needs only `E2E_GITHUB_PR_URL`: it follows that PR through
+the Launchpad quick pick and view, and checks that the status bar item and the Commit Graph indicator show the loaded
+summary. It expects Launchpad to file the PR under Blocked as "Unassigned Reviewers", so keep the PR open, non-draft,
+and without reviewers, failing checks or conflicts — a reviewer added while trying something out by hand fails it.
+
 Mind what a sign-in costs: every worker sign-in mints a new GitLens token for the test account, and the backend
 neither expires nor revokes those tokens. Sign in only where an account is needed, don't retry signed-in specs
 (a retry starts a new worker), never sign out in a test (it is local-only), and never sign CI in to production.
