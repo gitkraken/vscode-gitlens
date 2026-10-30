@@ -68,6 +68,31 @@ reliable for click-focus, which doesn't surface as a focusin on this host. */
 				--gl-tree-focus-within: 1;
 			}
 
+			/* Document flow: the tree is as tall as its rows and the nearest scrolling ancestor scrolls it
+   (the virtualizer then virtualizes against that ancestor instead of being the scroller) */
+			:host([flow]) {
+				height: auto;
+				overflow: visible;
+			}
+
+			:host([flow]) .scrollable {
+				flex: none;
+				overflow: visible;
+			}
+
+			/* lit-virtualizer sets an inline min-height from its item-size estimate. As the scroller, that
+   can exceed the scrollable container in small viewports and push scrolling onto the outer
+   .scrollable div instead of the virtualizer's own scroller — and height: 100% already sizes it
+   from the flex layout, so the min-height is redundant there. In document flow it is the other
+   way round: the inline min-height is what gives the tree its height, so it must stand. */
+			:host(:not([flow])) lit-virtualizer {
+				min-height: 0 !important;
+			}
+
+			:host([flow]) lit-virtualizer {
+				height: auto;
+			}
+
 			.scrollable {
 				flex: 1;
 				width: 100%;
@@ -84,13 +109,6 @@ reliable for click-focus, which doesn't surface as a focusin on this host. */
 				display: block;
 				width: 100%;
 				height: 100%;
-
-				/* lit-virtualizer sets an inline min-height based on its initial item-size
- estimate, which can exceed the scrollable container in small viewports and
- push scrolling onto the outer .scrollable div instead of the virtualizer's
- own scroller. Since height: 100% already provides correct sizing from the
- flex layout, the min-height is always redundant. */
-				min-height: 0 !important;
 
 				/* Use layout containment instead of strict to avoid rendering issues */
 
@@ -240,6 +258,56 @@ glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a c
 				font-variant-numeric: tabular-nums;
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				border-radius: var(--gl-radius-lg);
+			}
+
+			/* Same shape as .stack-count, with the color left to the producer's kind (see tree.css.ts): a
+count of open findings should read as urgent as the findings are. */
+			.count-badge {
+				display: inline-flex;
+				gap: 0.3rem;
+				align-items: center;
+				height: 1.5rem;
+				padding: 0 var(--gl-space-4);
+				font-size: var(--gl-font-micro);
+				font-variant-numeric: tabular-nums;
+				background: color-mix(in srgb, transparent 88%, currentColor);
+				border-radius: var(--gl-radius-lg);
+			}
+
+			/* The badge sits inside a gl-tooltip, so it is this element's own style — not the row's ::slotted
+rules — that colors it. Muted dims like a description; the rest take the editor's diagnostic colors. */
+			.count-badge--action {
+				margin: 0;
+				font-family: inherit;
+				line-height: inherit;
+				color: inherit;
+				cursor: pointer;
+				border: none;
+			}
+
+			.count-badge--action:hover {
+				background: color-mix(in srgb, transparent 76%, currentColor);
+			}
+
+			.count-badge--action:focus-visible {
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline-offset: 0.1rem;
+			}
+
+			.count-badge--muted {
+				opacity: 0.7;
+			}
+
+			.count-badge--error {
+				color: var(--vscode-editorError-foreground);
+			}
+
+			.count-badge--warning {
+				color: var(--vscode-editorWarning-foreground);
+			}
+
+			.count-badge--info {
+				color: var(--vscode-editorInfo-foreground);
 			}
 
 			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
@@ -436,9 +504,35 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	@property({ type: String, attribute: 'aria-label' })
 	override ariaLabel = l10n.t('Tree');
 
-	/** External hint for which path should be focused when the model is set. Consumed once on model update. */
+	/** External hint for which row to focus, select and scroll into view — applied when it changes, or when a
+	 *  model first holds its row; a model rebuild under the same hint keeps what the reader has done since. */
 	@property({ type: String, attribute: 'focused-path' })
 	focusedPath?: string;
+
+	/** The focused path is the only row to show selected: a hint naming a path this tree doesn't hold
+	 *  clears the selection, so several trees fed the same hint (a reading plan's groups) highlight one
+	 *  row between them rather than each keeping its last. */
+	@property({ type: Boolean, attribute: 'focused-path-only' })
+	focusedPathOnly = false;
+
+	/** Whether the reader has picked several rows themselves — then a `focusedPath` hint only scrolls its
+	 *  row into view, leaving the selection and the keyboard cursor as they are. */
+	private get holdsReaderSelection(): boolean {
+		return this.multiSelectable && this._selection.selectedIds.size > 1;
+	}
+
+	/** The `focusedPath` hint whose row this tree has already been brought to. */
+	private _appliedFocusHint?: string;
+
+	/** Whether the current hint was already applied and its row is still in the model, shown or under a
+	 *  collapsed folder. A model rebuild under such a hint (a checkbox toggled, a refresh) leaves alone what
+	 *  the reader has done since: a folder they collapsed over the row, their selection and cursor. A hint
+	 *  whose row only now turns up (files loaded after the hint was set) still applies. */
+	private get focusHintApplied(): boolean {
+		return (
+			this.focusedPath != null && this._appliedFocusHint === this.focusedPath && this.modelHolds(this.focusedPath)
+		);
+	}
 
 	// Single-select highlight is owned by `_selection` (via its anchor). The setter only mutates in
 	// single mode, so multi-mode focus moves never collapse the set (multi reads `_selection.has`,
@@ -493,6 +587,9 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		focusStrategy: 'activedescendant',
 		getVirtualizer: () => this.virtualizerRef.value,
 		getContainer: () => this.scrollableRef.value,
+		isScroller: () => !this.flow,
+		getScrollParent: () => findScrollParent(this),
+		getRowHeight: () => this.virtualizerRef.value?.querySelector<HTMLElement>('gl-tree-item')?.offsetHeight || 22,
 		onSelectionChange: () => {
 			this.requestUpdate();
 			// The selection-changed event is multi-select-specific; single mode keeps its prior
@@ -562,6 +659,11 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	/** Opt-in: makes file (non-branch) rows draggable, forwarded to each `gl-tree-item`. */
 	@property({ type: Boolean, attribute: 'draggable-files' })
 	draggableFiles = false;
+
+	/** Document flow: the tree takes the height of its rows and leaves scrolling to the nearest scrolling
+	 *  ancestor — for several trees stacked as one document. Off, the tree fills its box and scrolls itself. */
+	@property({ type: Boolean, reflect: true })
+	flow = false;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -635,8 +737,9 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		// Build path-to-index map for O(1) index lookups
 		this.buildPathToIndexMap();
 
-		// Apply external focus hint if available (set before .model in template order)
-		if (this.focusedPath) {
+		// Apply external focus hint if available (set before .model in template order), unless it was applied
+		// already — then the reconciliation below keeps the reader's cursor and selection by path
+		if (this.focusedPath && !this.holdsReaderSelection && !this.focusHintApplied) {
 			this._focusedItemPath = this.focusedPath;
 			this._lastSelectedPath = this.focusedPath;
 		}
@@ -692,14 +795,51 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		// Apply focused-path hint here (after all properties are set) rather than in the model
 		// setter, because Lit sets bindings in template order — the model setter may run before
 		// the focused-path attribute is updated, leaving focusedPath stale.
-		if (this.focusedPath && (changedProperties.has('focusedPath') || changedProperties.has('model'))) {
+		// The hint applies when it moves, or with a model whose row it hasn't been applied to yet. A rebuild
+		// under a hint already applied (a checkbox toggled, a refresh) re-applies nothing: a folder the reader
+		// collapsed over the row stays collapsed, and the selection, cursor and scroll stay where they were.
+		const applyHint =
+			changedProperties.has('focusedPath') || (changedProperties.has('model') && !this.focusHintApplied);
+		if (this.focusedPath && applyHint && this.holdsReaderSelection) {
+			// The reader's own multi-selection outranks the hint: the selection and the keyboard cursor stay
+			// where the reader put them (so Space still toggles their row), and the hinted row is only brought
+			// into view. Opening the folders above it leaves the selection and cursor alone — both are kept by path
+			this.expandAncestorsOf(this.focusedPath);
 			const index = this._index.indexOf(this.focusedPath);
+			if (index !== -1) {
+				this._pendingScrollToIndex = index;
+			}
+			this._appliedFocusHint = index !== -1 ? this.focusedPath : undefined;
+		} else if (this.focusedPath && applyHint) {
+			// A row hidden under a collapsed folder can't be focused or shown — open the way to it first
+			this.expandAncestorsOf(this.focusedPath);
+			const index = this._index.indexOf(this.focusedPath);
+			this._appliedFocusHint = index !== -1 ? this.focusedPath : undefined;
 			if (index !== -1) {
 				this._focusedItemPath = this.focusedPath;
 				this._focusedItemIndex = index;
 				this._lastSelectedPath = this.focusedPath;
+				// Multi-select keeps its set on focus moves, but a focus hint names the one row to show, so
+				// the selection collapses to it (and the consumer hears about it) like a plain click would
+				if (
+					this.multiSelectable &&
+					!(this._selection.selectedIds.size === 1 && this._selection.has(this.focusedPath))
+				) {
+					this._selection.setSingle(this.focusedPath);
+				}
 				// Scroll the focused item into view after the render completes
 				this._pendingScrollToIndex = index;
+			} else if (this.focusedPathOnly) {
+				// The row being shown lives in another tree — this one shows none
+				this._focusedItemPath = undefined;
+				this._focusedItemIndex = -1;
+				if (this.multiSelectable) {
+					if (this._selection.selectedIds.size > 0) {
+						this._selection.clear();
+					}
+				} else {
+					this._lastSelectedPath = undefined;
+				}
 			}
 		}
 		// When the model changes without a focused-path hint, trust the setter's path-based
@@ -941,6 +1081,41 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 				>`;
 			}
 
+			if (decoration.type === 'count') {
+				const tooltip = decoration.tooltip ?? decoration.label;
+				const action = decoration.action;
+				const classes = `count-badge${decoration.kind ? ` count-badge--${decoration.kind}` : ''}${
+					action ? ' count-badge--action' : ''
+				}`;
+				// With an action the badge is a real button, so Enter/Space press it natively. It is
+				// `tabindex="-1"` like the row's checkbox: the tree is one tab stop, and handleKeydown walks
+				// Tab into the cursor row's badge rather than letting it step from row to row.
+				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
+					${
+						action
+							? html`<button
+									class=${classes}
+									type="button"
+									tabindex="-1"
+									aria-label=${ifDefined(tooltip)}
+									@click=${(e: MouseEvent) =>
+										this.onTreeItemActionClicked(
+											e,
+											model,
+											{ icon: decoration.icon, label: decoration.label, action: action },
+											false,
+										)}
+								>
+									<code-icon icon=${decoration.icon} size="12"></code-icon>${decoration.count}
+								</button>`
+							: html`<span class=${classes} aria-label=${ifDefined(tooltip)}
+									><code-icon icon=${decoration.icon} size="12"></code-icon>${decoration.count}</span
+								>`
+					}
+					<span slot="content">${tooltip}</span>
+				</gl-tooltip>`;
+			}
+
 			// TODO: implement badge and indicator decorations
 
 			return undefined;
@@ -1146,7 +1321,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 								.keyFunction=${(item: TreeModelFlat) => nodeId(item)}
 								.layout=${flow({ direction: 'vertical' })}
 								.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
-								scroller
+								?scroller=${!this.flow}
 							></lit-virtualizer>
 						</div>`
 					: showNoResults
@@ -1198,6 +1373,51 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	 */
 	private findTreeNode(path: string): TreeModel | undefined {
 		return this._nodeMap.get(path);
+	}
+
+	/** Expands the collapsed folders above the file at `path` so its row is in the flattened list —
+	 *  `_nodeMap` only holds rows of expanded folders, so this walks the model itself. Says whether any
+	 *  folder was opened; each one is announced like a chevron click so consumers forget its collapse. */
+	private expandAncestorsOf(path: string): boolean {
+		const chain = this.findAncestorsOf(path);
+		if (chain == null) return false;
+
+		const collapsed = chain.filter(node => node.expanded === false);
+		if (collapsed.length === 0) return false;
+
+		for (const node of collapsed) {
+			node.expanded = true;
+			this.emit('gl-tree-expansion-changed', { path: node.path, key: nodeId(node), expanded: true });
+		}
+		this.rebuildFlattenedTree();
+		return true;
+	}
+
+	/** The folders above the file at `path`, outermost first — walks the model itself, so a file under a
+	 *  collapsed folder is found too; `undefined` when the model holds no such file. */
+	private findAncestorsOf(path: string): TreeModel[] | undefined {
+		if (this._model == null) return undefined;
+
+		const chain: TreeModel[] = [];
+		const find = (nodes: TreeModel[]): boolean => {
+			for (const node of nodes) {
+				if (!node.branch && node.path === path) return true;
+
+				if (node.branch && node.children != null) {
+					chain.push(node);
+					if (find(node.children)) return true;
+
+					chain.pop();
+				}
+			}
+			return false;
+		};
+		return find(this._model) ? chain : undefined;
+	}
+
+	/** Whether the model holds the row at `path`, shown or under a collapsed folder. */
+	private modelHolds(path: string): boolean {
+		return this._index.has(path) || this.findAncestorsOf(path) != null;
 	}
 
 	/**
@@ -1565,9 +1785,9 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	};
 
 	// Capture-phase Tab handler that keeps the tree a single tab stop: once focus is on one of the
-	// cursor row's inner controls (checkbox / action chip), Tab cycles them and then leaves the tree —
-	// it must never walk natively from one row's control to the next. handleContainerKeydown handles
-	// Tab while focus is still on the container itself.
+	// cursor row's inner controls (checkbox / action chip / count badge button), Tab cycles them and then
+	// leaves the tree — it must never walk natively from one row's control to the next.
+	// handleContainerKeydown handles Tab while focus is still on the container itself.
 	private handleKeydown = (e: KeyboardEvent) => {
 		if (e.key !== 'Tab') return;
 
@@ -1578,35 +1798,36 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		const onCheckbox = composedPath.some(
 			(el: any) => el.tagName === 'INPUT' && el.classList?.contains('checkbox__input'),
 		);
+		const onBadge = composedPath.find(isActionBadge) as HTMLElement | undefined;
 		// Not on a row control → let handleContainerKeydown (container-focused) drive the Tab.
-		if (!onActionChip && !onCheckbox) return;
+		if (!onActionChip && !onCheckbox && onBadge == null) return;
 
 		e.preventDefault();
 		e.stopPropagation();
 
 		const row = composedPath.find((el: any) => el.tagName === 'GL-TREE-ITEM') as GlTreeItem | undefined;
+		// The row's controls after the checkbox, in the order they sit: the actions (one stop — action-nav
+		// walks between them with the arrows), then each count badge that is a button.
+		const firstAction = row?.querySelector<HTMLElement>('gl-action-chip') ?? undefined;
+		const badges = [...(row?.querySelectorAll<HTMLElement>('.count-badge--action') ?? [])];
+		const stops = firstAction != null ? [firstAction, ...badges] : badges;
+		const current = onActionChip ? 0 : onBadge != null ? stops.indexOf(onBadge) : -1;
 
-		if (onCheckbox) {
-			if (e.shiftKey) {
+		if (e.shiftKey) {
+			// Back: the previous control, then the row's checkbox if it has one, else the container.
+			const previous = onCheckbox ? undefined : stops[current - 1];
+			if (previous != null) {
+				previous.focus();
+			} else if (onCheckbox || !row?.focusCheckbox()) {
 				this.scrollableRef.value?.focus();
-			} else {
-				// Forward: checkbox → the row's actions if any, else leave the tree.
-				const firstAction = row?.querySelector<HTMLElement>('gl-action-chip');
-				if (firstAction) {
-					firstAction.focus();
-				} else {
-					this.exitTreeForward();
-				}
 			}
 			return;
 		}
 
-		// On an action chip.
-		if (e.shiftKey) {
-			// Back: actions → the row's checkbox if it has one, else the container.
-			if (!row?.focusCheckbox()) {
-				this.scrollableRef.value?.focus();
-			}
+		// Forward: the next control, else leave the tree.
+		const next = stops[current + 1];
+		if (next != null) {
+			next.focus();
 		} else {
 			this.exitTreeForward();
 		}
@@ -1662,6 +1883,10 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		// This allows action-nav to handle left/right arrow navigation between action buttons
 		if (this._actionButtonHasFocus) return;
 
+		// A focused count badge is a button: Enter/Space press it natively and must not also act on the
+		// row (Tab from it is handleKeydown's).
+		if (e.composedPath().some(isActionBadge)) return;
+
 		// Tab → step into the focused row's controls (tree-specific). The tree is a single tab stop, so
 		// Tab cycles the cursor row's controls — checkbox first, then actions (handleKeydown continues
 		// the cycle once focus is on the checkbox) — then leaves the tree; it never walks to the next row.
@@ -1675,8 +1900,11 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 					return;
 				}
 
-				// Otherwise the first action chip (light DOM child of the tree item).
-				const firstAction = focusedTreeItem.querySelector<HTMLElement>('gl-action-chip');
+				// Otherwise the first action chip (light DOM child of the tree item), or a count badge that
+				// is a button.
+				const firstAction =
+					focusedTreeItem.querySelector<HTMLElement>('gl-action-chip') ??
+					focusedTreeItem.querySelector<HTMLElement>('.count-badge--action');
 				if (firstAction) {
 					// Prevent default BEFORE focusing to stop Tab from moving focus out.
 					e.preventDefault();
@@ -2041,6 +2269,11 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	};
 }
 
+/** A count decoration rendered as a button (it carries an action) — one of a row's Tab stops. */
+function isActionBadge(el: EventTarget): boolean {
+	return el instanceof HTMLElement && el.classList.contains('count-badge--action');
+}
+
 /**
  * Row identity — the optional group-scoped {@link TreeItemBase.key}, falling back to {@link
  * TreeItemBase.path} (unique for ungrouped trees). Every path-keyed structure (node map, index,
@@ -2049,6 +2282,23 @@ tree-item publishes per row state as --gl-tree-row-bg. */
  */
 function nodeId(node: { path: string; key?: string }): string {
 	return node.key ?? node.path;
+}
+
+/** The nearest ancestor that scrolls vertically, through slots and shadow roots — what a tree in document
+ *  flow scrolls with. */
+function findScrollParent(el: Element): HTMLElement | undefined {
+	let current: Element | null = el;
+	while (current != null) {
+		const next: Element | null =
+			current.assignedSlot ?? current.parentElement ?? (current.parentNode as ShadowRoot | null)?.host ?? null;
+		if (next == null) return undefined;
+
+		const overflow = getComputedStyle(next).overflowY;
+		if (overflow === 'auto' || overflow === 'scroll') return next as HTMLElement;
+
+		current = next;
+	}
+	return undefined;
 }
 
 /**

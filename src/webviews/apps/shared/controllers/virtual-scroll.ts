@@ -12,6 +12,14 @@ export interface VirtualScrollOptions {
 	getContainer?: () => HTMLElement | undefined;
 	/** Current row count (to detect the End row). */
 	getCount: () => number;
+	/** Whether the virtualizer is its own scroller (the default). When it scrolls with an ancestor instead
+	 *  (document flow), setting its `scrollTop` does nothing, so Home/End go through `scrollToIndex` too. */
+	isScroller?: () => boolean;
+	/** In document flow: the ancestor that scrolls, and the height of one row. The row is then brought into
+	 *  view by arithmetic — the virtualizer's own scroll-into-view aims at its first clipping ancestor and
+	 *  can't be trusted when several virtualizers share one scroller. */
+	getScrollParent?: () => HTMLElement | undefined;
+	getRowHeight?: () => number;
 }
 
 /**
@@ -66,10 +74,43 @@ export class VirtualScrollController implements ReactiveController {
 					this._scrolling = false;
 				};
 
+				const scrollParent =
+					this.options.isScroller?.() === false ? this.options.getScrollParent?.() : undefined;
+				if (scrollParent != null) {
+					// Rows are uniform, so the row's place is its index times the row height from the
+					// virtualizer's top within the scroller; scroll only as far as needed ('nearest').
+					// Scrolling makes virtualizers above render or drop rows and settle their heights, which
+					// shifts what's below — so measure again a frame later and correct once more
+					const bringIntoView = () => {
+						const rowHeight = this.options.getRowHeight?.() ?? 22;
+						const top =
+							virtualizer.getBoundingClientRect().top -
+							scrollParent.getBoundingClientRect().top +
+							scrollParent.scrollTop +
+							index * rowHeight;
+						const bottom = top + rowHeight;
+						// A row's height of breathing room on either side, so the row never sits on the edge
+						if (top - rowHeight < scrollParent.scrollTop) {
+							scrollParent.scrollTop = Math.max(0, top - rowHeight);
+						} else if (bottom + rowHeight > scrollParent.scrollTop + scrollParent.clientHeight) {
+							scrollParent.scrollTop = bottom + rowHeight - scrollParent.clientHeight;
+						}
+					};
+					bringIntoView();
+					requestAnimationFrame(() => {
+						bringIntoView();
+						requestAnimationFrame(() => {
+							bringIntoView();
+							restore();
+						});
+					});
+					return;
+				}
+
 				const isHome = index === 0;
 				const isEnd = index === this.options.getCount() - 1;
 
-				if (isHome || isEnd) {
+				if ((isHome || isEnd) && (this.options.isScroller?.() ?? true)) {
 					// scrollToIndex has known issues with large jumps (blank viewport); set scrollTop
 					// on the virtualizer (the actual scroller via `scroller`) directly instead.
 					requestAnimationFrame(() => {

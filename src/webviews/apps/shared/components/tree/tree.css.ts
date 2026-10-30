@@ -381,6 +381,25 @@ export const treeItemStyles = [
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 		}
 
+		/* A long trailing text decoration (a reading plan's note) gives way before the label does: the
+  slot may shrink and ellipsize, and the label keeps a readable minimum, so a row never shows a note
+  with no name in front of it */
+		slot[name='decorations-after'] {
+			flex: 0 1 auto;
+			min-width: 0;
+			overflow: hidden;
+		}
+
+		::slotted([slot='decorations-after'].decoration-text) {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.item {
+			min-width: min(18rem, 50%);
+		}
+
 		::slotted([slot='decorations-before'].decoration-text) {
 			font-size: var(--gl-decoration-before-font-size, inherit);
 			opacity: var(--gl-decoration-before-opacity, 1);
