@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "020cfc1b7daf29da1f0c6f916a550559b7a552b2",
+	"sourceCommit": "036007ef9d58facceed66d0ecd8883182126cab4",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for the GitKraken notifications bell in the Graph header: +14.3 KiB on the entrypoint since the Publish Repository baseline, of which +16.2 KiB is graph.js and -1.9 KiB shared.js (graph.css unchanged). About 3.1 KiB had accumulated within headroom from earlier work; the bell added about 11.2 KiB (+10.5 KiB graph.js: the bell, its unread badge and popover with the newest notifications, quick actions, empty/loading/error states and styles, plus the shared notifications store; +0.7 KiB shared.js: the notifications presentation helpers now shared with Settings) and pushed the entrypoint 2.3 KiB over. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for review mode as a review session (#100) on top of the notifications bell baseline: +82.9 KiB on the entrypoint, of which +73.4 KiB is graph.js and +9.5 KiB shared.js; graph.css unchanged. The growth is feature code in the Commit Graph's Review Changes mode — the review session and its checklist (viewed marks, re-queued files, reading controls, scope presets), findings as diff comment threads with the reader's own comments and thread editing, Orient's reading plan (handed to the CLI agent when too large for the model), Review in Repo's agent channel and its hand-off status, the collapsible checklist and findings panes — and their localized messages; shared.js carries the tree view's count decoration, flow mode and reveal path the checklist uses, and the copy control's status region. Not a new dependency or a module moving between chunks. It takes the entrypoint past webpack's 3 MiB webview limit, which moved to 3.25 MiB with it (see webpack.config.mjs). Before it: the notifications bell (+14.3 KiB since the Publish Repository baseline, see its commit). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3129912,
-		"graph.js": 1991383,
+		"entrypoint": 3214836,
+		"graph.js": 2066562,
 		"graph.css": 161447,
-		"shared.js": 977082
+		"shared.js": 986827
 	},
 	"maximumBytes": {
-		"entrypoint": 3142200,
-		"graph.js": 1991383,
+		"entrypoint": 3227124,
+		"graph.js": 2066562,
 		"graph.css": 168328,
-		"shared.js": 981178
+		"shared.js": 990923
 	}
 }
