@@ -1216,6 +1216,7 @@ export const providersMetadata: ProvidersMetadata = {
 		name: 'Bitbucket Data Center',
 		type: 'git',
 		iconKey: GitSelfManagedHostIntegrationId.BitbucketServer,
+		pullRequestsPagingMode: PagingMode.Repo,
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		supportedAccountWidePullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		supportedPullRequestSearch: bitbucketServerPullRequestSearchCapabilities,

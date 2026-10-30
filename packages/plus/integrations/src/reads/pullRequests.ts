@@ -137,8 +137,8 @@ export async function listPullRequestsPage(
 		summary: true,
 	};
 	// `filters` scopes the read to the current user (the core resolves the account for these), so it returns
-	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Azure), whose
-	// per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
+	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Bitbucket Data Center,
+	// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
 	const scopedInput = {
 		state: options.states,
 		filters: resolvedFilters.filters,

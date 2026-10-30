@@ -128,8 +128,9 @@ type MyPullRequestsForReposOptions = {
 	summary?: boolean;
 	/**
 	 * Most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts that read repository
-	 * by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and Azure DevOps; GitHub/GHE send one query
-	 * whatever the repo count. A value that isn't a finite number >= 1 falls back to the default.
+	 * by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps;
+	 * GitHub/GHE send one query whatever the repo count. A value that isn't a finite number >= 1 falls back to the
+	 * default.
 	 */
 	scopeConcurrency?: number;
 };
@@ -1642,7 +1643,12 @@ export abstract class GitHostIntegration<
 		) {
 			const toRepoInputKey = (r: ProviderRepoInput) => `${r.namespace}\0${r.project ?? ''}\0${r.name}`;
 			const unsettledRepos = toUnsettledScopeKeys(reposOrRepoIds, unsettled, toRepoInputKey);
-			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
+			let scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
+			// Bitbucket Data Center reads each requested state of a repository as its own request, all at once, so
+			// the bound is shared out across the states to stay a bound on requests, as the SDK's own fan-out did.
+			if (providerId === GitSelfManagedHostIntegrationId.BitbucketServer) {
+				scopeConcurrency = Math.max(1, Math.floor(scopeConcurrency / Math.max(1, states?.length ?? 1)));
+			}
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
