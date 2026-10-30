@@ -172,6 +172,9 @@ export const GitErrors = {
 	nothingToCommit: /nothing(?: added)? to commit|no changes added to commit/i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
+	// A path git dies on rather than answers: beyond a symlink, inside a submodule, outside the repository, or empty
+	pathspecRefused:
+		/pathspec '.*' is (?:beyond a symbolic link|in submodule)|' is outside repository|empty string is not a valid pathspec/is,
 	permissionDenied: /Permission.*denied/i,
 	previousOperationEmpty: /The previous (?:cherry-pick|revert) is now empty/i,
 	problemWithEditor: /there was a problem with the editor/i,
