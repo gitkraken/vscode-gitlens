@@ -1,5 +1,7 @@
 import * as assert from 'node:assert';
-import { extractSearchQueryResult } from '../generateSearchQuery.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { AIService } from '../../aiService.js';
+import { extractSearchQueryResult, generateSearchQuery } from '../generateSearchQuery.js';
 
 const fullObject = JSON.stringify({
 	query: 'author:eamodio',
@@ -132,5 +134,40 @@ suite('extractSearchQueryResult', () => {
 			mode: 'highlight',
 			alternates: [],
 		});
+	});
+});
+
+suite('generateSearchQuery', () => {
+	function fakeService(contents: (string | null)[]): { service: AIService; requests: () => number } {
+		let calls = 0;
+		const service = {
+			sendRequest: () => {
+				const content = contents[calls++];
+				return Promise.resolve({
+					model: { id: 'm' },
+					promise: Promise.resolve(content == null ? undefined : { content: content, model: { id: 'm' } }),
+				});
+			},
+		} as unknown as AIService;
+		return { service: service, requests: () => calls };
+	}
+
+	const search = { query: 'my commits', context: undefined };
+	const source: Source = { source: 'graph' };
+
+	test('sends exactly one request when the first request fails (null response)', async () => {
+		const { service, requests } = fakeService([null, fullObject]);
+
+		assert.strictEqual(await generateSearchQuery(service, search, source), undefined);
+		assert.strictEqual(requests(), 1);
+	});
+
+	test('still sends the corrective request when the response is unparseable', async () => {
+		const { service, requests } = fakeService(['not json', fullObject]);
+
+		const result = await generateSearchQuery(service, search, source);
+		assert.strictEqual(requests(), 2);
+		assert.notStrictEqual(result, undefined);
+		assert.strictEqual(typeof result === 'object' ? result?.result.query : undefined, 'author:eamodio');
 	});
 });

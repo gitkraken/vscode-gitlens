@@ -53,6 +53,7 @@ import type {
 	ResolutionContext,
 	ResolutionDescriptionKind,
 } from '../../../plus/coretools/conflict/types.js';
+import { canPurchaseAiCredits } from '../../../plus/gk/utils/subscription.utils.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
@@ -133,6 +134,8 @@ import type {
 	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from './graphService.js';
+import type { ResolveRunErrors } from './resolveAIUnavailable.js';
+import { classifyResolveRunErrors, findAIUnavailableError, isAIQuotaExceededError } from './resolveAIUnavailable.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
  *  assembled by `GraphWebviewProvider.createGraphInspectContext()`. `getSession` reads live provider
@@ -1932,9 +1935,15 @@ export class GraphInspectServices {
 			);
 			const resolutions: ConflictToolsResolution[] = result.resolutions;
 
+			// AI becoming unavailable fails every remaining file the same way — report it once, and as the
+			// whole run's error when it left nothing AI resolved.
+			const runErrors = await this.classifyResolveErrors(resolutions, result.errors);
+			if (resolveSignal?.aborted) return { cancelled: true };
+			if ('error' in runErrors) return { error: runErrors.error };
+
 			const { errors, skipped } = await this.enrichUnresolvedFiles(
 				repoPath,
-				result.errors.map(e => ({ filePath: e.filePath, message: getPresentableErrorMessage(e.error) })),
+				runErrors.errors,
 				result.skipped ?? [],
 			);
 
@@ -1959,6 +1968,7 @@ export class GraphInspectServices {
 					errors: errors.length > 0 ? errors : undefined,
 					skipped: skipped.length > 0 ? skipped : undefined,
 					metrics: sumResolutionEffort(resolutions),
+					aiUnavailable: runErrors.aiUnavailable,
 				},
 			};
 		} catch (ex) {
@@ -2303,13 +2313,17 @@ export class GraphInspectServices {
 		this._resolveConversationIds.set(repoPath, handoff.sessionId);
 		this._autoRebaseOwnedConversations.add(handoff.sessionId);
 
+		// An `ai-unavailable` escalation gets the same single-message treatment as a resolve run that lost AI.
+		const runErrors = await this.classifyResolveErrors(handoff.resolutions, handoff.errors);
+		if ('error' in runErrors) return { error: runErrors.error };
+
 		const summaries = this.seedResolveSession(
 			repoPath,
 			handoff.resolutions,
 			handoff.conflictedContents,
 			handoff.consultations,
 		);
-		const { errors, skipped } = await this.enrichUnresolvedFiles(repoPath, handoff.errors, handoff.skipped);
+		const { errors, skipped } = await this.enrichUnresolvedFiles(repoPath, runErrors.errors, handoff.skipped);
 
 		// Mark the result as mid-run so the panel offers "Apply & Resume with AI". The
 		// session stays `escalated` after the one-shot handoff, so its escalation info is
@@ -2325,6 +2339,7 @@ export class GraphInspectServices {
 				// the panel doesn't report a completion for a seeded session today, so this is
 				// only for shape parity if it ever does.
 				metrics: sumResolutionEffort(handoff.resolutions),
+				aiUnavailable: runErrors.aiUnavailable,
 				autoRebase: {
 					sessionId: handoff.sessionId,
 					stepNumber: escalation?.stepNumber,
@@ -2943,6 +2958,18 @@ export class GraphInspectServices {
 		}));
 	}
 
+	/** {@link classifyResolveRunErrors}, reading the subscription only when the run ran out of AI quota —
+	 *  that's the one case whose call to action depends on whether this user may buy more credits. */
+	private async classifyResolveErrors(
+		resolutions: readonly ConflictToolsResolution[],
+		errors: readonly { filePath: string; error: Error }[],
+	): Promise<ResolveRunErrors> {
+		const canPurchaseCredits = isAIQuotaExceededError(findAIUnavailableError(errors))
+			? canPurchaseAiCredits(await this.container.subscription.getSubscription())
+			: false;
+		return classifyResolveRunErrors(resolutions, errors, canPurchaseCredits);
+	}
+
 	/**
 	 * Enriches files the resolver couldn't handle with conflict-type info so the panel can label
 	 * them and offer the right manual take-side fallback. One cheap `ls-files --unmerged` (+ diff
@@ -2951,7 +2978,7 @@ export class GraphInspectServices {
 	 */
 	private async enrichUnresolvedFiles(
 		repoPath: string,
-		errors: readonly { filePath: string; message: string }[],
+		errors: readonly { filePath: string; message?: string }[],
 		skipped: readonly { filePath: string; reason: string }[],
 	): Promise<{ errors: ResolveFileError[]; skipped: ResolveSkippedFile[] }> {
 		const needInfos = errors.length > 0 || skipped.length > 0;
@@ -2973,7 +3000,7 @@ export class GraphInspectServices {
 		return {
 			errors: errors.map(entry => ({
 				filePath: entry.filePath,
-				message: entry.message,
+				...(entry.message != null ? { message: entry.message } : {}),
 				...fallbackInfo(entry.filePath),
 			})),
 			skipped: skipped.map(s => {

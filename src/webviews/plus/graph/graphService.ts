@@ -129,7 +129,18 @@ export type ConflictFallbackInfo = {
 	renameOf?: string;
 };
 
-export type ResolveFileError = { filePath: string; message: string } & ConflictFallbackInfo;
+/** `message` is absent when the run-level {@link ResolveAIUnavailable} notice explains the failure — AI
+ *  became unavailable, so every such row would otherwise repeat the same text. */
+export type ResolveFileError = { filePath: string; message?: string } & ConflictFallbackInfo;
+
+/** AI became unavailable partway through a resolve run (quota, rate limit, sign-in, offline, …). Reported
+ *  once for the run instead of on every file it left unresolved. */
+export type ResolveAIUnavailable = {
+	/** What happened, ready to show. */
+	message: string;
+	/** `purchase-credits`: the weekly AI usage ran out and this user may buy more — offer Get More Credits. */
+	action?: 'purchase-credits';
+};
 
 /** A conflicted file the resolver couldn't auto-resolve (e.g. binary or a marker-less conflict) —
  *  it still needs manual attention, but distinct from a failure: retrying won't help. */
@@ -158,13 +169,17 @@ export type ResolveResult =
 				/** Present only when seeded from an automatic-rebase escalation — tells the panel the
 				 *  run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
 				autoRebase?: { sessionId: string; stepNumber?: number; totalSteps?: number };
+				/** Present when AI became unavailable after some files were already resolved. The files it left
+				 *  unresolved stay in `errors` without a `message` of their own. */
+				aiUnavailable?: ResolveAIUnavailable;
 				/** Resolver effort summed over the run, for telemetry only — aggregated host-side because
 				 *  the per-file `metrics` never cross the IPC boundary. A count is `undefined` when no
 				 *  resolution reported it, so "not measured" stays distinct from "zero". */
 				metrics?: { steps?: number; toolCalls?: number };
 			};
 	  }
-	| { error: { message: string } }
+	/** `action` is set when the run failed because AI is unavailable and the panel can offer a way out. */
+	| { error: { message: string; action?: ResolveAIUnavailable['action'] } }
 	| { cancelled: true };
 
 /** Result of re-resolving a single file with user feedback — the replacement summary for that file. */

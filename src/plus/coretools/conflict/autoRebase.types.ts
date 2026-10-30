@@ -180,7 +180,9 @@ export interface AutoRebaseHandoff {
 	resolutions: Resolution[];
 	/** Working-tree (marker) snapshots of the resolved files, keyed by path */
 	conflictedContents: Map<string, string>;
-	errors: { filePath: string; message: string }[];
+	/** The real errors, not their text — the panel classifies them (an `ai-unavailable` escalation is
+	 *  reported once, not on every file). */
+	errors: { filePath: string; error: Error }[];
 	skipped: { filePath: string; reason: string }[];
 	/** What the AI consulted per file, keyed by path. The escalated step never becomes an
 	 *  {@link AutoRebaseStepRecord} (it escalates before the record is pushed), so this is the only

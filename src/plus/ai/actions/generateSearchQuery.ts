@@ -92,9 +92,13 @@ export async function generateSearchQuery(
 		const response = await result.promise;
 		if (response === 'cancelled') return response;
 
+		// A null response is a failed request (the service already notified the user), not an
+		// unparseable answer — a corrective pass would only repeat the failure and notify again
+		if (response == null) return undefined;
+
 		finalResponse = response;
-		preferredModel = response?.model;
-		parsed = response != null ? extractSearchQueryResult(response.content) : undefined;
+		preferredModel = response.model;
+		parsed = extractSearchQueryResult(response.content);
 		if (parsed != null) break;
 	}
 

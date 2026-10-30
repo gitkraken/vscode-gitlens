@@ -152,8 +152,12 @@ export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIE
  *
  * `RequestTooLarge` and `NoRequestData` are therefore deliberately excluded — they're properties of
  * the one request that failed.
+ *
+ * An `AuthenticationRequiredError` (expired GitKraken session) counts too: it isn't an `AIError`, but
+ * every remaining request will fail identically until the user signs in again.
  */
-export function isAIUnavailableError(ex: unknown): ex is AIError {
+export function isAIUnavailableError(ex: unknown): ex is AIError | AuthenticationRequiredError {
+	if (ex instanceof AuthenticationRequiredError) return true;
 	if (!(ex instanceof AIError)) return false;
 
 	switch (ex.reason) {

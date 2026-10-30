@@ -1,6 +1,12 @@
 import * as assert from 'assert';
 import * as l10n from '@vscode/l10n';
-import { AIError, AIErrorReason, classifyNetworkError } from '../errors.js';
+import {
+	AIError,
+	AIErrorReason,
+	AuthenticationRequiredError,
+	classifyNetworkError,
+	isAIUnavailableError,
+} from '../errors.js';
 
 function withCause(message: string, cause: unknown, name = 'Error'): Error {
 	const err = new Error(message, { cause: cause });
@@ -118,5 +124,22 @@ suite('classifyNetworkError', () => {
 		const err = new Error('weird') as Error & { code: unknown };
 		(err as { code: unknown }).code = 42;
 		assert.strictEqual(classifyNetworkError(err), undefined);
+	});
+});
+
+suite('isAIUnavailableError', () => {
+	test('treats an expired GitKraken session as unavailable', () => {
+		assert.strictEqual(isAIUnavailableError(new AuthenticationRequiredError()), true);
+	});
+
+	test('keeps request-shaped failures and unrelated errors out', () => {
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.RequestTooLarge)), false);
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.NoRequestData)), false);
+		assert.strictEqual(isAIUnavailableError(new Error('boom')), false);
+		assert.strictEqual(isAIUnavailableError(undefined), false);
+	});
+
+	test('treats unauthorized as unavailable', () => {
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.Unauthorized)), true);
 	});
 });

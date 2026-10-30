@@ -189,7 +189,8 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 		body?: string,
 		sentTools?: boolean,
 	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
-		if (rsp.status !== 404 && rsp.status !== 429) {
+		// 401/403 fall through to the base, which maps them to `AIError(Unauthorized)`
+		if (rsp.status !== 404 && rsp.status !== 429 && rsp.status !== 401 && rsp.status !== 403) {
 			let json;
 			try {
 				json = (body != null ? JSON.parse(body) : await rsp.json()) as MistralError | undefined;

@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIModel, AIProviderDescriptor } from '../../models/model.js';
 import type { AIChatMessage, AIChatMessageRole, AIToolCall, AIToolDefinition } from '../../models/provider.js';
 import type { AIProviderContext } from '../context.js';
@@ -45,6 +46,24 @@ class TestProvider extends OpenAICompatibleProviderBase<'openai'> {
 	// biome-ignore lint/suspicious/noExplicitAny: exercising the response parser with wire-shaped fixtures
 	calls(data: any): AIToolCall[] | undefined {
 		return this.parseToolCalls(data);
+	}
+
+	fail(status: number, body: unknown, sentTools?: boolean): Promise<unknown> {
+		const model: AIModel<'openai'> = {
+			id: 'test-model',
+			name: 'Test Model',
+			maxTokens: { input: 1024, output: undefined },
+			provider: { id: 'openai', name: 'OpenAI' },
+		};
+		return this.handleFetchFailure(
+			new Response(JSON.stringify(body), { status: status }),
+			'conflict-resolution',
+			model,
+			0,
+			1024,
+			undefined,
+			sentTools,
+		);
 	}
 }
 
@@ -243,5 +262,28 @@ suite('OpenAICompatibleProviderBase tool-call parsing', () => {
 
 	test('returns undefined when the response has no tool calls', () => {
 		assert.strictEqual(provider().calls({ choices: [{ message: { content: 'done' } }] }), undefined);
+	});
+});
+
+suite('OpenAICompatibleProviderBase unauthorized responses', () => {
+	for (const status of [401, 403]) {
+		test(`maps a ${status} to AIError(Unauthorized), keeping the provider's text`, async () => {
+			await assert.rejects(
+				() => provider().fail(status, { error: { code: 'invalid_api_key', message: 'Incorrect API key' } }),
+				(ex: unknown) => {
+					assert.ok(ex instanceof AIError);
+					assert.strictEqual(ex.reason, AIErrorReason.Unauthorized);
+					assert.match(String(ex.original), new RegExp(`\\(OpenAI\\) ${status}: Incorrect API key`));
+					return true;
+				},
+			);
+		});
+	}
+
+	test('still throws a plain error for other failures', async () => {
+		await assert.rejects(
+			() => provider().fail(500, { error: { code: 'x', message: 'boom' } }),
+			(ex: unknown) => !(ex instanceof AIError) && String(ex).includes('500: boom'),
+		);
 	});
 });

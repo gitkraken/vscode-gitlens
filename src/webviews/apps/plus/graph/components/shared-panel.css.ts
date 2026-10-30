@@ -325,6 +325,7 @@ export const panelErrorStyles = css`
 
 	.panel-error__actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--gl-space-6);
 		justify-content: flex-end;
 	}

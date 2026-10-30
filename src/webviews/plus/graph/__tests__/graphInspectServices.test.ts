@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Container } from '../../../../container.js';
@@ -1265,5 +1266,199 @@ suite('graphInspectServices — compose conversation lifecycle', () => {
 		m.dispose();
 
 		assert.deepStrictEqual([...m.flushed].sort(), [...m.generated].sort());
+	});
+});
+
+// One user action → one error message. Once AI is unavailable (out of credits, rate limited, offline, …) every
+// remaining file fails with the same error, and listing it per file buried the one thing the user needed to
+// know — and, because the run is silent, the quota notification's way out never showed.
+
+/** Resolve run whose files resolve or fail as scripted, plus the subscription the quota call to action reads. */
+function createResolveUnavailableFake(opts: {
+	resolutions: { filePath: string; descriptionKind?: string }[];
+	errors: { filePath: string; error: Error }[];
+	role?: 'owner' | 'member';
+}) {
+	const paths = [...opts.resolutions.map(r => r.filePath), ...opts.errors.map(e => e.filePath)];
+	const container = {
+		git: { getRepositoryService: () => ({}) },
+		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+		ai: { getModel: async () => ({ id: 'model' }) },
+		subscription: {
+			getSubscription: async () => ({
+				activeOrganization: opts.role != null ? { role: opts.role } : undefined,
+			}),
+		},
+	} as unknown as Container;
+
+	const integration = {
+		listUnmergedEntries: () => Promise.resolve(paths.map(p => ({ path: p, reason: 'both-modified' }))),
+		resolveAllParallel: () =>
+			Promise.resolve({
+				resolutions: opts.resolutions.map(r => ({
+					filePath: r.filePath,
+					content: 'resolved',
+					strategy: 'ai',
+					confidence: 0.9,
+					description: 'why',
+					descriptionKind: r.descriptionKind,
+				})),
+				errors: opts.errors,
+				skipped: [],
+			}),
+		readWorkingFiles: () => Promise.resolve(new Map(paths.map(p => [p, 'conflicted']))),
+	};
+
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_aiCancellations: new Set(),
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map(),
+		_composeProgressEvent: { subscribe: () => () => {} },
+		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
+	});
+
+	return (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(fakeThis).graphInspect;
+}
+
+/** An escalated automatic rebase whose one-shot handoff is waiting for the Resolve panel. */
+function createSeededHandoffFake(handoff: {
+	resolutions: { filePath: string; descriptionKind?: string }[];
+	errors: { filePath: string; error: Error }[];
+}) {
+	const session = {
+		phase: 'escalated',
+		preRun: { headSha: 'orig-head' },
+		escalation: { reason: 'ai-unavailable', message: 'stopped', stepNumber: 2, totalSteps: 5 },
+	};
+	const container = {
+		git: {
+			getRepositoryService: () => ({
+				pausedOps: {
+					getPausedOperationStatus: async () => ({
+						type: 'rebase',
+						isPaused: true,
+						source: { ref: 'orig-head' },
+					}),
+				},
+			}),
+		},
+		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+		subscription: { getSubscription: async () => ({ activeOrganization: undefined }) },
+		autoRebase: {
+			getSession: () => session,
+			takeEscalationHandoff: () => ({
+				sessionId: 'run-1',
+				resolutions: handoff.resolutions.map(r => ({
+					filePath: r.filePath,
+					content: 'resolved',
+					strategy: 'ai',
+					confidence: 0.9,
+					description: 'why',
+					descriptionKind: r.descriptionKind,
+				})),
+				conflictedContents: new Map(handoff.resolutions.map(r => [r.filePath, 'conflicted'])),
+				errors: handoff.errors,
+				skipped: [],
+				consultations: new Map(),
+			}),
+		},
+	} as unknown as Container;
+
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_aiCancellations: new Set(),
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map(),
+		_autoRebaseOwnedConversations: new Set(),
+		_composeProgressEvent: { subscribe: () => () => {} },
+		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+	});
+
+	return (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(fakeThis).graphInspect;
+}
+
+suite('graphInspectServices — AI unavailable during a resolve run', () => {
+	test('a run AI resolved nothing in fails once, with the quota call to action', async () => {
+		const graphInspect = createResolveUnavailableFake({
+			resolutions: [],
+			errors: ['a.ts', 'b.ts', 'c.ts'].map(p => ({
+				filePath: p,
+				error: new AIError(AIErrorReason.UserQuotaExceeded),
+			})),
+			role: 'owner',
+		});
+
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok('error' in result, `expected a single run-level error: ${JSON.stringify(result)}`);
+		assert.match(result.error.message, /3 files weren’t resolved/);
+		assert.strictEqual(result.error.action, 'purchase-credits');
+	});
+
+	test('a member who can’t buy credits is told to ask an admin, with no purchase action', async () => {
+		const graphInspect = createResolveUnavailableFake({
+			resolutions: [],
+			errors: [{ filePath: 'a.ts', error: new AIError(AIErrorReason.UserQuotaExceeded) }],
+			role: 'member',
+		});
+
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok('error' in result);
+		assert.match(result.error.message, /Contact your organization admin or owner/);
+		assert.strictEqual(result.error.action, undefined);
+	});
+
+	test('a partial run keeps its resolutions and reports the reason once, not on every row', async () => {
+		const graphInspect = createResolveUnavailableFake({
+			resolutions: [{ filePath: 'done.ts' }],
+			errors: ['a.ts', 'b.ts'].map(p => ({ filePath: p, error: new AIError(AIErrorReason.RateLimitExceeded) })),
+		});
+
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok('result' in result, `the resolved file must not be thrown away: ${JSON.stringify(result)}`);
+		assert.deepStrictEqual(
+			result.result.resolutions.map(r => r.filePath),
+			['done.ts'],
+		);
+		assert.deepStrictEqual(result.result.aiUnavailable, { message: 'Rate limit exceeded' });
+		assert.deepStrictEqual(
+			result.result.errors?.map(e => ({ filePath: e.filePath, message: e.message })),
+			[
+				{ filePath: 'a.ts', message: undefined },
+				{ filePath: 'b.ts', message: undefined },
+			],
+		);
+	});
+
+	test('an ai-unavailable Auto-Rebase escalation opens as one error, not a row per file', async () => {
+		// The handoff used to carry only each error's text, so the panel couldn't tell the run had lost AI.
+		const graphInspect = createSeededHandoffFake({
+			resolutions: [],
+			errors: ['a.ts', 'b.ts'].map(p => ({ filePath: p, error: new AIError(AIErrorReason.NoNetwork) })),
+		});
+
+		const result = await graphInspect.getSeededResolveSession('/repo');
+
+		assert.ok(result != null && 'error' in result, `expected a single error: ${JSON.stringify(result)}`);
+		assert.match(result.error.message, /2 files weren’t resolved/);
+		assert.match(result.error.message, /check your internet connection/);
+	});
+
+	test('an escalation that resolved some files keeps them, mid-rebase, with the run-level notice', async () => {
+		const graphInspect = createSeededHandoffFake({
+			resolutions: [{ filePath: 'done.ts' }],
+			errors: [{ filePath: 'a.ts', error: new AIError(AIErrorReason.NoNetwork) }],
+		});
+
+		const result = await graphInspect.getSeededResolveSession('/repo');
+
+		assert.ok(result != null && 'result' in result, `expected the seeded result: ${JSON.stringify(result)}`);
+		assert.strictEqual(result.result.autoRebase?.sessionId, 'run-1');
+		assert.ok(result.result.aiUnavailable != null);
+		assert.strictEqual(result.result.errors?.[0].message, undefined);
 	});
 });

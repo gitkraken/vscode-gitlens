@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
 import { CancellationTokenSource } from 'vscode';
-import type { AIError } from '@gitlens/ai/errors.js';
+import type { AIError, AuthenticationRequiredError } from '@gitlens/ai/errors.js';
 import { isAIUnavailableError } from '@gitlens/ai/errors.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type {
@@ -176,7 +176,7 @@ export class ConflictToolsIntegration {
 		const skipped: { filePath: string; reason: string }[] = [];
 
 		// First "AI is unavailable" failure — once set, workers start no more AI work.
-		let unavailable: AIError | undefined;
+		let unavailable: AIError | AuthenticationRequiredError | undefined;
 
 		let next = 0;
 		const worker = async (): Promise<void> => {

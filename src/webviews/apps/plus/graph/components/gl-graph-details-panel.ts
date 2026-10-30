@@ -4053,6 +4053,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-resolve-mode-panel
 			.status=${mappedStatus}
 			.errorMessage=${resolveError}
+			.errorAction=${resolveValue && 'error' in resolveValue ? resolveValue.error.action : undefined}
+			.aiUnavailable=${resolveData?.aiUnavailable}
 			.resolutions=${resolveData?.resolutions}
 			.errors=${resolveData?.errors}
 			.skipped=${resolveData?.skipped}
