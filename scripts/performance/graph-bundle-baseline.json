@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "020cfc1b7daf29da1f0c6f916a550559b7a552b2",
+	"sourceCommit": "32ccb865405b79ca4fdb6ba468b503d9083ffd8b",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for the GitKraken notifications bell in the Graph header: +14.3 KiB on the entrypoint since the Publish Repository baseline, of which +16.2 KiB is graph.js and -1.9 KiB shared.js (graph.css unchanged). About 3.1 KiB had accumulated within headroom from earlier work; the bell added about 11.2 KiB (+10.5 KiB graph.js: the bell, its unread badge and popover with the newest notifications, quick actions, empty/loading/error states and styles, plus the shared notifications store; +0.7 KiB shared.js: the notifications presentation helpers now shared with Settings) and pushed the entrypoint 2.3 KiB over. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for loading the color design tokens (colors.scss) in every webview, so shared components can consume them: +14.1 KiB on the entrypoint since the notifications bell baseline, of which +7.8 KiB is graph.js, +4.3 KiB graph.css and +2.0 KiB shared.js. About 9.8 KiB (all of the graph.js and shared.js growth) had accumulated within headroom from later work; the tokens added the 4.3 KiB of graph.css, which is the token palette itself as custom-property declarations on :root, the same block the settings, welcome, rebase and allowedSigners webviews already ship, and pushed the entrypoint 2.2 KiB over. Growth is the shared style palette, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3129912,
-		"graph.js": 1991383,
-		"graph.css": 161447,
-		"shared.js": 977082
+		"entrypoint": 3144385,
+		"graph.js": 1999399,
+		"graph.css": 165813,
+		"shared.js": 979173
 	},
 	"maximumBytes": {
-		"entrypoint": 3142200,
-		"graph.js": 1991383,
-		"graph.css": 168328,
-		"shared.js": 981178
+		"entrypoint": 3156673,
+		"graph.js": 1999399,
+		"graph.css": 172694,
+		"shared.js": 983269
 	}
 }
