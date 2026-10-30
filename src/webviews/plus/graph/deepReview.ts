@@ -34,19 +34,33 @@ export class DeepReviewChannel {
 	 *  whichever agent the reader picks — a cloud one keeps it in its history — so it must never carry the
 	 *  server's own token, which opens every route, the `gk` CLI's included */
 	readonly token: string = uuid();
+	/** The whole review's hand-over: `none` while the channel only takes questions, then `pending` while an
+	 *  agent is picked and the prompt sent, `failed` while a failed hand-over's Retry is on offer, `delivered`
+	 *  once an agent has it */
+	private _review: 'none' | 'pending' | 'failed' | 'delivered';
+	/** The questions' hand-overs: how many are on their way, and whether any got through */
+	private readonly _questions = { pending: 0, delivered: false };
+	/** A question went into the channel before the review got through — what comes in may be its answer
+	 *  (an answer may carry a finding), so then only the review's own dispatch or its `done` proves the
+	 *  review arrived */
+	private _questionsAnswering = false;
 
 	constructor(
 		ipc: DeepReviewIpc,
 		run: number,
 		anchor: DeepReviewAnchor,
+		anchorKey: string,
 		private readonly onChange: (state: DeepReviewState) => void,
 		id: string,
 		purpose: DeepReviewState['purpose'] = 'review',
 	) {
+		this._review = purpose === 'review' ? 'pending' : 'none';
 		this._state = {
 			run: run,
 			anchor: anchor,
+			anchorKey: anchorKey,
 			purpose: purpose,
+			handOff: 'pending',
 			active: true,
 			done: false,
 			findings: [],
@@ -65,12 +79,72 @@ export class DeepReviewChannel {
 		return { ...this._state, findings: [...this._state.findings], notes: [...this._state.notes] };
 	}
 
-	/** A whole review goes into a channel that was open only for questions: it reads as a review from now on. */
+	/** A whole review goes into a channel that was open only for questions: it reads as a review from now on,
+	 *  one no agent has yet — the questions' agent got those, not this prompt. */
 	beginReview(): void {
-		if (!this._state.active || this._state.purpose === 'review') return;
+		if (!this._state.active || this._review !== 'none') return;
 
-		this._state.purpose = 'review';
-		this.onChange(this.state);
+		this._review = 'pending';
+		this._questionsAnswering = this._questions.pending > 0 || this._questions.delivered;
+		this.changed();
+	}
+
+	/** A failed review hand-over's Retry went up (`true`), or was taken up and the prompt is on its way again. */
+	reviewOffered(offered: boolean): void {
+		if (!this._state.active || (this._review !== 'pending' && this._review !== 'failed')) return;
+
+		this._review = offered ? 'failed' : 'pending';
+		this.changed();
+	}
+
+	/** The review's prompt reached an agent. */
+	reviewDelivered(): void {
+		if (!this._state.active || this._review === 'none' || this._review === 'delivered') return;
+
+		this._review = 'delivered';
+		this.changed();
+	}
+
+	/** The review's hand-over ended with no agent — unless one is reporting anyway, from the prompt the failed
+	 *  hand-over copied, pasted by hand. The channel goes back to its questions, or closes when it has none. */
+	reviewFailed(): void {
+		if (!this._state.active || this._review === 'none' || this._review === 'delivered') return;
+
+		this._review = 'none';
+		if (!this.closeIfIdle()) {
+			this.changed();
+		}
+	}
+
+	/** A question goes into the channel. */
+	beginQuestion(): void {
+		if (!this._state.active) return;
+
+		this._questions.pending++;
+		if (this._review === 'pending' || this._review === 'failed') {
+			this._questionsAnswering = true;
+		}
+	}
+
+	/** A question's prompt reached an agent. */
+	questionDelivered(): void {
+		if (!this._state.active) return;
+
+		this._questions.pending = Math.max(0, this._questions.pending - 1);
+		this._questions.delivered = true;
+		this.changed();
+	}
+
+	/** A question's hand-over ended with no agent: the channel closes when nothing else holds it. */
+	questionFailed(): void {
+		if (!this._state.active) return;
+
+		this._questions.pending = Math.max(0, this._questions.pending - 1);
+		// No question got through and none is left on its way: nothing but the review can be reporting
+		if (this._questions.pending === 0 && !this._questions.delivered) {
+			this._questionsAnswering = false;
+		}
+		this.closeIfIdle();
 	}
 
 	/** Takes a report in: returns how many findings and notes it kept. A report after the channel closed is dropped. */
@@ -95,8 +169,17 @@ export class DeepReviewChannel {
 		if (done) {
 			this._state.done = true;
 		}
+		// A report is proof an agent has a prompt, however it got there — the clipboard copy a failed hand-over
+		// leaves, pasted by hand, as much as a dispatch still settling. Whose prompt: the review's, unless a
+		// question may be answering — then only the end of the review is the review's
+		const reviewOnItsWay = this._review === 'pending' || this._review === 'failed';
+		if (reviewOnItsWay && (done || (accepted > 0 && !this._questionsAnswering))) {
+			this._review = 'delivered';
+		} else if (accepted > 0 && (this._review === 'none' || this._questionsAnswering)) {
+			this._questions.delivered = true;
+		}
 
-		this.onChange(this.state);
+		this.changed();
 		return accepted;
 	}
 
@@ -109,6 +192,26 @@ export class DeepReviewChannel {
 		this._route?.dispose();
 		this._route = undefined;
 		this.onChange(this.state);
+	}
+
+	/** No review and no question has an agent, and none is on its way: nothing would ever report. */
+	private closeIfIdle(): boolean {
+		if (this._review !== 'none' || this._questions.delivered || this._questions.pending > 0) return false;
+
+		this.close();
+		return true;
+	}
+
+	private changed(): void {
+		this.syncHandOff();
+		this.onChange(this.state);
+	}
+
+	/** What the panel reads: a review while there is one, its hand-over or else the questions'. */
+	private syncHandOff(): void {
+		this._state.purpose = this._review === 'none' ? 'ask' : 'review';
+		this._state.handOff =
+			this._review !== 'none' ? this._review : this._questions.delivered ? 'delivered' : 'pending';
 	}
 }
 

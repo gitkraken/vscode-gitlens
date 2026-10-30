@@ -740,7 +740,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: { kind: 'wip', repoPath: '/A', sha: uncommitted },
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: false,
 			done: true,
 			findings: [
@@ -1443,7 +1445,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: false,
 			done: true,
 			findings: [
@@ -1462,7 +1466,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 2,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: finding('agent-1', 'agent-3') }],
@@ -1490,6 +1496,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 2,
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			count: 1,
@@ -1502,7 +1509,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 2,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			findings: [
@@ -1547,7 +1556,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: f1 }],
@@ -1558,6 +1569,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 1,
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			count: 1,
@@ -1575,7 +1587,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: false,
 			done: true,
 			findings: [
@@ -1603,6 +1617,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 1,
 			purpose: 'review',
+			handOff: 'delivered',
 			active: false,
 			done: true,
 			count: 2,
@@ -1616,7 +1631,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: run,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: true,
 				findings: [],
@@ -1714,7 +1731,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: 1,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: false,
 				findings: [{ seq: 1, finding: agentFinding('agent-1') }],
@@ -1733,7 +1752,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: 1,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: false,
 				findings: [
@@ -1771,7 +1792,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: 1,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: false,
 				findings: [{ seq: 1, finding: agentFinding('agent-1') }],
@@ -1871,7 +1894,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: 1,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: false,
 				findings: [{ seq: 1, finding: agentFinding('agent-1') }],
@@ -1893,7 +1918,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.review.applyDeepReviewState({
 				run: 1,
 				anchor: anchor,
+				anchorKey: wipKey('/A'),
 				purpose: 'review',
+				handOff: 'delivered',
 				active: true,
 				done: false,
 				findings: [
@@ -2127,7 +2154,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 					controller.review.applyDeepReviewState({
 						run: run,
 						anchor: anchor,
+						anchorKey: wipKey('/A'),
 						purpose: 'review',
+						handOff: 'delivered',
 						active: true,
 						done: false,
 						findings: findings,
@@ -2170,7 +2199,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 					controller.review.applyDeepReviewState({
 						run: 1,
 						anchor: anchor,
+						anchorKey: wipKey('/A'),
 						purpose: 'review',
+						handOff: 'delivered',
 						active: true,
 						done: false,
 						findings: findings,
@@ -2277,7 +2308,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			findings: [],
@@ -2289,7 +2322,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.applyDeepReviewState({
 			run: 1,
 			anchor: anchor,
+			anchorKey: wipKey('/A'),
 			purpose: 'review',
+			handOff: 'delivered',
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: finding('agent-1', 'c.ts', 'agent') }],

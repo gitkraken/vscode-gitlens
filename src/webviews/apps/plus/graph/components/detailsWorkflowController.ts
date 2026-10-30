@@ -1376,9 +1376,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (focus == null) {
 				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
 			}
+			const anchor = this.currentAnchor();
 			const result = await this.actions.startDeepReview({
 				repoPath: repoPath,
-				anchor: this.currentAnchor(),
+				anchor: anchor,
+				anchorKey: anchorKey(anchor),
 				scope: scope,
 				scopeLabel: scopeLabel,
 				files: [...files],
@@ -1481,6 +1483,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			const deepReview = {
 				run: state.run,
 				purpose: state.purpose,
+				handOff: state.handOff,
 				active: state.active,
 				done: state.done,
 				count: state.findings.length,

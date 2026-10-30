@@ -18324,7 +18324,7 @@
 				},
 				{
 					"command": "gitlens.review.replyAndAskReviewer",
-					"when": "commentController == gitlens.review",
+					"when": "commentController == gitlens.review && gitlens:review:canAsk",
 					"group": "inline@2"
 				},
 				{
