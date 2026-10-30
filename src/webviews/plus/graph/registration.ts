@@ -1,4 +1,4 @@
-import type { CommentReply, CommentThread, TextEditor, Uri } from 'vscode';
+import type { Comment, CommentReply, CommentThread, TextEditor, Uri } from 'vscode';
 import { Disposable, l10n, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -37,7 +37,17 @@ import type {
 	VisualizationMode,
 } from './protocol.js';
 import { stepReviewReading } from './reviewReading.js';
-import { disposeReviewThreads, runReviewThreadAction, runReviewThreadReply } from './reviewThreads.js';
+import {
+	cancelReviewCommentEdit,
+	deleteReviewComment,
+	deleteReviewThread,
+	discardReviewThread,
+	disposeReviewThreads,
+	editReviewComment,
+	runReviewThreadAction,
+	runReviewThreadReply,
+	saveReviewComment,
+} from './reviewThreads.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
@@ -293,6 +303,12 @@ export function registerGraphWebviewCommands<T>(
 		registerCommand('gitlens.review.replyAndAddress', (reply?: CommentReply) =>
 			runReviewThreadReply(reply, 'address'),
 		),
+		registerCommand('gitlens.review.editComment', (comment?: Comment) => editReviewComment(comment)),
+		registerCommand('gitlens.review.saveComment', (comment?: Comment) => saveReviewComment(comment)),
+		registerCommand('gitlens.review.cancelCommentEdit', (comment?: Comment) => cancelReviewCommentEdit(comment)),
+		registerCommand('gitlens.review.deleteComment', (comment?: Comment) => deleteReviewComment(comment)),
+		registerCommand('gitlens.review.deleteThread', (thread?: CommentThread) => deleteReviewThread(thread)),
+		registerCommand('gitlens.review.discardComment', (reply?: CommentReply) => discardReviewThread(reply)),
 		{ dispose: () => disposeReviewThreads() },
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
 			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any

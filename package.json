@@ -9631,10 +9631,32 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "gitlens.review.cancelCommentEdit",
+				"title": "%command.gitlens.review.cancelCommentEdit.title%"
+			},
+			{
+				"command": "gitlens.review.deleteComment",
+				"title": "%command.gitlens.review.deleteComment.title%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.review.deleteThread",
+				"title": "%command.gitlens.review.deleteThread.title%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.review.discardComment",
+				"title": "%command.gitlens.review.discardComment.title%"
+			},
+			{
 				"command": "gitlens.review.dismissFinding",
 				"title": "%command.gitlens.review.dismissFinding.title%",
-				"category": "%command.category%",
 				"icon": "$(check)"
+			},
+			{
+				"command": "gitlens.review.editComment",
+				"title": "%command.gitlens.review.editComment.title%",
+				"icon": "$(edit)"
 			},
 			{
 				"command": "gitlens.review.markViewedAndNext",
@@ -9658,7 +9680,6 @@
 			{
 				"command": "gitlens.review.reopenFinding",
 				"title": "%command.gitlens.review.reopenFinding.title%",
-				"category": "%command.category%",
 				"icon": "$(issue-reopened)"
 			},
 			{
@@ -9677,9 +9698,12 @@
 				"icon": "$(reply)"
 			},
 			{
+				"command": "gitlens.review.saveComment",
+				"title": "%command.gitlens.review.saveComment.title%"
+			},
+			{
 				"command": "gitlens.review.sendFindingToAgent",
 				"title": "%command.gitlens.review.sendFindingToAgent.title%",
-				"category": "%command.category%",
 				"icon": "$(comment-discussion-sparkle)"
 			},
 			{
@@ -15656,6 +15680,30 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.review.cancelCommentEdit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.deleteComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.deleteThread",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.discardComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.dismissFinding",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.editComment",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.review.markViewedAndNext",
 					"when": "gitlens:review:reading"
 				},
@@ -15668,6 +15716,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.review.reopenFinding",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.review.replyAndAddress",
 					"when": "false"
 				},
@@ -15677,6 +15729,14 @@
 				},
 				{
 					"command": "gitlens.review.replyToFinding",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.saveComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.sendFindingToAgent",
 					"when": "false"
 				},
 				{
@@ -18232,6 +18292,30 @@
 					"when": "false"
 				}
 			],
+			"comments/comment/context": [
+				{
+					"command": "gitlens.review.saveComment",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.cancelCommentEdit",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@2"
+				}
+			],
+			"comments/comment/title": [
+				{
+					"command": "gitlens.review.editComment",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.deleteComment",
+					"when": "commentController == gitlens.review",
+					"group": "inline@2"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "gitlens.review.replyToFinding",
@@ -18247,6 +18331,11 @@
 					"command": "gitlens.review.replyAndAddress",
 					"when": "commentController == gitlens.review && gitlens:ai:allowed",
 					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.review.discardComment",
+					"when": "commentController == gitlens.review && commentThreadIsEmpty",
+					"group": "inline@4"
 				}
 			],
 			"comments/commentThread/title": [
@@ -18264,6 +18353,11 @@
 					"command": "gitlens.review.sendFindingToAgent",
 					"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
 					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.review.deleteThread",
+					"when": "commentController == gitlens.review && commentThread =~ /^(open|dismissed)$/",
+					"group": "inline@9"
 				}
 			],
 			"editor/context": [

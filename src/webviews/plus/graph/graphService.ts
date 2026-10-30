@@ -392,6 +392,8 @@ export type ReviewThreadState = 'open' | 'dismissed';
  *  a correction), or an agent's addition to a finding that was already there. Kept with the session and
  *  shown wherever the finding is — the thread, the card, the exports, the next review's context. */
 export interface ReviewFindingNote {
+	/** Given when the note joins the session, so it can be removed by itself */
+	id?: string;
 	author: 'user' | 'agent';
 	text: string;
 	/** When it was written, epoch ms */
@@ -411,7 +413,9 @@ export interface ReviewThreadItem {
 	title: string;
 	description: string;
 	state: ReviewThreadState;
-	source?: 'agent';
+	source?: 'agent' | 'user';
+	/** Who opened a comment of the review's own (`source: 'user'`) when it wasn't the reader */
+	author?: 'agent';
 	notes?: ReviewFindingNote[];
 }
 
@@ -422,12 +426,42 @@ export interface ReviewThreadsArgs {
 	items: ReviewThreadItem[];
 }
 
-export type ReviewThreadAction = 'dismiss' | 'reopen' | 'sendToAgent' | 'reply' | 'askReviewer' | 'address';
+export type ReviewThreadAction =
+	| 'dismiss'
+	| 'reopen'
+	| 'sendToAgent'
+	| 'reply'
+	| 'askReviewer'
+	| 'address'
+	| 'comment'
+	| 'editComment'
+	| 'editNote'
+	| 'delete'
+	| 'deleteOpening'
+	| 'deleteNote';
+
+/** Where the reader opened a thread of their own: a review file and the lines on the diff's right side. */
+export interface ReviewCommentPlace {
+	path: string;
+	line: number;
+	lineEnd: number;
+}
 
 /** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
- *  for a while applies exactly the ones it hasn't. A `reply` carries its text. */
+ *  for a while applies exactly the ones it hasn't. A `reply` carries its text; a `comment` — a thread the
+ *  reader opened on a line — carries its text and place, and its `findingId` is the new comment's. `delete`
+ *  removes the finding with all its threads; `deleteOpening` only its opening words, the first reply taking
+ *  their place (the finding goes when there is none); `editNote` and `deleteNote` act on one note, by
+ *  `noteId`. */
 export interface ReviewThreadActionsState {
-	actions: { seq: number; findingId: string; action: ReviewThreadAction; text?: string }[];
+	actions: {
+		seq: number;
+		findingId: string;
+		action: ReviewThreadAction;
+		text?: string;
+		place?: ReviewCommentPlace;
+		noteId?: string;
+	}[];
 }
 
 /** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only

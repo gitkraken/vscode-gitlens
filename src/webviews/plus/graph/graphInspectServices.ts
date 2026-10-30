@@ -1,5 +1,5 @@
 import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
-import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, env, l10n, ProgressLocation, TabInputTextDiff, Uri, window, workspace } from 'vscode';
 import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
 import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
@@ -9,12 +9,7 @@ import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import {
-	createRevisionRange,
-	isUncommitted,
-	isUncommittedStaged,
-	shortenRevision,
-} from '@gitlens/git/utils/revision.utils.js';
+import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -35,7 +30,6 @@ import type { RunPromptInAgentCommandArgs, RunPromptInAgentOutcome } from '../..
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
-import { GitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTarget } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
@@ -142,6 +136,7 @@ import type {
 	ResolveResult,
 	ResolveSkippedFile,
 	ReviewChangesOptions,
+	ReviewCommentPlace,
 	ReviewDetailResult,
 	ReviewFilesArgs,
 	ReviewOpenFileArgs,
@@ -161,7 +156,14 @@ import type { ResolveRunErrors } from './resolveAIUnavailable.js';
 import { classifyResolveRunErrors, findAIUnavailableError, isAIQuotaExceededError } from './resolveAIUnavailable.js';
 import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
 import { claimReviewFiles, releaseReviewFiles } from './reviewReading.js';
-import { releaseReviewThreads, setReviewThreads } from './reviewThreads.js';
+import {
+	claimReviewCommenting,
+	getReviewSideUri,
+	isReviewWorkingSide,
+	refreshReviewCommenting,
+	releaseReviewThreads,
+	setReviewThreads,
+} from './reviewThreads.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
  *  assembled by `GraphWebviewProvider.createGraphInspectContext()`. `getSession` reads live provider
@@ -366,6 +368,8 @@ export class GraphInspectServices {
 	 *  the reader while the graph webview is hidden behind the diff. */
 	private _reviewFiles?: ReviewFilesArgs & {
 		byPath: Map<string, string>;
+		/** The right side of each file's diff, by URI string — where the reader can comment */
+		commentable: Map<string, string>;
 		marked: string[];
 		active?: string;
 		/** Pending confirmation that no review diff is active — see `updateActiveReviewFile` */
@@ -1378,15 +1382,35 @@ export class GraphInspectServices {
 	}
 
 	/** {@link ReviewThreadsOwner} — a thread's title-bar command lands here and is relayed to the webview. */
-	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void {
+	reviewThreadAction(
+		findingId: string,
+		action: ReviewThreadAction,
+		text?: string,
+		place?: ReviewCommentPlace,
+		noteId?: string,
+	): void {
 		const actions = this._reviewThreadActions.actions;
 		actions.push({
 			seq: (actions.at(-1)?.seq ?? 0) + 1,
 			findingId: findingId,
 			action: action,
 			...(text != null ? { text: text } : {}),
+			...(place != null ? { place: place } : {}),
+			...(noteId != null ? { noteId: noteId } : {}),
 		});
 		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
+	}
+
+	/** {@link ReviewThreadsOwner} — only in a diff: the same working file open on its own is not the review. */
+	reviewCommentPath(uri: Uri): string | undefined {
+		const key = uri.toString();
+		const path = this._reviewFiles?.commentable.get(key);
+		if (path == null) return undefined;
+
+		const inDiff = window.tabGroups.all.some(g =>
+			g.tabs.some(t => t.input instanceof TabInputTextDiff && t.input.modified.toString() === key),
+		);
+		return inDiff ? path : undefined;
 	}
 
 	/** The manifest a diff-less pass (two-pass overview, orient) reads instead of the diff: every
@@ -1693,24 +1717,39 @@ export class GraphInspectServices {
 		const svc = this.container.git.getRepositoryService(args.repoPath);
 		const uris: Uri[] = [];
 		const byPath = new Map<string, string>();
+		const commentable = new Map<string, string>();
 		for (const path of args.paths) {
 			const uri = svc.getAbsoluteUri(path, args.repoPath);
 			uris.push(uri);
 			byPath.set(uri.path, path);
-			// Anything but the working tree opens as a revision document (a staged side included), which is
-			// what the title buttons must match on
-			if (!isUncommitted(args.rhs) || isUncommittedStaged(args.rhs)) {
-				uris.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
+			// The diff's right side is what the title buttons and the comment gutter match on — a revision
+			// document goes in beside the working file
+			const side = getReviewSideUri(this.container, args.repoPath, args.rhs, path);
+			if (!isReviewWorkingSide(args.rhs)) {
+				uris.push(side);
 			}
+			commentable.set(side.toString(), path);
 		}
 
+		// Whether a file takes comments depends on its diff being open, so the gutter is asked again as tabs change
+		const onTabs = () => {
+			this.updateActiveReviewFile();
+			refreshReviewCommenting();
+		};
 		const tracking = Disposable.from(
-			window.tabGroups.onDidChangeTabs(() => this.updateActiveReviewFile()),
-			window.tabGroups.onDidChangeTabGroups(() => this.updateActiveReviewFile()),
+			window.tabGroups.onDidChangeTabs(onTabs),
+			window.tabGroups.onDidChangeTabGroups(onTabs),
 		);
-		this._reviewFiles = { ...args, byPath: byPath, marked: marked, tracking: tracking };
+		this._reviewFiles = {
+			...args,
+			byPath: byPath,
+			commentable: commentable,
+			marked: marked,
+			tracking: tracking,
+		};
 		this._reviewFiles.active = this.findActiveReviewFile();
 		claimReviewFiles(this, uris);
+		claimReviewCommenting(this);
 		this._reviewReadingEvent.fire(this.getReviewReadingState());
 		return Promise.resolve();
 	}
@@ -1722,6 +1761,7 @@ export class GraphInspectServices {
 		this._reviewFiles?.tracking.dispose();
 		this._reviewFiles = undefined;
 		releaseReviewFiles(this);
+		refreshReviewCommenting();
 	}
 
 	/** The review file under the active editor: the active group's tab first, then any other group's —
@@ -1976,10 +2016,9 @@ export class GraphInspectServices {
 		await Promise.all(
 			Array.from(paths, async path => {
 				try {
-					const bytes =
-						isUncommitted(rhs) && !isUncommittedStaged(rhs)
-							? await workspace.fs.readFile(svc.getAbsoluteUri(path, repoPath))
-							: await svc.revision.getRevisionContent(path, rhs);
+					const bytes = isReviewWorkingSide(rhs)
+						? await workspace.fs.readFile(svc.getAbsoluteUri(path, repoPath))
+						: await svc.revision.getRevisionContent(path, rhs);
 					if (bytes != null) {
 						targets.set(path, new TextDecoder().decode(bytes).split('\n'));
 					}
