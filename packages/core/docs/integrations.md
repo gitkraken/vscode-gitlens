@@ -594,6 +594,11 @@ Invariants worth relying on:
 - `page.itemsPerPage` describes the page that came back; don't infer totals or "last page" from it.
 - Composite fan-out cursors retain each scope's exact continuation or retry position. Round-trip the cursor
   even after a partial result: healthy scopes advance while a failed scope retries the page it missed.
+- A repo-scoped read on a host that reads repository by repository (GitLab, GitLab self-managed, Bitbucket Cloud
+  and Azure DevOps; Azure DevOps issues per project) keeps at most 6 of those requests in
+  flight, whatever the repo count. `scopeConcurrency` on `listPullRequestsPage`, `listIssuesPage` and the pull
+  request sweeps lowers or raises it; a sweep runs up to 6 targets at once, each with this bound. GitHub/GHE send
+  one query regardless.
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.

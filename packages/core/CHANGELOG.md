@@ -9,7 +9,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds `Git.rev_parse__work_tree_of_git_dir(gitDir)`, resolving the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, or `undefined` when none does (a bare repository) (git-cli)
+- Adds `scopeConcurrency?: number` to `IntegrationManager.listPullRequestsPage` (repo-scoped reads only), `listIssuesPage`, and `sweepPullRequests`/`sweepClosedPullRequests`, setting the most per-repository requests (per-project for Azure DevOps issues) one provider read keeps in flight. Defaults to 6; a value that isn't a finite number of at least 1 falls back to the default, and a fraction is truncated. A sweep runs up to 6 targets at once, each with this bound (plus/integrations)
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
+
+### Changed
+
+- Bounds the repository and project fan-out of repo-scoped pull request and issue reads (`listPullRequestsPage`, `listIssuesPage` and the pull request sweeps) to 6 requests in flight, instead of one request per repository at once. This applies to the hosts that read repository by repository: pull requests on GitLab, GitLab self-managed, Bitbucket Cloud and Azure DevOps, and issues on GitLab, GitLab self-managed and Azure DevOps (per project). Results, ordering and per-repository failure isolation are unchanged; GitHub/GHE already send one query whatever the repo count (plus/integrations)
 
 ### Fixed
 

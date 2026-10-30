@@ -108,11 +108,14 @@ export async function drainPullRequests(
 	state: PullRequestStateFilter[] | undefined,
 	filters: PullRequestFilter[] | undefined,
 	/**
-	 * Breadth opt-ins that only the account-wide read can express. Grouped rather than passed positionally
-	 * because they are same-typed neighbors a transposition would silently swap, and picked from the sweep
-	 * options rather than restated so a third opt-in is declared once.
+	 * The sweep options the drain reads beyond its query: the breadth opt-ins only the account-wide read can
+	 * express, and the repo-scoped read's fan-out bound. Grouped rather than passed positionally because the
+	 * opt-ins are same-typed neighbors a transposition would silently swap, and picked from the sweep options
+	 * rather than restated so a new one is declared once.
 	 */
-	accountWideOptions: Pick<PullRequestSweepOptions, 'includeReviewRequested' | 'includeReviews'> | undefined,
+	sweepOptions:
+		| Pick<PullRequestSweepOptions, 'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency'>
+		| undefined,
 	connectionId: string | undefined,
 	maxPages: number,
 	attributeUnavailableProvider: boolean,
@@ -155,8 +158,8 @@ export async function drainPullRequests(
 	const accountWide = repos.length === 0;
 	// The breadth opt-ins are only expressible on the account-wide core, so gate them here — the single place
 	// that already knows which core it is about to call.
-	const includeReviewRequested = accountWide && (accountWideOptions?.includeReviewRequested ?? false);
-	const includeReviews = accountWide && (accountWideOptions?.includeReviews ?? false);
+	const includeReviewRequested = accountWide && (sweepOptions?.includeReviewRequested ?? false);
+	const includeReviews = accountWide && (sweepOptions?.includeReviews ?? false);
 	/** Every cursor already followed, so a provider that cycles them can't keep the drain walking in circles. */
 	const seenCursors = new Set<string>();
 
@@ -179,7 +182,12 @@ export async function drainPullRequests(
 					)
 				: integration.getMyPullRequestsForReposResult(
 						repos,
-						{ state: state, filters: filters, cursor: pageCursor },
+						{
+							state: state,
+							filters: filters,
+							cursor: pageCursor,
+							scopeConcurrency: sweepOptions?.scopeConcurrency,
+						},
 						connectionId,
 					),
 		);

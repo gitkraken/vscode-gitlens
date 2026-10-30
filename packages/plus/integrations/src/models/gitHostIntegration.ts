@@ -23,6 +23,7 @@ import { first } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderScopeFailure } from '../collectionMetadata.js';
@@ -34,7 +35,7 @@ import {
 	unsettledMissMessage,
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type {
 	GetIssuesOptions,
@@ -92,6 +93,11 @@ function sendsBasicCredential(providerId: IntegrationIds, session: ProviderAuthe
 	return isAzureProviderId(providerId) ? session.type !== 'oauth' : undefined;
 }
 
+/** A finite number >= 1 truncated to an integer; anything else (which would starve the pool) is the default. */
+function resolveScopeConcurrency(value: number | undefined): number {
+	return value != null && Number.isFinite(value) && value >= 1 ? Math.trunc(value) : providerFanOutConcurrency;
+}
+
 /** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
 export type SearchMyPullRequestsOptions = {
 	/** Suppresses the user-facing notification when the read fails. */
@@ -120,6 +126,12 @@ type MyPullRequestsForReposOptions = {
 	state?: PullRequestStateFilter | PullRequestStateFilter[];
 	/** Requests the lightweight row shape without per-row build status or commit count. */
 	summary?: boolean;
+	/**
+	 * Most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts that read repository
+	 * by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud and Azure DevOps; GitHub/GHE send one query
+	 * whatever the repo count. A value that isn't a finite number >= 1 falls back to the default.
+	 */
+	scopeConcurrency?: number;
 };
 
 /** A repository as the batch and branch reads name it. */
@@ -1106,6 +1118,7 @@ export abstract class GitHostIntegration<
 				unsettled,
 				r => `${r.namespace}\0${r.project}`,
 			);
+			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
 			const cursorInfo = this.parseCursorInfo<PagedProjectInput>(options?.cursor);
 			const cursors: PagedProjectInput[] = cursorInfo.cursors ?? [];
 			let projectInputs: PagedProjectInput[] = Array.from(projects.values(), project => ({
@@ -1123,32 +1136,29 @@ export abstract class GitHostIntegration<
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
-				// `allSettled`, not `Promise.all`: one project's read rejecting must not discard every sibling
-				// project's already-fetched issues and cursors. A rejected project is recorded as a structured
-				// failure so the facade can warn and set `fetchFailed` instead of reporting a partial project set
-				// as complete.
-				const settled = await Promise.allSettled(
-					projectInputs.map(async projectInput => {
-						const results = await api.getIssuesForAzureProject(
-							toTokenWithInfo(providerId, session),
-							projectInput.namespace,
-							projectInput.project,
-							{
-								...getIssuesOptions,
-								cursor: projectInput.cursor,
-								baseUrl: customUrl,
-								isPAT: sendsBasicCredential(providerId, session),
-								// Continuation is driven by the per-project cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: projectInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								sort: options?.sort,
-							},
-						);
-						return { projectInput: projectInput, results: results };
-					}),
-				);
+				// Settled, not `Promise.all`: one project's read rejecting must not discard every sibling project's
+				// already-fetched issues and cursors. A rejected project is recorded as a structured failure so the
+				// facade can warn and set `fetchFailed` instead of reporting a partial project set as complete.
+				const settled = await mapSettledBounded(projectInputs, scopeConcurrency, async projectInput => {
+					const results = await api.getIssuesForAzureProject(
+						toTokenWithInfo(providerId, session),
+						projectInput.namespace,
+						projectInput.project,
+						{
+							...getIssuesOptions,
+							cursor: projectInput.cursor,
+							baseUrl: customUrl,
+							isPAT: sendsBasicCredential(providerId, session),
+							// Continuation is driven by the per-project cursor; only apply an explicit page on the
+							// first request so it can't clobber a continuation cursor on later pages.
+							page: projectInput.cursor == null ? options?.page : undefined,
+							pageSize: options?.pageSize,
+							states: states,
+							sort: options?.sort,
+						},
+					);
+					return { projectInput: projectInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
@@ -1289,6 +1299,7 @@ export abstract class GitHostIntegration<
 		}
 
 		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !repoIdsInput) {
+			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1302,29 +1313,23 @@ export abstract class GitHostIntegration<
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
-				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// Settled, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
 				// already-fetched issues and cursors. A rejected repo is recorded as a structured failure so the
 				// facade can warn and set `fetchFailed` instead of reporting a partial repo set as complete.
-				const settled = await Promise.allSettled(
-					repoInputs.map(async repoInput => {
-						const results = await api.getIssuesForRepo(
-							toTokenWithInfo(providerId, session),
-							repoInput.repo,
-							{
-								...getIssuesOptions,
-								cursor: repoInput.cursor,
-								baseUrl: customUrl,
-								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: repoInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								sort: options?.sort,
-							},
-						);
-						return { repoInput: repoInput, results: results };
-					}),
-				);
+				const settled = await mapSettledBounded(repoInputs, scopeConcurrency, async repoInput => {
+					const results = await api.getIssuesForRepo(toTokenWithInfo(providerId, session), repoInput.repo, {
+						...getIssuesOptions,
+						cursor: repoInput.cursor,
+						baseUrl: customUrl,
+						// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+						// first request so it can't clobber a continuation cursor on later pages.
+						page: repoInput.cursor == null ? options?.page : undefined,
+						pageSize: options?.pageSize,
+						states: states,
+						sort: options?.sort,
+					});
+					return { repoInput: repoInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
@@ -1637,6 +1642,7 @@ export abstract class GitHostIntegration<
 		) {
 			const toRepoInputKey = (r: ProviderRepoInput) => `${r.namespace}\0${r.project ?? ''}\0${r.name}`;
 			const unsettledRepos = toUnsettledScopeKeys(reposOrRepoIds, unsettled, toRepoInputKey);
+			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1651,40 +1657,38 @@ export abstract class GitHostIntegration<
 				let metadata: CollectionMetadata | undefined;
 				const failures: CollectionScopeFailure[] = [];
 				const data: ProviderPullRequest[] = [];
-				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// Settled, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
 				// already-fetched PRs and cursors. A rejected repo becomes a structured `CollectionScopeFailure`
 				// (attributed to that repo) so the facade warns on it + sets `fetchFailed`, while the survivors and
 				// their continuation cursors are still returned.
-				const settled = await Promise.allSettled(
-					repoInputs.map(async repoInput => {
-						const results = await api.getPullRequestsForRepo(
-							toTokenWithInfo(providerId, session),
-							repoInput.repo,
-							{
-								...getPullRequestsOptions,
-								cursor: repoInput.cursor,
-								isPAT: sendsBasicCredential(providerId, session),
-								// Per repository: an unfiltered read may span organizations, and a host can narrow the base
-								// to each repository's own.
-								baseUrl:
-									options?.customUrl == null && isGitSelfManagedHostIntegrationId(providerId)
-										? this.getRepositoriesApiBaseUrl(session, [repoInput.repo])
-										: customUrl,
-								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: repoInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-								includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
-							},
-						);
-						return { repoInput: repoInput, results: results };
-					}),
-				);
+				const settled = await mapSettledBounded(repoInputs, scopeConcurrency, async repoInput => {
+					const results = await api.getPullRequestsForRepo(
+						toTokenWithInfo(providerId, session),
+						repoInput.repo,
+						{
+							...getPullRequestsOptions,
+							cursor: repoInput.cursor,
+							isPAT: sendsBasicCredential(providerId, session),
+							// Per repository: an unfiltered read may span organizations, and a host can narrow the base
+							// to each repository's own.
+							baseUrl:
+								options?.customUrl == null && isGitSelfManagedHostIntegrationId(providerId)
+									? this.getRepositoriesApiBaseUrl(session, [repoInput.repo])
+									: customUrl,
+							// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+							// first request so it can't clobber a continuation cursor on later pages.
+							page: repoInput.cursor == null ? options?.page : undefined,
+							pageSize: options?.pageSize,
+							states: states,
+							// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+							includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
+						},
+					);
+					return { repoInput: repoInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
-				// `allSettled` preserves order, so `settled[i]` is `repoInputs[i]`.
+				// Settled results keep input order, so `settled[i]` is `repoInputs[i]`.
 				settled.forEach((outcome, i) => {
 					if (outcome.status !== 'fulfilled') {
 						const failedRepo = repoInputs[i].repo;

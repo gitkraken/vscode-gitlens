@@ -54,6 +54,8 @@ export async function listPullRequestsPage(
 		 * shape and keeps doing so, so an explicit `false` does not widen it back to the full projection.
 		 */
 		summary?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		scopeConcurrency?: number;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -142,6 +144,7 @@ export async function listPullRequestsPage(
 		filters: resolvedFilters.filters,
 		pageSize: options.itemsPerPage,
 		summary: options.summary,
+		scopeConcurrency: options.scopeConcurrency,
 	};
 	const readPage = (pageCursor: string | undefined, requestedPage?: number) =>
 		runCaptured(
