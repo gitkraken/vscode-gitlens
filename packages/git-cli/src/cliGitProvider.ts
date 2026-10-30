@@ -24,7 +24,7 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
+import { joinPaths, maybeUri, normalizePath, splitPath, trimTrailingSlashes } from '@gitlens/utils/path.js';
 import { cancellable } from '@gitlens/utils/promise.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -923,7 +923,7 @@ export class CliGitProvider implements GitProvider {
 		// itself ignored is answered here, as one entry, and left out of the listing
 		const scopedEntries = new Set<string>();
 		if (paths != null) {
-			const scopes = [...new Set(paths.map(p => (p.length > 1 ? p.replace(/\/+$/, '') : p)))];
+			const scopes = [...new Set(paths.map(p => (p.length > 1 ? trimTrailingSlashes(p) : p)))];
 			const ignoredScopes = await this.getIgnoredScopes(
 				repoPath,
 				scopes.filter(p => p !== ''),
@@ -1259,7 +1259,7 @@ function getDefaultGlobalExcludesPath(): string | undefined {
  * too; none for a top-level path, or one with `.` or `..` segments, whose folder git would read otherwise
  */
 function getRefusedFolder(refused: string): string | undefined {
-	const trimmed = refused.replace(/\/+$/, '');
+	const trimmed = trimTrailingSlashes(refused);
 	if (hasDotSegment(trimmed)) return undefined;
 
 	const index = trimmed.lastIndexOf('/');

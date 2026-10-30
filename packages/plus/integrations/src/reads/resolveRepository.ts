@@ -3,6 +3,7 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import type { RemoteProviderConfig } from '@gitlens/git/remotes/matcher.js';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { ConfiguredIntegrationDescriptor } from '../authentication/models.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
@@ -323,7 +324,7 @@ function matchInstallation(
 			id,
 			connection != null ? (connection.baseUrl ?? connection.domain) : options.domain,
 		);
-		return baseUrl != null ? new URL(baseUrl).pathname.replace(/\/+$/, '') : undefined;
+		return baseUrl != null ? trimTrailingSlashes(new URL(baseUrl).pathname) : undefined;
 	};
 
 	// The connection an unpinned read already targets comes first, so it wins a tie between installations.
