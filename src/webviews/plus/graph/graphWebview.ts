@@ -2245,6 +2245,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	onFocusChanged(focused: boolean): void {
+		// With the graph open twice, the editor's review follows the one the reader last worked in
+		if (focused) {
+			this._inspect.reclaimReview();
+		}
+	}
+
 	onVisibilityChanged(visible: boolean): void {
 		const repositoryChanged = this.repository != null && this.repository.etag !== this._etagRepository;
 		if (visible && (repositoryChanged || this.container.subscription.etag !== this._etagSubscription)) {

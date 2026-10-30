@@ -2422,6 +2422,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		notes: unknown;
 		scope: unknown;
 		repoPath: unknown;
+		anchor: AnchorKey;
 	};
 
 	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
@@ -2442,6 +2443,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const notes = entry?.session?.notes;
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
+		const anchor = this.engagedAnchorKey;
 		const synced = this._reviewThreadsSynced;
 		if (
 			synced != null &&
@@ -2449,7 +2451,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced.findingStates === findingStates &&
 			synced.notes === notes &&
 			synced.scope === scope &&
-			synced.repoPath === repoPath
+			synced.repoPath === repoPath &&
+			synced.anchor === anchor
 		) {
 			return;
 		}
@@ -2469,8 +2472,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			notes: notes,
 			scope: scope,
 			repoPath: repoPath,
+			anchor: anchor,
 		};
 		const args: ReviewThreadsArgs = {
+			anchor: anchor,
 			repoPath: repoPath,
 			rhs: endpoints.rhs,
 			items: getReviewThreadItems(result, entry?.session),
@@ -2488,6 +2493,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		excluded: unknown;
 		scope: unknown;
 		repoPath: unknown;
+		anchor: AnchorKey;
 	};
 
 	/** Keeps the host's set of review files — the diffs that get the reading commands, in reading order —
@@ -2504,6 +2510,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const excluded = entry?.session?.excluded;
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
+		const anchor = this.engagedAnchorKey;
 		const synced = this._reviewFilesSynced;
 		if (
 			synced != null &&
@@ -2511,7 +2518,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced.order === order &&
 			synced.excluded === excluded &&
 			synced.scope === scope &&
-			synced.repoPath === repoPath
+			synced.repoPath === repoPath &&
+			synced.anchor === anchor
 		) {
 			return;
 		}
@@ -2527,8 +2535,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this._reviewFilesSynced = { files: files, order: order, excluded: excluded, scope: scope, repoPath: repoPath };
-		this._actions.setReviewFiles({ repoPath: repoPath, lhs: endpoints.lhs, rhs: endpoints.rhs, paths: [...paths] });
+		this._reviewFilesSynced = {
+			files: files,
+			order: order,
+			excluded: excluded,
+			scope: scope,
+			repoPath: repoPath,
+			anchor: anchor,
+		};
+		// The review's key goes along, so what the reader does in the editor comes back as this review's
+		this._actions.setReviewFiles({
+			anchor: anchor,
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs,
+			paths: [...paths],
+		});
 	}
 
 	/** Opens a review file's diff with the review's endpoints — from the checklist, a finding, or a plan —

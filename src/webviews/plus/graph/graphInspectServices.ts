@@ -146,6 +146,7 @@ import type {
 	ReviewResult,
 	ReviewThreadAction,
 	ReviewThreadActionsState,
+	ReviewThreadsArgs,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
@@ -358,8 +359,14 @@ export class GraphInspectServices {
 		'reviewThreadActions',
 		'save-last',
 	);
-	/** Thread actions taken from the editor, kept append-only so a hidden panel catches up on all of them. */
-	private readonly _reviewThreadActions: ReviewThreadActionsState = { actions: [] };
+	/** Thread actions taken from the editor on the panel's review, kept append-only so a hidden panel catches
+	 *  up on all of them — started over for each review, see `followReview`. */
+	private _reviewThreadActions?: ReviewThreadActionsState;
+	/** The last thread action's sequence — it runs on across reviews, so a review the reader comes back to
+	 *  takes the actions made in it since, and none of another's. */
+	private _reviewThreadActionsSeq = 0;
+	/** Every viewed mark the editor has made — what a review's new list of marks numbers on from. */
+	private _reviewMarksMade = 0;
 	private readonly _deepReviewEvent = createRpcEvent<DeepReviewState | undefined>('deepReview', 'save-last');
 	/** The deep review's report channel — what the agent reported stays readable after it closes. */
 	private _deepReview?: DeepReviewChannel;
@@ -371,11 +378,19 @@ export class GraphInspectServices {
 		/** The right side of each file's diff, by URI string — where the reader can comment */
 		commentable: Map<string, string>;
 		marked: string[];
+		/** See {@link ReviewReadingState.markedBefore} */
+		markedBefore: number;
 		active?: string;
 		/** Pending confirmation that no review diff is active — see `updateActiveReviewFile` */
 		activeSettling?: ReturnType<typeof setTimeout>;
 		tracking: Disposable;
 	};
+	/** What the webview last set as the review's files and threads, kept while another graph instance has
+	 *  the editor — so this one can take the review back as it stands, see `reclaimReview`. */
+	private _reviewFilesArgs?: ReviewFilesArgs;
+	private _reviewThreadsArgs?: ReviewThreadsArgs;
+	/** Another graph instance took the editor's review over, and the reader hasn't come back to this one */
+	private _reviewReleased = false;
 
 	dispose(): void {
 		this.clearReviewFiles();
@@ -591,6 +606,7 @@ export class GraphInspectServices {
 				setReviewFiles: args => this.setReviewFiles(args),
 				reviewStep: (action, path) => this.reviewStep(action, path),
 				openReviewFile: args => {
+					this.reclaimReview();
 					this.openReviewFile(args);
 					return Promise.resolve();
 				},
@@ -598,12 +614,30 @@ export class GraphInspectServices {
 					this.getReviewReadingState(),
 				),
 				setReviewThreads: args => {
-					setReviewThreads(this.container, this, args);
+					this._reviewThreadsArgs = args;
+					if (args != null) {
+						this.followReview(args.anchor);
+					}
+					if (!this._reviewReleased) {
+						setReviewThreads(this.container, this, args);
+					}
 					return Promise.resolve();
 				},
 				onReviewThreadActions: this._reviewThreadActionsEvent.subscribe(buffer, tracker, () =>
-					this._reviewThreadActions.actions.length ? this._reviewThreadActions : undefined,
+					this._reviewThreadActions?.actions.length ? this._reviewThreadActions : undefined,
 				),
+				warnReviewHandOffDropped: to => {
+					void window.showWarningMessage(
+						to === 'reviewer'
+							? l10n.t(
+									'Your question was not sent to the reviewer because the review was switched. Open that review and ask again.',
+								)
+							: l10n.t(
+									'The finding was not sent to the agent because the review was switched. Open that review and send it again.',
+								),
+					);
+					return Promise.resolve();
+				},
 				trackReviewAction: args => {
 					if (args.action === 'copy') {
 						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
@@ -1389,16 +1423,65 @@ export class GraphInspectServices {
 		place?: ReviewCommentPlace,
 		noteId?: string,
 	): void {
-		const actions = this._reviewThreadActions.actions;
-		actions.push({
-			seq: (actions.at(-1)?.seq ?? 0) + 1,
+		// Threads and comments only exist once the panel has said whose review they are
+		const journal = this._reviewThreadActions;
+		if (journal == null) return;
+
+		journal.actions.push({
+			seq: ++this._reviewThreadActionsSeq,
 			findingId: findingId,
 			action: action,
 			...(text != null ? { text: text } : {}),
 			...(place != null ? { place: place } : {}),
 			...(noteId != null ? { noteId: noteId } : {}),
 		});
-		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
+		this._reviewThreadActionsEvent.fire({ anchor: journal.anchor, actions: [...journal.actions] });
+	}
+
+	/** The panel's threads and files are for its review: what the reader does in the editor from now on is
+	 *  that review's, so the journal starts over when the review changes — while released too, since the
+	 *  panel goes on with its review either way. */
+	private followReview(anchor: string): void {
+		if (this._reviewThreadActions?.anchor === anchor) return;
+
+		this._reviewThreadActions = { anchor: anchor, actions: [] };
+	}
+
+	/** {@link ReviewReadingOwner} */
+	reviewFilesReleased(): void {
+		this.releaseReview();
+	}
+
+	/** {@link ReviewThreadsOwner} */
+	reviewThreadsReleased(): void {
+		this.releaseReview();
+	}
+
+	/** Another graph instance took the editor over — the reading, the threads, the comment gutter go together,
+	 *  so this one lets go of all of them, and its panel stops following a reading the editor no longer
+	 *  shows. It doesn't take them back on its next change, which would have two graphs pulling the editor
+	 *  between them; only once the reader works in it again. */
+	private releaseReview(): void {
+		if (this._reviewReleased) return;
+
+		this._reviewReleased = true;
+		this.clearReviewFiles();
+		releaseReviewThreads(this);
+		this._reviewReadingEvent.fire(undefined);
+	}
+
+	/** The reader is working in this instance again — its webview took focus, or its panel opened or stepped
+	 *  a file — so its review takes the editor back from whichever instance has it. */
+	reclaimReview(): void {
+		if (!this._reviewReleased) return;
+
+		this._reviewReleased = false;
+		if (this._reviewFilesArgs != null) {
+			void this.setReviewFiles(this._reviewFilesArgs);
+		}
+		if (this._reviewThreadsArgs != null) {
+			setReviewThreads(this.container, this, this._reviewThreadsArgs);
+		}
 	}
 
 	/** {@link ReviewThreadsOwner} — only in a diff: the same working file open on its own is not the review. */
@@ -1694,20 +1777,34 @@ export class GraphInspectServices {
 		const files = this._reviewFiles;
 		if (files == null) return undefined;
 
-		return { active: files.active, marked: [...files.marked] };
+		return {
+			anchor: files.anchor,
+			active: files.active,
+			marked: [...files.marked],
+			markedBefore: files.markedBefore,
+		};
 	}
 
 	@debug()
 	async setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void> {
+		this._reviewFilesArgs = args;
+		if (args != null) {
+			this.followReview(args.anchor);
+		}
+		if (this._reviewReleased) return;
+
 		if (args == null || args.paths.length === 0) {
 			this.clearReviewFiles();
 			this._reviewReadingEvent.fire(undefined);
 			return;
 		}
 
-		// Reshaping the set (the list moved, a plan was applied) keeps the marks; another review starts clean
+		// Reshaping the set (the list moved, a plan was applied) keeps the marks; another review — a commit
+		// after the working tree in the same repo too — starts clean
 		const prior = this._reviewFiles;
-		const marked = prior?.repoPath === args.repoPath ? prior.marked : [];
+		const same = prior?.anchor === args.anchor;
+		const marked = same ? prior.marked : [];
+		const markedBefore = same ? prior.markedBefore : this._reviewMarksMade;
 		prior?.tracking.dispose();
 		// The old set's wait for a settled active tab would fire on the new one
 		if (prior?.activeSettling != null) {
@@ -1745,6 +1842,7 @@ export class GraphInspectServices {
 			byPath: byPath,
 			commentable: commentable,
 			marked: marked,
+			markedBefore: markedBefore,
 			tracking: tracking,
 		};
 		this._reviewFiles.active = this.findActiveReviewFile();
@@ -1821,6 +1919,9 @@ export class GraphInspectServices {
 	 *  the active editor (the keybindings) — so several open diffs each step from their own file. */
 	@debug()
 	async reviewStep(action: ReviewReadingAction, from?: string | Uri): Promise<void> {
+		// The editor's commands only ever reach the instance that has the editor, so a released one is
+		// being stepped from its panel
+		this.reclaimReview();
 		const files = this._reviewFiles;
 		if (files == null) return;
 
@@ -1839,6 +1940,7 @@ export class GraphInspectServices {
 		switch (action) {
 			case 'markViewed':
 				files.marked.push(files.paths[index]);
+				this._reviewMarksMade++;
 				if (count > 1) {
 					open(files.paths[(index + 1) % count]);
 				}
