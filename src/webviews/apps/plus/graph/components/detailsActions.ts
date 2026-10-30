@@ -2958,6 +2958,10 @@ export class DetailsActions {
 		void this.services.graphInspect.stopDeepReview();
 	}
 
+	warnReviewHandOffDropped(to: 'reviewer' | 'agent'): void {
+		void this.services.graphInspect.warnReviewHandOffDropped(to);
+	}
+
 	orientChanges(
 		repoPath: string,
 		scope: ScopeSelection,

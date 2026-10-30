@@ -367,6 +367,9 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _reviewFetchedForSelection: AnchorKey | undefined;
 	private _composeFetchedForSelection: AnchorKey | undefined;
 	private _resolveFetchedForSelection: AnchorKey | undefined;
+	/** The review the editor's reading state was last for — what a reading let go of clears, which may
+	 *  not be the review shown by then. */
+	private _readingAnchor: AnchorKey | undefined;
 	/**
 	 * Resolve-session gesture counts, reported on every resolve telemetry event so a session can be
 	 * read as "resolved after N refines and M retries" rather than as unrelated runs. A session is one
@@ -1472,25 +1475,31 @@ export class DetailsWorkflowController implements ReactiveController {
 				session: entry.session != null ? withReadingOrder(entry.session, undefined) : undefined,
 			});
 		},
-		/** Folds editor-made thread actions into the session — only the ones past the last applied sequence. */
+		/** Folds editor-made thread actions into the session of the review they were taken in — only the
+		 *  ones past the last sequence that review applied. */
 		applyThreadActions: (state: ReviewThreadActionsState | undefined): void => {
 			if (state == null) return;
 
+			// The actions go to the review they were taken in, which may no longer be the one shown — the
+			// journal is that review's alone, so another review's count never reaches into it
 			const anchor = this.currentAnchor();
-			const existing = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			const isCurrent = state.anchor === anchorKey(anchor);
+			const existing = this.host.crossPaneState.runningOperations.get().get(state.anchor as AnchorKey)?.review;
 			const applied = existing?.threadActionsApplied ?? 0;
 			const fresh = state.actions.filter(a => a.seq > applied);
 			// A comment of the reader's own can come before any run — it starts the review's entry the way
-			// a viewed mark does
-			if (fresh.length === 0 || (existing == null && !fresh.some(a => a.action === 'comment'))) return;
+			// a viewed mark does, but only for the review shown: no entry is made from another's actions
+			if (fresh.length === 0 || (existing == null && (!isCurrent || !fresh.some(a => a.action === 'comment')))) {
+				return;
+			}
 
 			const entry = existing ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
 			let session = entry.session ?? emptyReviewSession;
-			const current = entry.result ?? this.actions.resources.review.value.get();
+			const current = entry.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
 			const before = current != null && 'result' in current ? current.result : undefined;
 			let result = before;
 			// Hand-offs run after the session is registered, so what they send carries the reply
-			const handOffs: (() => void)[] = [];
+			const handOffs: { to: 'reviewer' | 'agent'; send: () => void }[] = [];
 			let commented = false;
 			for (const { findingId, action, text, place, noteId } of fresh) {
 				switch (action) {
@@ -1528,7 +1537,7 @@ export class DetailsWorkflowController implements ReactiveController {
 						session = withFindingState(session, findingId, undefined);
 						break;
 					case 'sendToAgent':
-						handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId));
+						handOffs.push({ to: 'agent', send: () => this.host.sendReviewFindingToAgent?.(findingId) });
 						break;
 					case 'reply':
 					case 'askReviewer':
@@ -1541,9 +1550,15 @@ export class DetailsWorkflowController implements ReactiveController {
 							});
 						}
 						if (action === 'askReviewer') {
-							handOffs.push(() => this.host.askReviewerAboutFinding?.(findingId, text));
+							handOffs.push({
+								to: 'reviewer',
+								send: () => this.host.askReviewerAboutFinding?.(findingId, text),
+							});
 						} else if (action === 'address') {
-							handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId, text));
+							handOffs.push({
+								to: 'agent',
+								send: () => this.host.sendReviewFindingToAgent?.(findingId, text),
+							});
 						}
 						break;
 				}
@@ -1557,31 +1572,54 @@ export class DetailsWorkflowController implements ReactiveController {
 				session: session,
 				threadActionsApplied: fresh.at(-1)!.seq,
 			});
+			// The shown review is what the panel and its hand-offs act on — a hand-off for one that has been
+			// left would find its finding in the wrong review. The reply is kept; the reader is told the
+			// request itself went nowhere
+			if (!isCurrent) {
+				for (const to of new Set(handOffs.map(h => h.to))) {
+					this.actions.warnReviewHandOffDropped(to);
+				}
+				return;
+			}
+
 			if (result !== before) {
 				this.actions.resources.review.mutate({ result: result! });
 			}
 			for (const handOff of handOffs) {
-				handOff();
+				handOff.send();
 			}
 			this.endReviewIfEmptied(entry, before, result);
 		},
-		/** Folds what the host reports about the editor into the entry: the active review file, and the
-		 *  editor-made viewed marks past the ones already taken. */
+		/** Folds what the host reports about the editor into the entry of the review it is reading: the
+		 *  active review file, and the editor-made viewed marks past the ones already taken. */
 		applyReadingState: (state: ReviewReadingState | undefined): void => {
-			const anchor = this.currentAnchor();
-			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
 			if (state == null) {
+				// The review last read — or, for a controller built since, the one shown, which is where reading
+				// was cleared before reading states carried their review
+				const read = this._readingAnchor ?? anchorKey(this.currentAnchor());
+				this._readingAnchor = undefined;
+				const entry = this.host.crossPaneState.runningOperations.get().get(read)?.review;
 				if (entry?.reading == null) return;
 
 				this.registerRunningOperation({ ...entry, reading: undefined });
 				return;
 			}
 
-			const applied = entry?.reading?.marksApplied ?? 0;
+			this._readingAnchor = state.anchor as AnchorKey;
+			const anchor = this.currentAnchor();
+
+			// The marks belong to the review they were made in; only the review shown gets an entry from them
+			const isCurrent = state.anchor === anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(state.anchor as AnchorKey)?.review;
+			if (entry == null && !isCurrent) return;
+
+			// The marks are numbered across reviews, so a count taken in an earlier reading of this one
+			// can't skip any of the new list
+			const applied = Math.max((entry?.reading?.marksApplied ?? 0) - state.markedBefore, 0);
 			const fresh = state.marked.slice(applied);
 			let session = entry?.session ?? emptyReviewSession;
 			if (fresh.length > 0) {
-				const files = this.actions.resources.scopeFiles.value.get();
+				const files = isCurrent ? this.actions.resources.scopeFiles.value.get() : undefined;
 				const byPath = new Map(files?.map(f => [f.path, f]));
 				session = withFilesViewed(
 					session,
@@ -1593,7 +1631,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.registerRunningOperation({
 				...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
 				session: session,
-				reading: { active: state.active, marksApplied: state.marked.length },
+				reading: { active: state.active, marksApplied: state.markedBefore + state.marked.length },
 			});
 		},
 		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
