@@ -133,6 +133,13 @@ type MyPullRequestsForReposOptions = {
 	 * default.
 	 */
 	scopeConcurrency?: number;
+	/**
+	 * Azure DevOps only, repo-scoped: `false` skips the lookup that fills each row's clone URLs, saving one
+	 * request per repository (and fork source) per page. Rows then carry no `refs.base.url`/`refs.head.url`
+	 * (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be checked out or matched to local
+	 * remotes. Defaults to `true`; other providers ignore it.
+	 */
+	includeRemoteInfo?: boolean;
 };
 
 /** A repository as the batch and branch reads name it. */
@@ -1686,8 +1693,12 @@ export abstract class GitHostIntegration<
 							page: repoInput.cursor == null ? options?.page : undefined,
 							pageSize: options?.pageSize,
 							states: states,
-							// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-							includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
+							// Azure DevOps only populates clone URLs on request (extra call), which a caller may opt out
+							// of; no-op elsewhere.
+							includeRemoteInfo:
+								isAzureProviderId(providerId) && options?.includeRemoteInfo !== false
+									? true
+									: undefined,
 						},
 					);
 					return { repoInput: repoInput, results: results };
@@ -1782,8 +1793,10 @@ export abstract class GitHostIntegration<
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
-				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-				includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
+				// Azure DevOps only populates clone URLs on request (extra call), which a caller may opt out of;
+				// no-op elsewhere.
+				includeRemoteInfo:
+					isAzureProviderId(providerId) && options?.includeRemoteInfo !== false ? true : undefined,
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			await this.confirmScopedAuthFailures(session, result.metadata);

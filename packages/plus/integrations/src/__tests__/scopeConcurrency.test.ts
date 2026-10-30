@@ -243,3 +243,62 @@ suite('Scope concurrency bound', () => {
 		}
 	});
 });
+
+suite('Azure DevOps includeRemoteInfo opt-out', () => {
+	async function remoteInfoRequests(
+		read: (manager: Awaited<ReturnType<typeof connected>>['manager']) => Promise<unknown>,
+	): Promise<unknown[]> {
+		const { manager, host } = await connected(GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+		try {
+			const requested: unknown[] = [];
+			stubApi(host, {
+				isRepoIdsInput: () => false,
+				getProviderPullRequestsPagingMode: () => PagingMode.Repo,
+				getPullRequestsForRepo: (
+					_t: unknown,
+					repo: ProviderRepoInput,
+					options: { includeRemoteInfo?: boolean },
+				) => {
+					requested.push(options.includeRemoteInfo);
+					return Promise.resolve({
+						values: [providerPr(repo.name)],
+						paging: { more: false, cursor: '{}' },
+					});
+				},
+			});
+			await read(manager);
+			return requested;
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	const repos = reposFor(2, true);
+	const providerId = GitCloudHostIntegrationId.AzureDevOps;
+
+	test('listPullRequestsPage passes the opt-out to every per-repository read', async () => {
+		assert.deepEqual(
+			await remoteInfoRequests(m => m.listPullRequestsPage({ providerId: providerId, repos: repos })),
+			[true, true],
+		);
+		assert.deepEqual(
+			await remoteInfoRequests(m =>
+				m.listPullRequestsPage({ providerId: providerId, repos: repos, includeRemoteInfo: false }),
+			),
+			[undefined, undefined],
+		);
+	});
+
+	test('sweepPullRequests passes the opt-out to every per-repository read', async () => {
+		assert.deepEqual(
+			await remoteInfoRequests(m => m.sweepPullRequests({ providerIds: [providerId], repos: repos })),
+			[true, true],
+		);
+		assert.deepEqual(
+			await remoteInfoRequests(m =>
+				m.sweepPullRequests({ providerIds: [providerId], repos: repos, includeRemoteInfo: false }),
+			),
+			[undefined, undefined],
+		);
+	});
+});

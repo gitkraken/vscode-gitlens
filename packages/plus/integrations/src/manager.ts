@@ -207,6 +207,13 @@ type PullRequestSweepCommonOptions = {
 	 */
 	scopeConcurrency?: number;
 	/**
+	 * Azure DevOps, repo-scoped targets only: `false` skips the lookup that fills each row's clone URLs, saving one
+	 * request per repository (and fork source) per page. Rows then carry no `refs.base.url`/`refs.head.url`
+	 * (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be checked out or matched to local
+	 * remotes. Defaults to `true`; other providers ignore it.
+	 */
+	includeRemoteInfo?: boolean;
+	/**
 	 * Page budget per provider. A stop at this budget with a resumable cursor is reported as
 	 * `pagination-incomplete` with `recovery: 'page-budget'`. A part no budget reaches is reported beside it
 	 * with `recovery: 'none'`: a `provider-limit` omission when the reported match count exceeds the provider's
@@ -448,6 +455,13 @@ export interface IntegrationManager {
 		 * account-wide read ignores it.
 		 */
 		scopeConcurrency?: number;
+		/**
+		 * Azure DevOps, repo-scoped only (the account-wide read ignores it): `false` skips the lookup that fills each
+		 * row's clone URLs, saving one request per repository (and fork source) per page. Rows then carry no
+		 * `refs.base.url`/`refs.head.url` (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be
+		 * checked out or matched to local remotes. Defaults to `true`; other providers ignore it.
+		 */
+		includeRemoteInfo?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	/**
 	 * Pull requests matching structured criteria over a repository/organization or current-user relationship

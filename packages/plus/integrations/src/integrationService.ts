@@ -1211,6 +1211,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		summary?: boolean;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		scopeConcurrency?: number;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		includeRemoteInfo?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
 	}
