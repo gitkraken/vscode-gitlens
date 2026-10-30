@@ -81,7 +81,9 @@ async function readRowMenu(page: Page, row: Locator): Promise<string[]> {
 	await row.click();
 	await page.keyboard.press('Shift+F10');
 
-	const items = page.locator('.context-view .action-item');
+	// Visible items only: since VS Code 1.144 the context view also holds four zero-size items ("Ask in a Side
+	// Chat", "Quote", a separator, "Copy") ahead of the row's own, so its first item is never visible.
+	const items = page.locator('.context-view .action-item').filter({ visible: true });
 	await expect(items.first()).toBeVisible({ timeout: MaxTimeout });
 	const texts = (await items.allInnerTexts()).map(t => t.trim()).filter(Boolean);
 
