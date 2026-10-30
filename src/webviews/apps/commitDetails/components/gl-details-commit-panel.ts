@@ -495,9 +495,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	}
 
 	private computeCommitModes(): ('review' | 'compose')[] {
-		if (!this.aiEnabled) return [];
-		// Working changes support both Compose and Review; a real commit supports Review only.
-		return this.isUncommitted ? ['compose', 'review'] : ['review'];
+		// Working changes support both Compose and Review; a real commit supports Review only. Review is
+		// a reading walk first, so it stays without AI — only Compose is AI through and through.
+		return this.aiEnabled && this.isUncommitted ? ['compose', 'review'] : ['review'];
 	}
 
 	private renderEmbeddedMetadataBar() {

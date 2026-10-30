@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a _Notifications_ section to _GitLens Settings_, with an unread count in its navigation &mdash; filter by all, unread, or read, mark notifications read or unread, delete them, and follow their links
   - Pops up only new security and system notices, and never while notifications are open
   - Paid plans can opt out of marketing notifications
+- Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through rather than a one-off AI report: a checklist of the changed files tracks what you've viewed and brings back a file that changes after, reading controls step through the files in order from the diff editor, and findings and your own comments live as comment threads in the diff, where you can reply to them, dismiss them or hand them to your agent
 
 ### Changed
 
@@ -35,6 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
+- Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
 - Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
 - Fixes _Review Changes_ losing the line numbers of the rest of a hunk after a removed line that starts with `-- ` (such as a SQL or Lua comment) or an added line that starts with `++ `, which left the review's comments on those lines pointing at the wrong place
 

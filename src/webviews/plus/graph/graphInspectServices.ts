@@ -1501,19 +1501,7 @@ export class GraphInspectServices {
 				}
 			}
 
-			// `{ silent: true }` avoids prompting from the RPC. The webview gates the
-			// "Send to agent" button on `aiModel != null`, so this is a defensive check
-			// for the race where the model was cleared between the gate and the call.
-			// `scope: 'review'` matches the model the review action used to produce the
-			// findings being forwarded to chat.
-			const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
-			if (aiModel == null) {
-				void window.showWarningMessage(
-					l10n.t('An AI model must be selected before sending review findings to chat.'),
-				);
-				return { ok: false, reason: 'no-ai-model' };
-			}
-
+			// The prompt is a template filled in here and the agent does the work, so no AI model is involved
 			const { prompt } = await this.container.ai.getPrompt('address-review-findings', undefined, {
 				reviewMarkdown: args.reviewMarkdown,
 				scopeLabel: args.scopeLabel,
