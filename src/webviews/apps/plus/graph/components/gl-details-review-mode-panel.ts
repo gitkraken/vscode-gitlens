@@ -69,6 +69,7 @@ import type {
 	ReviewFileFindings,
 	ReviewFileIdentity,
 	ReviewFindingCounts,
+	ReviewFindingsContent,
 	ReviewFindingState,
 	ReviewProgress,
 	ReviewReply,
@@ -85,6 +86,7 @@ import {
 	getReviewReadingOrder,
 	getReviewReadingShortcut,
 	getReviewReplies,
+	getStaleFindingIds,
 	isReviewComplete,
 	userFocusAreaId,
 } from './reviewSession.js';
@@ -263,6 +265,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	reading?: { active?: string };
 
+	/** The content the AI findings were made against, from the registry entry — to mark the ones whose
+	 *  file has changed since. */
+	@property({ attribute: false })
+	findingsContent?: ReviewFindingsContent;
+
+	/** Findings with a file that changed since they were made. */
+	private _staleFindings?: ReadonlySet<string>;
+
 	/** The orient depth's reading plan: groups the checklist by concern with a line of context per file. */
 	@property({ attribute: false })
 	orient?: AIReviewOrientResult;
@@ -412,6 +422,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
+		if (
+			changedProperties.has('result') ||
+			changedProperties.has('files') ||
+			changedProperties.has('findingsContent')
+		) {
+			const stale = getStaleFindingIds(this.result, this.findingsContent, this.files);
+			this._staleFindings = stale.size ? stale : undefined;
+		}
+
 		if (changedProperties.has('files')) {
 			this._selectedFiles = [];
 		}
@@ -508,11 +527,23 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// `gl-details-header.inResultsView`). The Copy + Send-to-chat actions live in an always-visible
 		// footer beneath the scrollable results so they stay reachable regardless of scroll position.
 		const open = countReviewFindingStates(this.result, this.session).open;
+		let description = formatPlural(
+			l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'),
+			{ count: open },
+		);
+		// Findings that came in on files already read put those back in the queue — say so where they land
+		const { requeued } = getReviewProgress(this.session, this.files);
+		if (requeued > 0) {
+			description += ` · ${formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} viewed file back in the queue} other{{count} viewed files back in the queue}}',
+				),
+				{ count: requeued },
+			)}`;
+		}
 		return html`${this.renderWithChecklist(
 			html`<div class="review-results scrollable">${this.renderOverview()} ${this.renderFocusAreas()}</div>`,
-			formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
-				count: open,
-			}),
+			description,
 		)}${this.renderDeepReviewStrip()}${this.renderReadyActions()}${this.renderReviewInput()}`;
 	}
 
@@ -1698,11 +1729,20 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		const decorations: TreeItemDecoration[] = [];
-		if (getReviewFileProgress(this.session, file) === 'changed') {
+		const progress = getReviewFileProgress(this.session, file);
+		if (progress === 'changed') {
 			decorations.push({
 				type: 'text',
 				label: l10n.t('changed since viewed'),
 				tooltip: l10n.t('This file changed after you marked it as viewed'),
+				kind: 'modified',
+				position: 'before',
+			});
+		} else if (progress === 'requeued') {
+			decorations.push({
+				type: 'text',
+				label: l10n.t('new findings since viewed'),
+				tooltip: l10n.t('New findings came in on this file after you marked it as viewed'),
 				kind: 'modified',
 				position: 'before',
 			});
@@ -2024,6 +2064,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 							: this.renderAreaSeverity(area)
 					}
 					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
+					${this.renderAreaStale(area)}
 					<span class="review-area__file-count"
 						>${
 							area.id === userFocusAreaId
@@ -2132,6 +2173,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 						: nothing
 			}
 		</div>`;
+	}
+
+	/** How many of the area's findings point at a file that changed since — their cards say so too. */
+	private renderAreaStale(area: AIReviewFocusArea) {
+		const stale = this._staleFindings;
+		const count = stale != null ? (area.findings?.filter(f => stale.has(f.id)).length ?? 0) : 0;
+		if (count === 0) return nothing;
+
+		return html`<span
+			class="review-area__stale"
+			title=${formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} finding points at a file that changed after it was made} other{{count} findings point at files that changed after they were made}}',
+				),
+				{ count: count },
+			)}
+			>${l10n.t('changed since review')}</span
+		>`;
 	}
 
 	/** The reader's replies on the other findings' threads — they show in their findings too; here they sit
@@ -2333,6 +2392,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 						: nothing
 				}
 				${state != null ? html`<span class="review-finding__state">${l10n.t('Dismissed')}</span>` : nothing}
+				${
+					this._staleFindings?.has(finding.id)
+						? html`<span
+								class="review-finding__stale"
+								title=${l10n.t('A file this finding points at changed after it was made — it may no longer apply')}
+								>${l10n.t('changed since review')}</span
+							>`
+						: nothing
+				}
 				<span class="review-finding__actions">
 					<gl-copy-container
 						appearance="toolbar"
