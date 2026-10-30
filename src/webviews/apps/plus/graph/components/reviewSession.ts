@@ -1,6 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import type { AIReviewFinding, AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
+import { uuid } from '@gitlens/utils/crypto.js';
 import type { KeyMap } from '../../../../../config.js';
 import type {
 	ReviewCommentPlace,
@@ -645,6 +646,100 @@ export function getReviewPanelStatus(
 	return 'idle';
 }
 
+/** What makes two findings the same one across runs: who reported it (the model or the agent), the files it
+ *  holds in, and its title — the description when the title is only a stand-in. Lines are left out: an
+ *  edit above a finding moves them without making it another finding. */
+function getFindingMatchKey(finding: AIReviewFinding): string {
+	const paths = [...new Set(getReviewFindingLocations(finding).map(l => l.filePath))].sort();
+	const label = finding.titleIsFallback ? finding.description : finding.title;
+	return [finding.source === 'agent' ? 'agent' : 'model', ...paths, label.trim().toLowerCase()].join('\0');
+}
+
+/** Gives findings that just came in the ids they keep for as long as they are in the review — everything
+ *  the session knows about a finding (its state, its notes, its threads) is keyed by it. A finding that is
+ *  one of `previous` (see {@link getFindingMatchKey}) takes that one's id, so what the reader did with it
+ *  stays with it; each previous finding is claimed once, so two alike in a file stay two. Any other gets a
+ *  fresh id. What the findings came with — numbered by position, or per agent run — names nothing beyond
+ *  the one report and never survives. `taken` is what the review holds already: those ids are neither
+ *  claimed nor handed out, nor are the previous findings' own. The reader's own comments are left as they are.
+ *  Returns a function to map the findings through, in order. */
+export function createReviewFindingIds(
+	previous: readonly AIReviewFinding[],
+	taken: Iterable<string>,
+): (finding: AIReviewFinding) => AIReviewFinding {
+	const used = new Set(taken);
+	const claimable = new Map<string, string[]>();
+	for (const finding of previous) {
+		if (finding.source === 'user' || used.has(finding.id)) continue;
+
+		used.add(finding.id);
+		const key = getFindingMatchKey(finding);
+		const ids = claimable.get(key);
+		if (ids == null) {
+			claimable.set(key, [finding.id]);
+		} else {
+			ids.push(finding.id);
+		}
+	}
+
+	return finding => {
+		if (finding.source === 'user') return finding;
+
+		let id = claimable.get(getFindingMatchKey(finding))?.shift();
+		if (id == null) {
+			do {
+				id = `f-${uuid().slice(0, 8)}`;
+			} while (used.has(id));
+			used.add(id);
+		}
+		return id === finding.id ? finding : { ...finding, id: id };
+	};
+}
+
+/** {@link createReviewFindingIds} over the model's findings in a result — the agent's area and the reader's
+ *  carry theirs already. The same result when there are none. */
+export function withReviewFindingIds(
+	result: AIReviewResult,
+	previous: readonly AIReviewFinding[],
+	taken: Iterable<string>,
+): AIReviewResult {
+	const isModels = (area: AIReviewResult['focusAreas'][number]) =>
+		area.id !== agentFocusAreaId && area.id !== userFocusAreaId && Boolean(area.findings?.length);
+	if (!result.focusAreas.some(isModels)) return result;
+
+	const withId = createReviewFindingIds(previous, taken);
+	return {
+		...result,
+		focusAreas: result.focusAreas.map(area =>
+			isModels(area) ? { ...area, findings: area.findings!.map(withId) } : area,
+		),
+	};
+}
+
+/** The model's findings in review results, then `earlier` — each id once, the first one seen kept. What a
+ *  finding that comes in later takes its id from when it is the same one (see {@link createReviewFindingIds}). */
+export function getModelFindings(
+	results: readonly (AIReviewResult | undefined)[],
+	earlier?: readonly AIReviewFinding[],
+): AIReviewFinding[] {
+	const findings = new Map<string, AIReviewFinding>();
+	const all = [
+		...results.flatMap(
+			r =>
+				r?.focusAreas
+					.filter(a => a.id !== agentFocusAreaId && a.id !== userFocusAreaId)
+					.flatMap(a => a.findings ?? []) ?? [],
+		),
+		...(earlier ?? []),
+	];
+	for (const finding of all) {
+		if (finding.source == null && !findings.has(finding.id)) {
+			findings.set(finding.id, finding);
+		}
+	}
+	return [...findings.values()];
+}
+
 /** Puts the viewed files back in the queue that `next` brings an open finding `prev` didn't have there —
  *  the reader went through them before the finding existed, so they read as re-queued rather than done,
  *  and the rest of the review stands. The reader's own comments never count (they are theirs to know
@@ -656,8 +751,8 @@ export function withFindingsRequeued(
 ): ReviewSession {
 	if (next == null || session.viewed.size === 0) return session;
 
-	// A finding counts as known at a place by its id, or — across runs, whose ids are positional and say
-	// nothing about what they name — by its title there
+	// A finding counts as known at a place by its id, or by its title there — one alike to a finding already
+	// known (another area's, a second one in the file) takes an id of its own but brings nothing new
 	const had = new Map<string, Set<string>>();
 	const seen = new Set<string>();
 	const titled = (path: string, finding: AIReviewFinding) => `${path}\0${finding.title.trim().toLowerCase()}`;
