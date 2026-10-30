@@ -311,8 +311,8 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
 
 export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
 
-/** The review a deep review belongs to, as the panel keys its reviews — echoed back on every report so the
- *  panel folds the findings into that review and no other. Opaque to the host. */
+/** The review a deep review belongs to — echoed back on every report so the panel folds the findings into
+ *  that review and no other. Opaque to the host, which tells reviews apart by {@link DeepReviewArgs.anchorKey}. */
 export interface DeepReviewAnchor {
 	kind: string;
 	repoPath: string;
@@ -323,6 +323,9 @@ export interface DeepReviewAnchor {
 export interface DeepReviewArgs {
 	repoPath: string;
 	anchor: DeepReviewAnchor;
+	/** The same review as the panel keys its reviews (see {@link ReviewFilesArgs.anchor}): a question goes into
+	 *  an open channel only when its key is this one */
+	anchorKey: string;
 	scope: ScopeSelection;
 	/** How the panel describes the scope — what the agent is told it is reviewing */
 	scopeLabel: string;
@@ -334,7 +337,7 @@ export interface DeepReviewArgs {
 	prompt?: string;
 	/** A question or remark on one finding, for the agent to take up instead of a whole review: the
 	 *  finding as context and the reader's words. Goes into the running channel and session when there
-	 *  is one, so the answer lands in the finding's thread. */
+	 *  is one for the same review, so the answer lands in the finding's thread. */
 	focus?: { findingId: string; finding: string; question?: string };
 }
 
@@ -353,9 +356,15 @@ export interface DeepReviewState {
 	 *  to" counters belong to one run */
 	run: number;
 	anchor: DeepReviewAnchor;
+	/** {@link DeepReviewArgs.anchorKey} of the start that opened the channel */
+	anchorKey: string;
 	/** What the channel is open for: a whole review, or only a question on a finding — which leaves the
 	 *  channel open for the next question and does not read as a review running */
 	purpose: 'review' | 'ask';
+	/** Whether the prompt has reached an agent: `pending` while one is picked and the prompt sent, `failed`
+	 *  while a failed hand-over's Retry is on offer, `delivered` once one got through — only then is a review
+	 *  running, rather than a channel waiting on an agent that may never come */
+	handOff: 'pending' | 'failed' | 'delivered';
 	active: boolean;
 	done: boolean;
 	findings: { seq: number; finding: AIReviewFinding }[];
@@ -498,7 +507,9 @@ export type ReviewChangesOptions = {
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
 
-export type AddressReviewFindingsResult = { ok: true } | { ok: false; reason: 'no-agents' | 'error'; message?: string };
+export type AddressReviewFindingsResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-agents' | 'cancelled' | 'error'; message?: string };
 
 export interface AddressReviewFindingsArgs {
 	repoPath: string;

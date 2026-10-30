@@ -177,6 +177,8 @@ export type RunningOperation =
 				run?: number;
 				/** Open for a whole review, or only for questions on findings (see `DeepReviewState.purpose`) */
 				purpose?: 'review' | 'ask';
+				/** Whether an agent has the prompt yet (see `DeepReviewState.handOff`) */
+				handOff?: 'pending' | 'failed' | 'delivered';
 				active: boolean;
 				done: boolean;
 				count: number;

@@ -265,7 +265,12 @@ the engaged result plus the session's finding states (`getReviewThreadItems`) an
 gone. The thread's title-bar commands (`gitlens.review.dismissFinding` …) hand the finding back to
 the owning graph instance, which logs them with a sequence and fires `onReviewThreadActions`; the
 workflow controller applies only the actions past `entry.threadActionsApplied`, so a panel hidden
-behind the diff catches up on all of them when it next renders. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
+behind the diff catches up on all of them when it next renders. A thread's Ask Reviewer shows only
+under `gitlens:review:canAsk`, which the host keeps to Review in Repo's availability; once the question
+is handed to the agent (`startDeepReview` with `focus`), the finding's threads are titled as waiting
+until a newer agent comment on it arrives in a sync, the hand-off fails, or the channel closes. A thread
+with a comment open for editing holds the latest sync's item until the edit is saved or cancelled —
+rebuilding its comments would close the edit and lose what was typed. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
 the AI (`_reviewBackSnapshot` is the engaged projection). Before hiding, the anchor's registry
 entry captures Resume eligibility, unsubmitted instructions, selected scope and file/commit exclusions, and prior-result error
 recovery. Re-entry restores that projection; typing or changing scope invalidates Resume, and

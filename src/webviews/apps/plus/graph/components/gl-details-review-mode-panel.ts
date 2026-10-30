@@ -285,7 +285,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	/** The delegated deep review on this anchor, while one is open or once it reported done. */
 	@property({ attribute: false })
-	deepReview?: { active: boolean; done: boolean; count: number; purpose?: 'review' | 'ask'; hidden?: boolean };
+	deepReview?: {
+		active: boolean;
+		done: boolean;
+		count: number;
+		purpose?: 'review' | 'ask';
+		handOff?: 'pending' | 'failed' | 'delivered';
+		hidden?: boolean;
+	};
 
 	/** Set for a moment after Review in Repo is clicked, so a double click starts one review. A running review
 	 *  never holds the button: the agent may never say it is done, and a new start simply replaces it. */
@@ -1665,20 +1672,35 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const deep = this.deepReview;
 		if (deep?.hidden || deep == null || (!deep.active && !deep.done) || deep.purpose === 'ask') return nothing;
 
-		// Finished once the agent said so — its channel may stay open for what it reports later
+		// Until an agent has the prompt nothing is running — the reader is picking one, or a failed hand-over's
+		// Retry is waiting in a notification; finished once the agent said so, though its channel may stay open
+		// for what it reports later
+		const handOff = deep.active && deep.handOff !== 'delivered' ? deep.handOff : undefined;
 		const running = deep.active && !deep.done;
-		const count = running
-			? formatPlural(l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'), {
-					count: deep.count,
-				})
-			: formatPlural(l10n.t('{count, plural, one{{count} finding} other{{count} findings}}'), {
-					count: deep.count,
-				});
+		let icon: string;
+		let text: string;
+		if (handOff === 'pending') {
+			icon = 'loading';
+			text = l10n.t('Starting the agent…');
+		} else if (handOff === 'failed') {
+			icon = 'warning';
+			text = l10n.t("The agent didn't start — see the notification");
+		} else {
+			icon = running ? 'loading' : 'robot';
+			text = `${running ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${
+				running
+					? formatPlural(
+							l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
+							{ count: deep.count },
+						)
+					: formatPlural(l10n.t('{count, plural, one{{count} finding} other{{count} findings}}'), {
+							count: deep.count,
+						})
+			}`;
+		}
 		return html`<div class="review-deep" role="status">
-			<code-icon class="review-deep__icon" icon=${running ? 'loading' : 'robot'}></code-icon>
-			<span class="review-deep__text"
-				>${running ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${count}</span
-			>
+			<code-icon class="review-deep__icon" icon=${icon}></code-icon>
+			<span class="review-deep__text">${text}</span>
 			<gl-button
 				appearance="toolbar"
 				density="compact"
