@@ -960,6 +960,51 @@ curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-
 - Do not POST {"done":true} for this answer: the thread stays open for the reader's next question. But if this question came while you were still running a review of these changes, answer it, then finish that review as it asked — its {"done":true} at the end included`,
 };
 
+export const deepReviewOrient: PromptTemplate<'deep-review-orient'> = {
+	id: 'deep-review-orient',
+	variables: ['scopeLabel', 'diffCommand', 'endpoint', 'token', 'instructions'],
+	template: `You are an AI coding agent helping a reader prepare to review a set of code changes. Your job is not to find problems — it is to lay out the best order to read the files in, so the reader meets the core of the change first and its consequences after. You can read the repository; use that to understand what the change is built on and what only adopts it.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+(Start with its \`--stat\` form to see every changed file, then read what you need to place them.)
+
+Produce a reading plan and POST it to GitLens as a single JSON object:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"plan":{"overview":"…","groups":[…]}}'
+
+The plan has this exact structure:
+
+{
+  "overview": "One or two sentences: what this change is, in the reader's terms.",
+  "groups": [
+    {
+      "label": "Short name for what this group of files is (under 40 chars)",
+      "kind": "core|supporting|mechanical",
+      "summary": "One or two sentences: what this group changes and why these files belong together",
+      "files": [
+        { "path": "path/relative/to/repo.ts", "note": "One line: why this file is in the change and what to look for" }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- "core" holds the files everything else follows from — new logic, the engine of the change. Put the core group first, and within it the file to read first
+- "supporting" holds the files that adopt or wire up the core: call sites, configuration, tests
+- "mechanical" holds files a reader only skims: lockfiles, generated output, translations, pure renames, formatting
+- Every changed file appears exactly once, in exactly one group, with its path as the diff shows it
+- Order groups and the files inside them in the order they should be read
+- The reader sees the label and the summary, not the kind: name the group for what it is ("Refusal state and persistence", "Tests and changelog"), never for how to read it ("Read first", "Skim"), and let the summary make its weight clear
+- Notes are one line each, concrete, and say what to look for — never restate the path or the status
+- If the JSON is too long for one command line, write it to a temporary file and POST it with \`--data-binary @file\`
+- Check the response: GitLens answers {"accepted":1}; anything else — an empty body, 401, 404 — means the reader has moved on, so stop and say so with the status you got
+- The endpoint is on this machine; if your tool sandbox blocks local network access, run the request outside the sandbox, or say so and give the plan in your reply instead
+- Do not change any files, and do not review the changes — only plan the reading
+
+\${instructions}`,
+};
+
 export const reviewDetail: PromptTemplate<'review-detail'> = {
 	id: 'review-detail_v2',
 	variables: ['diff', 'overview', 'message', 'focusArea', 'context', 'instructions'],

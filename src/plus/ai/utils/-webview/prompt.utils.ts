@@ -9,6 +9,7 @@ import {
 	addressReviewFindings,
 	deepReview,
 	deepReviewFocus,
+	deepReviewOrient,
 	explainChanges,
 	generateChangelog,
 	generateCommitMessage,
@@ -90,6 +91,8 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return deepReview as PromptTemplate<T>;
 		case 'deep-review-focus':
 			return deepReviewFocus as PromptTemplate<T>;
+		case 'deep-review-orient':
+			return deepReviewOrient as PromptTemplate<T>;
 		case 'start-review-pullRequest':
 			return reviewPullRequest as PromptTemplate<T>;
 		case 'start-work-issue':

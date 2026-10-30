@@ -63,6 +63,7 @@ import type {
 	DeepReviewStartResult,
 	DeepReviewState,
 	GraphServices,
+	OrientInRepoArgs,
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewFilesArgs,
@@ -2967,9 +2968,10 @@ export class DetailsActions {
 		scope: ScopeSelection,
 		prompt: string | undefined,
 		excludedFiles: string[] | undefined,
+		inRepo: OrientInRepoArgs | undefined,
 		signal: AbortSignal,
 	): Promise<ReviewOrientResult> {
-		return this.services.graphInspect.orientChanges(repoPath, scope, prompt, excludedFiles, signal);
+		return this.services.graphInspect.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, signal);
 	}
 
 	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
