@@ -81,9 +81,7 @@ const missingInputs = !repoUrl || !issueUrl || !prUrl;
  */
 function cloneTestRepository(url: string, dest: string, token: string | undefined): void {
 	// The sign-in credentials stay in this process, as they do for the editor (baseTest.ts)
-	const env: NodeJS.ProcessEnv = Object.fromEntries(
-		Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_')),
-	);
+	const env = nonInteractiveGitEnv();
 	if (!token) {
 		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env });
 		return;
@@ -95,7 +93,6 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 		stdio: 'pipe',
 		env: {
 			...env,
-			GIT_TERMINAL_PROMPT: '0',
 			GIT_CONFIG_COUNT: '1',
 			GIT_CONFIG_KEY_0: key,
 			GIT_CONFIG_VALUE_0: header,
@@ -103,6 +100,19 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 	});
 	appendFileSync(path.join(dest, '.git', 'config'), `[http "${url}/"]\n\textraheader = ${header}\n`);
 }
+
+/**
+ * The environment the spec's own git runs in: no `GK_E2E_*`, and no credential prompts — a private repository
+ * without a usable token fails instead of waiting on a terminal prompt or Git Credential Manager's dialog.
+ */
+function nonInteractiveGitEnv(): NodeJS.ProcessEnv {
+	return {
+		...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+		GIT_TERMINAL_PROMPT: '0',
+		GCM_INTERACTIVE: 'never',
+	};
+}
+
 if (missingInputs && process.env.E2E_REQUIRE_SIGNIN) {
 	throw new Error(
 		'E2E_GITHUB_REPO_URL / E2E_GITHUB_ISSUE_URL / E2E_GITHUB_PR_URL are required (E2E_REQUIRE_SIGNIN) but not all set',
@@ -156,7 +166,12 @@ function decodeStartResult(response: McpMessage): StartResult {
 }
 
 function git(cwd: string, ...args: string[]): string {
-	return execFileSync('git', args, { cwd: cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+	return execFileSync('git', args, {
+		cwd: cwd,
+		encoding: 'utf8',
+		stdio: ['ignore', 'pipe', 'pipe'],
+		env: nonInteractiveGitEnv(),
+	}).trim();
 }
 
 function localBranches(repo: string): string[] {
@@ -205,6 +220,8 @@ function redactLog(lines: string[]): string[] {
 				.replace(/(\s-t\s+|--token[=\s]+)("[^"]*"|'[^']*'|\S+)/gi, '$1<redacted>')
 				.replace(/([?&](?:code|state|token)(?:=|%3D))[^&\s"')]+/gi, '$1<redacted>')
 				.replace(/(\b(?:Bearer|Basic)\s+)\S+/gi, '$1<redacted>')
+				.replace(/\b(?:gh[opsur]_[A-Za-z0-9]{20,}|github_pat_\w+)\b/g, '<redacted>')
+				.replace(/("?(?:access|refresh)_?token"?\s*[:=]\s*"?)[^"\s,}]+/gi, '$1<redacted>')
 				.replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, '<redacted>')
 				.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '<email>'),
 		);
@@ -266,6 +283,12 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 	});
 
 	test.afterAll(async ({ vscode }) => {
+		await vscode.gitlens.stopSubscriptionSimulation().catch(() => {});
+	});
+
+	// No fixtures, so it runs even when the worker failed to start or sign in (a hook taking `vscode` is skipped
+	// then) — the clone is set up before the sign-in, and must not keep its token either way
+	test.afterAll(async () => {
 		// First, and before anything that can hang: a clone left behind by a teardown that times out must not keep
 		// the token in its config (the worktrees share it)
 		if (clonePath != null && repoToken) {
@@ -278,7 +301,6 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 			}
 		}
 
-		await vscode.gitlens.stopSubscriptionSimulation().catch(() => {});
 		if (clonePath == null) return;
 
 		// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the

@@ -187,6 +187,8 @@ git checkout -- package.json README.md
 | `GK_E2E_CF_ACCESS_CLIENT_ID` / `_SECRET`, `GK_E2E_CF_AUTHORIZATION` | Cloudflare Access credential, off production only (secret)                                                                                             |
 | `E2E_REQUIRED_INTEGRATIONS`                                         | providers that must show as connected (default: GitHub, GitLab, Bitbucket, Azure DevOps; `none` checks the sign-in only)                               |
 | `E2E_REQUIRE_SIGNIN`                                                | fail instead of skip when the cookie is missing — for CI jobs that must sign in                                                                        |
+| `GK_E2E_ACCESS_TOKEN_COOKIE_NAME`                                   | overrides the session cookie's name (default: the backend's own, e.g. `stagingAccessToken`)                                                            |
+| `GK_E2E_GITHUB_TOKEN`                                               | read-only token for a private GitHub test repository (secret; see below)                                                                               |
 
 The MCP Start Work / Start Review spec (`mcpGitlensWritePathSignedIn.test.ts`) also needs `E2E_GITHUB_REPO_URL`,
 `E2E_GITHUB_ISSUE_URL` and `E2E_GITHUB_PR_URL`: the GitHub test repository, an open issue that belongs to the GitHub
@@ -194,14 +196,18 @@ account bound to the test account (Start Work matches the account's own issues, 
 PR whose branch lives in that repository rather than a fork. Give canonical URLs without a trailing slash. They are
 public values — set them as repository variables; the spec skips without them, and fails under `E2E_REQUIRE_SIGNIN`.
 A private test repository also needs `GK_E2E_GITHUB_TOKEN` (a secret): a fine-grained token that can only read that
-repository (Contents: read-only). The spec clones with it through an `http.<repository>/.extraheader` — never in the
-remote URL — and keeps it in the clone's own config for the editor's fetches; the clone is deleted at teardown.
+repository (Contents: read-only). The spec clones with it through an `http.<repository>/.extraheader` passed in
+`GIT_CONFIG_*` (git 2.31 or later) — never in the remote URL — and keeps it in the clone's own config for the editor's
+fetches; teardown removes it from that config and deletes the clone, also when the worker failed to sign in. Issue and
+PR titles and branch names from that repository can appear in the job log (the spec prints what the tools returned
+and, on failure, GitLens log lines), so keep nothing sensitive in its test data.
 
 Mind what a sign-in costs: every worker sign-in mints a new GitLens token for the test account, and the backend
 neither expires nor revokes those tokens. Sign in only where an account is needed, don't retry signed-in specs
 (a retry starts a new worker), never sign out in a test (it is local-only), and never sign CI in to production.
-The credentials stay in the Playwright process: the harness strips `GK_E2E_*` from the editor's environment, so
-nothing the editor spawns sees them. Treat the cookie as a password: keep it out of shell history and logs, and never
+The sign-in credentials stay in the Playwright process: the harness strips `GK_E2E_*` from the environment of the
+editor and of the GK CLI the MCP specs spawn, so nothing they start sees the cookie or the Cloudflare credential. The
+test-repository token is the exception: it is readable through the clone's config until teardown. Treat the cookie as a password: keep it out of shell history and logs, and never
 print it — the fixture's diagnostics use fixed vocabularies, and the only account detail they log is its plan labels.
 
 Two side effects to know about:
