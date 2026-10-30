@@ -1303,7 +1303,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				if (result.stdout.trim() === 'true') {
 					const result = await this.revParseGitDir(cwd);
 					const repoPath = result?.commonPath ?? result?.path;
-					if (repoPath?.length) return [true, repoPath];
+					if (repoPath?.length) {
+						const workTree = await this.git.rev_parse__work_tree_of_git_dir(repoPath);
+						return workTree ? this.getRepositoryInfo(workTree) : [true, repoPath];
+					}
 				}
 			}
 

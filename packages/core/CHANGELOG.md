@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `Git.rev_parse__work_tree_of_git_dir(gitDir)`, resolving the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, or `undefined` when none does (a bare repository) (git-cli)
+
+### Fixed
+
+- Fixes `getRepositoryInfo` (and `Git.rev_parse__show_toplevel`) resolving a path inside a repository's `.git` folder — `.git/refs`, `.git/rebase-merge` during a rebase — to that `.git` folder as a bare repository when the repo's config has no `core.bare` line, so a host registered it as a second repository named `.git`. Git guesses "bare" from inside a git dir when `core.bare` is unset; a git dir whose parent folder is a working tree using it now resolves to that working tree. Real bare repos, including a bare clone named `.git` beside its worktrees and a `.bare` folder behind a `.git` file, still resolve to themselves (git-cli)
+
 ## [0.24.0] - 2026-10-28
 
 ### Changed

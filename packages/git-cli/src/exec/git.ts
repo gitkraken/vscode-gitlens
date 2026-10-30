@@ -1835,7 +1835,10 @@ export class Git {
 				if (result.stdout.trim() === 'true') {
 					const result = await this.rev_parse__git_dir(cwd).catch(() => undefined);
 					const repoPath = result?.commonPath ?? result?.path;
-					if (repoPath?.length) return [true, repoPath];
+					if (repoPath?.length) {
+						const workTree = await this.rev_parse__work_tree_of_git_dir(repoPath);
+						return [true, workTree ?? repoPath];
+					}
 				}
 			}
 
@@ -1856,6 +1859,26 @@ export class Git {
 			}
 			return emptyArray as [];
 		}
+	}
+
+	/**
+	 * Returns the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, if any.
+	 * Inside the git dir of a non-bare repo whose config lacks `core.bare`, git guesses the repo is bare
+	 */
+	async rev_parse__work_tree_of_git_dir(gitDir: string): Promise<string | undefined> {
+		const parent = dirname(gitDir);
+		if (parent === gitDir) return undefined;
+
+		// A bare repo's parent fails `--show-toplevel`, or belongs to some other repo's git dir
+		const result = await this.run({ cwd: parent, errors: 'ignore' }, 'rev-parse', '--show-toplevel', '--git-dir');
+		const [toplevel, parentGitDir] = result.stdout.split('\n').map(r => r.trimStart());
+		if (!toplevel || !parentGitDir) return undefined;
+
+		if (!arePathsEqual(isAbsolute(parentGitDir) ? parentGitDir : joinPaths(parent, parentGitDir), gitDir)) {
+			return undefined;
+		}
+
+		return normalizePath(toplevel);
 	}
 
 	private logGitCommandStart(command: string, id: number): void {
