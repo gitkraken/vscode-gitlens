@@ -8,10 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `Git.rev_parse__work_tree_of_git_dir(gitDir)`, resolving the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, or `undefined` when none does (a bare repository) (git-cli)
 - Adds the `plus/notifications` subpaths (`context.js`, `errors.js`, `models.js`, `notificationsService.js` and `presentation.js`): a client and state holder for GitKraken `notifications-service-v2` notifications filtered by product, with a host-implemented `NotificationsContext`. See [`docs/notifications.md`](./docs/notifications.md) (plus/notifications)
 
 ### Fixed
 
+- Fixes `getRepositoryInfo` (and `Git.rev_parse__show_toplevel`) resolving a path inside a repository's `.git` folder — `.git/refs`, `.git/rebase-merge` during a rebase — to that `.git` folder as a bare repository when the repo's config has no `core.bare` line, so a host registered it as a second repository named `.git`. Git guesses "bare" from inside a git dir when `core.bare` is unset; a git dir whose parent folder is a working tree using it now resolves to that working tree. Real bare repos, including a bare clone named `.git` beside its worktrees and a `.bare` folder behind a `.git` file, still resolve to themselves (git-cli)
 - Fixes `fetch`, `pull` and `push` with a remote-tracking branch reference that carries an `upstream` (as a host's remote branch refs may, with the remote's own name) using that name as the branch to fetch or push to, e.g. `git fetch upstream upstream`: `getBranchTrackingWithoutRemote` now returns `undefined` for a remote-tracking branch, and `fetch` reads the branch's own name (git, git-cli)
 - Fixes a git command that fails to launch, such as one run in a folder that no longer exists, keeping the Node process alive for the full git timeout (60 seconds by default): Node clears a spawn's timeout timer only when the process exits, which a failed launch never does, so a short-lived host could hang before exiting. The default spawner now also clears it when the process closes, as Node itself does in [nodejs/node#65506](https://github.com/nodejs/node/pull/65506). A custom `spawn` still receives `timeout` and handles it itself ([#6105](https://github.com/gitkraken/vscode-gitlens/pull/6105)) (git-cli)
 
