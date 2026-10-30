@@ -1,4 +1,5 @@
-import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import type { KeyMap } from '../../../../../config.js';
 import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
 /** A finding set aside — fixed, wrong, or not worth doing; the reader needn't say which. */
@@ -15,6 +16,8 @@ export interface ReviewSession {
 	readonly excluded: ReadonlySet<string>;
 	/** Findings no longer open; absent = open. */
 	readonly findingStates: ReadonlyMap<string, ReviewFindingState>;
+	/** A reading order the reader took from an orient pass; files not in it follow in tree order. */
+	readonly order?: readonly string[];
 }
 
 export const emptyReviewSession: ReviewSession = Object.freeze({
@@ -87,10 +90,61 @@ export function getReviewThreadItems(
 				title: finding.title,
 				description: finding.description,
 				state: session?.findingStates.get(finding.id) ?? 'open',
+				...(finding.source != null ? { source: finding.source } : {}),
 			});
 		}
 	}
 	return items;
+}
+
+/** The stops of a walk, in reading order — the session's order first, then tree order (path-sorted);
+ *  set-aside files left out; the tree's own rendered order, when given, orders the files within the plan's
+ *  places and what the plan doesn't have. */
+export function getReviewReadingOrder(
+	session: ReviewSession | undefined,
+	files: readonly ReviewFileIdentity[] | undefined,
+	treeOrder?: readonly string[],
+): string[] {
+	const present = new Set((files ?? []).map(f => f.path));
+	const rank = new Map((treeOrder ?? []).map((p, i) => [p, i]));
+	const ordered = (session?.order ?? []).filter(p => present.has(p) && !session?.excluded.has(p));
+	// The plan orders its groups, but each group's pane shows its files its own way — folders first, by
+	// name — so the steps go down them as shown: the files a pane has said the order of trade places among
+	// themselves by it, and a pane that hasn't said yet keeps the plan's order
+	const slots = ordered.flatMap((p, i) => (rank.has(p) ? [i] : []));
+	const shown = slots.map(i => ordered[i]).sort((a, b) => rank.get(a)! - rank.get(b)!);
+	for (const [n, i] of slots.entries()) {
+		ordered[i] = shown[n];
+	}
+	const placed = new Set(ordered);
+	// The rest reads top to bottom as the checklist shows it; by path until the tree has said its order
+	const rest = (files ?? [])
+		.filter(f => !placed.has(f.path) && !session?.excluded.has(f.path))
+		.map(f => f.path)
+		.sort((a, b) => {
+			const ra = rank.get(a);
+			const rb = rank.get(b);
+			if (ra != null && rb != null) return ra - rb;
+			if (ra != null) return -1;
+			if (rb != null) return 1;
+			return a.localeCompare(b);
+		});
+	return [...ordered, ...rest];
+}
+
+export function withReadingOrder(session: ReviewSession, order: readonly string[] | undefined): ReviewSession {
+	const current = session.order;
+	if (current === order) return session;
+	if (
+		current != null &&
+		order != null &&
+		current.length === order.length &&
+		current.every((p, i) => p === order[i])
+	) {
+		return session;
+	}
+
+	return { ...session, order: order };
 }
 
 export function isReviewComplete(progress: ReviewProgress): boolean {
@@ -120,6 +174,63 @@ export function countReviewFindingStates(
 		}
 	}
 	return counts;
+}
+
+/** What a checklist row says about its file's findings: how many are still open, how many are
+ *  closed, and the worst open severity — the row's mark takes its color from that. */
+export interface ReviewFileFindings {
+	open: number;
+	closed: number;
+	/** The highest severity among the open findings; absent when none is open. */
+	severity?: AIReviewSeverity;
+	/** Where to land when the reader opens the file from its mark: the first open finding with a line,
+	 *  or the first finding at all once every one is closed; absent when none names a line. */
+	target?: { readonly start: number; readonly end: number };
+}
+
+const severityRank: Record<AIReviewSeverity, number> = { critical: 0, warning: 1, suggestion: 2 };
+
+/** Findings by file path, from every focus area — the model's own and the agent's reported back
+ *  alike. Findings with no file (general remarks) have no row to mark and are left out. */
+export function getReviewFileFindings(
+	result: AIReviewResult | undefined,
+	session: ReviewSession | undefined,
+): ReadonlyMap<string, ReviewFileFindings> {
+	const byPath = new Map<string, ReviewFileFindings>();
+	if (result == null) return byPath;
+
+	// Files whose target is an open finding already — a closed one never replaces it
+	const openTargets = new Set<string>();
+	for (const area of result.focusAreas) {
+		for (const finding of area.findings ?? []) {
+			if (finding.filePath == null) continue;
+
+			let entry = byPath.get(finding.filePath);
+			if (entry == null) {
+				entry = { open: 0, closed: 0 };
+				byPath.set(finding.filePath, entry);
+			}
+
+			const open = session?.findingStates.get(finding.id) == null;
+			if (finding.lineRange != null && !openTargets.has(finding.filePath) && (open || entry.target == null)) {
+				entry.target = finding.lineRange;
+				if (open) {
+					openTargets.add(finding.filePath);
+				}
+			}
+
+			if (!open) {
+				entry.closed++;
+				continue;
+			}
+
+			entry.open++;
+			if (entry.severity == null || severityRank[finding.severity] < severityRank[entry.severity]) {
+				entry.severity = finding.severity;
+			}
+		}
+	}
+	return byPath;
 }
 
 /** Ids of findings that are dismissed — what markdown export and the findings list leave out. */
@@ -179,4 +290,28 @@ export function withFindingState(
 		next.set(findingId, state);
 	}
 	return { ...session, findingStates: next };
+}
+
+export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';
+
+const reviewReadingKeys: Record<ReviewReadingKey, string> = { next: ']', previous: '[', markViewed: 'V' };
+
+/** The keyboard shortcut for a reading step under `keymap`, the way the panel names it — `⌥]` / `Alt+]` on the
+ *  alternate keymap, `⌘⌥G ]` / `Ctrl+Shift+G ]` chorded, nothing when shortcuts are off. Mirrors the
+ *  `gitlens.review.*:key` keybindings, which live on separate command ids and so never show in the
+ *  editor's own hovers. */
+export function getReviewReadingShortcut(
+	keymap: KeyMap | undefined,
+	key: ReviewReadingKey,
+	isMac: boolean,
+): string | undefined {
+	const k = reviewReadingKeys[key];
+	switch (keymap) {
+		case 'alternate':
+			return isMac ? `⌥${k}` : `Alt+${k}`;
+		case 'chorded':
+			return isMac ? `⌘⌥G ${k}` : `Ctrl+Shift+G ${k}`;
+		default:
+			return undefined;
+	}
 }

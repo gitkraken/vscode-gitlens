@@ -9637,6 +9637,25 @@
 				"icon": "$(check)"
 			},
 			{
+				"command": "gitlens.review.markViewedAndNext",
+				"title": "%command.gitlens.review.markViewedAndNext.title%",
+				"category": "%command.category%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:editor/title",
+				"title": "%command.gitlens.review.markViewedAndNext:editor/title.title%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"title": "%command.gitlens.review.markViewedAndNext:key.title%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
 				"command": "gitlens.review.reopenFinding",
 				"title": "%command.gitlens.review.reopenFinding.title%",
 				"category": "%command.category%",
@@ -9647,6 +9666,44 @@
 				"title": "%command.gitlens.review.sendFindingToAgent.title%",
 				"category": "%command.category%",
 				"icon": "$(comment-discussion-sparkle)"
+			},
+			{
+				"command": "gitlens.review.walkNext",
+				"title": "%command.gitlens.review.walkNext.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkNext:editor/title",
+				"title": "%command.gitlens.review.walkNext:editor/title.title%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"title": "%command.gitlens.review.walkNext:key.title%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious",
+				"title": "%command.gitlens.review.walkPrevious.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:editor/title",
+				"title": "%command.gitlens.review.walkPrevious:editor/title.title%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"title": "%command.gitlens.review.walkPrevious:key.title%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.reviewChanges:graph",
@@ -15584,6 +15641,42 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.review.markViewedAndNext",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:key",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkNext",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.walkNext:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkNext:key",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkPrevious",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.walkPrevious:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkPrevious:key",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.reviewChanges:graph",
 					"when": "false"
 				},
@@ -18227,11 +18320,6 @@
 					"group": "navigation@-101"
 				},
 				{
-					"command": "gitlens.settings.refresh",
-					"when": "activeWebviewPanelId === gitlens.settings",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
@@ -18267,6 +18355,21 @@
 					"group": "navigation@-97"
 				},
 				{
+					"command": "gitlens.review.walkPrevious:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-98"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-97"
+				},
+				{
+					"command": "gitlens.review.walkNext:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-96"
+				},
+				{
 					"command": "gitlens.annotations.previousChange",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@-100"
@@ -18293,11 +18396,6 @@
 					"alt": "gitlens.diffWithRevision"
 				},
 				{
-					"command": "gitlens.showQuickRevisionDetails:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
-				},
-				{
 					"command": "gitlens.diffWithNext:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@99"
@@ -18310,6 +18408,11 @@
 				{
 					"command": "gitlens.graph.refresh",
 					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.settings.refresh",
+					"when": "activeWebviewPanelId === gitlens.settings",
 					"group": "navigation@-99"
 				},
 				{
@@ -18334,6 +18437,11 @@
 					"submenu": "gitlens/editor/annotations",
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -30139,6 +30247,39 @@
 				"key": "ctrl+shift+g /",
 				"when": "config.gitlens.keymap == chorded && !gitlens:disabled",
 				"mac": "cmd+alt+g /"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"key": "alt+v",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"key": "ctrl+shift+g v",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g v"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"key": "alt+]",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"key": "ctrl+shift+g ]",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g ]"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"key": "alt+[",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"key": "ctrl+shift+g [",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g ["
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",

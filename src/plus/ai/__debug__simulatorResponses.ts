@@ -22,6 +22,18 @@ const reviewOverviewDefault = `<overview>Simulated review overview. Two focus ar
 </findings>
 </area>`;
 
+const reviewOrientDefault = JSON.stringify({
+	overview: 'Simulated orient: a reading order for verification purposes.',
+	groups: [
+		{
+			label: 'Simulated core',
+			kind: 'core',
+			summary: 'Simulated summary — what this group changes and why its files belong together.',
+			files: [{ path: 'src/example.ts', note: 'Simulated note — read this first.' }],
+		},
+	],
+});
+
 const reviewDetailDefault = `<findings>
 <finding severity="suggestion" file="src/example.ts" lines="1-10">
 <title>Simulated detail finding</title>
@@ -53,6 +65,7 @@ const conflictResolutionDefault = JSON.stringify({
 const defaults: { readonly [key: string]: string | undefined } = {
 	'explain-changes': summarized('Simulated explanation', explainBody),
 	'review-changes': reviewOverviewDefault,
+	'review-orient': reviewOrientDefault,
 	'generate-commitMessage': summarized('Simulated commit message', 'Deterministic body for verification.'),
 	'generate-stashMessage': summarized('Simulated stash message', 'WIP — simulated.'),
 	'generate-changelog': summarized('Simulated changelog', '## Changes\n- Simulated entry'),

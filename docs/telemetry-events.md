@@ -311,7 +311,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'conflict-resolution' | 'explain-changes' | 'generate-changelog' | 'generate-commitMessage' | 'generate-commits' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-searchQuery' | 'generate-stashMessage' | 'review-changes',
+  'type': 'conflict-resolution' | 'explain-changes' | 'generate-changelog' | 'generate-commitMessage' | 'generate-commits' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-searchQuery' | 'generate-stashMessage' | 'review-changes' | 'review-orient',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -714,7 +714,7 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'reviewMode': 'single-pass' | 'two-pass',
+  'reviewMode': 'orient' | 'single-pass' | 'two-pass',
   'reviewType': 'commit' | 'compare' | 'wip',
   'type': 'review',
   'usage.completionTokens': number,
@@ -5418,6 +5418,63 @@ or
 }
 ```
 
+### graphDetails/review/deepReview/failed
+
+> Sent when a deep review could not be handed to an agent
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'reason': 'error' | 'no-agents' | 'no-channel'
+}
+```
+
+### graphDetails/review/deepReview/finished
+
+> Sent when the agent reports the deep review done
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Findings the agent reported over the whole review
+  'findings.count': number
+}
+```
+
+### graphDetails/review/deepReview/started
+
+> Sent when the user hands the review to an agent (deep review)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/review/discarded
 
 > Sent when the user discards a completed review from the ready-state footer
@@ -5467,6 +5524,58 @@ or
 ### graphDetails/review/generateFocusArea/failed
 
 > Sent when a per-focus-area review (two-pass) generation fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  // Error message text describing why the focus-area generation failed
+  'failure.error.message': string
+}
+```
+
+### graphDetails/review/generateOrient/completed
+
+> Sent when an orient pass (reading plan for the review's files) completes successfully
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  // Files the plan placed
+  'result.files.count': number,
+  // Reading groups the plan produced
+  'result.groups.count': number
+}
+```
+
+### graphDetails/review/generateOrient/failed
+
+> Sent when an orient pass fails
 
 ```typescript
 {

@@ -5,7 +5,7 @@ import { generateCreateDraft } from './actions/generateCreateDraft.js';
 import { generateCreatePullRequest } from './actions/generateCreatePullRequest.js';
 import { generateCommitMessage, generateStashMessage } from './actions/generateMessage.js';
 import { generateSearchQuery } from './actions/generateSearchQuery.js';
-import { reviewChanges, reviewFocusArea, reviewOverview } from './actions/reviewChanges.js';
+import { reviewChanges, reviewFocusArea, reviewOrient, reviewOverview } from './actions/reviewChanges.js';
 import type { AIService } from './aiService.js';
 
 type RemoveFirstArg<F> = F extends (first: any, ...args: infer Rest) => infer Return
@@ -24,6 +24,7 @@ export class AIActions {
 	readonly generateStashMessage: RemoveFirstArg<typeof generateStashMessage>;
 	readonly reviewChanges: RemoveFirstArg<typeof reviewChanges>;
 	readonly reviewFocusArea: RemoveFirstArg<typeof reviewFocusArea>;
+	readonly reviewOrient: RemoveFirstArg<typeof reviewOrient>;
 	readonly reviewOverview: RemoveFirstArg<typeof reviewOverview>;
 
 	constructor(service: AIService) {
@@ -38,6 +39,7 @@ export class AIActions {
 		this.generateStashMessage = generateStashMessage.bind(null, service);
 		this.reviewChanges = reviewChanges.bind(null, service);
 		this.reviewFocusArea = reviewFocusArea.bind(null, service);
+		this.reviewOrient = reviewOrient.bind(null, service);
 		this.reviewOverview = reviewOverview.bind(null, service);
 	}
 }
