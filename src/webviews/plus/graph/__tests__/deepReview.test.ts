@@ -141,6 +141,7 @@ suite("deepReview — the agent's report", () => {
 
 suite('deepReview — the report channel', () => {
 	const anchor = { kind: 'wip', repoPath: '/r' };
+	const key = 'wip|/r';
 	function fakeIpc() {
 		const routes = new Map<string, (rq: unknown, params: URLSearchParams) => Promise<unknown>>();
 		const routeTokens = new Map<string, string | undefined>();
@@ -158,7 +159,7 @@ suite('deepReview — the report channel', () => {
 	test('owns the route while open, sequences what comes in, and takes reports after done until closed', async () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, s => changes.push(s), 'c1');
 		assert.strictEqual(channel.route, `${deepReviewRoute}/c1`);
 		assert.ok(routes.has(channel.route), 'the route is registered on open');
 
@@ -201,8 +202,8 @@ suite('deepReview — the report channel', () => {
 
 	test('each channel registers its route under a token of its own', () => {
 		const { ipc, routeTokens } = fakeIpc();
-		const first = new DeepReviewChannel(ipc, 1, anchor, () => {}, 'a');
-		const second = new DeepReviewChannel(ipc, 2, anchor, () => {}, 'b');
+		const first = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'a');
+		const second = new DeepReviewChannel(ipc, 2, anchor, key, () => {}, 'b');
 		assert.ok(first.token, 'a channel has a token');
 		assert.strictEqual(routeTokens.get(first.route), first.token, 'the route is registered under it');
 		assert.strictEqual(routeTokens.get(second.route), second.token);
@@ -222,6 +223,7 @@ suite('deepReview — the report channel', () => {
 				},
 				1,
 				anchor,
+				key,
 				() => {},
 				'live',
 			);
@@ -247,8 +249,15 @@ suite('deepReview — the report channel', () => {
 		const { ipc, routes } = fakeIpc();
 		const a: DeepReviewState[] = [];
 		const b: DeepReviewState[] = [];
-		const first = new DeepReviewChannel(ipc, 1, anchor, s => a.push(s), 'a');
-		const second = new DeepReviewChannel(ipc, 1, { kind: 'commit', repoPath: '/r', sha: 'x' }, s => b.push(s), 'b');
+		const first = new DeepReviewChannel(ipc, 1, anchor, key, s => a.push(s), 'a');
+		const second = new DeepReviewChannel(
+			ipc,
+			1,
+			{ kind: 'commit', repoPath: '/r', sha: 'x' },
+			'commit|/r|x',
+			s => b.push(s),
+			'b',
+		);
 		assert.notStrictEqual(first.route, second.route);
 		await routes.get(second.route)!({ findings: [{ title: 'for b' }] }, new URLSearchParams());
 		assert.strictEqual(a.length, 0);
@@ -261,7 +270,7 @@ suite('deepReview — the report channel', () => {
 	test('a channel open for questions becomes a review when a whole review goes into it', () => {
 		const { ipc } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'q', 'ask');
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, s => changes.push(s), 'q', 'ask');
 		assert.strictEqual(channel.state.purpose, 'ask');
 		channel.beginReview();
 		channel.beginReview();
@@ -271,10 +280,126 @@ suite('deepReview — the report channel', () => {
 		);
 	});
 
+	test("says how the review's hand-over stands until an agent has it, and never goes back from there", () => {
+		const { ipc } = fakeIpc();
+		const changes: DeepReviewState[] = [];
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, s => changes.push(s), 'h');
+		assert.strictEqual(channel.state.handOff, 'pending');
+
+		channel.reviewOffered(true);
+		channel.reviewOffered(false);
+		channel.reviewDelivered();
+		// Nothing after the review got through makes it look unstarted
+		channel.reviewOffered(true);
+		channel.reviewFailed();
+		channel.close();
+		assert.deepStrictEqual(
+			changes.map(c => [c.purpose, c.handOff, c.active]),
+			[
+				['review', 'failed', true],
+				['review', 'pending', true],
+				['review', 'delivered', true],
+				['review', 'delivered', false],
+			],
+		);
+	});
+
+	test('a review no agent got closes its channel when it has no questions', () => {
+		const { ipc, routes } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'r');
+		channel.reviewFailed();
+		assert.strictEqual(channel.state.active, false);
+		assert.strictEqual(routes.size, 0);
+	});
+
+	test('a report is proof the review arrived, however it got there — notes too, when no question was asked', () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'r');
+		channel.reviewOffered(true);
+		// The prompt the failed hand-over copied, pasted into an agent by hand
+		channel.report({ findings: [] });
+		assert.strictEqual(channel.state.handOff, 'failed', 'an empty report proves nothing');
+		// A re-review's first word may be a comment on an earlier finding
+		channel.report({ findings: [{ findingId: 'f1', comment: 'Still there.' }] });
+		assert.strictEqual(channel.state.handOff, 'delivered');
+
+		// The toast is dismissed afterwards: the agent keeps its channel
+		channel.reviewFailed();
+		assert.deepStrictEqual([channel.state.purpose, channel.state.active], ['review', true]);
+	});
+
+	test("a question's answer, finding or not, doesn't stand for a review on its way", () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'q', 'ask');
+		channel.beginQuestion();
+		channel.questionDelivered();
+
+		channel.beginReview();
+		assert.deepStrictEqual([channel.state.purpose, channel.state.handOff], ['review', 'pending']);
+		channel.report({ findings: [{ findingId: 'f1', comment: 'Because.' }, { title: 'And this' }] });
+		assert.strictEqual(channel.state.handOff, 'pending', 'the answer may well be the question agent');
+
+		// The review is cancelled: back to the questions, whose agent has its prompts
+		channel.reviewFailed();
+		assert.deepStrictEqual(
+			[channel.state.purpose, channel.state.handOff, channel.state.active],
+			['ask', 'delivered', true],
+		);
+
+		// …but the end of a review is the review's, whoever else is talking
+		channel.beginReview();
+		channel.report({ done: true });
+		assert.deepStrictEqual([channel.state.purpose, channel.state.handOff], ['review', 'delivered']);
+	});
+
+	test('a question asked while the review is in its picker takes the channel over when the review is cancelled', () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'r');
+		channel.beginQuestion();
+		// The question's picker replaced the review's
+		channel.reviewFailed();
+		assert.deepStrictEqual(
+			[channel.state.purpose, channel.state.active],
+			['ask', true],
+			'the question is on its way',
+		);
+		channel.questionDelivered();
+		assert.deepStrictEqual(
+			[channel.state.purpose, channel.state.handOff, channel.state.active],
+			['ask', 'delivered', true],
+			'a channel for the question, not a review stuck starting',
+		);
+	});
+
+	test('a question that never got through stops counting as a possible answer', () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'r');
+		channel.beginQuestion();
+		channel.questionFailed();
+		// The review's dispatch failed too, and its copied prompt was pasted by hand
+		channel.reviewOffered(true);
+		channel.report({ findings: [{ title: 'one' }] });
+		assert.strictEqual(channel.state.handOff, 'delivered', "nothing but the review's agent can be reporting");
+
+		channel.reviewFailed();
+		assert.deepStrictEqual([channel.state.purpose, channel.state.active], ['review', true]);
+	});
+
+	test('closes once neither the review nor any question has an agent, and none is on its way', () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'q', 'ask');
+		channel.beginQuestion();
+		channel.beginReview();
+		channel.reviewFailed();
+		assert.strictEqual(channel.state.active, true, 'the question is still on its way');
+		channel.questionFailed();
+		assert.strictEqual(channel.state.active, false, 'no agent got either');
+	});
+
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s), 'c1');
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, s => changes.push(s), 'c1');
 		channel.report({ findings: [{ title: 'one' }] });
 		channel.close();
 		channel.close();

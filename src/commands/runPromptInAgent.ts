@@ -27,11 +27,21 @@ export interface RunPromptInAgentCommandArgs {
 	/** CLI agents only: keep the CLI session under this key and send a later prompt with the same key
 	 *  into it as the next turn (see `RunAgentOptions.session`) — while it runs, with no agent to choose. */
 	session?: string;
+	/** Keep the outcome pending while a failed dispatch's Retry / Pick another agent toast is up, and report
+	 *  how that second attempt went. Off by default: the toast can sit in the notification center for as long
+	 *  as the user leaves it, so `failed` comes back at once and a later Retry runs on its own. For a caller
+	 *  whose setup (a report channel) the retried prompt still needs — it must not be torn down meanwhile. */
+	waitForRetry?: boolean;
+	/** With `waitForRetry`: told `true` when a failed dispatch's Retry / Pick another agent toast goes up, and
+	 *  `false` when the user takes it up and the prompt is on its way again — so the caller can say, while it
+	 *  waits, that no agent has the prompt yet. Dismissing the toast ends in a `failed` outcome instead. */
+	onRetryOffer?: (offered: boolean) => void;
 }
 
 /** How a {@link RunPromptInAgentCommand} ended: the prompt reached an agent, the user backed out of the
- *  picker, or every dispatch attempt failed (the command has already said so in a toast). A caller that
- *  set something up for the agent — a report channel — tears it down on anything but `dispatched`. */
+ *  picker, or the dispatch failed (the command has already said so in a toast — without `waitForRetry`, a
+ *  Retry from that toast may still get it through later). A caller that set something up for the agent — a
+ *  report channel — passes `waitForRetry` and tears it down on anything but `dispatched`. */
 export type RunPromptInAgentOutcome = 'dispatched' | 'cancelled' | 'failed';
 
 /** Runs an already-rendered prompt in an agent (IDE chat, Claude extension, or detected CLI).
@@ -98,6 +108,20 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 			`dispatch kind=${descriptor.kind} agentId=${descriptor.id} source=${args.source ?? '?'} retries=${retries}`,
 		);
 
+		const retried = this.offerRetry(descriptor, args, retries, result.clipboardCopiedAsFallback === true);
+		if (args.waitForRetry) return retried;
+
+		// Nobody waits on the toast: a Retry from it shows its own failure, so only a throw is left to log
+		void retried.catch((ex: unknown) => Logger.error(ex, 'RunPromptInAgent', 'retry'));
+		return 'failed';
+	}
+
+	private async offerRetry(
+		descriptor: AgentDescriptor,
+		args: RunPromptInAgentCommandArgs,
+		retries: number,
+		copiedToClipboard: boolean,
+	): Promise<RunPromptInAgentOutcome> {
 		// Cap Retry after `maxRetries` attempts so a misconfigured agent can't trap the user
 		// in a retry loop (every CLI retry spawns a fresh terminal). "Pick another agent"
 		// and dismissing the toast both remain as escapes.
@@ -106,19 +130,26 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		const canRetry = retries < RunPromptInAgentCommand.maxRetries;
 		const actions = canRetry ? [retryAction, pickAnotherAction] : [pickAnotherAction];
 
-		const message = result.clipboardCopiedAsFallback
+		const message = copiedToClipboard
 			? l10n.t("Couldn't reach {0}. Prompt copied to clipboard.", descriptor.label)
 			: l10n.t("Couldn't reach {0}.", descriptor.label);
+		// Only a caller still waiting on the outcome can act on the offer — see `onRetryOffer`
+		const onRetryOffer = args.waitForRetry ? args.onRetryOffer : undefined;
+		onRetryOffer?.(true);
 		const choice = await window.showWarningMessage(message, ...actions);
 
 		if (choice === retryAction) {
+			onRetryOffer?.(false);
 			return this.dispatch(descriptor, args, retries + 1);
 		}
 
 		if (choice === pickAnotherAction) {
 			const picked = await pickAgentStandalone(this.container);
 			// Reset the budget — a different agent gets a fresh allowance.
-			if (picked != null) return this.dispatch(picked, args);
+			if (picked != null) {
+				onRetryOffer?.(false);
+				return this.dispatch(picked, args);
+			}
 		}
 
 		return 'failed';

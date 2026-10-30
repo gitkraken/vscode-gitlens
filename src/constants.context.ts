@@ -61,6 +61,8 @@ export type ContextKeys = {
 	'gitlens:review:reading': boolean;
 	/** Documents the review's files open as; `resource in gitlens:review:files` scopes the title buttons and keybindings to them. */
 	'gitlens:review:files': Uri[];
+	/** Review in Repo can start here — the local channel is up and an agent is there to hand to; a thread's Ask Reviewer goes the same way. */
+	'gitlens:review:canAsk': boolean;
 	'gitlens:rebase:editor:enabled': boolean;
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];

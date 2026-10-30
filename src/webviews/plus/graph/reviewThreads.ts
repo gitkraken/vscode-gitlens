@@ -46,6 +46,16 @@ const threadFindings = new WeakMap<CommentThread, string>();
  *  first comment is the finding itself (`noteId` absent), the rest are notes on it; `text` is what an
  *  edit of the reader's own comment falls back to. */
 const commentRefs = new WeakMap<Comment, { thread: CommentThread; findingId: string; noteId?: string; text: string }>();
+/** The item each thread shows — what its title goes back to once a question on it is answered. */
+const shownItems = new WeakMap<CommentThread, ReviewThreadItem>();
+/** Findings the reviewer was asked about and hasn't answered yet, with how many comments of the agent's
+ *  each had when asked: the answer is a comment of the agent's on the finding, so a newer one ends the wait. */
+const asking = new Map<string, number>();
+/** How many comments of the agent's each finding has, as of the last sync. */
+const agentComments = new Map<string, number>();
+/** The latest item for a thread with a comment open for editing: rebuilding its comments would close the
+ *  edit and lose what was typed, so the item waits for the edit to end. */
+const heldItems = new WeakMap<CommentThread, ReviewThreadItem>();
 
 /** Any line of a review diff's right side takes a comment; the rest of the editor takes none. */
 const commentingRangeProvider: CommentingRangeProvider = {
@@ -137,7 +147,49 @@ function toNoteComment(note: ReviewFindingNote): Comment {
 	};
 }
 
+function threadLabel(item: ReviewThreadItem): string {
+	if (asking.has(item.findingId)) return l10n.t('Waiting for the reviewer…');
+
+	return item.source === 'user' ? l10n.t('Comment') : severityLabel(item.severity);
+}
+
+function relabelFindingThreads(findingId: string): void {
+	for (const thread of threads.values()) {
+		if (threadFindings.get(thread) !== findingId) continue;
+
+		const item = shownItems.get(thread);
+		if (item != null) {
+			thread.label = threadLabel(item);
+		}
+	}
+}
+
+function countAgentComments(item: ReviewThreadItem): number {
+	return (item.author === 'agent' ? 1 : 0) + (item.notes?.filter(n => n.author === 'agent').length ?? 0);
+}
+
+/** The reviewer was asked about `findingId`: its threads say so until the answer shows in them, or until
+ *  {@link stopAskingReviewer} — the hand-off didn't go through, or the channel the answer would come by closed. */
+export function markReviewerAsked(from: ReviewThreadsOwner, findingId: string): void {
+	if (owner !== from) return;
+
+	asking.set(findingId, agentComments.get(findingId) ?? 0);
+	relabelFindingThreads(findingId);
+}
+
+/** No answer is coming on `findingId` — or on any finding, without one. */
+export function stopAskingReviewer(from: ReviewThreadsOwner, findingId?: string): void {
+	if (owner !== from) return;
+
+	for (const id of findingId != null ? [findingId] : [...asking.keys()]) {
+		if (asking.delete(id)) {
+			relabelFindingThreads(id);
+		}
+	}
+}
+
 function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
+	shownItems.set(thread, item);
 	const isUser = item.source === 'user';
 	let first: Comment;
 	if (isUser) {
@@ -168,7 +220,7 @@ function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
 		return comment;
 	});
 	thread.comments = [first, ...notes];
-	thread.label = isUser ? l10n.t('Comment') : severityLabel(item.severity);
+	thread.label = threadLabel(item);
 	thread.contextValue = item.state;
 	thread.state = item.state === 'open' ? CommentThreadState.Unresolved : CommentThreadState.Resolved;
 	thread.collapsibleState =
@@ -176,6 +228,32 @@ function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
 	// A closed finding can still take a word on why — that goes to the session, the exports and the
 	// next review the same as a reply on an open one
 	thread.canReply = true;
+}
+
+function isEditing(thread: CommentThread): boolean {
+	return thread.comments.some(c => c.mode === CommentMode.Editing);
+}
+
+/** Shows `item` in its thread, or holds it while a comment there is being edited. The title still follows —
+ *  setting it leaves the comments alone. */
+function showItem(thread: CommentThread, item: ReviewThreadItem): void {
+	if (isEditing(thread)) {
+		heldItems.set(thread, item);
+		thread.label = threadLabel(item);
+		return;
+	}
+
+	heldItems.delete(thread);
+	applyItem(thread, item);
+}
+
+/** The edit ended: what the review sent meanwhile shows now — unless another comment there is still open. */
+function showHeldItem(thread: CommentThread): void {
+	const item = heldItems.get(thread);
+	if (item == null || isEditing(thread)) return;
+
+	heldItems.delete(thread);
+	applyItem(thread, item);
 }
 
 /** Replaces the shown threads with `args.items` — one thread per finding that has a line, updated in
@@ -189,6 +267,18 @@ export function setReviewThreads(
 	if (args == null || args.items.length === 0) {
 		clearThreads();
 		return;
+	}
+
+	agentComments.clear();
+	for (const item of args.items) {
+		agentComments.set(item.findingId, countAgentComments(item));
+	}
+	// The answer is in once the agent has a newer comment on the finding. A finding missing from this sync
+	// keeps waiting: the sync may be one from before the question, and without threads nothing shows it
+	for (const [findingId, asked] of asking) {
+		if ((agentComments.get(findingId) ?? 0) > asked) {
+			asking.delete(findingId);
+		}
 	}
 
 	const keep = new Set<string>();
@@ -208,7 +298,7 @@ export function setReviewThreads(
 		} else if (!thread.range?.isEqual(range)) {
 			thread.range = range;
 		}
-		applyItem(thread, item);
+		showItem(thread, item);
 	}
 	for (const [id, thread] of threads) {
 		if (keep.has(id)) continue;
@@ -329,6 +419,7 @@ export function cancelReviewCommentEdit(comment: Comment | undefined): void {
 	if (comment == null || found == null) return;
 
 	setUserCommentMode(comment, CommentMode.Preview, found.text);
+	showHeldItem(found.thread);
 }
 
 /** The edited words go to the graph; the thread shows them at once. Emptied out, the comment stays as it was. */
@@ -339,11 +430,24 @@ export function saveReviewComment(comment: Comment | undefined): void {
 	const text = (typeof comment.body === 'string' ? comment.body : comment.body.value).trim();
 	if (!text || text === found.text) {
 		setUserCommentMode(comment, CommentMode.Preview, found.text);
+		showHeldItem(found.thread);
 		return;
 	}
 
 	found.text = text;
 	setUserCommentMode(comment, CommentMode.Preview, text);
+	// What the review sent while the edit was open predates it: the edit goes into it, so the thread doesn't
+	// show the old words until the review's copy of the new ones comes back
+	const held = heldItems.get(found.thread);
+	if (held != null) {
+		heldItems.set(
+			found.thread,
+			found.noteId == null
+				? { ...held, description: text }
+				: { ...held, notes: held.notes?.map(n => (n.id === found.noteId ? { ...n, text: text } : n)) },
+		);
+	}
+	showHeldItem(found.thread);
 	if (found.noteId != null) {
 		owner?.reviewThreadAction(found.findingId, 'editNote', text, undefined, found.noteId);
 	} else {
@@ -395,6 +499,8 @@ function clearThreads(): void {
 		thread.dispose();
 	}
 	threads.clear();
+	asking.clear();
+	agentComments.clear();
 }
 
 export function disposeReviewThreads(): void {
