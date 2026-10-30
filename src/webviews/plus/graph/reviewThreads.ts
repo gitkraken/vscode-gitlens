@@ -33,6 +33,8 @@ export interface ReviewThreadsOwner {
 	/** The review file `uri` is, when it is the right side of one of the review's diffs — where the reader
 	 *  can open a thread of their own. */
 	reviewCommentPath(uri: Uri): string | undefined;
+	/** Another instance took the editor over — this one's threads are gone from it. */
+	reviewThreadsReleased(): void;
 }
 
 const controllerId = 'gitlens.review';
@@ -70,12 +72,20 @@ function getController() {
 	return controller;
 }
 
+/** Hands the editor's threads to `next`. The instance they were taken from is told after the hand-over, so
+ *  what it lets go of on its way out is no longer its to clear. */
+function takeOwnership(next: ReviewThreadsOwner): void {
+	if (owner === next) return;
+
+	const previous = owner;
+	clearThreads();
+	owner = next;
+	previous?.reviewThreadsReleased();
+}
+
 /** Makes `next` the owner the editor's comment gutter asks — the graph whose review files are set. */
 export function claimReviewCommenting(next: ReviewThreadsOwner): void {
-	if (owner !== next) {
-		clearThreads();
-		owner = next;
-	}
+	takeOwnership(next);
 	refreshReviewCommenting();
 }
 
@@ -175,10 +185,7 @@ export function setReviewThreads(
 	next: ReviewThreadsOwner,
 	args: ReviewThreadsArgs | undefined,
 ): void {
-	if (owner !== next) {
-		clearThreads();
-		owner = next;
-	}
+	takeOwnership(next);
 	if (args == null || args.items.length === 0) {
 		clearThreads();
 		return;

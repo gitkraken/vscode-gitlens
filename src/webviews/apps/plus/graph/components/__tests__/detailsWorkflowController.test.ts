@@ -13,6 +13,7 @@ import type {
 import { createResource } from '../../../../shared/state/resource.js';
 import type { GraphCrossPaneState } from '../../graphCrossPaneState.js';
 import { abortRunningOperations, createGraphCrossPaneState } from '../../graphCrossPaneState.js';
+import type { AnchorKey } from '../anchorKey.js';
 import { anchorKey } from '../anchorKey.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions } from '../detailsActions.js';
@@ -112,6 +113,7 @@ function createServices(overrides?: {
 	composeChanges?: (...args: unknown[]) => Promise<ComposeResult>;
 	discardCompose?: (...args: unknown[]) => Promise<void>;
 	sendEvent?: (name: string, data: Record<string, unknown>) => Promise<void>;
+	warnReviewHandOffDropped?: (to: 'reviewer' | 'agent') => Promise<void>;
 }): ResolvedServices {
 	const noopUnsubscribe = () => {};
 	return {
@@ -124,6 +126,7 @@ function createServices(overrides?: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			discardCompose: overrides?.discardCompose ?? (() => Promise.resolve()),
+			warnReviewHandOffDropped: overrides?.warnReviewHandOffDropped ?? (() => Promise.resolve()),
 		},
 		telemetry: {
 			sendEvent: overrides?.sendEvent ?? (() => Promise.resolve()),
@@ -662,19 +665,29 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.review.applyReadingState({ active: 'src/a.ts', marked: [] });
+		controller.review.applyReadingState({ anchor: wipKey('/A'), active: 'src/a.ts', marked: [], markedBefore: 0 });
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.execState, 'backed', 'reading before any run creates the idle entry');
 		assert.deepStrictEqual(entry?.reading, { active: 'src/a.ts', marksApplied: 0 });
 
-		controller.review.applyReadingState({ active: 'src/b.ts', marked: ['src/a.ts'] });
+		controller.review.applyReadingState({
+			anchor: wipKey('/A'),
+			active: 'src/b.ts',
+			marked: ['src/a.ts'],
+			markedBefore: 0,
+		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), true, 'the editor mark reaches the session');
 		assert.deepStrictEqual(entry?.reading, { active: 'src/b.ts', marksApplied: 1 });
 
 		// The panel un-marks a file; the host's append-only list still names it, but it was applied already.
 		controller.review.setFilesViewed([{ path: 'src/a.ts' }], false);
-		controller.review.applyReadingState({ active: undefined, marked: ['src/a.ts', 'src/b.ts'] });
+		controller.review.applyReadingState({
+			anchor: wipKey('/A'),
+			active: undefined,
+			marked: ['src/a.ts', 'src/b.ts'],
+			markedBefore: 0,
+		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), false, 'an already-applied mark is not re-applied');
 		assert.strictEqual(entry?.session?.viewed.has('src/b.ts'), true);
@@ -694,7 +707,12 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.review.applyReadingState({ active: 'src/a.ts', marked: ['src/a.ts'] });
+		controller.review.applyReadingState({
+			anchor: wipKey('/A'),
+			active: 'src/a.ts',
+			marked: ['src/a.ts'],
+			markedBefore: 0,
+		});
 		controller.runReview('/A', undefined, undefined, 0);
 		await flush();
 		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
@@ -812,6 +830,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [
 				{ seq: 1, findingId: 'f1', action: 'reply', text: 'just a note' },
 				{ seq: 2, findingId: 'f1', action: 'askReviewer', text: 'is this reachable?' },
@@ -845,6 +864,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		const place = { path: 'a.ts', line: 2, lineEnd: 3 };
 
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [
 				{ seq: 1, findingId: 'user-1', action: 'comment', text: 'why here?', place: place },
 				{ seq: 2, findingId: 'user-1', action: 'askReviewer' },
@@ -859,6 +879,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual(host.handOffs, ['ask:user-1:']);
 
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [
 				{ seq: 1, findingId: 'user-1', action: 'comment', text: 'why here?', place: place },
 				{ seq: 2, findingId: 'user-1', action: 'askReviewer' },
@@ -917,6 +938,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.deleteFinding('f1');
 		assert.strictEqual(entry()?.execState, 'complete', 'one finding left, the review stays');
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [{ seq: 1, findingId: 'f2', action: 'delete' }],
 		});
 		assert.strictEqual(entry()?.execState, 'backed', 'back on the checklist, as after Delete Findings');
@@ -984,6 +1006,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		const [first, second] = findingIds();
 
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [
 				{ seq: 1, findingId: first, action: 'reply', text: 'one' },
 				{ seq: 2, findingId: first, action: 'reply', text: 'two' },
@@ -994,6 +1017,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		const noteId = entry?.session?.notes.get(first)?.[0].id;
 
 		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
 			actions: [
 				{ seq: 1, findingId: first, action: 'reply', text: 'one' },
 				{ seq: 2, findingId: first, action: 'reply', text: 'two' },
@@ -1022,6 +1046,220 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			[first],
 			'the shown review loses it too',
 		);
+	});
+
+	test("what the reader does in one review's editor stays with it — a commit of the same repo or another repo gets none", () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const commitKey = anchorKey({ sha: 'c1', shas: undefined, repoPath: '/A' });
+		const showWip = () => {
+			state.activeModeContext.set('wip');
+			state.activeModeSha.set(uncommitted);
+		};
+		const showCommit = () => {
+			state.activeModeContext.set('commit');
+			state.activeModeSha.set('c1');
+		};
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/A');
+		showWip();
+		const commitBucket = makeReviewBucket('/A', makeReviewResult('c'), 'complete');
+		commitBucket.review!.anchor = { kind: 'commit', repoPath: '/A', sha: 'c1' };
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('w'), 'complete')],
+				[commitKey, commitBucket],
+			]),
+		);
+		const review = (key: AnchorKey) => host.crossPaneState.runningOperations.get().get(key)?.review;
+		const place = { path: 'a.ts', line: 1, lineEnd: 1 };
+
+		// In the working tree: a comment, a question to the reviewer, a dismissal; a file marked in the editor
+		const wipJournal = [
+			{ seq: 1, findingId: 'user-1', action: 'comment' as const, text: 'why here?', place: place },
+			{ seq: 2, findingId: 'f1', action: 'askReviewer' as const, text: 'reachable?' },
+			{ seq: 3, findingId: 'f1', action: 'dismiss' as const },
+		];
+		controller.review.applyThreadActions({ anchor: wipKey('/A'), actions: wipJournal });
+		controller.review.applyReadingState({ anchor: wipKey('/A'), marked: ['a.ts'], markedBefore: 0 });
+		assert.deepStrictEqual(host.handOffs, ['ask:f1:reachable?']);
+
+		// On to the commit: the host starts its journal and marks over, numbering on
+		showCommit();
+		controller.review.applyReadingState({ anchor: commitKey, marked: [], markedBefore: 1 });
+		// A panel catching up replays the working tree's journal and marks — they go to the working tree, once
+		controller.review.applyThreadActions({ anchor: wipKey('/A'), actions: wipJournal });
+		controller.review.applyReadingState({ anchor: wipKey('/A'), marked: ['a.ts'], markedBefore: 0 });
+		assert.strictEqual(review(commitKey)?.session?.comments, undefined, "the reader's comment stays home");
+		assert.strictEqual(review(commitKey)?.session?.findingStates.has('f1'), false);
+		assert.strictEqual(review(commitKey)?.session?.viewed.has('a.ts'), false, 'so does the mark');
+		assert.strictEqual(review(commitKey)?.threadActionsApplied, undefined);
+		assert.deepStrictEqual(host.handOffs, ['ask:f1:reachable?'], 'and the question is not asked again');
+
+		controller.review.applyThreadActions({
+			anchor: commitKey,
+			actions: [{ seq: 4, findingId: 'f1', action: 'reply', text: 'fine here' }],
+		});
+		controller.review.applyReadingState({ anchor: commitKey, marked: ['b.ts'], markedBefore: 1 });
+		assert.deepStrictEqual(
+			review(commitKey)
+				?.session?.notes.get('f1')
+				?.map(n => n.text),
+			['fine here'],
+		);
+		assert.deepStrictEqual([...(review(commitKey)?.session?.viewed.keys() ?? [])], ['b.ts']);
+
+		// Another repo's comment, arriving while this one is shown, makes no review for it here
+		controller.review.applyThreadActions({
+			anchor: wipKey('/B'),
+			actions: [{ seq: 5, findingId: 'user-2', action: 'comment', text: 'elsewhere', place: place }],
+		});
+		controller.review.applyReadingState({ anchor: wipKey('/B'), marked: ['c.ts'], markedBefore: 2 });
+		assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/B')), undefined);
+
+		// Back in the working tree: its new journal and marks number on, and only what is new lands
+		showWip();
+		controller.review.applyReadingState({ anchor: wipKey('/A'), marked: [], markedBefore: 3 });
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [{ seq: 6, findingId: 'f1', action: 'reopen' }],
+		});
+		controller.review.applyReadingState({ anchor: wipKey('/A'), marked: ['c.ts'], markedBefore: 3 });
+		const wip = review(wipKey('/A'));
+		assert.deepStrictEqual(
+			wip?.session?.comments?.map(c => c.id),
+			['user-1'],
+		);
+		assert.deepStrictEqual(
+			wip?.session?.notes.get('f1')?.map(n => n.text),
+			['reachable?'],
+			"the commit's reply is not here",
+		);
+		assert.strictEqual(wip?.session?.findingStates.has('f1'), false, 'reopened');
+		assert.deepStrictEqual([...(wip?.session?.viewed.keys() ?? [])], ['a.ts', 'c.ts']);
+		assert.strictEqual(wip?.threadActionsApplied, 6);
+		assert.deepStrictEqual(host.handOffs, ['ask:f1:reachable?']);
+	});
+
+	test("a hand-off taken in a review that is no longer shown keeps the reply, isn't sent, and says so", () => {
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const warned: string[] = [];
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				warnReviewHandOffDropped: to => {
+					warned.push(to);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set('c1');
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('w'), 'complete')]]),
+		);
+
+		// Taken in the working tree's threads, arriving once the commit is shown
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [
+				{ seq: 1, findingId: 'f1', action: 'askReviewer', text: 'reachable?' },
+				{ seq: 2, findingId: 'f1', action: 'askReviewer', text: 'and here?' },
+				{ seq: 3, findingId: 'f2', action: 'address', text: 'use a guard' },
+				{ seq: 4, findingId: 'f3', action: 'sendToAgent' },
+			],
+		});
+		const wip = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(
+			wip?.session?.notes.get('f1')?.map(n => n.text),
+			['reachable?', 'and here?'],
+			'the replies stay with their review',
+		);
+		assert.strictEqual(wip?.threadActionsApplied, 4);
+		assert.deepStrictEqual(host.handOffs, [], 'nothing goes to the shown review');
+		assert.deepStrictEqual(warned, ['reviewer', 'agent'], 'one warning for each kind of request dropped');
+
+		// A journal with nothing new for a review left behind says nothing
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [{ seq: 4, findingId: 'f3', action: 'sendToAgent' }],
+		});
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [{ seq: 5, findingId: 'f1', action: 'reply', text: 'never mind' }],
+		});
+		assert.deepStrictEqual(warned, ['reviewer', 'agent']);
+	});
+
+	test('a reading let go clears the review it was reading, not the one shown by then', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const commitKey = anchorKey({ sha: 'c1', shas: undefined, repoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeContext.set('commit');
+		state.activeModeSha.set('c1');
+		controller.review.applyReadingState({ anchor: commitKey, active: 'b.ts', marked: [], markedBefore: 0 });
+
+		state.activeModeContext.set('wip');
+		state.activeModeSha.set(uncommitted);
+		controller.review.applyReadingState({ anchor: wipKey('/A'), active: 'a.ts', marked: [], markedBefore: 0 });
+		// The commit is shown again before the host lets the working tree's reading go
+		state.activeModeContext.set('commit');
+		state.activeModeSha.set('c1');
+		controller.review.applyReadingState(undefined);
+
+		const review = (key: AnchorKey) => host.crossPaneState.runningOperations.get().get(key)?.review;
+		assert.strictEqual(review(wipKey('/A'))?.reading, undefined);
+		assert.deepStrictEqual(review(commitKey)?.reading, { active: 'b.ts', marksApplied: 0 });
+	});
+
+	test("a reading let go after the controller was rebuilt clears the shown review's", () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/A');
+		controller.review.applyReadingState({ anchor: wipKey('/A'), active: 'a.ts', marked: [], markedBefore: 0 });
+		// A controller built since never saw which review was read — the entries outlive it
+		(controller as unknown as { _readingAnchor?: AnchorKey })._readingAnchor = undefined;
+
+		controller.review.applyReadingState(undefined);
+		assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.reading, undefined);
+	});
+
+	test("the reader's first comment on a review with no entry yet makes that review's entry, and no other", () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set('c1');
+		const commitKey = anchorKey({ sha: 'c1', shas: undefined, repoPath: '/A' });
+		const place = { path: 'a.ts', line: 1, lineEnd: 1 };
+
+		// The working tree's journal comes in late — no entry for it, and none for the commit from it
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [{ seq: 1, findingId: 'user-1', action: 'comment', text: 'wip', place: place }],
+		});
+		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0);
+
+		controller.review.applyThreadActions({
+			anchor: commitKey,
+			actions: [{ seq: 2, findingId: 'user-2', action: 'comment', text: 'commit', place: place }],
+		});
+		const entry = host.crossPaneState.runningOperations.get().get(commitKey)?.review;
+		assert.strictEqual(entry?.anchor.kind, 'commit');
+		assert.strictEqual(entry?.anchor.sha, 'c1');
+		assert.deepStrictEqual(
+			entry?.session?.comments?.map(c => c.id),
+			['user-2'],
+		);
+		assert.strictEqual(entry?.threadActionsApplied, 2);
+		assert.deepStrictEqual([...host.crossPaneState.runningOperations.get().keys()], [commitKey]);
 	});
 
 	test("deleting a thread's opening keeps the thread: the first reply opens it, until none is left", () => {
@@ -1411,7 +1649,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				{ seq: 1, findingId: 'area-1-f1', action: 'delete' as const },
 				{ seq: 2, findingId: 'user-1', action: 'askReviewer' as const, text: 'why?' },
 			];
-			controller.review.applyThreadActions({ actions: journal });
+			controller.review.applyThreadActions({ anchor: wipKey('/A'), actions: journal });
 			assert.deepStrictEqual(areas(), []);
 			assert.strictEqual(entry()?.threadActionsApplied, 2);
 
@@ -1422,6 +1660,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			assert.deepStrictEqual(areas(), [['area-1', ['area-1-f1']]]);
 
 			controller.review.applyThreadActions({
+				anchor: wipKey('/A'),
 				actions: [...journal, { seq: 3, findingId: 'area-1-f1', action: 'reply', text: 'agreed' }],
 			});
 			assert.deepStrictEqual(areas(), [['area-1', ['area-1-f1']]], 'the earlier delete is not replayed');
