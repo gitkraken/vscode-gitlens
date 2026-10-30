@@ -23,8 +23,9 @@ export interface AIReviewFinding {
 	 *  marked at each place. */
 	readonly locations?: readonly AIReviewFindingLocation[];
 	/** Who produced the finding; absent = the model's own review run. `agent` = reported back by a
-	 *  delegated deep review, which could build, test and read beyond the diff. */
-	readonly source?: 'agent';
+	 *  delegated deep review, which could build, test and read beyond the diff. `user` = the reader's own
+	 *  comment on a line of the diff — no severity of its own, the text is the description. */
+	readonly source?: 'agent' | 'user';
 }
 
 /** Every place a finding holds — `locations` when it has several, else its one file (none for a general remark). */
