@@ -3,9 +3,10 @@
  *
  * `gitlens_start_work` and `gitlens_start_review` are the two mutating GitLens tools: they create a
  * branch (and, for review, a worktree) through the live extension host. Their happy paths need a
- * connected hosting integration and live issue/PR URLs, so they are covered separately and skip
- * without credentials. What is coverable hermetically — and what breaks most often — is everything
- * before that: argument validation, and what a caller sees when the request cannot be honoured.
+ * connected hosting integration and live issue/PR URLs, so they are covered separately
+ * (`mcpGitlensWritePathSignedIn.test.ts`, `@signed-in`) and skip without credentials. What is
+ * coverable hermetically — and what breaks most often — is everything before that: argument
+ * validation, and what a caller sees when the request cannot be honoured.
  *
  * Where each failure is decided, read from source on both sides:
  * - **Missing `directory` / `issue_url` / `pr_url`** never leaves the CLI. `startWorkHandler` and

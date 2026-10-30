@@ -11,11 +11,14 @@ import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 import { GitFixture } from './fixtures/git.js';
+import type { SignInOptions } from './fixtures/gkSignIn.js';
+import { gkEnvironment, gkEnvironmentUserSettings, signInToGitKraken } from './fixtures/gkSignIn.js';
 import { VSCodeEvaluator } from './fixtures/vscodeEvaluator.js';
 import { GitLensPage } from './pageObjects/gitLensPage.js';
 
 export { expect } from '@playwright/test';
 export { GitFixture } from './fixtures/git.js';
+export { canSignIn, requiredIntegrations } from './fixtures/gkSignIn.js';
 export type { VSCode } from './fixtures/vscodeEvaluator.js';
 
 export const MaxTimeout = 10000;
@@ -306,6 +309,13 @@ export interface LaunchOptions {
 	 * runtime (`l10n.t`) and manifest (`package.nls.<id>.json`) catalogs resolve.
 	 */
 	locale?: string;
+	/**
+	 * Sign this worker in to the GitKraken test account before its tests run (#5682) — unattended, with the
+	 * `GK_E2E_ACCESS_TOKEN_COOKIE` secret; see `fixtures/gkSignIn.ts`. `true` requires the default providers.
+	 * Gate the spec with `test.skip(!canSignIn(), …)`: without the secret the worker would fail to start.
+	 * Every sign-in mints a non-expiring account token, so opt in only where an account is needed.
+	 */
+	signIn?: boolean | SignInOptions;
 }
 
 /** Where the offline fixture language packs backing {@link LaunchOptions.locale} live, one dir per locale. */
@@ -385,6 +395,11 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Ensure the E2E runner is built (handles VS Code extension skipping globalSetup)
 			ensureRunnerBuilt();
 
+			// A signed-in worker needs an explicit backend (GK_E2E_ENV) — check it before anything needs cleaning up
+			if (vscodeOptions.signIn) {
+				gkEnvironment();
+			}
+
 			const tempDir = await createTmpDir();
 			// Resolve the editor binary: project-provided path (forks like Cursor/Windsurf/Kiro),
 			// then a per-spec override, else download VS Code. `||` (not `??`) so an empty path falls through.
@@ -408,7 +423,12 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Write user settings before launching VS Code
 			const settingsDir = path.join(userDataDir, 'User');
 			await mkdir(settingsDir, { recursive: true });
-			const mergedSettings = { ...defaultUserSettings, ...vscodeOptions.userSettings };
+			const mergedSettings = {
+				...defaultUserSettings,
+				// A signed-in worker points GitLens at the same backend as its cookie (GK_E2E_ENV)
+				...(vscodeOptions.signIn ? gkEnvironmentUserSettings() : undefined),
+				...vscodeOptions.userSettings,
+			};
 			await writeFile(path.join(settingsDir, 'settings.json'), JSON.stringify(mergedSettings, null, '\t'));
 
 			// Run setup callback if provided, otherwise open extension folder
@@ -431,14 +451,28 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await chmod(runtimeDir, 0o700);
 			}
 
+			// A signed-in worker gets its own XDG_DATA_HOME: after signing in GitLens runs `gk auth login` with the
+			// account's token, and the GK CLI keeps its install and sessions under XDG_DATA_HOME (read first on every
+			// platform). Without this a local run would replace the machine-wide CLI login with the test account and
+			// leave its non-expiring token behind; the worker's temp dir is deleted at teardown.
+			let dataDir: string | undefined;
+			if (vscodeOptions.signIn) {
+				dataDir = path.join(tempDir, 'xdg-data');
+				await mkdir(dataDir, { recursive: true });
+			}
+
 			const launchEnv = {
-				...process.env,
+				// The sign-in credentials (`GK_E2E_*`) stay in this process: the sign-in fixture reads them here, and
+				// nothing the editor spawns — GitLens, git, the GK CLI, the MCP server — needs them
+				...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
 				// Allows Claude Code and other CLI agents run the tests from within VS Code
 				ELECTRON_RUN_AS_NODE: undefined!,
 				// Set DISPLAY for headless Linux (Xvfb)
 				...(display ? { DISPLAY: display } : {}),
 				// Per-worker writable runtime dir for the editor's IPC socket (see note above)
 				...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
+				// Per-worker GK CLI data for signed-in workers (see note above)
+				...(dataDir ? { XDG_DATA_HOME: dataDir } : {}),
 			};
 
 			// A requested non-English `locale` needs two files seeded BEFORE launch — no Marketplace
@@ -579,6 +613,14 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					(await page.locator('[id="workbench.parts.activitybar"]').count()) > 0
 				) {
 					await gitlens.waitForActivation();
+				}
+
+				if (vscodeOptions.signIn) {
+					await signInToGitKraken(
+						evaluate,
+						gitlens,
+						vscodeOptions.signIn === true ? undefined : vscodeOptions.signIn,
+					);
 				}
 
 				await use({
