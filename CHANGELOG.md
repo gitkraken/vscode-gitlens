@@ -35,6 +35,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the interactive rebase editor cutting off the last commits in the list when the conflict panel is open and the list's pane is short &mdash; the list now fits its pane and scrolls to the end
 - Fixes the icon buttons in _GitLens Settings_ (e.g. delete and expand on autolinks and custom remotes) showing no hover feedback in high contrast themes
 - Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
+- Fixes the text on warning and danger buttons (e.g. _Abort_ in the interactive rebase editor) being hard to read in light themes
+- Fixes secondary buttons in GitLens webviews showing a blue outline in the 2026 themes
+- Fixes toolbar buttons in GitLens webviews showing no hover feedback in high contrast themes
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
 - Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range

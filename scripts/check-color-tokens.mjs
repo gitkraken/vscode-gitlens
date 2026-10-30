@@ -28,14 +28,9 @@ const reserved = new Map([
 	['--gl-color-feedback-info-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-info-quiet-fg', 'awaiting migration'],
 	['--gl-color-feedback-info-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-warning-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-warning-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-danger-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-danger-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-success-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-success-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-action-primary-bg-hover', 'awaiting migration'],
-	['--gl-color-action-secondary-bg-hover', 'awaiting migration'],
 	['--gl-color-action-quiet-bg-active', 'awaiting migration'],
 ]);
 
