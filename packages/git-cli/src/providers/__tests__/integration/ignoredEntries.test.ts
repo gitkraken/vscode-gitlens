@@ -1,8 +1,10 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as sinon from 'sinon';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
 
@@ -234,6 +236,22 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 		repo.cleanup();
 	});
 
+	/** The fixture's ignored files, one in each folder */
+	const ignoredFiles = [
+		'src/cache.tmp',
+		'src/keep.log',
+		'src/dist/a.tmp',
+		'newpkg/debug.log',
+		'newpkg/sub/z.log',
+		'[id]/x.log',
+		'i/z.log',
+		'other/q.log',
+	];
+
+	function countCheckIgnoreRuns(run: sinon.SinonSpy): number {
+		return run.getCalls().filter(call => call.args[1] === 'check-ignore').length;
+	}
+
 	async function assertMatchesStatus(scope: string): Promise<void> {
 		const result = await repo.provider.getIgnoredEntries(repo.path, { paths: [scope] });
 
@@ -300,7 +318,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 		}
 	});
 
-	test('many scopes with one beyond a symlink are answered by bisecting the failed batch, not one run each', async function () {
+	test('many scopes with one beyond a symlink are answered by re-asking only the scopes after it, not one run each', async function () {
 		const link = join(repo.path, 'linked');
 		try {
 			symlinkSync(join(repo.path, 'src'), link, 'dir');
@@ -308,36 +326,258 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 			this.skip();
 		}
 
-		const spy = sinon.spy(repo.provider, 'getIgnoredPaths');
+		const run = sinon.spy(repo.provider.git, 'run');
 		try {
-			const ignored = [
-				'src/cache.tmp',
-				'src/keep.log',
-				'src/dist/a.tmp',
-				'newpkg/debug.log',
-				'newpkg/sub/z.log',
-				'[id]/x.log',
-				'i/z.log',
-				'other/q.log',
-			];
 			const scopes = [
-				...ignored.slice(0, 5),
+				...ignoredFiles.slice(0, 5),
 				'linked/dist',
-				...ignored.slice(5),
+				...ignoredFiles.slice(5),
 				'src/index.ts',
 				...Array.from({ length: 14 }, (_, i) => `src/missing${i}`),
 			];
 
 			const entries = await repo.provider.getIgnoredEntries(repo.path, { paths: scopes });
 
-			assert.deepStrictEqual(entries, ignored.sort());
-			assert.ok(
-				spy.callCount < scopes.length / 2,
-				`Expected well under ${scopes.length} runs, got ${spy.callCount}`,
-			);
+			assert.deepStrictEqual(entries, [...ignoredFiles].sort());
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
 		} finally {
-			spy.restore();
+			run.restore();
 			rmSync(link, { force: true });
+		}
+	});
+
+	test('getIgnoredPaths answers every other path when one is beyond a symlink, re-asking only the paths after it', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const run = sinon.spy(repo.provider.git, 'run');
+		try {
+			// `:`-prefixed spellings come back in the caller's spelling, whether answered before the refused path or after
+			write(':odd.log');
+			write(':late.log');
+			const paths = [
+				...ignoredFiles.slice(0, 5),
+				':odd.log',
+				'linked/dist/a.tmp',
+				':late.log',
+				...ignoredFiles.slice(5),
+				'src/index.ts',
+				...Array.from({ length: 14 }, (_, i) => `src/missing${i}.ts`),
+			];
+
+			const result = await repo.provider.getIgnoredPaths(repo.path, paths);
+
+			assert.deepStrictEqual([...result].sort(), [...ignoredFiles, ':late.log', ':odd.log'].sort());
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
+		} finally {
+			run.restore();
+			rmSync(link, { force: true });
+			rmSync(join(repo.path, ':odd.log'), { force: true });
+			rmSync(join(repo.path, ':late.log'), { force: true });
+		}
+	});
+
+	test('getIgnoredPaths keeps the leading whitespace of a path answered ahead of a refused path', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const run = sinon.spy(repo.provider.git, 'run');
+		try {
+			const result = await repo.provider.getIgnoredPaths(repo.path, [' lead.log', 'linked/x.log', '\tafter.log']);
+
+			assert.deepStrictEqual([...result].sort(), ['\tafter.log', ' lead.log']);
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
+		} finally {
+			run.restore();
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('getIgnoredPaths answers the rest when a refused path holds a line break', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const run = sinon.spy(repo.provider.git, 'run');
+		try {
+			const result = await repo.provider.getIgnoredPaths(repo.path, [
+				'src/keep.log',
+				'linked/a\nb.log',
+				'src/cache.tmp',
+			]);
+
+			assert.deepStrictEqual([...result].sort(), ['src/cache.tmp', 'src/keep.log']);
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
+		} finally {
+			run.restore();
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('getIgnoredPaths counts every refused path as not ignored, wherever it falls and even alone, in one run plus one per refusal', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const run = sinon.spy(repo.provider.git, 'run');
+		try {
+			assert.deepStrictEqual(
+				[...(await repo.provider.getIgnoredPaths(repo.path, ['linked/x.log', 'src/keep.log', 'linked/y.log']))],
+				['src/keep.log'],
+			);
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
+
+			// Outside the repository, and empty, are refused the same way
+			run.resetHistory();
+			assert.deepStrictEqual(
+				[
+					...(await repo.provider.getIgnoredPaths(repo.path, [
+						'src/keep.log',
+						'../out.log',
+						'',
+						'src/cache.tmp',
+					])),
+				].sort(),
+				['src/cache.tmp', 'src/keep.log'],
+			);
+			assert.strictEqual(countCheckIgnoreRuns(run), 3);
+
+			// The rest of a refused symlink's folder, deeper ones too, goes unasked; a `..` path through it is still asked
+			run.resetHistory();
+			const refused = [
+				...Array.from({ length: 20 }, (_, i) => `linked/f${i}.log`),
+				'linked/deep/g.log',
+				'linked/../src/keep.log',
+			];
+			assert.deepStrictEqual(
+				[...(await repo.provider.getIgnoredPaths(repo.path, refused))],
+				['linked/../src/keep.log'],
+			);
+			assert.strictEqual(countCheckIgnoreRuns(run), 2);
+
+			run.resetHistory();
+			assert.strictEqual((await repo.provider.getIgnoredPaths(repo.path, ['linked/f.log'])).size, 0);
+			assert.strictEqual(countCheckIgnoreRuns(run), 1);
+		} finally {
+			run.restore();
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('getIgnoredPaths throws a failure other than a refused path after one run', async () => {
+		const notARepo = mkdtempSync(join(tmpdir(), 'gl-ignored-not-a-repo-'));
+		const run = sinon.spy(repo.provider.git, 'run');
+		try {
+			await assert.rejects(
+				repo.provider.getIgnoredPaths(
+					notARepo,
+					Array.from({ length: 20 }, (_, i) => `f${i}.log`),
+				),
+				/not a git repository/i,
+			);
+			assert.strictEqual(countCheckIgnoreRuns(run), 1);
+		} finally {
+			run.restore();
+			rmSync(notARepo, { recursive: true, force: true });
+		}
+	});
+
+	test('getIgnoredPaths rethrows a cancellation that arrives while re-asking after a refused path', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		// Cancelled once the batch has been refused, so the cancellation lands on the run over the paths after it
+		const controller = new AbortController();
+		const run = repo.provider.git.run.bind(repo.provider.git);
+		const stub = sinon.stub(repo.provider.git, 'run').callsFake(async (options, ...args) => {
+			try {
+				return await run(options, ...args);
+			} finally {
+				controller.abort();
+			}
+		});
+		try {
+			await assert.rejects(
+				repo.provider.getIgnoredPaths(
+					repo.path,
+					['src/cache.tmp', 'linked/dist', 'src/keep.log'],
+					undefined,
+					controller.signal,
+				),
+				(ex: unknown) => isCancellationError(ex),
+			);
+			assert.strictEqual(countCheckIgnoreRuns(stub), 2);
+		} finally {
+			stub.restore();
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('getIgnoredPaths counts a path inside a submodule as not ignored and answers the rest', async () => {
+		const sub = createTestRepo();
+		const main = createTestRepo();
+		try {
+			execFileSync('git', ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub.path, 'sm'], {
+				cwd: main.path,
+				stdio: 'pipe',
+			});
+			writeFileSync(join(main.path, '.gitignore'), '*.log\n');
+			writeFileSync(join(main.path, 'a.log'), 'x\n');
+			writeFileSync(join(main.path, 'b.log'), 'x\n');
+
+			const result = await main.provider.getIgnoredPaths(main.path, ['a.log', 'sm/x.log', 'b.log']);
+
+			assert.deepStrictEqual([...result].sort(), ['a.log', 'b.log']);
+		} finally {
+			main.cleanup();
+			sub.cleanup();
+		}
+	});
+
+	test('getIgnoredPaths does not report a path a `!` rule re-includes, or a tracked file, on either side of a refused path', async function () {
+		const other = createTestRepo();
+		try {
+			writeFileSync(join(other.path, '.gitignore'), '*.log\n!keep.log\n');
+			writeFileSync(join(other.path, 'tracked.log'), 'x\n');
+			execFileSync('git', ['add', '-f', 'tracked.log'], { cwd: other.path, stdio: 'pipe' });
+			mkdirSync(join(other.path, 'src'));
+			try {
+				symlinkSync(join(other.path, 'src'), join(other.path, 'linked'), 'dir');
+			} catch {
+				this.skip();
+			}
+
+			const result = await other.provider.getIgnoredPaths(other.path, [
+				'a.log',
+				'keep.log',
+				'tracked.log',
+				'linked/x.log',
+				'keep.log',
+				'tracked.log',
+				'b.log',
+			]);
+
+			assert.deepStrictEqual([...result].sort(), ['a.log', 'b.log']);
+		} finally {
+			other.cleanup();
 		}
 	});
 

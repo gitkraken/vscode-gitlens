@@ -33,7 +33,7 @@ import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
-import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
+import { batchLiteralPathspecs, Git, gitConfigsStatus, GitError, GitErrors } from './exec/git.js';
 import { readCommonGitDir, readHeadState } from './exec/headState.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
@@ -1042,9 +1042,9 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	/**
-	 * Which of `scopes` are ignored. `check-ignore` dies on a path inside a submodule or beyond a symlink, where this
-	 * repository ignores nothing, so a failed batch is bisected, one half at a time, and a scope that fails alone is
-	 * not ignored. That costs about 2·k·log2(N) runs for k bad scopes, rather than a burst of N at once.
+	 * Which of `scopes` are ignored. A scope git refuses (beyond a symlink, inside a submodule) is not ignored, as the
+	 * listing answers it with nothing. Any other failure answers none; when git itself is failing, the listing that
+	 * follows fails too.
 	 */
 	private async getIgnoredScopes(
 		repoPath: string,
@@ -1056,65 +1056,101 @@ export class CliGitProvider implements GitProvider {
 			return await this.getIgnoredPaths(repoPath, scopes, { priority: priority }, cancellation);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
-			if (scopes.length < 2) return new Set();
-		}
 
-		const middle = scopes.length >> 1;
-		const ignored = await this.getIgnoredScopes(repoPath, scopes.slice(0, middle), priority, cancellation);
-		for (const scope of await this.getIgnoredScopes(repoPath, scopes.slice(middle), priority, cancellation)) {
-			ignored.add(scope);
+			return new Set();
 		}
-		return ignored;
 	}
 
+	/**
+	 * `check-ignore` dies on the first path it can't answer (inside a submodule, beyond a symlink, outside the repository,
+	 * or empty), where this repository ignores nothing, having answered every path before it, so the paths after it are
+	 * asked again, less those in the folder of a path refused for a symlink or submodule, which share its fate. Each path
+	 * is answered once, in one run plus one for each refusal. Any other failure is thrown.
+	 */
 	async getIgnoredPaths(
 		repoPath: string,
 		paths: readonly string[],
 		options?: { priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<Set<string>> {
-		if (!paths.length) return new Set();
-
-		// check-ignore reads each line as a pathspec, so a leading `:` would be parsed as magic; `./` makes it a literal path
-		let prefixed: Map<string, string> | undefined;
-		const lines = paths.map(p => {
-			if (!p.startsWith(':')) return p;
-
-			const sent = `./${p}`;
-			(prefixed ??= new Map()).set(sent, p);
-			return sent;
-		});
-
-		// Exits 1 when nothing matches, which is an answer
-		const result = await this._git.run(
-			{
-				cwd: repoPath,
-				errors: 'throw',
-				cancellation: cancellation,
-				priority: options?.priority,
-				stdin: `${lines.join('\0')}\0`,
-				expectedExitCodes: [1],
-			},
-			'check-ignore',
-			'-z',
-			'--stdin',
-		);
-
 		const ignored = new Set<string>();
-		let given: Set<string> | undefined;
-		for (const entry of iterateByDelimiter(result.stdout, '\0')) {
-			if (!entry.length) continue;
+		let pending = paths;
+		while (pending.length) {
+			const refused = await this.checkIgnore(repoPath, pending, ignored, options, cancellation);
+			if (refused == null) break;
 
-			const original = prefixed?.get(entry);
-			if (original != null) {
-				ignored.add(original);
-				// The caller may have spelled the same file as `./:…` too, and gets that spelling back as well
-				if (!(given ??= new Set(paths)).has(entry)) continue;
+			const folder = refused.folderWide ? getRefusedFolder(pending[refused.index]) : undefined;
+			pending = pending.slice(refused.index + 1);
+			if (folder != null) {
+				pending = pending.filter(p => !p.startsWith(folder) || hasDotSegment(p));
 			}
-
-			ignored.add(entry);
 		}
 		return ignored;
+	}
+
+	/**
+	 * One `check-ignore` run over `paths`, adding the ignored ones to `ignored`. Returns the path git died on, which
+	 * every path before it was answered ahead of, or `undefined` when all were answered.
+	 */
+	private async checkIgnore(
+		repoPath: string,
+		paths: readonly string[],
+		ignored: Set<string>,
+		options: { priority?: GitCommandPriority } | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ index: number; folderWide: boolean } | undefined> {
+		// check-ignore reads each line as a pathspec, so a leading `:` would be parsed as magic; `./` makes it a literal path
+		const lines = paths.map(p => (p.startsWith(':') ? `./${p}` : p));
+
+		let stdout: string;
+		let refusal: GitError | undefined;
+		try {
+			// `-v -n` writes a record for every path answered, so the records line up with `paths` and end where git died
+			const result = await this._git.run(
+				{
+					cwd: repoPath,
+					errors: 'throw',
+					cancellation: cancellation,
+					priority: options?.priority,
+					stdin: `${lines.join('\0')}\0`,
+					expectedExitCodes: [1],
+				},
+				'check-ignore',
+				'-v',
+				'-n',
+				'-z',
+				'--stdin',
+			);
+			stdout = result.stdout;
+		} catch (ex) {
+			if (!(ex instanceof GitError) || ex.stderr == null || !GitErrors.pathspecRefused.test(ex.stderr)) throw ex;
+
+			refusal = ex;
+			stdout = ex.stdout ?? '';
+		}
+
+		// Each record is source, line number, pattern and path; the pattern is empty when none matched, and `!`-prefixed
+		// when it re-includes the path
+		let index = 0;
+		let field = 0;
+		let matched = false;
+		for (const value of iterateByDelimiter(stdout, '\0')) {
+			if (field === 2) {
+				matched = value.length > 0 && !value.startsWith('!');
+			} else if (field === 3) {
+				if (matched && index < paths.length) {
+					ignored.add(paths[index]);
+				}
+				index++;
+			}
+			field = (field + 1) % 4;
+		}
+
+		if (refusal == null) return undefined;
+		// Every path answered yet git still died, so the refusal can't be pinned to one of them
+		if (index >= paths.length) throw refusal;
+
+		return { index: index, folderWide: /is (?:beyond a symbolic link|in submodule)/i.test(refusal.stderr ?? '') };
 	}
 
 	/** Every `.gitignore` git reads in the working tree (tracked, or untracked and not itself ignored), root included */
@@ -1216,6 +1252,22 @@ function getDefaultGlobalExcludesPath(): string | undefined {
 
 	const home = env.HOME || homedir();
 	return home ? path.join(home, '.config', 'git', 'ignore') : undefined;
+}
+
+/**
+ * The folder of a path git refused for a symlink or submodule in its leading folders, where every other path is refused
+ * too; none for a top-level path, or one with `.` or `..` segments, whose folder git would read otherwise
+ */
+function getRefusedFolder(refused: string): string | undefined {
+	const trimmed = refused.replace(/\/+$/, '');
+	if (hasDotSegment(trimmed)) return undefined;
+
+	const index = trimmed.lastIndexOf('/');
+	return index > 0 ? trimmed.substring(0, index + 1) : undefined;
+}
+
+function hasDotSegment(p: string): boolean {
+	return /(?:^|\/)\.\.?(?:\/|$)/.test(p);
 }
 
 /** Whether a folder holds a file or symlink anywhere below it, as git lists no folder without one; an unreadable folder holds none */
