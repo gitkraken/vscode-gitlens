@@ -122,9 +122,6 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	@property({ type: Boolean })
 	generateChangelogBusy = false;
 
-	@property({ type: Boolean })
-	aiEnabled = false;
-
 	@property()
 	activeMode?: 'review' | 'compose' | null;
 
@@ -437,12 +434,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		// Review is the only mode here. Compare is invoked separately as a sheet — the header
 		// renders a grouped Compare entry-point chip (via `compareEnabled`) when no mode is
 		// active so the user can pivot the existing comparison through the compare-refs picker.
-		const modes = this.aiEnabled ? (['review'] as const) : ([] as const);
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
 			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
-			.modes=${modes}
+			.modes=${this.computeCompareModes()}
 			.compareEnabled=${true}
 			?show-maximize=${this.showMaximize}
 			?maximized=${this.maximized}
@@ -463,6 +459,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			</span>
 			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 		</gl-details-header>`;
+	}
+
+	private computeCompareModes(): 'review'[] {
+		// Review is a reading walk first, so a range offers it whether or not AI is on.
+		return ['review'];
 	}
 
 	private renderMetadataBar() {

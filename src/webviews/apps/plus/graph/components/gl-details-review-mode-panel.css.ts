@@ -7,8 +7,6 @@ export {
 	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
-	panelStaleBannerStyles,
-	resumeBarStyles,
 } from './shared-panel.css.js';
 
 export const reviewModePanelStyles = css`
@@ -79,6 +77,26 @@ export const reviewModePanelStyles = css`
 
 	/* Review results */
 
+	/* Checklist (top) over the AI run or its findings (bottom), while a run is in flight or answered */
+	.review-split {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		--gl-split-panel-divider-width: 4px;
+	}
+
+	.review-split__files,
+	.review-split__ai {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.review-split__ai {
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+	}
+
 	.review-results {
 		flex: 1;
 		min-height: 0;
@@ -124,8 +142,50 @@ export const reviewModePanelStyles = css`
 		opacity: 1;
 	}
 
-	.stale-banner {
-		margin-bottom: var(--gl-space-8);
+	/* Review ending — shown once every file in the walk is viewed */
+	.review-done {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-6) var(--gl-space-8);
+		align-items: center;
+		padding: var(--gl-space-8) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		border: var(--gl-border-width) solid var(--vscode-button-border);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-done__icon {
+		font-size: var(--gl-font-lg);
+		color: var(--vscode-charts-green, #4ec9b0);
+	}
+
+	.review-done__body {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.review-done__title {
+		font-weight: 500;
+	}
+
+	.review-done__counts {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-done__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4);
+	}
+
+	.review-finding--closed {
+		opacity: 0.7;
+	}
+
+	.review-finding__state {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Foreground extras layered on the shared .panel-loading-stage__foreground base — the in-flight

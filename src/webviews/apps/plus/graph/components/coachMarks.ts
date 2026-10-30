@@ -100,7 +100,7 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 				</div>`,
 	},
 	review: {
-		title: l10n.t('Review Changes with AI'),
+		title: l10n.t('Review Changes'),
 		icon: 'checklist',
 		priority: 2,
 		body: () =>
@@ -109,13 +109,13 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 					<div class="step">
 						<span class="step__num">1</span>
 						<div class="step__body">
-							${l10n.t('Pick your scope — drag across commits, check specific files')}
+							${l10n.t('Pick your scope, then read the changes — the checkbox marks a file as viewed')}
 						</div>
 					</div>
 					<div class="step">
 						<span class="step__num">2</span>
 						<div class="step__body">
-							${localizedContent(l10n.t('{startReview} — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Start Review')}</span>` })}
+							${localizedContent(l10n.t('{startReview} for a second pair of eyes — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Start Review')}</span>` })}
 							<div class="rows">
 								<div class="row">
 									<span class="dot dot--critical"></span>
@@ -141,7 +141,7 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 					<div class="step">
 						<span class="step__num">3</span>
 						<div class="step__body">
-							${l10n.t('Send one finding — or the whole review — to your agent to fix')}
+							${l10n.t('Resolve or dismiss findings as you go — or send one, or the whole review, to your agent')}
 						</div>
 					</div>
 				</div>`,

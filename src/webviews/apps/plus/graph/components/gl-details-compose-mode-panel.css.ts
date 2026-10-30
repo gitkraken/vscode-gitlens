@@ -8,7 +8,6 @@ export {
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
-	resumeBarStyles,
 } from './shared-panel.css.js';
 
 export const composeModePanelStyles = css`
