@@ -43,7 +43,13 @@ import type {
 } from './detailsState.js';
 import { abortRunningOperation, compareSides } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
-import type { ReviewComment, ReviewFileIdentity, ReviewFindingState, ReviewSession } from './reviewSession.js';
+import type {
+	ReviewComment,
+	ReviewFileIdentity,
+	ReviewFindingsContent,
+	ReviewFindingState,
+	ReviewSession,
+} from './reviewSession.js';
 import {
 	agentFocusAreaId,
 	createReviewComment,
@@ -52,6 +58,8 @@ import {
 	withFilesViewed,
 	withFindingNote,
 	withFindingNoteText,
+	withFindingsContent,
+	withFindingsRequeued,
 	withFindingState,
 	withoutFindingNote,
 	withoutFindingRecord,
@@ -1403,6 +1411,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			const fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
 			const current = entry?.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
 			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
+			let findingsContent = entry?.findingsContent;
 			if (fresh.length > 0) {
 				// Over a failed run, what the agent reported before waits in the value Go Back restores
 				const earlier =
@@ -1415,6 +1424,14 @@ export class DetailsWorkflowController implements ReactiveController {
 						fresh,
 					),
 				};
+				// The files in hand are the shown review's; a report for another one goes unrecorded
+				if (isCurrent) {
+					findingsContent = withFindingsContent(
+						findingsContent,
+						fresh,
+						this.actions.resources.scopeFiles.value.get(),
+					);
+				}
 			}
 			// What the agent added to findings that were already there lands as notes on them
 			const notesApplied = sameRun ? (entry?.deepReview?.notesApplied ?? 0) : 0;
@@ -1425,6 +1442,14 @@ export class DetailsWorkflowController implements ReactiveController {
 					text: note.text,
 					at: Date.now(),
 				});
+			}
+			// New findings on files the reader already went through put those files back in the queue
+			if (session != null && fresh.length > 0) {
+				session = withFindingsRequeued(
+					session,
+					current != null && 'result' in current ? current.result : undefined,
+					result?.result,
+				);
 			}
 			const deepReview = {
 				run: state.run,
@@ -1452,6 +1477,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					...withSession,
 					execState: base.execState === 'generating' ? 'generating' : 'complete',
 					result: result,
+					findingsContent: findingsContent,
 					deepReview: deepReview,
 				});
 				if (isCurrent) {
@@ -1677,7 +1703,21 @@ export class DetailsWorkflowController implements ReactiveController {
 			};
 
 			if (entry != null) {
-				this.registerRunningOperation({ ...entry, result: enriched });
+				// The area's findings are new to the files the reader may have gone through already
+				const session =
+					entry.session != null
+						? withFindingsRequeued(entry.session, current.result, enriched.result)
+						: undefined;
+				this.registerRunningOperation({
+					...entry,
+					result: enriched,
+					session: session,
+					findingsContent: withFindingsContent(
+						entry.findingsContent,
+						detail.findings,
+						this.actions.resources.scopeFiles.value.get(),
+					),
+				});
 			}
 			this.actions.resources.review.mutate(enriched);
 		},
@@ -1708,6 +1748,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.registerRunningOperation({
 			...entry,
 			focusAreaRuns: undefined,
+			findingsContent: undefined,
 			// The agent's findings go with the rest, so its channel closes too; the strip stays put away
 			deepReview: entry.deepReview != null ? { ...entry.deepReview, hidden: true } : undefined,
 			session: entry.session != null ? withoutFindings(entry.session) : undefined,
@@ -3455,6 +3496,58 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 		}
 
+		// Review-only: a fresh result starts its own record of the content its findings were made against —
+		// from the files in hand, so only when they are this anchor's; otherwise nothing reads as stale.
+		// A failed run leaves the record with the result it falls back to.
+		let findingsContent = (current as { findingsContent?: ReviewFindingsContent }).findingsContent;
+		if (kind === 'review' && execState === 'complete' && value != null && 'result' in value) {
+			// The agent's findings carried through the run keep what they were recorded against
+			const carried =
+				agentArea != null && findingsContent != null
+					? new Map(
+							agentArea.findings
+								?.filter(f => findingsContent!.has(f.id))
+								.map(f => [f.id, findingsContent!.get(f.id)!]),
+						)
+					: undefined;
+			findingsContent =
+				anchorKey(anchor) === anchorKey(this.currentAnchor())
+					? withFindingsContent(
+							carried,
+							(value as { result: AIReviewResult }).result.focusAreas
+								.filter(a => a.id !== agentFocusAreaId)
+								.flatMap(a => a.findings ?? []),
+							this.actions.resources.scopeFiles.value.get(),
+						)
+					: carried;
+		}
+
+		// A review's findings put the files the reader already went through back in the queue — the
+		// marks were made before the findings existed
+		let session: ReviewSession | undefined;
+		if (kind === 'review') {
+			const review = current as Extract<RunningOperation, { kind: 'review' }>;
+			const settled = value as ReviewResult | undefined;
+			if (review.session != null && settled != null && 'result' in settled) {
+				// Known before: what the entry held through the run (the agent's findings) and the result the
+				// run replaces — kept as the value Go Back restores — so a re-run finding the same things
+				// re-queues nothing
+				const held = review.result != null && 'result' in review.result ? review.result.result : undefined;
+				const replaced =
+					review.preErrorValue != null && 'result' in review.preErrorValue
+						? review.preErrorValue.result
+						: undefined;
+				const known =
+					held != null || replaced != null
+						? {
+								...(replaced ?? held!),
+								focusAreas: [...(replaced?.focusAreas ?? []), ...(held?.focusAreas ?? [])],
+							}
+						: undefined;
+				session = withFindingsRequeued(review.session, known, settled.result);
+			}
+		}
+
 		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
 		// Carry forward the live entry's `prompt` (seeds the AI input on Restart) and `focusedFilePaths`
 		// (resolve scope — so Refine/retry after a row-switch-and-return re-run the same subset instead
@@ -3473,6 +3566,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			focusedFilePaths: current.focusedFilePaths,
 			cacheKey: composeCacheKey,
 			...reviewPreErrorValue,
+			...(kind === 'review' ? { findingsContent: findingsContent } : {}),
+			...(session != null ? { session: session } : {}),
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
@@ -3703,6 +3798,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
 				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
 			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
+			(existing as { findingsContent?: unknown }).findingsContent ===
+				(op as { findingsContent?: unknown }).findingsContent &&
 			(existing as { reading?: unknown }).reading === (op as { reading?: unknown }).reading &&
 			(existing as { threadActionsApplied?: number }).threadActionsApplied ===
 				(op as { threadActionsApplied?: number }).threadActionsApplied &&

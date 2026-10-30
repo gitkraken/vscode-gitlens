@@ -19,8 +19,9 @@ export type ReviewFindingState = 'dismissed';
  *  entry, so it survives panel remounts and anchor switches like the run itself. */
 export interface ReviewSession {
 	/** Viewed marks by path. `contentId` is the content (see `ScopeFile.contentId`) the mark was made
-	 *  against; a file that moved on since reads as re-queued rather than silently still viewed. */
-	readonly viewed: ReadonlyMap<string, { contentId?: string }>;
+	 *  against; a file that moved on since reads as re-queued rather than silently still viewed, and so
+	 *  does one that findings came in on after the mark (`requeued`, see {@link withFindingsRequeued}). */
+	readonly viewed: ReadonlyMap<string, ReviewViewedMark>;
 	/** Files set aside — out of the checklist and out of the AI's diff. */
 	readonly excluded: ReadonlySet<string>;
 	/** Findings set aside; absent = open. */
@@ -35,33 +36,42 @@ export interface ReviewSession {
 	readonly order?: readonly string[];
 }
 
+export interface ReviewViewedMark {
+	readonly contentId?: string;
+	/** Findings came in on the file after it was marked — it is back in the queue until marked again. */
+	readonly requeued?: boolean;
+}
+
 export const emptyReviewSession: ReviewSession = Object.freeze({
-	viewed: new Map<string, { contentId?: string }>(),
+	viewed: new Map<string, ReviewViewedMark>(),
 	excluded: new Set<string>(),
 	findingStates: new Map<string, ReviewFindingState>(),
 	notes: new Map<string, readonly ReviewFindingNote[]>(),
 });
 
-export type ReviewFileProgress = 'viewed' | 'changed' | 'unviewed';
+export type ReviewFileProgress = 'viewed' | 'changed' | 'requeued' | 'unviewed';
 
 export type ReviewFileIdentity = Pick<ScopeFile, 'path' | 'contentId'>;
 
 /** `'changed'` = marked viewed against content that has since moved on. When either side has no
- *  content id the mark holds — un-checking everything on every tick would be worse than trusting it. */
+ *  content id the mark holds — un-checking everything on every tick would be worse than trusting it.
+ *  `'requeued'` = marked viewed before findings came in on it; a change to the content says more, so it wins. */
 export function getReviewFileProgress(
 	session: ReviewSession | undefined,
 	file: ReviewFileIdentity,
 ): ReviewFileProgress {
 	const mark = session?.viewed.get(file.path);
 	if (mark == null) return 'unviewed';
-	if (file.contentId == null || mark.contentId == null || mark.contentId === file.contentId) return 'viewed';
-	return 'changed';
+	if (file.contentId != null && mark.contentId != null && mark.contentId !== file.contentId) return 'changed';
+	return mark.requeued ? 'requeued' : 'viewed';
 }
 
 export interface ReviewProgress {
 	viewed: number;
 	/** Viewed once, changed since — re-queued. */
 	changed: number;
+	/** Viewed once, with new findings since — re-queued. */
+	requeued: number;
 	/** Files in the walk — the scope minus the set-aside ones. */
 	total: number;
 }
@@ -70,7 +80,7 @@ export function getReviewProgress(
 	session: ReviewSession | undefined,
 	files: readonly ReviewFileIdentity[] | undefined,
 ): ReviewProgress {
-	const progress: ReviewProgress = { viewed: 0, changed: 0, total: 0 };
+	const progress: ReviewProgress = { viewed: 0, changed: 0, requeued: 0, total: 0 };
 	for (const file of files ?? []) {
 		if (session?.excluded.has(file.path)) continue;
 
@@ -80,6 +90,8 @@ export function getReviewProgress(
 			progress.viewed++;
 		} else if (state === 'changed') {
 			progress.changed++;
+		} else if (state === 'requeued') {
+			progress.requeued++;
 		}
 	}
 	return progress;
@@ -273,6 +285,74 @@ export function getClosedFindingIds(session: ReviewSession | undefined): Readonl
 	return new Set(session.findingStates.keys());
 }
 
+/** What each AI finding was made against: by finding id, the content (see `ScopeFile.contentId`) of
+ *  the files it points at when it came in. A finding whose file moved on since describes older code. */
+export type ReviewFindingsContent = ReadonlyMap<string, ReadonlyMap<string, string>>;
+
+/** Records the files' current content for findings that just came in — a later report of a finding
+ *  with the same id replaces what was recorded for it. The reader's own comments are not the AI's word
+ *  on the code and are left out; so is a file with no content id. The same record when nothing is added. */
+export function withFindingsContent(
+	recorded: ReviewFindingsContent | undefined,
+	findings: readonly AIReviewFinding[] | undefined,
+	files: readonly ReviewFileIdentity[] | undefined,
+): ReviewFindingsContent | undefined {
+	if (!findings?.length || !files?.length) return recorded;
+
+	const current = new Map<string, string>();
+	for (const file of files) {
+		if (file.contentId != null) {
+			current.set(file.path, file.contentId);
+		}
+	}
+
+	let next: Map<string, ReadonlyMap<string, string>> | undefined;
+	for (const finding of findings) {
+		if (finding.source === 'user') continue;
+
+		const content = new Map<string, string>();
+		for (const location of getReviewFindingLocations(finding)) {
+			const contentId = current.get(location.filePath);
+			if (contentId != null) {
+				content.set(location.filePath, contentId);
+			}
+		}
+		if (content.size === 0) continue;
+
+		next ??= new Map(recorded);
+		next.set(finding.id, content);
+	}
+	return next ?? recorded;
+}
+
+/** Ids of the AI findings with a file that changed since the finding was made. As with viewed marks,
+ *  an unknown side — nothing recorded, or no current content id (a file gone from the scope included)
+ *  — leaves the finding as it was. */
+export function getStaleFindingIds(
+	result: AIReviewResult | undefined,
+	recorded: ReviewFindingsContent | undefined,
+	files: readonly ReviewFileIdentity[] | undefined,
+): ReadonlySet<string> {
+	const stale = new Set<string>();
+	if (result == null || !recorded?.size || !files?.length) return stale;
+
+	const current = new Map(files.map(f => [f.path, f.contentId]));
+	for (const area of result.focusAreas) {
+		for (const finding of area.findings ?? []) {
+			if (finding.source === 'user') continue;
+
+			for (const [path, contentId] of recorded.get(finding.id) ?? []) {
+				const now = current.get(path);
+				if (now != null && now !== contentId) {
+					stale.add(finding.id);
+					break;
+				}
+			}
+		}
+	}
+	return stale;
+}
+
 // Each update returns the same session when it would change nothing, so callers can skip a no-op write.
 
 export function withFilesViewed(
@@ -280,11 +360,12 @@ export function withFilesViewed(
 	files: readonly ReviewFileIdentity[],
 	viewed: boolean,
 ): ReviewSession {
-	let next: Map<string, { contentId?: string }> | undefined;
+	let next: Map<string, ReviewViewedMark> | undefined;
 	for (const file of files) {
 		if (viewed) {
 			if (getReviewFileProgress(session, file) === 'viewed') continue;
 
+			// A fresh mark — whatever re-queued the file, the reader has been through it again
 			next ??= new Map(session.viewed);
 			next.set(file.path, { contentId: file.contentId });
 		} else {
@@ -562,6 +643,56 @@ export function getReviewPanelStatus(
 	if (result != null) return 'ready';
 	if (fetchError != null) return 'error';
 	return 'idle';
+}
+
+/** Puts the viewed files back in the queue that `next` brings an open finding `prev` didn't have there —
+ *  the reader went through them before the finding existed, so they read as re-queued rather than done,
+ *  and the rest of the review stands. The reader's own comments never count (they are theirs to know
+ *  about), nor what was said on findings already there — notes don't make a finding new. */
+export function withFindingsRequeued(
+	session: ReviewSession,
+	prev: AIReviewResult | undefined,
+	next: AIReviewResult | undefined,
+): ReviewSession {
+	if (next == null || session.viewed.size === 0) return session;
+
+	// A finding counts as known at a place by its id, or — across runs, whose ids are positional and say
+	// nothing about what they name — by its title there
+	const had = new Map<string, Set<string>>();
+	const seen = new Set<string>();
+	const titled = (path: string, finding: AIReviewFinding) => `${path}\0${finding.title.trim().toLowerCase()}`;
+	for (const area of prev?.focusAreas ?? []) {
+		for (const finding of area.findings ?? []) {
+			const paths = had.get(finding.id) ?? new Set<string>();
+			for (const location of getReviewFindingLocations(finding)) {
+				paths.add(location.filePath);
+				seen.add(titled(location.filePath, finding));
+			}
+			had.set(finding.id, paths);
+		}
+	}
+
+	let viewed: Map<string, ReviewViewedMark> | undefined;
+	for (const area of next.focusAreas) {
+		if (area.id === userFocusAreaId) continue;
+
+		for (const finding of area.findings ?? []) {
+			if (finding.source === 'user' || session.findingStates.has(finding.id)) continue;
+
+			for (const { filePath } of getReviewFindingLocations(finding)) {
+				if (had.get(finding.id)?.has(filePath) || seen.has(titled(filePath, finding))) continue;
+
+				// Never viewed, there is nothing to put back; re-queued already, nothing to add
+				const mark = (viewed ?? session.viewed).get(filePath);
+				if (mark == null) continue;
+				if (mark.requeued) continue;
+
+				viewed ??= new Map(session.viewed);
+				viewed.set(filePath, { ...mark, requeued: true });
+			}
+		}
+	}
+	return viewed == null ? session : { ...session, viewed: viewed };
 }
 
 export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';

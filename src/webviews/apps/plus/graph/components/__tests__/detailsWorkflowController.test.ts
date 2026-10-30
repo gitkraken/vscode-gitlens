@@ -658,6 +658,90 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
+	test('the entry records the content findings were made against: a run starts it over, the agent adds to it, discard drops it', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const reviewed = {
+			result: {
+				overview: 'run',
+				mode: 'single-pass',
+				focusAreas: [
+					{
+						id: 'area',
+						label: 'Area',
+						rationale: '',
+						severity: 'warning',
+						files: ['src/a.ts'],
+						findings: [
+							{ id: 'f1', severity: 'warning', title: 'one', description: '', filePath: 'src/a.ts' },
+						],
+					},
+				],
+			},
+		} as unknown as ReviewResult;
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => reviewed }),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		actions.resources.scopeFiles.mutate([
+			{ path: 'src/a.ts', contentId: 'a1' },
+			{ path: 'src/b.ts', contentId: 'b1' },
+		] as never);
+
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual([...(entry?.findingsContent?.get('f1') ?? [])], [['src/a.ts', 'a1']]);
+
+		// The agent's report comes in after the reader edited a file — it is recorded as it is now
+		actions.resources.scopeFiles.mutate([
+			{ path: 'src/a.ts', contentId: 'a2' },
+			{ path: 'src/b.ts', contentId: 'b1' },
+		] as never);
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: { kind: 'wip', repoPath: '/A', sha: uncommitted },
+			purpose: 'review',
+			active: false,
+			done: true,
+			findings: [
+				{
+					seq: 1,
+					finding: {
+						id: 'agent-1',
+						severity: 'warning',
+						title: 'agent',
+						description: '',
+						filePath: 'src/a.ts',
+						source: 'agent',
+					},
+				},
+			],
+			notes: [],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual([...(entry?.findingsContent?.get('f1') ?? [])], [['src/a.ts', 'a1']]);
+		assert.deepStrictEqual([...(entry?.findingsContent?.get('agent-1') ?? [])], [['src/a.ts', 'a2']]);
+
+		controller.review.discard();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.findingsContent, undefined, 'the record goes with the findings');
+	});
+
 	test('reading updates from the host land on the entry: the active file, and editor-made marks applied once', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		state.activeMode.set('review');
@@ -1728,6 +1812,104 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				['agent', ['agent-1', 'agent-2']],
 			]);
 		});
+	});
+
+	test('findings on files already viewed put them back in the queue — from a settled run, a detail run and the agent', async () => {
+		const finding = (id: string, path: string, source?: 'agent') =>
+			({ id: id, severity: 'warning', title: id, description: '', filePath: path, source: source }) as const;
+		const runResult = {
+			result: {
+				overview: '',
+				mode: 'two-pass',
+				focusAreas: [
+					{
+						id: 'area-1',
+						label: 'One',
+						rationale: '',
+						severity: 'warning',
+						files: [],
+						findings: [finding('area-1-f1', 'a.ts')],
+					},
+					{ id: 'area-2', label: 'Two', rationale: '', severity: 'warning', files: [] },
+				],
+			},
+		} as unknown as ReviewResult;
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => runResult }),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const requeued = () => {
+			const session = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.session;
+			return [...(session?.viewed ?? [])].filter(([, m]) => m.requeued).map(([p]) => p);
+		};
+
+		controller.review.setFilesViewed([{ path: 'a.ts' }, { path: 'b.ts' }, { path: 'c.ts' }], true);
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		assert.deepStrictEqual(requeued(), ['a.ts'], 'the run found something in a.ts');
+
+		// Marking it viewed again takes it out of the queue
+		controller.review.setFilesViewed([{ path: 'a.ts' }], true);
+		assert.deepStrictEqual(requeued(), []);
+
+		// A detail run fills in the second area: b.ts is new to the findings, a.ts isn't
+		controller.review.enrichFocusAreaFindings('area-2', {
+			findings: [finding('area-2-f1', 'b.ts'), finding('area-1-f1', 'a.ts')],
+		});
+		assert.deepStrictEqual(requeued(), ['b.ts']);
+		controller.review.setFilesViewed([{ path: 'b.ts' }], true);
+
+		// The reader's own comment and the agent's word on a finding already there re-queue nothing
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [
+				{
+					seq: 1,
+					findingId: 'u1',
+					action: 'comment',
+					text: 'mine',
+					place: { path: 'c.ts', line: 1, lineEnd: 1 },
+				},
+			],
+		});
+		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			purpose: 'review',
+			active: true,
+			done: false,
+			findings: [],
+			notes: [{ seq: 1, findingId: 'area-1-f1', text: 'still holds' }],
+		});
+		assert.deepStrictEqual(requeued(), []);
+
+		// What the agent reports new does
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			purpose: 'review',
+			active: true,
+			done: false,
+			findings: [{ seq: 1, finding: finding('agent-1', 'c.ts', 'agent') }],
+			notes: [{ seq: 1, findingId: 'area-1-f1', text: 'still holds' }],
+		});
+		assert.deepStrictEqual(requeued(), ['c.ts']);
 	});
 
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
