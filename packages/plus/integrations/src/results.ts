@@ -397,22 +397,43 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 	cursor?: string;
 }
 
+/**
+ * One sweep target, named the way {@link ProviderSweepTargetEvent} names it, so a consumer can join the two.
+ * `domain` is the resolved self-managed host (always `undefined` for a cloud provider).
+ */
+export interface ProviderSweepTargetRef {
+	providerId: IntegrationIds;
+	connectionId: string | undefined;
+	domain: string | undefined;
+}
+
+/**
+ * A sweep may carry several targets of one provider (one per connection), so the provider arrays below can't say
+ * which connection failed: `failedTargets` and `incompleteTargets` are the authoritative attribution, and
+ * `failedProviderIds`/`incompleteProviderIds` summarize them. With one target per provider the two agree exactly.
+ */
 export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	page: ProviderPageInfo;
 	hasMore: boolean;
 	/**
-	 * Providers whose top-level read failed before returning any usable page. Partial per-scope failures stay
-	 * represented by `warnings` + `fetchFailed` and are intentionally excluded.
+	 * Providers whose top-level read failed before returning any usable page, for EVERY attributed target of the
+	 * provider. A provider with a failed target and a surviving sibling is in `incompleteProviderIds` instead.
+	 * Partial per-scope failures stay represented by `warnings` + `fetchFailed` and are intentionally excluded.
 	 */
 	failedProviderIds: IntegrationIds[];
 	/**
 	 * Providers whose read started successfully but could not produce an authoritative complete slice (for
-	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit).
+	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit),
+	 * or that have a failed target beside one that returned something.
 	 * Kept separate from
 	 * `failedProviderIds` so consumers can accept healthy sibling providers while preserving an older snapshot
 	 * for a provider whose returned slice has a gap.
 	 */
 	incompleteProviderIds: IntegrationIds[];
+	/** Targets whose top-level read failed before returning any usable page. A skipped target is in neither list. */
+	failedTargets: ProviderSweepTargetRef[];
+	/** Targets that returned a slice with a gap: a later page failed, or pages remain unread. Never also in `failedTargets`. */
+	incompleteTargets: ProviderSweepTargetRef[];
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
