@@ -958,6 +958,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 							.snap=${this._scopeSplitSnap}
 						>
 							<div slot="start" class="scope-split__picker">
+								${this.renderScopePresets()}
 								<gl-commits-scope-pane
 									.items=${this.scopeItems}
 									.selection=${this.scopeSelectionIds()}
@@ -1988,6 +1989,77 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private scopeSelectionIds(): readonly string[] | undefined {
 		return wipScopeSelectionIds(this.scope);
+	}
+
+	/** One-click scopes over the picker: the uncommitted changes, those with the commits not pushed yet, and
+	 *  the whole branch since it split off from its merge target. A preset that would pick what another does
+	 *  is left out — without an upstream nothing is pushed, so Unpushed is the branch — and so is Branch when
+	 *  no merge base was found, as the list is then only the latest commits. */
+	private renderScopePresets() {
+		const items = this.scopeItems ?? [];
+		const ids = (rows: readonly ScopeItem[]) => rows.map(i => i.id);
+		const uncommitted = ids(items.filter(i => i.state === 'uncommitted'));
+		const firstPushed = items.findIndex(i => i.state !== 'uncommitted' && i.state !== 'unpushed');
+		const unpushed = ids(
+			(firstPushed < 0 ? items : items.slice(0, firstPushed)).filter(i => i.state !== 'load-more'),
+		);
+		const end = items.findIndex(i => i.state === 'load-more' || i.state === 'merge-base');
+		const branch = items.some(i => i.state === 'merge-base') ? ids(items.slice(0, end)) : [];
+
+		const same = (a: readonly string[], b: readonly string[]) =>
+			a.length === b.length && a.every((id, i) => id === b[i]);
+		const presets: { label: string; tooltip: string; ids: string[] }[] = [];
+		if (uncommitted.length > 0) {
+			presets.push({
+				label: l10n.t('Uncommitted'),
+				tooltip: l10n.t('Review the uncommitted changes'),
+				ids: uncommitted,
+			});
+		}
+		if (unpushed.length > 0 && !same(unpushed, uncommitted) && !same(unpushed, branch)) {
+			presets.push({
+				label: l10n.t('Unpushed'),
+				tooltip: l10n.t('Review the uncommitted changes and the commits not pushed yet'),
+				ids: unpushed,
+			});
+		}
+		if (branch.length > 0 && !same(branch, uncommitted)) {
+			presets.push({
+				label: l10n.t('Branch'),
+				tooltip: l10n.t(
+					'Review the whole branch: every commit since it split off from its merge target, and the uncommitted changes',
+				),
+				ids: branch,
+			});
+		}
+		if (presets.length < 2) return nothing;
+
+		const selected = this.scopeSelectionIds() ?? [];
+		return html`<div class="scope-presets" role="group" aria-label=${l10n.t('Review scope')}>
+			${presets.map(
+				preset => html`<gl-tooltip content=${preset.tooltip}>
+					<button
+						type="button"
+						class="scope-preset"
+						aria-pressed=${same(preset.ids, selected) ? 'true' : 'false'}
+						@click=${() => this.selectScopePreset(preset.ids)}
+					>
+						${preset.label}
+					</button>
+				</gl-tooltip>`,
+			)}
+		</div>`;
+	}
+
+	/** Takes a preset the way the picker's handles take a range — the details panel builds the scope from it. */
+	private selectScopePreset(selectedIds: string[]): void {
+		this.dispatchEvent(
+			new CustomEvent<{ selectedIds: string[] }>('scope-change', {
+				detail: { selectedIds: selectedIds },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private renderOverview() {

@@ -524,3 +524,71 @@ suite('GlDetailsReviewModePanel reading plan order', () => {
 		);
 	});
 });
+
+suite('GlDetailsReviewModePanel scope presets', () => {
+	const renderPresets: (this: object) => unknown = Reflect.get(
+		GlDetailsReviewModePanel.prototype,
+		'renderScopePresets',
+	);
+	const scopeSelectionIds: () => unknown = Reflect.get(GlDetailsReviewModePanel.prototype, 'scopeSelectionIds');
+
+	const row = (id: string, state: string) => ({ id: id, label: id, state: state });
+	const wip = [row('unstaged', 'uncommitted'), row('staged', 'uncommitted')];
+	const mergeBase = row('merge-base:m', 'merge-base');
+
+	/** The presets shown — label and whether it is the scope now — and the ids each one picks. */
+	function presets(items: object[], includeShas: string[] = []) {
+		const panel = {
+			scopeItems: items,
+			scope: { type: 'wip', includeStaged: true, includeUnstaged: true, includeShas: includeShas },
+			scopeSelectionIds: scopeSelectionIds,
+			selectScopePreset: () => {},
+		};
+		const result = renderPresets.call(panel);
+		if (result === nothing) return [];
+
+		// Each preset's template binds its tooltip, whether it is pressed, its click handler and its label
+		return collectTemplates(result)
+			.filter(t => t.strings.join('').includes('class="scope-preset"'))
+			.map(t => [t.values[3], t.values[1]]);
+	}
+
+	test('offers the uncommitted changes, the unpushed commits with them, and the whole branch', () => {
+		const items = [
+			...wip,
+			row('c3', 'unpushed'),
+			row('c2', 'pushed'),
+			row('c1', 'pushed'),
+			row('load-more', 'load-more'),
+			mergeBase,
+		];
+		assert.deepStrictEqual(presets(items), [
+			['Uncommitted', 'true'],
+			['Unpushed', 'false'],
+			['Branch', 'false'],
+		]);
+		assert.deepStrictEqual(
+			presets(items, ['c3', 'c2', 'c1']).map(([, pressed]) => pressed),
+			['false', 'false', 'true'],
+		);
+	});
+
+	test('leaves out a preset that picks what another does, and shows nothing for a single choice', () => {
+		// No upstream: nothing is pushed, so the unpushed commits are the branch
+		const unpublished = [...wip, row('c2', 'unpushed'), row('c1', 'unpushed'), mergeBase];
+		assert.deepStrictEqual(
+			presets(unpublished).map(([label]) => label),
+			['Uncommitted', 'Branch'],
+		);
+
+		// No merge base: the list is only the latest commits, not the branch
+		const noBase = [...wip, row('c2', 'unpushed'), row('c1', 'pushed'), row('load-more', 'load-more')];
+		assert.deepStrictEqual(
+			presets(noBase).map(([label]) => label),
+			['Uncommitted', 'Unpushed'],
+		);
+
+		// Only uncommitted changes on a branch with nothing of its own
+		assert.deepStrictEqual(presets([...wip]), []);
+	});
+});
