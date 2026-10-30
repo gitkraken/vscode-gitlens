@@ -4183,7 +4183,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.deleteFinding(e.detail.findingId)}
 			@review-finding-note-delete=${(e: CustomEvent<ReviewFindingNoteDeleteDetail>) =>
 				this._workflow.review.deleteFindingNote(e.detail.findingId, e.detail.noteId)}
-			@review-orient=${(e: CustomEvent<{ prompt?: string }>) => {
+			@review-orient=${(e: CustomEvent<{ prompt?: string; scopeLabel?: string }>) => {
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');
 					return;
@@ -4191,7 +4191,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 				const panel = this.findReviewModePanel();
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
-				this._workflow.review.runOrient(this.effectiveRepoPath, e.detail?.prompt, excludedFiles);
+				this._workflow.review.runOrient(
+					this.effectiveRepoPath,
+					e.detail?.prompt,
+					excludedFiles,
+					e.detail?.scopeLabel,
+				);
 			}}
 			@review-orient-clear=${() => this._workflow.review.clearOrient()}
 			@review-deep-review=${(e: CustomEvent<ReviewDeepReviewDetail>) =>

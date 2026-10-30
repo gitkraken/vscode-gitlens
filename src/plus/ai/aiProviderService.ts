@@ -1452,6 +1452,9 @@ export class AIProviderService implements AIService, Disposable {
 			 *  reason and can report it in its own UI. */
 			silent?: boolean;
 			throwAIErrors?: boolean;
+			/** The caller has another way to run a request too large for the model, so the too-large notification
+			 *  (and its Switch Model offer) would only be noise: the error is thrown to it instead. */
+			tooLargeHandled?: boolean;
 			/** Tools to advertise to the model. Silently dropped for providers that don't support them,
 			 *  so callers don't need to know which provider resolved. */
 			tools?: readonly AIToolDefinition[];
@@ -1804,6 +1807,8 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.RequestTooLarge: {
+									if (options?.tooLargeHandled) throw error;
+
 									void (async () => {
 										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 										const result = await window.showErrorMessage(

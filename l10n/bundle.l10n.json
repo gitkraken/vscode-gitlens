@@ -4577,6 +4577,7 @@
 	"The all-new Commit Graph has moved here, replacing the Home view.": "The all-new Commit Graph has moved here, replacing the Home view.",
 	"The branch name format produces an empty or invalid branch name.": "The branch name format produces an empty or invalid branch name.",
 	"The branch no longer exists.": "The branch no longer exists.",
+	"The channel to the agent closed before it sent a reading plan.": "The channel to the agent closed before it sent a reading plan.",
 	"The cherry-pick is already continuing — waiting for it to finish.": "The cherry-pick is already continuing — waiting for it to finish.",
 	"The cherry-pick is waiting for you to save and close the commit message before it can finish.": "The cherry-pick is waiting for you to save and close the commit message before it can finish.",
 	"The cherry-pick operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?": "The cherry-pick operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?",

@@ -1272,6 +1272,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			repoPath: string | undefined,
 			prompt: string | undefined,
 			excludedFiles: string[] | undefined,
+			scopeLabel?: string,
 		): void => {
 			const scope = this.actions.state.scope.get();
 			if (!repoPath || scope == null) return;
@@ -1290,6 +1291,8 @@ export class DetailsWorkflowController implements ReactiveController {
 
 			const startedAt = performance.now();
 			const aiContext = this.actions.buildAIModelTelemetryContext();
+			// Too large for the model, the plan comes from the CLI agent, for this review
+			const inRepo = scopeLabel ? { anchor: anchor, anchorKey: key, scopeLabel: scopeLabel } : undefined;
 			// An Orient called off by the review it was for (deleted, cancelled) still holds the entry — let go
 			// of it, or the panel keeps it running; one replaced by a newer Orient has let go already
 			const settleAborted = () => {
@@ -1298,7 +1301,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 				this.registerRunningOperation({ ...entry, orientRun: undefined });
 			};
-			this.actions.orientChanges(repoPath, scope, prompt, excludedFiles, controller.signal).then(
+			this.actions.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, controller.signal).then(
 				result => {
 					if (controller.signal.aborted) {
 						settleAborted();

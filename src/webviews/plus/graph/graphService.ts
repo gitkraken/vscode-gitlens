@@ -320,6 +320,14 @@ export interface DeepReviewAnchor {
 	shas?: string[];
 }
 
+/** What an Orient too large for the model needs to go to the CLI agent instead: the review it plans (see
+ *  {@link DeepReviewArgs}) and how the agent is told what the changes are. */
+export interface OrientInRepoArgs {
+	anchor: DeepReviewAnchor;
+	anchorKey: string;
+	scopeLabel: string;
+}
+
 export interface DeepReviewArgs {
 	repoPath: string;
 	anchor: DeepReviewAnchor;
@@ -818,6 +826,8 @@ export interface GraphInspectService {
 		scope: ScopeSelection,
 		prompt?: string,
 		excludedFiles?: string[],
+		/** The review the plan is for: when the scope is too large for the model, the CLI agent plans it */
+		inRepo?: OrientInRepoArgs,
 		signal?: AbortSignal,
 	): Promise<ReviewOrientResult>;
 	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings

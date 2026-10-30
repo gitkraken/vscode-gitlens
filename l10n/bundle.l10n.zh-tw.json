@@ -4413,6 +4413,7 @@
 	"The agent didn't start — see the notification": "代理未啟動 — 請查看通知",
 	"The all-new Commit Graph has moved here, replacing the Home view.": "全新的認可圖已移至此處，取代了主頁檢視。",
 	"The branch name format produces an empty or invalid branch name.": "分支名稱格式產生空白或無效的分支名稱。",
+	"The channel to the agent closed before it sent a reading plan.": "與代理的通道在其傳送閱讀計畫之前已關閉。",
 	"The cherry-pick is already continuing — waiting for it to finish.": "挑揀已在繼續進行中 — 正在等待其完成。",
 	"The cherry-pick is waiting for you to save and close the commit message before it can finish.": "挑揀正在等待你儲存並關閉認可資訊，然後才能完成。",
 	"The cherry-pick operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?": "挑揀操作無法繼續，因為 {pausedAt} 產生了一個空認可。\n\n要將 {pausedAt} 記錄為空認可，還是跳過它？",

@@ -1634,8 +1634,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private handleOrient = (): void => {
 		this.dispatchEvent(
-			new CustomEvent<{ prompt?: string }>('review-orient', {
-				detail: { prompt: this.idleDraftLive || undefined },
+			new CustomEvent<{ prompt?: string; scopeLabel: string }>('review-orient', {
+				// The scope's label goes along for an Orient too large for the model, which the agent plans instead
+				detail: { prompt: this.idleDraftLive || undefined, scopeLabel: this.scopeContextLabel() },
 				bubbles: true,
 				composed: true,
 			}),

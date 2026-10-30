@@ -99,7 +99,7 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 	sourceContext: AIReviewSourceContext,
 	spec: RunReviewSpec<TTemplate, TResult>,
 	followUp?: AIReviewFollowUp,
-	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; tooLargeHandled?: boolean },
 ): Promise<AIResult<TResult> | 'cancelled' | undefined> {
 	const { context, ...source } = sourceContext;
 
@@ -279,7 +279,8 @@ export function reviewOrient(
 		| PromptTemplateContext<'review-orient'>
 		| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'review-orient'>>),
 	sourceContext: AIReviewSourceContext,
-	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	/** `tooLargeHandled`: the caller runs a plan too large for the model another way — see `sendRequest` */
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; tooLargeHandled?: boolean },
 ): Promise<AIResult<AIReviewOrientResult> | 'cancelled' | undefined> {
 	return runReview(
 		service,

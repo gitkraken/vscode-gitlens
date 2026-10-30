@@ -396,6 +396,36 @@ suite('deepReview — the report channel', () => {
 		assert.strictEqual(channel.state.active, false, 'no agent got either');
 	});
 
+	test('hands a reading plan to whoever waits on one, and turns away what is not a plan', async () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'p', 'ask');
+		const plan = { overview: 'o', groups: [{ label: 'Core', files: [{ path: './a.ts', note: 'n' }] }] };
+		assert.strictEqual(channel.report({ plan: plan }), 0, 'nobody is waiting');
+
+		const waiting = channel.waitForPlan();
+		assert.strictEqual(channel.report({ plan: { overview: 'o', groups: [] } }), 0, 'an empty plan is no plan');
+		assert.strictEqual(channel.report({ plan: plan }), 1);
+		const got = await waiting;
+		assert.deepStrictEqual(
+			got.groups[0].files.map(f => f.path),
+			['a.ts'],
+		);
+		assert.strictEqual(channel.state.handOff, 'delivered', 'the plan is the questions’ kind of answer');
+	});
+
+	test('a plan never comes when the channel closes or the wait is called off', async () => {
+		const { ipc } = fakeIpc();
+		const channel = new DeepReviewChannel(ipc, 1, anchor, key, () => {}, 'p', 'ask');
+		const aborter = new AbortController();
+		const abandoned = channel.waitForPlan(aborter.signal);
+		const closed = channel.waitForPlan();
+		aborter.abort();
+		await assert.rejects(abandoned);
+		channel.close();
+		await assert.rejects(closed, /closed before it sent a reading plan/);
+		await assert.rejects(channel.waitForPlan(), /closed before it sent a reading plan/);
+	});
+
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
