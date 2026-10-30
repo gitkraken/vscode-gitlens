@@ -65,14 +65,17 @@ import {
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
 import type {
+	ReviewComment,
 	ReviewFileFindings,
 	ReviewFileIdentity,
 	ReviewFindingCounts,
 	ReviewFindingState,
 	ReviewProgress,
+	ReviewReply,
 	ReviewSession,
 } from './reviewSession.js';
 import {
+	agentFocusAreaId,
 	countReviewFindingStates,
 	emptyReviewSession,
 	getClosedFindingIds,
@@ -81,7 +84,9 @@ import {
 	getReviewProgress,
 	getReviewReadingOrder,
 	getReviewReadingShortcut,
+	getReviewReplies,
 	isReviewComplete,
+	userFocusAreaId,
 } from './reviewSession.js';
 import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
@@ -132,6 +137,15 @@ export interface ReviewFindingNoteDetail {
 	text: string;
 }
 
+export interface ReviewFindingDeleteDetail {
+	findingId: string;
+}
+
+export interface ReviewFindingNoteDeleteDetail {
+	findingId: string;
+	noteId: string;
+}
+
 export interface ReviewDeepReviewDetail {
 	prompt?: string;
 	scopeLabel: string;
@@ -159,6 +173,15 @@ export interface ReviewCopiedDetail {
 	granularity: 'review' | 'focusArea' | 'finding';
 }
 
+/** Areas that join a result outside the run that made it: the reader's comments come and go without a
+ *  run, and Review in Repo's findings are appended as the agent reports them. Neither makes a result a
+ *  new one, and each opens when it first appears, so the reader sees it land. */
+const outOfRunFocusAreaIds: ReadonlySet<string> = new Set([userFocusAreaId, agentFocusAreaId]);
+
+/** How long Review in Repo stays off after a click — long enough to absorb a double click, short enough
+ *  that the reader is never stuck waiting on the agent */
+export const deepReviewClickGuardMs = 5000;
+
 /** A reading plan's pane's key — its group's place in the plan, -1 for the files the plan left out. */
 function orientPaneKey(index: number): string {
 	return `orient:${index}`;
@@ -170,10 +193,13 @@ function orientPaneKey(index: number): string {
  *  but the same logical run. */
 function isSameRunResultDelta(prev: AIReviewResult | undefined, next: AIReviewResult | undefined): boolean {
 	if (prev == null || next == null) return false;
-	if (prev.focusAreas.length !== next.focusAreas.length) return false;
 
-	for (let i = 0; i < prev.focusAreas.length; i++) {
-		if (prev.focusAreas[i].id !== next.focusAreas[i].id) return false;
+	const prevAreas = prev.focusAreas.filter(a => !outOfRunFocusAreaIds.has(a.id));
+	const nextAreas = next.focusAreas.filter(a => !outOfRunFocusAreaIds.has(a.id));
+	if (prevAreas.length !== nextAreas.length) return false;
+
+	for (let i = 0; i < prevAreas.length; i++) {
+		if (prevAreas[i].id !== nextAreas[i].id) return false;
 	}
 	return true;
 }
@@ -251,10 +277,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	deepReview?: { active: boolean; done: boolean; count: number; purpose?: 'review' | 'ask'; hidden?: boolean };
 
-	/** A whole review by the agent is under way — a channel open only for questions on findings is not one */
-	private get deepReviewRunning(): boolean {
-		return this.deepReview?.active === true && !this.deepReview.done && this.deepReview.purpose !== 'ask';
-	}
+	/** Set for a moment after Review in Repo is clicked, so a double click starts one review. A running review
+	 *  never holds the button: the agent may never say it is done, and a new start simply replaces it. */
+	@state() private _deepReviewClickGuard = false;
+	private _deepReviewClickTimer?: ReturnType<typeof setTimeout>;
 
 	/** Whether a deep review can start here at all; unknown (`undefined`) keeps the depth offered. */
 	@property({ attribute: false })
@@ -311,22 +337,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	lastPrompt?: string;
 
 	@property() idleDraft?: string;
-	@property({ attribute: false }) refineMode?: boolean;
-	@property() refineDraft?: string;
 
 	get idleDraftLive(): string | undefined {
-		if (this.status !== 'idle') return undefined;
+		if (this.status !== 'idle' && this.status !== 'ready') return undefined;
 		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.review-action-input')?.currentValue;
-	}
-
-	get refineModeLive(): boolean {
-		return this.status === 'ready' && this.refineOpen;
-	}
-
-	get refineDraftLive(): string {
-		return this.status === 'ready'
-			? (this.renderRoot.querySelector<GlAiInput>('#review-refine-input')?.currentValue ?? '')
-			: '';
 	}
 
 	/** Files the AI run leaves out: the session's set-aside files plus the AI-ignore rules. Rebuilt in
@@ -371,9 +385,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@state() private _loadingAreas = new Set<string>();
 	@state() private _errorAreas = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
-
-	/** Explicit user toggle of the follow-up input; `undefined` = no override (see `refineOpen`). */
-	@state() private _refineExpanded?: boolean;
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
@@ -425,15 +436,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 				this._showClosedFindings = false;
 				this._loadingAreas = new Set();
 				this._errorAreas = new Set();
-				// Drop any explicit follow-up toggle; a fresh result falls back to the default
-				// (open when this run has a prompt to recall — see `refineOpen`).
-				this._refineExpanded = undefined;
-
 				// Auto-expand when there's only a single focus area on a freshly-set result.
 				// Runs against the just-cleared expanded set so a Forward/anchor-switch with a
 				// single-area result lands fully visible.
 				if (this.result?.focusAreas.length === 1) {
 					this._expandedAreas = new Set([this.result.focusAreas[0].id]);
+				}
+			}
+			// A first comment, or the agent's first finding, opens its area, so the reader sees it land
+			for (const id of outOfRunFocusAreaIds) {
+				if (prev?.focusAreas.some(a => a.id === id) !== true && next?.focusAreas.some(a => a.id === id)) {
+					this._expandedAreas = new Set([...this._expandedAreas, id]);
 				}
 			}
 		}
@@ -449,6 +462,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		this.setAttribute('aria-label', l10n.t('Review Changes'));
 	}
 
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		clearTimeout(this._deepReviewClickTimer);
+		this._deepReviewClickTimer = undefined;
+		this._deepReviewClickGuard = false;
+	}
+
 	override render() {
 		return html` <div class="review-panel">${this.renderContent()}</div> `;
 	}
@@ -459,18 +479,27 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (this.status === 'loading') {
-			return this.renderWithChecklist(this.renderLoadingWithCancel());
+			return html`${this.renderWithChecklist(this.renderLoadingWithCancel(), l10n.t('Reviewing the diff…'))}${this.renderDeepReviewStrip()}`;
 		}
 
 		if (this.status === 'error') {
-			return this.renderWithChecklist(
-				renderErrorState(
+			// A failed run takes nothing of the reader's with it: their comments stay below the error, as
+			// they show in a review, and Go Back brings the rest back
+			const comments = this.result?.focusAreas.find(a => a.id === userFocusAreaId);
+			return html`${this.renderWithChecklist(
+				html`${renderErrorState(
 					this.errorMessage,
 					l10n.t('An error occurred during review.'),
 					'review-error-retry',
 					'review-error-back',
-				),
-			);
+				)}${
+					comments != null
+						? html`<div class="review-results review-results--after-error scrollable">
+								${this.renderFocusArea(comments)}
+							</div>`
+						: nothing
+				}`,
+			)}${this.renderDeepReviewStrip()}`;
 		}
 
 		if (this.status !== 'ready' || !this.result) return nothing;
@@ -478,60 +507,129 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// The back arrow is the main header's close button in this sub-state (see
 		// `gl-details-header.inResultsView`). The Copy + Send-to-chat actions live in an always-visible
 		// footer beneath the scrollable results so they stay reachable regardless of scroll position.
+		const open = countReviewFindingStates(this.result, this.session).open;
 		return html`${this.renderWithChecklist(
 			html`<div class="review-results scrollable">${this.renderOverview()} ${this.renderFocusAreas()}</div>`,
-		)}${this.renderReadyFooter()}${this.renderRefineInput()}`;
+			formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
+				count: open,
+			}),
+		)}${this.renderDeepReviewStrip()}${this.renderReadyActions()}${this.renderReviewInput()}`;
 	}
 
-	/** The reader's checklist stays up while the AI runs and after it answers — the findings are one
-	 *  lens on the changeset, not a screen that replaces it. */
-	private renderWithChecklist(aiContent: TemplateResult) {
-		return html`${this.renderDoneCard()}
-			<gl-split-panel orientation="vertical" class="review-split" position="40">
-				<div slot="start" class="review-split__files">
-					<div class="scope-files">${this.renderFileCuration()}</div>
-				</div>
-				<div slot="end" class="review-split__ai">${aiContent}</div>
-			</gl-split-panel>`;
-	}
+	/** Which of the two panes below are folded to their headers — kept across remounts of the panel, the
+	 *  way VS Code keeps a view's collapsed sections */
+	private static readonly collapsedPanes = { files: false, findings: false };
+	@state() private _filesCollapsed = GlDetailsReviewModePanel.collapsedPanes.files;
+	@state() private _findingsCollapsed = GlDetailsReviewModePanel.collapsedPanes.findings;
 
-	/** Disclosure state for the follow-up input: `undefined` follows the default (open once a
-	 *  refine has run — `lastPrompt` is set), `true`/`false` is an explicit user toggle that
-	 *  overrides the default until the next fresh result. */
-	get refineOpen(): boolean {
-		return this._refineExpanded ?? this.refineMode ?? this.lastPrompt != null;
-	}
-
-	private renderRefineInput() {
-		if (!this.refineOpen) return nothing;
-
-		return html`<gl-ai-input
-			id="review-refine-input"
-			class="review-action-input"
-			multiline
-			active
-			rows="2"
-			button-label=${l10n.t('Follow Up')}
-			busy-label=${l10n.t('Updating review…')}
-			event-name="review-refine"
-			placeholder=${l10n.t('Follow up — e.g. "Also check for error handling"')}
-			.recall=${this.lastPrompt}
-			.value=${this.refineDraft}
-		>
-			<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-		</gl-ai-input>`;
-	}
-
-	private async handleToggleRefine() {
-		const open = !this.refineOpen;
-		this._refineExpanded = open;
-		if (open) {
-			await this.updateComplete;
-			this.renderRoot.querySelector<HTMLElement>('#review-refine-input')?.focus();
+	private togglePane(pane: 'files' | 'findings'): void {
+		if (pane === 'files') {
+			this._filesCollapsed = !this._filesCollapsed;
+			GlDetailsReviewModePanel.collapsedPanes.files = this._filesCollapsed;
+		} else {
+			this._findingsCollapsed = !this._findingsCollapsed;
+			GlDetailsReviewModePanel.collapsedPanes.findings = this._findingsCollapsed;
 		}
 	}
 
-	private renderReadyFooter() {
+	/** The Findings pane's header: folds the pane like the checklist's, and carries what acts on all the
+	 *  findings at once. */
+	private renderFindingsHeader(description?: string) {
+		const collapsed = this._findingsCollapsed;
+		return html`<div class="review-pane-header" @click=${() => this.togglePane('findings')}>
+			<button
+				class="review-pane-header__toggle"
+				aria-expanded=${collapsed ? 'false' : 'true'}
+				aria-label=${collapsed ? l10n.t('Expand Findings') : l10n.t('Collapse Findings')}
+				@click=${(e: Event) => {
+					e.stopPropagation();
+					this.togglePane('findings');
+				}}
+			>
+				<code-icon icon=${collapsed ? 'chevron-right' : 'chevron-down'}></code-icon>
+			</button>
+			<span class="review-pane-header__title">${l10n.t('Findings')}</span>
+			${description ? html`<span class="review-pane-header__description">${description}</span>` : nothing}
+			${this.status === 'ready' && this.result != null ? this.renderFindingsHeaderActions(this.result) : nothing}
+		</div>`;
+	}
+
+	/** What acts on all the findings at once, as icons: to the agent, to the clipboard, and — while there are
+	 *  AI or agent findings — away. The same as the actions above the instructions box. */
+	private renderFindingsHeaderActions(result: AIReviewResult) {
+		return html`<span class="review-pane-header__actions" @click=${(e: Event) => e.stopPropagation()}>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${l10n.t('Address Findings with Agent')}
+				aria-label=${l10n.t('Address Findings with Agent')}
+				@click=${() => this.handleSendToChat('review')}
+			>
+				<code-icon icon="comment-discussion-sparkle"></code-icon>
+			</gl-button>
+			<gl-copy-container
+				appearance="toolbar"
+				.content=${formatReviewAsMarkdown(result, this.formatOptions())}
+				copyLabel=${l10n.t('Copy Review Findings')}
+				copiedLabel=${l10n.t('Copied!')}
+				placement="bottom"
+				timeout=${2500}
+				@click=${() => this.dispatchCopied('review')}
+			>
+				<code-icon icon="copy"></code-icon>
+			</gl-copy-container>
+			${
+				this.hasReviewFindings
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip=${l10n.t('Delete Findings')}
+							aria-label=${l10n.t('Delete Findings')}
+							@click=${this.handleDiscard}
+						>
+							<code-icon icon="trash"></code-icon>
+						</gl-button>`
+					: nothing
+			}
+		</span>`;
+	}
+
+	/** The reader's checklist stays up while the AI runs and after it answers — the findings are one
+	 *  lens on the changeset, not a screen that replaces it. Each half is a pane that folds to its header,
+	 *  as views do in VS Code: the other takes the height, and the divider rests until both are open.
+	 *  Folding only hides a pane's body, so the tree keeps its folders and the findings their scroll. */
+	private renderWithChecklist(aiContent: TemplateResult, findingsDescription?: string) {
+		const files = this._filesCollapsed;
+		const findings = this._findingsCollapsed;
+		const folded = files && findings ? 'both' : files ? 'files' : findings ? 'findings' : undefined;
+		const progress = getReviewProgress(this.session, this.files);
+		return html`<gl-split-panel
+			orientation="vertical"
+			class="review-split${folded != null ? ` review-split--folded review-split--folded-${folded}` : ''}"
+			position="40"
+			?disabled=${folded != null}
+		>
+			<div slot="start" class="review-split__files">
+				${this.renderChecklistHeader(progress)}
+				<div class="scope-files review-split__body" ?hidden=${files}>
+					${this.renderFileCuration(undefined, true)}
+				</div>
+			</div>
+			<div slot="end" class="review-split__ai">
+				${this.renderFindingsHeader(findingsDescription)}
+				<div class="review-split__body" ?hidden=${findings}>${aiContent}</div>
+			</div>
+		</gl-split-panel>`;
+	}
+
+	/** Whether anything but the reader's own comments is showing — what there is to discard. */
+	private get hasReviewFindings(): boolean {
+		return this.result?.focusAreas.some(a => a.id !== userFocusAreaId) === true;
+	}
+
+	/** What a review with findings adds to the instructions box below: the findings to the agent, to the
+	 *  clipboard, or away — the reader's own comments stay. */
+	private renderReadyActions() {
 		if (!this.result) return nothing;
 
 		const reviewMarkdown = formatReviewAsMarkdown(this.result, this.formatOptions());
@@ -553,34 +651,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<code-icon icon="copy"></code-icon>
 				</gl-button>
 			</gl-copy-container>
-			<gl-button
-				class="review-footer__followup"
-				appearance="secondary"
-				aria-expanded=${this.refineOpen ? 'true' : 'false'}
-				@click=${this.handleToggleRefine}
-			>
-				<code-icon icon="sparkle" slot="prefix"></code-icon>
-				${l10n.t('Follow-Up')}
-				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
-			</gl-button>
-			<gl-button
-				appearance="secondary"
-				tooltip=${l10n.t('Orient: group and order the files with one line of context each — a map for your own read, not findings')}
-				?disabled=${this.orientRunning || this.getEffectiveFileCount() === 0}
-				@click=${this.handleOrient}
-			>
-				<code-icon icon=${this.orientRunning ? 'loading' : 'zap'} slot="prefix"></code-icon>${l10n.t('Orient')}
-			</gl-button>
-			<gl-button
-				appearance="secondary"
-				tooltip=${l10n.t('Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review')}
-				?disabled=${this.deepReviewRunning || this.getEffectiveFileCount() === 0}
-				@click=${this.handleDeepReview}
-			>
-				<code-icon icon=${this.deepReviewRunning ? 'loading' : 'robot'} slot="prefix"></code-icon
-				>${l10n.t('Review in Repo')}
-			</gl-button>
-			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Delete Findings')}</gl-button>
+			${
+				this.hasReviewFindings
+					? html`<gl-button
+							appearance="secondary"
+							aria-label=${l10n.t('Delete Findings')}
+							tooltip=${l10n.t('Delete Findings')}
+							@click=${this.handleDiscard}
+						>
+							<code-icon icon="trash"></code-icon>
+						</gl-button>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -828,7 +910,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
 		return html`
-			${this.renderDoneCard()}
 			${
 				scope.type === 'wip'
 					? html`<gl-split-panel
@@ -852,73 +933,90 @@ export class GlDetailsReviewModePanel extends LitElement {
 						</gl-split-panel>`
 					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
 			}
-			${
-				this.aiEnabled
-					? html`<div class="review-input-row">
-							${keyed(
-								this.idleDraft ?? this.lastPrompt,
-								html`<gl-ai-input
-									class="review-action-input"
-									multiline
-									active
-									rows="2"
-									button-label=${l10n.t('Review Diff')}
-									busy-label=${l10n.t('Reviewing the diff…')}
-									event-name="review-run"
-									placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
-									.value=${this.idleDraft ?? this.lastPrompt}
-									?disabled=${!hasSelectedFiles}
-									@input=${this.onAiInputType}
-								>
-									<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-									<gl-button
-										slot="footer"
-										class="review-orient__button"
-										appearance="toolbar"
-										density="compact"
-										tooltip=${l10n.t(
-											'Orient: group and order the files with one line of context each — a map for your own read, not findings',
-										)}
-										?disabled=${this.orientRunning || !hasSelectedFiles}
-										@click=${this.handleOrient}
-									>
-										<code-icon
-											icon=${this.orientRunning ? 'loading' : 'zap'}
-											slot="prefix"
-										></code-icon>
-										${this.orientRunning ? l10n.t('Orienting…') : l10n.t('Orient')}
-									</gl-button>
-									<gl-button
-										slot="footer"
-										class="review-deep__button"
-										appearance="toolbar"
-										density="compact"
-										tooltip=${
-											this.deepReviewUnavailableReason ??
-											l10n.t(
-												'Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review',
-											)
-										}
-										?disabled=${
-											this.deepReviewRunning ||
-											!hasSelectedFiles ||
-											this.deepReviewUnavailableReason != null
-										}
-										@click=${this.handleDeepReview}
-									>
-										<code-icon
-											icon=${this.deepReviewRunning ? 'loading' : 'robot'}
-											slot="prefix"
-										></code-icon>
-										${this.deepReviewRunning ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
-									</gl-button>
-								</gl-ai-input>`,
-							)}
-							${this.orientError ? html`<div class="review-orient__error">${this.orientError}</div>` : nothing}
-						</div>`
-					: nothing
-			}
+			${this.renderDeepReviewStrip()} ${this.renderReviewInput(hasSelectedFiles)}
 		`;
+	}
+
+	/** The instructions box with its depths — Review Diff, Orient, Review in Repo — the same before a run and
+	 *  alongside its findings, so a review can be run again, re-planned or handed to the agent from either. */
+	private renderReviewInput(hasSelectedFiles = this.getEffectiveFileCount() > 0) {
+		return this.aiEnabled
+			? html`<div class="review-input-row">
+					${keyed(
+						this.idleDraft ?? this.lastPrompt,
+						html`<gl-ai-input
+							class="review-action-input"
+							multiline
+							active
+							rows="2"
+							button-label=${l10n.t('Review Diff')}
+							busy-label=${l10n.t('Reviewing the diff…')}
+							event-name="review-run"
+							placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
+							.value=${this.idleDraft ?? this.lastPrompt}
+							?disabled=${!hasSelectedFiles}
+							@input=${this.onAiInputType}
+						>
+							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+							<gl-button
+								slot="footer"
+								class="review-orient__button"
+								appearance="toolbar"
+								density="compact"
+								tooltip=${l10n.t(
+									'Orient: group and order the files with one line of context each — a map for your own read, not findings',
+								)}
+								?disabled=${this.orientRunning || !hasSelectedFiles}
+								@click=${this.handleOrient}
+							>
+								<code-icon icon=${this.orientRunning ? 'loading' : 'zap'} slot="prefix"></code-icon>
+								${this.orientRunning ? l10n.t('Orienting…') : l10n.t('Orient')}
+							</gl-button>
+							<gl-button
+								slot="footer"
+								class="review-deep__button"
+								appearance="toolbar"
+								density="compact"
+								tooltip=${
+									this.deepReviewUnavailableReason ??
+									l10n.t(
+										'Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review',
+									)
+								}
+								?disabled=${this.isDeepReviewDisabled(hasSelectedFiles)}
+								@click=${this.handleDeepReview}
+							>
+								<code-icon
+									icon=${this._deepReviewClickGuard ? 'loading' : 'robot'}
+									slot="prefix"
+								></code-icon>
+								${l10n.t('Review in Repo')}
+							</gl-button>
+						</gl-ai-input>`,
+					)}
+					${this.orientError ? html`<div class="review-orient__error">${this.orientError}</div>` : nothing}
+				</div>`
+			: nothing;
+	}
+
+	/** Review in Repo is off only where it can't start, and for a moment after a click — a review under way
+	 *  doesn't hold it, since its running state is the status strip's to show. */
+	private isDeepReviewDisabled(hasSelectedFiles: boolean): boolean {
+		return !hasSelectedFiles || this.deepReviewUnavailableReason != null || this._deepReviewClickGuard;
+	}
+
+	/** Takes a click on Review in Repo: false while the guard from the last one is still on, otherwise turns
+	 *  the guard on for {@link deepReviewClickGuardMs} — and off again then, whatever the channel did. */
+	private takeDeepReviewClick(): boolean {
+		if (this._deepReviewClickGuard) return false;
+
+		this._deepReviewClickGuard = true;
+		clearTimeout(this._deepReviewClickTimer);
+		this._deepReviewClickTimer = setTimeout(() => {
+			this._deepReviewClickTimer = undefined;
+			this._deepReviewClickGuard = false;
+		}, deepReviewClickGuardMs);
+		return true;
 	}
 
 	/** Why the deep depth is off here, when the host has said it can't start — the button's tooltip. */
@@ -1033,16 +1131,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 		);
 	}
 
-	/** The strip above the checklist: the file being read and its steps while a review diff is active, the
-	 *  progress otherwise, and the review's ending — with a summary to take away — once every file is viewed. */
-	private renderDoneCard() {
-		return html`${this.renderDeepReviewStrip()}`;
-	}
-
-	private renderReadingOrEnding() {
+	private renderReadingOrEnding(readingInHeader = false) {
 		const progress = getReviewProgress(this.session, this.files);
 		if (!isReviewComplete(progress)) {
-			if (progress.total === 0) return nothing;
+			if (progress.total === 0 || readingInHeader) return nothing;
 
 			return this.renderReadingStrip(progress);
 		}
@@ -1131,32 +1223,100 @@ export class GlDetailsReviewModePanel extends LitElement {
 				</div>
 				<div class="review-walk__file">${active}</div>
 			</div>
-			<div class="review-walk__actions">
-				<gl-button
-					appearance="toolbar"
-					density="compact"
-					tooltip=${this.withReadingShortcut(l10n.t('Previous File in Review'), 'previous')}
-					@click=${() => this.handleReadingStep('previous', active)}
-				>
-					<code-icon icon="arrow-left"></code-icon>
-				</gl-button>
-				<gl-button
-					appearance="toolbar"
-					density="compact"
-					tooltip=${this.withReadingShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
-					@click=${() => this.handleReadingStep('markViewed', active)}
-				>
-					<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
-				</gl-button>
-				<gl-button
-					appearance="toolbar"
-					density="compact"
-					tooltip=${this.withReadingShortcut(l10n.t('Next File in Review'), 'next')}
-					@click=${() => this.handleReadingStep('next', active)}
-				>
-					<code-icon icon="arrow-right"></code-icon>
-				</gl-button>
+			${this.renderReadingActions(active)}
+		</div>`;
+	}
+
+	private renderReadingActions(active: string) {
+		// The buttons sit in a header that folds on click — a step must not fold it
+		return html`<div class="review-walk__actions" @click=${(e: Event) => e.stopPropagation()}>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${this.withReadingShortcut(l10n.t('Previous File in Review'), 'previous')}
+				aria-label=${l10n.t('Previous File in Review')}
+				@click=${() => this.handleReadingStep('previous', active)}
+			>
+				<code-icon icon="arrow-left"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${this.withReadingShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
+				@click=${() => this.handleReadingStep('markViewed', active)}
+			>
+				<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
+			</gl-button>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${this.withReadingShortcut(l10n.t('Next File in Review'), 'next')}
+				aria-label=${l10n.t('Next File in Review')}
+				@click=${() => this.handleReadingStep('next', active)}
+			>
+				<code-icon icon="arrow-right"></code-icon>
+			</gl-button>
+		</div>`;
+	}
+
+	/** The checklist pane's header is the reading strip, beside the chevron that folds the pane: the file
+	 *  being read and its steps, or the progress, or the review's end. Folded, it keeps to one line — what
+	 *  is being read and how many files are viewed — and the steps stay at hand. */
+	private renderChecklistHeader(progress: ReviewProgress) {
+		const collapsed = this._filesCollapsed;
+		const paths = this.readingOrder;
+		const index = this.reading?.active != null ? paths.indexOf(this.reading.active) : -1;
+		const active = index >= 0 ? paths[index] : undefined;
+		const viewed = l10n.t('{viewed}/{total} viewed', { viewed: progress.viewed, total: progress.total });
+
+		let title: string;
+		let detail: TemplateResult | typeof nothing = nothing;
+		let suffix = false;
+		if (active != null) {
+			title = l10n.t('Reading {index} of {total}', { index: index + 1, total: paths.length });
+			detail = html`<div class="review-walk__file">${active}</div>`;
+			suffix = true;
+		} else if (progress.total === 0) {
+			title = l10n.t('Checklist');
+		} else if (isReviewComplete(progress)) {
+			title = l10n.t('Review complete');
+			suffix = true;
+		} else {
+			title = l10n.t('{viewed} of {total} viewed', { viewed: progress.viewed, total: progress.total });
+			detail = html`<div class="review-walk__hint">${this.renderReadingHint()}</div>`;
+		}
+
+		return html`<div
+			class="review-pane-header review-pane-header--checklist${collapsed ? ' review-pane-header--collapsed' : ''}"
+			@click=${() => this.togglePane('files')}
+		>
+			<button
+				class="review-pane-header__toggle"
+				aria-expanded=${collapsed ? 'false' : 'true'}
+				aria-label=${collapsed ? l10n.t('Expand Checklist') : l10n.t('Collapse Checklist')}
+				@click=${(e: Event) => {
+					e.stopPropagation();
+					this.togglePane('files');
+				}}
+			>
+				<code-icon icon=${collapsed ? 'chevron-right' : 'chevron-down'}></code-icon>
+			</button>
+			<div class="review-walk__body" role="status">
+				<div class="review-walk__title">
+					${title}${
+						collapsed && suffix
+							? html`<span class="review-pane-header__description">${viewed}</span>`
+							: nothing
+					}
+				</div>
+				${collapsed ? nothing : detail}
 			</div>
+			${
+				collapsed && active != null
+					? html`<span class="review-pane-header__file" title=${active}>${active}</span>`
+					: nothing
+			}
+			${active != null ? this.renderReadingActions(active) : nothing}
 		</div>`;
 	}
 
@@ -1263,7 +1423,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return value;
 	}
 
-	private renderFileCuration(files?: readonly ScopeFile[]) {
+	/** @param readingInHeader the reading strip is the pane's header (see {@link renderChecklistHeader}), so
+	 *  the body leaves it out and keeps only the review's ending */
+	private renderFileCuration(files?: readonly ScopeFile[], readingInHeader = false) {
 		// Always render the section — when there are no files, gl-file-tree-pane shows the
 		// `empty-text` message inside its body so the section header / scope context stays
 		// visible (consistent with the compare empty-state pattern).
@@ -1282,9 +1444,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
-		if (this.orient != null) return this.renderOrientPlan(renderFiles, checkableStates);
+		if (this.orient != null) return this.renderOrientPlan(renderFiles, checkableStates, readingInHeader);
 
-		return html`${this.renderReadingOrEnding()}
+		return html`${this.renderReadingOrEnding(readingInHeader)}
 			<div class="scope-files__tree">
 				<webview-pane-group flexible>
 					<gl-file-tree-pane
@@ -1354,11 +1516,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderOrientPlan(
 		renderFiles: readonly ScopeFile[],
 		checkableStates: Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>,
+		readingInHeader = false,
 	) {
 		const orient = this.orient!;
 		const panes = this.getOrientPanes(orient, renderFiles);
 
-		return html`${this.renderReadingOrEnding()}
+		return html`${this.renderReadingOrEnding(readingInHeader)}
 			<div class="scope-files__tree scope-files__tree--flow">
 				<div class="review-orient">
 					<div class="review-orient__body">
@@ -1441,6 +1604,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 	};
 
 	private handleDeepReview = (): void => {
+		if (!this.takeDeepReviewClick()) return;
+
 		// What an earlier run found goes along — every finding, open or closed, with what the reader said —
 		// so the agent adds to it rather than finding it again
 		const priorFindings = this.result
@@ -1471,10 +1636,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		// Finished once the agent said so — its channel may stay open for what it reports later
 		const running = deep.active && !deep.done;
-		const count = formatPlural(
-			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
-			{ count: deep.count },
-		);
+		const count = running
+			? formatPlural(l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'), {
+					count: deep.count,
+				})
+			: formatPlural(l10n.t('{count, plural, one{{count} finding} other{{count} findings}}'), {
+					count: deep.count,
+				});
 		return html`<div class="review-deep" role="status">
 			<code-icon class="review-deep__icon" icon=${running ? 'loading' : 'robot'}></code-icon>
 			<span class="review-deep__text"
@@ -1850,121 +2018,216 @@ export class GlDetailsReviewModePanel extends LitElement {
 						icon=${isExpanded ? 'chevron-down' : 'chevron-right'}
 						class="review-area__chevron"
 					></code-icon>
-					<gl-tooltip
-						content=${
-							area.severity === 'critical'
-								? l10n.t('Critical Issue')
-								: area.severity === 'warning'
-									? l10n.t('Warning (Non-Critical)')
-									: l10n.t('Suggestion')
-						}
-						placement="bottom-start"
-					>
-						<span class="review-area__severity review-area__severity--${area.severity}">
-							<code-icon
-								icon=${
-									area.severity === 'critical'
-										? 'error'
-										: area.severity === 'warning'
-											? 'warning'
-											: 'info'
-								}
-							></code-icon>
-						</span>
-					</gl-tooltip>
+					${
+						area.id === userFocusAreaId
+							? html`<span class="review-area__severity"><code-icon icon="comment"></code-icon></span>`
+							: this.renderAreaSeverity(area)
+					}
 					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
 					<span class="review-area__file-count"
-						>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
-							count: this.getAreaFiles(area).length,
-						})}</span
+						>${
+							area.id === userFocusAreaId
+								? formatPlural(
+										l10n.t('{count, plural, one{{count} comment} other{{count} comments}}'),
+										{
+											count: (area.findings?.length ?? 0) + this.replies.length,
+										},
+									)
+								: formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
+										count: this.getAreaFiles(area).length,
+									})
+						}</span
 					>
 				</button>
 				${this.renderFocusAreaActions(area, { isAnalyzed: isAnalyzed })}
 			</div>
 			${
-				isExpanded
-					? html`<div class="review-area__body">
-							<div class="review-area__rationale">${area.rationale}</div>
-							<div class="review-area__files">
-								${this.getAreaFiles(area).map(f => {
-									// Split off a trailing `:line` or `:start-end` so the line range gets a
-									// muted color (it's a locator, not part of the path).
-									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
-									const path = match?.[1] ?? f;
-									let start = match?.[2] != null ? Number(match[2]) : undefined;
-									let end = match?.[3] != null ? Number(match[3]) : start;
-									// Without a locator of its own, the link lands on the area's first finding in
-									// the file — the thread is there, not at the top
-									if (start == null) {
-										const first = area.findings
-											?.flatMap(fi => getReviewFindingLocations(fi))
-											.find(l => l.filePath === path && l.lineRange != null);
-										start = first?.lineRange?.start;
-										end = first?.lineRange?.end ?? start;
-									}
-									const lineRange =
-										start == null ? '' : end !== start ? `:${start}-${end}` : `:${start}`;
-									return html`<button
-										class="review-area__file-link"
-										@click=${() => this.handleOpenFile(path, start, end)}
-									>
-										<code-icon class="review-area__file-link-icon" icon="go-to-file"></code-icon>
-										<span class="review-area__file-link-text">${path}</span>
-										${
-											lineRange
-												? html`<span class="review-area__file-link-lines">${lineRange}</span>`
-												: nothing
+				isExpanded && area.id === userFocusAreaId
+					? this.renderReaderAreaBody(area)
+					: isExpanded
+						? html`<div class="review-area__body">
+								<div class="review-area__rationale">${area.rationale}</div>
+								<div class="review-area__files">
+									${this.getAreaFiles(area).map(f => {
+										// Split off a trailing `:line` or `:start-end` so the line range gets a
+										// muted color (it's a locator, not part of the path).
+										const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
+										const path = match?.[1] ?? f;
+										let start = match?.[2] != null ? Number(match[2]) : undefined;
+										let end = match?.[3] != null ? Number(match[3]) : start;
+										// Without a locator of its own, the link lands on the area's first finding in
+										// the file — the thread is there, not at the top
+										if (start == null) {
+											const first = area.findings
+												?.flatMap(fi => getReviewFindingLocations(fi))
+												.find(l => l.filePath === path && l.lineRange != null);
+											start = first?.lineRange?.start;
+											end = first?.lineRange?.end ?? start;
 										}
-									</button>`;
-								})}
-							</div>
-							${
-								needsAnalyze
-									? html`<button
-											class="review-area__analyze-btn"
-											@click=${() => this.handleAnalyzeArea(area)}
+										const lineRange =
+											start == null ? '' : end !== start ? `:${start}-${end}` : `:${start}`;
+										return html`<button
+											class="review-area__file-link"
+											@click=${() => this.handleOpenFile(path, start, end)}
 										>
-											<code-icon icon="search"></code-icon>
-											${l10n.t('Review Files')}
-										</button>`
-									: nothing
-							}
-							${
-								isLoading
-									? html`<div class="review-area__loading" aria-live="polite">
-											<code-icon icon="loading" modifier="spin"></code-icon>
-											${l10n.t('Reviewing files...')}
-										</div>`
-									: nothing
-							}
-							${
-								hasError
-									? html`<div class="review-area__error" role="alert">
-											<code-icon icon="error"></code-icon>
-											${l10n.t('Failed to review files.')}
-											<button
-												class="review-area__retry-btn"
+											<code-icon
+												class="review-area__file-link-icon"
+												icon="go-to-file"
+											></code-icon>
+											<span class="review-area__file-link-text">${path}</span>
+											${
+												lineRange
+													? html`<span class="review-area__file-link-lines"
+															>${lineRange}</span
+														>`
+													: nothing
+											}
+										</button>`;
+									})}
+								</div>
+								${
+									needsAnalyze
+										? html`<button
+												class="review-area__analyze-btn"
 												@click=${() => this.handleAnalyzeArea(area)}
 											>
-												${l10n.t('Retry')}
-											</button>
-										</div>`
-									: nothing
-							}
-							${
-								hasFindings
-									? this.renderFindings(area.findings, area)
-									: isAnalyzed && !isLoading && !hasError
-										? html`<div class="review-area__clean" aria-live="polite">
-												<code-icon icon="pass"></code-icon>
-												${l10n.t('No issues found in these files.')}
+												<code-icon icon="search"></code-icon>
+												${l10n.t('Review Files')}
+											</button>`
+										: nothing
+								}
+								${
+									isLoading
+										? html`<div class="review-area__loading" aria-live="polite">
+												<code-icon icon="loading" modifier="spin"></code-icon>
+												${l10n.t('Reviewing files...')}
 											</div>`
 										: nothing
-							}
-						</div>`
+								}
+								${
+									hasError
+										? html`<div class="review-area__error" role="alert">
+												<code-icon icon="error"></code-icon>
+												${l10n.t('Failed to review files.')}
+												<button
+													class="review-area__retry-btn"
+													@click=${() => this.handleAnalyzeArea(area)}
+												>
+													${l10n.t('Retry')}
+												</button>
+											</div>`
+										: nothing
+								}
+								${
+									hasFindings
+										? this.renderFindings(area.findings, area)
+										: isAnalyzed && !isLoading && !hasError
+											? html`<div class="review-area__clean" aria-live="polite">
+													<code-icon icon="pass"></code-icon>
+													${l10n.t('No issues found in these files.')}
+												</div>`
+											: nothing
+								}
+							</div>`
+						: nothing
+			}
+		</div>`;
+	}
+
+	/** The reader's replies on the other findings' threads — they show in their findings too; here they sit
+	 *  with the reader's own comments, so everything the reader said is in one place. */
+	private get replies(): ReviewReply[] {
+		return getReviewReplies(this.result, this.session);
+	}
+
+	private renderReaderAreaBody(area: AIReviewFocusArea) {
+		const replies = this.replies;
+		return html`<div class="review-area__body">
+			<div class="review-area__rationale">${area.rationale}</div>
+			${area.findings?.length ? this.renderFindings(area.findings, area) : nothing}
+			${
+				replies.length
+					? html`<div class="review-findings">${replies.map(reply => this.renderReply(reply))}</div>`
 					: nothing
 			}
 		</div>`;
+	}
+
+	private renderReply({ finding, note }: ReviewReply) {
+		const location = getReviewFindingLocations(finding)[0];
+		const closed = this.session?.findingStates.get(finding.id) != null;
+		return html`<div
+			class="review-finding review-finding--reader review-finding--reply ${closed ? 'review-finding--closed' : ''}"
+			data-severity="comment"
+		>
+			<div class="review-finding__header">
+				<span class="review-finding__title review-finding__title--reader"
+					>${l10n.t('You, on “{title}”', { title: getReviewFindingTitle(finding) })}</span
+				>
+				<span class="review-finding__actions">
+					${
+						note.id != null
+							? html`<gl-button
+									appearance="toolbar"
+									density="compact"
+									tooltip=${l10n.t('Delete Comment')}
+									aria-label=${l10n.t('Delete Comment')}
+									@click=${() => this.handleDeleteNote(finding.id, note.id!)}
+								>
+									<code-icon icon="trash"></code-icon>
+								</gl-button>`
+							: nothing
+					}
+				</span>
+			</div>
+			<div class="review-finding__description">${note.text}</div>
+			${
+				location != null
+					? html`<button
+							class="review-finding__location"
+							@click=${() =>
+								this.handleOpenFile(
+									location.filePath,
+									location.lineRange?.start,
+									location.lineRange?.end,
+								)}
+						>
+							<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
+							<span class="review-finding__location-text">${location.filePath}</span>
+							${
+								location.lineRange
+									? html`<span class="review-finding__location-lines"
+											>:${location.lineRange.start}${
+												location.lineRange.end !== location.lineRange.start
+													? `-${location.lineRange.end}`
+													: ''
+											}</span
+										>`
+									: nothing
+							}
+						</button>`
+					: nothing
+			}
+		</div>`;
+	}
+
+	private renderAreaSeverity(area: AIReviewFocusArea) {
+		return html`<gl-tooltip
+			content=${
+				area.severity === 'critical'
+					? l10n.t('Critical Issue')
+					: area.severity === 'warning'
+						? l10n.t('Warning (Non-Critical)')
+						: l10n.t('Suggestion')
+			}
+			placement="bottom-start"
+		>
+			<span class="review-area__severity review-area__severity--${area.severity}">
+				<code-icon
+					icon=${area.severity === 'critical' ? 'error' : area.severity === 'warning' ? 'warning' : 'info'}
+				></code-icon>
+			</span>
+		</gl-tooltip>`;
 	}
 
 	private renderFocusAreaActions(area: AIReviewFocusArea, state: { isAnalyzed: boolean }) {
@@ -2044,16 +2307,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 					: l10n.t('SUGGESTION');
 
 		const state = this.session?.findingStates.get(finding.id);
+		// The reader's own comment: no severity, no title — their words are the card
+		const isReader = finding.source === 'user';
 
 		return html`<div
-			class="review-finding ${state != null ? 'review-finding--closed' : ''}"
-			data-severity=${finding.severity}
+			class="review-finding ${state != null ? 'review-finding--closed' : ''} ${isReader ? 'review-finding--reader' : ''}"
+			data-severity=${isReader ? 'comment' : finding.severity}
 		>
 			<div class="review-finding__header">
-				<span class="review-finding__severity review-finding__severity--${finding.severity}">
-					${severityLabel}
-				</span>
-				<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>
+				${
+					isReader
+						? html`<span class="review-finding__title review-finding__title--reader"
+								>${(finding as ReviewComment).author === 'agent' ? l10n.t('Agent') : l10n.t('You')}</span
+							>`
+						: html`<span class="review-finding__severity review-finding__severity--${finding.severity}">
+									${severityLabel}
+								</span>
+								<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>`
+				}
 				${
 					finding.source === 'agent'
 						? html`<span class="review-finding__source" title=${l10n.t('Reported by your agent')}
@@ -2098,8 +2369,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 							? html`<gl-button
 									appearance="toolbar"
 									density="compact"
-									tooltip=${l10n.t('Dismiss')}
-									aria-label=${l10n.t('Dismiss')}
+									tooltip=${isReader ? l10n.t('Dismiss Comment') : l10n.t('Dismiss Finding')}
+									aria-label=${isReader ? l10n.t('Dismiss Comment') : l10n.t('Dismiss Finding')}
 									@click=${() => this.handleFindingState(finding.id, 'dismissed')}
 								>
 									<code-icon icon="check"></code-icon>
@@ -2114,6 +2385,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 									<code-icon icon="issue-reopened"></code-icon>
 								</gl-button>`
 					}
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						tooltip=${isReader ? l10n.t('Delete Comment') : l10n.t('Delete Finding')}
+						aria-label=${isReader ? l10n.t('Delete Comment') : l10n.t('Delete Finding')}
+						@click=${() => this.handleDeleteFinding(finding.id)}
+					>
+						<code-icon icon="trash"></code-icon>
+					</gl-button>
 				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
@@ -2263,6 +2543,20 @@ export class GlDetailsReviewModePanel extends LitElement {
 						>${note.author === 'agent' ? l10n.t('Agent') : l10n.t('You')}</span
 					>
 					<span class="review-finding__note-text">${note.text}</span>
+					${
+						note.id != null
+							? html`<gl-button
+									class="review-finding__note-delete"
+									appearance="toolbar"
+									density="compact"
+									tooltip=${l10n.t('Delete Comment')}
+									aria-label=${l10n.t('Delete Comment')}
+									@click=${() => this.handleDeleteNote(findingId, note.id!)}
+								>
+									<code-icon icon="trash"></code-icon>
+								</gl-button>`
+							: nothing
+					}
 				</div>`,
 			)}
 			${
@@ -2297,6 +2591,26 @@ export class GlDetailsReviewModePanel extends LitElement {
 					: nothing
 			}
 		</div>`;
+	}
+
+	private handleDeleteFinding(findingId: string): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewFindingDeleteDetail>('review-finding-delete', {
+				detail: { findingId: findingId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private handleDeleteNote(findingId: string, noteId: string): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewFindingNoteDeleteDetail>('review-finding-note-delete', {
+				detail: { findingId: findingId, noteId: noteId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private handleFindingState(findingId: string, state: ReviewFindingState | undefined): void {

@@ -120,6 +120,8 @@ import type {
 	ReviewDeepReviewDetail,
 	ReviewFileExcludedDetail,
 	ReviewFilesViewedDetail,
+	ReviewFindingDeleteDetail,
+	ReviewFindingNoteDeleteDetail,
 	ReviewFindingNoteDetail,
 	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
@@ -132,9 +134,11 @@ import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } fro
 import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
 import {
 	countReviewFindingStates,
+	getReviewPanelStatus,
 	getReviewProgress,
 	getReviewReadingOrder,
 	getReviewThreadItems,
+	withReviewComments,
 } from './reviewSession.js';
 import type {
 	PullRequestSheetPayload,
@@ -2393,12 +2397,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** {@link DetailsWorkflowHost.sendReviewFindingToAgent} */
 	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
-		this.findReviewModePanel()?.sendFindingToAgent(findingId, instructions);
+		void this.settledReviewModePanel().then(panel => panel?.sendFindingToAgent(findingId, instructions));
 	}
 
 	/** {@link DetailsWorkflowHost.askReviewerAboutFinding} */
 	askReviewerAboutFinding(findingId: string, question?: string): void {
-		this.findReviewModePanel()?.askReviewer(findingId, question);
+		void this.settledReviewModePanel().then(panel => panel?.askReviewer(findingId, question));
+	}
+
+	/** The review panel once it has rendered what was just registered — a comment written and handed off in
+	 *  one step must already be among the panel's findings when the hand-off looks it up. */
+	private async settledReviewModePanel() {
+		await new Promise(resolve => setTimeout(resolve, 0));
+		await this.updateComplete;
+		const panel = this.findReviewModePanel();
+		await panel?.updateComplete;
+		return panel;
 	}
 
 	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
@@ -2420,7 +2434,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				? this.engagedRunningOperation
 				: undefined;
 		const value = entry?.result ?? (entry != null ? this._actions.resources.review.value.get() : undefined);
-		const result = value != null && 'result' in value ? value.result : undefined;
+		const result = withReviewComments(
+			value != null && 'result' in value ? value.result : undefined,
+			entry?.session,
+		);
 		const findingStates = entry?.session?.findingStates;
 		const notes = entry?.session?.notes;
 		const scope = this._state.scope.get();
@@ -2859,7 +2876,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation.session : undefined;
 			const progress = getReviewProgress(session, this._actions?.resources?.scopeFiles.value.get());
 			if (progress.total > 0) {
-				const result = value != null && 'result' in value ? value.result : undefined;
+				const result = withReviewComments(
+					value != null && 'result' in value ? value.result : undefined,
+					session,
+				);
 				return formatReviewProgress(progress, countReviewFindingStates(result, session), result != null);
 			}
 
@@ -4065,20 +4085,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const reviewEntry = this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation : undefined;
 		const reviewResource = this._actions.resources.review;
 		const reviewValue = reviewEntry?.result ?? reviewResource.value.get();
-		const reviewResult = reviewValue && 'result' in reviewValue ? reviewValue.result : undefined;
+		// The reader's own comments ride along as a focus area of their own, with or without a run
+		const reviewResult = withReviewComments(
+			reviewValue && 'result' in reviewValue ? reviewValue.result : undefined,
+			reviewEntry?.session,
+		);
 		const reviewError =
 			(reviewValue && 'error' in reviewValue ? reviewValue.error.message : undefined) ??
 			reviewResource.error.get();
-		const mappedReviewStatus: 'idle' | 'loading' | 'ready' | 'error' =
-			reviewEntry?.execState === 'generating'
-				? 'loading'
-				: reviewEntry?.execState === 'backed'
-					? 'idle'
-					: reviewResult != null
-						? 'ready'
-						: reviewError != null
-							? 'error'
-							: 'idle';
+		const mappedReviewStatus = getReviewPanelStatus(
+			reviewEntry?.execState,
+			reviewValue,
+			reviewResult,
+			reviewResource.error.get(),
+		);
 
 		const content = html`<gl-details-review-mode-panel
 			.showSearchBox=${this.showSearchBox}
@@ -4108,8 +4128,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${reviewEntry?.prompt}
 			.idleDraft=${reviewEntry?.idleDraft}
-			.refineMode=${reviewEntry?.refineMode}
-			.refineDraft=${reviewEntry?.refineDraft}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
@@ -4138,6 +4156,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
 			@review-finding-note=${(e: CustomEvent<ReviewFindingNoteDetail>) =>
 				this._workflow.review.addFindingNote(e.detail.findingId, e.detail.text)}
+			@review-finding-delete=${(e: CustomEvent<ReviewFindingDeleteDetail>) =>
+				this._workflow.review.deleteFinding(e.detail.findingId)}
+			@review-finding-note-delete=${(e: CustomEvent<ReviewFindingNoteDeleteDetail>) =>
+				this._workflow.review.deleteFindingNote(e.detail.findingId, e.detail.noteId)}
 			@review-orient=${(e: CustomEvent<{ prompt?: string }>) => {
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');
@@ -4195,28 +4217,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// Clamp content overflow during the results→plain-view swap so the panel doesn't jump.
 				this.suppressContentOverflow();
 				this._workflow.review.discard();
-			}}
-			@review-refine=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Same model gate as the initial run. A follow-up continues the conversation that
-				// produced the current findings against the same scope — in the ready state the
-				// scope picker isn't mounted, so `panel.selectedIds` is undefined and `runReview`
-				// falls back to the stored scope.
-				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel('review');
-					return;
-				}
-
-				const panel = this.findReviewModePanel();
-				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
-				this._workflow.runReview(
-					this.effectiveRepoPath,
-					e.detail?.prompt,
-					excludedFiles,
-					this.getCurrentScopeFilesCount(),
-					panel?.selectedIds,
-					scopeItems ?? undefined,
-					{ mode: 'refine' },
-				);
 			}}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
@@ -4858,10 +4858,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
 		const mode = this._state.activeMode.get();
-		if (mode === 'review') {
-			const panel = this.findReviewModePanel();
-			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;
-		}
 		if (mode === 'compose') {
 			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
 			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;

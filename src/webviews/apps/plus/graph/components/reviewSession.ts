@@ -1,7 +1,15 @@
-import type { AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import * as l10n from '@vscode/l10n';
+import type { AIReviewFinding, AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { KeyMap } from '../../../../../config.js';
-import type { ReviewFindingNote, ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
+import type {
+	ReviewCommentPlace,
+	ReviewFindingNote,
+	ReviewResult,
+	ReviewThreadItem,
+	ScopeFile,
+} from '../../../../plus/graph/graphService.js';
+import type { RunningOperationExecState } from './detailsState.js';
 
 /** A finding set aside — fixed, wrong, or not worth doing; the reader needn't say which. */
 export type ReviewFindingState = 'dismissed';
@@ -15,11 +23,14 @@ export interface ReviewSession {
 	readonly viewed: ReadonlyMap<string, { contentId?: string }>;
 	/** Files set aside — out of the checklist and out of the AI's diff. */
 	readonly excluded: ReadonlySet<string>;
-	/** Findings no longer open; absent = open. */
+	/** Findings set aside; absent = open. */
 	readonly findingStates: ReadonlyMap<string, ReviewFindingState>;
 	/** What was said about a finding after the fact — the reader's replies and the agent's additions, in
 	 *  the order they came. */
 	readonly notes: ReadonlyMap<string, readonly ReviewFindingNote[]>;
+	/** The reader's own comments on lines of the diff, in the order they were written — findings with
+	 *  source `user`. They belong to the review, not to an AI run: a new run or a discard keeps them. */
+	readonly comments?: readonly ReviewComment[];
 	/** A reading order the reader took from an orient pass; files not in it follow in tree order. */
 	readonly order?: readonly string[];
 }
@@ -100,6 +111,7 @@ export function getReviewThreadItems(
 					description: finding.description,
 					state: session?.findingStates.get(finding.id) ?? 'open',
 					...(finding.source != null ? { source: finding.source } : {}),
+					...((finding as ReviewComment).author != null ? { author: (finding as ReviewComment).author } : {}),
 					...(notes?.length ? { notes: [...notes] } : {}),
 				});
 			}
@@ -313,22 +325,243 @@ export function withFindingState(
 	return { ...session, findingStates: next };
 }
 
-/** Appends a note to a finding; an empty one is ignored. */
+let noteSeq = 0;
+
+/** Appends a note to a finding, giving it an id to be removed by; an empty one is ignored. */
 export function withFindingNote(session: ReviewSession, findingId: string, note: ReviewFindingNote): ReviewSession {
 	const text = note.text.trim();
 	if (!text) return session;
 
+	const id = note.id ?? `${note.at.toString(36)}-${(++noteSeq).toString(36)}`;
 	const next = new Map(session.notes);
-	next.set(findingId, [...(session.notes.get(findingId) ?? []), { ...note, text: text }]);
+	next.set(findingId, [...(session.notes.get(findingId) ?? []), { ...note, id: id, text: text }]);
 	return { ...session, notes: next };
 }
 
-/** Drops every finding's state and notes — for a result that is being discarded; viewed marks and
- *  exclusions belong to the changeset and stay. */
-export function withoutFindings(session: ReviewSession): ReviewSession {
-	if (session.findingStates.size === 0 && session.notes.size === 0) return session;
+/** Rewrites one note's text; an empty one leaves it as it was — removing is its own step. */
+export function withFindingNoteText(
+	session: ReviewSession,
+	findingId: string,
+	noteId: string,
+	text: string,
+): ReviewSession {
+	const trimmed = text.trim();
+	const notes = session.notes.get(findingId);
+	const note = notes?.find(n => n.id === noteId);
+	if (note == null || !trimmed || note.text === trimmed) return session;
 
-	return { ...session, findingStates: emptyReviewSession.findingStates, notes: emptyReviewSession.notes };
+	const next = new Map(session.notes);
+	next.set(
+		findingId,
+		notes!.map(n => (n.id === noteId ? { ...n, text: trimmed } : n)),
+	);
+	return { ...session, notes: next };
+}
+
+/** Removes one note from a finding's thread. */
+export function withoutFindingNote(session: ReviewSession, findingId: string, noteId: string): ReviewSession {
+	const notes = session.notes.get(findingId);
+	if (!notes?.some(n => n.id === noteId)) return session;
+
+	const remaining = notes.filter(n => n.id !== noteId);
+	const next = new Map(session.notes);
+	if (remaining.length > 0) {
+		next.set(findingId, remaining);
+	} else {
+		next.delete(findingId);
+	}
+	return { ...session, notes: next };
+}
+
+/** The result without one finding — a focus area it leaves empty goes with it. The same result when the
+ *  finding isn't in it. */
+export function withoutResultFinding(result: AIReviewResult, findingId: string): AIReviewResult {
+	if (!result.focusAreas.some(a => a.findings?.some(f => f.id === findingId))) return result;
+
+	const focusAreas: AIReviewResult['focusAreas'][number][] = [];
+	for (const area of result.focusAreas) {
+		if (!area.findings?.some(f => f.id === findingId)) {
+			focusAreas.push(area);
+			continue;
+		}
+
+		const findings = area.findings.filter(f => f.id !== findingId);
+		if (findings.length === 0) continue;
+
+		focusAreas.push({ ...area, findings: findings });
+	}
+	return { ...result, focusAreas: focusAreas };
+}
+
+/** A finding's state and notes go when the finding does. */
+export function withoutFindingRecord(session: ReviewSession, findingId: string): ReviewSession {
+	if (!session.findingStates.has(findingId) && !session.notes.has(findingId)) return session;
+
+	const findingStates = new Map(session.findingStates);
+	findingStates.delete(findingId);
+	const notes = new Map(session.notes);
+	notes.delete(findingId);
+	return { ...session, findingStates: findingStates, notes: notes };
+}
+
+/** Drops the AI findings' states and notes — for a result that is being discarded; viewed marks,
+ *  exclusions and the reader's own comments (with their states and notes) belong to the review and stay. */
+export function withoutFindings(session: ReviewSession): ReviewSession {
+	const kept = new Set(session.comments?.map(c => c.id));
+	const keep = <T>(map: ReadonlyMap<string, T>) => new Map([...map].filter(([id]) => kept.has(id)));
+	const findingStates = keep(session.findingStates);
+	const notes = keep(session.notes);
+	if (findingStates.size === session.findingStates.size && notes.size === session.notes.size) return session;
+
+	return { ...session, findingStates: findingStates, notes: notes };
+}
+
+/** A comment of the review's own (`source: 'user'`). `author` is who wrote its opening words when it isn't
+ *  the reader — a thread whose first comment was deleted is opened by the reply that followed, which may
+ *  be the agent's. */
+export type ReviewComment = AIReviewFinding & { readonly author?: 'agent' };
+
+/** The focus area the reader's comments show under — ahead of the AI's, since they are the reader's own word. */
+export const userFocusAreaId = 'user';
+
+/** The focus area Review in Repo's findings show under, appended to the result as the agent reports them. */
+export const agentFocusAreaId = 'agent';
+
+/** A comment the reader wrote on lines of the diff, as a finding: no severity to speak of (`suggestion`
+ *  only so the shared shape holds — it is never shown), no title, the text as the description. */
+export function createReviewComment(id: string, place: ReviewCommentPlace, text: string): AIReviewFinding {
+	return {
+		id: id,
+		severity: 'suggestion',
+		title: '',
+		description: text,
+		filePath: place.path,
+		lineRange: { start: place.line, end: place.lineEnd },
+		source: 'user',
+	};
+}
+
+export function withReviewComment(session: ReviewSession, comment: ReviewComment): ReviewSession {
+	const text = comment.description.trim();
+	if (!text || session.comments?.some(c => c.id === comment.id)) return session;
+
+	return { ...session, comments: [...(session.comments ?? []), { ...comment, description: text }] };
+}
+
+/** Rewrites a comment's text; an empty one leaves it as it was — removing is its own step. */
+export function withReviewCommentText(session: ReviewSession, id: string, text: string): ReviewSession {
+	const trimmed = text.trim();
+	const comment = session.comments?.find(c => c.id === id);
+	if (comment == null || !trimmed || comment.description === trimmed) return session;
+
+	return {
+		...session,
+		comments: session.comments!.map(c => (c.id === id ? { ...c, description: trimmed } : c)),
+	};
+}
+
+/** Removes a comment, its state and the notes on it. */
+export function withoutReviewComment(session: ReviewSession, id: string): ReviewSession {
+	if (!session.comments?.some(c => c.id === id)) return session;
+
+	const comments = session.comments.filter(c => c.id !== id);
+	return withoutFindingRecord({ ...session, comments: comments.length > 0 ? comments : undefined }, id);
+}
+
+/** A reply of the reader's on a thread someone else started — an AI or agent finding. */
+export interface ReviewReply {
+	readonly finding: AIReviewFinding;
+	readonly note: ReviewFindingNote;
+}
+
+/** The reader's replies on the findings they didn't write, in the findings' order and then the replies'. */
+export function getReviewReplies(
+	result: AIReviewResult | undefined,
+	session: ReviewSession | undefined,
+): ReviewReply[] {
+	const replies: ReviewReply[] = [];
+	if (result == null || !session?.notes.size) return replies;
+
+	for (const area of result.focusAreas) {
+		if (area.id === userFocusAreaId) continue;
+
+		for (const finding of area.findings ?? []) {
+			for (const note of session.notes.get(finding.id) ?? []) {
+				if (note.author !== 'user') continue;
+
+				replies.push({ finding: finding, note: note });
+			}
+		}
+	}
+	return replies;
+}
+
+let lastWithComments:
+	| {
+			result: AIReviewResult | undefined;
+			comments: readonly ReviewComment[] | undefined;
+			notes: ReviewSession['notes'] | undefined;
+			merged: AIReviewResult | undefined;
+	  }
+	| undefined;
+
+/** The review as the reader sees it: the AI's result with a focus area of the reader's own, first — their
+ *  comments as its findings, and (shown with them, see {@link getReviewReplies}) their replies on the
+ *  other findings. Without either it is the result itself; with comments and no result, a result of just
+ *  them. The same inputs give the same object, so what keys on identity (the panel, the thread sync) holds
+ *  still. */
+export function withReviewComments(
+	result: AIReviewResult | undefined,
+	session: ReviewSession | undefined,
+): AIReviewResult | undefined {
+	const comments = session?.comments;
+	const notes = session?.notes;
+	const last = lastWithComments;
+	if (last != null && last.result === result && last.comments === comments && last.notes === notes) {
+		return last.merged;
+	}
+
+	const hasReplies = getReviewReplies(result, session).length > 0;
+	let merged = result;
+	if (comments?.length || hasReplies) {
+		merged = {
+			overview: result?.overview ?? '',
+			mode: result?.mode ?? 'single-pass',
+			focusAreas: [
+				{
+					id: userFocusAreaId,
+					label: l10n.t('Your comments'),
+					rationale: l10n.t(
+						'What you noted on the lines of the diff and in the findings’ threads — for the fix and the later reviews.',
+					),
+					severity: 'suggestion',
+					files: [...new Set((comments ?? []).map(c => c.filePath!))],
+					findings: comments ?? [],
+				},
+				...(result?.focusAreas.filter(a => a.id !== userFocusAreaId) ?? []),
+			],
+		};
+	}
+	lastWithComments = { result: result, comments: comments, notes: notes, merged: merged };
+	return merged;
+}
+
+/** What the review panel shows for a review: `value` is the run's own outcome, `result` the review as the
+ *  reader sees it (see {@link withReviewComments}). A failed run shows its error, with Retry and Go Back,
+ *  even when the reader's comments alone make a result — the panel keeps them below the error. A fetch
+ *  error stays behind a result: it is only ever older than one. */
+export function getReviewPanelStatus(
+	execState: RunningOperationExecState | undefined,
+	value: ReviewResult | undefined,
+	result: AIReviewResult | undefined,
+	fetchError: string | undefined,
+): 'idle' | 'loading' | 'ready' | 'error' {
+	if (execState === 'generating') return 'loading';
+	if (execState === 'backed') return 'idle';
+	if (value != null && 'error' in value) return 'error';
+	if (result != null) return 'ready';
+	if (fetchError != null) return 'error';
+	return 'idle';
 }
 
 export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';

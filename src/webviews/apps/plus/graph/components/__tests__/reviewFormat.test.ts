@@ -1,7 +1,13 @@
 import * as assert from 'node:assert/strict';
 import * as l10n from '@vscode/l10n';
 import type { AIReviewFinding, AIReviewFocusArea, AIReviewResult } from '@gitlens/ai/models/results.js';
-import { formatReviewForAgentContext, getReviewFindingTitle, getReviewFocusAreaLabel } from '../reviewFormat.js';
+import {
+	formatFindingAsMarkdown,
+	formatReviewForAgentContext,
+	getReviewFindingTitle,
+	getReviewFocusAreaLabel,
+} from '../reviewFormat.js';
+import { createReviewComment, emptyReviewSession, withReviewComment, withReviewComments } from '../reviewSession.js';
 
 const finding = {
 	id: 'area-1-f1',
@@ -80,5 +86,33 @@ suite('review as context for the next review', () => {
 				'  > Agent: Agreed',
 			].join('\n'),
 		);
+	});
+
+	test("the reader's own comments go first, as the reviewer's words — no severity or title", () => {
+		const session = withReviewComment(
+			emptyReviewSession,
+			createReviewComment('user-1', { path: 'src/retry.ts', line: 4, lineEnd: 4 }, 'Why not reuse the backoff?'),
+		);
+		const result = withReviewComments(
+			{
+				overview: '',
+				mode: 'single-pass',
+				focusAreas: [
+					{ ...area, findings: [{ id: 'a-f1', severity: 'warning', title: 'Leak', description: 'Timer' }] },
+				],
+			} as unknown as AIReviewResult,
+			session,
+		)!;
+		assert.equal(
+			formatReviewForAgentContext(result, undefined, undefined),
+			[
+				'- id: user-1 · [REVIEWER COMMENT] · open · src/retry.ts:4',
+				'  Why not reuse the backoff?',
+				'',
+				'- id: a-f1 · [WARNING] · open',
+				'  Leak — Timer',
+			].join('\n'),
+		);
+		assert.ok(formatFindingAsMarkdown(session.comments![0]).startsWith("### Reviewer's comment\n\nWhy not reuse"));
 	});
 });
