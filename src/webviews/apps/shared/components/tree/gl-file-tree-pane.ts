@@ -232,7 +232,7 @@ export class GlFileTreePane extends LitElement {
 
 	/** Semantic checkbox action; labels are whole localized messages, not concatenated verbs. */
 	@property({ attribute: 'check-action' })
-	checkAction?: 'stage' | 'include' | 'resolve';
+	checkAction?: 'stage' | 'include' | 'resolve' | 'viewed';
 
 	/**
 	 * When `true` (default) and `checkable` is on, the count badge shows "x of y" while only a
@@ -271,6 +271,11 @@ export class GlFileTreePane extends LitElement {
 	 */
 	@property({ attribute: false })
 	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
+	/** Consumer-supplied per-file decorations, rendered ahead of the pane's own. Like `fileActions`,
+	 *  a callback read during model creation — bump `contextRevision` when what it reads changes. */
+	@property({ attribute: false })
+	fileDecorations?: (file: FileItem) => readonly TreeItemDecoration[] | undefined;
 
 	@state() private _contextMatchVisibility: 'off' | 'mixed' | 'matched' = 'mixed';
 	@state() private _showSearchBox = false;
@@ -754,6 +759,18 @@ export class GlFileTreePane extends LitElement {
 					: action === 'remaining'
 						? l10n.t('Include Remaining')
 						: l10n.t('Include All');
+			case 'viewed':
+				if (fileName != null) {
+					return action === 'uncheck'
+						? l10n.t('Mark {file} as Not Viewed', { file: fileName })
+						: l10n.t('Mark {file} as Viewed', { file: fileName });
+				}
+
+				return action === 'uncheck'
+					? l10n.t('Mark All as Not Viewed')
+					: action === 'remaining'
+						? l10n.t('Mark Remaining as Viewed')
+						: l10n.t('Mark All as Viewed');
 			case 'resolve':
 				if (fileName != null) {
 					return action === 'uncheck'
@@ -855,6 +872,11 @@ export class GlFileTreePane extends LitElement {
 
 	private getFileDecorations(file: FileItem): TreeItemDecoration[] {
 		const decorations: TreeItemDecoration[] = [];
+
+		const supplied = this.fileDecorations?.(file);
+		if (supplied?.length) {
+			decorations.push(...supplied);
+		}
 
 		// Rich conflict rendering — status code + "Modified (Both)" muted label + warning + count.
 		// Mirrors the rebase editor's treatment via the shared conflictRendering helpers.
