@@ -282,6 +282,20 @@ export function sortTreeChildren(
 	return children;
 }
 
+/** The files of a built tree in the order the tree renders them — folders' contents in place, groups in turn. */
+export function getTreeFilePaths(nodes: readonly TreeModel[]): string[] {
+	const paths: string[] = [];
+	const walk = (node: TreeModel) => {
+		if (node.branch) {
+			node.children?.forEach(walk);
+		} else if (node.path) {
+			paths.push(node.path);
+		}
+	};
+	nodes.forEach(walk);
+	return paths;
+}
+
 export function folderToTreeModel(name: string, relativePath: string, options?: Partial<TreeItemBase>): TreeModel {
 	return {
 		branch: false,
