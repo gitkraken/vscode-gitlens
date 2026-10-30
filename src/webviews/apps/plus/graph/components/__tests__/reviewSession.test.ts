@@ -1,10 +1,12 @@
 import * as assert from 'assert';
-import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
 import {
 	countReviewFindingStates,
 	createReviewComment,
+	createReviewFindingIds,
 	emptyReviewSession,
 	getClosedFindingIds,
+	getModelFindings,
 	getReviewFileFindings,
 	getReviewFileProgress,
 	getReviewPanelStatus,
@@ -31,6 +33,7 @@ import {
 	withReviewComment,
 	withReviewComments,
 	withReviewCommentText,
+	withReviewFindingIds,
 } from '../reviewSession.js';
 
 const a = { path: 'src/a.ts', contentId: 'a1' };
@@ -831,5 +834,95 @@ suite('reviewSession — findings on changed files', () => {
 		assert.strictEqual(withFindingsContent(recorded, [findings[3], findings[4]], [a, b]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [], [a, b]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [findings[0]], undefined), recorded);
+	});
+});
+
+suite('reviewSession — finding ids', () => {
+	const finding = (id: string, title: string, path?: string, extra?: Partial<AIReviewFinding>): AIReviewFinding => ({
+		id: id,
+		severity: 'warning',
+		title: title,
+		description: '',
+		filePath: path,
+		...extra,
+	});
+
+	test('a finding the same as an earlier one takes its id — same files and title, lines aside — any other a fresh one', () => {
+		const previous = [finding('f-1', 'Leaks the handle', 'a.ts', { lineRange: { start: 3, end: 3 } })];
+		const withId = createReviewFindingIds(previous, []);
+
+		const again = withId(finding('area-2-f1', ' leaks the HANDLE ', 'a.ts', { lineRange: { start: 9, end: 9 } }));
+		assert.strictEqual(again.id, 'f-1');
+		const elsewhere = withId(finding('area-1-f1', 'Leaks the handle', 'b.ts'));
+		assert.ok(/^f-[0-9a-f]{8}$/.test(elsewhere.id), elsewhere.id);
+	});
+
+	test('each earlier finding is claimed once, so two alike stay two', () => {
+		const previous = [finding('f-1', 'dup', 'a.ts'), finding('f-2', 'dup', 'a.ts')];
+		const withId = createReviewFindingIds(previous, []);
+		const ids = [1, 2, 3].map(i => withId(finding(`area-1-f${i}`, 'dup', 'a.ts')).id);
+		assert.deepStrictEqual(ids.slice(0, 2), ['f-1', 'f-2']);
+		assert.ok(!['f-1', 'f-2'].includes(ids[2]));
+	});
+
+	test("the model's and the agent's findings never take each other's ids; the reader's comments are left alone", () => {
+		const previous = [finding('f-1', 'same', 'a.ts'), finding('c-1', '', 'a.ts', { source: 'user' })];
+		const withId = createReviewFindingIds(previous, []);
+		assert.notStrictEqual(withId(finding('agent-1', 'same', 'a.ts', { source: 'agent' })).id, 'f-1');
+		const comment = finding('user-1', '', 'a.ts', { source: 'user' });
+		assert.strictEqual(withId(comment), comment);
+	});
+
+	test('an id the review holds is neither claimed nor handed out', () => {
+		const withId = createReviewFindingIds([finding('f-1', 'opened', 'a.ts')], ['f-1']);
+		assert.notStrictEqual(withId(finding('area-1-f1', 'opened', 'a.ts')).id, 'f-1');
+	});
+
+	test('a stand-in title matches by the description instead', () => {
+		const previous = [finding('f-1', 'Finding', 'a.ts', { titleIsFallback: true, description: 'first' })];
+		const withId = createReviewFindingIds(previous, []);
+		const other = finding('x', 'Finding', 'a.ts', { titleIsFallback: true, description: 'second' });
+		assert.notStrictEqual(withId(other).id, 'f-1');
+		const same = finding('y', 'Finding', 'a.ts', { titleIsFallback: true, description: 'first' });
+		assert.strictEqual(withId(same).id, 'f-1');
+	});
+
+	test("a result gets ids for the model's findings only; with none it stays the same result", () => {
+		const result = {
+			overview: '',
+			mode: 'single-pass',
+			focusAreas: [
+				{
+					id: 'area-1',
+					label: '',
+					rationale: '',
+					severity: 'warning',
+					files: [],
+					findings: [finding('area-1-f1', 'one', 'a.ts')],
+				},
+				{
+					id: 'agent',
+					label: '',
+					rationale: '',
+					severity: 'warning',
+					files: [],
+					findings: [finding('f-agent', 'two', 'a.ts', { source: 'agent' })],
+				},
+			],
+		} as unknown as AIReviewResult;
+		const next = withReviewFindingIds(result, [], []);
+		assert.ok(next.focusAreas[0].findings![0].id.startsWith('f-'));
+		assert.strictEqual(next.focusAreas[1], result.focusAreas[1]);
+
+		const empty = {
+			overview: '',
+			mode: 'two-pass',
+			focusAreas: [result.focusAreas[1]],
+		} as unknown as AIReviewResult;
+		assert.strictEqual(withReviewFindingIds(empty, [], []), empty);
+		assert.deepStrictEqual(
+			getModelFindings([result, next], [finding('f-old', 'old', 'c.ts')]).map(f => f.id),
+			['area-1-f1', next.focusAreas[0].findings![0].id, 'f-old'],
+		);
 	});
 });

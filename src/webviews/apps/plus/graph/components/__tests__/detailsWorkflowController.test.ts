@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { ReactiveController } from 'lit';
-import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
@@ -21,7 +21,15 @@ import type { DetailsState, RunningOperationBucket } from '../detailsState.js';
 import { createDetailsState } from '../detailsState.js';
 import type { DetailsSelection, DetailsWorkflowHost } from '../detailsWorkflowController.js';
 import { DetailsWorkflowController, withoutFindingOpening } from '../detailsWorkflowController.js';
-import { emptyReviewSession, withFindingNote, withFindingState } from '../reviewSession.js';
+import { formatReviewForAgentContext } from '../reviewFormat.js';
+import {
+	emptyReviewSession,
+	getReviewReplies,
+	getReviewThreadItems,
+	withFindingNote,
+	withFindingState,
+	withReviewComments,
+} from '../reviewSession.js';
 
 /** Drain the two `.then` hops of the generate-message dispatch (RPC→map→onRunSettled). */
 const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -258,6 +266,16 @@ function enterMockMode(state: DetailsState, repoPath: string, sha: string): void
 	state.activeModeContext.set('wip');
 	state.activeModeRepoPath.set(repoPath);
 	state.activeModeSha.set(sha);
+}
+
+/** A deep review's entry state without the ids its run handed out, which are random */
+function withoutRunFindingIds<T extends { runFindingIds?: unknown }>(
+	deepReview: T | undefined,
+): Omit<T, 'runFindingIds'> | undefined {
+	if (deepReview == null) return undefined;
+
+	const { runFindingIds: _, ...rest } = deepReview;
+	return rest;
 }
 
 suite('DetailsWorkflowController.hostUpdate — repo-switch handling', () => {
@@ -705,7 +723,14 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.runReview('/A', undefined, undefined, 0);
 		await flush();
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.deepStrictEqual([...(entry?.findingsContent?.get('f1') ?? [])], [['src/a.ts', 'a1']]);
+		const idOf = (title: string) => {
+			const value = entry?.result;
+			return value != null && 'result' in value
+				? value.result.focusAreas.flatMap(a => a.findings ?? []).find(f => f.title === title)?.id
+				: undefined;
+		};
+		const one = idOf('one')!;
+		assert.deepStrictEqual([...(entry?.findingsContent?.get(one) ?? [])], [['src/a.ts', 'a1']]);
 
 		// The agent's report comes in after the reader edited a file — it is recorded as it is now
 		actions.resources.scopeFiles.mutate([
@@ -734,8 +759,8 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			notes: [],
 		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.deepStrictEqual([...(entry?.findingsContent?.get('f1') ?? [])], [['src/a.ts', 'a1']]);
-		assert.deepStrictEqual([...(entry?.findingsContent?.get('agent-1') ?? [])], [['src/a.ts', 'a2']]);
+		assert.deepStrictEqual([...(entry?.findingsContent?.get(one) ?? [])], [['src/a.ts', 'a1']]);
+		assert.deepStrictEqual([...(entry?.findingsContent?.get(idOf('agent')!) ?? [])], [['src/a.ts', 'a2']]);
 
 		controller.review.discard();
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
@@ -1405,8 +1430,15 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
-		const finding = (id: string) =>
-			({ id: id, severity: 'warning', title: id, description: '', filePath: 'a.ts', source: 'agent' }) as const;
+		const finding = (id: string, title = id) =>
+			({
+				id: id,
+				severity: 'warning',
+				title: title,
+				description: '',
+				filePath: 'a.ts',
+				source: 'agent',
+			}) as const;
 
 		controller.review.applyDeepReviewState({
 			run: 1,
@@ -1420,23 +1452,42 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			],
 			notes: [],
 		});
-		// The next run numbers from 1 again — its first findings must not read as already applied
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		const [first, second] = result?.focusAreas.find(a => a.id === 'agent')?.findings?.map(f => f.id) ?? [];
+		controller.review.setFindingState(first, 'dismissed');
+
+		// The next run numbers from 1 again — its first findings must not read as already applied, nor share
+		// an id (and with it a state, notes, a thread) with the earlier run's first finding
 		controller.review.applyDeepReviewState({
 			run: 2,
 			anchor: anchor,
 			purpose: 'review',
 			active: true,
 			done: false,
-			findings: [{ seq: 1, finding: finding('agent-3') }],
+			findings: [{ seq: 1, finding: finding('agent-1', 'agent-3') }],
 			notes: [],
 		});
-		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		const result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		const agentFindings = result?.focusAreas.find(a => a.id === 'agent')?.findings ?? [];
 		assert.deepStrictEqual(
-			result?.focusAreas.find(a => a.id === 'agent')?.findings?.map(f => f.id),
+			agentFindings.map(f => f.title),
 			['agent-1', 'agent-2', 'agent-3'],
 		);
-		assert.deepStrictEqual(entry?.deepReview, {
+		assert.strictEqual(new Set(agentFindings.map(f => f.id)).size, 3, 'every finding has an id of its own');
+		assert.deepStrictEqual(
+			agentFindings.slice(0, 2).map(f => f.id),
+			[first, second],
+			'the earlier ones keep theirs',
+		);
+		assert.ok(!agentFindings.some(f => f.id.startsWith('agent-')), "the channel's numbering doesn't survive");
+		assert.deepStrictEqual(
+			[...(entry?.session?.findingStates.keys() ?? [])],
+			[first],
+			'the state stays on its finding',
+		);
+		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 2,
 			purpose: 'review',
 			active: true,
@@ -1504,7 +1555,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		});
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
-		assert.deepStrictEqual(entry?.deepReview, {
+		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 1,
 			purpose: 'review',
 			active: true,
@@ -1515,9 +1566,11 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		});
 		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
 		assert.deepStrictEqual(
-			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)]),
-			[['agent', ['agent-1']]],
+			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.title)]),
+			[['agent', ['one']]],
 		);
+		// What the agent is shown, and names in its notes, is the id the finding has in the review
+		const one = result?.focusAreas[0].findings?.[0].id ?? '';
 
 		controller.review.applyDeepReviewState({
 			run: 1,
@@ -1529,24 +1582,25 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				{ seq: 1, finding: f1 },
 				{ seq: 2, finding: f2 },
 			],
-			notes: [{ seq: 1, findingId: 'agent-1', text: 'the caller guards this' }],
+			notes: [{ seq: 1, findingId: one, text: 'the caller guards this' }],
 		});
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
 		assert.deepStrictEqual(
-			entry?.session?.notes.get('agent-1')?.map(n => [n.author, n.text]),
+			entry?.session?.notes.get(one)?.map(n => [n.author, n.text]),
 			[['agent', 'the caller guards this']],
 			'what the agent added to a finding lands as a note on it',
 		);
 		assert.strictEqual(entry?.deepReview?.notesApplied, 1);
 		const area = result?.focusAreas.find(a => a.id === 'agent');
 		assert.deepStrictEqual(
-			area?.findings?.map(f => f.id),
-			['agent-1', 'agent-2'],
+			area?.findings?.map(f => f.title),
+			['one', 'two'],
 			'a replayed finding is not added twice',
 		);
+		assert.strictEqual(area?.findings?.[0].id, one);
 		assert.strictEqual(area?.severity, 'critical');
-		assert.deepStrictEqual(entry?.deepReview, {
+		assert.deepStrictEqual(withoutRunFindingIds(entry?.deepReview), {
 			run: 1,
 			purpose: 'review',
 			active: false,
@@ -1604,7 +1658,9 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			actions: DetailsActions;
 			controller: DetailsWorkflowController;
 			entry: () => RunningOperationBucket['review'];
+			/** The areas with their findings' titles — the ids are the review's own, see `idOf` */
 			areas: () => [string, string[] | undefined][];
+			idOf: (title: string) => string | undefined;
 		} {
 			const host = new FakeHost({
 				repoPath: '/A',
@@ -1630,8 +1686,14 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			const areas = (): [string, string[] | undefined][] => {
 				const value = entry()?.result;
 				return value != null && 'result' in value
-					? value.result.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)])
+					? value.result.focusAreas.map(a => [a.id, a.findings?.map(f => f.title)])
 					: [];
+			};
+			const idOf = (title: string): string | undefined => {
+				const value = entry()?.result;
+				return value != null && 'result' in value
+					? value.result.focusAreas.flatMap(a => a.findings ?? []).find(f => f.title === title)?.id
+					: undefined;
 			};
 			return {
 				host: host,
@@ -1640,12 +1702,13 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				controller: controller,
 				entry: entry,
 				areas: areas,
+				idOf: idOf,
 			};
 		}
 
 		test("keeps the deep review's channel state and the agent's findings, with what the agent reports meanwhile", async () => {
 			let settle!: (value: ReviewResult) => void;
-			const { controller, actions, entry, areas } = setupReRun(
+			const { controller, actions, entry, areas, idOf } = setupReRun(
 				() => new Promise<ReviewResult>(resolve => (settle = resolve)),
 			);
 			controller.review.applyDeepReviewState({
@@ -1657,7 +1720,8 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 				findings: [{ seq: 1, finding: agentFinding('agent-1') }],
 				notes: [],
 			});
-			controller.review.setFindingState('agent-1', 'dismissed');
+			const agentId = idOf('agent-1')!;
+			controller.review.setFindingState(agentId, 'dismissed');
 			const deepReview = entry()?.deepReview;
 
 			controller.runReview('/A', undefined, undefined, 0);
@@ -1684,11 +1748,12 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			await flush();
 			assert.strictEqual(entry()?.execState, 'complete');
 			assert.deepStrictEqual(areas(), [
-				['area-1', ['area-1-f1']],
+				['area-1', ['model']],
 				['agent', ['agent-1', 'agent-2']],
 			]);
 			assert.strictEqual(entry()?.deepReview?.seqApplied, 2);
-			assert.strictEqual(entry()?.session?.findingStates.get('agent-1'), 'dismissed', 'its state still applies');
+			assert.strictEqual(idOf('agent-1'), agentId);
+			assert.strictEqual(entry()?.session?.findingStates.get(agentId), 'dismissed', 'its state still applies');
 			const shown = actions.resources.review.value.get();
 			assert.strictEqual(shown, entry()?.result, 'the panel shows the merged result');
 		});
@@ -1718,40 +1783,80 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			controller.cancelOperation('review');
 			assert.strictEqual(entry()?.execState, 'complete');
 			assert.deepStrictEqual(areas(), [
-				['area-1', ['area-1-f1']],
+				['area-1', ['first']],
 				['agent', ['agent-1']],
 			]);
 		});
 
+		test('stepping back and running again re-queues nothing for the findings already seen', async () => {
+			const result = {
+				result: {
+					overview: '',
+					mode: 'single-pass',
+					focusAreas: [
+						{
+							id: 'area-1',
+							label: 'Area',
+							rationale: '',
+							severity: 'warning',
+							files: ['a.ts'],
+							findings: [
+								{
+									id: 'area-1-f1',
+									severity: 'warning',
+									title: 'Leak',
+									description: '',
+									filePath: 'a.ts',
+								},
+							],
+						},
+					],
+				},
+			} as unknown as ReviewResult;
+			const { controller, entry } = setupReRun(async () => result);
+			controller.runReview('/A', undefined, undefined, 0);
+			await flush();
+			controller.review.setFilesViewed([{ path: 'a.ts' }], true);
+
+			controller.review.back();
+			controller.runReview('/A', undefined, undefined, 0);
+			await flush();
+			assert.strictEqual(entry()?.execState, 'complete');
+			assert.deepStrictEqual(
+				Array.from(entry()?.session?.viewed ?? [], ([path, mark]) => [path, mark.requeued === true]),
+				[['a.ts', false]],
+			);
+		});
+
 		test('a thread action after the re-run applies only what the journal added since', async () => {
 			let run = 0;
-			const { controller, host, entry, areas } = setupReRun(async () => modelResult(`run ${++run}`));
+			const { controller, host, entry, areas, idOf } = setupReRun(async () => modelResult(`run ${++run}`));
 			controller.runReview('/A', undefined, undefined, 0);
 			await flush();
 
 			const journal = [
-				{ seq: 1, findingId: 'area-1-f1', action: 'delete' as const },
+				{ seq: 1, findingId: idOf('run 1')!, action: 'delete' as const },
 				{ seq: 2, findingId: 'user-1', action: 'askReviewer' as const, text: 'why?' },
 			];
 			controller.review.applyThreadActions({ anchor: wipKey('/A'), actions: journal });
 			assert.deepStrictEqual(areas(), []);
 			assert.strictEqual(entry()?.threadActionsApplied, 2);
 
-			// The new run numbers its findings the same way — the first one is `area-1-f1` again
 			controller.runReview('/A', undefined, undefined, 0);
 			assert.strictEqual(entry()?.threadActionsApplied, 2, 'the cursor outlives the dispatch');
 			await flush();
-			assert.deepStrictEqual(areas(), [['area-1', ['area-1-f1']]]);
+			assert.deepStrictEqual(areas(), [['area-1', ['run 2']]]);
+			const second = idOf('run 2')!;
 
 			controller.review.applyThreadActions({
 				anchor: wipKey('/A'),
-				actions: [...journal, { seq: 3, findingId: 'area-1-f1', action: 'reply', text: 'agreed' }],
+				actions: [...journal, { seq: 3, findingId: second, action: 'reply', text: 'agreed' }],
 			});
-			assert.deepStrictEqual(areas(), [['area-1', ['area-1-f1']]], 'the earlier delete is not replayed');
+			assert.deepStrictEqual(areas(), [['area-1', ['run 2']]], 'the earlier delete is not replayed');
 			assert.deepStrictEqual(host.handOffs, ['ask:user-1:why?'], 'nor is the earlier hand-off');
 			assert.deepStrictEqual(
 				entry()
-					?.session?.notes.get('area-1-f1')
+					?.session?.notes.get(second)
 					?.map(n => n.text),
 				['agreed'],
 			);
@@ -1779,7 +1884,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			const preError = state.reviewPreErrorValue.get();
 			assert.deepStrictEqual(
 				preError != null && 'result' in preError
-					? preError.result.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)])
+					? preError.result.focusAreas.map(a => [a.id, a.findings?.map(f => f.title)])
 					: undefined,
 				[['agent', ['agent-1']]],
 			);
@@ -1808,9 +1913,290 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			await flush();
 			assert.strictEqual(entry()?.execState, 'complete');
 			assert.deepStrictEqual(areas(), [
-				['area-1', ['area-1-f1']],
+				['area-1', ['retried']],
 				['agent', ['agent-1', 'agent-2']],
 			]);
+		});
+
+		suite('finding ids', () => {
+			type Found = Pick<AIReviewFinding, 'title' | 'filePath'>;
+			const found = (title: string, path: string): Found => ({ title: title, filePath: path });
+			const positional = (areaId: string, findings: Found[]): AIReviewFinding[] =>
+				findings.map((f, j) => ({
+					id: `${areaId}-f${j + 1}`,
+					severity: 'warning',
+					title: f.title,
+					description: '',
+					filePath: f.filePath,
+					lineRange: { start: j + 1, end: j + 1 },
+				}));
+			/** A result as the model gives it: areas `area-N`, findings numbered by place, `area-N-fM` */
+			const resultOf = (mode: 'single-pass' | 'two-pass', ...areas: (Found[] | undefined)[]): ReviewResult =>
+				({
+					result: {
+						overview: '',
+						mode: mode,
+						focusAreas: areas.map((findings, i) => ({
+							id: `area-${i + 1}`,
+							label: `Area ${i + 1}`,
+							rationale: '',
+							severity: 'warning',
+							files: [],
+							...(findings != null ? { findings: positional(`area-${i + 1}`, findings) } : {}),
+						})),
+					},
+				}) as unknown as ReviewResult;
+			const resultIn = (entry: RunningOperationBucket['review']) =>
+				entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+
+			test("a re-run keeps each finding's state and notes on the finding itself, wherever it lands now", async () => {
+				const runs = [
+					resultOf('single-pass', [found('alpha', 'a.ts'), found('beta', 'b.ts')]),
+					// The same two again in another order, one of them in another area now — and something new in
+					// the first place
+					resultOf('single-pass', [found('gamma', 'a.ts'), found('Beta ', 'b.ts')], [found('ALPHA', 'a.ts')]),
+				];
+				let run = 0;
+				const { controller, entry, areas, idOf } = setupReRun(async () => runs[run++]);
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				const alpha = idOf('alpha')!;
+				const beta = idOf('beta')!;
+				assert.ok(!alpha.startsWith('area-') && !beta.startsWith('area-'), 'the ids by place do not survive');
+				assert.notStrictEqual(alpha, beta);
+				controller.review.setFindingState(alpha, 'dismissed');
+				controller.review.addFindingNote(beta, 'is this reachable?');
+
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				assert.deepStrictEqual(areas(), [
+					['area-1', ['gamma', 'Beta ']],
+					['area-2', ['ALPHA']],
+				]);
+				assert.strictEqual(
+					idOf('ALPHA'),
+					alpha,
+					'the same file and title — whatever the case — is the same finding',
+				);
+				assert.strictEqual(idOf('Beta '), beta);
+				const gamma = idOf('gamma')!;
+				assert.ok(gamma !== alpha && gamma !== beta, 'a new finding gets an id of its own');
+
+				const session = entry()?.session;
+				assert.strictEqual(session?.findingStates.get(alpha), 'dismissed');
+				assert.strictEqual(
+					session?.findingStates.has(gamma),
+					false,
+					'the finding in its old place inherits nothing',
+				);
+				assert.deepStrictEqual(
+					session?.notes.get(beta)?.map(n => n.text),
+					['is this reachable?'],
+				);
+				assert.strictEqual(session?.notes.has(gamma), false);
+				assert.deepStrictEqual(
+					getReviewReplies(resultIn(entry()), session).map(r => r.finding.title),
+					['Beta '],
+					"the reader's reply shows on the finding it was made on",
+				);
+
+				// The agent is told the same ids it is to add its notes under
+				const context = formatReviewForAgentContext(resultIn(entry())!, session?.findingStates, session?.notes);
+				assert.ok(context.includes(`id: ${alpha} · `) && context.includes(`id: ${gamma} · `), context);
+				assert.ok(!context.includes('area-1-f'), context);
+			});
+
+			test('two alike findings in a file stay two; found once again, the first one keeps its id', async () => {
+				const runs = [
+					resultOf('single-pass', [found('dup', 'a.ts'), found('dup', 'a.ts')]),
+					resultOf('single-pass', [found('dup', 'a.ts')]),
+				];
+				let run = 0;
+				const { controller, entry } = setupReRun(async () => runs[run++]);
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				const [first, second] = resultIn(entry())!.focusAreas[0].findings!.map(f => f.id);
+				assert.notStrictEqual(first, second);
+				controller.review.setFindingState(second, 'dismissed');
+
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				assert.deepStrictEqual(
+					resultIn(entry())!.focusAreas[0].findings!.map(f => f.id),
+					[first],
+				);
+				assert.strictEqual(entry()?.session?.findingStates.has(first), false);
+			});
+
+			test("a thread whose opening was deleted keeps its id; a later run's finding never takes it", async () => {
+				const { controller, entry, idOf } = setupReRun(async () =>
+					resultOf('single-pass', [found('alpha', 'a.ts')]),
+				);
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				const alpha = idOf('alpha')!;
+				// A second run finds it again, so the finding is one the review knew before when its opening goes
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				assert.strictEqual(idOf('alpha'), alpha);
+				controller.review.addFindingNote(alpha, 'why?');
+				controller.review.setFindingState(alpha, 'dismissed');
+				controller.review.applyThreadActions({
+					anchor: wipKey('/A'),
+					actions: [{ seq: 1, findingId: alpha, action: 'deleteOpening' }],
+				});
+				assert.deepStrictEqual(
+					entry()?.session?.comments?.map(c => [c.id, c.description]),
+					[[alpha, 'why?']],
+				);
+
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				const again = idOf('alpha')!;
+				assert.notStrictEqual(again, alpha, "the comment's id is not the finding's to take back");
+				const session = entry()?.session;
+				assert.deepStrictEqual(
+					session?.comments?.map(c => [c.id, c.description]),
+					[[alpha, 'why?']],
+				);
+				assert.strictEqual(session?.findingStates.get(alpha), 'dismissed', 'the thread keeps its state');
+				assert.strictEqual(session?.findingStates.has(again), false);
+				const threads = getReviewThreadItems(withReviewComments(resultIn(entry()), session), session);
+				assert.deepStrictEqual(
+					threads.map(t => [t.id, t.source ?? 'model']),
+					[
+						[alpha, 'user'],
+						[again, 'model'],
+					],
+				);
+			});
+
+			test("a two-pass area's details keep the ids of the area's findings before, and of the run before", async () => {
+				const { controller, entry } = setupReRun(async () => resultOf('two-pass', undefined, undefined));
+				const ids = (areaId: string) =>
+					resultIn(entry())
+						?.focusAreas.find(a => a.id === areaId)
+						?.findings?.map(f => [f.title, f.id]);
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+
+				const detail = controller.review.enrichFocusAreaFindings('area-1', {
+					findings: positional('area-1', [found('alpha', 'a.ts')]),
+				});
+				const alpha = ids('area-1')![0][1];
+				assert.deepStrictEqual(
+					detail.findings.map(f => f.id),
+					[alpha],
+					'the panel gets the ids the review keeps',
+				);
+				controller.review.setFindingState(alpha, 'dismissed');
+
+				// Analyzing the area again
+				controller.review.enrichFocusAreaFindings('area-1', {
+					findings: positional('area-1', [found('beta', 'b.ts'), found('alpha', 'a.ts')]),
+				});
+				const beta = ids('area-1')![0][1];
+				assert.deepStrictEqual(ids('area-1'), [
+					['beta', beta],
+					['alpha', alpha],
+				]);
+				assert.notStrictEqual(beta, alpha);
+				// The same finding in another area is that area's own
+				controller.review.enrichFocusAreaFindings('area-2', {
+					findings: positional('area-2', [found('alpha', 'a.ts')]),
+				});
+				const elsewhere = ids('area-2')![0][1];
+				assert.ok(elsewhere !== alpha && elsewhere !== beta);
+
+				// A new run: its details come in after it settled, and still find their findings from before
+				controller.runReview('/A', undefined, undefined, 0);
+				await flush();
+				controller.review.enrichFocusAreaFindings('area-1', {
+					findings: positional('area-1', [found('alpha', 'a.ts'), found('beta', 'b.ts')]),
+				});
+				assert.deepStrictEqual(ids('area-1'), [
+					['alpha', alpha],
+					['beta', beta],
+				]);
+				assert.strictEqual(entry()?.session?.findingStates.get(alpha), 'dismissed');
+			});
+
+			test('an agent finding reported again keeps its id, its state and its place', () => {
+				const { controller, entry } = setupReRun(async () => resultOf('single-pass'));
+				const report = (run: number, findings: { seq: number; finding: AIReviewFinding }[]) =>
+					controller.review.applyDeepReviewState({
+						run: run,
+						anchor: anchor,
+						purpose: 'review',
+						active: true,
+						done: false,
+						findings: findings,
+						notes: [],
+					});
+				const agentFindings = () => resultIn(entry())?.focusAreas.find(a => a.id === 'agent')?.findings ?? [];
+
+				report(1, [
+					{ seq: 1, finding: agentFinding('one') },
+					{ seq: 2, finding: agentFinding('two') },
+				]);
+				const [one, two] = agentFindings().map(f => f.id);
+				controller.review.setFindingState(one, 'dismissed');
+
+				// A later run reports the first one again — under the channel's own numbering, `agent-2`
+				report(2, [
+					{ seq: 1, finding: { ...agentFinding('three'), id: 'agent-1' } },
+					{ seq: 2, finding: { ...agentFinding('one'), id: 'agent-2', description: 'still there' } },
+				]);
+				const now = agentFindings();
+				assert.deepStrictEqual(
+					now.map(f => [f.title, f.description]),
+					[
+						['one', 'still there'],
+						['two', ''],
+						['three', ''],
+					],
+				);
+				assert.deepStrictEqual(
+					now.slice(0, 2).map(f => f.id),
+					[one, two],
+				);
+				assert.strictEqual(new Set(now.map(f => f.id)).size, 3);
+				assert.strictEqual(entry()?.session?.findingStates.get(one), 'dismissed');
+			});
+
+			test('two alike agent findings in separate reports of one run stay two', () => {
+				const { controller, entry } = setupReRun(async () => resultOf('single-pass'));
+				const report = (findings: { seq: number; finding: AIReviewFinding }[]) =>
+					controller.review.applyDeepReviewState({
+						run: 1,
+						anchor: anchor,
+						purpose: 'review',
+						active: true,
+						done: false,
+						findings: findings,
+						notes: [],
+					});
+				const agentFindings = () => resultIn(entry())?.focusAreas.find(a => a.id === 'agent')?.findings ?? [];
+
+				const first = { seq: 1, finding: { ...agentFinding('same'), lineRange: { start: 1, end: 1 } } };
+				report([first]);
+				const [id] = agentFindings().map(f => f.id);
+				controller.review.setFindingState(id, 'dismissed');
+				// The next report of the same run: the same title in the same file, at other lines
+				report([
+					first,
+					{ seq: 2, finding: { ...agentFinding('same'), id: 'agent-2', lineRange: { start: 9, end: 9 } } },
+				]);
+
+				const now = agentFindings();
+				assert.deepStrictEqual(
+					now.map(f => f.lineRange?.start),
+					[1, 9],
+					'the first is not replaced',
+				);
+				assert.strictEqual(new Set(now.map(f => f.id)).size, 2);
+				assert.strictEqual(entry()?.session?.findingStates.get(id), 'dismissed');
+			});
 		});
 	});
 
