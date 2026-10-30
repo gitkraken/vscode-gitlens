@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-30
+
 ### Added
 
 - Adds `Git.rev_parse__work_tree_of_git_dir(gitDir)`, resolving the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, or `undefined` when none does (a bare repository) (git-cli)
@@ -20,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes self-managed integration reauthentication disconnecting other connections of the same provider: forced reauthentication now validates and disconnects only the selected connection's token (plus/integrations)
 - Fixes `getRepositoryInfo` (and `Git.rev_parse__show_toplevel`) resolving a path inside a repository's `.git` folder — `.git/refs`, `.git/rebase-merge` during a rebase — to that `.git` folder as a bare repository when the repo's config has no `core.bare` line, so a host registered it as a second repository named `.git`. Git guesses "bare" from inside a git dir when `core.bare` is unset; a git dir whose parent folder is a working tree using it now resolves to that working tree. Real bare repos, including a bare clone named `.git` beside its worktrees and a `.bare` folder behind a `.git` file, still resolve to themselves (git-cli)
 - Fixes Bitbucket Data Center repo-scoped pull request reads (`listPullRequestsPage` with `repos` and the pull request sweeps with `repos`) reading only the first page of each repository: a repository with more open pull requests than one page (50 by default) came back `page.truncated` and was never continued, and `page: 2` re-read page 1. Bitbucket Data Center now reads repository by repository like the other numbered hosts, with a continuation cursor per repository, `page` honored, the 6-in-flight bound, and a failed repository attributed as its own scope with its cause (plus/integrations)
 - Fixes GitHub GraphQL throttling (HTTP 200 with an `errors` entry of type `RATE_LIMITED` or `RATE_LIMIT`) being reported as `kind: 'other'` instead of `'rate-limit'` on repo-scoped GitHub and GitHub Enterprise pull request and issue reads (`listPullRequestsPage`, `listIssuesPage` and the pull request sweeps with `repos`), which provider-apis serves and throws without a response status. Core's own GitHub reads now also classify a rate limit that isn't the first GraphQL error (plus/integrations, plus/git-github)
@@ -1045,7 +1048,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...HEAD
+[0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
 [0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
 [0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
 [0.22.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.0...gitkraken:releases/core/v0.22.1
