@@ -69,15 +69,15 @@
 	--gl-color-border-overlay: var(--vscode-editorHoverWidget-border, var(--gl-color-border-raised));
 	--gl-color-border-focus: var(--vscode-focusBorder);
 
-	// An edge that exists ONLY in high contrast. `widget.border` is null in dark and light and
-	// `contrastBorder` in both HC variants, so this self-collapses with no media query. Minting it is
-	// rule 1's meaningful case: `widget.border` is qualified ("widgets such as find/replace"), so
-	// using it generically breaks rule 2, while "an HC-only edge" is a GitLens concept VS Code names
-	// only per component. ~30 sites currently hand-roll it.
+	// An edge that exists ONLY in high contrast. `contrastBorder` is null in dark and light and set in
+	// both HC variants, so this self-collapses with no media query. Not `widget.border`: its registry
+	// default is null outside HC too, but every default theme sets it (Dark Modern `#313131`, Dark+
+	// and Light+ through dark_vs/light_vs), so it paints an edge everywhere. Minting it is rule 1's
+	// meaningful case: "an HC-only edge" is a GitLens concept VS Code names only per component.
 	// Consumers that need the 1px reserved in every theme must add their own `, transparent`
 	// fallback; without one the whole `border` shorthand goes invalid outside HC and the gutter
 	// collapses, which is usually what you want.
-	--gl-color-border-contrast: var(--vscode-widget-border);
+	--gl-color-border-contrast: var(--vscode-contrastBorder);
 
 	// ─── divider ────────────────────────────────────────────────────────────────────────────────
 	// Its own domain, NOT part of `border`. A border is the edge of a thing and belongs to the surface

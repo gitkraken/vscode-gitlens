@@ -215,7 +215,7 @@ clickable anchor (the preview is non-interactive). */
 
 			.tabs {
 				background-color: var(--vscode-sideBar-background);
-				border-bottom: var(--gl-border-width) solid var(--gl-color-border-contrast, transparent);
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
 			}
 
 			.code {

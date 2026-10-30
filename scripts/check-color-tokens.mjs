@@ -25,6 +25,7 @@ const skipDirectories = new Set(['node_modules', 'dist', 'out', '.git', '__tests
 // cannot quietly become the place orphans go to be forgotten.
 /** @type {Map<string, string>} */
 const reserved = new Map([
+	['--gl-color-border-contrast', 'awaiting migration'],
 	['--gl-color-feedback-info-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-info-quiet-fg', 'awaiting migration'],
 	['--gl-color-feedback-info-quiet-border', 'awaiting the HC companion policy'],
