@@ -11,11 +11,19 @@ export abstract class GlCommandBase implements Disposable {
 
 	private readonly _disposable: Disposable;
 
-	constructor(command: GlCommands | GlCommands[], deprecated?: GlCommandsDeprecated[]) {
+	/**
+	 * @param options.returnResult Hand what `execute` returns back to `executeCommand`'s caller. Off by
+	 *   default — most commands are fire-and-forget — and on for a command whose outcome a caller acts on.
+	 */
+	constructor(
+		command: GlCommands | GlCommands[],
+		deprecated?: GlCommandsDeprecated[],
+		options?: { returnResult?: boolean },
+	) {
 		const commands = [...(typeof command === 'string' ? [command] : command), ...(deprecated ?? [])];
 
 		const subscriptions = commands.map(cmd =>
-			registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
+			registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this, options),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}

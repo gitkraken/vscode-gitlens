@@ -1,6 +1,7 @@
 import type { AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { KeyMap } from '../../../../../config.js';
-import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
+import type { ReviewFindingNote, ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
 /** A finding set aside — fixed, wrong, or not worth doing; the reader needn't say which. */
 export type ReviewFindingState = 'dismissed';
@@ -16,6 +17,9 @@ export interface ReviewSession {
 	readonly excluded: ReadonlySet<string>;
 	/** Findings no longer open; absent = open. */
 	readonly findingStates: ReadonlyMap<string, ReviewFindingState>;
+	/** What was said about a finding after the fact — the reader's replies and the agent's additions, in
+	 *  the order they came. */
+	readonly notes: ReadonlyMap<string, readonly ReviewFindingNote[]>;
 	/** A reading order the reader took from an orient pass; files not in it follow in tree order. */
 	readonly order?: readonly string[];
 }
@@ -24,6 +28,7 @@ export const emptyReviewSession: ReviewSession = Object.freeze({
 	viewed: new Map<string, { contentId?: string }>(),
 	excluded: new Set<string>(),
 	findingStates: new Map<string, ReviewFindingState>(),
+	notes: new Map<string, readonly ReviewFindingNote[]>(),
 });
 
 export type ReviewFileProgress = 'viewed' | 'changed' | 'unviewed';
@@ -79,19 +84,25 @@ export function getReviewThreadItems(
 
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
-			if (finding.filePath == null || finding.lineRange == null) continue;
+			const notes = session?.notes.get(finding.id);
+			// One thread per place the finding holds — all of them the one finding's: same state, same notes
+			for (const [index, location] of getReviewFindingLocations(finding).entries()) {
+				if (location.lineRange == null) continue;
 
-			items.push({
-				id: finding.id,
-				path: finding.filePath,
-				line: finding.lineRange.start,
-				lineEnd: finding.lineRange.end,
-				severity: finding.severity,
-				title: finding.title,
-				description: finding.description,
-				state: session?.findingStates.get(finding.id) ?? 'open',
-				...(finding.source != null ? { source: finding.source } : {}),
-			});
+				items.push({
+					id: index === 0 ? finding.id : `${finding.id}#${index}`,
+					findingId: finding.id,
+					path: location.filePath,
+					line: location.lineRange.start,
+					lineEnd: location.lineRange.end,
+					severity: finding.severity,
+					title: finding.title,
+					description: finding.description,
+					state: session?.findingStates.get(finding.id) ?? 'open',
+					...(finding.source != null ? { source: finding.source } : {}),
+					...(notes?.length ? { notes: [...notes] } : {}),
+				});
+			}
 		}
 	}
 	return items;
@@ -203,30 +214,40 @@ export function getReviewFileFindings(
 	const openTargets = new Set<string>();
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
-			if (finding.filePath == null) continue;
-
-			let entry = byPath.get(finding.filePath);
-			if (entry == null) {
-				entry = { open: 0, closed: 0 };
-				byPath.set(finding.filePath, entry);
-			}
-
 			const open = session?.findingStates.get(finding.id) == null;
-			if (finding.lineRange != null && !openTargets.has(finding.filePath) && (open || entry.target == null)) {
-				entry.target = finding.lineRange;
-				if (open) {
-					openTargets.add(finding.filePath);
+			// A finding counts once per file it holds in, however many places it has there
+			const counted = new Set<string>();
+			for (const location of getReviewFindingLocations(finding)) {
+				let entry = byPath.get(location.filePath);
+				if (entry == null) {
+					entry = { open: 0, closed: 0 };
+					byPath.set(location.filePath, entry);
 				}
-			}
 
-			if (!open) {
-				entry.closed++;
-				continue;
-			}
+				if (
+					location.lineRange != null &&
+					!openTargets.has(location.filePath) &&
+					(open || entry.target == null)
+				) {
+					entry.target = location.lineRange;
+					if (open) {
+						openTargets.add(location.filePath);
+					}
+				}
 
-			entry.open++;
-			if (entry.severity == null || severityRank[finding.severity] < severityRank[entry.severity]) {
-				entry.severity = finding.severity;
+				if (counted.has(location.filePath)) continue;
+
+				counted.add(location.filePath);
+
+				if (!open) {
+					entry.closed++;
+					continue;
+				}
+
+				entry.open++;
+				if (entry.severity == null || severityRank[finding.severity] < severityRank[entry.severity]) {
+					entry.severity = finding.severity;
+				}
 			}
 		}
 	}
@@ -290,6 +311,24 @@ export function withFindingState(
 		next.set(findingId, state);
 	}
 	return { ...session, findingStates: next };
+}
+
+/** Appends a note to a finding; an empty one is ignored. */
+export function withFindingNote(session: ReviewSession, findingId: string, note: ReviewFindingNote): ReviewSession {
+	const text = note.text.trim();
+	if (!text) return session;
+
+	const next = new Map(session.notes);
+	next.set(findingId, [...(session.notes.get(findingId) ?? []), { ...note, text: text }]);
+	return { ...session, notes: next };
+}
+
+/** Drops every finding's state and notes — for a result that is being discarded; viewed marks and
+ *  exclusions belong to the changeset and stay. */
+export function withoutFindings(session: ReviewSession): ReviewSession {
+	if (session.findingStates.size === 0 && session.notes.size === 0) return session;
+
+	return { ...session, findingStates: emptyReviewSession.findingStates, notes: emptyReviewSession.notes };
 }
 
 export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';

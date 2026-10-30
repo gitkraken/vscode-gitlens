@@ -117,8 +117,10 @@ import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
+	ReviewDeepReviewDetail,
 	ReviewFileExcludedDetail,
 	ReviewFilesViewedDetail,
+	ReviewFindingNoteDetail,
 	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
 	ReviewReadingStepDetail,
@@ -2390,12 +2392,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** {@link DetailsWorkflowHost.sendReviewFindingToAgent} */
-	sendReviewFindingToAgent(findingId: string): void {
-		this.findReviewModePanel()?.sendFindingToAgent(findingId);
+	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
+		this.findReviewModePanel()?.sendFindingToAgent(findingId, instructions);
+	}
+
+	/** {@link DetailsWorkflowHost.askReviewerAboutFinding} */
+	askReviewerAboutFinding(findingId: string, question?: string): void {
+		this.findReviewModePanel()?.askReviewer(findingId, question);
 	}
 
 	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
-	private _reviewThreadsSynced?: { result: unknown; findingStates: unknown; scope: unknown; repoPath: unknown };
+	private _reviewThreadsSynced?: {
+		result: unknown;
+		findingStates: unknown;
+		notes: unknown;
+		scope: unknown;
+		repoPath: unknown;
+	};
 
 	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
 	 *  when one of the inputs changed and clearing once the review is gone. */
@@ -2409,6 +2422,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const value = entry?.result ?? (entry != null ? this._actions.resources.review.value.get() : undefined);
 		const result = value != null && 'result' in value ? value.result : undefined;
 		const findingStates = entry?.session?.findingStates;
+		const notes = entry?.session?.notes;
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
 		const synced = this._reviewThreadsSynced;
@@ -2416,6 +2430,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced != null &&
 			synced.result === result &&
 			synced.findingStates === findingStates &&
+			synced.notes === notes &&
 			synced.scope === scope &&
 			synced.repoPath === repoPath
 		) {
@@ -2431,7 +2446,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this._reviewThreadsSynced = { result: result, findingStates: findingStates, scope: scope, repoPath: repoPath };
+		this._reviewThreadsSynced = {
+			result: result,
+			findingStates: findingStates,
+			notes: notes,
+			scope: scope,
+			repoPath: repoPath,
+		};
 		const args: ReviewThreadsArgs = {
 			repoPath: repoPath,
 			rhs: endpoints.rhs,
@@ -4115,6 +4136,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
 			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
 				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
+			@review-finding-note=${(e: CustomEvent<ReviewFindingNoteDetail>) =>
+				this._workflow.review.addFindingNote(e.detail.findingId, e.detail.text)}
 			@review-orient=${(e: CustomEvent<{ prompt?: string }>) => {
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');
@@ -4126,14 +4149,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.runOrient(this.effectiveRepoPath, e.detail?.prompt, excludedFiles);
 			}}
 			@review-orient-clear=${() => this._workflow.review.clearOrient()}
-			@review-deep-review=${(e: CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>) =>
+			@review-deep-review=${(e: CustomEvent<ReviewDeepReviewDetail>) =>
 				void this._workflow.review.startDeepReview(
 					this.effectiveRepoPath,
 					e.detail.prompt,
 					e.detail.scopeLabel,
 					e.detail.files,
+					e.detail.priorFindings,
+					e.detail.focus,
 				)}
-			@review-deep-review-stop=${() => this._workflow.review.stopDeepReview()}
+			@review-deep-review-hide=${() => this._workflow.review.hideDeepReview()}
 			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>
 				this._actions.stepReviewReading(e.detail.action, e.detail.path)}
 			@review-reading-order=${(e: CustomEvent<{ paths: string[] }>) => {
@@ -4525,7 +4550,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const repoPath = this.effectiveRepoPath;
 		if (!repoPath) return;
 
-		const { granularity, scopeLabel, reviewMarkdown } = e.detail;
+		const { granularity, scopeLabel, reviewMarkdown, instructions } = e.detail;
 		if (!reviewMarkdown) return;
 
 		this._actions.sendTelemetryEvent('graphDetails/review/sentToAgent', { granularity: granularity });
@@ -4535,6 +4560,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			scopeLabel: scopeLabel,
 			reviewMarkdown: reviewMarkdown,
 			granularity: granularity,
+			instructions: instructions,
 		});
 	}
 

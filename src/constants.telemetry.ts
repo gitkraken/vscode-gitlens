@@ -1642,7 +1642,7 @@ interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 }
 
 interface GraphDetailsReviewDeepReviewFailedEvent extends GraphContextEventData {
-	reason: 'no-agents' | 'no-channel' | 'error';
+	reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error';
 }
 
 interface GraphDetailsReviewDeepReviewFinishedEvent extends GraphContextEventData {

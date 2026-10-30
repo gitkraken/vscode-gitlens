@@ -12,6 +12,7 @@ import type {
 	AIReviewOrientResult,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import { redispatch } from '@gitlens/components/components/element.js';
 import {
 	boxSizingBase,
@@ -53,10 +54,13 @@ import {
 	panelScopeSplitStyles,
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
+import type { ReviewFormatOptions } from './reviewFormat.js';
 import {
 	formatFindingAsMarkdown,
+	formatFindingForAgentContext,
 	formatFocusAreaAsMarkdown,
 	formatReviewAsMarkdown,
+	formatReviewForAgentContext,
 	getReviewFindingTitle,
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
@@ -123,6 +127,21 @@ export interface ReviewFindingStateDetail {
 	state: ReviewFindingState | undefined;
 }
 
+export interface ReviewFindingNoteDetail {
+	findingId: string;
+	text: string;
+}
+
+export interface ReviewDeepReviewDetail {
+	prompt?: string;
+	scopeLabel: string;
+	files: string[];
+	/** The earlier review's findings as context (see `formatReviewForAgentContext`); absent without one */
+	priorFindings?: string;
+	/** A question on one finding instead of a whole review (see `DeepReviewArgs.focus`) */
+	focus?: { findingId: string; finding: string; question?: string };
+}
+
 export interface ReviewAnalyzeAreaDetail {
 	focusAreaId: string;
 	files: string[];
@@ -132,6 +151,8 @@ export interface ReviewSendToChatDetail {
 	granularity: 'review' | 'focusArea' | 'finding';
 	scopeLabel: string;
 	reviewMarkdown: string;
+	/** What the reader asked for along with the hand-off — their reply on the finding's thread */
+	instructions?: string;
 }
 
 export interface ReviewCopiedDetail {
@@ -228,7 +249,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	/** The delegated deep review on this anchor, while one is open or once it reported done. */
 	@property({ attribute: false })
-	deepReview?: { active: boolean; done: boolean; count: number };
+	deepReview?: { active: boolean; done: boolean; count: number; purpose?: 'review' | 'ask'; hidden?: boolean };
+
+	/** A whole review by the agent is under way — a channel open only for questions on findings is not one */
+	private get deepReviewRunning(): boolean {
+		return this.deepReview?.active === true && !this.deepReview.done && this.deepReview.purpose !== 'ask';
+	}
 
 	/** Whether a deep review can start here at all; unknown (`undefined`) keeps the depth offered. */
 	@property({ attribute: false })
@@ -548,10 +574,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 			<gl-button
 				appearance="secondary"
 				tooltip=${l10n.t('Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review')}
-				?disabled=${this.deepReview?.active || this.getEffectiveFileCount() === 0}
+				?disabled=${this.deepReviewRunning || this.getEffectiveFileCount() === 0}
 				@click=${this.handleDeepReview}
 			>
-				<code-icon icon=${this.deepReview?.active ? 'loading' : 'robot'} slot="prefix"></code-icon
+				<code-icon icon=${this.deepReviewRunning ? 'loading' : 'robot'} slot="prefix"></code-icon
 				>${l10n.t('Review in Repo')}
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Delete Findings')}</gl-button>
@@ -575,8 +601,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private formatOptions(): { scopeLabel: string; dismissed: ReadonlySet<string> } {
-		return { scopeLabel: this.scopeContextLabel(), dismissed: getClosedFindingIds(this.session) };
+	private formatOptions(): ReviewFormatOptions {
+		return {
+			scopeLabel: this.scopeContextLabel(),
+			dismissed: getClosedFindingIds(this.session),
+			notes: this.session?.notes,
+		};
 	}
 
 	private buildReviewMarkdown(
@@ -587,7 +617,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			return this.result ? formatReviewAsMarkdown(this.result, this.formatOptions()) : '';
 		}
 		if (granularity === 'focusArea' && opts.area) {
-			return formatFocusAreaAsMarkdown(opts.area, getClosedFindingIds(this.session));
+			return formatFocusAreaAsMarkdown(opts.area, getClosedFindingIds(this.session), this.session?.notes);
 		}
 		if (granularity === 'finding' && opts.finding) {
 			const enclosing = opts.area
@@ -597,25 +627,58 @@ export class GlDetailsReviewModePanel extends LitElement {
 						rationale: opts.area.rationale,
 					}
 				: undefined;
-			return formatFindingAsMarkdown(opts.finding, enclosing);
+			return formatFindingAsMarkdown(opts.finding, enclosing, this.session?.notes.get(opts.finding.id));
 		}
 		return '';
 	}
 
-	/** Send-to-Agent for one finding by id — the editor's thread action reaches the panel this way. */
-	sendFindingToAgent(findingId: string): void {
+	/** Send-to-Agent for one finding by id — the editor's thread action reaches the panel this way.
+	 *  `remark` is what the reader said on the thread along with the hand-off: the thing to act on. */
+	sendFindingToAgent(findingId: string, remark?: string): void {
+		const found = this.findFinding(findingId);
+		if (found == null) return;
+
+		const instructions = remark
+			? `The reader's latest remark on this finding, from its thread, is what to act on: "${remark}"`
+			: undefined;
+		this.handleSendToChat('finding', { area: found.area, finding: found.finding, instructions: instructions });
+	}
+
+	/** A reader's question on one finding, for the review agent: goes as a focused Review in Repo — into
+	 *  the running channel and session when there is one — with the finding and its thread as context. */
+	askReviewer(findingId: string, question?: string): void {
+		const found = this.findFinding(findingId);
+		if (found == null) return;
+
+		const context = formatFindingForAgentContext(
+			found.finding,
+			this.session?.findingStates.get(findingId),
+			this.session?.notes.get(findingId),
+		);
+		this.dispatchEvent(
+			new CustomEvent<ReviewDeepReviewDetail>('review-deep-review', {
+				detail: {
+					scopeLabel: this.scopeContextLabel(),
+					files: this.readingOrder,
+					focus: { findingId: findingId, finding: context, question: question },
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private findFinding(findingId: string): { area: AIReviewFocusArea; finding: AIReviewFinding } | undefined {
 		for (const area of this.result?.focusAreas ?? []) {
 			const finding = area.findings?.find(f => f.id === findingId);
-			if (finding != null) {
-				this.handleSendToChat('finding', { area: area, finding: finding });
-				return;
-			}
+			if (finding != null) return { area: area, finding: finding };
 		}
+		return undefined;
 	}
 
 	private handleSendToChat(
 		granularity: 'review' | 'focusArea' | 'finding',
-		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding } = {},
+		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding; instructions?: string } = {},
 	): void {
 		const reviewMarkdown = this.buildReviewMarkdown(granularity, opts);
 		if (!reviewMarkdown) return;
@@ -626,6 +689,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					granularity: granularity,
 					scopeLabel: this.scopeContextLabel(),
 					reviewMarkdown: reviewMarkdown,
+					instructions: opts.instructions,
 				},
 				bubbles: true,
 				composed: true,
@@ -836,17 +900,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 											)
 										}
 										?disabled=${
-											this.deepReview?.active ||
+											this.deepReviewRunning ||
 											!hasSelectedFiles ||
 											this.deepReviewUnavailableReason != null
 										}
 										@click=${this.handleDeepReview}
 									>
 										<code-icon
-											icon=${this.deepReview?.active ? 'loading' : 'robot'}
+											icon=${this.deepReviewRunning ? 'loading' : 'robot'}
 											slot="prefix"
 										></code-icon>
-										${this.deepReview?.active ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
+										${this.deepReviewRunning ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
 									</gl-button>
 								</gl-ai-input>`,
 							)}
@@ -1377,12 +1441,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 	};
 
 	private handleDeepReview = (): void => {
+		// What an earlier run found goes along — every finding, open or closed, with what the reader said —
+		// so the agent adds to it rather than finding it again
+		const priorFindings = this.result
+			? formatReviewForAgentContext(this.result, this.session?.findingStates, this.session?.notes)
+			: '';
 		this.dispatchEvent(
-			new CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>('review-deep-review', {
+			new CustomEvent<ReviewDeepReviewDetail>('review-deep-review', {
 				detail: {
 					prompt: this.idleDraftLive || undefined,
 					scopeLabel: this.scopeContextLabel(),
 					files: this.readingOrder,
+					priorFindings: priorFindings || undefined,
 				},
 				bubbles: true,
 				composed: true,
@@ -1390,36 +1460,35 @@ export class GlDetailsReviewModePanel extends LitElement {
 		);
 	};
 
-	private handleDeepReviewStop = (): void => {
-		this.dispatchEvent(new CustomEvent('review-deep-review-stop', { bubbles: true, composed: true }));
+	private handleDeepReviewHide = (): void => {
+		this.dispatchEvent(new CustomEvent('review-deep-review-hide', { bubbles: true, composed: true }));
 	};
 
 	/** The deep review's status strip — while the agent works and once it reported done. */
 	private renderDeepReviewStrip() {
 		const deep = this.deepReview;
-		if (deep == null || (!deep.active && !deep.done)) return nothing;
+		if (deep?.hidden || deep == null || (!deep.active && !deep.done) || deep.purpose === 'ask') return nothing;
 
+		// Finished once the agent said so — its channel may stay open for what it reports later
+		const running = deep.active && !deep.done;
 		const count = formatPlural(
 			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
 			{ count: deep.count },
 		);
 		return html`<div class="review-deep" role="status">
-			<code-icon class="review-deep__icon" icon=${deep.active ? 'loading' : 'robot'}></code-icon>
+			<code-icon class="review-deep__icon" icon=${running ? 'loading' : 'robot'}></code-icon>
 			<span class="review-deep__text"
-				>${deep.active ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${count}</span
+				>${running ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${count}</span
 			>
-			${
-				deep.active
-					? html`<gl-button
-							appearance="toolbar"
-							density="compact"
-							tooltip=${l10n.t('Stop')}
-							@click=${this.handleDeepReviewStop}
-						>
-							<code-icon icon="close"></code-icon>
-						</gl-button>`
-					: nothing
-			}
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip=${l10n.t('Hide — what the agent reports still lands in the review')}
+				aria-label=${l10n.t('Hide')}
+				@click=${this.handleDeepReviewHide}
+			>
+				<code-icon icon="close"></code-icon>
+			</gl-button>
 		</div>`;
 	}
 
@@ -1806,7 +1875,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
 					<span class="review-area__file-count"
 						>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
-							count: area.files.length,
+							count: this.getAreaFiles(area).length,
 						})}</span
 					>
 				</button>
@@ -1817,7 +1886,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					? html`<div class="review-area__body">
 							<div class="review-area__rationale">${area.rationale}</div>
 							<div class="review-area__files">
-								${area.files.map(f => {
+								${this.getAreaFiles(area).map(f => {
 									// Split off a trailing `:line` or `:start-end` so the line range gets a
 									// muted color (it's a locator, not part of the path).
 									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
@@ -1827,9 +1896,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 									// Without a locator of its own, the link lands on the area's first finding in
 									// the file — the thread is there, not at the top
 									if (start == null) {
-										const first = area.findings?.find(
-											fi => fi.filePath === path && fi.lineRange != null,
-										);
+										const first = area.findings
+											?.flatMap(fi => getReviewFindingLocations(fi))
+											.find(l => l.filePath === path && l.lineRange != null);
 										start = first?.lineRange?.start;
 										end = first?.lineRange?.end ?? start;
 									}
@@ -2014,6 +2083,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 					>
 						<code-icon icon="comment-discussion-sparkle"></code-icon>
 					</gl-button>
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						tooltip=${l10n.t('Leave a Comment')}
+						aria-label=${l10n.t('Leave a Comment')}
+						aria-expanded=${this._replyingTo === finding.id ? 'true' : 'false'}
+						@click=${() => this.toggleReply(finding.id)}
+					>
+						<code-icon icon="reply"></code-icon>
+					</gl-button>
 					${
 						state == null
 							? html`<gl-button
@@ -2038,34 +2117,46 @@ export class GlDetailsReviewModePanel extends LitElement {
 				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
-			${
-				finding.filePath
-					? html`<button
-							class="review-finding__location"
-							@click=${() =>
-								this.handleOpenFile(
-									finding.filePath!,
-									finding.lineRange?.start,
-									finding.lineRange?.end,
-								)}
-						>
-							<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
-							<span class="review-finding__location-text">${finding.filePath}</span>
-							${
-								finding.lineRange
-									? html`<span class="review-finding__location-lines"
-											>:${finding.lineRange.start}${
-												finding.lineRange.end !== finding.lineRange.start
-													? `-${finding.lineRange.end}`
-													: ''
-											}</span
-										>`
-									: nothing
-							}
-						</button>`
-					: nothing
-			}
+			${this.renderFindingNotes(finding.id)}
+			${getReviewFindingLocations(finding).map(
+				location => html`<button
+					class="review-finding__location"
+					@click=${() =>
+						this.handleOpenFile(location.filePath, location.lineRange?.start, location.lineRange?.end)}
+				>
+					<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
+					<span class="review-finding__location-text">${location.filePath}</span>
+					${
+						location.lineRange
+							? html`<span class="review-finding__location-lines"
+									>:${location.lineRange.start}${
+										location.lineRange.end !== location.lineRange.start
+											? `-${location.lineRange.end}`
+											: ''
+									}</span
+								>`
+							: nothing
+					}
+				</button>`,
+			)}
 		</div>`;
+	}
+
+	/** The area's files as shown: once its findings are in, the files they point at — a file no finding
+	 *  concerns has nothing to show for being listed — in the area's own order, extras after. Before the
+	 *  findings arrive (a two-pass overview), the area's list is what there is. */
+	private getAreaFiles(area: AIReviewFocusArea): readonly string[] {
+		if (area.findings == null) return area.files;
+
+		const pointed = new Set(area.findings.flatMap(f => getReviewFindingLocations(f).map(l => l.filePath)));
+		const listed = area.files.map(f => f.match(/^(.+?)(?::\d+(?:-\d+)?)?$/)?.[1] ?? f);
+		const files = area.files.filter((_, i) => pointed.has(listed[i]));
+		for (const path of pointed) {
+			if (!listed.includes(path)) {
+				files.push(path);
+			}
+		}
+		return files;
 	}
 
 	updateFocusAreaFindings(focusAreaId: string, result: AIReviewDetailResult): void {
@@ -2131,6 +2222,81 @@ export class GlDetailsReviewModePanel extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+
+	/** The finding whose reply box is open, if any. */
+	@state() private _replyingTo?: string;
+
+	private async toggleReply(findingId: string): Promise<void> {
+		this._replyingTo = this._replyingTo === findingId ? undefined : findingId;
+		if (this._replyingTo == null) return;
+
+		await this.updateComplete;
+		this.renderRoot.querySelector<HTMLInputElement>('.review-finding__reply-input')?.focus();
+	}
+
+	private submitReply(findingId: string, input: HTMLInputElement): void {
+		const text = input.value.trim();
+		if (!text) return;
+
+		this.dispatchEvent(
+			new CustomEvent<ReviewFindingNoteDetail>('review-finding-note', {
+				detail: { findingId: findingId, text: text },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		input.value = '';
+		this._replyingTo = undefined;
+	}
+
+	/** What was said about the finding after the fact, and the reply box when it is open. */
+	private renderFindingNotes(findingId: string) {
+		const notes = this.session?.notes.get(findingId);
+		const replying = this._replyingTo === findingId;
+		if (!notes?.length && !replying) return nothing;
+
+		return html`<div class="review-finding__notes">
+			${(notes ?? []).map(
+				note => html`<div class="review-finding__note review-finding__note--${note.author}">
+					<span class="review-finding__note-author"
+						>${note.author === 'agent' ? l10n.t('Agent') : l10n.t('You')}</span
+					>
+					<span class="review-finding__note-text">${note.text}</span>
+				</div>`,
+			)}
+			${
+				replying
+					? html`<div class="review-finding__reply">
+							<input
+								class="review-finding__reply-input"
+								type="text"
+								placeholder=${l10n.t('A note for the fix and the later review — why it was closed, a question, a correction…')}
+								@keydown=${(e: KeyboardEvent) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										this.submitReply(findingId, e.currentTarget as HTMLInputElement);
+									} else if (e.key === 'Escape') {
+										this._replyingTo = undefined;
+									}
+								}}
+							/>
+							<gl-button
+								appearance="secondary"
+								density="compact"
+								@click=${(e: Event) =>
+									this.submitReply(
+										findingId,
+										(e.currentTarget as HTMLElement).parentElement!.querySelector<HTMLInputElement>(
+											'.review-finding__reply-input',
+										)!,
+									)}
+								>${l10n.t('Comment')}</gl-button
+							>
+						</div>`
+					: nothing
+			}
+		</div>`;
 	}
 
 	private handleFindingState(findingId: string, state: ReviewFindingState | undefined): void {

@@ -1,64 +1,110 @@
-import type { AIReviewFinding, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import type { AIReviewFinding, AIReviewFindingLocation, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { uuid } from '@gitlens/utils/crypto.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
-import type { DeepReviewState, ScopeSelection } from './graphService.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { DeepReviewAnchor, DeepReviewState, ScopeSelection } from './graphService.js';
 
-/** The IPC route a delegated deep review reports findings to */
+/** Where a delegated deep review reports findings: each channel takes a route of its own under this,
+ *  so two graphs — or a channel left over from an earlier run — never take each other's reports */
 export const deepReviewRoute = 'review/findings';
 
-/** The slice of the IPC service the channel needs — a route it can own and the address the agent is told. */
+/** The slice of the IPC service the channel needs — a route it can own, unlocked by a token of its own, and
+ *  the address the agent is told. */
 export interface DeepReviewIpc {
 	readonly address: string | undefined;
-	readonly token: string | undefined;
 	registerHandler<Request, Response>(
 		name: string,
 		handler: (request: Request | undefined, searchParams: URLSearchParams) => Promise<Response>,
+		routeToken?: string,
 	): UnifiedDisposable;
 }
 
 /** One deep review's report channel: owns the IPC route while open, keeps what the agent reported
- *  (append-only, sequenced), and tells its owner on every change. The route closes on `done` or
- *  {@link close}; what was reported stays readable. */
+ *  (append-only, sequenced), and tells its owner on every change. `done` marks the review finished but
+ *  keeps the route — the reader may go on with the agent in its session and have it report more; the route
+ *  closes on {@link close} (a new review replaces it, the review is discarded, the graph goes). What was
+ *  reported stays readable. */
 export class DeepReviewChannel {
-	private readonly _state: DeepReviewState = { active: true, done: false, findings: [] };
+	private readonly _state: DeepReviewState;
 	private _route: UnifiedDisposable | undefined;
+	/** This channel's own route — the one the agent is told to POST to */
+	readonly route: string;
+	/** The bearer the agent is told to send: it opens this channel's route and no other. The prompt goes to
+	 *  whichever agent the reader picks — a cloud one keeps it in its history — so it must never carry the
+	 *  server's own token, which opens every route, the `gk` CLI's included */
+	readonly token: string = uuid();
 
 	constructor(
 		ipc: DeepReviewIpc,
+		run: number,
+		anchor: DeepReviewAnchor,
 		private readonly onChange: (state: DeepReviewState) => void,
+		id: string,
+		purpose: DeepReviewState['purpose'] = 'review',
 	) {
-		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(deepReviewRoute, rq =>
-			Promise.resolve({ accepted: this.report(rq) }),
+		this._state = {
+			run: run,
+			anchor: anchor,
+			purpose: purpose,
+			active: true,
+			done: false,
+			findings: [],
+			notes: [],
+		};
+		this.route = `${deepReviewRoute}/${id}`;
+		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(
+			this.route,
+			rq => Promise.resolve({ accepted: this.report(rq) }),
+			this.token,
 		);
+		Logger.debug(`DeepReview(run ${run}): open at /${this.route} for ${anchor.kind} ${anchor.repoPath}`);
 	}
 
 	get state(): DeepReviewState {
-		return { ...this._state, findings: [...this._state.findings] };
+		return { ...this._state, findings: [...this._state.findings], notes: [...this._state.notes] };
 	}
 
-	/** Takes a report in: returns how many findings it kept. A report after the channel closed is dropped. */
+	/** A whole review goes into a channel that was open only for questions: it reads as a review from now on. */
+	beginReview(): void {
+		if (!this._state.active || this._state.purpose === 'review') return;
+
+		this._state.purpose = 'review';
+		this.onChange(this.state);
+	}
+
+	/** Takes a report in: returns how many findings and notes it kept. A report after the channel closed is dropped. */
 	report(body: DeepReviewReport | undefined): number {
 		if (!this._state.active) return 0;
 
 		const next = (this._state.findings.at(-1)?.seq ?? 0) + 1;
-		const { findings, done } = parseDeepReviewReport(body, next);
+		const { findings, notes, done } = parseDeepReviewReport(body, next);
 		for (const [i, finding] of findings.entries()) {
 			this._state.findings.push({ seq: next + i, finding: finding });
 		}
+		let noteSeq = this._state.notes.at(-1)?.seq ?? 0;
+		for (const note of notes) {
+			this._state.notes.push({ seq: ++noteSeq, ...note });
+		}
+		const accepted = findings.length + notes.length;
+		Logger.debug(
+			`DeepReview(run ${this._state.run}): report accepted ${findings.length} findings, ${notes.length} notes${
+				done ? ', done' : ''
+			} (${this._state.findings.length} findings so far)`,
+		);
 		if (done) {
 			this._state.done = true;
-			this.close();
-			return findings.length;
 		}
 
 		this.onChange(this.state);
-		return findings.length;
+		return accepted;
 	}
 
 	/** Closes the route; reports after this are dropped. Notifies once, on the first close. */
 	close(): void {
 		if (!this._state.active) return;
 
+		Logger.debug(`DeepReview(run ${this._state.run}): closed with ${this._state.findings.length} findings`);
 		this._state.active = false;
 		this._route?.dispose();
 		this._route = undefined;
@@ -81,38 +127,98 @@ function lineOf(value: unknown): number | undefined {
 	return Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
+function parseLocation(value: unknown): AIReviewFindingLocation | undefined {
+	if (value == null || typeof value !== 'object') return undefined;
+
+	const l = value as Record<string, unknown>;
+	const file = typeof l.file === 'string' ? l.file.trim().replace(/^\.\//, '') : '';
+	if (!file) return undefined;
+
+	const lines = l.lines != null && typeof l.lines === 'object' ? (l.lines as Record<string, unknown>) : undefined;
+	const start = lineOf(lines?.start);
+	const end = lineOf(lines?.end) ?? start;
+	return start != null && end != null && end >= start
+		? { filePath: file, lineRange: { start: start, end: end } }
+		: { filePath: file };
+}
+
+/** The finding's places: `file`/`lines` first, then `locations`, each place once. Not `normalizeFindingLocations`
+ *  from the model's parse: that one trusts a schema-shaped answer and mends a reversed or out-of-file range,
+ *  where an agent's report is any JSON it chose to send — a range that makes no sense is dropped, the file kept,
+ *  and a path the shell gave as `./path` read as the diff shows it. */
+function parseLocations(f: Record<string, unknown>): AIReviewFindingLocation[] {
+	const out: AIReviewFindingLocation[] = [];
+	const seen = new Set<string>();
+	for (const candidate of [f, ...(Array.isArray(f.locations) ? f.locations : [])]) {
+		const location = parseLocation(candidate);
+		if (location == null) continue;
+
+		const key = `${location.filePath}:${location.lineRange?.start ?? ''}-${location.lineRange?.end ?? ''}`;
+		if (seen.has(key)) continue;
+
+		seen.add(key);
+		out.push(location);
+	}
+	return out;
+}
+
 /** Reads the findings out of an agent's report — tolerant of what an agent will plausibly send, strict
  *  about what it keeps: a finding needs a title; a file is kept as-is (the agent read the real file),
- *  a line range only when both ends make sense. Ids continue from `nextSeq`. */
+ *  a line range only when both ends make sense. Ids continue from `nextSeq`. An item that names a
+ *  `findingId` with a `comment` is not a finding but a note on one that already exists. */
 export function parseDeepReviewReport(
 	body: DeepReviewReport | undefined,
 	nextSeq: number,
-): { findings: AIReviewFinding[]; done: boolean } {
+): { findings: AIReviewFinding[]; notes: { findingId: string; text: string }[]; done: boolean } {
 	const findings: AIReviewFinding[] = [];
+	const notes: { findingId: string; text: string }[] = [];
 	let seq = nextSeq;
 	const raw = Array.isArray(body?.findings) ? body.findings : [];
 	for (const item of raw) {
 		if (item == null || typeof item !== 'object') continue;
 
 		const f = item as Record<string, unknown>;
+		const findingId = typeof f.findingId === 'string' ? f.findingId.trim() : '';
+		const comment = typeof f.comment === 'string' ? f.comment.trim() : '';
+		if (findingId) {
+			if (comment) {
+				notes.push({ findingId: findingId, text: comment });
+			}
+			continue;
+		}
+
 		const title = typeof f.title === 'string' ? f.title.trim() : '';
 		if (!title) continue;
 
-		const file = typeof f.file === 'string' ? f.file.trim().replace(/^\.\//, '') : '';
-		const lines = f.lines != null && typeof f.lines === 'object' ? (f.lines as Record<string, unknown>) : undefined;
-		const start = lineOf(lines?.start);
-		const end = lineOf(lines?.end) ?? start;
+		const locations = parseLocations(f);
+		const [first] = locations;
 		findings.push({
 			id: `agent-${seq++}`,
 			severity: severityOf(f.severity),
 			title: title,
 			description: typeof f.description === 'string' ? f.description.trim() : '',
-			filePath: file || undefined,
-			lineRange: file && start != null && end != null && end >= start ? { start: start, end: end } : undefined,
+			filePath: first?.filePath,
+			lineRange: first?.lineRange,
+			...(locations.length > 1 ? { locations: locations } : {}),
 			source: 'agent',
 		});
 	}
-	return { findings: findings, done: body?.done === true };
+	return { findings: findings, notes: notes, done: body?.done === true };
+}
+
+/** The prompt's section on an earlier review: what it found, what the reader said, and how the agent adds
+ *  to one of those findings instead of reporting it again. `priorFindings` is the panel's rendering of
+ *  the findings (see `formatReviewForAgentContext`), ids included. */
+export function getDeepReviewPriorFindingsSection(priorFindings: string, endpoint: string, token: string): string {
+	return `A review of the diff alone has already run. Its findings are below, each with its id, its state — open, or dismissed by the reader — and what the reader said about it. Do not report any of them again. Use them as leads: verify each in the repository — read the callers, run the tests — and report what the diff alone could not show. A dismissed finding is closed: already fixed, judged wrong, or not worth doing; take the reader's word on it unless you have evidence to the contrary.
+
+To add to one of these findings — evidence for or against it, a scope that is wider or narrower than stated, a consequence elsewhere — POST a comment on it instead of a new finding:
+
+curl -s -X POST '${endpoint}' -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"findings":[{"findingId":"<id>","comment":"What you found about it."}]}'
+
+<prior-findings>
+${priorFindings}
+</prior-findings>`;
 }
 
 /** The shell command that shows the scope's changes — what the agent is told to run first. */
