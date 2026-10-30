@@ -56,6 +56,8 @@ export async function listPullRequestsPage(
 		summary?: boolean;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		scopeConcurrency?: number;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		includeRemoteInfo?: boolean;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -145,6 +147,7 @@ export async function listPullRequestsPage(
 		pageSize: options.itemsPerPage,
 		summary: options.summary,
 		scopeConcurrency: options.scopeConcurrency,
+		includeRemoteInfo: options.includeRemoteInfo,
 	};
 	const readPage = (pageCursor: string | undefined, requestedPage?: number) =>
 		runCaptured(
