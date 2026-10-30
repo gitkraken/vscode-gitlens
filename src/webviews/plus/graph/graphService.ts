@@ -1,5 +1,5 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
-import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewDetailResult, AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -303,6 +303,35 @@ export type ScopeFile = GitFileChangeShape & {
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
+export type ReviewThreadState = 'open' | 'dismissed';
+
+/** A finding as the diff editor shows it: an inline comment thread at its line. */
+export interface ReviewThreadItem {
+	id: string;
+	path: string;
+	line: number;
+	lineEnd: number;
+	severity: AIReviewSeverity;
+	title: string;
+	description: string;
+	state: ReviewThreadState;
+}
+
+export interface ReviewThreadsArgs {
+	repoPath: string;
+	/** The side of the review's diff the threads sit on — what document they open in. */
+	rhs: string;
+	items: ReviewThreadItem[];
+}
+
+export type ReviewThreadAction = 'dismiss' | 'reopen' | 'sendToAgent';
+
+/** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
+ *  for a while applies exactly the ones it hasn't. */
+export interface ReviewThreadActionsState {
+	actions: { seq: number; findingId: string; action: ReviewThreadAction }[];
+}
+
 /**
  * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
  * "follow up on the host-cached review conversation" — the prompt becomes a refine turn layered
@@ -605,6 +634,10 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** Mirrors the review's findings as inline comment threads in their diffs; `undefined` clears them. */
+	setReviewThreads(args: ReviewThreadsArgs | undefined): Promise<void>;
+	/** Thread actions taken from the editor (resolve, dismiss, reopen, send to agent). */
+	readonly onReviewThreadActions: RpcEventSubscription<ReviewThreadActionsState | undefined>;
 	/**
 	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
 	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce

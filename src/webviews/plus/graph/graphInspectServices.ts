@@ -133,6 +133,8 @@ import type {
 	ReviewChangesOptions,
 	ReviewDetailResult,
 	ReviewResult,
+	ReviewThreadAction,
+	ReviewThreadActionsState,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
@@ -142,6 +144,7 @@ import type {
 import type { ResolveRunErrors } from './resolveAIUnavailable.js';
 import { classifyResolveRunErrors, findAIUnavailableError, isAIQuotaExceededError } from './resolveAIUnavailable.js';
 import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
+import { releaseReviewThreads, setReviewThreads } from './reviewThreads.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
  *  assembled by `GraphWebviewProvider.createGraphInspectContext()`. `getSession` reads live provider
@@ -329,8 +332,15 @@ export class GraphInspectServices {
 		'resolveProgress',
 		'save-last',
 	);
+	private readonly _reviewThreadActionsEvent = createRpcEvent<ReviewThreadActionsState | undefined>(
+		'reviewThreadActions',
+		'save-last',
+	);
+	/** Thread actions taken from the editor, kept append-only so a hidden panel catches up on all of them. */
+	private readonly _reviewThreadActions: ReviewThreadActionsState = { actions: [] };
 
 	dispose(): void {
+		releaseReviewThreads(this);
 		// AI runs (generate/review/compose) are driven by the webview's AbortController, which can't
 		// fire once the webview is gone — cancel host-side so the AI call doesn't run for a discarded result.
 		cancelAndDispose(this._aiCancellations);
@@ -527,6 +537,13 @@ export class GraphInspectServices {
 						excludedFiles,
 						signal,
 					),
+				setReviewThreads: args => {
+					setReviewThreads(this.container, this, args);
+					return Promise.resolve();
+				},
+				onReviewThreadActions: this._reviewThreadActionsEvent.subscribe(buffer, tracker, () =>
+					this._reviewThreadActions.actions.length ? this._reviewThreadActions : undefined,
+				),
 				trackReviewAction: args => {
 					if (args.action === 'copy') {
 						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
@@ -1320,6 +1337,13 @@ export class GraphInspectServices {
 		} finally {
 			disposeCancellation();
 		}
+	}
+
+	/** {@link ReviewThreadsOwner} — a thread's title-bar command lands here and is relayed to the webview. */
+	reviewThreadAction(findingId: string, action: ReviewThreadAction): void {
+		const actions = this._reviewThreadActions.actions;
+		actions.push({ seq: (actions.at(-1)?.seq ?? 0) + 1, findingId: findingId, action: action });
+		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
 	}
 
 	private async reviewFocusArea(

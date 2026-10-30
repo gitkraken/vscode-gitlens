@@ -7328,6 +7328,48 @@
 				]
 			}
 		},
+		"gitlens.review.dismissFinding": {
+			"label": "Dismiss Finding",
+			"icon": "$(check)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.review.reopenFinding": {
+			"label": "Reopen Finding",
+			"icon": "$(issue-reopened)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == dismissed",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.sendFindingToAgent": {
+			"label": "Address Finding with Agent",
+			"icon": "$(comment-discussion-sparkle)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
+						"group": "inline",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.reviewChanges:graph": {
 			"label": "Review Changes...",
 			"icon": "$(checklist)",

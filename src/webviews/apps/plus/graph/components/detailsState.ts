@@ -151,6 +151,8 @@ export type RunningOperation =
 			focusAreaRuns?: ReadonlyMap<string, AbortController>;
 			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
 			session?: ReviewSession;
+			/** Sequence of the last editor-made thread action folded into the session. */
+			threadActionsApplied?: number;
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';

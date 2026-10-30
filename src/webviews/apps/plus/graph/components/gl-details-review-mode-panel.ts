@@ -508,6 +508,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return '';
 	}
 
+	/** Send-to-Agent for one finding by id — the editor's thread action reaches the panel this way. */
+	sendFindingToAgent(findingId: string): void {
+		for (const area of this.result?.focusAreas ?? []) {
+			const finding = area.findings?.find(f => f.id === findingId);
+			if (finding != null) {
+				this.handleSendToChat('finding', { area: area, finding: finding });
+				return;
+			}
+		}
+	}
+
 	private handleSendToChat(
 		granularity: 'review' | 'focusArea' | 'finding',
 		opts: { area?: AIReviewFocusArea; finding?: AIReviewFinding } = {},
