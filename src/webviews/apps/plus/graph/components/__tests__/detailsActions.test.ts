@@ -9,6 +9,7 @@ import type {
 	CommitResult,
 	ComposeResult,
 	ComposeSessionKey,
+	DeepReviewAvailability,
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
@@ -1027,5 +1028,71 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 		await actions.ensureBranchCommitsCover(undefined, ['h']);
 
 		assert.strictEqual(calls(), 0, 'nothing to cover');
+	});
+});
+
+suite('DetailsActions — Review in Repo availability', () => {
+	/** Services whose every event subscription is inert, except the availability push, which the test drives. */
+	function setup(fetch: () => Promise<DeepReviewAvailability>) {
+		let push: ((availability: DeepReviewAvailability) => void) | undefined;
+		const inert = () => () => undefined;
+		const withInertEvents = (target: Record<string, unknown>) =>
+			new Proxy(target, { get: (t, name) => (typeof name === 'string' ? (t[name] ?? inert) : undefined) });
+		const services = {
+			graphInspect: withInertEvents({
+				getDeepReviewAvailability: fetch,
+				onDeepReviewAvailability: (handler: (availability: DeepReviewAvailability) => void) => {
+					push = handler;
+					return () => undefined;
+				},
+			}),
+			config: withInertEvents({}),
+			ai: withInertEvents({}),
+		} as unknown as ResolvedServices;
+
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, services, createResources());
+		return {
+			state: state,
+			actions: actions,
+			subscribe: () => actions['subscribeEvents'](),
+			push: (availability: DeepReviewAvailability) => {
+				assert.ok(push != null, 'the actions should subscribe to the availability push');
+				push(availability);
+			},
+		};
+	}
+
+	test("the host's push lifts an answer given before the local channel was up", async () => {
+		const { state, actions, subscribe, push } = setup(async () => ({ available: false, reason: 'no-channel' }));
+
+		await actions.refreshDeepReviewAvailability();
+		await subscribe();
+		push({ available: true });
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
+	});
+
+	test('a push outdates a fetch still in flight', async () => {
+		let resolveFetch: ((value: DeepReviewAvailability) => void) | undefined;
+		const { state, actions, subscribe, push } = setup(() => new Promise(resolve => (resolveFetch = resolve)));
+
+		await subscribe();
+		const fetching = actions.refreshDeepReviewAvailability();
+		push({ available: true });
+		resolveFetch?.({ available: false, reason: 'no-channel' });
+		await fetching;
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
+	});
+
+	test('a refresh after a push replaces it', async () => {
+		const { state, actions, subscribe, push } = setup(async () => ({ available: true }));
+
+		await subscribe();
+		push({ available: false, reason: 'no-agents' });
+		await actions.refreshDeepReviewAvailability();
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
 	});
 });

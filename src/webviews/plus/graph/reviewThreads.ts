@@ -55,7 +55,7 @@ function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
 		{
 			body: body,
 			mode: CommentMode.Preview,
-			author: { name: l10n.t('GitLens AI Review') },
+			author: { name: item.source === 'agent' ? l10n.t('Review in Repo (agent)') : l10n.t('GitLens AI Review') },
 			contextValue: item.state,
 		},
 	];

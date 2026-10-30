@@ -7,7 +7,13 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Container } from '../../../../container.js';
 import type { ConflictProgressEvent } from '../../../../plus/coretools/conflict/types.js';
 import { GraphInspectServices } from '../graphInspectServices.js';
-import type { ComposeSessionKey, GraphInspectService, ResolveProgressUpdate, ScopeSelection } from '../graphService.js';
+import type {
+	ComposeSessionKey,
+	DeepReviewAvailability,
+	GraphInspectService,
+	ResolveProgressUpdate,
+	ScopeSelection,
+} from '../graphService.js';
 
 // `getDiffForScope` is private and only reaches `this.container.git.getRepositoryService(repoPath)` and
 // `this.buildChangesContext(...)`, so we exercise it against a minimal fake `this` rather than constructing
@@ -458,7 +464,9 @@ function createReviewFake(
 		_reviewHistoryCache: new LruMap(4),
 		_composeProgressEvent: noopEvent,
 		_resolveProgressEvent: noopEvent,
+		_reviewReadingEvent: noopEvent,
 		_reviewThreadActionsEvent: noopEvent,
+		_deepReviewEvent: noopEvent,
 		_reviewThreadActions: { actions: [] },
 	});
 
@@ -802,6 +810,126 @@ suite('graphInspectServices — auto-rebase progress is scoped to the graph repo
 	});
 });
 
+// `subscribeToDeepReviewAvailability` reaches `this.container.ipc`, `this.container.agents` and
+// `this.getDeepReviewAvailability`, so the fake-`this` approach applies again. The panel asks once when it
+// mounts; these pushes are what lift a "needs the local channel" that was answered before the server was up.
+
+function createDeepReviewAvailabilityFeed(answers: (() => Promise<DeepReviewAvailability>)[]) {
+	let startListener: (() => void) | undefined;
+	let agentsListener: (() => void) | undefined;
+	let disposed = 0;
+
+	const fakeThis = {
+		container: {
+			ipc: {
+				onDidStart: (listener: () => void) => {
+					startListener = listener;
+					return { dispose: () => void disposed++ };
+				},
+			},
+			agents: {
+				onDidChangeAgents: (listener: () => void) => {
+					agentsListener = listener;
+					return { dispose: () => void disposed++ };
+				},
+			},
+		},
+		getDeepReviewAvailability: () => {
+			const answer = answers.shift();
+			assert.ok(answer != null, 'asked more often than expected');
+			return answer();
+		},
+	};
+
+	const fn = (
+		GraphInspectServices.prototype as unknown as {
+			subscribeToDeepReviewAvailability: SubscribeToAutoRebaseProgress;
+		}
+	).subscribeToDeepReviewAvailability;
+	const received: unknown[] = [];
+	const unsubscribe = fn.call(fakeThis, undefined, undefined)(data => received.push(data));
+
+	return {
+		received: received,
+		ipcStarted: () => startListener?.(),
+		agentsChanged: () => agentsListener?.(),
+		unsubscribe: unsubscribe,
+		get disposed() {
+			return disposed;
+		},
+	};
+}
+
+/** Lets the pending answer promises and their continuations settle. */
+const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
+suite('graphInspectServices — Review in Repo counts a local channel that can start', () => {
+	const availability = (GraphInspectServices.prototype as unknown as Record<string, unknown>)
+		.getDeepReviewAvailability as (this: object) => Promise<DeepReviewAvailability>;
+
+	function withIpc(canStart: boolean) {
+		const ipc = { address: undefined, token: undefined, canStart: canStart, ensureStarted: sinon.spy() };
+		// No CLI agents can be detected from this container: that reads as unknown, not as none
+		return { ipc: ipc, fakeThis: { container: { ipc: ipc, agents: {} } } };
+	}
+
+	test('a server nothing has started yet counts, and asking does not start it', async () => {
+		const { ipc, fakeThis } = withIpc(true);
+		assert.deepStrictEqual(await availability.call(fakeThis), { available: true });
+		assert.strictEqual(ipc.ensureStarted.callCount, 0, 'started when a review is handed over, not for asking');
+	});
+
+	test('where no server can start, the review has no channel', async () => {
+		const { ipc, fakeThis } = withIpc(false);
+		assert.deepStrictEqual(await availability.call(fakeThis), { available: false, reason: 'no-channel' });
+		assert.strictEqual(ipc.ensureStarted.callCount, 0);
+	});
+});
+
+suite('graphInspectServices — Review in Repo availability is sent again when it can change', () => {
+	test('sends a fresh answer once the IPC server starts', async () => {
+		const feed = createDeepReviewAvailabilityFeed([async () => ({ available: true })]);
+
+		feed.ipcStarted();
+		await settle();
+
+		assert.deepStrictEqual(feed.received, [{ available: true }]);
+	});
+
+	test('sends a fresh answer when the agents list changes', async () => {
+		const feed = createDeepReviewAvailabilityFeed([async () => ({ available: false, reason: 'no-agents' })]);
+
+		feed.agentsChanged();
+		await settle();
+
+		assert.deepStrictEqual(feed.received, [{ available: false, reason: 'no-agents' }]);
+	});
+
+	test('drops an answer that settles after a newer one', async () => {
+		let resolveFirst: ((value: DeepReviewAvailability) => void) | undefined;
+		const feed = createDeepReviewAvailabilityFeed([
+			() => new Promise(resolve => (resolveFirst = resolve)),
+			async () => ({ available: true }),
+		]);
+
+		feed.agentsChanged();
+		feed.ipcStarted();
+		await settle();
+		resolveFirst?.({ available: false, reason: 'no-channel' });
+		await settle();
+
+		assert.deepStrictEqual(feed.received, [{ available: true }]);
+	});
+
+	test('stops listening when the webview unsubscribes', () => {
+		const feed = createDeepReviewAvailabilityFeed([]);
+
+		feed.unsubscribe();
+
+		assert.strictEqual(feed.disposed, 2);
+	});
+});
+
 // Feature under test (#5581): the resolver consults the repository (grep/show/blame) when a hunk alone is
 // ambiguous, and every consultation is surfaced in the panel's progress line so a long file doesn't look
 // stalled. The message is only ever produced at runtime, so assert the exact payload the webview receives —
@@ -862,7 +990,9 @@ function createResolveProgressFake() {
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		_resolveProgressEvent: {
 			subscribe: () => () => {},
@@ -943,7 +1073,9 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
@@ -1079,7 +1211,9 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_autoRebaseOwnedConversations: new Set<string>(),
 		_composeProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
@@ -1395,7 +1529,9 @@ function createResolveUnavailableFake(opts: {
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
@@ -1454,7 +1590,9 @@ function createSeededHandoffFake(handoff: {
 		_resolveConversationIds: new Map(),
 		_autoRebaseOwnedConversations: new Set(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 	});
 
@@ -1600,7 +1738,9 @@ function createResolveDuringAutoRebaseFake(opts: { session: { phase: string } | 
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewReadingEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});

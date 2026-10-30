@@ -4,6 +4,7 @@ import type { AIReviewResult } from '../../models/results.js';
 import {
 	parseReviewDetailResult,
 	parseReviewDetailResultJson,
+	parseReviewOrientJson,
 	parseReviewResult,
 	parseReviewResultJson,
 	parseSummarizeResult,
@@ -527,5 +528,52 @@ suite('parseReviewDetailResultJson', () => {
 
 		assert.deepStrictEqual(parseReviewDetailResultJson(xml, 'area-1'), parseReviewDetailResult(xml, 'area-1'));
 		assert.strictEqual(parseReviewDetailResultJson(xml, 'area-1').findings[0].id, 'area-1-f1');
+	});
+});
+
+suite('parseReviewOrientJson', () => {
+	test('keeps groups and files in order, drops a repeated file, and defaults an unknown kind', () => {
+		const result = parseReviewOrientJson(`\`\`\`json
+{"overview":" The retry engine. ","groups":[
+ {"label":"Core","kind":"core","summary":" The engine itself. ","files":[{"path":"src/retry.ts","note":"new backoff engine"},{"path":"src/service.ts","note":"adopts it"}]},
+ {"label":"","kind":"odd","files":[{"path":"src/service.ts","note":"again"},{"path":"test/retry.test.ts","note":"timing only"}]},
+ {"label":"Empty","kind":"mechanical","files":[]}
+]}
+\`\`\``);
+
+		assert.strictEqual(result.overview, 'The retry engine.');
+		assert.deepStrictEqual(
+			result.groups.map(g => ({
+				id: g.id,
+				label: g.label,
+				kind: g.kind,
+				summary: g.summary,
+				fallback: g.labelIsFallback ?? false,
+				files: g.files.map(f => f.path),
+			})),
+			[
+				{
+					id: 'group-1',
+					label: 'Core',
+					kind: 'core',
+					summary: 'The engine itself.',
+					fallback: false,
+					files: ['src/retry.ts', 'src/service.ts'],
+				},
+				{
+					id: 'group-2',
+					label: 'Untitled group',
+					kind: 'supporting',
+					summary: '',
+					fallback: true,
+					files: ['test/retry.test.ts'],
+				},
+			],
+		);
+	});
+
+	test('rejects an empty or shapeless response', () => {
+		assert.throws(() => parseReviewOrientJson('  '));
+		assert.throws(() => parseReviewOrientJson('{"overview":"no groups"}'));
 	});
 });

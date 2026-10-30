@@ -1,5 +1,11 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
-import type { AIReviewDetailResult, AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import type {
+	AIReviewDetailResult,
+	AIReviewFinding,
+	AIReviewOrientResult,
+	AIReviewResult,
+	AIReviewSeverity,
+} from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -303,6 +309,57 @@ export type ScopeFile = GitFileChangeShape & {
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
+export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
+
+export interface DeepReviewArgs {
+	repoPath: string;
+	scope: ScopeSelection;
+	/** How the panel describes the scope — what the agent is told it is reviewing */
+	scopeLabel: string;
+	/** The checklist's files, so the agent knows the whole changeset even if the diff is large */
+	files: string[];
+	prompt?: string;
+}
+
+export type DeepReviewStartResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-agents' | 'no-channel' | 'error'; message?: string };
+
+/** Whether a deep review can start here at all: the report channel needs the local server (absent on
+ *  the web) and an agent must be available to hand the changes to. */
+export type DeepReviewAvailability = { available: true } | { available: false; reason: 'no-agents' | 'no-channel' };
+
+/** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
+ *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
+export interface DeepReviewState {
+	active: boolean;
+	done: boolean;
+	findings: { seq: number; finding: AIReviewFinding }[];
+}
+
+export type ReviewReadingAction = 'next' | 'previous' | 'markViewed';
+
+/** A review file to open in its diff — placed beside an editor-hosted graph, the way the reading steps place theirs. */
+export interface ReviewOpenFileArgs {
+	repoPath: string;
+	lhs: string;
+	rhs: string;
+	path: string;
+	line?: number;
+	lineEnd?: number;
+}
+
+/** The files a review is reading: any of their diffs gets the reading commands (title buttons and
+ *  keybindings), which step through them in this order. */
+export interface ReviewFilesArgs {
+	repoPath: string;
+	/** Refs the diffs open with — the same endpoints the panel's own file links use. */
+	lhs: string;
+	rhs: string;
+	/** The files, in reading order. */
+	paths: string[];
+}
+
 export type ReviewThreadState = 'open' | 'dismissed';
 
 /** A finding as the diff editor shows it: an inline comment thread at its line. */
@@ -315,6 +372,7 @@ export interface ReviewThreadItem {
 	title: string;
 	description: string;
 	state: ReviewThreadState;
+	source?: 'agent';
 }
 
 export interface ReviewThreadsArgs {
@@ -330,6 +388,14 @@ export type ReviewThreadAction = 'dismiss' | 'reopen' | 'sendToAgent';
  *  for a while applies exactly the ones it hasn't. */
 export interface ReviewThreadActionsState {
 	actions: { seq: number; findingId: string; action: ReviewThreadAction }[];
+}
+
+/** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only
+ *  for one set of files, so a panel that was hidden for a while applies only the marks it hasn't seen. */
+export interface ReviewReadingState {
+	/** The review file whose diff is the active editor, when one is. */
+	active?: string;
+	marked: string[];
 }
 
 /**
@@ -634,6 +700,37 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** The deep depth: hands the scope to an agent that can build, test and read beyond the diff, with a
+	 *  channel to report findings back into this review. Findings arrive on {@link onDeepReview}. */
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult>;
+	/** Closes the report channel; what was reported stays. */
+	stopDeepReview(): Promise<void>;
+	/** Whether {@link startDeepReview} could succeed here — the panel disables the depth with the reason
+	 *  rather than letting a click find out. */
+	getDeepReviewAvailability(): Promise<DeepReviewAvailability>;
+	/** The same answer again whenever it can change: the local channel comes up after the panel asked, or
+	 *  the agents list changes. */
+	readonly onDeepReviewAvailability: RpcEventSubscription<DeepReviewAvailability>;
+	readonly onDeepReview: RpcEventSubscription<DeepReviewState | undefined>;
+	/** The orient depth: groups and orders the scope's files from their manifest, one line of context
+	 *  each — a reading order for the panel's checklist, no findings. */
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+	): Promise<ReviewOrientResult>;
+	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings
+	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
+	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
+	 *  keybindings and title buttons do. */
+	reviewStep(action: ReviewReadingAction, path?: string): Promise<void>;
+	/** Opens a review file's diff where the reading steps open theirs — beside an editor-hosted graph. */
+	openReviewFile(args: ReviewOpenFileArgs): Promise<void>;
+	/** The active review file and the editor-made viewed marks; `undefined` once the review is left. */
+	readonly onReviewReading: RpcEventSubscription<ReviewReadingState | undefined>;
 	/** Mirrors the review's findings as inline comment threads in their diffs; `undefined` clears them. */
 	setReviewThreads(args: ReviewThreadsArgs | undefined): Promise<void>;
 	/** Thread actions taken from the editor (resolve, dismiss, reopen, send to agent). */
