@@ -476,6 +476,43 @@ export const reviewModePanelStyles = css`
 		color: var(--vscode-errorForeground);
 	}
 
+	/* One-click scopes over the scope picker */
+	.scope-presets {
+		display: flex;
+		flex: none;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4);
+		margin-bottom: var(--gl-space-6);
+	}
+
+	.scope-preset {
+		padding: var(--gl-space-2) var(--gl-space-6);
+		font: inherit;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		appearance: none;
+		cursor: pointer;
+		background: none;
+		border: var(--gl-border-width) solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.scope-preset:hover {
+		color: var(--vscode-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
+	}
+
+	.scope-preset[aria-pressed='true'] {
+		color: var(--vscode-button-foreground, var(--vscode-foreground));
+		background: var(--vscode-button-background);
+		border-color: var(--vscode-button-background);
+	}
+
+	.scope-preset:focus-visible {
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline-offset: 1px;
+	}
+
 	/* The deep review's status strip */
 	/* Sits on top of the footer, with the actions it belongs beside */
 	.review-deep {
