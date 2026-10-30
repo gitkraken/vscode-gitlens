@@ -311,19 +311,36 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
 
 export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
 
+/** The review a deep review belongs to, as the panel keys its reviews — echoed back on every report so the
+ *  panel folds the findings into that review and no other. Opaque to the host. */
+export interface DeepReviewAnchor {
+	kind: string;
+	repoPath: string;
+	sha?: string;
+	shas?: string[];
+}
+
 export interface DeepReviewArgs {
 	repoPath: string;
+	anchor: DeepReviewAnchor;
 	scope: ScopeSelection;
 	/** How the panel describes the scope — what the agent is told it is reviewing */
 	scopeLabel: string;
 	/** The checklist's files, so the agent knows the whole changeset even if the diff is large */
 	files: string[];
+	/** What an earlier review found and what the reader said about it (see `formatReviewForAgentContext`),
+	 *  so the agent builds on it instead of finding it again */
+	priorFindings?: string;
 	prompt?: string;
+	/** A question or remark on one finding, for the agent to take up instead of a whole review: the
+	 *  finding as context and the reader's words. Goes into the running channel and session when there
+	 *  is one, so the answer lands in the finding's thread. */
+	focus?: { findingId: string; finding: string; question?: string };
 }
 
 export type DeepReviewStartResult =
 	| { ok: true }
-	| { ok: false; reason: 'no-agents' | 'no-channel' | 'error'; message?: string };
+	| { ok: false; reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error'; message?: string };
 
 /** Whether a deep review can start here at all: the report channel needs the local server (absent on
  *  the web) and an agent must be available to hand the changes to. */
@@ -332,9 +349,18 @@ export type DeepReviewAvailability = { available: true } | { available: false; r
 /** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
  *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
 export interface DeepReviewState {
+	/** Which start this is — a new channel numbers its findings from 1 again, so the panel's "applied up
+	 *  to" counters belong to one run */
+	run: number;
+	anchor: DeepReviewAnchor;
+	/** What the channel is open for: a whole review, or only a question on a finding — which leaves the
+	 *  channel open for the next question and does not read as a review running */
+	purpose: 'review' | 'ask';
 	active: boolean;
 	done: boolean;
 	findings: { seq: number; finding: AIReviewFinding }[];
+	/** What the agent added to findings that were already there, append-only like the findings */
+	notes: { seq: number; findingId: string; text: string }[];
 }
 
 export type ReviewReadingAction = 'next' | 'previous' | 'markViewed';
@@ -362,9 +388,22 @@ export interface ReviewFilesArgs {
 
 export type ReviewThreadState = 'open' | 'dismissed';
 
+/** A remark on a finding: the reader's reply on its thread or in its card (why it was closed, a question,
+ *  a correction), or an agent's addition to a finding that was already there. Kept with the session and
+ *  shown wherever the finding is — the thread, the card, the exports, the next review's context. */
+export interface ReviewFindingNote {
+	author: 'user' | 'agent';
+	text: string;
+	/** When it was written, epoch ms */
+	at: number;
+}
+
 /** A finding as the diff editor shows it: an inline comment thread at its line. */
 export interface ReviewThreadItem {
+	/** The thread's own key — a finding with several places has a thread per place */
 	id: string;
+	/** The finding the thread shows; its actions and notes are the finding's */
+	findingId: string;
 	path: string;
 	line: number;
 	lineEnd: number;
@@ -373,6 +412,7 @@ export interface ReviewThreadItem {
 	description: string;
 	state: ReviewThreadState;
 	source?: 'agent';
+	notes?: ReviewFindingNote[];
 }
 
 export interface ReviewThreadsArgs {
@@ -382,12 +422,12 @@ export interface ReviewThreadsArgs {
 	items: ReviewThreadItem[];
 }
 
-export type ReviewThreadAction = 'dismiss' | 'reopen' | 'sendToAgent';
+export type ReviewThreadAction = 'dismiss' | 'reopen' | 'sendToAgent' | 'reply' | 'askReviewer' | 'address';
 
 /** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
- *  for a while applies exactly the ones it hasn't. */
+ *  for a while applies exactly the ones it hasn't. A `reply` carries its text. */
 export interface ReviewThreadActionsState {
-	actions: { seq: number; findingId: string; action: ReviewThreadAction }[];
+	actions: { seq: number; findingId: string; action: ReviewThreadAction; text?: string }[];
 }
 
 /** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only

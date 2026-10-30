@@ -5433,7 +5433,7 @@ or
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'reason': 'error' | 'no-agents' | 'no-channel'
+  'reason': 'cancelled' | 'error' | 'no-agents' | 'no-channel'
 }
 ```
 

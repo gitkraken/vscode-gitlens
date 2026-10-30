@@ -1,4 +1,4 @@
-import type { CommentThread, Uri } from 'vscode';
+import type { Comment, CommentReply, CommentThread, Uri } from 'vscode';
 import {
 	CommentMode,
 	comments,
@@ -12,11 +12,11 @@ import type { AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
-import type { ReviewThreadAction, ReviewThreadItem, ReviewThreadsArgs } from './graphService.js';
+import type { ReviewFindingNote, ReviewThreadAction, ReviewThreadItem, ReviewThreadsArgs } from './graphService.js';
 
 /** The graph instance whose findings the threads show; thread actions go back to it. */
 export interface ReviewThreadsOwner {
-	reviewThreadAction(findingId: string, action: ReviewThreadAction): void;
+	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void;
 }
 
 const controllerId = 'gitlens.review';
@@ -26,7 +26,17 @@ const threads = new Map<string, CommentThread>();
 const threadFindings = new WeakMap<CommentThread, string>();
 
 function getController() {
-	controller ??= comments.createCommentController(controllerId, l10n.t('GitLens Review'));
+	if (controller == null) {
+		controller = comments.createCommentController(controllerId, l10n.t('GitLens Review'));
+		// What is typed here is not an answer to anyone — it is a note kept with the finding, for the fix
+		// and the review passes that follow
+		controller.options = {
+			prompt: l10n.t('Leave a comment'),
+			placeHolder: l10n.t(
+				'A note for the fix and the later review — why it was closed, a question, a correction…',
+			),
+		};
+	}
 	return controller;
 }
 
@@ -49,6 +59,20 @@ function getThreadUri(container: Container, repoPath: string, rhs: string, path:
 	return container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, repoPath, rhs));
 }
 
+function noteAuthor(author: ReviewFindingNote['author']): string {
+	return author === 'agent' ? l10n.t('Agent') : l10n.t('You');
+}
+
+function toNoteComment(note: ReviewFindingNote): Comment {
+	return {
+		body: new MarkdownString(note.text),
+		mode: CommentMode.Preview,
+		author: { name: noteAuthor(note.author) },
+		timestamp: new Date(note.at),
+		contextValue: `note-${note.author}`,
+	};
+}
+
 function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
 	const body = new MarkdownString(`**${severityLabel(item.severity)}** · ${item.title}\n\n${item.description}`);
 	thread.comments = [
@@ -58,13 +82,16 @@ function applyItem(thread: CommentThread, item: ReviewThreadItem): void {
 			author: { name: item.source === 'agent' ? l10n.t('Review in Repo (agent)') : l10n.t('GitLens AI Review') },
 			contextValue: item.state,
 		},
+		...(item.notes ?? []).map(toNoteComment),
 	];
 	thread.label = severityLabel(item.severity);
 	thread.contextValue = item.state;
 	thread.state = item.state === 'open' ? CommentThreadState.Unresolved : CommentThreadState.Resolved;
 	thread.collapsibleState =
 		item.state === 'open' ? CommentThreadCollapsibleState.Expanded : CommentThreadCollapsibleState.Collapsed;
-	thread.canReply = false;
+	// A closed finding can still take a word on why — that goes to the session, the exports and the
+	// next review the same as a reply on an open one
+	thread.canReply = true;
 }
 
 /** Replaces the shown threads with `args.items` — one thread per finding that has a line, updated in
@@ -96,7 +123,7 @@ export function setReviewThreads(
 		if (thread == null) {
 			thread = getController().createCommentThread(uri, range, []);
 			threads.set(item.id, thread);
-			threadFindings.set(thread, item.id);
+			threadFindings.set(thread, item.findingId);
 		} else if (!thread.range?.isEqual(range)) {
 			thread.range = range;
 		}
@@ -124,6 +151,30 @@ export function runReviewThreadAction(thread: CommentThread | undefined, action:
 	if (findingId == null) return;
 
 	owner?.reviewThreadAction(findingId, action);
+}
+
+/** The thread's reply box: the text becomes a note on the finding. It shows in the thread at once — the
+ *  session's copy replaces it on the next sync with the same words — so the reply doesn't vanish while
+ *  the round trip through the panel runs. */
+export function runReviewThreadReply(
+	reply: CommentReply | undefined,
+	action: 'reply' | 'askReviewer' | 'address' = 'reply',
+): void {
+	if (reply == null) return;
+
+	const text = reply.text.trim();
+	const findingId = threadFindings.get(reply.thread);
+	if (findingId == null) return;
+	// A bare reply needs words; asking the reviewer or the fixer to take the thread up does not
+	if (!text && action === 'reply') return;
+
+	if (text) {
+		reply.thread.comments = [
+			...reply.thread.comments,
+			toNoteComment({ author: 'user', text: text, at: Date.now() }),
+		];
+	}
+	owner?.reviewThreadAction(findingId, action, text || undefined);
 }
 
 function clearThreads(): void {

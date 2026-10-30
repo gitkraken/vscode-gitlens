@@ -6,6 +6,7 @@ import type {
 	AIReviewFocusArea,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
@@ -16,6 +17,7 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
 	DeepReviewState,
 	ProposedCommit,
 	QueuedTakeSide,
@@ -46,7 +48,9 @@ import {
 	emptyReviewSession,
 	withFileExcluded,
 	withFilesViewed,
+	withFindingNote,
 	withFindingState,
+	withoutFindings,
 	withReadingOrder,
 } from './reviewSession.js';
 
@@ -83,7 +87,7 @@ export function withAgentFindings(
 		label: l10n.t('Deep review'),
 		rationale: l10n.t('Reported by your agent, which could build, test and read beyond the diff.'),
 		severity: severity,
-		files: [...new Set(findings.map(f => f.filePath).filter((p): p is string => p != null))],
+		files: [...new Set(findings.flatMap(f => getReviewFindingLocations(f).map(l => l.filePath)))],
 		findings: findings,
 	});
 }
@@ -185,8 +189,11 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
 	readEngagedIdleDraft(): string | undefined;
-	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown. */
-	sendReviewFindingToAgent?(findingId: string): void;
+	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown.
+	 *  `instructions` is what the reader just said about it, from its thread. */
+	sendReviewFindingToAgent?(findingId: string, instructions?: string): void;
+	/** Routes a reader's question on a finding to the review agent, through the review panel. */
+	askReviewerAboutFinding?(findingId: string, question?: string): void;
 	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
@@ -1131,6 +1138,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
 		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
 			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		/** The reader's word on a finding, from its card — the thread's reply box lands in {@link applyThreadActions}. */
+		addFindingNote: (findingId: string, text: string): void =>
+			this.updateReviewSession(session =>
+				withFindingNote(session, findingId, { author: 'user', text: text, at: Date.now() }),
+			),
 		/** The orient depth: a reading plan for the checklist, tracked on the entry like a focus-area run. */
 		runOrient: (
 			repoPath: string | undefined,
@@ -1231,39 +1243,60 @@ export class DetailsWorkflowController implements ReactiveController {
 			prompt: string | undefined,
 			scopeLabel: string,
 			files: readonly string[],
+			priorFindings?: string,
+			focus?: DeepReviewArgs['focus'],
 		): Promise<void> => {
 			const scope = this.actions.state.scope.get();
 			if (!repoPath || scope == null) return;
 
-			this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			if (focus == null) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			}
 			const result = await this.actions.startDeepReview({
 				repoPath: repoPath,
+				anchor: this.currentAnchor(),
 				scope: scope,
 				scopeLabel: scopeLabel,
 				files: [...files],
+				priorFindings: priorFindings,
 				prompt: prompt,
+				focus: focus,
 			});
 			if (!result.ok) {
 				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/failed', { reason: result.reason });
 			}
 		},
-		stopDeepReview: (): void => this.actions.stopDeepReview(),
+		/** Puts the deep review's status strip away — the channel stays open and what the agent reports
+		 *  still lands in the review. */
+		hideDeepReview: (): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry?.deepReview == null || entry.deepReview.hidden) return;
+
+			this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, hidden: true } });
+		},
 		/** Folds what the agent reported into the review's result — as its own focus area, so the panel,
 		 *  the threads and the counts take the findings like any other — applying only the ones past the
 		 *  last sequence this anchor saw. */
 		applyDeepReviewState: (state: DeepReviewState | undefined): void => {
-			const anchor = this.currentAnchor();
-			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
 			if (state == null) {
+				const entry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(this.currentAnchor()))?.review;
 				if (entry?.deepReview == null || !entry.deepReview.active) return;
 
 				this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, active: false } });
 				return;
 			}
 
-			const applied = entry?.deepReview?.seqApplied ?? 0;
+			// The report goes to the review it was started from — not whatever is shown now — and a new
+			// start numbers from 1 again, so the "applied up to" counters are per run
+			const anchor = state.anchor as RunningOperationAnchor;
+			const isCurrent = anchorKey(anchor) === anchorKey(this.currentAnchor());
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			const sameRun = entry?.deepReview?.run === state.run;
+			const applied = sameRun ? (entry?.deepReview?.seqApplied ?? 0) : 0;
 			const fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
-			const current = entry?.result ?? this.actions.resources.review.value.get();
+			const current = entry?.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
 			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
 			if (fresh.length > 0) {
 				// Over a failed run, what the agent reported before waits in the value Go Back restores
@@ -1278,11 +1311,25 @@ export class DetailsWorkflowController implements ReactiveController {
 					),
 				};
 			}
+			// What the agent added to findings that were already there lands as notes on them
+			const notesApplied = sameRun ? (entry?.deepReview?.notesApplied ?? 0) : 0;
+			let session = entry?.session;
+			for (const note of state.notes.filter(n => n.seq > notesApplied)) {
+				session = withFindingNote(session ?? emptyReviewSession, note.findingId, {
+					author: 'agent',
+					text: note.text,
+					at: Date.now(),
+				});
+			}
 			const deepReview = {
+				run: state.run,
+				purpose: state.purpose,
 				active: state.active,
 				done: state.done,
 				count: state.findings.length,
 				seqApplied: state.findings.at(-1)?.seq ?? applied,
+				notesApplied: state.notes.at(-1)?.seq ?? notesApplied,
+				...(sameRun && entry?.deepReview?.hidden ? { hidden: true } : {}),
 			};
 			if (state.done && entry?.deepReview?.done !== true) {
 				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/finished', {
@@ -1291,18 +1338,22 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 
 			const base = entry ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
+			const withSession = session != null ? { session: session } : {};
 			if (result != null && fresh.length > 0) {
 				// The merged result is the entry's result now — and a run that never happened reads as
 				// complete, the way a resumed one does, so the panel shows the findings.
 				this.registerRunningOperation({
 					...base,
+					...withSession,
 					execState: base.execState === 'generating' ? 'generating' : 'complete',
 					result: result,
 					deepReview: deepReview,
 				});
-				this.actions.resources.review.mutate(result);
+				if (isCurrent) {
+					this.actions.resources.review.mutate(result);
+				}
 			} else {
-				this.registerRunningOperation({ ...base, deepReview: deepReview });
+				this.registerRunningOperation({ ...base, ...withSession, deepReview: deepReview });
 			}
 		},
 		/** Drops the reading plan — and the order it gave the files — back to tree order. */
@@ -1332,7 +1383,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (fresh.length === 0) return;
 
 			let session = entry.session ?? emptyReviewSession;
-			for (const { findingId, action } of fresh) {
+			// Hand-offs run after the session is registered, so what they send carries the reply
+			const handOffs: (() => void)[] = [];
+			for (const { findingId, action, text } of fresh) {
 				switch (action) {
 					case 'dismiss':
 						session = withFindingState(session, findingId, 'dismissed');
@@ -1341,7 +1394,23 @@ export class DetailsWorkflowController implements ReactiveController {
 						session = withFindingState(session, findingId, undefined);
 						break;
 					case 'sendToAgent':
-						this.host.sendReviewFindingToAgent?.(findingId);
+						handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId));
+						break;
+					case 'reply':
+					case 'askReviewer':
+					case 'address':
+						if (text) {
+							session = withFindingNote(session, findingId, {
+								author: 'user',
+								text: text,
+								at: Date.now(),
+							});
+						}
+						if (action === 'askReviewer') {
+							handOffs.push(() => this.host.askReviewerAboutFinding?.(findingId, text));
+						} else if (action === 'address') {
+							handOffs.push(() => this.host.sendReviewFindingToAgent?.(findingId, text));
+						}
 						break;
 				}
 			}
@@ -1350,6 +1419,9 @@ export class DetailsWorkflowController implements ReactiveController {
 				session: session,
 				threadActionsApplied: fresh.at(-1)!.seq,
 			});
+			for (const handOff of handOffs) {
+				handOff();
+			}
 		},
 		/** Folds what the host reports about the editor into the entry: the active review file, and the
 		 *  editor-made viewed marks past the ones already taken. */
@@ -1440,12 +1512,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.registerRunningOperation({
 				...entry,
 				focusAreaRuns: undefined,
-				deepReview: entry.deepReview?.active ? entry.deepReview : undefined,
-				session:
-					entry.session != null
-						? { ...entry.session, findingStates: emptyReviewSession.findingStates }
-						: undefined,
+				// The agent's findings go with the rest, so its channel closes too; the strip stays put away
+				deepReview: entry.deepReview != null ? { ...entry.deepReview, hidden: true } : undefined,
+				session: entry.session != null ? withoutFindings(entry.session) : undefined,
 			});
+			if (entry.deepReview?.active) {
+				this.actions.stopDeepReview();
+			}
 			this.enterBackedNoResult('review');
 			this.actions.state.reviewPreErrorValue.set(undefined);
 		},

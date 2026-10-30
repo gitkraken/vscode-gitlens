@@ -51,6 +51,7 @@ export class IpcService implements Disposable {
 	registerHandler<Request = unknown, Response = unknown>(
 		_name: string,
 		_handler: IpcHandler<Request, Response>,
+		_routeToken?: string,
 	): UnifiedDisposable {
 		return createDisposable(() => {});
 	}
