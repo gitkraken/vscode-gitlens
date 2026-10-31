@@ -166,6 +166,53 @@ suite('Asana integration', () => {
 		manager.dispose();
 	});
 
+	test("user-scoped reads of a workspace's projects share one read of the viewer's tasks", async () => {
+		const otherProject = { ...project, key: 'p2', id: 'p2', name: 'Other project' };
+		const projectReads: string[] = [];
+		const workspaceReads: string[] = [];
+		const { manager, asana } = await createAsana({
+			getAsanaIssuesForProject: (_t: unknown, projectId: string) => {
+				projectReads.push(projectId);
+				return Promise.resolve(page([]));
+			},
+			getAsanaIssuesForCurrentUser: (_t: unknown, workspaceId: string) => {
+				workspaceReads.push(workspaceId);
+				return Promise.resolve(
+					page([
+						fakeTask({ id: 'a', number: 'a' }),
+						fakeTask({
+							id: 'b',
+							number: 'b',
+							project: { namespace: null, resourceId: null, name: 'Other project', key: null, id: 'p2' },
+						}),
+						// Outside the read: a project it didn't ask for, and a task in no project.
+						fakeTask({
+							id: 'c',
+							number: 'c',
+							project: { namespace: null, resourceId: null, name: 'Archived', key: null, id: 'p9' },
+						}),
+						fakeTask({ id: 'd', number: 'd', project: undefined }),
+					]),
+				);
+			},
+		});
+
+		const options = { user: 'Me', userId: 'u1' };
+		const results = await asana.getIssuesForProjectsWithTruncationResult([
+			{ project: project, options: options },
+			{ project: otherProject, options: options },
+		]);
+
+		assert.deepEqual(workspaceReads, ['w1']);
+		assert.deepEqual(projectReads, [], 'no project is drained on its own');
+		assert.deepEqual(
+			results.map(r => r?.value?.values.map(i => `${i.id}@${i.project?.id}`)),
+			[['a@p1'], ['b@p2']],
+		);
+
+		manager.dispose();
+	});
+
 	test('a project drain that hits its page backstop is reported as truncated', async () => {
 		let calls = 0;
 		const { manager, asana } = await createAsana({

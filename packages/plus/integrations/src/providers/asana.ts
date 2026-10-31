@@ -14,9 +14,10 @@ import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
 	ProjectIssuesDrain,
+	ProjectIssuesRequest,
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
-import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderApiPagedResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
@@ -229,6 +230,84 @@ export class AsanaIntegration extends IssuesIntegration<IssuesCloudHostIntegrati
 		return drain.truncated
 			? { values: values, truncated: true, recovery: 'none', metadata: drain.metadata }
 			: { values: values, truncated: false, metadata: drain.metadata };
+	}
+
+	/**
+	 * Searches every project of one workspace together when the read is scoped to the viewer: Asana's "my tasks" read
+	 * takes the workspace and the assignee, so one drain answers all of them, where reading project by project would
+	 * drain every task of every project only to keep the viewer's.
+	 */
+	protected override getProjectIssuesSearches(
+		requests: readonly ProjectIssuesRequest<ResourceDescriptor>[],
+	): number[][] | undefined {
+		return groupProjectIssuesSearches(requests, ({ project, options }) =>
+			options.user != null && isAsanaProjectDescriptor(project)
+				? [
+						project.resourceId,
+						options.user,
+						options.userId ?? '',
+						options.sort ?? '',
+						options.state ?? '',
+						options.filters?.join(',') ?? '',
+					].join('\0')
+				: undefined,
+		);
+	}
+
+	/**
+	 * The viewer's tasks in one workspace, split into the requested projects. A task outside them (in another project,
+	 * or in none, only in the user's My Tasks) belongs to no project of this read and is left out. A task in several
+	 * projects is attributed to the one Asana lists first, as an unscoped task read reports only that one.
+	 */
+	protected override async searchProviderProjectIssues(
+		session: ProviderAuthenticationSession,
+		requests: readonly ProjectIssuesRequest<ResourceDescriptor>[],
+	): Promise<IssueShape[][] | undefined> {
+		const projects = requests.map(request => request.project).filter(isAsanaProjectDescriptor);
+		if (projects.length !== requests.length) return undefined;
+
+		// Every request of a search shares the workspace and every option read here (see `getProjectIssuesSearches`).
+		const { options } = requests[0];
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const states = toProviderIssueStates(options.state);
+		const drain = await this.drainTasks(
+			cursor =>
+				api.getAsanaIssuesForCurrentUser(tokenWithInfo, projects[0].resourceId, {
+					cursor: cursor,
+					states: states,
+					sort: options.sort,
+				}),
+			// Never published: an incomplete search is read again project by project, which records its own failures.
+			{ providerId: this.id, resourceId: projects[0].resourceId },
+		);
+		// An incomplete search says nothing about which of its projects it covered, so only the per-project reads can
+		// report each one's completeness.
+		if (drain.truncated || (drain.metadata != null && drain.metadata.completeness !== 'complete')) {
+			return undefined;
+		}
+
+		const indexById = new Map(projects.map((project, index) => [project.id, index]));
+		const split = projects.map((): IssueShape[] => []);
+		for (const issue of drain.values) {
+			const index = issue.project?.id != null ? indexById.get(issue.project.id) : undefined;
+			if (index == null) continue;
+
+			const shape = toIssueShape(issue, this, { projection: 'project' });
+			if (shape == null) continue;
+
+			const project = projects[index];
+			split[index].push({
+				...shape,
+				project: {
+					id: project.id,
+					name: project.name,
+					resourceId: project.resourceId,
+					resourceName: project.resourceName,
+				},
+			});
+		}
+		return split;
 	}
 
 	protected override async searchProviderMyIssues(

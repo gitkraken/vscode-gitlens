@@ -1570,9 +1570,11 @@ Markdown by this package.
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
   return the same set; Linear's resource is the organization and its projects are teams. Asana's resources are the
   workspaces and its projects their unarchived projects; an Asana task's `id` is its gid, unique across Asana.
-  Asana's task list takes a project or an assignee but not both, so a user-scoped Asana read drains each project and
-  keeps the viewer's tasks, and a project busy enough to reach its backstop is `page.truncated` with no narrower scope
-  to retry.
+  Asana's task list takes a project or an assignee but not both, so a user-scoped Asana read reads the viewer's tasks
+  once per workspace and splits them into its projects: a task in no project, or only in a project outside the read,
+  is not in it, and a task in several projects is listed under the one Asana lists first. When that read can't finish,
+  each project is drained and filtered to the viewer instead, and a project busy enough to reach its backstop is
+  `page.truncated` with no narrower scope to retry.
   Linear's own Projects (Linear's `Project` entity, which can span teams) are a separate read, `listLinearProjects`:
   drained across Linear's pages up to 2,000, cached per connection for five minutes or until `forceSync`, and
   reported `fetchFailed` with a warning when the drain could not finish. Pass their `id`s as
