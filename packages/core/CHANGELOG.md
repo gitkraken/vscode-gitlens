@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds Asana as an issue integration (`IssuesCloudHostIntegrationId.Asana`): an `AsanaIntegration` with workspaces as resources and their unarchived projects as projects, tasks mapped to the shared issue shape (open is incomplete, closed is completed), "my issues" read per workspace from the tasks assigned to the user, cloud auth via the shared provider, Asana issue entity identifiers keyed by workspace for branch associations, the `gl-provider-asana` glyph, and Asana in the supported cloud-integration descriptors/lists. Asana's task list can't be ordered, so it advertises no issue sorts, and a project read scoped to the user filters by assignee after reading the project's tasks (plus/integrations)
+
 ## [0.25.0] - 2026-10-30
 
 ### Added

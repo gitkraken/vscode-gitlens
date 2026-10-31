@@ -98,4 +98,5 @@ export const iconMap: Readonly<Record<string, string>> = Object.freeze({
 	scope: '\\f15a',
 	unscope: '\\f15b',
 	kepler: '\\f15c',
+	'provider-asana': '\\f15d',
 });

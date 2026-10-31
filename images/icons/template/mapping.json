@@ -92,5 +92,6 @@
   "provider-opencode": 61785,
   "scope": 61786,
   "unscope": 61787,
-  "kepler": 61788
+  "kepler": 61788,
+  "provider-asana": 61789
 }

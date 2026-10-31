@@ -128,7 +128,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `getIssuesBatch`             | `IssueBatchResult`           | Resolves N issues by coordinate or tracker identifier; an absence is proven.                 |
 | `getPullRequestsBatch`       | `PullRequestBatchResult`     | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.               |
 | `getPullRequestsForBranches` | `PullRequestBranchResult`    | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
-| `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).         |
+| `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello / Asana (issues live under resource → project). |
 | `sweepPullRequests`          | `ProviderSweepResult`        | Drains **every** page across providers (`maxPages`, default 100).                            |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`        | Same, pinned to `['closed','merged']`.                                                       |
 | `broadenIssues`              | `ProviderBroadenResult`      | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
@@ -553,12 +553,25 @@ What holds for all of them:
 | reactions   | unavailable   | unavailable   |
 | access      | unavailable   | unavailable   |
 
+<!-- field-presence: asana-issues -->
+
+| Group       | point         | account       | project       |
+| ----------- | ------------- | ------------- | ------------- |
+| description | fetched       | fetched       | fetched       |
+| assignees   | fetched       | fetched       | fetched       |
+| labels      | fetched       | fetched       | fetched       |
+| comments    | not-requested | not-requested | not-requested |
+| reactions   | fetched       | fetched       | fetched       |
+| access      | unavailable   | unavailable   | unavailable   |
+
 - Tracker issues belong to no repository, so `access` is `unavailable`.
 - provider-apis' Jira converter counts the comments embedded in the issue rather than reading their total, so only
   Jira Cloud's batch read, which is GitLens' own by-key read, has a comment count. Jira Data Center's batch read goes
   through provider-apis.
 - provider-apis' Linear fragment selects no labels (it fills an empty list), comments or reactions.
 - A Trello card's description is never read. Trello has no batch or account-wide read.
+- An Asana task's tags are its labels and its likes its reactions. Its comments are stories, which a task doesn't
+  count, so reading them would cost a request per task. Asana has no batch read.
 
 ## 5. Paging
 
@@ -1117,7 +1130,9 @@ const filters = wanted.filter(f => capability.includes(f));
   filtered issue search reports empty `relationships` and all-false flags, which is the signal to hide the
   surface rather than individual chips.
 - `issueStates` — whether the issue-tracker reads take a `state` other than open (`'closed'`, `'all'`). True for
-  Jira, Jira Data Center and Linear, which narrow server-side on every page of their drains; false for Trello,
+  Jira, Jira Data Center and Linear, which narrow server-side on every page of their drains, and for Asana, whose
+  only state is completion (an open read leaves completed tasks out server-side; a closed one is filtered from every
+  task, so its pages can come back short); false for Trello,
   which can only read open cards and refuses the other two (warning + `fetchFailed`). An omitted `state` reads
   open issues on every tracker.
 
@@ -1208,30 +1223,30 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 (warning + `fetchFailed`) · — not applicable. Self-managed variants inherit their cloud family's hooks unless a
 footnote says otherwise.
 
-| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello |
-| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: |
-| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listLinearProjects`         |      —       |          —           |     —     |      —       |            —            |      —      |   ✓    |   —    |
-| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
-| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |
-| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |
-| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |
-| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |
-| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
+| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello | Asana |
+| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: | :---: |
+| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listLinearProjects`         |      —       |          —           |     —     |      —       |            —            |      —      |   ✓    |   —    |   —   |
+| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |   —   |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |   —   |
+| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |   —   |
+| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |   ✗   |
+| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |   ✗   |
+| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
 
 Bitbucket Data Center exposes its projects through `listOrgs`: both `id` and `name` are the project key.
 Pass that key as `org` to `listRepos` to select a project, or omit `org` to enumerate all accessible repositories,
@@ -1303,7 +1318,7 @@ as "unset". The sort vocabulary is narrower than the issue search's on purpose: 
 by a field a normalized pull request carries, and GitHub PRs have neither a priority nor a relevance that ranks
 stably under the result ceiling.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
-Linear + Trello `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
+Linear + Trello + Asana `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
 assigned issues plus the GitHub-synced issues the viewer created (a GitHub issue attachment, and `syncedWith` not
 `[]`), since Linear's GitHub Issues sync gives the copy of a GitHub issue its author (when linked) as creator but no
 assignee; `Assignee` by name reads the assigned issues only.
@@ -1341,6 +1356,7 @@ present where the provider supplies it:
 | Jira DC      | Status name         | Yes     | Yes, from the stable status-category key |
 | Linear       | Workflow state name | Yes     | Yes, mapped from the Linear state type   |
 | Trello       | Card list name      | No      | No                                       |
+| Asana        | Section name        | No      | `DONE` once the task is completed        |
 | Azure DevOps | Work-item state     | No      | Yes, from the work item type's states    |
 | GitHub       | `open` / `closed`   | No      | No                                       |
 | GitLab       | `opened` / `closed` | No      | No                                       |
@@ -1541,18 +1557,22 @@ Markdown by this package.
     Azure's close date (or creation date while open), since Azure reports no last-activity date. `itemsPerPage`
     is per page here, not per facet. A repository name of `.` or `..` is refused rather than resolved as a path.
 
-- **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
+- **Jira (Cloud + Data Center) / Linear / Trello / Asana** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`. On Jira it gets a
   warning of its own, naming it in its message and its `omission.scope`, published even when another project failed
   (when a request of the read failed, the omission is retracted as on every read, and only the message names it);
-  Linear and Trello report one warning for the page, only when nothing failed.
+  Linear, Trello and Asana report one warning for the page, only when nothing failed.
   A Jira issue `@gitkraken/provider-apis` can't read is dropped from its page and reported instead: its siblings are
   served, with `fetchFailed`, an `unreadable-items` warning scoped to its project and naming its key, and
   `page.truncated` (never `narrow-scope`); a project that dropped one is not retried.
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
-  return the same set; Linear's resource is the organization and its projects are teams.
+  return the same set; Linear's resource is the organization and its projects are teams. Asana's resources are the
+  workspaces and its projects their unarchived projects; an Asana task's `id` is its gid, unique across Asana.
+  Asana's task list takes a project or an assignee but not both, so a user-scoped Asana read drains each project and
+  keeps the viewer's tasks, and a project busy enough to reach its backstop is `page.truncated` with no narrower scope
+  to retry.
   Linear's own Projects (Linear's `Project` entity, which can span teams) are a separate read, `listLinearProjects`:
   drained across Linear's pages up to 2,000, cached per connection for five minutes or until `forceSync`, and
   reported `fetchFailed` with a warning when the drain could not finish. Pass their `id`s as
@@ -1570,7 +1590,7 @@ Markdown by this package.
   error is incomplete, not an empty account: the page is `page.truncated` with a retry cursor and a "completeness
   could not be confirmed" warning, and `listOrgs` / `listProjects` report the provider `fetchFailed`. A discovery
   answering `[]` means no resources, and an unconnected tracker reads as empty.
-  `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or
+  `org` and `project` select by identifier. Linear, Trello and Asana match any of a resource's or project's id, name or
   key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
   selects nothing instead of resolving to another one that carries the old value as a name or id. A selector that
   matches nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's
