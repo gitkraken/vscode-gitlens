@@ -440,6 +440,8 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 
 		case IssuesCloudHostIntegrationId.Trello:
 			return 'trello';
+		case IssuesCloudHostIntegrationId.Asana:
+			return 'asana';
 
 		// case IssueIntegrationId.JiraServer:
 		// 	return 'jiraServer';

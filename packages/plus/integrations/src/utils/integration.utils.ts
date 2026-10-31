@@ -40,6 +40,7 @@ export const supportedIntegrationIds: IntegrationIds[] = [
 	GitCloudHostIntegrationId.AzureDevOps,
 	IssuesCloudHostIntegrationId.Jira,
 	IssuesCloudHostIntegrationId.Trello,
+	IssuesCloudHostIntegrationId.Asana,
 	...selfHostedIntegrationIds,
 	...selfHostedIssuesIntegrationIds,
 ] as const;
@@ -214,6 +215,7 @@ export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesHostI
 		case IssuesCloudHostIntegrationId.Jira:
 		case IssuesCloudHostIntegrationId.Linear:
 		case IssuesCloudHostIntegrationId.Trello:
+		case IssuesCloudHostIntegrationId.Asana:
 		case IssuesSelfManagedHostIntegrationId.JiraServer:
 			return true;
 		default:

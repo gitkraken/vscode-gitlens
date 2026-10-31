@@ -76,6 +76,8 @@ import type {
 	ProviderAccount,
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
+	ProviderAsanaProject,
+	ProviderAsanaWorkspace,
 	ProviderAzureProject,
 	ProviderAzureResource,
 	ProviderBitbucketResource,
@@ -540,6 +542,18 @@ export class ProvidersApi implements Disposable {
 				getTrelloAccountForIdFn: providerApis.trello.getAccountForId.bind(providerApis.trello),
 				getTrelloIssuesForBoardFn: providerApis.trello.getIssuesForBoard.bind(providerApis.trello),
 				getTrelloLabelsForBoardFn: providerApis.trello.getLabelsForBoard.bind(providerApis.trello),
+			},
+			[IssuesCloudHostIntegrationId.Asana]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Asana],
+				provider: providerApis.asana,
+				getAsanaCurrentUserFn: providerApis.asana.getCurrentUser.bind(providerApis.asana),
+				getAsanaWorkspacesForCurrentUserFn: providerApis.asana.getWorkspacesForCurrentUser.bind(
+					providerApis.asana,
+				),
+				getAsanaProjectsForWorkspaceFn: providerApis.asana.getProjectsForWorkspace.bind(providerApis.asana),
+				getAsanaIssueFn: providerApis.asana.getIssue.bind(providerApis.asana),
+				getAsanaIssuesForProjectFn: providerApis.asana.getIssuesForProject.bind(providerApis.asana),
+				getAsanaIssuesForCurrentUserFn: providerApis.asana.getIssuesForCurrentUser.bind(providerApis.asana),
 			},
 		};
 		this.disposable = authenticationService.ctx.config?.onDidChange(e => {
@@ -2837,5 +2851,117 @@ export class ProvidersApi implements Disposable {
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	// Asana reads. Every list read is cursor-paged (Asana's `offset` token) and returns one page per call: follow
+	// `paging.cursor`. A task list needs a project or a workspace, so neither read is account-wide on its own.
+	async getAsanaCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+	): Promise<ProviderAccount | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaCurrentUserFn',
+		);
+		try {
+			return (await provider.getAsanaCurrentUserFn?.({ token: tokenWithInfo.accessToken }))?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getAsanaWorkspacesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderAsanaWorkspace>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaWorkspacesForCurrentUserFn',
+		);
+		return this.getPagedResult<ProviderAsanaWorkspace>(
+			{},
+			provider.getAsanaWorkspacesForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** The workspace's unarchived projects. */
+	async getAsanaProjectsForWorkspace(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		workspaceId: string,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderAsanaProject>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaProjectsForWorkspaceFn',
+		);
+		return this.getPagedResult<ProviderAsanaProject>(
+			{ workspaceId: workspaceId },
+			provider.getAsanaProjectsForWorkspaceFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** One task by its gid, or `undefined` when Asana has no such task. */
+	async getAsanaIssue(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		taskId: string,
+	): Promise<ProviderIssue | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getAsanaIssueFn');
+		try {
+			return (await provider.getAsanaIssueFn?.({ number: taskId }, { token: tokenWithInfo.accessToken }))?.data;
+		} catch (e) {
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	async getAsanaIssuesForProject(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		projectId: string,
+		options?: {
+			cursor?: string;
+			/** Omitted reads incomplete tasks. */
+			states?: GitIssueState[];
+			/** See {@link GetIssuesOptions.sort}. Asana can order by nothing, so any sort is refused by the SDK. */
+			sort?: IssueSorting;
+		},
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaIssuesForProjectFn',
+		);
+		return this.getPagedResult<ProviderIssue>(
+			{ projectId: projectId, states: options?.states, sort: options?.sort },
+			provider.getAsanaIssuesForProjectFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** The tasks assigned to the current user in one workspace; Asana requires the workspace. */
+	async getAsanaIssuesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		workspaceId: string,
+		options?: {
+			cursor?: string;
+			/** Omitted reads incomplete tasks. */
+			states?: GitIssueState[];
+			/** See {@link GetIssuesOptions.sort}. Asana can order by nothing, so any sort is refused by the SDK. */
+			sort?: IssueSorting;
+		},
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaIssuesForCurrentUserFn',
+		);
+		return this.getPagedResult<ProviderIssue>(
+			{ workspaceId: workspaceId, states: options?.states, sort: options?.sort },
+			provider.getAsanaIssuesForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
 	}
 }

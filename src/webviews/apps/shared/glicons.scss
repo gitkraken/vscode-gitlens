@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?61b1b84924a0e8a910a5763300421910") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?671a6f54db15ae67d10b3f092e84880b") format("woff2");
 	}
 </style>
 */
@@ -340,4 +340,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-kepler:before {
 	content: '\f15c';
+}
+.glicon-provider-asana:before {
+	content: '\f15d';
 }

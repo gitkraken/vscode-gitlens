@@ -591,6 +591,17 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this._onDidChangeIntegrationConnection,
 					) as IssuesIntegration as IntegrationById<T>;
 					break;
+
+				case IssuesCloudHostIntegrationId.Asana:
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/asana.js')
+					).AsanaIntegration(
+						this.ctx,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					) as IssuesIntegration as IntegrationById<T>;
+					break;
 				default:
 					throw new Error(`Integration with '${id}' is not supported`);
 			}
@@ -1381,7 +1392,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	/**
-	 * Reads the user's issues from an issue-tracker provider (Jira/Linear/Trello), whose issues live under
+	 * Reads the user's issues from an issue-tracker provider (Jira/Linear/Trello/Asana), whose issues live under
 	 * resource → project (not repos), so they can't go through {@link listIssuesPage} (git-host, repo-scoped).
 	 * Returns the normalized {@link IssueShape} these providers produce, aggregated across the projects of the
 	 * given `org` (or every visible resource/project when omitted). `includeAllAssignees` drops the
