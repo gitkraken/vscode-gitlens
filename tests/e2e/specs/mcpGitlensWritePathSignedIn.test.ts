@@ -42,6 +42,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import * as process from 'node:process';
 import { canSignIn, createTmpDir, MaxTimeout } from '../baseTest.js';
+import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 import type { McpMessage } from '../fixtures/mcp.js';
 import { expect, mcpTest } from '../fixtures/mcp.js';
 
@@ -71,6 +72,11 @@ const test = mcpTest.extend({
 
 const missingInputs = !repoUrl || !issueUrl || !prUrl;
 
+// The spec's git runs synchronously, so a stalled remote would block the event loop and with it Playwright's own
+// timeouts and the teardown that removes the credential: each call is bounded, and a timeout throws
+const cloneTimeout = 120_000;
+const gitTimeout = 60_000;
+
 /**
  * Clones the test repository. With a token, the credential is an `http.<repository>/.extraheader`, as
  * `actions/checkout` sets one: handed to `git clone` through `GIT_CONFIG_*` (not its arguments, which show in process
@@ -83,7 +89,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 	// The sign-in credentials stay in this process, as they do for the editor (baseTest.ts)
 	const env = nonInteractiveGitEnv();
 	if (!token) {
-		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env });
+		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env, timeout: cloneTimeout });
 		return;
 	}
 
@@ -91,6 +97,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 	const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
 	execFileSync('git', ['clone', '--quiet', url, dest], {
 		stdio: 'pipe',
+		timeout: cloneTimeout,
 		env: {
 			...env,
 			GIT_CONFIG_COUNT: '1',
@@ -107,7 +114,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
  */
 function nonInteractiveGitEnv(): NodeJS.ProcessEnv {
 	return {
-		...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+		...withoutSignInSecrets(),
 		GIT_TERMINAL_PROMPT: '0',
 		GCM_INTERACTIVE: 'never',
 	};
@@ -171,6 +178,7 @@ function git(cwd: string, ...args: string[]): string {
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: nonInteractiveGitEnv(),
+		timeout: gitTimeout,
 	}).trim();
 }
 
@@ -338,15 +346,18 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 		const prHead = git(clonePath!, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
 		expect(prHead, 'the host publishes the PR head').toMatch(/^[0-9a-f]{40}$/);
 		expect(git(started.worktreePath!, 'rev-parse', 'HEAD'), 'the worktree is at the PR head').toBe(prHead);
-		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork)
+		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork).
+		// The tip identifies it only while no other branch shares it, so the fixture must keep it unique: with two
+		// candidates an upstream on the wrong one would pass
 		const prBranches = git(clonePath!, 'ls-remote', '--heads', 'origin')
 			.split('\n')
 			.filter(l => l.startsWith(prHead))
 			.map(l => `origin/${l.split(/\s+/)[1].slice('refs/heads/'.length)}`);
-		expect(prBranches, 'the PR branch lives in the test repository').not.toHaveLength(0);
-		expect(prBranches, 'the review branch tracks the PR branch on origin').toContain(
+		expect(prBranches, 'exactly one origin branch is at the PR head (fixture)').toHaveLength(1);
+		expect(
 			git(started.worktreePath!, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'),
-		);
+			'the review branch tracks the PR branch on origin',
+		).toBe(prBranches[0]);
 
 		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
 	});

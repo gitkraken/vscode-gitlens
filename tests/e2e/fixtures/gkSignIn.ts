@@ -28,6 +28,14 @@ import type { VSCodeEvaluator } from './vscodeEvaluator.js';
 
 export const signInSecretEnv = 'GK_E2E_ACCESS_TOKEN_COOKIE';
 
+/**
+ * `process.env` without the sign-in credentials (`GK_E2E_*`), for every process a test starts: the credentials stay
+ * in the Playwright process, which alone signs in, and nothing it spawns — the editor, git, the GK CLI — needs them.
+ */
+export function withoutSignInSecrets(): NodeJS.ProcessEnv {
+	return Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_')));
+}
+
 /** GitKraken backends, as GitLens maps its `gitkraken.env` setting (`src/plus/gk/urlsProvider.ts`). */
 export type GkEnvironment = 'production' | 'staging' | 'dev';
 
@@ -165,6 +173,11 @@ export async function signInToGitKraken(
 					.first()
 					.waitFor({ state: 'attached', timeout: 30_000 });
 			} catch {
+				if (await lockedByPlan(settings, name)) {
+					throw new Error(
+						`${name} is locked behind Pro on the test account (plan logged above), so whether it is connected can't be seen`,
+					);
+				}
 				throw new Error(`${name} is not connected on the test account`);
 			}
 		}
@@ -179,6 +192,16 @@ export async function signInToGitKraken(
 	await evaluate(async vscode => {
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 	});
+}
+
+/**
+ * Whether Cloud Integrations shows the integration locked behind Pro. A Pro-only integration (Azure DevOps among the
+ * defaults) offers "Unlock with Pro" in place of "Manage" on an account without Pro — an expired trial — even while
+ * connected, so its connection can't be read from the page: this tells that apart from "not connected".
+ */
+export async function lockedByPlan(settings: FrameLocator, name: string): Promise<boolean> {
+	const row = settings.locator('li.row').filter({ has: settings.getByText(name, { exact: true }) });
+	return (await row.getByText('Unlock with Pro', { exact: true }).count()) > 0;
 }
 
 function log(message: string): void {
