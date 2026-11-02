@@ -31,9 +31,10 @@ export const signInSecretEnv = 'GK_E2E_ACCESS_TOKEN_COOKIE';
 /**
  * `process.env` without the sign-in credentials (`GK_E2E_*`), for every process a test starts: the credentials stay
  * in the Playwright process, which alone signs in, and nothing it spawns — the editor, git, the GK CLI — needs them.
+ * Matched without case: Windows names are case-insensitive, so `process.env.GK_E2E_ENV` also reads a `gk_e2e_env`.
  */
 export function withoutSignInSecrets(): NodeJS.ProcessEnv {
-	return Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_')));
+	return Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GK_E2E_')));
 }
 
 /** GitKraken backends, as GitLens maps its `gitkraken.env` setting (`src/plus/gk/urlsProvider.ts`). */
