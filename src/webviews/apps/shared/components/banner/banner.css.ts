@@ -292,28 +292,6 @@ export const bannerStyles = css`
 		);
 	}
 
-	/* Override text color for high contrast light theme specifically */
-	:host-context(.vscode-high-contrast-light) {
-		--gl-banner-text-color: #000;
-	}
-
-	/* Make banner text darker in light themes */
-	:host-context(.vscode-light) .banner__body,
-	:host-context(.vscode-high-contrast-light) .banner__body {
-		color: color-mix(in lab, var(--gl-banner-text-color) 20%, #000 80%);
-	}
-
-	/* Strong colors for banner title - pure black/white for maximum contrast */
-	:host-context(.vscode-light) .banner__title,
-	:host-context(.vscode-high-contrast-light) .banner__title {
-		color: #000 !important;
-	}
-
-	:host-context(.vscode-dark) .banner__title,
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .banner__title {
-		color: #fff !important;
-	}
-
 	/* Responsive adjustments */
 	@media (width <= 640px) {
 		.banner__buttons {
