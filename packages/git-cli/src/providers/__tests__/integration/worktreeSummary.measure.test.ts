@@ -36,6 +36,14 @@ function git(cwd: string, ...args: string[]): string {
 	return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
 }
 
+/**
+ * Whether a completed process is the read of the remotes, which core shares across a repository's checkouts but runs in
+ * whichever asks first, so it counts against none of them
+ */
+function isSharedRead(line: string): boolean {
+	return line.includes('] git remote -v ');
+}
+
 function nextChange(sub: WorktreeSummarySubscription): Promise<WorktreeSummary> {
 	return new Promise(resolve => {
 		const listener = sub.onDidChange(e => {
@@ -162,7 +170,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		const spawned = completed.slice(mark);
 		const perWorktree = linked.map(wt => {
 			const key = getRepositoryKey(wt.path);
-			return spawned.filter(m => m.includes(`[${key}]`) || m.includes(`[${wt.path}]`));
+			return spawned.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
 		});
 		const shared = spawned.filter(m => !perWorktree.some(lines => lines.includes(m)));
 		console.error(
@@ -252,7 +260,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 			const spawned = completed.slice(mark);
 			const perWorktree = linked.map(wt => {
 				const key = getRepositoryKey(wt.path);
-				return spawned.filter(m => m.includes(`[${key}]`) || m.includes(`[${wt.path}]`));
+				return spawned.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
 			});
 			const reflogReads = spawned.filter(m => m.includes(' reflog show '));
 			const counts = spawned.filter(m => m.includes('%(ahead-behind:'));
@@ -427,7 +435,7 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 
 	function inWorktree(lines: string[], path: string): string[] {
 		const key = getRepositoryKey(path);
-		return lines.filter(m => m.includes(`[${key}]`) || m.includes(`[${path}]`));
+		return lines.filter(m => (m.includes(`[${key}]`) || m.includes(`[${path}]`)) && !isSharedRead(m));
 	}
 
 	function configListings(lines: string[]): string[] {
@@ -521,6 +529,198 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 			);
 			const direct = await service.forRepo(wt.path)!.branches.getAheadOfBase!(`task-${i}`);
 			assert.deepStrictEqual(subs[i + 1].current?.base, direct.base, `linked worktree ${i} matches a fresh read`);
+		}
+	});
+});
+
+/**
+ * A `packed-refs` rewrite reaching 4 linked worktree summaries (and the main checkout's), counted the same way. Deleting
+ * a packed branch (`git branch -D`), or `git pack-refs`, only rewrites that file, which the watcher reports as `heads`,
+ * `remotes` and `tags` changing without names, so any branch may have moved. Before, every summary read itself in full
+ * for it (measured on this fixture: 6 processes in each linked worktree — the dirty flag, the upstream, the base's fork
+ * points and count — and 3 more for the main checkout); now each checks the tips it was read from against the
+ * repository's shared ref list, and reads nothing when none of them moved.
+ */
+suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', function () {
+	this.timeout(60000);
+
+	const worktreeCount = 4;
+	const completed: string[] = [];
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	let root: string;
+	let origin: string;
+	let main: TestRepo;
+	let linked: { path: string; cleanup: () => void }[];
+	let service: GitService;
+	let subs: WorktreeSummarySubscription[];
+	let watchers: { basePath: string; fire: (e: { path: string; reason: 'change' }) => void }[];
+
+	setup(async () => {
+		root = mkdtempSync(join(tmpdir(), 'gitlens-summary-packed-'));
+		origin = join(root, 'origin.git');
+		git(root, 'init', '--bare', '-b', 'main', origin);
+
+		main = createTestRepo();
+		git(main.path, 'remote', 'add', 'origin', origin);
+		git(main.path, 'push', '-u', 'origin', 'main');
+		git(main.path, 'remote', 'set-head', 'origin', 'main');
+		git(main.path, 'branch', '--no-track', 'other', 'origin/main');
+
+		linked = [];
+		for (let i = 0; i < worktreeCount; i++) {
+			const name = `task-${i}`;
+			git(main.path, 'branch', '--no-track', name, 'origin/main');
+			const wt = createWorktree(main.path, name);
+			linked.push(wt);
+			addCommit(wt.path, `${name}.txt`, name, `Work on ${name}`);
+		}
+
+		watchers = [];
+		// Not the shadow-checked service: its full base reads would add to the process counts measured here
+		service = createCliGitService({
+			context: { fs: fs, config: noCommitGraphWritesConfig },
+			gitOptions: { logger: countingLogger },
+			watchingProvider: {
+				createWatcher: (basePath, _pattern, onEvent) => {
+					watchers.push({ basePath: basePath, fire: onEvent });
+					return createDisposable(() => {});
+				},
+			} satisfies FileWatchingProvider,
+		});
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		subs = [];
+		for (const path of [main.path, ...linked.map(wt => wt.path)]) {
+			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+			subs.push(service.summaries!.subscribe(path, { delayMs: 10, workingTreeDelayMs: 10 }));
+			await service.summaries!.getSummary(path);
+		}
+		for (const sub of subs.slice(1)) {
+			assert.strictEqual(sub.current?.base?.ref, 'origin/main');
+		}
+		// Lets the watch group's baseline config read and any trailing start-up read finish
+		await settle(300);
+	});
+
+	teardown(() => {
+		for (const sub of subs) {
+			sub.dispose();
+		}
+		service.dispose();
+		for (const wt of linked) {
+			wt.cleanup();
+		}
+		main.cleanup();
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	/**
+	 * Runs `args` in the main checkout and reports the `packed-refs` rewrite as the watcher would (the only file such a
+	 * change touches that it watches), returning the processes that ran until git went quiet
+	 */
+	async function rewritePackedRefs(...args: string[]): Promise<string[]> {
+		git(main.path, ...args);
+		const mark = completed.length;
+		const base = join(main.path, '.git');
+		// The main checkout's own watcher and the one over the common git dir for the linked worktrees both see it
+		const fired = watchers.filter(w => w.basePath === base);
+		assert.ok(fired.length !== 0, `no watcher on ${base}`);
+		for (const watcher of fired) {
+			watcher.fire({ path: join(base, 'packed-refs'), reason: 'change' });
+		}
+		await settle();
+		return completed.slice(mark);
+	}
+
+	/** Waits until no git process completed for `quietMs` */
+	async function settle(quietMs: number = 300): Promise<void> {
+		let last = completed.length;
+		let lastAt = Date.now();
+		const start = lastAt;
+		while (Date.now() - start < 15000) {
+			await delay(25);
+			if (completed.length !== last) {
+				last = completed.length;
+				lastAt = Date.now();
+			} else if (Date.now() - lastAt >= quietMs) {
+				return;
+			}
+		}
+	}
+
+	function inWorktree(lines: string[], path: string): string[] {
+		const key = getRepositoryKey(path);
+		return lines.filter(m => (m.includes(`[${key}]`) || m.includes(`[${path}]`)) && !isSharedRead(m));
+	}
+
+	function report(label: string, lines: string[]): string[] {
+		const perWorktree = linked.map(wt => inWorktree(lines, wt.path));
+		const shared = lines.filter(m => !perWorktree.some(l => l.includes(m)));
+		console.error(
+			`[measure] ${label}: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${shared.length} elsewhere`,
+		);
+		for (const line of [...perWorktree[0], ...shared]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+		return shared;
+	}
+
+	test('deleting a packed branch no summary depends on costs each checkout no git process of its own (was 6 each)', async () => {
+		const before = subs.map(sub => sub.current);
+		report('pack-refs', await rewritePackedRefs('pack-refs', '--all'));
+
+		const spawned = await rewritePackedRefs('branch', '-D', 'other');
+		const shared = report('packed branch deleted', spawned);
+
+		for (const [i, wt] of linked.entries()) {
+			assert.deepStrictEqual(inWorktree(spawned, wt.path), [], `linked worktree ${i} runs no git`);
+		}
+		// The ref list and the remote `HEAD` symref, cached for every checkout; each watch session's flush of the
+		// rewrite clears them, so a probe after a later one reads them again
+		assert.deepStrictEqual(
+			shared.filter(
+				m => !/\] git (for-each-ref --format=%1E|symbolic-ref --short refs\/remotes\/origin\/HEAD )/.test(m),
+			),
+			[],
+			'only the shared ref list and remote HEAD reads, no checkout reading anything of its own',
+		);
+		for (const [i, sub] of subs.entries()) {
+			assert.strictEqual(sub.current, before[i], `summary ${i} is unchanged`);
+		}
+	});
+
+	test('reads a linked worktree whose branch moved where only packed-refs shows it', async () => {
+		await rewritePackedRefs('pack-refs', '--all');
+
+		const wt = linked[0];
+		const sub = subs[1];
+		const previous = sub.current;
+		const moved = git(wt.path, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'Moved behind the watcher');
+		// `update-ref` writes a loose ref, which `pack-refs` folds into packed-refs and deletes: no event names it
+		git(main.path, 'update-ref', 'refs/heads/task-0', moved);
+		const changed = nextChange(sub);
+		const spawned = await rewritePackedRefs('pack-refs', '--all');
+		const summary = await changed;
+		report('a packed branch moved', spawned);
+
+		assert.strictEqual(summary.sha, moved, 'the summary follows the moved branch');
+		assert.strictEqual(summary.ahead, previous!.ahead, 'no upstream, so nothing ahead of it');
+		assert.strictEqual(summary.base?.ahead, (previous!.base?.ahead ?? 0) + 1, 'one more commit past its base');
+		for (const [i, other] of subs.slice(2).entries()) {
+			assert.strictEqual(other.current?.sha, git(linked[i + 1].path, 'rev-parse', 'HEAD'));
 		}
 	});
 });

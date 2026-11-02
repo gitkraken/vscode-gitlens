@@ -1711,7 +1711,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			assert.deepStrictEqual(summary.baseDependsOn, fresh.dependsOn);
 		});
 
-		test('a packed-refs rewrite that moved the base reads it in full', async () => {
+		test('a packed-refs rewrite that moved the base re-measures it, to the fresh answer', async () => {
 			const sub = await subscribeTask();
 			addCommit(peer.path, 'one.txt', 'one', 'Peer one');
 			git(peer.path, 'push', '-q', 'origin', 'main');
@@ -1724,8 +1724,8 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			watchers.find(w => w.basePath === gitDir)!.fire({ path: join(gitDir, 'packed-refs'), reason: 'change' });
 			const summary = await changed;
 
-			assert.strictEqual(calls.remeasured, 0, 'an unnamed ref change is not re-measured');
-			assert.ok(calls.full >= 1);
+			// The rewrite names no ref, but the tips the base was read from show which one moved
+			assert.deepStrictEqual(calls, { full: 0, remeasured: 1, answered: 1 });
 			assert.deepStrictEqual(summary.base, (await readFresh('task')).base);
 			sub.dispose();
 		});
