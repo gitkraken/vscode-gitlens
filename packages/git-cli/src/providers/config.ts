@@ -28,6 +28,7 @@ import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { fsExists } from '../exec/exec.js';
 import type { Git } from '../exec/git.js';
+import { isGitDirMovedByEnv, readGitDirs } from '../exec/gitDirResolver.js';
 import { KeyedSequencer } from '../exec/indexLock.js';
 
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
@@ -568,9 +569,22 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (cached != null) return cached;
 
 		const scope = getScopedLogger();
-		const repoInfo = await this.getRepositoryInfo(repoPath);
 
 		let gitDir: GitDir;
+		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath);
+		if (fsGitDirs != null) {
+			const path = normalizePath(fsGitDirs.gitDir);
+			const commonPath = normalizePath(fsGitDirs.commonGitDir);
+			gitDir = {
+				uri: fileUri(path),
+				commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
+				parentUri: undefined,
+			};
+			this.cache.gitDir.set(repoPath, gitDir);
+			return gitDir;
+		}
+
+		const repoInfo = await this.getRepositoryInfo(repoPath);
 		if (!Array.isArray(repoInfo) && repoInfo != null) {
 			gitDir = {
 				uri: fileUri(repoInfo.gitDir),
@@ -593,6 +607,16 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		this.cache.gitDir.set(repoPath, gitDir);
 
 		return gitDir;
+	}
+
+	/** The git dirs {@link getRepositoryInfo} would report for `repoPath`, when they can be read without running git */
+	private async readGitDirsWithoutGit(
+		repoPath: string,
+	): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
+		if (this.context.workspace?.isTrusted === false || this.git.options.isTrusted?.() === false) return undefined;
+		if (isGitDirMovedByEnv(this.git.getRunEnvironment())) return undefined;
+
+		return readGitDirs(repoPath);
 	}
 
 	/**

@@ -876,6 +876,11 @@ export class Git {
 		return this._fullEnv;
 	}
 
+	/** The environment git runs with, before a run's own `env` */
+	getRunEnvironment(): Readonly<Record<string, string | undefined>> {
+		return this.getFullEnv();
+	}
+
 	/**
 	 * Builds the environment for a git command. Returns the cached full env
 	 * directly when there are no per-call overrides (the common case).
