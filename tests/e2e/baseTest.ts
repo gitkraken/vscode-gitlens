@@ -655,10 +655,12 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				killProcessTree(editorPid);
 				await electronApp.close().catch(() => {});
 				// With retries: on Windows the killed processes' files stay locked for a moment, and a single attempt
-				// left the worker's profile behind — for a signed-in worker, with its account session
+				// left the worker's profile behind — for a signed-in worker, with its account session. That one must
+				// not be left unnoticed (a shared runner keeps it), so its failure fails the run.
 				await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
 					(ex: unknown) => {
 						console.warn(`[e2e] could not remove the worker's temp dir ${tempDir}: ${String(ex)}`);
+						if (vscodeOptions.signIn) throw ex;
 					},
 				);
 			}

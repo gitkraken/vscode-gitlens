@@ -65,10 +65,13 @@ const test = mcpTest.extend<object, { cloneCleanup: void }>({
 			if (clonePath == null) return;
 
 			// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the intermediate
-			// directories of slashed branch names behind, so drop the whole tree with the clone.
+			// directories of slashed branch names behind, so drop the whole tree with the clone. A clone left behind
+			// still holds the private test repository (and its credential, if `afterAll` couldn't remove it), so a
+			// failure fails the run rather than pass unnoticed.
 			await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
 				(ex: unknown) => {
 					console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
+					throw ex;
 				},
 			);
 		},
