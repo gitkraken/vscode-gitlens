@@ -9,8 +9,9 @@
  * Each named environment variable's value is searched for verbatim and in the encodings a test could plausibly
  * write it in: URL-encoding, and base64 / base64url at each of the three byte offsets it can sit at inside a larger
  * encoded blob. This is best-effort: it can't know values it wasn't given — the account tokens a sign-in mints among
- * them — or encodings beyond these. Playwright traces are zips, so `.zip` files are scanned through
- * `unzip -p`. Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
+ * them — or encodings beyond these. Playwright traces are zips, so a `.zip` is scanned as its own bytes — entry
+ * names, comments and extra fields are stored there uncompressed — and as its members' contents through `unzip -p`.
+ * Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
  * a hit, so nothing is uploaded unscanned. Only after a complete pass does it write `complete=true` to
  * `GITHUB_OUTPUT`, so the upload step can require it: a scan that crashes midway publishes nothing. Values shorter than
  * 8 characters are ignored (too likely to collide). Nothing secret is printed: only the file and what happened to it,
@@ -94,7 +95,11 @@ function* files(dir, onUnreadable) {
 function contentOf(file) {
 	try {
 		if (file.endsWith('.zip')) {
-			return execFileSync('unzip', ['-p', file], { maxBuffer: 1024 * 1024 * 1024 });
+			// `unzip -p` yields the members' contents only: the archive's own bytes carry the rest
+			return Buffer.concat([
+				readFileSync(file),
+				execFileSync('unzip', ['-p', file], { maxBuffer: 1024 * 1024 * 1024 }),
+			]);
 		}
 		return readFileSync(file);
 	} catch {

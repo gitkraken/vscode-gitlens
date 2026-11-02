@@ -473,8 +473,10 @@ jobs:
               id: scan
               if: ${{ !cancelled() }}
               env:
-                  SCAN_SECRET_NAMES: GK_E2E_ACCESS_TOKEN_COOKIE,GK_E2E_CF_ACCESS_CLIENT_SECRET,GK_E2E_GITHUB_TOKEN
+                  # Every credential the test step holds
+                  SCAN_SECRET_NAMES: GK_E2E_ACCESS_TOKEN_COOKIE,GK_E2E_CF_ACCESS_CLIENT_ID,GK_E2E_CF_ACCESS_CLIENT_SECRET,GK_E2E_GITHUB_TOKEN
                   GK_E2E_ACCESS_TOKEN_COOKIE: ${{ secrets.GK_E2E_ACCESS_TOKEN_COOKIE }}
+                  GK_E2E_CF_ACCESS_CLIENT_ID: ${{ secrets.GK_E2E_CF_ACCESS_CLIENT_ID }}
                   GK_E2E_CF_ACCESS_CLIENT_SECRET: ${{ secrets.GK_E2E_CF_ACCESS_CLIENT_SECRET }}
                   GK_E2E_GITHUB_TOKEN: ${{ secrets.GK_E2E_GITHUB_TOKEN }}
               run: node scripts/e2eScanForSecrets.mjs out/test-results-signed-in playwright-report

@@ -5,9 +5,51 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
+import { crc32 } from 'node:zlib';
 import { scanOutput, secretNeedles } from '../e2eScanForSecrets.mjs';
 
 const secret = 'gk-cookie-0123456789abcdef';
+
+/**
+ * A one-entry, uncompressed zip with an archive comment — enough for `unzip` to read, with every field controllable.
+ * @param {{ name: string; content: string; comment?: string }} entry
+ */
+function zipOf({ name, content, comment = '' }) {
+	const nameBytes = Buffer.from(name);
+	const data = Buffer.from(content);
+	const commentBytes = Buffer.from(comment);
+	const crc = crc32(data);
+
+	const local = Buffer.alloc(30);
+	local.writeUInt32LE(0x04034b50, 0);
+	local.writeUInt16LE(20, 4); // version needed
+	local.writeUInt32LE(crc, 14);
+	local.writeUInt32LE(data.length, 18);
+	local.writeUInt32LE(data.length, 22);
+	local.writeUInt16LE(nameBytes.length, 26);
+
+	const central = Buffer.alloc(46);
+	central.writeUInt32LE(0x02014b50, 0);
+	central.writeUInt16LE(20, 4); // version made by
+	central.writeUInt16LE(20, 6); // version needed
+	central.writeUInt32LE(crc, 16);
+	central.writeUInt32LE(data.length, 20);
+	central.writeUInt32LE(data.length, 24);
+	central.writeUInt16LE(nameBytes.length, 28);
+	// local header at offset 0
+
+	const centralOffset = local.length + nameBytes.length + data.length;
+	const centralSize = central.length + nameBytes.length;
+	const end = Buffer.alloc(22);
+	end.writeUInt32LE(0x06054b50, 0);
+	end.writeUInt16LE(1, 8);
+	end.writeUInt16LE(1, 10);
+	end.writeUInt32LE(centralSize, 12);
+	end.writeUInt32LE(centralOffset, 16);
+	end.writeUInt16LE(commentBytes.length, 20);
+
+	return Buffer.concat([local, nameBytes, data, central, nameBytes, end, commentBytes]);
+}
 
 /**
  * @param {Record<string, string>} files output-relative path -> file contents
@@ -87,6 +129,26 @@ test('masks JWT-shaped tokens and skips text-named files holding NUL bytes', asy
 		assert.equal(await readFile(join(dir, 'log.txt'), 'utf8'), 'token <token> end');
 		assert.equal(await readFile(join(dir, 'blob.json'), 'utf8'), `\0${jwt}`);
 	});
+});
+
+test('deletes a zip holding a secret in its metadata, not only in its members', async () => {
+	await withOutput(
+		{
+			// The control: the same structure, nothing secret — kept, so the zips below are read, not just unreadable
+			'clean.zip': zipOf({ name: 'trace.trace', content: 'nothing here', comment: 'nothing here' }),
+			'member.zip': zipOf({ name: 'trace.trace', content: `cookie=${secret}` }),
+			'comment.zip': zipOf({ name: 'trace.trace', content: 'nothing here', comment: secret }),
+			'name.zip': zipOf({ name: `${secret}.trace`, content: 'nothing here' }),
+		},
+		async dir => {
+			const result = scan(dir);
+			assert.deepEqual(
+				result.removed.sort(),
+				['comment.zip', 'member.zip', 'name.zip'].map(f => join(dir, f)),
+			);
+			assert.equal(existsSync(join(dir, 'clean.zip')), true);
+		},
+	);
 });
 
 test('deletes an archive it cannot read', async () => {
