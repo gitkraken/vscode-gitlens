@@ -252,7 +252,18 @@ if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]
 		console.log('[secret-scan] no secret values to scan for');
 	}
 
-	const { scanned, removed, masked } = scanOutput(process.argv.slice(2), needles);
+	let result;
+	try {
+		result = scanOutput(process.argv.slice(2), needles);
+	} catch {
+		// A deletion that failed even on the second attempt lands here, and an uncaught error would print its path —
+		// which may be the very name the scan withholds. Fixed words only, and no `complete=true`: nothing is uploaded
+		console.log(
+			'::error::The secret scan could not finish (a file or directory could not be deleted); nothing is uploaded',
+		);
+		process.exit(1);
+	}
+	const { scanned, removed, masked } = result;
 	console.log(
 		`[secret-scan] ${scanned} files scanned for ${names.length} secret(s), ${removed.length} removed, ${masked.length} masked`,
 	);

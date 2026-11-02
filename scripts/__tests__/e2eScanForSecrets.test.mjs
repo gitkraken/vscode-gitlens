@@ -197,6 +197,40 @@ test('deletes a file it cannot mask instead of aborting the scan', async () => {
 	);
 });
 
+test(
+	'the CLI stops on a deletion that fails without printing the path it withholds, and reports no complete pass',
+	// A read-only directory doesn't stop deletion inside it on Windows
+	{ skip: process.platform === 'win32' && 'needs POSIX directory permissions' },
+	async () => {
+		const encoded = Buffer.from(secret).toString('base64');
+		await withOutput({ [`locked/trace-${encoded}.txt`]: 'nothing here' }, async dir => {
+			const githubOutput = join(await mkdtemp(join(tmpdir(), 'gitlens-e2e-scan-output-')), 'output');
+			await writeFile(githubOutput, '');
+			await chmod(join(dir, 'locked'), 0o555);
+			try {
+				const result = spawnSync(process.execPath, [resolve('scripts/e2eScanForSecrets.mjs'), dir], {
+					encoding: 'utf8',
+					env: {
+						...process.env,
+						SCAN_SECRET_NAMES: 'GK_E2E_TEST_SECRET',
+						GK_E2E_TEST_SECRET: secret,
+						GITHUB_OUTPUT: githubOutput,
+					},
+				});
+				assert.equal(result.status, 1);
+				assert.match(result.stdout, /The secret scan could not finish/);
+				for (const stream of ['stdout', 'stderr']) {
+					assert.equal(result[stream].includes(encoded), false, stream);
+				}
+				assert.equal((await readFile(githubOutput, 'utf8')).includes('complete=true'), false);
+			} finally {
+				await chmod(join(dir, 'locked'), 0o755);
+				await rm(join(githubOutput, '..'), { recursive: true, force: true });
+			}
+		});
+	},
+);
+
 test('the CLI reports a complete pass to GITHUB_OUTPUT', async () => {
 	await withOutput({ 'clean.txt': 'nothing here' }, async dir => {
 		// Outside the scanned directory, so the scan doesn't read its own output file
