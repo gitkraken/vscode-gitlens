@@ -1306,7 +1306,6 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				<gl-button
 					class="card-action"
 					data-health-action=${lever.id}
-					appearance="primary"
 					aria-label=${l10n.t('Enable {label}', { label: copy.label })}
 					?disabled=${busy || this.switching}
 					@click=${() =>
