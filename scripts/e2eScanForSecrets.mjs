@@ -95,10 +95,14 @@ function* files(dir, onUnreadable) {
 function contentOf(file) {
 	try {
 		if (file.endsWith('.zip')) {
-			// `unzip -p` yields the members' contents only: the archive's own bytes carry the rest
+			// `unzip -p` yields the members' contents only: the archive's own bytes carry the rest. Its stderr is
+			// captured, never passed through: its diagnostics name the entries, and a name can hold a secret
 			return Buffer.concat([
 				readFileSync(file),
-				execFileSync('unzip', ['-p', file], { maxBuffer: 1024 * 1024 * 1024 }),
+				execFileSync('unzip', ['-p', file], {
+					maxBuffer: 1024 * 1024 * 1024,
+					stdio: ['ignore', 'pipe', 'pipe'],
+				}),
 			]);
 		}
 		return readFileSync(file);

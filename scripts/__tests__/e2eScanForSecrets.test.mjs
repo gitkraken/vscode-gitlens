@@ -12,13 +12,14 @@ const secret = 'gk-cookie-0123456789abcdef';
 
 /**
  * A one-entry, uncompressed zip with an archive comment — enough for `unzip` to read, with every field controllable.
- * @param {{ name: string; content: string; comment?: string }} entry
+ * @param {{ name: string; content: string; comment?: string; badCrc?: boolean }} entry `badCrc` stores a wrong CRC,
+ * which `unzip` reports on stderr, naming the entry
  */
-function zipOf({ name, content, comment = '' }) {
+function zipOf({ name, content, comment = '', badCrc = false }) {
 	const nameBytes = Buffer.from(name);
 	const data = Buffer.from(content);
 	const commentBytes = Buffer.from(comment);
-	const crc = crc32(data);
+	const crc = (crc32(data) ^ (badCrc ? 1 : 0)) >>> 0;
 
 	const local = Buffer.alloc(30);
 	local.writeUInt32LE(0x04034b50, 0);
@@ -214,4 +215,23 @@ test('the CLI fails the run without printing the secret when one is found', asyn
 		assert.match(result.stdout, /trace\.txt: contains detected secret material — deleted/);
 		assert.equal(result.stdout.includes(secret), false);
 	});
+});
+
+test("the CLI keeps unzip's diagnostics, which name the entries, out of its output", async () => {
+	const encoded = Buffer.from(secret).toString('base64');
+	await withOutput(
+		{ 'trace.zip': zipOf({ name: `trace-${encoded}.trace`, content: 'x', badCrc: true }) },
+		async dir => {
+			const result = spawnSync(process.execPath, [resolve('scripts/e2eScanForSecrets.mjs'), dir], {
+				encoding: 'utf8',
+				env: { ...process.env, SCAN_SECRET_NAMES: 'GK_E2E_TEST_SECRET', GK_E2E_TEST_SECRET: secret },
+			});
+			assert.equal(result.status, 1);
+			assert.equal(existsSync(join(dir, 'trace.zip')), false);
+			for (const stream of ['stdout', 'stderr']) {
+				assert.equal(result[stream].includes(encoded), false, stream);
+				assert.equal(result[stream].includes('bad CRC'), false, stream);
+			}
+		},
+	);
 });
