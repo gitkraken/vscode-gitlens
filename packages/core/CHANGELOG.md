@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
 
+### Changed
+
+- Changes `getGitDir` to read the git dir and common git dir of a main or linked worktree from disk (its `.git` folder or file, `commondir`), instead of spawning `git rev-parse`, with the same answer. It still asks git for any other layout: a submodule, a bare repository, a worktree nested inside another repository's working tree (including its own main checkout), a `.git` file without `commondir`, `core.worktree`, `core.bare` or an `include` in its config, `GIT_DIR`/`GIT_COMMON_DIR`/`GIT_WORK_TREE`/`GIT_CEILING_DIRECTORIES` in git's environment, a folder owned by another user (not checked on Windows, where the process has no uid), or an untrusted workspace. Resolving N sibling worktrees now runs no git process (was N). `onGitDirResolveFailed` fires only when git is asked (git-cli)
+
 ### Removed
 
 - Removes `getWindowsShortPath` from `utils/env/node/exec.js` and its re-export from `git-cli/exec/exec.js`; it has had no callers since 2023 (utils, git-cli)
