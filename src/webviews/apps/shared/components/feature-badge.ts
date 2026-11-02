@@ -48,7 +48,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			a {
-				color: var(--color-link);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: underline;
 			}
 

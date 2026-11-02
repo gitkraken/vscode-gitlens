@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes toolbar buttons, action icons, chips, breadcrumbs and the _Commit Graph_ search's result navigation in GitLens webviews showing no hover feedback in high contrast themes
 - Fixes the selected suggestion in GitLens autocomplete dropdowns (e.g. the _Commit Graph_ search) being invisible in high contrast themes
 - Fixes the error banner in _Visual File History_, _GitLens Settings_ and _Inspect_ having no visible edge in high contrast themes
+- Fixes links in the Pro feature badge's popup showing as plain text instead of in the link color
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
 - Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
