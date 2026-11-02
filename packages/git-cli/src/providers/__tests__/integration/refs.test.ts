@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import { ReferenceUpdateError } from '@gitlens/git/errors.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
@@ -13,6 +14,7 @@ import {
 	createBranchAt,
 	createTag,
 	createTestRepo,
+	createWorktree,
 	getHeadSha,
 	revParse,
 } from './helpers.js';
@@ -505,6 +507,92 @@ suite('RefsSubProvider.getReference — force bypasses the branch cache', () => 
 			newSha,
 			'getReference({ force: true }) must refresh and store the branch it resolves',
 		);
+	});
+});
+
+suite('RefsSubProvider.getRefs — a forced refresh that finds a ref moved drops the counts keyed by ref names', () => {
+	let repo: TestRepo;
+	let worktree: { path: string; cleanup: () => void } | undefined;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		worktree?.cleanup();
+		worktree = undefined;
+		repo.cleanup();
+	});
+
+	test("a count cached before a forced refresh isn't served after it, in any checkout of the repository", async () => {
+		createBranch(repo.path, 'count-base');
+		createBranch(repo.path, 'linked');
+		addCommit(repo.path, 'file1.txt', 'content', 'Past the base');
+		worktree = createWorktree(repo.path, 'linked');
+		for (const path of [repo.path, worktree.path]) {
+			repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+		}
+
+		const { commits } = repo.provider;
+		assert.deepStrictEqual(await commits.getLeftRightCommitCount(repo.path, 'count-base...HEAD'), {
+			left: 0,
+			right: 1,
+		});
+		assert.deepStrictEqual(await commits.getLeftRightCommitCount(worktree.path, 'count-base...HEAD'), {
+			left: 0,
+			right: 0,
+		});
+
+		// The refs as the forced refresh will find them changed from
+		await repo.provider.refs.getRefs(repo.path);
+
+		// Moves the base outside the provider — GitLens's cache-invalidation hooks never fire.
+		execFileSync('git', ['update-ref', 'refs/heads/count-base', getHeadSha(repo.path)], {
+			cwd: repo.path,
+			stdio: 'pipe',
+		});
+		assert.deepStrictEqual(
+			await commits.getLeftRightCommitCount(repo.path, 'count-base...HEAD'),
+			{ left: 0, right: 1 },
+			'an unforced count must still answer from the cache',
+		);
+
+		await repo.provider.refs.getRefs(repo.path, undefined, { force: true });
+
+		assert.deepStrictEqual(await commits.getLeftRightCommitCount(repo.path, 'count-base...HEAD'), {
+			left: 0,
+			right: 0,
+		});
+		assert.deepStrictEqual(
+			await commits.getLeftRightCommitCount(worktree.path, 'count-base...HEAD'),
+			{ left: 1, right: 0 },
+			"a sibling checkout's count must not outlive the refresh either",
+		);
+	});
+
+	test('a forced refresh that finds no ref moved keeps the counts', async () => {
+		createBranch(repo.path, 'count-base');
+		addCommit(repo.path, 'file1.txt', 'content', 'Past the base');
+		repo.provider.cache.registerRepoPath(fileUri(repo.path), await repo.provider.config.getGitDir(repo.path));
+
+		const { commits } = repo.provider;
+		assert.deepStrictEqual(await commits.getLeftRightCommitCount(repo.path, 'count-base...HEAD'), {
+			left: 0,
+			right: 1,
+		});
+		await repo.provider.refs.getRefs(repo.path);
+
+		await repo.provider.refs.getRefs(repo.path, undefined, { force: true });
+
+		// Moved only now, outside the provider: a count still answered from before shows the refresh kept it
+		execFileSync('git', ['update-ref', 'refs/heads/count-base', getHeadSha(repo.path)], {
+			cwd: repo.path,
+			stdio: 'pipe',
+		});
+		assert.deepStrictEqual(await commits.getLeftRightCommitCount(repo.path, 'count-base...HEAD'), {
+			left: 0,
+			right: 1,
+		});
 	});
 });
 
