@@ -237,17 +237,7 @@ export const bannerStyles = css`
 		margin-top: var(--gl-space-8);
 	}
 
-	.banner:not(.banner--gradient-purple) .banner__button--primary {
-		grid-column: 2;
-		justify-self: center;
-		white-space: nowrap;
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
-		--button-foreground: var(--gl-banner-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
-		--button-padding: var(--gl-banner-button-padding);
-	}
-
-	.banner--gradient-purple .banner__button--primary {
+	.banner__button--primary {
 		grid-column: 2;
 		justify-self: center;
 		white-space: nowrap;
@@ -306,22 +296,6 @@ export const bannerStyles = css`
 	/* Override text color for high contrast light theme specifically */
 	:host-context(.vscode-high-contrast-light) {
 		--gl-banner-text-color: #000;
-	}
-
-	:host-context(.vscode-dark) .banner:not(.banner--gradient-purple) .banner__button--primary,
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light))
-		.banner:not(.banner--gradient-purple)
-		.banner__button--primary {
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
-		--button-foreground: #fff;
-	}
-
-	:host-context(.vscode-light) .banner:not(.banner--gradient-purple) .banner__button--primary,
-	:host-context(.vscode-high-contrast-light) .banner:not(.banner--gradient-purple) .banner__button--primary {
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 8%, #fff 25%);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 15%, #fff 35%);
-		--button-foreground: #000;
 	}
 
 	/* Make banner text darker in light themes */
