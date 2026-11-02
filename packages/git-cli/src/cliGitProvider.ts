@@ -35,6 +35,8 @@ import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exe
 import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
 import { batchLiteralPathspecs, Git, gitConfigsStatus, GitError, GitErrors } from './exec/git.js';
 import { readCommonGitDir, readHeadState } from './exec/headState.js';
+import type { IndexRefresherOptions } from './exec/indexRefresh.js';
+import { IndexRefresher } from './exec/indexRefresh.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -87,6 +89,17 @@ export interface CliGitProviderOptions {
 	 * a literal path strictly inside the common git dir, or that lies under `worktrees`, is dropped.
 	 */
 	ignoredWorktreeFolders?: readonly string[];
+	/**
+	 * Refreshes a checkout's index in the background after core's own clone, worktree add, checkout, restore, merge, pull,
+	 * reset, cherry-pick, revert, rebase, stash apply, pop and push, and abort or continue of a paused operation rewrote
+	 * it, so later status and diff reads stop re-hashing the files written in the index's second. A write that stops on
+	 * conflicts refreshes too, since the files it rewrote first are read the most while the conflicts are resolved. Off
+	 * by default: each costs a status of the whole checkout, worth it only where that checkout will be read again.
+	 * `scheduleIndexRefresh` runs either way.
+	 */
+	refreshIndexAfterWrites?: boolean;
+	/** The clock and timer behind the background index refresh, for tests; the real ones by default */
+	indexRefresh?: Pick<IndexRefresherOptions, 'now' | 'setTimer'>;
 }
 
 /**
@@ -130,6 +143,7 @@ export class CliGitProvider implements GitProvider {
 	private readonly _ignoredWorktreeFolders: readonly string[];
 	/** By common git dir, the folders whose worktrees are ignored there: a common git dir never moves while it is open */
 	private readonly _ignoredWorktreeRoots = new Map<string, Promise<readonly string[]>>();
+	private readonly _indexRefresher: IndexRefresher;
 
 	constructor(options: CliGitProviderOptions) {
 		// Every typed write announces itself through `onReset`, so the provider clears its own state there
@@ -192,6 +206,12 @@ export class CliGitProvider implements GitProvider {
 			});
 		this._cacheOwned = !(options.cache instanceof Cache);
 		this._cache = options.cache instanceof Cache ? options.cache : new Cache();
+		this._indexRefresher = new IndexRefresher({
+			...options.indexRefresh,
+			afterWrites: options.refreshIndexAfterWrites,
+			git: this._git,
+			statIndexMtimeMs: checkoutPath => this.statIndexMtimeMs(checkoutPath),
+		});
 
 		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
 		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
@@ -206,6 +226,27 @@ export class CliGitProvider implements GitProvider {
 	/** The underlying cache instance (for repo path registration, etc.) */
 	get cache(): Cache {
 		return this._cache;
+	}
+
+	/** The per-checkout queue that refreshes an index a write left with untrusted entries */
+	get indexRefresher(): IndexRefresher {
+		return this._indexRefresher;
+	}
+
+	private async statIndexMtimeMs(checkoutPath: string): Promise<number | undefined> {
+		try {
+			let gitDir = this._cache.gitDir.get(checkoutPath);
+			if (gitDir == null) {
+				// A failed clone or worktree add leaves no checkout, and resolving one there anyway would cache, for its
+				// path, the git dir of whatever repository git falls back to
+				if (!(await fsExists(path.join(checkoutPath, '.git')))) return undefined;
+
+				gitDir = await this.config.getGitDir(checkoutPath);
+			}
+			return (await fs.stat(path.join(gitDir.uri.fsPath, 'index'))).mtimeMs;
+		} catch {
+			return undefined;
+		}
 	}
 
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
@@ -342,7 +383,9 @@ export class CliGitProvider implements GitProvider {
 		}
 
 		// `throw`: the default handler swallows `remoteConnectionError`, which would return a folder never cloned
-		await this._git.run({ cwd: parentPath, errors: 'throw', ...runOptions }, 'clone', url, folderPath);
+		await this._indexRefresher.refreshAfter(folderPath, () =>
+			this._git.run({ cwd: parentPath, errors: 'throw', ...runOptions }, 'clone', url, folderPath),
+		);
 
 		return folderPath;
 	}
@@ -667,6 +710,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -687,6 +731,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -737,6 +782,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -768,6 +814,7 @@ export class CliGitProvider implements GitProvider {
 			this._cache,
 			this as unknown as CliGitProviderInternal,
 			this._ignoredWorktreeFolders.length ? path => this.getIgnoredWorktreeRoots(path) : undefined,
+			this._indexRefresher,
 		));
 	}
 
@@ -1209,6 +1256,7 @@ export class CliGitProvider implements GitProvider {
 
 	dispose(): void {
 		this._onDidAnnounceChanges.dispose();
+		this._indexRefresher.dispose();
 		this._git.dispose();
 		if (this._cacheOwned) {
 			this._cache.dispose();

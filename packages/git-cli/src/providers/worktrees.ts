@@ -23,6 +23,8 @@ import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, GitError } from '../exec/git.js';
 import { getGitCommandError, GitErrors, isRunHookFailure } from '../exec/git.js';
+import type { IndexRefresher } from '../exec/indexRefresh.js';
+import { refreshIndexAfter } from '../exec/indexRefresh.js';
 import { parseGitWorktrees } from '../parsers/worktreeParser.js';
 
 /** Extracts the lock reason from Git's `cannot remove a locked working tree` output, when it provides one */
@@ -130,6 +132,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		 * when they can't be read; given only when folders are registered
 		 */
 		private readonly readIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[] | undefined>,
+		/** Refreshes the index of a worktree it just checked out */
+		private readonly indexRefresher?: IndexRefresher,
 	) {}
 
 	/**
@@ -175,7 +179,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		// A cancelled or timed-out run, or a host-rejected retry, leaves no output to name the branch git may have created
 		let mayHaveCreatedBranch = false;
 		try {
-			const result = await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			const run = () => this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			// A relative path is the new worktree's location from `repoPath`, where git ran
+			const result = await refreshIndexAfter(this.indexRefresher, normalizePath(resolve(repoPath, path)), run);
 			createdBranch ??= getNewWorktreeBranch(result.stderr);
 		} catch (ex) {
 			scope?.error(ex);
