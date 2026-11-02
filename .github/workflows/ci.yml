@@ -466,7 +466,7 @@ jobs:
                   --grep @signed-in --output out/test-results-signed-in --retries=0
 
             # Artifacts are uploaded as usual, so make sure no credential rides along: a file holding a secret value
-            # (verbatim, base64, base64url, URL-encoded; inside trace zips too) — or that can't be read — is deleted
+            # (verbatim, base64, base64url, URL-encoded; inside trace zips too, or in its path) — or that can't be read — is deleted
             # and the job fails, and e-mail addresses and JWT-shaped tokens in text files are masked. Prints only the
             # file and what happened to it.
             - name: Scan e2e output for secrets

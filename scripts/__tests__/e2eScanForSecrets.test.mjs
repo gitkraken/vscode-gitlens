@@ -152,6 +152,29 @@ test('deletes a zip holding a secret in its metadata, not only in its members', 
 	);
 });
 
+test('deletes what a secret-carrying name publishes, files and directories, and withholds that path from the log', async () => {
+	const encoded = Buffer.from(secret).toString('base64');
+	await withOutput(
+		{
+			[`trace-${encoded}.txt`]: 'nothing here',
+			[`run-${encoded}/a.txt`]: 'nothing here',
+			[`run-${encoded}/nested/b.txt`]: 'nothing here',
+			'kept.txt': 'nothing here',
+		},
+		async dir => {
+			const lines = [];
+			const result = scanOutput([dir], secretNeedles({ SECRET: secret }, ['SECRET']), line => lines.push(line));
+			assert.equal(result.removed.length, 3);
+			assert.equal(existsSync(join(dir, `trace-${encoded}.txt`)), false);
+			assert.equal(existsSync(join(dir, `run-${encoded}`)), false);
+			assert.equal(existsSync(join(dir, 'kept.txt')), true);
+			const log = lines.join('\n');
+			assert.equal(log.includes(encoded), false);
+			assert.match(log, /<name withheld>: name contains detected secret material — deleted/);
+		},
+	);
+});
+
 test('deletes an archive it cannot read', async () => {
 	await withOutput({ 'trace.zip': 'not a zip' }, async dir => {
 		const result = scan(dir);

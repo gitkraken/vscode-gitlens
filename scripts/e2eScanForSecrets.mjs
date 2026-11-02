@@ -1,6 +1,7 @@
 /**
  * Clears e2e output before a job that held sign-in credentials uploads it as artifacts (#5682):
- * - any file holding a secret value is deleted, and the run fails;
+ * - any file holding a secret value is deleted, and the run fails — in its contents or in its path, which is published
+ *   as the artifact's (a directory's name included), and which the log then withholds;
  * - e-mail addresses and JWT-shaped strings in text files are masked in place, so the test account's address isn't
  *   published.
  *
@@ -112,22 +113,43 @@ function contentOf(file) {
 }
 
 /**
+ * @param {Buffer | string} data
+ * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
+ */
+function carriesSecret(data, needles) {
+	const bytes = typeof data === 'string' ? Buffer.from(data) : data;
+	return needles.some(n => bytes.indexOf(n.bytes) !== -1);
+}
+
+/**
+ * The path as the log may show it: an artifact path is published too, so one whose names (below the scanned
+ * directory) carry secret material is withheld.
+ * @param {string} dir
+ * @param {string} entry
+ * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
+ */
+function shownPath(dir, entry, needles) {
+	return carriesSecret(path.relative(dir, entry), needles) ? path.join(dir, '<name withheld>') : entry;
+}
+
+/**
  * @param {string} file
+ * @param {string} shown the file's path as the log may show it
  * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
  * @param {(line: string) => void} log
  * @returns {'removed' | 'masked' | undefined}
  */
-function clearFile(file, needles, log) {
+function clearFile(file, shown, needles, log) {
 	const content = contentOf(file);
 	if (content == null) {
-		log(`[secret-scan] ${file}: unreadable — deleted`);
+		log(`[secret-scan] ${shown}: unreadable — deleted`);
 		rmSync(file, { force: true });
 		return 'removed';
 	}
 
 	// Which secret or encoding matched stays out of the log: it is derived from the secret values themselves
-	if (needles.some(n => content.indexOf(n.bytes) !== -1)) {
-		log(`[secret-scan] ${file}: contains detected secret material — deleted`);
+	if (carriesSecret(content, needles)) {
+		log(`[secret-scan] ${shown}: contains detected secret material — deleted`);
 		rmSync(file, { force: true });
 		return 'removed';
 	}
@@ -141,7 +163,7 @@ function clearFile(file, needles, log) {
 	if (redacted === text) return undefined;
 
 	writeFileSync(file, redacted);
-	log(`[secret-scan] ${file}: e-mail addresses / tokens masked`);
+	log(`[secret-scan] ${shown}: e-mail addresses / tokens masked`);
 	return 'masked';
 }
 
@@ -160,18 +182,27 @@ export function scanOutput(dirs, needles, log = console.log) {
 
 		const onUnreadable = (/** @type {string} */ unreadable) => {
 			removed.push(unreadable);
-			log(`[secret-scan] ${unreadable}: unreadable directory — deleted`);
+			log(`[secret-scan] ${shownPath(dir, unreadable, needles)}: unreadable directory — deleted`);
 			rmSync(unreadable, { recursive: true, force: true });
 		};
 		for (const file of files(dir, onUnreadable)) {
 			scanned++;
+			const shown = shownPath(dir, file, needles);
 			let outcome;
 			try {
-				outcome = clearFile(file, needles, log);
+				// A name is published as the artifact's path: one carrying secret material goes, whatever it holds.
+				// A directory's name is part of the path of every file under it
+				if (shown !== file) {
+					log(`[secret-scan] ${shown}: name contains detected secret material — deleted`);
+					rmSync(file, { force: true });
+					outcome = 'removed';
+				} else {
+					outcome = clearFile(file, shown, needles, log);
+				}
 			} catch {
 				// Couldn't mask it (e.g. read-only) — then it doesn't get uploaded either
 				outcome = 'removed';
-				log(`[secret-scan] ${file}: could not be cleared — deleted`);
+				log(`[secret-scan] ${shown}: could not be cleared — deleted`);
 				rmSync(file, { force: true });
 			}
 			if (outcome === 'removed') {
@@ -180,8 +211,34 @@ export function scanOutput(dirs, needles, log = console.log) {
 				masked.push(file);
 			}
 		}
+		// A directory whose name carries secret material was emptied above, but an empty directory still has a name
+		removeDirectoriesNamedWithSecrets(dir, dir, needles);
 	}
 	return { scanned: scanned, removed: removed, masked: masked };
+}
+
+/**
+ * @param {string} root
+ * @param {string} dir
+ * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
+ */
+function removeDirectoriesNamedWithSecrets(root, dir, needles) {
+	let entries;
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+
+		const full = path.join(dir, entry.name);
+		if (carriesSecret(path.relative(root, full), needles)) {
+			rmSync(full, { recursive: true, force: true });
+		} else {
+			removeDirectoriesNamedWithSecrets(root, full, needles);
+		}
+	}
 }
 
 if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href) {
