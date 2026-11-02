@@ -43,6 +43,7 @@ export const EntityIdentifierProviderType = {
 	JiraServer: 'jiraServer',
 	Linear: 'linear',
 	Trello: 'trello',
+	Asana: 'asana',
 } as const;
 
 export const EntityType = {
@@ -165,6 +166,13 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		// Trello currently exposes the board but not a separate workspace/org id here. Reuse the board id in
 		// both serialization slots so branch associations remain round-trippable until the upstream shape grows.
 		accountOrOrgId = entity.project.resourceId || entity.project.id;
+	} else if (provider === EntityIdentifierProviderType.Asana) {
+		if (!isIssue(entity) || !entity.project?.resourceId) {
+			throw new Error('Asana issues must have a workspace to be encoded');
+		}
+
+		// An Asana task is addressed by its gid alone; the workspace is what the SDK's identifier keys it under.
+		accountOrOrgId = entity.project.resourceId;
 	} else if (
 		provider === EntityIdentifierProviderType.Bitbucket ||
 		provider === EntityIdentifierProviderType.BitbucketServer
@@ -220,6 +228,8 @@ export function getProviderIdFromEntityIdentifier(
 			return IssuesCloudHostIntegrationId.Linear;
 		case EntityIdentifierProviderType.Trello:
 			return IssuesCloudHostIntegrationId.Trello;
+		case EntityIdentifierProviderType.Asana:
+			return IssuesCloudHostIntegrationId.Asana;
 		case EntityIdentifierProviderType.Azure:
 			return GitCloudHostIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.AzureDevOpsServer:
@@ -255,6 +265,8 @@ function fromStringToEntityIdentifierProviderType(
 			return EntityIdentifierProviderType.Linear;
 		case 'trello':
 			return EntityIdentifierProviderType.Trello;
+		case 'asana':
+			return EntityIdentifierProviderType.Asana;
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
@@ -416,7 +428,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.BitbucketServer &&
 		identifier.provider !== EntityIdentifierProviderType.AzureDevOpsServer &&
 		identifier.provider !== EntityIdentifierProviderType.Azure &&
-		identifier.provider !== EntityIdentifierProviderType.Trello
+		identifier.provider !== EntityIdentifierProviderType.Trello &&
+		identifier.provider !== EntityIdentifierProviderType.Asana
 	) {
 		return undefined;
 	}

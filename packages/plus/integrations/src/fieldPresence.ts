@@ -432,6 +432,17 @@ const trelloIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 	project: trelloCard,
 };
 
+/**
+ * provider-apis' Asana task fields: its notes, its single assignee, its tags as labels and its likes as reactions.
+ * Comments are stories, which a task doesn't count, so reading them would cost a request per task.
+ */
+const asanaTask = issuePresenceOf(['description', 'assignees', 'labels', 'reactions'], ['access']);
+const asanaIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
+	point: asanaTask,
+	account: asanaTask,
+	project: asanaTask,
+};
+
 const pullRequestPresence = new Map<string, PresenceTable<PullRequestProjection, PullRequestFieldGroup>>([
 	[GitCloudHostIntegrationId.GitHub, gitHubPullRequests],
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, gitHubEnterprisePullRequests],
@@ -455,6 +466,7 @@ const issuePresence = new Map<string, PresenceTable<IssueProjection, IssueFieldG
 	[IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerIssues],
 	[IssuesCloudHostIntegrationId.Linear, linearIssues],
 	[IssuesCloudHostIntegrationId.Trello, trelloIssues],
+	[IssuesCloudHostIntegrationId.Asana, asanaIssues],
 ]);
 
 function lookup<P extends string, G extends string>(

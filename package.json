@@ -13559,6 +13559,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f15c"
 				}
+			},
+			"gitlens-provider-asana": {
+				"description": "provider-asana icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f15d"
+				}
 			}
 		},
 		"menus": {
