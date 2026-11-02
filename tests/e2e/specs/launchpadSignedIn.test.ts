@@ -198,18 +198,23 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 		// Scroll by less than the tree's height, or rows between two steps are never rendered
 		const step = Math.max(22, Math.floor((await tree.evaluate(el => (el as HTMLElement).clientHeight)) / 2));
 		await tree.hover();
+		let scrolled = 0;
 		await expect
 			.poll(
 				async () => {
 					if ((await prRow.count()) > 0) return true;
 
 					await vscode.page.mouse.wheel(0, step);
+					scrolled++;
 					return false;
 				},
 				{ message: `${prRef} listed under Blocked in the Launchpad view`, timeout: 30_000 },
 			)
 			.toBe(true);
-		// Still the only group open when the PR was found: a refresh restores the groups' stored expansion
+		// Still the only group open when the PR was found: a refresh restores the groups' stored expansion. A PR far
+		// down Blocked has scrolled the headers out of the rendered rows, so scroll back up until Blocked's renders again
+		await vscode.page.mouse.wheel(0, -step * (scrolled + 1));
+		await blocked.waitFor({ state: 'visible', timeout: 10_000 });
 		expect(await expanded.count(), 'only Blocked expanded').toBe(1);
 		expect(await blocked.getAttribute('aria-expanded'), 'Blocked still expanded').toBe('true');
 	});
