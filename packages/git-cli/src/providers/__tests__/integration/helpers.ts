@@ -14,6 +14,7 @@ import type { FileSystemProvider, GitServiceConfig, GitServiceContext, GitServic
 import type { GitService } from '@gitlens/git/service.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
+import type { CliGitProviderOptions } from '../../../cliGitProvider.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
@@ -113,6 +114,8 @@ export function createTestRepo(options?: {
 	hooks?: GitServiceHooks;
 	gitOptions?: GitOptions;
 	config?: GitServiceConfig;
+	indexRefresh?: CliGitProviderOptions['indexRefresh'];
+	refreshIndexAfterWrites?: boolean;
 }): TestRepo {
 	ensureLogger();
 
@@ -160,6 +163,8 @@ export function createTestRepo(options?: {
 			context: context,
 			locator: getGitLocation,
 			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+			indexRefresh: options?.indexRefresh,
+			refreshIndexAfterWrites: options?.refreshIndexAfterWrites,
 		});
 
 		return {
@@ -525,7 +530,14 @@ export function getRefTips(repoPath: string): Map<string, string> {
  */
 export function cloneTestRepo(
 	originPath: string,
-	options?: { hooks?: GitServiceHooks; gitOptions?: GitOptions; config?: GitServiceConfig; depth?: number },
+	options?: {
+		hooks?: GitServiceHooks;
+		gitOptions?: GitOptions;
+		config?: GitServiceConfig;
+		depth?: number;
+		indexRefresh?: CliGitProviderOptions['indexRefresh'];
+		refreshIndexAfterWrites?: boolean;
+	},
 ): TestRepo {
 	ensureLogger();
 
@@ -556,6 +568,8 @@ export function cloneTestRepo(
 			context: context,
 			locator: getGitLocation,
 			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+			indexRefresh: options?.indexRefresh,
+			refreshIndexAfterWrites: options?.refreshIndexAfterWrites,
 		});
 
 		return {

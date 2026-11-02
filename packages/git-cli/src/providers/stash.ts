@@ -24,6 +24,8 @@ import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { gitFeaturesByVersion } from '../exec/features.js';
 import type { Git } from '../exec/git.js';
 import { getGitCommandError, GitError, GitErrors, isRunHookFailure, maxGitCliLength } from '../exec/git.js';
+import type { IndexRefresher } from '../exec/indexRefresh.js';
+import { refreshIndexAfter } from '../exec/indexRefresh.js';
 import type { ParsedStash, ParsedStashWithFiles } from '../parsers/logParser.js';
 import { getStashFilesOnlyLogParser, getStashLogParser } from '../parsers/logParser.js';
 import { createCommitFileset } from './commitFilesetUtils.js';
@@ -37,6 +39,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		private readonly git: Git,
 		private readonly cache: Cache,
 		private readonly provider: CliGitProviderInternal,
+		private readonly indexRefresher?: IndexRefresher,
 	) {}
 
 	@gate()
@@ -66,7 +69,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		// Only a clean pop is known to have moved `refs/stash`: a conflicted one keeps the entry
 		let dropped = false;
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, ...runOptions }, ...args),
+			);
 			dropped = conflictCommand === 'stash-pop';
 			return { conflicted: false };
 		} catch (ex) {
@@ -479,7 +484,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			params.push('-m', message);
 		}
 
-		let stdin;
+		let stdin: string | undefined;
 		if (options?.pathspecs?.length) {
 			if (options.stdin) {
 				stdin = options.pathspecs.join('\0');
@@ -493,7 +498,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 		let nothingToSave = false;
 		try {
-			const result = await this.git.run({ cwd: repoPath, ...runOptions, stdin: stdin }, ...params);
+			const result = await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, ...runOptions, stdin: stdin }, ...params),
+			);
 			if (GitErrors.stashNothingToSave.test(result.stdout)) {
 				nothingToSave = true;
 				throw new StashPushError({

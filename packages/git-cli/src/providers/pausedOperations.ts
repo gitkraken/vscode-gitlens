@@ -24,6 +24,8 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { Git } from '../exec/git.js';
 import { getGitCommandError } from '../exec/git.js';
+import type { IndexRefresher } from '../exec/indexRefresh.js';
+import { refreshIndexAfter } from '../exec/indexRefresh.js';
 
 const todoCommitRegex = /^(?:p(?:ick)?|revert)\s+([a-f0-9]+)(?:\s+(.+))?$/i;
 
@@ -39,6 +41,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		private readonly git: Git,
 		private readonly cache: Cache,
 		private readonly provider: CliGitProviderInternal,
+		private readonly indexRefresher?: IndexRefresher,
 	) {}
 
 	/**
@@ -562,7 +565,9 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		try {
 			// Unbounded like the operations it undoes — an abort of a large rebase can outrun the default
 			// command timeout, and being SIGTERM'd partway through would leave the repo mid-abort.
-			await this.git.run({ cwd: repoPath, errors: 'throw', timeout: 0 }, ...args);
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, errors: 'throw', timeout: 0 }, ...args),
+			);
 		} catch (ex) {
 			scope?.error(ex);
 			throw getGitCommandError(
@@ -643,24 +648,26 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				}
 			}
 
-			await this.git.run(
-				{
-					cwd: repoPath,
-					errors: 'throw',
-					configs: configs,
-					env: env,
-					// A `--continue` that opens the commit-message editor blocks for as long as the user leaves
-					// that tab open, which is unbounded — the default `advanced.git.timeout` would SIGTERM it
-					// mid-operation. The start paths (merge/rebase/revert) opt out for the same reason.
-					timeout: 0,
-					// The runner dedups in-flight commands by args only — it ignores per-call `configs`/`env`.
-					// A headless continue (with `GIT_EDITOR`) and a plain `--continue` would therefore collapse
-					// into one execution, so the plain one could silently run headless (auto-accepting a commit
-					// message) or the headless one could ride a plain continue and open an editor that hangs the
-					// loop. Tag the headless variant so it can't share a pending command with the plain one.
-					correlationKey: options?.messageEditor ? 'paused-op-continue-headless' : undefined,
-				},
-				...args,
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run(
+					{
+						cwd: repoPath,
+						errors: 'throw',
+						configs: configs,
+						env: env,
+						// A `--continue` that opens the commit-message editor blocks for as long as the user leaves
+						// that tab open, which is unbounded — the default `advanced.git.timeout` would SIGTERM it
+						// mid-operation. The start paths (merge/rebase/revert) opt out for the same reason.
+						timeout: 0,
+						// The runner dedups in-flight commands by args only — it ignores per-call `configs`/`env`.
+						// A headless continue (with `GIT_EDITOR`) and a plain `--continue` would therefore collapse
+						// into one execution, so the plain one could silently run headless (auto-accepting a commit
+						// message) or the headless one could ride a plain continue and open an editor that hangs the
+						// loop. Tag the headless variant so it can't share a pending command with the plain one.
+						correlationKey: options?.messageEditor ? 'paused-op-continue-headless' : undefined,
+					},
+					...args,
+				),
 			);
 		} catch (ex) {
 			if (PausedOperationContinueError.is(ex)) throw ex;

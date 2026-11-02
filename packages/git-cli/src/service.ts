@@ -37,6 +37,9 @@ export interface CliGitServiceOptions {
 	/** Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist */
 	ignoredWorktreeFolders?: CliGitProviderOptions['ignoredWorktreeFolders'];
 
+	/** Refreshes a checkout's index after core's own writes rewrote it (see `CliGitProviderOptions`); off by default */
+	refreshIndexAfterWrites?: CliGitProviderOptions['refreshIndexAfterWrites'];
+
 	/**
 	 * Filesystem watching provider. When provided, the {@link GitService}
 	 * will watch repositories for changes (file creates, edits, deletes).
@@ -89,6 +92,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		gitOptions: options.gitOptions,
 		cache: options.cache,
 		ignoredWorktreeFolders: options.ignoredWorktreeFolders,
+		refreshIndexAfterWrites: options.refreshIndexAfterWrites,
 	});
 
 	service.register(provider, () => true);
