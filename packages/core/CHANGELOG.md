@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-02
+
 ### Added
 
 - Adds `refreshIndexAfterWrites?: boolean` to `CliGitProviderOptions` and `createCliGitService`'s options, off by default. When on, `checkout`, `restore`, `merge`, `pull`, `reset`, `cherryPick`, `revert`, `rebase`, `createWorktree`, `clone`, stash apply, pop and push, and abort and continue of a paused operation refresh the checkout's index in the background when the write rewrote it, including one that stops on conflicts. Files written in the index's own second are "racily clean", so every later status or diff re-hashed them (~600 ms on 8,000 files) until something rewrote the index, which core's status reads (run with `GIT_OPTIONAL_LOCKS=0`) never do. Once the clock passes that second, one `git status --porcelain -uno --ignore-submodules=all` with optional locks on and rename detection off writes the refreshed index (~7 ms reads after). A write that left the index alone (already up to date, a soft reset) schedules none; writes to one checkout share one refresh. Each costs a background status of the whole checkout, worth it only where that checkout will be read again, so it is off by default (git-cli)
@@ -1058,7 +1060,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...HEAD
+[0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
 [0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
 [0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
 [0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
