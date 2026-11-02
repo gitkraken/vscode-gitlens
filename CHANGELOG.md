@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes GitLens webview colors to follow your theme more closely &mdash; banner text uses the theme's text color instead of pure white or black, the _Security_ and _System_ notification chips use the theme's warning colors instead of the Git conflict red, and autocomplete dropdowns use VS Code's suggestion colors
 - Changes the Pro feature gates, the feature badge, the _Commit Graph_ account chip, _GitLens Settings_ → _Account_, the Welcome page and the Pro-gated view prompts to offer _Upgrade to Pro_ alongside _Reactivate Pro Trial_, so an account the server won't reactivate isn't left without a path to Pro ([#6010](https://github.com/gitkraken/vscode-gitlens/issues/6010))
 
 ### Fixed
@@ -37,7 +38,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
 - Fixes the text on warning and danger buttons (e.g. _Abort_ in the interactive rebase editor) being hard to read in light themes
 - Fixes secondary buttons in GitLens webviews showing a blue outline in the 2026 themes
-- Fixes toolbar buttons in GitLens webviews showing no hover feedback in high contrast themes
+- Fixes toolbar buttons, action icons, chips, breadcrumbs and the _Commit Graph_ search's result navigation in GitLens webviews showing no hover feedback in high contrast themes
+- Fixes the selected suggestion in GitLens autocomplete dropdowns (e.g. the _Commit Graph_ search) being invisible in high contrast themes
+- Fixes the error banner in _Visual File History_, _GitLens Settings_ and _Inspect_ having no visible edge in high contrast themes
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
 - Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
