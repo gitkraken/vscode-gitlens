@@ -103,6 +103,8 @@ async function filterLaunchpadToPr(vscode: VSCodeInstance): Promise<string | und
 
 test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 	test.describe.configure({ mode: 'serial', retries: 0 });
+	// The items waits allow 90 s for the integrations to answer, past the default 60 s test budget
+	test.slow();
 
 	test.beforeAll(async ({ vscode }) => {
 		const simulation = await vscode.gitlens.startSubscriptionSimulation();
@@ -191,7 +193,8 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 			.poll(() => blocked.getAttribute('aria-expanded'), { message: 'Blocked expanded', timeout: 10_000 })
 			.toBe('true');
 
-		const prRow = tree.locator(`[role="treeitem"][aria-level="2"][aria-label*="${prRef}"]`);
+		// Digit-bounded, as in the quick pick: a substring match would also take `#10` or `#123` for `#1`
+		const prRow = tree.getByRole('treeitem', { level: 2, name: prRefPattern });
 		// Scroll by less than the tree's height, or rows between two steps are never rendered
 		const step = Math.max(22, Math.floor((await tree.evaluate(el => (el as HTMLElement).clientHeight)) / 2));
 		await tree.hover();
