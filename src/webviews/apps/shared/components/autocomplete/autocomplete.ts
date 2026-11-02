@@ -44,7 +44,7 @@ export class GlAutocomplete extends LitElement {
 
 			.scrollable {
 				--gl-elevation: var(--gl-shadow-popover);
-				--gl-elevation-border-color: var(--vscode-widget-border);
+				--gl-elevation-border-color: var(--vscode-editorSuggestWidget-border);
 
 				position: absolute;
 				top: 100%;
@@ -55,8 +55,8 @@ export class GlAutocomplete extends LitElement {
 				max-height: 20rem;
 				margin-top: var(--gl-space-2);
 				overflow-y: auto;
-				color: var(--vscode-quickInput-foreground);
-				background-color: var(--vscode-quickInput-background);
+				color: var(--vscode-editorSuggestWidget-foreground);
+				background-color: var(--vscode-editorSuggestWidget-background);
 				border-radius: var(--gl-radius-sm);
 
 				${elevatedSurface}
@@ -83,13 +83,18 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item:hover,
 			.autocomplete-item.selected {
-				color: var(--vscode-list-activeSelectionForeground);
-				background-color: var(--vscode-list-activeSelectionBackground);
+				color: var(--vscode-editorSuggestWidget-selectedForeground);
+				background-color: var(--vscode-editorSuggestWidget-selectedBackground);
 
 				.autocomplete-item__icon {
-					color: var(--vscode-list-activeSelectionIconForeground);
+					color: var(--vscode-editorSuggestWidget-selectedIconForeground);
 					opacity: 1;
 				}
+			}
+
+			.autocomplete-item.selected {
+				outline: var(--gl-border-width) solid var(--vscode-editorSuggestWidget-focusOutline, transparent);
+				outline-offset: -1px;
 			}
 
 			.autocomplete-item__icon {
@@ -141,11 +146,11 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item__highlight {
 				font-weight: 700;
-				color: var(--vscode-list-focusHighlightForeground, var(--vscode-textLink-foreground));
+				color: var(--vscode-editorSuggestWidget-highlightForeground);
 			}
 
 			.autocomplete-item.selected .autocomplete-item__highlight {
-				color: inherit;
+				color: var(--vscode-editorSuggestWidget-focusHighlightForeground);
 				text-decoration: underline;
 			}
 
@@ -170,7 +175,7 @@ export class GlAutocomplete extends LitElement {
 				line-height: 1.4;
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-list-inactiveSelectionBackground);
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.autocomplete-description:empty {
