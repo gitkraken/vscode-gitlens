@@ -1,9 +1,12 @@
 /**
- * Clears e2e output before a job that held sign-in credentials uploads it as artifacts (#5682):
- * - any file holding a secret value is deleted, and the run fails — in its contents or in its path, which is published
- *   as the artifact's (a directory's name included), and which the log then withholds;
+ * Clears the e2e output of a job that held sign-in credentials (#5682), so nothing of them leaves the runner if the
+ * output is published, and the job fails when one reached it:
+ * - any file holding a secret value is deleted, and the run fails — in its contents or in its path, which an artifact
+ *   would publish too (a directory's name included), and which the log then withholds;
  * - e-mail addresses and JWT-shaped strings in text files are masked in place, so the test account's address isn't
  *   published.
+ *
+ * It finds credentials, not other account data: an `error-context.md` snapshot of account UI passes it unchanged.
  *
  * Usage: SCAN_SECRET_NAMES="NAME_A,NAME_B" node scripts/e2eScanForSecrets.mjs <dir> [<dir> …]
  *
@@ -12,12 +15,12 @@
  * encoded blob. This is best-effort: it can't know values it wasn't given — the account tokens a sign-in mints among
  * them — or encodings beyond these. Playwright traces are zips, so a `.zip` is scanned as its own bytes — entry
  * names, comments and extra fields are stored there uncompressed — and as its members' contents through `unzip -p`.
- * Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
- * a hit, so nothing is uploaded unscanned. Only after a complete pass does it write `complete=true` to
- * `GITHUB_OUTPUT`, so the upload step can require it: a scan that crashes midway publishes nothing. Values shorter than
- * 8 characters are ignored (too likely to collide). Nothing secret is printed: only the file and what happened to it,
- * not which secret or encoding matched. Masking covers text files only (by extension, and never a file holding NUL bytes) —
- * signed-in specs keep traces off, so no zip should carry account details in the first place.
+ * Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as a hit, so
+ * nothing unscanned is left. Only after a complete pass does it write `complete=true` to `GITHUB_OUTPUT`, so an upload
+ * step can require it: a scan that crashes midway lets no such upload run. Values shorter than 8 characters are
+ * ignored (too likely to collide). Nothing secret is printed: only the file and what happened to it, not which secret
+ * or encoding matched. Masking covers text files only (by extension, and never a file holding NUL bytes) — signed-in
+ * specs keep traces off, so no zip should carry account details in the first place.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -83,7 +86,7 @@ function* files(dir, onUnreadable) {
 		if (entry.isDirectory()) {
 			yield* files(full, onUnreadable);
 		} else {
-			// Symlinks and other entries are yielded too, so nothing is uploaded without being read
+			// Symlinks and other entries are yielded too, so nothing is left without being read
 			yield full;
 		}
 	}
@@ -200,7 +203,7 @@ export function scanOutput(dirs, needles, log = console.log) {
 					outcome = clearFile(file, shown, needles, log);
 				}
 			} catch {
-				// Couldn't mask it (e.g. read-only) — then it doesn't get uploaded either
+				// Couldn't mask it (e.g. read-only) — then it doesn't stay either
 				outcome = 'removed';
 				log(`[secret-scan] ${shown}: could not be cleared — deleted`);
 				rmSync(file, { force: true });
@@ -257,23 +260,22 @@ if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]
 		result = scanOutput(process.argv.slice(2), needles);
 	} catch {
 		// A deletion that failed even on the second attempt lands here, and an uncaught error would print its path —
-		// which may be the very name the scan withholds. Fixed words only, and no `complete=true`: nothing is uploaded
-		console.log(
-			'::error::The secret scan could not finish (a file or directory could not be deleted); nothing is uploaded',
-		);
+		// which may be the very name the scan withholds. Fixed words only, and no `complete=true`, so an upload that
+		// requires it doesn't run
+		console.log('::error::The secret scan could not finish (a file or directory could not be deleted)');
 		process.exit(1);
 	}
 	const { scanned, removed, masked } = result;
 	console.log(
 		`[secret-scan] ${scanned} files scanned for ${names.length} secret(s), ${removed.length} removed, ${masked.length} masked`,
 	);
-	// Every file left is now scanned (and masked) — the upload step requires this
+	// Every file left is now scanned (and masked) — an upload step requires this
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, 'complete=true\n');
 	}
 	if (removed.length) {
 		console.log(
-			'::error::E2E output contained secret values or files that could not be cleared; they were deleted before upload',
+			'::error::E2E output contained secret values or files that could not be cleared; they were deleted',
 		);
 		process.exit(1);
 	}

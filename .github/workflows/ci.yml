@@ -435,7 +435,7 @@ jobs:
             - name: Build (production with DEBUG for simulator)
               run: pnpm run bundle:e2e
 
-            # The scan below is what keeps credentials out of the uploaded artifacts — check it still works first
+            # The scan below fails the job when a credential reaches the e2e output — check it still works first
             - name: Self-test the secret scan
               run: node --test scripts/__tests__/e2eScanForSecrets.test.mjs
 
@@ -465,10 +465,15 @@ jobs:
                   --project=vscode --workers=4
                   --grep @signed-in --output out/test-results-signed-in --retries=0
 
-            # Artifacts are uploaded as usual, so make sure no credential rides along: a file holding a secret value
-            # (verbatim, base64, base64url, URL-encoded; inside trace zips too, or in its path) — or that can't be read — is deleted
-            # and the job fails, and e-mail addresses and JWT-shaped tokens in text files are masked. Prints only the
-            # file and what happened to it.
+            # Nothing is uploaded from this job: a failed test's `error-context.md` snapshots account UI (other PRs'
+            # titles and authors in Launchpad), which no scan can tell from fixture data, and the repository is
+            # public. Don't add an upload of `out/test-results-signed-in` back. The scan still runs, so a credential it
+            # is given that reaches the output fails the job: a file holding a secret value (verbatim, base64,
+            # base64url, URL-encoded; inside trace zips too, or in its path) — or that can't be read — is deleted,
+            # and e-mail addresses and JWT-shaped tokens in text files are masked. It prints only the file and what
+            # happened to it. Any other upload added to this job must also require
+            # `steps.scan.outputs.complete == 'true'`. `playwright-report` is only written when the `html` reporter is
+            # on; it's scanned in case it is.
             - name: Scan e2e output for secrets
               id: scan
               if: ${{ !cancelled() }}
@@ -480,14 +485,3 @@ jobs:
                   GK_E2E_CF_ACCESS_CLIENT_SECRET: ${{ secrets.GK_E2E_CF_ACCESS_CLIENT_SECRET }}
                   GK_E2E_GITHUB_TOKEN: ${{ secrets.GK_E2E_GITHUB_TOKEN }}
               run: node scripts/e2eScanForSecrets.mjs out/test-results-signed-in playwright-report
-
-            # Only after a complete scan — one that crashed midway leaves files unscanned, so nothing is uploaded
-            - name: Upload test results
-              if: ${{ !cancelled() && steps.scan.outputs.complete == 'true' }}
-              uses: actions/upload-artifact@v7
-              with:
-                  name: playwright-results-vscode-signed-in
-                  path: out/test-results-signed-in/
-                  # The repository is public: keep results from an account-holding run only as long as a triage needs
-                  retention-days: 1
-                  if-no-files-found: ignore

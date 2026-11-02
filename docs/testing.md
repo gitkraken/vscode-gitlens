@@ -218,8 +218,9 @@ Two side effects to know about:
 - On any test error Playwright writes `error-context.md` with an ARIA snapshot — of a failed `expect` matcher's
   target, else of the page — and no option turns it off; `trace` / `screenshot` don't affect it. The fixture waits
   with `locator.waitFor` instead of `expect` so a failed sign-in doesn't snapshot the Account page, but an assertion
-  in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
-  artifacts unless it is scanned first.
+  in a spec can still put the account's name or e-mail into test results, and a snapshot of account UI shows its
+  other items: keep signed-in output out of shared artifacts — the secret scan clears credentials and e-mail
+  addresses, not other account data.
 
 In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the regular e2e legs run with
 `--grep-invert @signed-in` and hold no credentials. The job:
@@ -238,15 +239,19 @@ In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the r
   falls back to its default list;
 - runs with `--retries=0` whatever the config's CI default — a retry starts a new worker, and every worker sign-in
   mints a token the backend never expires;
-- builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging, and before uploading
-  results runs `scripts/e2eScanForSecrets.mjs`: any output file holding a secret value (verbatim, base64, base64url
-  or URL-encoded, inside trace zips too) or in its path, or one it can't read or mask, is deleted and the job fails; e-mail
-  addresses and JWT-shaped strings in text files are masked. Results are uploaded only after a complete scan, and
-  kept for a day. The scan is best-effort: it can't recognize values it wasn't given, such as the tokens a sign-in
-  mints.
+- builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging;
+- uploads no artifacts: a failed test's `error-context.md` snapshots account UI (other pull requests' titles and
+  authors in Launchpad), which no scan can tell from fixture data. It still runs `scripts/e2eScanForSecrets.mjs` over
+  its output, so a credential that reaches it fails the job: any output file holding a secret value (verbatim, base64,
+  base64url or URL-encoded, inside trace zips too) or in its path, or one it can't read or mask, is deleted; e-mail
+  addresses and JWT-shaped strings in text files are masked. Don't add an upload of the test results back; any other
+  upload added to the job must also require the scan's complete pass. The scan is best-effort: it can't recognize
+  values it wasn't given, such as the tokens a sign-in mints.
 
-The repository is public, so the job's log and artifacts are too. The log itself is not scanned: a failed assertion
-on account UI prints the received text there, so keep signed-in assertions off the account's name and e-mail.
+The repository is public, so the job's log is too. The log itself is not scanned: a failed assertion on account UI
+prints the received text there, and so do the diagnostics a spec prints on failure (tool results, GitLens log lines).
+Keep signed-in assertions and diagnostics off account data beyond the test repository's: the account's name and
+e-mail, and other repositories' pull requests and issues.
 
 The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
 to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`
