@@ -3,8 +3,8 @@ import { css } from 'lit';
 export const bannerStyles = css`
 	:host {
 		/* Banner color custom properties */
-		--gl-banner-primary-background: var(--vscode-sideBar-background);
-		--gl-banner-secondary-background: var(--vscode-editor-background);
+		--gl-banner-primary-background: var(--gl-color-surface-aside);
+		--gl-banner-secondary-background: var(--gl-color-surface-base);
 		--gl-banner-primary-emphasis-background: var(--vscode-button-background);
 		--gl-banner-secondary-emphasis-background: var(--vscode-button-secondaryBackground);
 		--gl-banner-text-color: var(--vscode-foreground);
@@ -36,8 +36,7 @@ export const bannerStyles = css`
 	/* Solid display mode - same as card background */
 	.banner--solid {
 		background-color: var(--gl-banner-primary-background);
-		border: var(--gl-border-width) solid
-			color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 	}
 
 	/* Outline display mode - emphasis color outline with secondary background */
@@ -94,7 +93,7 @@ export const bannerStyles = css`
 	/* Gradient purple display mode - matches the auto-composer container styling */
 	.banner--gradient-purple {
 		background: var(--gl-gradient-brand-subtle);
-		border: var(--gl-border-width) solid var(--vscode-panel-border);
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-md);
 	}
 
@@ -111,7 +110,7 @@ export const bannerStyles = css`
 	}
 
 	.banner--gradient-purple .banner__body a {
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-color-action-link-fg);
 		text-decoration: none;
 	}
 
@@ -250,7 +249,7 @@ export const bannerStyles = css`
 		white-space: nowrap;
 		--button-background: transparent;
 		--button-foreground: var(--gl-banner-dim-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 10%, transparent);
+		--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	/* When only primary button exists, center it across the full width */
@@ -266,7 +265,7 @@ export const bannerStyles = css`
 		right: 0.8rem;
 		--button-background: transparent;
 		--button-foreground: var(--gl-banner-dim-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 15%, transparent);
+		--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 		--button-padding: 0.4rem;
 
 		z-index: 1;
