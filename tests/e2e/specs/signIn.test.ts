@@ -8,6 +8,7 @@
  */
 import * as process from 'node:process';
 import { test as base, canSignIn, expect, requiredIntegrations } from '../baseTest.js';
+import { lockedByPlan } from '../fixtures/gkSignIn.js';
 
 const test = base.extend({
 	vscodeOptions: [{ vscodeVersion: process.env.VSCODE_VERSION ?? 'stable', signIn: true }, { scope: 'worker' }],
@@ -40,6 +41,10 @@ test.describe('Signed-in worker', { tag: '@signed-in' }, () => {
 				() => true,
 				() => false,
 			);
+			if (!connected) {
+				// Say so when the plan, not the connection, hides it (an expired trial locks the Pro-only ones)
+				expect(await lockedByPlan(settings!, name), `${name} not locked behind Pro`).toBe(false);
+			}
 			expect(connected, `${name} connected`).toBe(true);
 		}
 	});

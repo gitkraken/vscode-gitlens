@@ -26,6 +26,7 @@
 import { execSync } from 'node:child_process';
 import * as process from 'node:process';
 import { createTmpDir, GitFixture } from '../baseTest.js';
+import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 import { expect, mcpTest } from '../fixtures/mcp.js';
 
 const test = mcpTest.extend({
@@ -70,7 +71,10 @@ test.describe('MCP — GK CLI release channel', { tag: '@cli-insiders' }, () => 
 	// The one assertion here about GitLens rather than the CLI: the setting decides which proxy
 	// edition gets installed, and a pre-release edition carries a pre-release version suffix.
 	test('should install a pre-release proxy edition when the CLI insiders setting is on', ({ mcpClient }) => {
-		const version = execSync(`"${mcpClient.gkPath}" version`, { encoding: 'utf8' }).trim();
+		const version = execSync(`"${mcpClient.gkPath}" version`, {
+			encoding: 'utf8',
+			env: withoutSignInSecrets(),
+		}).trim();
 
 		expect(version).toMatch(/CLI Installer: \d+\.\d+\.\d+-(?:rc|alpha)\./);
 	});

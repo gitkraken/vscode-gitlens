@@ -12,7 +12,12 @@ import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 import { GitFixture } from './fixtures/git.js';
 import type { SignInOptions } from './fixtures/gkSignIn.js';
-import { gkEnvironment, gkEnvironmentUserSettings, signInToGitKraken } from './fixtures/gkSignIn.js';
+import {
+	gkEnvironment,
+	gkEnvironmentUserSettings,
+	signInToGitKraken,
+	withoutSignInSecrets,
+} from './fixtures/gkSignIn.js';
 import { VSCodeEvaluator } from './fixtures/vscodeEvaluator.js';
 import { GitLensPage } from './pageObjects/gitLensPage.js';
 
@@ -455,24 +460,34 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// account's token, and the GK CLI keeps its install and sessions under XDG_DATA_HOME (read first on every
 			// platform). Without this a local run would replace the machine-wide CLI login with the test account and
 			// leave its non-expiring token behind; the worker's temp dir is deleted at teardown.
+			//
+			// And its own home directory: XDG_DATA_HOME alone doesn't keep the editor off the developer's real home.
+			// GitLens' shared GitKraken store prefers a legacy `~/.gk` over XDG_DATA_HOME whenever that exists, so a
+			// local run would read the repository locations other runs left there (#6122) and add its own temp
+			// clones; a signed-in run also creates files under `~/.claude*` and `~/.copilot`. `os.homedir()` reads
+			// USERPROFILE on Windows and HOME elsewhere.
 			let dataDir: string | undefined;
+			let homeDir: string | undefined;
 			if (vscodeOptions.signIn) {
 				dataDir = path.join(tempDir, 'xdg-data');
 				await mkdir(dataDir, { recursive: true });
+				homeDir = path.join(tempDir, 'home');
+				await mkdir(homeDir, { recursive: true });
 			}
 
 			const launchEnv = {
 				// The sign-in credentials (`GK_E2E_*`) stay in this process: the sign-in fixture reads them here, and
 				// nothing the editor spawns — GitLens, git, the GK CLI, the MCP server — needs them
-				...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+				...withoutSignInSecrets(),
 				// Allows Claude Code and other CLI agents run the tests from within VS Code
 				ELECTRON_RUN_AS_NODE: undefined!,
 				// Set DISPLAY for headless Linux (Xvfb)
 				...(display ? { DISPLAY: display } : {}),
 				// Per-worker writable runtime dir for the editor's IPC socket (see note above)
 				...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
-				// Per-worker GK CLI data for signed-in workers (see note above)
+				// Per-worker GK CLI data and home for signed-in workers (see note above)
 				...(dataDir ? { XDG_DATA_HOME: dataDir } : {}),
+				...(homeDir ? { HOME: homeDir, USERPROFILE: homeDir } : {}),
 			};
 
 			// A requested non-English `locale` needs two files seeded BEFORE launch — no Marketplace
@@ -639,7 +654,15 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				// settles Playwright's side.
 				killProcessTree(editorPid);
 				await electronApp.close().catch(() => {});
-				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+				// With retries: on Windows the killed processes' files stay locked for a moment, and a single attempt
+				// left the worker's profile behind — for a signed-in worker, with its account session. That one must
+				// not be left unnoticed (a shared runner keeps it), so its failure fails the run.
+				await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
+					(ex: unknown) => {
+						console.warn(`[e2e] could not remove the worker's temp dir ${tempDir}: ${String(ex)}`);
+						if (vscodeOptions.signIn) throw ex;
+					},
+				);
 			}
 		},
 		// Worker-fixture setup timeout. Must be large enough for the launch+connect RETRY loop above to

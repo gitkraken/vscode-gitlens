@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
 import * as readline from 'node:readline';
+import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 
 export type McpMessage = {
 	jsonrpc: '2.0';
@@ -280,7 +281,7 @@ function execRefusedBy(gkPath: string, timeoutMs: number): 'ETXTBSY' | 'EACCES' 
 	const probe = spawnSync(gkPath, ['--version'], {
 		stdio: 'ignore',
 		timeout: timeoutMs,
-		env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+		env: withoutSignInSecrets(),
 	});
 	if (probe.error == null || !('code' in probe.error)) return undefined;
 
@@ -517,9 +518,7 @@ export class McpClient {
 
 	private buildEnv(): NodeJS.ProcessEnv {
 		// The sign-in credentials (`GK_E2E_*`) stay in the Playwright process, as they do for the editor (baseTest.ts)
-		const env: NodeJS.ProcessEnv = Object.fromEntries(
-			Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_')),
-		);
+		const env = withoutSignInSecrets();
 		if (this.ipcFilePath != null) {
 			env['GK_GL_PATH'] = this.ipcFilePath;
 		}

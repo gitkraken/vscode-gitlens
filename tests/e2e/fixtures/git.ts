@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { withoutSignInSecrets } from './gkSignIn.js';
 
 export class GitFixture {
 	constructor(public readonly repoPath: string) {}
@@ -463,7 +464,7 @@ export class GitFixture {
 			const child = spawn('git', fullArgs, {
 				cwd: this.repoPath,
 				env: {
-					...process.env,
+					...withoutSignInSecrets(),
 					GIT_CONFIG_GLOBAL: '/dev/null',
 					GIT_CONFIG_SYSTEM: '/dev/null',
 					...(options?.env ?? {}),

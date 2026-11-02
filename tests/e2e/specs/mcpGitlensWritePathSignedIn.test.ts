@@ -30,8 +30,9 @@
  * used to clone it and, through the clone's own config, for the editor's fetches (see {@link cloneTestRepository}).
  *
  * Both tools open the new worktree in a second window (the wizard defaults), which the worker closes only at
- * teardown, after `afterAll` — so the clone cleanup retries and reports a folder still held open instead of
- * failing the run.
+ * teardown, after `afterAll` — and on Windows files an editor holds open can't be deleted. So `afterAll` only
+ * removes the clone's credential, and the clone itself goes in a worker fixture that is torn down after the editor
+ * (`cloneCleanup`).
  *
  * No traces, videos or screenshots (account UI), no retries (each retry is a new worker and a new
  * non-expiring account token).
@@ -42,6 +43,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import * as process from 'node:process';
 import { canSignIn, createTmpDir, MaxTimeout } from '../baseTest.js';
+import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 import type { McpMessage } from '../fixtures/mcp.js';
 import { expect, mcpTest } from '../fixtures/mcp.js';
 
@@ -53,7 +55,28 @@ const repoToken = process.env.GK_E2E_GITHUB_TOKEN?.trim();
 
 let clonePath: string | undefined;
 
-const test = mcpTest.extend({
+const test = mcpTest.extend<object, { cloneCleanup: void }>({
+	// Removes the clone and its worktrees once the worker's editor is gone. Auto and independent of `vscode`, so it
+	// is set up before it and torn down after it: worker fixtures tear down in reverse order of setup.
+	cloneCleanup: [
+		// oxlint-disable-next-line no-empty-pattern -- Playwright fixtures declare their dependencies by destructuring
+		async ({}, use) => {
+			await use();
+			if (clonePath == null) return;
+
+			// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the intermediate
+			// directories of slashed branch names behind, so drop the whole tree with the clone. A clone left behind
+			// still holds the private test repository (and its credential, if `afterAll` couldn't remove it), so a
+			// failure fails the run rather than pass unnoticed.
+			await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
+				(ex: unknown) => {
+					console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
+					throw ex;
+				},
+			);
+		},
+		{ scope: 'worker', auto: true },
+	],
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
@@ -71,6 +94,11 @@ const test = mcpTest.extend({
 
 const missingInputs = !repoUrl || !issueUrl || !prUrl;
 
+// The spec's git runs synchronously, so a stalled remote would block the event loop and with it Playwright's own
+// timeouts and the teardown that removes the credential: each call is bounded, and a timeout throws
+const cloneTimeout = 120_000;
+const gitTimeout = 60_000;
+
 /**
  * Clones the test repository. With a token, the credential is an `http.<repository>/.extraheader`, as
  * `actions/checkout` sets one: handed to `git clone` through `GIT_CONFIG_*` (not its arguments, which show in process
@@ -83,7 +111,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 	// The sign-in credentials stay in this process, as they do for the editor (baseTest.ts)
 	const env = nonInteractiveGitEnv();
 	if (!token) {
-		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env });
+		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env, timeout: cloneTimeout });
 		return;
 	}
 
@@ -91,6 +119,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
 	const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
 	execFileSync('git', ['clone', '--quiet', url, dest], {
 		stdio: 'pipe',
+		timeout: cloneTimeout,
 		env: {
 			...env,
 			GIT_CONFIG_COUNT: '1',
@@ -107,7 +136,7 @@ function cloneTestRepository(url: string, dest: string, token: string | undefine
  */
 function nonInteractiveGitEnv(): NodeJS.ProcessEnv {
 	return {
-		...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+		...withoutSignInSecrets(),
 		GIT_TERMINAL_PROMPT: '0',
 		GCM_INTERACTIVE: 'never',
 	};
@@ -171,6 +200,7 @@ function git(cwd: string, ...args: string[]): string {
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: nonInteractiveGitEnv(),
+		timeout: gitTimeout,
 	}).trim();
 }
 
@@ -287,29 +317,17 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 	});
 
 	// No fixtures, so it runs even when the worker failed to start or sign in (a hook taking `vscode` is skipped
-	// then) — the clone is set up before the sign-in, and must not keep its token either way
-	test.afterAll(async () => {
-		// First, and before anything that can hang: a clone left behind by a teardown that times out must not keep
-		// the token in its config (the worktrees share it)
-		if (clonePath != null && repoToken) {
-			try {
-				git(clonePath, 'config', '--local', '--remove-section', `http.${repoUrl}/`);
-			} catch (ex) {
-				console.warn(
-					`[5106] could not remove the clone credential: ${ex instanceof Error ? ex.name : 'error'}`,
-				);
-			}
+	// then) — the clone is set up before the sign-in, and must not keep its token either way. As early as possible:
+	// the clone itself is removed only after the editor closes (`cloneCleanup`), and must not hold the token until
+	// then (the worktrees share it).
+	test.afterAll(() => {
+		if (clonePath == null || !repoToken) return;
+
+		try {
+			git(clonePath, 'config', '--local', '--remove-section', `http.${repoUrl}/`);
+		} catch (ex) {
+			console.warn(`[5106] could not remove the clone credential: ${ex instanceof Error ? ex.name : 'error'}`);
 		}
-
-		if (clonePath == null) return;
-
-		// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the
-		// intermediate directories of slashed branch names behind, so drop the whole tree with the clone.
-		await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 }).catch(
-			(ex: unknown) => {
-				console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
-			},
-		);
 	});
 
 	// Review first: it looks the PR up by URL, while Start Work depends on the issue belonging to the bound
@@ -338,15 +356,18 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 		const prHead = git(clonePath!, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
 		expect(prHead, 'the host publishes the PR head').toMatch(/^[0-9a-f]{40}$/);
 		expect(git(started.worktreePath!, 'rev-parse', 'HEAD'), 'the worktree is at the PR head').toBe(prHead);
-		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork)
+		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork).
+		// The tip identifies it only while no other branch shares it, so the fixture must keep it unique: with two
+		// candidates an upstream on the wrong one would pass
 		const prBranches = git(clonePath!, 'ls-remote', '--heads', 'origin')
 			.split('\n')
 			.filter(l => l.startsWith(prHead))
 			.map(l => `origin/${l.split(/\s+/)[1].slice('refs/heads/'.length)}`);
-		expect(prBranches, 'the PR branch lives in the test repository').not.toHaveLength(0);
-		expect(prBranches, 'the review branch tracks the PR branch on origin').toContain(
+		expect(prBranches, 'exactly one origin branch is at the PR head (fixture)').toHaveLength(1);
+		expect(
 			git(started.worktreePath!, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'),
-		);
+			'the review branch tracks the PR branch on origin',
+		).toBe(prBranches[0]);
 
 		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
 	});

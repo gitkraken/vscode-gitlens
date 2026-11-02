@@ -219,7 +219,10 @@ Two side effects to know about:
 
 - After signing in, GitLens logs the GK CLI in with the account's token (`gk auth login`). The harness gives every
   signed-in worker its own `XDG_DATA_HOME`, so that login lands in the worker's temp dir instead of replacing your
-  machine-wide CLI login — each signed-in worker therefore downloads the CLI core once.
+  machine-wide CLI login — each signed-in worker therefore downloads the CLI core once. It also gets its own home
+  directory (`HOME` / `USERPROFILE`): GitLens' shared GitKraken store prefers a legacy `~/.gk` over `XDG_DATA_HOME`,
+  and a signed-in run also creates files under `~/.claude*` and `~/.copilot`, so without it a local run reads and
+  adds to your real ones — stale repository locations there make MCP Start Work stop on a base-branch picker (#6122).
 - On any test error Playwright writes `error-context.md` with an ARIA snapshot — of a failed `expect` matcher's
   target, else of the page — and no option turns it off; `trace` / `screenshot` don't affect it. The fixture waits
   with `locator.waitFor` instead of `expect` so a failed sign-in doesn't snapshot the Account page, but an assertion
