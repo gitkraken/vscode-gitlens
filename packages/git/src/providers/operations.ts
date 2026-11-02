@@ -183,4 +183,19 @@ export interface GitOperationsSubProvider {
 		options?: { editMessage?: boolean; source?: unknown },
 		runOptions?: GitOperationRunOptions,
 	): Promise<GitOperationResult>;
+	/**
+	 * Refreshes, in the background, the index of the checkout at `repoPath` once the clock has moved past the second it
+	 * was written in, so that git trusts the timestamps of the files written alongside it. A write that rewrites many
+	 * files (a clone, a worktree add, a branch switch, a fast-forward) leaves them all "racily clean", and every later
+	 * status or diff re-hashes them until something rewrites the index, which core's own status reads (run with
+	 * `GIT_OPTIONAL_LOCKS=0`) never do.
+	 *
+	 * With the git-cli provider's `refreshIndexAfterWrites` on, core's own `checkout`, `restore`, `merge`, `pull`,
+	 * `reset`, `cherryPick`, `revert` and `rebase`, stash apply, pop and push, abort and continue of a paused operation,
+	 * and worktree and clone writes do this themselves, including one that stops on conflicts, so only a host that
+	 * rewrote the checkout through a raw git command needs to call it; it runs whether or not that option is on. Calls
+	 * share one queue per checkout: one made while a refresh is waiting joins it, and one made while its status runs
+	 * causes one more after it. Never throws.
+	 */
+	scheduleIndexRefresh?(repoPath: string): void;
 }
