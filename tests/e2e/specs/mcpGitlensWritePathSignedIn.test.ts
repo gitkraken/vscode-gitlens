@@ -30,8 +30,9 @@
  * used to clone it and, through the clone's own config, for the editor's fetches (see {@link cloneTestRepository}).
  *
  * Both tools open the new worktree in a second window (the wizard defaults), which the worker closes only at
- * teardown, after `afterAll` — so the clone cleanup retries and reports a folder still held open instead of
- * failing the run.
+ * teardown, after `afterAll` — and on Windows files an editor holds open can't be deleted. So `afterAll` only
+ * removes the clone's credential, and the clone itself goes in a worker fixture that is torn down after the editor
+ * (`cloneCleanup`).
  *
  * No traces, videos or screenshots (account UI), no retries (each retry is a new worker and a new
  * non-expiring account token).
@@ -54,7 +55,25 @@ const repoToken = process.env.GK_E2E_GITHUB_TOKEN?.trim();
 
 let clonePath: string | undefined;
 
-const test = mcpTest.extend({
+const test = mcpTest.extend<object, { cloneCleanup: void }>({
+	// Removes the clone and its worktrees once the worker's editor is gone. Auto and independent of `vscode`, so it
+	// is set up before it and torn down after it: worker fixtures tear down in reverse order of setup.
+	cloneCleanup: [
+		// oxlint-disable-next-line no-empty-pattern -- Playwright fixtures declare their dependencies by destructuring
+		async ({}, use) => {
+			await use();
+			if (clonePath == null) return;
+
+			// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the intermediate
+			// directories of slashed branch names behind, so drop the whole tree with the clone.
+			await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
+				(ex: unknown) => {
+					console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
+				},
+			);
+		},
+		{ scope: 'worker', auto: true },
+	],
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
@@ -295,29 +314,17 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 	});
 
 	// No fixtures, so it runs even when the worker failed to start or sign in (a hook taking `vscode` is skipped
-	// then) — the clone is set up before the sign-in, and must not keep its token either way
-	test.afterAll(async () => {
-		// First, and before anything that can hang: a clone left behind by a teardown that times out must not keep
-		// the token in its config (the worktrees share it)
-		if (clonePath != null && repoToken) {
-			try {
-				git(clonePath, 'config', '--local', '--remove-section', `http.${repoUrl}/`);
-			} catch (ex) {
-				console.warn(
-					`[5106] could not remove the clone credential: ${ex instanceof Error ? ex.name : 'error'}`,
-				);
-			}
+	// then) — the clone is set up before the sign-in, and must not keep its token either way. As early as possible:
+	// the clone itself is removed only after the editor closes (`cloneCleanup`), and must not hold the token until
+	// then (the worktrees share it).
+	test.afterAll(() => {
+		if (clonePath == null || !repoToken) return;
+
+		try {
+			git(clonePath, 'config', '--local', '--remove-section', `http.${repoUrl}/`);
+		} catch (ex) {
+			console.warn(`[5106] could not remove the clone credential: ${ex instanceof Error ? ex.name : 'error'}`);
 		}
-
-		if (clonePath == null) return;
-
-		// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the
-		// intermediate directories of slashed branch names behind, so drop the whole tree with the clone.
-		await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 }).catch(
-			(ex: unknown) => {
-				console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
-			},
-		);
 	});
 
 	// Review first: it looks the PR up by URL, while Start Work depends on the issue belonging to the bound
