@@ -8,14 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `refreshIndexAfterWrites?: boolean` to `CliGitProviderOptions` and `createCliGitService`'s options, off by default. When on, `checkout`, `restore`, `merge`, `pull`, `reset`, `cherryPick`, `revert`, `rebase`, `createWorktree`, `clone`, stash apply, pop and push, and abort and continue of a paused operation refresh the checkout's index in the background when the write rewrote it, including one that stops on conflicts. Files written in the index's own second are "racily clean", so every later status or diff re-hashed them (~600 ms on 8,000 files) until something rewrote the index, which core's status reads (run with `GIT_OPTIONAL_LOCKS=0`) never do. Once the clock passes that second, one `git status --porcelain -uno --ignore-submodules=all` with optional locks on and rename detection off writes the refreshed index (~7 ms reads after). A write that left the index alone (already up to date, a soft reset) schedules none; writes to one checkout share one refresh. Each costs a background status of the whole checkout, worth it only where that checkout will be read again, so it is off by default (git-cli)
-- Adds `scheduleIndexRefresh?(repoPath)` to `GitOperationsSubProvider` (`service.forRepo(path).ops?.scheduleIndexRefresh?.()`), for a host that rewrote a checkout through a raw git command: it joins the per-checkout background index refresh core's own writes schedule under `refreshIndexAfterWrites`, and runs whether or not that is on (git, git-cli)
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
-
-### Changed
-
-- Changes `getGitDir` to read the git dir and common git dir of a main or linked worktree from disk (its `.git` folder or file, `commondir`), instead of spawning `git rev-parse`, with the same answer. It still asks git for any other layout: a submodule, a bare repository, a worktree nested inside another repository's working tree (including its own main checkout), a `.git` file without `commondir`, `core.worktree`, `core.bare` or an `include` in its config, `GIT_DIR`/`GIT_COMMON_DIR`/`GIT_WORK_TREE`/`GIT_CEILING_DIRECTORIES` in git's environment, a folder owned by another user (not checked on Windows, where the process has no uid), or an untrusted workspace. Resolving N sibling worktrees now runs no git process (was N). `onGitDirResolveFailed` fires only when git is asked (git-cli)
-- Changes `WorktreeSummaryService` to check a subscribed worktree's own branch, its upstream and the ahead/behind counts against it as core's cached `getBranch` answers them, and its base tips against core's cached ref list (one `for-each-ref` shared by the repository's checkouts), when a change may have moved them without naming them — a packed-refs rewrite (deleting a packed branch, `git pack-refs`), a ref directory, an overflow or a poll — and to read only the groups whose refs moved. Deleting a packed branch now costs each subscribed worktree no git process of its own (was ~6–8: `diff --quiet HEAD`, `ls-files --others`, `merge-base --fork-point` ×2, `@{u}`, `rev-list --left-right --count`). A base ref the check finds moved is re-measured rather than read in full (git)
 
 ### Removed
 
@@ -24,6 +17,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes trimming trailing slashes in `getIgnoredPaths`/`getIgnoredEntries` path handling and in self-managed host and URL normalization taking quadratic time on a long run of `/` that doesn't end the value; results are unchanged (git-cli, plus/integrations)
+
+## [0.26.0] - 2026-11-02
+
+### Added
+
+- Adds `refreshIndexAfterWrites?: boolean` to `CliGitProviderOptions` and `createCliGitService`'s options, off by default. When on, `checkout`, `restore`, `merge`, `pull`, `reset`, `cherryPick`, `revert`, `rebase`, `createWorktree`, `clone`, stash apply, pop and push, and abort and continue of a paused operation refresh the checkout's index in the background when the write rewrote it, including one that stops on conflicts. Files written in the index's own second are "racily clean", so every later status or diff re-hashed them (~600 ms on 8,000 files) until something rewrote the index, which core's status reads (run with `GIT_OPTIONAL_LOCKS=0`) never do. Once the clock passes that second, one `git status --porcelain -uno --ignore-submodules=all` with optional locks on and rename detection off writes the refreshed index (~7 ms reads after). A write that left the index alone (already up to date, a soft reset) schedules none; writes to one checkout share one refresh. Each costs a background status of the whole checkout, worth it only where that checkout will be read again, so it is off by default (git-cli)
+- Adds `scheduleIndexRefresh?(repoPath)` to `GitOperationsSubProvider` (`service.forRepo(path).ops?.scheduleIndexRefresh?.()`), for a host that rewrote a checkout through a raw git command: it joins the per-checkout background index refresh core's own writes schedule under `refreshIndexAfterWrites`, and runs whether or not that is on (git, git-cli)
+
+### Changed
+
+- Changes `getGitDir` to read the git dir and common git dir of a main or linked worktree from disk (its `.git` folder or file, `commondir`), instead of spawning `git rev-parse`, with the same answer. It still asks git for any other layout: a submodule, a bare repository, a worktree nested inside another repository's working tree (including its own main checkout), a `.git` file without `commondir`, `core.worktree`, `core.bare` or an `include` in its config, `GIT_DIR`/`GIT_COMMON_DIR`/`GIT_WORK_TREE`/`GIT_CEILING_DIRECTORIES` in git's environment, a folder owned by another user (not checked on Windows, where the process has no uid), or an untrusted workspace. Resolving N sibling worktrees now runs no git process (was N). `onGitDirResolveFailed` fires only when git is asked (git-cli)
+- Changes `WorktreeSummaryService` to check a subscribed worktree's own branch, its upstream and the ahead/behind counts against it as core's cached `getBranch` answers them, and its base tips against core's cached ref list (one `for-each-ref` shared by the repository's checkouts), when a change may have moved them without naming them — a packed-refs rewrite (deleting a packed branch, `git pack-refs`), a ref directory, an overflow or a poll — and to read only the groups whose refs moved. Deleting a packed branch now costs each subscribed worktree no git process of its own (was ~6–8: `diff --quiet HEAD`, `ls-files --others`, `merge-base --fork-point` ×2, `@{u}`, `rev-list --left-right --count`). A base ref the check finds moved is re-measured rather than read in full (git)
 
 ## [0.25.0] - 2026-10-30
 
@@ -1067,7 +1072,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...HEAD
+[0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
 [0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
 [0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
 [0.23.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.22.1...gitkraken:releases/core/v0.23.0
