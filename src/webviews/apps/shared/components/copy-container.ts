@@ -29,7 +29,7 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		gl-tooltip:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 2px;
 		}
 
@@ -40,8 +40,8 @@ export class GlCopyContainer extends LitElement {
 
 		:host([appearance='toolbar']) {
 			--copy-background: transparent;
-			--copy-foreground: var(--vscode-foreground);
-			--copy-hover-background: var(--vscode-toolbar-hoverBackground);
+			--copy-foreground: var(--gl-color-action-quiet-fg);
+			--copy-hover-background: var(--gl-color-action-quiet-bg-hover);
 			--copy-border: transparent;
 			--copy-border-radius: var(--gl-radius-sm);
 			--copy-padding: 0 0.4rem;
@@ -56,8 +56,14 @@ export class GlCopyContainer extends LitElement {
 			background: var(--copy-hover-background);
 		}
 
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		:host([appearance='toolbar']:not([disabled], :focus-within):hover) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
+		}
+
 		:host([appearance='toolbar']:focus-within) {
-			outline: var(--gl-border-width) solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
 		}
 

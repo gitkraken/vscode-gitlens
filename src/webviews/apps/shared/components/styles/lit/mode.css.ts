@@ -74,7 +74,7 @@ export const modeHeaderStyles = css`
 		background-color: color-mix(
 			in srgb,
 			var(--mode-accent, var(--vscode-focusBorder)) var(--mode-header-tint, 50%),
-			var(--mode-header-bg, var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background))))
+			var(--mode-header-bg, var(--titlebar-bg, var(--gl-color-surface-aside)))
 		);
 
 		/* Enter transition (class added): slightly slower fade to tinted */
