@@ -202,7 +202,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			// with the reason rather than the base command's generic "cancelled".
 			if (flow.kind === 'kepler') {
 				state.result?.cancel(new Error('Start Work was handed off to Kepler'));
-				await startKeplerTask(
+				void startKeplerTask(
 					this.container,
 					{
 						intent: 'start-work',
@@ -214,6 +214,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 						repoPath: getKeplerRepoPath(this.container, repo?.path),
 					},
 					this.source,
+					{ install: flow.install },
 				);
 				return;
 			}

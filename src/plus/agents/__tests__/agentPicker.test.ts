@@ -13,6 +13,7 @@ import type { Container } from '../../../container.js';
 import type { ConfirmToggleQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { Directive, isDirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import type { KeplerNotInstalledItem } from '../../kepler/keplerNotInstalled.js';
 import type { AgentDescriptor, AgentRoute } from '../agentDescriptor.js';
 import type { AgentRouteItem, ResolveAgentFlowResult } from '../agentPicker.js';
 import {
@@ -1061,9 +1062,15 @@ suite('resolveAgentFlow — Kepler route', () => {
 		get.withArgs('ai.defaultAgent').returns(null);
 	}
 
-	function makeContainer(available: boolean): Container {
+	function makeContainer(available: boolean, installed?: boolean): Container {
 		return {
-			kepler: { available: available },
+			kepler: {
+				available: available,
+				installed: installed,
+				canInstall: true,
+				getRelease: () => Promise.resolve(undefined),
+			},
+			telemetry: { sendEvent: sandbox.spy() },
 			usage: { track: sandbox.stub().resolves() },
 		} as unknown as Container;
 	}
@@ -1133,6 +1140,54 @@ suite('resolveAgentFlow — Kepler route', () => {
 		stubSettings('ask');
 		const { routes } = await start(makeContainer(true), { requestedRoute: 'ask' });
 		assert.deepStrictEqual(routes, ['agent', 'manual']);
+	});
+
+	test('Kepler not installed: the next step offers Install Kepler and Learn More only, with Back', async () => {
+		stubSettings('kepler');
+		const next = await resolveAgentFlow(makeContainer(true, false), {
+			requestedRoute: 'ask',
+			item: githubIssue,
+		}).next();
+
+		assert.strictEqual(next.done, false);
+		const step = next.value as QuickPickStep<KeplerNotInstalledItem>;
+		const items = step.items as KeplerNotInstalledItem[];
+		assert.deepStrictEqual(
+			items.flatMap(i => (i.action != null ? [i.action] : [])),
+			['install', 'learn-more'],
+		);
+		assert.strictEqual(step.canGoBack, true);
+	});
+
+	test('Kepler not installed: Install Kepler resolves to a Kepler hand-off that installs first', async () => {
+		stubSettings('kepler');
+		const generator = resolveAgentFlow(makeContainer(true, false), { requestedRoute: 'ask', item: githubIssue });
+		const step = (await generator.next()).value as QuickPickStep<KeplerNotInstalledItem>;
+
+		const result = await generator.next([
+			(step.items as KeplerNotInstalledItem[]).find(i => i.action === 'install'),
+		]);
+		assert.deepStrictEqual(result, { done: true, value: { kind: 'kepler', install: true } });
+	});
+
+	test('Kepler not installed: Back from a persisted Kepler route shows the route picker', async () => {
+		stubSettings('kepler');
+		const generator = resolveAgentFlow(makeContainer(true, false), { requestedRoute: 'ask', item: githubIssue });
+		await generator.next();
+
+		const back = await generator.next(Directive.Back);
+		assert.strictEqual(back.done, false);
+		const items = (back.value as QuickPickStep).items as { route?: string }[];
+		assert.deepStrictEqual(
+			items.flatMap(i => (i.route != null ? [i.route] : [])),
+			['kepler', 'agent', 'manual'],
+		);
+	});
+
+	test('Kepler installed state unknown (a remote window): hands off without asking', async () => {
+		stubSettings('kepler');
+		const { result } = await start(makeContainer(true, undefined), { requestedRoute: 'ask', item: githubIssue });
+		assert.deepStrictEqual(result, { kind: 'kepler' });
 	});
 
 	test("useDefaults with a persisted 'kepler' continues manually — never a Kepler hand-off", async () => {

@@ -674,6 +674,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/install/completed': KeplerInstallCompletedEvent;
 	/** Sent when installing Kepler fails or is cancelled */
 	'kepler/install/failed': KeplerInstallFailedEvent;
+	/** Sent when the user picks an action in the "Kepler isn't installed" quick pick, or dismisses it */
+	'kepler/notInstalled/action': KeplerNotInstalledActionEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -2825,6 +2827,15 @@ interface KeplerInstallCompletedEvent extends KeplerInstallEvent {
 interface KeplerInstallFailedEvent extends KeplerInstallCompletedEvent {
 	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
 	'failure.reason': KeplerInstallFailureReason;
+}
+
+interface KeplerNotInstalledActionEvent {
+	/** What the user was doing when Kepler turned out not to be installed. `open-session` = opening an agent session in Kepler */
+	intent: KeplerTaskIntent | 'open-session';
+	/** Whether the prompt was a step of the Start Work or Start Review wizard */
+	wizard: boolean;
+	/** What the user picked. `review` / `review-agent` = continued without Kepler; `back` = went back a wizard step; `dismiss` = closed the prompt */
+	action: 'install' | 'learn-more' | 'review' | 'review-agent' | 'back' | 'dismiss';
 }
 
 type InspectCommitContextEventData = {

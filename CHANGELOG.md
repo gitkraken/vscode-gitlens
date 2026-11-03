@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Orient_ and _Review in Repo_ beside _Review Diff_ &mdash; AI becomes one lens on the review rather than a requirement for it: _Orient_ plans the order to read the files in, _Review Diff_ finds issues in the diff, and _Review in Repo_ hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review
 - Adds installing Kepler right from GitLens, with no admin rights needed &mdash; _Install Kepler_ downloads and verifies the latest Kepler and installs it for you, showing its progress
   - Adds _Install Kepler_ and _Learn More_ to the _Try Kepler_ banners in _GitLens Settings_ and the _Commit Graph_'s _Agents_ sidebar, and to the Kepler step of the _Welcome_ view walkthrough; adds a _GitLens: Install Kepler_ command
+  - Replaces the "Kepler isn't installed" warning with a picker that offers to install Kepler and then carries on with what you started &mdash; or, for a pull request review, to continue without Kepler; in _Start Work_ and _Start PR Review_ it's the next step, so you can go back
   - Opens the Kepler download page instead in remote windows (Remote - SSH, WSL, Dev Containers), since Kepler runs on your own machine
 
 ### Changed
