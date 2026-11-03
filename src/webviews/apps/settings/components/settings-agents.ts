@@ -240,11 +240,18 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		const showKeplerBanner = shouldShowKeplerBanner({
 			progress: walkthrough?.main,
 			onboardingOptedOut: walkthrough?.onboardingOptedOut,
+			keplerInstalled: walkthrough?.kepler.installed,
 			orgDisabledAi: this.ai != null && !this.ai.orgEnabled,
 		});
 
 		return html`${
-			showKeplerBanner ? html`<gl-kepler-banner source="settings"></gl-kepler-banner>` : nothing
+			showKeplerBanner
+				? html`<gl-kepler-banner
+						source="settings"
+						?installable=${walkthrough?.kepler.installable === true}
+						?installing=${walkthrough?.kepler.installing === true}
+					></gl-kepler-banner>`
+				: nothing
 		}${this.renderAgents()}`;
 	}
 

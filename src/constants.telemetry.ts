@@ -3486,6 +3486,7 @@ type WelcomeActionNames =
 	| 'open/composer'
 	| 'open/graph'
 	| 'open/help-center'
+	| 'install/kepler'
 	| 'open/help-center/community-vs-pro'
 	| 'open/kepler'
 	| 'open/launchpad'

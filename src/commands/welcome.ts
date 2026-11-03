@@ -46,6 +46,23 @@ export class WelcomeOpenHelpCenterCommand extends GlCommandBase {
 }
 
 @command()
+export class WelcomeInstallKeplerCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.welcome.installKepler');
+	}
+
+	execute(): Promise<boolean> {
+		const command: GlCommands = 'gitlens.kepler.install';
+		this.container.telemetry.sendEvent('welcome/action', {
+			type: 'command',
+			name: 'install/kepler',
+			command: command,
+		});
+		return this.container.kepler.install({ source: 'welcome' });
+	}
+}
+
+@command()
 export class WelcomeOpenKeplerCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super('gitlens.welcome.openKepler');

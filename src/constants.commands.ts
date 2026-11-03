@@ -85,6 +85,7 @@ type InternalWalkthroughCommands = 'gitlens.walkthrough.openWelcome';
 
 type InternalWelcomeCommands =
 	| 'gitlens.welcome.openCommunityVsPro'
+	| 'gitlens.welcome.installKepler'
 	| 'gitlens.welcome.openHelpCenter'
 	| 'gitlens.welcome.openKepler'
 	| 'gitlens.welcome.plus.login'

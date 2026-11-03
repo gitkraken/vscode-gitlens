@@ -200,6 +200,7 @@ export class AccountLaunchpadController implements ReactiveController {
 					// rather than clobbering it with `undefined` when the payload hasn't landed yet.
 					if (p != null) {
 						onboardingState.onboardingOptedOut.set(p.onboardingOptedOut);
+						onboardingState.kepler.set(p.kepler);
 					}
 				})
 				.catch(noop);
@@ -219,6 +220,7 @@ export class AccountLaunchpadController implements ReactiveController {
 						onboardingState.walkthroughProgress.set(p.main);
 						onboardingState.graphWalkthroughProgress.set(p.graph);
 						onboardingState.onboardingOptedOut.set(p.onboardingOptedOut);
+						onboardingState.kepler.set(p.kepler);
 					}),
 			]);
 
