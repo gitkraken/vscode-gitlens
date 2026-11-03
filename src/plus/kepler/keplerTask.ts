@@ -4,11 +4,11 @@ import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { executeCommand } from '../../system/-webview/command.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { getKeplerHost } from './keplerHost.js';
 import type { KeplerTaskLinkOptions } from './keplerLink.js';
 import { createKeplerTaskLink } from './keplerLink.js';
+import { promptKeplerNotInstalled } from './keplerNotInstalled.js';
 import type { KeplerProviderId } from './keplerProviders.js';
 import { getKeplerProviderId, isKeplerSupportedProvider } from './keplerProviders.js';
 
@@ -83,15 +83,6 @@ export function resolveKeplerTaskRequest(request: KeplerTaskRequest): KeplerTask
 	};
 }
 
-/** Tells the user Kepler isn't installed and offers to open its product page. Shared by every Kepler deep-link entry point. */
-export async function promptKeplerNotInstalled(source?: Source): Promise<void> {
-	const getKeplerItem = l10n.t('Get Kepler');
-	const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
-	if (chosen === getKeplerItem) {
-		void executeCommand('gitlens.kepler.openProductPage', source);
-	}
-}
-
 /**
  * Deep links into an installed Kepler's Task Composer. Shared by every entry point (tree/Graph
  * commands, and the Start Work/Review wizard route), so the gate, link and telemetry stay in one
@@ -102,6 +93,13 @@ export async function startKeplerTask(
 	container: Container,
 	request: KeplerTaskRequest,
 	source?: Source,
+	options?: {
+		/**
+		 * Install Kepler without asking when it isn't installed — the user already chose Install
+		 * Kepler in a wizard step. Otherwise the "Kepler isn't installed" prompt is shown.
+		 */
+		install?: boolean;
+	},
 ): Promise<boolean> {
 	const resolution = resolveKeplerTaskRequest(request);
 
@@ -121,17 +119,8 @@ export async function startKeplerTask(
 	// a path that should never be entered.
 	if (!container.kepler.available) return false;
 
-	if (container.kepler.installed === false) {
-		container.telemetry.sendEvent(
-			'kepler/task/start/failed',
-			{ ...data, 'failure.reason': 'not-installed' },
-			source,
-		);
-
-		await promptKeplerNotInstalled(source);
-		return false;
-	}
-
+	// Checked before the install: offering a ~170 MB install only to then refuse the item would be a
+	// worse dead end than refusing it now
 	if (!resolution.supported) {
 		container.telemetry.sendEvent(
 			'kepler/task/start/failed',
@@ -146,6 +135,26 @@ export async function startKeplerTask(
 				: l10n.t("Kepler doesn't support issues from {0}", providerName),
 		);
 		return false;
+	}
+
+	if (container.kepler.installed === false) {
+		// Once Kepler is installed, carry straight on with the task — no separate retry
+		const installed = options?.install
+			? await container.kepler.install(source)
+			: await promptKeplerNotInstalled(container, {
+					intent: request.intent,
+					pr: request.item?.kind === 'pr' ? { url: request.item.url } : undefined,
+					source: source,
+				});
+		// Reported only when the task didn't start: an install that went on to start it is a success
+		if (!installed) {
+			container.telemetry.sendEvent(
+				'kepler/task/start/failed',
+				{ ...data, 'failure.reason': 'not-installed' },
+				source,
+			);
+			return false;
+		}
 	}
 
 	let opened: boolean;
