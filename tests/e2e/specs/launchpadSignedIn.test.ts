@@ -33,8 +33,9 @@ const prRef = (() => {
 	const match = prUrl == null ? null : /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)$/.exec(prUrl);
 	return match == null ? undefined : `${match[1]}#${match[2]}`;
 })();
-// The reference not followed by another digit: `#1` must not match `#10`
-const prRefPattern = prRef == null ? undefined : new RegExp(`${prRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`);
+// The reference bounded on both sides: `#1` must not match `#10`, nor `owner/repo` match `other-owner/repo`
+const prRefPattern =
+	prRef == null ? undefined : new RegExp(`(?<![\\w.-])${prRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`);
 
 if (prRef == null && process.env.E2E_REQUIRE_SIGNIN) {
 	throw new Error('E2E_GITHUB_PR_URL is required (E2E_REQUIRE_SIGNIN) but not set to a GitHub PR URL');
