@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes `GitHubApi.getPullRequestsForBranches` to take one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners (plus/git-github)
+- **Breaking (plus/git-github)** — `GitHubApi.getPullRequestsForBranches` takes one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners. A caller passing targets with `headOwner` must group them into queries
 
 ### Fixed
 
