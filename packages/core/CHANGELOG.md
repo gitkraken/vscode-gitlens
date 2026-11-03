@@ -10,18 +10,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
 
-### Changed
-
-- Changes `GitHubApi.getPullRequestsForBranches` to take one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners (plus/git-github)
-
 ### Removed
 
 - Removes `getWindowsShortPath` from `utils/env/node/exec.js` and its re-export from `git-cli/exec/exec.js`; it has had no callers since 2023 (utils, git-cli)
 
 ### Fixed
 
-- Fixes `getPullRequestsForBranches` on GitHub and GitHub Enterprise sending the same GraphQL query once per target when targets differ only by `headOwner`, since the owner filter runs on the returned rows. One branch in a repository with 12 fork remotes sent 144 aliases where 12 distinct queries would do, draining a user's GraphQL quota in about 20 minutes. Targets naming the same repository (ignoring case) and branch now share one aliased query, so a request carries up to 25 distinct repository-and-branch queries however many owners ask them; results stay one per target, in order. A query that fails now drops every target that shares it, while the other targets still answer (plus/integrations, plus/git-github)
 - Fixes trimming trailing slashes in `getIgnoredPaths`/`getIgnoredEntries` path handling and in self-managed host and URL normalization taking quadratic time on a long run of `/` that doesn't end the value; results are unchanged (git-cli, plus/integrations)
+
+## [0.27.0] - 2026-11-02
+
+### Changed
+
+- Changes `GitHubApi.getPullRequestsForBranches` to take one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners (plus/git-github)
+
+### Fixed
+
+- Fixes `getPullRequestsForBranches` on GitHub and GitHub Enterprise sending the same GraphQL query once per target when targets differ only by `headOwner`, since the owner filter runs on the returned rows. One branch in a repository with 12 fork remotes sent 144 aliases where 12 distinct queries would do, draining a user's GraphQL quota in about 20 minutes. Targets naming the same repository (ignoring case) and branch now share one aliased query, so a request carries up to 25 distinct repository-and-branch queries however many owners ask them; results stay one per target, in order. A query that fails now drops every target that shares it, while the other targets still answer (plus/integrations, plus/git-github)
 
 ## [0.26.0] - 2026-11-02
 
@@ -1077,7 +1082,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...HEAD
+[0.27.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...gitkraken:releases/core/v0.27.0
 [0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
 [0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
 [0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
