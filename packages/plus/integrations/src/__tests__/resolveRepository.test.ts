@@ -547,6 +547,56 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('does not flag an Azure DevOps repo renamed when the provider names it as the remote does', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+		// The SDK's shape: the organization it was asked for, the bare repository name, and the project apart.
+		stubGetRepo(az, () =>
+			Promise.resolve({
+				id: 'r1',
+				namespace: 'myorg',
+				name: 'myrepo',
+				project: 'MyProject',
+			} as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({
+			remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+		});
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.name, 'myrepo');
+		assert.equal(result.resolution.identity?.project, 'MyProject');
+		assert.equal(result.resolution.identity?.renamed, false, 'the bare name matches the remote path');
+
+		manager.dispose();
+	});
+
+	test('flags an Azure DevOps repo renamed when its repository or project name differs', async () => {
+		for (const { remoteUrl, label } of [
+			{ remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/old-name', label: 'repository' },
+			{ remoteUrl: 'https://dev.azure.com/myorg/old-project/_git/myrepo', label: 'project' },
+		]) {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+			stubGetRepo(az, () =>
+				Promise.resolve({
+					id: 'r1',
+					namespace: 'myorg',
+					name: 'myrepo',
+					project: 'myproject',
+				} as unknown as ProviderRepository),
+			);
+
+			const result = await manager.resolveRepository({ remoteUrl: remoteUrl });
+			assert.equal(result.resolution.status, 'resolved', label);
+			assert.equal(result.resolution.identity?.name, 'myrepo', label);
+			assert.equal(result.resolution.identity?.project, 'myproject', label);
+			assert.equal(result.resolution.identity?.renamed, true, `a differing ${label} name flags renamed`);
+
+			manager.dispose();
+		}
+	});
+
 	test('resolves legacy visualstudio.com remotes that still name DefaultCollection (#5999)', async () => {
 		for (const { remoteUrl, project, name } of [
 			{
@@ -789,7 +839,14 @@ suite('resolveRepository (#5438)', () => {
 			(input, options) => {
 				capturedInput = input;
 				capturedOptions = options;
-				return Promise.resolve({ data: repoResult });
+				return Promise.resolve({
+					data: {
+						id: 'r1',
+						namespace: input.namespace,
+						name: input.name,
+						project: input.project,
+					} as unknown as ProviderRepository,
+				});
 			},
 		);
 
@@ -801,6 +858,7 @@ suite('resolveRepository (#5438)', () => {
 		assert.equal(result.resolution.status, 'resolved');
 		assert.deepEqual(capturedInput, { namespace: 'myorg', name: 'myrepo', project: 'myproject' });
 		assert.equal(capturedOptions?.baseUrl, 'https://ado-server.example.com');
+		assert.equal(result.resolution.identity?.renamed, false, 'the bare name matches the remote path');
 
 		manager.dispose();
 	});

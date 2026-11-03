@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes trimming trailing slashes in `getIgnoredPaths`/`getIgnoredEntries` path handling and in self-managed host and URL normalization taking quadratic time on a long run of `/` that doesn't end the value; results are unchanged (git-cli, plus/integrations)
+- Fixes `IntegrationManager.resolveRepository` reporting every Azure DevOps and Azure DevOps Server repository as `renamed: true`: it compared the provider's bare repository name with the remote's `{project}/_git/{repo}` path, which never match. It now compares the repository names and the projects (ignoring case), so `renamed` is `true` only when Azure names the repository or its project differently from the remote. A Server remote whose path the integration reads as a different collection and project than the parser did (a repository named after its project behind a virtual directory) is compared against the collection and project it was read at, so the re-read is not a rename but a later rename of either still is (plus/integrations)
 
 ## [0.28.0] - 2026-11-02
 
