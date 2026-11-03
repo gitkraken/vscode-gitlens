@@ -88,7 +88,6 @@
 	"$(star-full) Favorited": "$(star-full) Favorited",
 	"$(star-full) Save up to 50% on GitLens Pro": "$(star-full) Save up to 50% on GitLens Pro",
 	"$(warning) Force": "$(warning) Force",
-	"$(warning) No agents available": "$(warning) No agents available",
 	"'{0}' authentication is required for this operation": "'{0}' authentication is required for this operation",
 	"'{0}' isn't a valid branch name": "'{0}' isn't a valid branch name",
 	"'{0}' isn't a valid remote URL": "'{0}' isn't a valid remote URL",
