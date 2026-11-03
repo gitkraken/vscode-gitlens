@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `isFork?: boolean` and `parent?: { owner: string; name: string; project?: string }` to `RepositoryIdentity` (`IntegrationManager.resolveRepository`), the repository a fork was made from, on the same host as the identity (`project` is set only for Azure DevOps). `resolveRepository` reads them from the `isFork` and `parent: { namespace, name, project? }` fields of the `@gitkraken/provider-apis` repository for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, which the SDK does not return yet: until it does, both stay `undefined`, and a consumer can patch the SDK to return them. `isFork` is `true` for a fork and `false` only when the provider reports the repository is not one; `parent` is set only for a fork whose parent it names (a named parent alone reports a fork). A missing `parent` is never proof of "not a fork" unless `isFork` is `false`, and `undefined` means the provider didn't say (plus/integrations)
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
 
 ### Removed
