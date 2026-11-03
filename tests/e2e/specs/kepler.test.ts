@@ -1,38 +1,26 @@
 /**
  * Kepler — the install gate and the menu contribution (#5760)
  *
- * What this spec does NOT own as a contract: that the refusal carries exactly one action, which
- * telemetry reason it reports, and what choosing the action runs.
- * `src/plus/kepler/__tests__/keplerTask.test.ts:192` and `:210` hold all of that against a stubbed
- * `window.showWarningMessage` and an injected install probe.
- *
- * It does, unavoidably, depend on the copy: the message and the action label are the only thing that
- * tells this notification apart from any other warning toast, so they are used as locators and a
- * reworded string lands here too. Matching a generic warning instead would make the spec pass for
- * someone else's notification, which is worse than a rename touching two files.
+ * What this spec does NOT own as a contract: which rows the "Kepler isn't installed" prompt offers per
+ * intent, which telemetry it reports, and what each row runs —
+ * `src/plus/kepler/__tests__/keplerTask.test.ts` holds that against a stubbed quick pick.
  *
  * What it owns is the wiring those stubs stand in for: that `gitlens.kepler.newTask` is registered in
  * the packaged extension and runs without arguments, that `KeplerService` resolved `installed` from a
- * real filesystem probe at activation, and that the refusal reaches the user as an actual VS Code
- * notification carrying an actual action — not as a silently swallowed no-op.
+ * real filesystem probe at activation, and that the refusal reaches the user as an actual quick pick
+ * offering Install Kepler and Learn More — not as a silently swallowed no-op. The copy is used as
+ * locators: matching any quick pick would pass for someone else's.
  *
- * `new-task` is the only Kepler entry point reachable here: it needs nothing but an optional repo path
- * (`src/commands/kepler.ts:84-89`), while every `start-review` path needs a pull request, and the
- * harness connects no hosting integration.
+ * `new-task` is the only Kepler entry point reachable here: every `start-review` path needs a pull
+ * request, and the harness connects no hosting integration.
  *
- * Preconditions, asserted rather than assumed (`src/plus/kepler/keplerTask.ts:111-124`):
- * - `available` — true off the web, which a desktop run always is.
- * - not remote — `installed` would be `undefined` and the gate would be skipped
- *   (`src/plus/kepler/keplerService.ts:51`); the harness launches a local Electron.
- * - `installed === false` — the probe must find no Kepler on this machine. That one is a property of
- *   the machine, not of the harness, so this spec checks the same paths the product checks rather than
- *   letting the run take a different branch and still go green. Having Kepler installed is a legitimate
- *   state for a developer's machine and a misconfiguration on a runner, so it skips with a reason
- *   locally and fails in CI.
+ * Preconditions, asserted rather than assumed: desktop and local (a remote window can't tell whether
+ * Kepler is installed and skips the gate), and no Kepler on this machine — checked against the paths
+ * the product checks, so the run can't take the installed branch and still go green. An installed
+ * Kepler is normal on a developer machine (skip) and a misconfiguration on a runner (fail).
  *
- * The action is deliberately NOT clicked: it opens an https product page, and VS Code refuses
- * external-website dialogs in test mode (`DialogService: refused to show dialog in tests`, measured
- * 2026-10-05), so clicking would fail the run instead of proving anything.
+ * No row is picked: Install Kepler would download Kepler, and Learn More opens an https page, which
+ * VS Code refuses in test mode (`DialogService: refused to show dialog in tests`).
  */
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -45,14 +33,11 @@ import { expect, MaxTimeout, test } from '../baseTest.js';
 /** The gate reads the `production` channel here: the override needs a pre-release or Development host. */
 const channel = 'production';
 
-/**
- * Copy owned by `src/plus/kepler/keplerTask.ts:122`, used here to identify the surface rather than to
- * assert it. Named so the coupling is visible in code: reword the product strings and these move too.
- */
-const refusalMessage = "Kepler isn't installed";
-/** Menu title owned by `contributions.json`; a locator for the same reason the strings above are. */
+/** Copy owned by `src/plus/kepler/keplerNotInstalled.ts`, used to identify the prompt rather than to assert it. */
+const refusalHeader = "Kepler isn't installed";
+const refusalActions = ['Install Kepler', 'Learn More'];
+/** Menu title owned by `contributions.json`, which also titles the prompt for this intent. */
 const newTaskMenuItem = 'Start Task in Kepler';
-const refusalAction = 'Get Kepler';
 
 /**
  * Where the product itself looks (`src/env/node/kepler/keplerInstall.ts`), resolved for this machine.
@@ -61,8 +46,8 @@ const refusalAction = 'Get Kepler';
  * extension code (`gitLensPage.ts` takes a type, which compiles away). The point is drift: a copied
  * path list keeps passing after the product changes its channel, product name or layout, and a
  * precondition that silently stops matching the product is worse than no precondition — the spec would
- * take the installed branch and still report green. `keplerProviders.ts` imports nothing but types, so
- * pulling it in costs the test process no extension runtime.
+ * take the installed branch and still report green. `keplerProviders.ts` imports only types and the
+ * dependency-free `keplerRelease.ts`, so pulling it in costs the test process no extension runtime.
  */
 const installPaths = getKeplerInstallPaths(channel, process.platform, {
 	home: homedir(),
@@ -107,25 +92,25 @@ test.describe('Kepler — install gate', () => {
 		expect(installedAt, unreachable).toEqual([]);
 	});
 
-	// Before: a toast left over from an earlier spec in this worker would satisfy the assertion below
-	// without this command having produced anything. After: the editor instance is worker-scoped, so a
-	// toast left standing here would be the next spec's inherited state.
-	test.beforeEach(async ({ vscode }) => {
-		await vscode.gitlens.executeCommandIfAvailable('notifications.clearAll');
-	});
-
+	// The prompt is modal to the editor instance, which is worker-scoped: left open, it would swallow the
+	// next spec's first keystrokes.
 	test.afterEach(async ({ vscode }) => {
-		await vscode.gitlens.executeCommandIfAvailable('notifications.clearAll');
+		await vscode.gitlens.quickPick.cancel();
 	});
 
-	test('new task refuses with a notification offering to get Kepler', async ({ vscode }) => {
-		await vscode.gitlens.executeCommand('gitlens.kepler.newTask');
+	test('new task offers to install Kepler or learn more', async ({ vscode }) => {
+		const quickPick = vscode.gitlens.quickPick;
+		// The command settles only once the prompt closes, so it is awaited after dismissing it
+		const command = vscode.gitlens.executeCommand('gitlens.kepler.newTask');
 
-		const toast = vscode.page
-			.locator('.notifications-toasts .notification-list-item')
-			.filter({ hasText: refusalMessage });
-		await expect(toast).toBeVisible({ timeout: MaxTimeout });
-		await expect(toast.locator('.monaco-button', { hasText: refusalAction })).toBeVisible();
+		await quickPick.waitForTitle(newTaskMenuItem);
+		await expect(quickPick.locator).toContainText(refusalHeader);
+		for (const action of refusalActions) {
+			await quickPick.getVisibleItem(action);
+		}
+
+		await quickPick.cancel();
+		await command;
 	});
 });
 

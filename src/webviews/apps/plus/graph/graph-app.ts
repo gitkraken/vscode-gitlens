@@ -2485,7 +2485,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  session is already gone (the legacy fire-and-forget command never surfaced errors either). */
 	private handlePrReview = async (e: CustomEvent<{ url: string }>): Promise<void> => {
 		const commands = await this.services?.commands;
-		// The wizard only auto-selects the pull request when useDefaults rides along with prUrl
 		void commands?.execute('gitlens.startReview', {
 			prUrl: e.detail.url,
 			useDefaults: true,

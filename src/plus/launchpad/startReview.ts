@@ -385,8 +385,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 					opened = true;
 
-					// Auto-select PR if prUrl is provided
-					if (state.prUrl && state.useDefaults) {
+					// Auto-select PR if prUrl is provided; `useDefaults` only decides whether the steps after ask
+					if (state.prUrl) {
 						// Lookup the LaunchpadItem from the URL - this can throw synchronously before
 						// the review starts, so it keeps its own try/catch
 						let launchpadItem: LaunchpadItem;
@@ -544,7 +544,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			case 'agent':
 				return { kind: 'review', agent: flow.descriptor, openChatOnComplete: true };
 			case 'kepler':
-				await startKeplerTask(
+				void startKeplerTask(
 					this.container,
 					{
 						intent: 'start-review',
@@ -557,6 +557,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 						),
 					},
 					this.source,
+					{ install: flow.install },
 				);
 				return { kind: 'kepler' };
 		}
