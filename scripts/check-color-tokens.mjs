@@ -29,7 +29,6 @@ const reserved = new Map([
 	['--gl-color-feedback-info-quiet-border', 'awaiting the HC companion policy'],
 	['--gl-color-feedback-danger-quiet-border', 'awaiting the HC companion policy'],
 	['--gl-color-feedback-success-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-action-quiet-bg-active', 'awaiting migration'],
 ]);
 
 async function* walk(directory) {
