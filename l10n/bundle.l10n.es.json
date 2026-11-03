@@ -83,7 +83,6 @@
 	"$(star-full) Favorited": "$(star-full) Añadido a favoritos",
 	"$(star-full) Save up to 50% on GitLens Pro": "$(star-full) Ahorre hasta un 50 % en GitLens Pro",
 	"$(warning) Force": "$(warning) Forzar",
-	"$(warning) No agents available": "$(warning) No hay agentes disponibles",
 	"'{0}' authentication is required for this operation": "La autenticación de '{0}' es necesaria para esta operación",
 	"'{0}' isn't a valid branch name": "'{0}' no es un nombre de rama válido",
 	"'{0}' isn't a valid remote URL": "'{0}' no es una URL de remoto válida",

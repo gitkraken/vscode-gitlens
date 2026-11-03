@@ -83,7 +83,6 @@
 	"$(star-full) Favorited": "$(star-full) 已收藏",
 	"$(star-full) Save up to 50% on GitLens Pro": "$(star-full) GitLens Pro 最高可省 50%",
 	"$(warning) Force": "$(warning) 強制",
-	"$(warning) No agents available": "$(warning) 沒有可用的代理",
 	"'{0}' authentication is required for this operation": "此操作需要 '{0}' 身分驗證",
 	"'{0}' isn't a valid branch name": "'{0}' 不是有效的分支名稱",
 	"'{0}' isn't a valid remote URL": "'{0}' 不是有效的遠端 URL",
