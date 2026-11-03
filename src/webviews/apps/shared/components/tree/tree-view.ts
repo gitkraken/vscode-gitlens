@@ -156,7 +156,7 @@ reliable for click-focus, which doesn't surface as a focusin on this host. */
 			}
 
 			.filter-input:focus {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -289,8 +289,14 @@ rules — that colors it. Muted dims like a description; the rest take the edito
 				background: color-mix(in srgb, transparent 76%, currentColor);
 			}
 
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.count-badge--action:not(:focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
+			}
+
 			.count-badge--action:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 0.1rem;
 			}
 
@@ -299,15 +305,15 @@ rules — that colors it. Muted dims like a description; the rest take the edito
 			}
 
 			.count-badge--error {
-				color: var(--vscode-editorError-foreground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.count-badge--warning {
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.count-badge--info {
-				color: var(--vscode-editorInfo-foreground);
+				color: var(--gl-color-feedback-info-quiet-fg);
 			}
 
 			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
@@ -394,7 +400,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
  colour over the panel's opaque background reproduces the row's effective surface. */
 				--gl-agent-mark-chip:
 					linear-gradient(var(--gl-tree-row-bg, transparent), var(--gl-tree-row-bg, transparent)),
-					var(--color-view-background, var(--vscode-sideBar-background));
+					var(--gl-color-surface-aside);
 
 				position: absolute;
 				right: 0.05em;
