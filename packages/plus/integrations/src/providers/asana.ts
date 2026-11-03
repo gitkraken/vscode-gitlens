@@ -11,7 +11,6 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError, toError } from '../errors.js';
 import type {
 	AccountWideIssuesResult,
@@ -25,7 +24,8 @@ import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
-const metadata = providersMetadata[IssuesCloudHostIntegrationId.Asana];
+const metadata = providersMetadata.asana;
+type AsanaIntegrationId = typeof metadata.id;
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 /** Long enough to span one tracker read, short enough that a profile change shows on the next. */
 const recentAccountTTL = 60 * 1000;
@@ -34,20 +34,17 @@ const maxDiscoveryPages = 20;
 /** The task drain's backstop, per project or per workspace: 1,000 tasks at the SDK's 100-per-page. */
 const maxTaskPages = 10;
 
-/** An Asana workspace (or organization), the resource a tracker read discovers projects under. */
-export interface AsanaWorkspaceDescriptor extends IssueResourceDescriptor {}
-
 /** An Asana project, naming the workspace it belongs to so its tasks can be encoded and its account resolved. */
 export interface AsanaProjectDescriptor extends IssueResourceDescriptor {
 	resourceId: string;
 	resourceName: string;
 }
 
-export class AsanaIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Asana> {
+export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 
-	override get id(): IssuesCloudHostIntegrationId.Asana {
-		return IssuesCloudHostIntegrationId.Asana;
+	override get id(): AsanaIntegrationId {
+		return metadata.id;
 	}
 	protected override get key(): 'asana' {
 		return 'asana';
@@ -116,7 +113,7 @@ export class AsanaIntegration extends IssuesIntegration<IssuesCloudHostIntegrati
 
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
-	): Promise<AsanaWorkspaceDescriptor[] | undefined> {
+	): Promise<IssueResourceDescriptor[] | undefined> {
 		const api = await this.getProvidersApi();
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const workspaces = await collectProviderPagedResult(

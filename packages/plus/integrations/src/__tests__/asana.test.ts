@@ -22,12 +22,6 @@ import {
 import { selectorMatches } from '../reads/hierarchy.utils.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
-/**
- * Verifies the Asana integration: workspaces surface as resources and their projects as projects, task reads are
- * drained by cursor and scoped to the viewer by assignee, and tasks round-trip through branch associations keyed by
- * their workspace.
- */
-
 const workspace = { key: 'w1', id: 'w1', name: 'Workspace' };
 const project = { key: 'p1', id: 'p1', name: 'Project', resourceId: 'w1', resourceName: 'Workspace' };
 

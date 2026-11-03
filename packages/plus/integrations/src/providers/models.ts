@@ -959,7 +959,7 @@ export interface ProviderMetadata {
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
-export type ProvidersMetadata = Record<IntegrationIds, ProviderMetadata>;
+export type ProvidersMetadata = { [Id in IntegrationIds]: ProviderMetadata & { id: Id } };
 
 /**
  * GitHub and GitHub Enterprise express every criterion as a search qualifier on the same GraphQL `search` field,
