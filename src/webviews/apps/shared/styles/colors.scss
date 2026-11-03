@@ -237,15 +237,18 @@
 
 	// Deliberately NOT minted:
 	//   quiet-bg      — literally `transparent`; not a color decision.
-	//   link-fg-hover — `textLink.activeForeground` is byte-identical to `textLink.foreground` in all
-	//                   four theme kinds, so no color change ships. Hover is the underline.
+	//   link-fg-hover — would be a pure passthrough of `textLink.activeForeground` (rule 1). Consumers read
+	//                   the raw token on hover; Dark 2026 does distinguish it (#48a0c7 -> #53a5ca).
 	//   *-bg-active for the filled tiers — VS Code provides none and nothing uses one.
 
 	--gl-color-action-primary-bg: var(--vscode-button-background);
 	--gl-color-action-primary-fg: var(--vscode-button-foreground);
 	--gl-color-action-primary-bg-hover: var(--vscode-button-hoverBackground, var(--gl-color-action-primary-bg));
 
-	// `button.border` IS `contrastBorder` — unset in normal themes, set in HC. Self-collapsing.
+	// `button.border` defaults to `contrastBorder` in the registry (null in dark/light, set in both HC), but
+	// every shipped Modern and 2026 default theme sets it (Dark Modern `#ffffff1a`, Light Modern `#0000001a`,
+	// Dark/Light 2026 = `button.background`); only Dark+ and Light+ leave it unset. So it is NOT
+	// self-collapsing in practice. Consumers that must keep the 1px reserved add their own `, transparent`.
 	--gl-color-action-primary-border: var(--vscode-button-border);
 
 	--gl-color-action-secondary-bg: var(--vscode-button-secondaryBackground);
@@ -260,8 +263,8 @@
 
 	// `foreground`, not `icon.foreground`: quiet serves icon-only actions AND toolbar buttons with
 	// text labels, so an icon-qualified source would be wrong for half its consumers while the
-	// unqualified one covers both. Migration note — this is a real if slight visible change for
-	// `action-item`, which moves #C5C5C5 → #CCCCCC in dark. Not a no-op.
+	// unqualified one covers both. Icon-only actions (`action-item`, tree row actions) read
+	// `icon.foreground` directly instead, as VS Code's toolbars do: the 2026 themes dim icons below text.
 	--gl-color-action-quiet-fg: var(--vscode-foreground);
 
 	// Translucent by design in dark/light and null in BOTH HC variants, where hover is conveyed by the
