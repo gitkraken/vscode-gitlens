@@ -83,6 +83,10 @@ export const reviewModePanelStyles = css`
 		min-height: 0;
 		overflow: hidden;
 		--gl-split-panel-divider-width: 4px;
+		/* A pane's content starts where its header's title does, with the chevron hanging to the left of
+		   both — the title sits past the header's padding, the chevron and the gap; the content's own column
+		   (the check-all box, the overview, the focus areas) is already --gl-space-12 in */
+		--review-pane-title-inset: calc(var(--gl-space-2) + 16px + var(--gl-space-4));
 	}
 
 	.review-split__files,
@@ -91,13 +95,6 @@ export const reviewModePanelStyles = css`
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-	}
-
-	/* A pane's content starts where its header's title does, with the chevron hanging to the left of
-	   both — the title sits past the header's padding, the chevron and the gap; the content's own column
-	   (the check-all box, the overview, the focus areas) is already --gl-space-12 in */
-	.review-split {
-		--review-pane-title-inset: calc(var(--gl-space-2) + 16px + var(--gl-space-4));
 	}
 
 	.review-split__body {
@@ -223,10 +220,10 @@ export const reviewModePanelStyles = css`
 		min-width: 0;
 		margin-left: 2em;
 		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		text-align: right;
-		text-overflow: ellipsis;
 		white-space: nowrap;
 		direction: rtl;
 	}
@@ -260,10 +257,10 @@ export const reviewModePanelStyles = css`
 	.review-pane-header__description {
 		margin-left: calc(2em - var(--gl-space-4));
 		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
 		font-weight: 400;
 		color: var(--vscode-descriptionForeground);
-		text-overflow: ellipsis;
 		text-transform: none;
 		white-space: nowrap;
 	}
@@ -375,9 +372,9 @@ export const reviewModePanelStyles = css`
 
 	.review-walk__hint {
 		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
@@ -392,12 +389,12 @@ export const reviewModePanelStyles = css`
 
 	.review-walk__file {
 		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		text-overflow: ellipsis;
+		text-align: left;
 		white-space: nowrap;
 		direction: rtl;
-		text-align: left;
 	}
 
 	.review-walk__actions {
@@ -413,6 +410,7 @@ export const reviewModePanelStyles = css`
 		/* One left edge for the whole document — the strip above it, the overview, every group's heading
 		   (its chevron sits 2px into the pane) and summary: the strip's own inset, margin + border + padding */
 		--review-document-inset: calc(var(--gl-space-6) + var(--gl-border-width) + var(--gl-space-10));
+
 		display: block;
 		padding-left: calc(var(--review-document-inset) - var(--gl-space-2));
 		overflow: auto;
@@ -540,8 +538,8 @@ export const reviewModePanelStyles = css`
 	.review-finding__source {
 		padding: 0 var(--gl-space-3);
 		font-size: var(--gl-font-sm);
-		text-transform: uppercase;
 		color: var(--vscode-descriptionForeground);
+		text-transform: uppercase;
 		border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
 		border-radius: var(--gl-radius-sm);
 	}
@@ -929,8 +927,8 @@ export const reviewModePanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-4);
-		margin-bottom: var(--gl-space-6);
 		padding-left: var(--gl-space-8);
+		margin-bottom: var(--gl-space-6);
 		border-left: 2px solid color-mix(in srgb, transparent 70%, var(--vscode-descriptionForeground));
 	}
 

@@ -358,8 +358,7 @@ with overflow: hidden. */
 
 			.hover-actions__row {
 				display: flex;
-				flex-direction: row;
-				flex-wrap: wrap;
+				flex-flow: row wrap;
 				gap: var(--gl-space-4);
 			}
 
