@@ -2,6 +2,7 @@ import type { Signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import { signalObject } from 'signal-utils/object';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../constants.walkthroughs.js';
+import type { WalkthroughProgressPayload } from '../../../rpc/walkthroughService.js';
 import { createSignalGroup } from '../state/signals.js';
 
 export type OnboardingKey = 'integrationBanner';
@@ -17,6 +18,8 @@ export interface OnboardingState {
 	 *  the service-wide onboarding opt-out that non-dismissible surfaces like the "Try Kepler" banner
 	 *  consult since they have no dismiss button of their own. */
 	readonly onboardingOptedOut: Signal.State<boolean>;
+	/** What the Kepler CTAs can offer (see `WalkthroughProgressPayload.kepler`); `undefined` until the payload lands */
+	readonly kepler: Signal.State<WalkthroughProgressPayload['kepler'] | undefined>;
 	/** Dismiss a banner by key. No-op before RPC connects; wired by root component. */
 	dismiss(key: OnboardingKey): void;
 	/** Dismiss the walkthrough. No-op before RPC connects; wired by root component. */
@@ -55,6 +58,7 @@ export function createOnboardingState(): OnboardingState {
 		walkthroughProgress: signal<WalkthroughProgress | undefined>(undefined),
 		graphWalkthroughProgress: signal<GraphWalkthroughProgress | undefined>(undefined),
 		onboardingOptedOut: signal<boolean>(false),
+		kepler: signal<WalkthroughProgressPayload['kepler'] | undefined>(undefined),
 		dismiss: noop,
 		dismissWalkthrough: noop,
 		resetAll: resetAll,

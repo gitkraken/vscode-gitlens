@@ -1152,6 +1152,7 @@ would expose the graph through fade or at the gap left by the translate). */
 			const keplerBannerVisible = shouldShowKeplerBanner({
 				progress: this._onboarding?.walkthroughProgress.get(),
 				onboardingOptedOut: this._onboarding?.onboardingOptedOut.get(),
+				keplerInstalled: this._onboarding?.kepler.get()?.installed,
 				orgDisabledAi: this._ai?.state.get().orgEnabled === false,
 			});
 			return html`<div class="panel">
@@ -1379,8 +1380,14 @@ would expose the graph through fade or at the gap left by the translate). */
 	}
 
 	private renderKeplerBanner(): unknown {
+		const kepler = this._onboarding?.kepler.get();
 		return html`<div class="kepler-banner">
-			<gl-kepler-banner source="graph-sidebar" layout="responsive"></gl-kepler-banner>
+			<gl-kepler-banner
+				source="graph-sidebar"
+				layout="responsive"
+				?installable=${kepler?.installable === true}
+				?installing=${kepler?.installing === true}
+			></gl-kepler-banner>
 		</div>`;
 	}
 
