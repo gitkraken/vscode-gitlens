@@ -499,7 +499,8 @@ export function buildAgentPickerItems(
 ): AgentItem[] {
 	if (agents.length === 0) {
 		const header: AgentItem = {
-			label: l10n.t('$(warning) No agents available'),
+			// VS Code doesn't render `$(icon)` syntax in separator labels, so this one stays plain text
+			label: l10n.t('No agents available'),
 			description: options.detectionFailed
 				? l10n.t('No supported IDE chat host, no Claude extension; unable to detect CLIs')
 				: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
