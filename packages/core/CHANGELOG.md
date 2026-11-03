@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes `GitHubApi.getPullRequestsForBranches` to take one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners (plus/git-github)
+
+### Fixed
+
+- Fixes `getPullRequestsForBranches` on GitHub and GitHub Enterprise sending the same GraphQL query once per target when targets differ only by `headOwner`, since the owner filter runs on the returned rows. One branch in a repository with 12 fork remotes sent 144 aliases where 12 distinct queries would do, draining a user's GraphQL quota in about 20 minutes. Targets naming the same repository (ignoring case) and branch now share one aliased query, so a request carries up to 25 distinct repository-and-branch queries however many owners ask them; results stay one per target, in order. A query that fails now drops every target that shares it, while the other targets still answer (plus/integrations, plus/git-github)
+
 ## [0.26.0] - 2026-11-02
 
 ### Added
