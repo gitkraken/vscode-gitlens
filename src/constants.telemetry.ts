@@ -25,6 +25,7 @@ import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/auto
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
+import type { KeplerInstallFailureReason, KeplerReleaseFileKind } from './plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from './plus/kepler/keplerService.js';
 import type { KeplerTaskAction, KeplerTaskIntent } from './plus/kepler/keplerTask.js';
 import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
@@ -667,6 +668,12 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/session/open': KeplerSessionOpenEvent;
 	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
 	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
+	/** Sent when GitLens starts installing Kepler */
+	'kepler/install/started': KeplerInstallEvent;
+	/** Sent when GitLens finishes installing Kepler */
+	'kepler/install/completed': KeplerInstallCompletedEvent;
+	/** Sent when installing Kepler fails or is cancelled */
+	'kepler/install/failed': KeplerInstallFailedEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -2803,6 +2810,21 @@ interface KeplerSessionOpenEvent {
 interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
 	/** Why the session was not opened. `not-installed` = Kepler is not installed, so no link was sent; `open-failed` = the deep link could not be handed off */
 	'failure.reason': 'not-installed' | 'open-failed';
+}
+
+interface KeplerInstallEvent {
+	/** The kind of installer file used, which follows the platform */
+	kind: KeplerReleaseFileKind;
+}
+
+interface KeplerInstallCompletedEvent extends KeplerInstallEvent {
+	/** The installed version; absent when it is unknown before install (Windows) */
+	version?: string;
+}
+
+interface KeplerInstallFailedEvent extends KeplerInstallCompletedEvent {
+	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
+	'failure.reason': KeplerInstallFailureReason;
 }
 
 type InspectCommitContextEventData = {

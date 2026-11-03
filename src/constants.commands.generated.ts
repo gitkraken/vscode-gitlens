@@ -1115,6 +1115,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.graph.split'
 	| 'gitlens.graph.switchToEditorLayout'
 	| 'gitlens.graph.switchToPanelLayout'
+	| 'gitlens.kepler.install'
 	| 'gitlens.launchpad.indicator.toggle'
 	| 'gitlens.openAssociatedPullRequestOnRemote'
 	| 'gitlens.openBlamePriorToChange'

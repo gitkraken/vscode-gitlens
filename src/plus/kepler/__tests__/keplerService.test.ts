@@ -1,7 +1,21 @@
 import * as assert from 'node:assert';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import type { Server } from 'node:http';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 import * as sinon from 'sinon';
+import type { CancellationToken, Progress } from 'vscode';
+import { window } from 'vscode';
+// Side-effect only: `keplerService.ts` pulls in `system/-webview/context.js` for `setContext`, which
+// loads `system/-webview/command.js`, whose first load is re-entered through container.ts's dependency
+// chain before its `registrableCommands` array exists. Loading container.ts first avoids it.
+import '../../../container.js';
 import type { Container } from '../../../container.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import type { KeplerRelease } from '../keplerRelease.js';
 import { KeplerService } from '../keplerService.js';
 
 function makeContainer(prereleaseOrDebugging: boolean): Container {
@@ -169,8 +183,50 @@ suite('KeplerService.installed', () => {
 		assert.deepStrictEqual(probe.firstCall.args, ['staging']);
 
 		assert.strictEqual(service.installed, false);
+		assert.strictEqual(probe.callCount, 2);
+	});
+
+	test('picks up a Kepler installed after construction, and Install Kepler then installs nothing but says so', async () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const probe = sandbox.stub().returns(false);
+		const { container, track } = makeUsageContainer({
+			prereleaseOrDebugging: false,
+			alreadyTracked: false,
+		});
+		const withProgress = sandbox.spy(window, 'withProgress');
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+
+		const service = new KeplerService(container, probe, false);
 		assert.strictEqual(service.installed, false);
-		assert.strictEqual(probe.callCount, 1);
+
+		probe.returns(true);
+		assert.strictEqual(service.installed, true);
+		assert.deepStrictEqual(track.firstCall.args, ['action:gitlens.kepler.installed:happened']);
+
+		assert.strictEqual(await service.install(), true);
+		assert.strictEqual(withProgress.callCount, 0);
+		assert.strictEqual(showInformationMessage.callCount, 1);
+		assert.strictEqual(showInformationMessage.firstCall.args[0], 'Kepler is installed.');
+	});
+
+	test('does not take a half-installed Kepler for installed while an install runs; a second install joins it', () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const probe = sandbox.stub().returns(false);
+		const container = {
+			prereleaseOrDebugging: false,
+			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
+			telemetry: { sendEvent: sandbox.spy() },
+		} as unknown as Container;
+		// The install never finishes within the test; only its in-flight state matters
+		sandbox.stub(window, 'withProgress').returns(new Promise(() => {}));
+
+		const service = new KeplerService(container, probe, false);
+		const first = service.install();
+
+		// The Windows setup creates the install folder long before it registers kepler://
+		probe.returns(true);
+		assert.strictEqual(service.installed, false);
+		assert.strictEqual(service.install(), first);
 	});
 
 	test('tracks the installed usage when Kepler is detected', () => {
@@ -256,5 +312,111 @@ suite('KeplerService.installed', () => {
 		assert.strictEqual(service.installed, undefined);
 		assert.strictEqual(probe.callCount, 0);
 		assert.strictEqual(track.callCount, 0);
+	});
+});
+
+// A real install end to end, with the Linux AppImage because it installs into `HOME` and needs no admin
+// rights: a local server stands in for Kepler's CDN and a stub `xdg-mime` for the desktop's registration
+suite('KeplerService.install — cancel', () => {
+	const appImage = Buffer.from('#!/bin/sh\necho kepler\n'.repeat(1024));
+	let sandbox: sinon.SinonSandbox;
+	let dir: string;
+	let server: Server;
+	let release: KeplerRelease;
+	const originalHome = process.env.HOME;
+	const originalPath = process.env.PATH;
+
+	suiteSetup(async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+
+		server = createServer((_req, res) => {
+			res.writeHead(200, { 'content-length': appImage.length });
+			res.end(appImage);
+		});
+		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+		release = {
+			kind: 'linux-appimage',
+			url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/kepler-x64.AppImage`,
+			fileName: 'kepler-x64.AppImage',
+			version: '0.16.0',
+			size: appImage.length,
+			sha512: createHash('sha512').update(appImage).digest('base64'),
+		};
+	});
+
+	suiteTeardown(async () => {
+		await new Promise<void>(resolve => (server != null ? server.close(() => resolve()) : resolve()));
+	});
+
+	setup(async () => {
+		sandbox = sinon.createSandbox();
+		dir = await mkdtemp(join(tmpdir(), 'gitlens-kepler-service-'));
+		process.env.HOME = join(dir, 'home');
+
+		const bin = join(dir, 'bin');
+		await mkdir(bin, { recursive: true });
+		await writeFile(join(bin, 'xdg-mime'), '#!/bin/sh\nexit 0\n');
+		await chmod(join(bin, 'xdg-mime'), 0o755);
+		process.env.PATH = `${bin}${delimiter}${originalPath}`;
+	});
+
+	teardown(async () => {
+		sandbox.restore();
+		process.env.HOME = originalHome;
+		process.env.PATH = originalPath;
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	test('a Cancel after the point of no return keeps the install but resolves false, quietly', async () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const sendEvent = sandbox.spy((_event: string) => {});
+		const container = {
+			prereleaseOrDebugging: false,
+			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
+			telemetry: { sendEvent: sendEvent },
+		} as unknown as Container;
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const showErrorMessage = sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+
+		// The user clicks Cancel as the last step — registering kepler:// — begins; on Linux nothing
+		// checks for a cancel after that
+		let cancelled = false;
+		const listeners: (() => void)[] = [];
+		const token = {
+			get isCancellationRequested() {
+				return cancelled;
+			},
+			onCancellationRequested: (listener: () => void) => {
+				listeners.push(listener);
+				return { dispose: () => {} };
+			},
+		} as unknown as CancellationToken;
+		const progress: Progress<{ message?: string; increment?: number }> = {
+			report: value => {
+				if (value.message === 'Registering kepler:// links…') {
+					cancelled = true;
+					for (const listener of listeners) {
+						listener();
+					}
+				}
+			},
+		};
+		sandbox.stub(window, 'withProgress').callsFake((_options, task) => task(progress, token));
+
+		const service = new KeplerService(container, () => false, false);
+		sandbox.stub(service, 'getRelease').resolves(release);
+
+		assert.strictEqual(await service.install(), false);
+
+		assert.strictEqual(cancelled, true);
+		assert.strictEqual(service.installed, true);
+		assert.strictEqual(showInformationMessage.callCount, 0);
+		assert.strictEqual(showErrorMessage.callCount, 0);
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args[0]),
+			['kepler/install/started', 'kepler/install/completed'],
+		);
 	});
 });

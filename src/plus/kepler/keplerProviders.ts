@@ -1,4 +1,5 @@
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import { getKeplerAppImagePath } from './keplerRelease.js';
 import type { KeplerChannel } from './keplerService.js';
 
 // This is the single home for every table mirrored from the Kepler repo (design doc §6.4 — "Drift
@@ -140,7 +141,8 @@ export interface KeplerInstallEnvironment {
  *   (`getWindowsInstallationDirName` in `app-builder-lib/out/targets/targetUtil.js`), which
  *   contradicts Kepler's own comment on `getChannelWindowsExecutableName` — so both are probed.
  * - Linux: deb/rpm unpack to `/opt/<productName>`. Mirrors `getChannelLinuxInstallDir` in
- *   `scripts/_channel-identity.mjs`. AppImage, Snap and Flatpak installs are not detected.
+ *   `scripts/_channel-identity.mjs`. The AppImage GitLens installs (production only) is probed too;
+ *   other AppImage, Snap and Flatpak installs are not detected.
  */
 export function getKeplerInstallPaths(
 	channel: KeplerChannel,
@@ -167,8 +169,14 @@ export function getKeplerInstallPaths(
 			}
 			return paths;
 		}
-		case 'linux':
-			return [`/opt/${productName}`];
+		case 'linux': {
+			const paths = [`/opt/${productName}`];
+			// Only production is installable from GitLens, so only it can have GitLens's AppImage
+			if (channel === 'production' && env.home) {
+				paths.push(getKeplerAppImagePath(env.home));
+			}
+			return paths;
+		}
 		default:
 			return [];
 	}

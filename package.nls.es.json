@@ -471,6 +471,7 @@
 	"command.gitlens.graph.unpinBranchFromEdge.title": "Desfijar rama del borde",
 	"command.gitlens.helpCenter.title": "Centro de ayuda",
 	"command.gitlens.inviteToLiveShare.title": "Invitar a Live Share",
+	"command.gitlens.kepler.install.title": "Instalar Kepler",
 	"command.gitlens.launchpad.indicator.toggle.title": "Alternar indicador de Launchpad",
 	"command.gitlens.openAssociatedPullRequestOnRemote.title": "Abrir la solicitud de incorporación de cambios asociada",
 	"command.gitlens.openBlamePriorToChange.title": "Abrir blame anterior al cambio",
