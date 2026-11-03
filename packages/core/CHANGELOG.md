@@ -8,7 +8,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `isFork?: boolean` and `parent?: { owner: string; name: string; project?: string }` to `RepositoryIdentity` (`IntegrationManager.resolveRepository`), the repository a fork was made from, on the same host as the identity (`project` is set only for Azure DevOps). `resolveRepository` reads them from the `isFork` and `parent: { namespace, name, project? }` fields of the `@gitkraken/provider-apis` repository for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, which the SDK does not return yet: until it does, both stay `undefined`, and a consumer can patch the SDK to return them. `isFork` is `true` for a fork and `false` only when the provider reports the repository is not one; `parent` is set only for a fork whose parent it names (a named parent alone reports a fork). A missing `parent` is never proof of "not a fork" unless `isFork` is `false`, and `undefined` means the provider didn't say (plus/integrations)
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
 
 ### Removed
@@ -18,6 +17,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes trimming trailing slashes in `getIgnoredPaths`/`getIgnoredEntries` path handling and in self-managed host and URL normalization taking quadratic time on a long run of `/` that doesn't end the value; results are unchanged (git-cli, plus/integrations)
+
+## [0.28.0] - 2026-11-02
+
+### Added
+
+- Adds `isFork?: boolean` and `parent?: { owner: string; name: string; project?: string }` to `RepositoryIdentity` (`IntegrationManager.resolveRepository`), the repository a fork was made from, on the same host as the identity (`project` is set only for Azure DevOps). `resolveRepository` reads them from the `isFork` and `parent: { namespace, name, project? }` fields of the `@gitkraken/provider-apis` repository for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, which the SDK does not return yet: until it does, both stay `undefined`, and a consumer can patch the SDK to return them. `isFork` is `true` for a fork and `false` only when the provider reports the repository is not one; `parent` is set only for a fork whose parent it names (a named parent alone reports a fork). A missing `parent` is never proof of "not a fork" unless `isFork` is `false`, and `undefined` means the provider didn't say (plus/integrations)
 
 ## [0.27.0] - 2026-11-02
 
@@ -1083,7 +1088,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...HEAD
+[0.28.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...gitkraken:releases/core/v0.28.0
 [0.27.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...gitkraken:releases/core/v0.27.0
 [0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
 [0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
