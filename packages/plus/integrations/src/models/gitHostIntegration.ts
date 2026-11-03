@@ -459,12 +459,16 @@ export abstract class GitHostIntegration<
 		return defaultBranch;
 	}
 
+	/**
+	 * Reads one repository. `readAt`, when set, is where it was read, which may not be where `repo` names it: an Azure
+	 * DevOps Server integration may read a remote's path as another collection and project than the remote parser did.
+	 */
 	getRepoInfo?(repo: {
 		owner: string;
 		name: string;
 		project?: string;
 		connectionId?: string;
-	}): Promise<ProviderRepository | undefined>;
+	}): Promise<(ProviderRepository & { readAt?: { owner: string; name: string; project?: string } }) | undefined>;
 
 	/**
 	 * Settles what one repository's refusal of the credential means, as a batch read settles a refused target (see

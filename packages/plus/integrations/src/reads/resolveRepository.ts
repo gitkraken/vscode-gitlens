@@ -202,6 +202,10 @@ export async function resolveRepository(
 	// project simply can't address an Azure repo.
 	if (provider.id === 'azure-devops' && project == null) return result('invalid-remote-url');
 
+	// Azure names the repository bare and its project apart, where the remote names `{project}/_git/{repo}`.
+	const repositoryName =
+		project != null ? getAzureRepositoryIdentity({ owner: owner, name: name }).repositoryName : name;
+
 	try {
 		const repo = await integration.getRepoInfo({
 			...providerRepo,
@@ -225,23 +229,29 @@ export async function resolveRepository(
 		}
 
 		// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301
-		// rename redirect, so a stale old name resolves to the new canonical identity), falling back to the
-		// parsed remote when the response omits them. `renamed` is a case-insensitive compare of input vs
+		// rename redirect, so a stale old name resolves to the new canonical identity), falling back to where the
+		// repository was read when the response omits them. `renamed` is a case-insensitive compare of that against
 		// canonical, mirroring gkcli's `EqualFold`, so hosts that merely echo the input casing (e.g.
-		// Bitbucket Server/Azure) don't get spuriously flagged.
-		const canonicalOwner = repo.namespace || owner;
-		const canonicalName = repo.name || name;
+		// Bitbucket Server/Azure) don't get spuriously flagged. An Azure DevOps Server remote's path may be read as
+		// another collection and project than the parser read (see `AzureDevOpsServerIntegration.getRepositoryTarget`),
+		// which is no rename, so the compare is against where it was read.
+		const readAt = repo.readAt ?? { owner: owner, name: repositoryName, project: project };
+		const canonicalOwner = repo.namespace || readAt.owner;
+		const canonicalName = repo.name || readAt.name;
+		const readAtProject = project != null ? readAt.project || project : undefined;
+		const canonicalProject = readAtProject != null ? repo.project || readAtProject : undefined;
+		const differs = (a: string | undefined, b: string | undefined) => a?.toLowerCase() !== b?.toLowerCase();
 		const renamed =
-			canonicalOwner.toLowerCase() !== owner.toLowerCase() || canonicalName.toLowerCase() !== name.toLowerCase();
+			differs(canonicalOwner, readAt.owner) ||
+			differs(canonicalName, readAt.name) ||
+			differs(canonicalProject, readAtProject);
 
 		const identity: RepositoryIdentity = {
 			providerId: id,
 			domain: domain,
 			owner: canonicalOwner,
 			name: canonicalName,
-			// Azure's own project for the repository: an Azure DevOps Server remote's path may name the collection where
-			// the parser read the project (see `AzureDevOpsServerIntegration.getRepositoryTarget`).
-			project: project != null ? repo.project || project : undefined,
+			project: canonicalProject,
 			remoteUrl: options.remoteUrl,
 			renamed: renamed,
 			...getForkInfo(repo),
@@ -261,10 +271,7 @@ export async function resolveRepository(
 				const failure = await integration.settleRepositoryRefusal(
 					{
 						owner: owner,
-						name:
-							project != null
-								? getAzureRepositoryIdentity({ owner: owner, name: name }).repositoryName
-								: name,
+						name: repositoryName,
 						project: project,
 						connectionId: connectionId,
 					},
