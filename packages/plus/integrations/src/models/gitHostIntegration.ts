@@ -2491,8 +2491,9 @@ export abstract class GitHostIntegration<
 	 * A row matches only when its head branch is the target's `branch` AND its head repository is the base
 	 * repository itself (`headOwner` omitted) or the fork `headOwner` owns — a same-named branch in some other
 	 * fork is a different branch. A host that reads one target per request fans out with `mapSettledBounded`, so
-	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 targets per request, and a request
-	 * that throws rejects only its own targets.
+	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 distinct repository-and-branch queries
+	 * per request, each answering every target that names it, so a query's failure rejects all of those targets, and a
+	 * request that throws rejects only its own targets.
 	 */
 	protected getProviderPullRequestsForBranches?(
 		session: ProviderAuthenticationSession,
