@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through rather than a one-off AI report: a checklist of the changed files tracks what you've viewed and brings back a file that changes after, reading controls step through the files in order from the diff editor, and findings and your own comments live as comment threads in the diff, where you can reply to them, dismiss them or hand them to your agent
 - Adds _Orient_ and _Review in Repo_ beside _Review Diff_ &mdash; AI becomes one lens on the review rather than a requirement for it: _Orient_ plans the order to read the files in, _Review Diff_ finds issues in the diff, and _Review in Repo_ hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review
 - Adds installing Kepler right from GitLens, with no admin rights needed &mdash; _Install Kepler_ downloads and verifies the latest Kepler and installs it for you, showing its progress
+  - Adds _Install Kepler_ and _Learn More_ to the _Try Kepler_ banners in _GitLens Settings_ and the _Commit Graph_'s _Agents_ sidebar, and to the Kepler step of the _Welcome_ view walkthrough; adds a _GitLens: Install Kepler_ command
   - Opens the Kepler download page instead in remote windows (Remote - SSH, WSL, Dev Containers), since Kepler runs on your own machine
 
 ### Changed

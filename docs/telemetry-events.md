@@ -8036,7 +8036,7 @@ or
 ```typescript
 {
   'command': string,
-  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
+  'name': 'dismiss' | 'install/kepler' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'command'
 }
 ```
@@ -8045,7 +8045,7 @@ or
 
 ```typescript
 {
-  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
+  'name': 'dismiss' | 'install/kepler' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'url',
   'url': string
 }

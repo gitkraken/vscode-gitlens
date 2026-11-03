@@ -46,6 +46,16 @@ export class GlBanner extends LitElement {
 	@property({ attribute: 'primary-button-command' })
 	primaryButtonCommand?: string;
 
+	/**
+	 * Opts the primary button out of the `gradient-purple` display's quieter `secondary` look, so it
+	 * renders as the filled default button. Other displays already use the default look.
+	 */
+	@property({ attribute: 'primary-appearance' })
+	primaryAppearance?: 'default';
+
+	@property({ type: Boolean, attribute: 'primary-button-disabled' })
+	primaryButtonDisabled = false;
+
 	@property({ attribute: 'secondary-button' })
 	secondaryButton?: string;
 
@@ -125,8 +135,13 @@ export class GlBanner extends LitElement {
 		return html`
 			<gl-button
 				class="banner__button banner__button--primary"
-				appearance=${this.display === 'gradient-purple' ? 'secondary' : undefined}
+				appearance=${ifDefined(
+					this.display === 'gradient-purple' && this.primaryAppearance !== 'default'
+						? 'secondary'
+						: undefined,
+				)}
 				?full=${this.display === 'gradient-purple'}
+				?disabled=${this.primaryButtonDisabled}
 				href=${ifDefined(this.primaryButtonHref)}
 				truncate
 				@click=${this.onPrimaryButtonClick}
