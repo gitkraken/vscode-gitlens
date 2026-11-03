@@ -1602,13 +1602,13 @@ Markdown by this package.
   error is incomplete, not an empty account: the page is `page.truncated` with a retry cursor and a "completeness
   could not be confirmed" warning, and `listOrgs` / `listProjects` report the provider `fetchFailed`. A discovery
   answering `[]` means no resources, and an unconnected tracker reads as empty.
-  `org` and `project` select by identifier. Linear, Trello and Asana match any of a resource's or project's id, name or
-  key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
-  selects nothing instead of resolving to another one that carries the old value as a name or id. A selector that
-  matches nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's
-  id (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
-  `listProjects`' `name` for Jira. `listProjects({ org })` itself still matches any identifier, since it only lists
-  what a caller can then select.
+  `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or key.
+  Jira (Cloud and Data Center) matches only the canonical key, and Asana only the gid, so a removed selection matches
+  nothing instead of resolving to another resource that carries the old value as a name or id. A selector that matches
+  nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's id
+  (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
+  `listProjects`' `name` for Jira. For Asana, pass the workspace or project gid, never its display name.
+  `listProjects({ org })` itself still matches any identifier, since it only lists what a caller can then select.
 
 Self-managed descriptors keep `domain` as the normalized host and expose the configured installation address
 in `baseUrl`. Provider requests use the selected connection's address, including during account discovery.
