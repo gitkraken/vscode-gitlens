@@ -50,7 +50,6 @@ export class GlPopoverConfirm extends LitElement {
 		css`
 			:host {
 				display: contents;
-				--warning-color: var(--vscode-editorWarning-foreground, #cca700);
 				--wa-tooltip-border-radius: 0.8rem;
 			}
 
@@ -70,7 +69,7 @@ export class GlPopoverConfirm extends LitElement {
 
 			.confirm-popover__icon {
 				flex: 0 0 auto;
-				color: var(--warning-color);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.confirm-popover__title {
@@ -83,7 +82,7 @@ export class GlPopoverConfirm extends LitElement {
 			.confirm-popover__message {
 				margin: 0;
 				line-height: 1.4;
-				color: var(--color-foreground--75, inherit);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.confirm-popover__actions {

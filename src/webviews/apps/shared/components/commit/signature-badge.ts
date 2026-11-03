@@ -22,15 +22,15 @@ export class GlSignatureBadge extends LitElement {
 		}
 
 		.badge--trusted {
-			color: var(--vscode-charts-green);
+			color: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.badge--unknown {
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.badge--untrusted {
-			color: var(--vscode-charts-red);
+			color: var(--gl-color-feedback-danger-quiet-fg);
 		}
 	`;
 
