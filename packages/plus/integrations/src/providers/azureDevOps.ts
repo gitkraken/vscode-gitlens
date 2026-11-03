@@ -1514,7 +1514,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		project?: string;
 		virtualDirectory?: string;
 		connectionId?: string;
-	}): Promise<ProviderRepository | undefined> {
+	}): Promise<(ProviderRepository & { readAt: { owner: string; name: string; project: string } }) | undefined> {
 		if (getAzureRepositoryIdentity(repo).projectName == null) return undefined;
 
 		const api = await this.getProvidersApi();
@@ -1527,10 +1527,23 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (identity.projectName == null) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
-		return api.getRepo(tokenWithInfo, identity.resourceName, identity.repositoryName, identity.projectName, {
-			...options,
-			baseUrl: target.baseUrl,
-		});
+		const result = await api.getRepo(
+			tokenWithInfo,
+			identity.resourceName,
+			identity.repositoryName,
+			identity.projectName,
+			{ ...options, baseUrl: target.baseUrl },
+		);
+		return result != null
+			? {
+					...result,
+					readAt: {
+						owner: identity.resourceName,
+						name: identity.repositoryName,
+						project: identity.projectName,
+					},
+				}
+			: undefined;
 	}
 
 	protected override async getProviderRepositoryMetadata(

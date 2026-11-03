@@ -1080,7 +1080,8 @@ one.
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
-carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale.
+carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale (on Azure DevOps,
+when the repository or its project is named differently from where it was read).
 It also carries `isFork` and `parent` (the repository a fork was made from, on the same host; `project` only on Azure
 DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, when the
 `@gitkraken/provider-apis` repository returns `isFork` and `parent`, which it does not yet (a consumer can patch the
