@@ -4886,29 +4886,41 @@ export class GitHubApi {
 	 * {@link getPullRequestNumbersForBranch} settles such a target, though it can't see a deleted fork's pull
 	 * request, so its caller keeps the rows matched here as well.
 	 *
+	 * One alias per query, however many head owners ask it: the owner filter runs on the returned nodes, so
+	 * queries that differ only by owner would send identical subqueries. The caller names each query once, with
+	 * every owner it wants answered from it (`headOwners`, where `undefined` means the base repository), and
+	 * the answer holds one list per owner, in `headOwners` order. The caller must keep queries distinct (same
+	 * repository, case-insensitively, and branch), or it pays for the duplicates.
+	 *
 	 * Returns POSITIONALLY, with the same per-alias rules as {@link getPullRequestsBatch}: a missing base
-	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list — while any other error on
-	 * a target's alias rejects only that target, and a whole-request failure still throws.
+	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list per owner — while any other
+	 * error on a query's alias rejects that query (every owner of it), and a whole-request failure still throws.
+	 * `truncated` is a property of the query, so it is shared by every owner.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async getPullRequestsForBranches(
 		provider: Provider,
 		token: GitHubTokenInfo,
-		targets: readonly { owner: string; repo: string; branch: string; headOwner?: string }[],
+		queries: readonly {
+			owner: string;
+			repo: string;
+			branch: string;
+			headOwners: readonly (string | undefined)[];
+		}[],
 		options: { baseUrl?: string; avatarSize?: number; limit: number },
 		cancellation?: AbortSignal,
-	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }>[]> {
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }>[]> {
 		const scope = getScopedLogger();
-		if (targets.length === 0) return [];
+		if (queries.length === 0) return [];
 
 		interface BranchPullRequest extends GitHubPullRequest {
 			headRepositoryOwner: { login: string } | null;
 		}
 
-		const params = targets
+		const params = queries
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
 			.join('\n\t\t\t\t');
-		const fields = targets
+		const fields = queries
 			.map(
 				(_, i) => `b${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequests(headRefName: $h${i}, states: [OPEN, CLOSED, MERGED], first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -4937,7 +4949,7 @@ export class GitHubApi {
 			avatarSize: options.avatarSize,
 			limit: options.limit,
 		};
-		targets.forEach((t, i) => {
+		queries.forEach((t, i) => {
 			variables[`o${i}`] = t.owner;
 			variables[`n${i}`] = t.repo;
 			variables[`h${i}`] = t.branch;
@@ -4957,13 +4969,18 @@ export class GitHubApi {
 			// No data at all proves nothing about any slot, so it must not read as a batch of "none"s.
 			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by branch');
 
-			return targets.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }> => {
+			return queries.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }> => {
 				const alias = `b${i}`;
 				const repository = rsp.data[alias];
 
 				const verdict = getAliasErrorVerdict(rsp.errors, alias, repository);
 				if (verdict != null && verdict !== 'absent') return verdict;
-				if (repository == null) return { status: 'fulfilled', value: { pullRequests: [], truncated: false } };
+				if (repository == null) {
+					return {
+						status: 'fulfilled',
+						value: { pullRequests: t.headOwners.map(() => []), truncated: false },
+					};
+				}
 
 				const connection = repository.pullRequests;
 				if (connection == null) {
@@ -4973,31 +4990,43 @@ export class GitHubApi {
 					};
 				}
 
-				const headOwner = t.headOwner?.toLowerCase();
-				const nodes = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
-				const matches = nodes.filter(
-					pr =>
-						pr.headRefName === t.branch &&
-						(headOwner == null
-							? !pr.isCrossRepository
-							: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner here,
-								// so its pull request still matches. REST's `head` filter can't see it, which is why
-								// the caller unions the two steps rather than trusting REST alone.
-								pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
-				);
+				const returned = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
+				const nodes = returned.filter(pr => pr.headRefName === t.branch);
 
 				try {
+					// Each node is mapped once, however many owners match it, and only if one does: a row that
+					// matches nobody must cost nothing even when it can't be mapped.
+					const mapped = new Map<BranchPullRequest, PullRequest>();
 					// `first: $limit` already caps `nodes`, so the matches never exceed `limit`.
-					const pullRequests = matches
-						.map(pr => fromGitHubPullRequest(pr, provider))
-						.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					const pullRequests = t.headOwners.map(owner => {
+						const headOwner = owner?.toLowerCase();
+						return nodes
+							.filter(pr =>
+								headOwner == null
+									? !pr.isCrossRepository
+									: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner
+										// here, so its pull request still matches. REST's `head` filter can't see it,
+										// which is why the caller unions the two steps rather than trusting REST alone.
+										pr.isCrossRepository &&
+										pr.headRepositoryOwner?.login.toLowerCase() === headOwner,
+							)
+							.map(pr => {
+								let converted = mapped.get(pr);
+								if (converted == null) {
+									converted = fromGitHubPullRequest(pr, provider);
+									mapped.set(pr, converted);
+								}
+								return converted;
+							})
+							.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					});
 					return {
 						status: 'fulfilled',
-						value: { pullRequests: pullRequests, truncated: connection.totalCount > nodes.length },
+						value: { pullRequests: pullRequests, truncated: connection.totalCount > returned.length },
 					};
 				} catch (ex) {
-					// Rejects rather than answering with the rows that did map: a list missing a live pull request
-					// would read as a complete answer the consumer caches.
+					// Rejects the whole query rather than answering with the rows that did map: a list missing a
+					// live pull request would read as a complete answer the consumer caches.
 					scope?.warn(`failed to map pull requests; ${t.owner}/${t.repo}:${t.branch}, ex=${ex}`);
 					return { status: 'rejected', reason: ex };
 				}

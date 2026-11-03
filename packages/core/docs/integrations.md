@@ -262,8 +262,10 @@ repository is that base repository or that fork, so a `main` never claims every 
 head branch name in every state, so a merged pull request whose branch was deleted is still found, and a fork is
 matched by its owner, so a pull request whose fork was deleted still matches that `headOwner`. Each target returns up
 to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base repository included; `truncated` means a
-pull request that wasn't returned could still match. GitHub/GHE answer up to 25 targets per request, matching the
-branch name across every fork. A target whose name more forks share than that request returned (`main` or `patch-1`
+pull request that wasn't returned could still match. GitHub/GHE answer up to 25 distinct repository-and-branch pairs
+per request, matching the branch name across every fork; targets that differ only by `headOwner` share one query,
+filtered per owner, so a query that fails drops every target that shares it.
+A target whose name more forks share than that request returned (`main` or `patch-1`
 in a fork-heavy repository) costs one more REST request, which filters by head owner on the server; a match the first
 request missed is resolved through `getPullRequestsBatch`'s own read, the answer is the union of both requests'
 matches, and the target is `truncated` only when more than 10 truly match. The REST request can't see a pull request
