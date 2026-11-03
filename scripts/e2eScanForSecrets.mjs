@@ -215,7 +215,7 @@ export function scanOutput(dirs, needles, log = console.log) {
 			}
 		}
 		// A directory whose name carries secret material was emptied above, but an empty directory still has a name
-		removeDirectoriesNamedWithSecrets(dir, dir, needles);
+		removeDirectoriesNamedWithSecrets(dir, dir, needles, removed, log);
 	}
 	return { scanned: scanned, removed: removed, masked: masked };
 }
@@ -224,8 +224,10 @@ export function scanOutput(dirs, needles, log = console.log) {
  * @param {string} root
  * @param {string} dir
  * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
+ * @param {string[]} removed
+ * @param {(line: string) => void} log
  */
-function removeDirectoriesNamedWithSecrets(root, dir, needles) {
+function removeDirectoriesNamedWithSecrets(root, dir, needles, removed, log) {
 	let entries;
 	try {
 		entries = readdirSync(dir, { withFileTypes: true });
@@ -237,9 +239,17 @@ function removeDirectoriesNamedWithSecrets(root, dir, needles) {
 
 		const full = path.join(dir, entry.name);
 		if (carriesSecret(path.relative(root, full), needles)) {
+			// One that held files is already counted through them; one that held none (only empty directories, if
+			// anything) reached no count yet, and the run must still fail on it
+			if (!removed.some(r => r.startsWith(full + path.sep))) {
+				removed.push(full);
+				log(
+					`[secret-scan] ${shownPath(root, full, needles)}: name contains detected secret material — deleted`,
+				);
+			}
 			rmSync(full, { recursive: true, force: true });
 		} else {
-			removeDirectoriesNamedWithSecrets(root, full, needles);
+			removeDirectoriesNamedWithSecrets(root, full, needles, removed, log);
 		}
 	}
 }

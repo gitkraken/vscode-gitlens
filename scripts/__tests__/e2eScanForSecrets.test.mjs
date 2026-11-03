@@ -175,6 +175,33 @@ test('deletes what a secret-carrying name publishes, files and directories, and 
 	);
 });
 
+test('counts a secret-carrying directory that holds no files, so the run still fails on it', async () => {
+	const encoded = Buffer.from(secret).toString('base64');
+	await withOutput({ 'kept.txt': 'nothing here' }, async dir => {
+		await mkdir(join(dir, `empty-${encoded}`));
+		await mkdir(join(dir, `nested-${encoded}`, 'inner'), { recursive: true });
+		const lines = [];
+		const result = scanOutput([dir], secretNeedles({ SECRET: secret }, ['SECRET']), line => lines.push(line));
+		assert.deepEqual(result.removed.sort(), [join(dir, `empty-${encoded}`), join(dir, `nested-${encoded}`)].sort());
+		assert.equal(existsSync(join(dir, `empty-${encoded}`)), false);
+		assert.equal(existsSync(join(dir, `nested-${encoded}`)), false);
+		assert.equal(existsSync(join(dir, 'kept.txt')), true);
+		const log = lines.join('\n');
+		assert.equal(log.includes(encoded), false);
+		assert.match(log, /<name withheld>: name contains detected secret material — deleted/);
+	});
+	// The run fails on it
+	await withOutput({}, async dir => {
+		await mkdir(join(dir, `empty-${encoded}`));
+		const cli = spawnSync(process.execPath, [resolve('scripts/e2eScanForSecrets.mjs'), dir], {
+			encoding: 'utf8',
+			env: { ...process.env, SCAN_SECRET_NAMES: 'GK_E2E_TEST_SECRET', GK_E2E_TEST_SECRET: secret },
+		});
+		assert.equal(cli.status, 1);
+		assert.equal(cli.stdout.includes(encoded), false);
+	});
+});
+
 test('deletes an archive it cannot read', async () => {
 	await withOutput({ 'trace.zip': 'not a zip' }, async dir => {
 		const result = scan(dir);
