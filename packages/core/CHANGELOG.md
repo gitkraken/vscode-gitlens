@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-02
+
 ### Changed
 
 - Changes `GitHubApi.getPullRequestsForBranches` to take one query per base repository and branch, with `headOwners` listing every head owner to answer from it (`undefined` for the base repository), instead of one target per `headOwner`. Each answer's `pullRequests` now holds one list per head owner, in `headOwners` order, and `truncated` is the query's, shared by its owners (plus/git-github)
@@ -1068,7 +1070,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...HEAD
+[0.27.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...gitkraken:releases/core/v0.27.0
 [0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
 [0.25.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.24.0...gitkraken:releases/core/v0.25.0
 [0.24.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.23.0...gitkraken:releases/core/v0.24.0
