@@ -64,7 +64,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
  * tight insets — same chrome as the Treemap visualization toolbar. */
 			padding: var(--gl-space-4) var(--gl-space-6);
-			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.header-row gl-graph-visualizations-switcher {
@@ -94,7 +94,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			align-items: center;
 			justify-content: center;
 			padding: var(--gl-space-10);
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 			text-align: center;
 		}
 
