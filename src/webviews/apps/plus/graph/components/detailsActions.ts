@@ -2797,11 +2797,12 @@ export class DetailsActions {
 		if (scope?.type !== 'wip' || prevCommits == null) return;
 
 		const listed = new Set(this.state.branchCommits.get()?.map(c => c.sha));
-		// Only history below the newest commit both lists share is untouched — a commit above it was rewritten away
-		const fork = prevCommits.findIndex(c => listed.has(c.sha));
-		if (fork < 0) return;
+		const newestUntouched = prevCommits.findIndex(c => listed.has(c.sha));
+		if (newestUntouched < 0) return;
 
-		if (scope.includeShas.some(sha => !listed.has(sha) && prevCommits.findIndex(c => c.sha === sha) > fork)) {
+		const pagedOut = (sha: string) =>
+			!listed.has(sha) && prevCommits.findIndex(c => c.sha === sha) > newestUntouched;
+		if (scope.includeShas.some(pagedOut)) {
 			void this.ensureBranchCommitsCover(repoPath, scope.includeShas);
 		}
 	}
