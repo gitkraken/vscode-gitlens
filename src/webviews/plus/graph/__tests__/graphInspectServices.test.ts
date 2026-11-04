@@ -4,7 +4,7 @@ import type { CommentController, CommentThread } from 'vscode';
 import { commands, comments, Uri } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
-import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 // Side-effect only: `context.js` below pulls in `system/-webview/command.js`, whose first load is re-entered
 // through container.ts's dependency chain before its `registrableCommands` array exists — loading container.ts
@@ -1984,9 +1984,18 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 			getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
 			getRepositoryService: () => ({
 				getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
-				revision: { resolveRevision: () => Promise.resolve({ sha: older, revision: older }) },
+				revision: {
+					resolveRevision: (_ref: string, uri: Uri) =>
+						Promise.resolve(
+							uri.path.endsWith('gone.ts')
+								? { sha: older, revision: older, status: 'D' }
+								: { sha: older, revision: older },
+						),
+				},
+				// Like the git provider: no revision document for a file the side doesn't have
 				getBestRevisionUri: (uri: Uri, sha: string) =>
-					Promise.resolve(Uri.parse(`gitlens://${sha}${uri.path}`)),
+					Promise.resolve(sha === deletedOrMissing ? undefined : Uri.parse(`gitlens://${sha}${uri.path}`)),
+				getRevisionUri: (sha: string, path: string) => Uri.parse(`gitlens://${sha}${path}`),
 			}),
 			getRevisionUriFromGitUri: (uri: { sha?: string; path: string }) =>
 				Uri.parse(`gitlens://${uri.sha}${uri.path}`),
@@ -2027,6 +2036,24 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 		);
 		const files = getContext('gitlens:review:files')?.map(u => u.toString());
 		assert.ok(files?.includes(sideOf(older, 'a.ts')), 'and so do the title buttons');
+	});
+
+	test('a file the rewritten side deleted takes the placeholder the diff opens it on', async () => {
+		const args: ReviewFilesArgs = {
+			anchor: 'commit',
+			repoPath: '/repo',
+			lhs: `${tip}^`,
+			rhs: tip,
+			paths: ['gone.ts'],
+		};
+		await fake.setReviewFiles(args);
+
+		await fake.resolveReviewSide(
+			{ repoPath: '/repo', lhs: args.lhs, rhs: tip, path: 'gone.ts' },
+			Uri.file('/repo/gone.ts'),
+		);
+
+		assert.strictEqual(fake._reviewFiles?.commentable.get(sideOf(deletedOrMissing, 'gone.ts')), 'gone.ts');
 	});
 });
 

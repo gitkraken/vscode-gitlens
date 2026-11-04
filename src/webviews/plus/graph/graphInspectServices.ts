@@ -2147,9 +2147,9 @@ export class GraphInspectServices {
 		try {
 			const svc = this.container.git.getRepositoryService(args.repoPath);
 			const resolved = await svc.revision.resolveRevision(args.rhs, fileUri);
-			if (resolved.sha === deletedOrMissing || resolved.status === 'D') return;
-
-			side = await svc.getBestRevisionUri(fileUri, resolved.sha);
+			const sha = resolved.status === 'D' ? deletedOrMissing : resolved.sha;
+			// A file the side doesn't have opens on the placeholder the diff uses for it
+			side = (await svc.getBestRevisionUri(fileUri, sha)) ?? svc.getRevisionUri(deletedOrMissing, fileUri.fsPath);
 		} catch (ex) {
 			Logger.error(ex, 'graph: failed to resolve the review diff side');
 		}
