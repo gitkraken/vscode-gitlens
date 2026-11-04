@@ -1,4 +1,4 @@
-import type { CancellationTokenSource, Tab, TextDocumentShowOptions } from 'vscode';
+import type { CancellationTokenSource, Tab, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { Disposable, env, l10n, ProgressLocation, TabInputTextDiff, Uri, window, workspace } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
@@ -64,10 +64,11 @@ import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.j
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
 import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
-import { executeCommand } from '../../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { setContext } from '../../../system/-webview/context.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
+import { focusGroupByColumnCommand } from '../../../system/-webview/vscode/editors.js';
 import { getTabUris } from '../../../system/-webview/vscode/tabs.js';
 import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
@@ -182,7 +183,7 @@ export type GraphInspectServicesContext = {
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getSession: () => GitGraphSession | undefined;
 	/** Where an editor opened from the graph goes (beside an editor-hosted graph) — the review walk opens its stops there. */
-	getOpenEditorShowOptions: () => TextDocumentShowOptions | undefined;
+	getOpenEditorShowOptions: () => (TextDocumentShowOptions & { sourceViewColumn?: ViewColumn }) | undefined;
 	getWipForRepoAndStats: (
 		repo: GlRepository,
 		signal?: AbortSignal,
@@ -402,6 +403,8 @@ export class GraphInspectServices {
 	/** The review diff last asked for, until its tab shows up — the editor reports a new tab only after the open
 	 *  returns. `claimed` settles with the tab's key. */
 	private _pendingReviewDiff?: { side: string; diff: OpenedReviewDiff; claimed: Deferred<string> };
+	/** Whether the graph's webview has focus — a reopened review diff hands it back, see `reopenReviewDiff` */
+	graphFocused = false;
 	/** What the webview last set as the review's files and threads, kept while another graph instance has
 	 *  the editor — so this one can take the review back as it stands, see `reclaimReview`. */
 	private _reviewFilesArgs?: ReviewFilesArgs;
@@ -2232,9 +2235,12 @@ export class GraphInspectServices {
 		this._reopeningReviewDiffs.add(key);
 		try {
 			const modified = (tab.input as TabInputTextDiff).modified.toString();
-			const editor = window.visibleTextEditors.find(
-				e => e.viewColumn === tab.group.viewColumn && e.document.uri.toString() === modified,
-			);
+			// A diff's side editors have no view column of their own
+			const editor = window.visibleTextEditors.find(e => e.document.uri.toString() === modified);
+			// The open below takes the active group with it, which leaves the graph only if it had focus
+			const graphColumn = this.graphFocused
+				? this.context.getOpenEditorShowOptions()?.sourceViewColumn
+				: undefined;
 			await this.openReviewFile(
 				{
 					repoPath: files.repoPath,
@@ -2253,17 +2259,26 @@ export class GraphInspectServices {
 					: undefined;
 			const reopenedKey =
 				ours != null ? await Promise.race([ours.claimed.promise, wait(2000).then(() => undefined)]) : undefined;
-			// No new tab showed up: the diff on the current refs is this one, or it failed to open — either way, not
-			// to be tried again on every tab change
 			if (reopenedKey == null || reopenedKey === key) {
+				// No new tab showed up: the diff on the current refs is this one, or it failed to open — either
+				// way, not to be tried again on every tab change
 				this._openedReviewDiffs.set(key, { anchor: files.anchor, path: path, lhs: files.lhs, rhs: files.rhs });
-				return;
+			} else {
+				// A preview tab was replaced by the one just opened; a kept one is still there beside it
+				const old = tab.group.tabs.find(
+					t => t.input instanceof TabInputTextDiff && getDiffTabKey(t.input) === key,
+				);
+				if (old != null) {
+					await window.tabGroups.close(old, true);
+				}
 			}
 
-			// A preview tab was replaced by the one just opened; a kept one is still there beside it
-			const old = tab.group.tabs.find(t => t.input instanceof TabInputTextDiff && getDiffTabKey(t.input) === key);
-			if (old != null) {
-				await window.tabGroups.close(old, true);
+			const focusGraph =
+				graphColumn != null && graphColumn !== tab.group.viewColumn
+					? focusGroupByColumnCommand(graphColumn)
+					: undefined;
+			if (focusGraph != null) {
+				await executeCoreCommand(focusGraph);
 			}
 		} finally {
 			this._reopeningReviewDiffs.delete(key);
