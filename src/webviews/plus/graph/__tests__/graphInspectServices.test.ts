@@ -34,7 +34,7 @@ import type {
 import type { ReviewReadingOwner } from '../reviewReading.js';
 import { claimReviewFiles, releaseReviewFiles, stepReviewReading } from '../reviewReading.js';
 import type { ReviewThreadsOwner } from '../reviewThreads.js';
-import { disposeReviewThreads, setReviewThreads } from '../reviewThreads.js';
+import { disposeReviewThreads, getReviewSideUri, setReviewThreads } from '../reviewThreads.js';
 
 // `getDiffForScope` is private and only reaches `this.container.git.getRepositoryService(repoPath)` and
 // `this.buildChangesContext(...)`, so we exercise it against a minimal fake `this` rather than constructing
@@ -1914,6 +1914,8 @@ function createReviewOwnerFake(): ReviewOwnerFake {
 		_reviewThreadActionsSeq: 0,
 		_reviewMarksMade: 0,
 		_reviewReleased: false,
+		_openedReviewDiffs: new Map(),
+		_reopeningReviewDiffs: new Set(),
 	}) as unknown as ReviewOwnerFake;
 }
 
@@ -1960,6 +1962,69 @@ suite('graphInspectServices — two graphs, one editor', () => {
 		assert.deepStrictEqual(reclaimed?.marked, ['c.ts']);
 		assert.strictEqual(second._reviewFiles, undefined, 'and the second lets go in turn');
 		assert.strictEqual(second._reviewReadingEvent.fire.lastCall.args[0], undefined);
+	});
+});
+
+// A diff resolves its right-hand commit to the one that last changed the file, so on a range or a compare most
+// files open on a commit other than the review's own ref — the reading commands and the comment gutter go by
+// the side the diff actually opens with.
+suite('graphInspectServices — a review diff opens on the commit that last changed its file', () => {
+	const tip = 'b'.repeat(40);
+	const older = 'a'.repeat(40);
+	const sideOf = (sha: string, path: string) => Uri.parse(`gitlens://${sha}/repo/${path}`).toString();
+	let fake: ReviewOwnerFake & {
+		resolveReviewSide(args: { repoPath: string; lhs: string; rhs: string; path: string }, uri: Uri): Promise<void>;
+		_reviewFiles?: { commentable: Map<string, string> };
+	};
+
+	setup(async () => {
+		const { Container: ContainerClass } = await import('../../../../container.js');
+		const git = {
+			getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+			getRepositoryService: () => ({
+				getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+				revision: { resolveRevision: () => Promise.resolve({ sha: older, revision: older }) },
+				getBestRevisionUri: (uri: Uri, sha: string) =>
+					Promise.resolve(Uri.parse(`gitlens://${sha}${uri.path}`)),
+			}),
+			getRevisionUriFromGitUri: (uri: { sha?: string; path: string }) =>
+				Uri.parse(`gitlens://${uri.sha}${uri.path}`),
+		};
+		sinon.stub(ContainerClass, 'instance').get(() => ({ git: git }));
+		fake = Object.assign(createReviewOwnerFake(), {
+			context: { container: { git: git } },
+		}) as unknown as typeof fake;
+	});
+
+	teardown(() => {
+		fake.clearReviewFiles();
+		disposeReviewThreads();
+		sinon.restore();
+	});
+
+	test('the review files take the side the diff resolves to once it is opened', async () => {
+		const args: ReviewFilesArgs = {
+			anchor: 'commit',
+			repoPath: '/repo',
+			lhs: `${tip}^`,
+			rhs: tip,
+			paths: ['a.ts'],
+		};
+		await fake.setReviewFiles(args);
+		assert.strictEqual(fake._reviewFiles?.commentable.get(sideOf(tip, 'a.ts')), 'a.ts');
+
+		await fake.resolveReviewSide(
+			{ repoPath: '/repo', lhs: args.lhs, rhs: tip, path: 'a.ts' },
+			Uri.file('/repo/a.ts'),
+		);
+
+		assert.strictEqual(
+			fake._reviewFiles?.commentable.get(sideOf(older, 'a.ts')),
+			'a.ts',
+			'the gutter finds the diff',
+		);
+		const files = getContext('gitlens:review:files')?.map(u => u.toString());
+		assert.ok(files?.includes(sideOf(older, 'a.ts')), 'and so do the title buttons');
 	});
 });
 
@@ -2453,7 +2518,11 @@ suite('graphInspectServices — a question to the reviewer waits in its thread',
 				}),
 			},
 		} as unknown as Container;
-		setReviewThreads(container, starter.fakeThis as unknown as ReviewThreadsOwner, {
+		const owner = Object.assign(starter.fakeThis, {
+			reviewSideUri: (repoPath: string, rhs: string, path: string) =>
+				getReviewSideUri(container, repoPath, rhs, path),
+		});
+		setReviewThreads(owner as unknown as ReviewThreadsOwner, {
 			anchor: 'wip',
 			repoPath: '/r',
 			rhs: uncommitted,

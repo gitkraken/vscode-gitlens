@@ -1,10 +1,10 @@
-import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
+import type { CancellationTokenSource, Tab, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, l10n, ProgressLocation, TabInputTextDiff, Uri, window, workspace } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding, AIReviewFindingLocation, AIReviewResult } from '@gitlens/ai/models/results.js';
 import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
@@ -391,6 +391,13 @@ export class GraphInspectServices {
 		activeSettling?: ReturnType<typeof setTimeout>;
 		tracking: Disposable;
 	};
+	/** The right side each review diff opens with, by path: the diff resolves a commit to the one that last
+	 *  changed the file, which is often not the review's own ref. Learned as each diff opens. */
+	private _reviewSides?: { repoPath: string; rhs: string; byPath: Map<string, Uri> };
+	/** The review diffs this instance opened, by their tab's sides, with the refs each was opened on — so one
+	 *  left on refs the review has since moved off (its commits were rewritten) is reopened on the current ones */
+	private readonly _openedReviewDiffs = new Map<string, { anchor: string; path: string; lhs: string; rhs: string }>();
+	private readonly _reopeningReviewDiffs = new Set<string>();
 	/** What the webview last set as the review's files and threads, kept while another graph instance has
 	 *  the editor — so this one can take the review back as it stands, see `reclaimReview`. */
 	private _reviewFilesArgs?: ReviewFilesArgs;
@@ -613,7 +620,7 @@ export class GraphInspectServices {
 				reviewStep: (action, path) => this.reviewStep(action, path),
 				openReviewFile: args => {
 					this.reclaimReview();
-					this.openReviewFile(args);
+					void this.openReviewFile(args);
 					return Promise.resolve();
 				},
 				onReviewReading: this._reviewReadingEvent.subscribe(buffer, tracker, () =>
@@ -625,7 +632,7 @@ export class GraphInspectServices {
 						this.followReview(args.anchor);
 					}
 					if (!this._reviewReleased) {
-						setReviewThreads(this.container, this, args);
+						setReviewThreads(this, args);
 					}
 					return Promise.resolve();
 				},
@@ -1463,6 +1470,13 @@ export class GraphInspectServices {
 		this.releaseReview();
 	}
 
+	/** {@link ReviewThreadsOwner} */
+	reviewSideUri(repoPath: string, rhs: string, path: string): Uri {
+		const sides = this._reviewSides;
+		const opened = sides?.repoPath === repoPath && sides.rhs === rhs ? sides.byPath.get(path) : undefined;
+		return opened ?? getReviewSideUri(this.container, repoPath, rhs, path);
+	}
+
 	/** Another graph instance took the editor over — the reading, the threads, the comment gutter go together,
 	 *  so this one lets go of all of them, and its panel stops following a reading the editor no longer
 	 *  shows. It doesn't take them back on its next change, which would have two graphs pulling the editor
@@ -1486,7 +1500,7 @@ export class GraphInspectServices {
 			void this.setReviewFiles(this._reviewFilesArgs);
 		}
 		if (this._reviewThreadsArgs != null) {
-			setReviewThreads(this.container, this, this._reviewThreadsArgs);
+			setReviewThreads(this, this._reviewThreadsArgs);
 		}
 	}
 
@@ -1937,7 +1951,7 @@ export class GraphInspectServices {
 			byPath.set(uri.path, path);
 			// The diff's right side is what the title buttons and the comment gutter match on — a revision
 			// document goes in beside the working file
-			const side = getReviewSideUri(this.container, args.repoPath, args.rhs, path);
+			const side = this.reviewSideUri(args.repoPath, args.rhs, path);
 			if (!isReviewWorkingSide(args.rhs)) {
 				uris.push(side);
 			}
@@ -1948,6 +1962,7 @@ export class GraphInspectServices {
 		const onTabs = () => {
 			this.updateActiveReviewFile();
 			refreshReviewCommenting();
+			this.refreshStaleReviewDiffs();
 		};
 		const tracking = Disposable.from(
 			window.tabGroups.onDidChangeTabs(onTabs),
@@ -1965,6 +1980,7 @@ export class GraphInspectServices {
 		claimReviewFiles(this, uris);
 		claimReviewCommenting(this);
 		this._reviewReadingEvent.fire(this.getReviewReadingState());
+		this.refreshStaleReviewDiffs();
 		return Promise.resolve();
 	}
 
@@ -2050,7 +2066,7 @@ export class GraphInspectServices {
 		if (index < 0) return;
 
 		const open = (path: string) =>
-			this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: path });
+			void this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: path });
 		// The order loops: after the last file comes the first, before the first the last
 		const count = files.paths.length;
 		switch (action) {
@@ -2080,9 +2096,11 @@ export class GraphInspectServices {
 	/** One preview tab, reused file after file, beside an editor-hosted graph — so the panel stays in
 	 *  view to follow along. The checklist, a finding and a plan open through here too, so the first
 	 *  file lands where the steps will keep it. */
-	private openReviewFile(args: ReviewOpenFileArgs): void {
+	private async openReviewFile(args: ReviewOpenFileArgs, showOptions?: TextDocumentShowOptions): Promise<void> {
 		const svc = this.container.git.getRepositoryService(args.repoPath);
 		const fileUri = svc.getAbsoluteUri(args.path, args.repoPath);
+		await this.resolveReviewSide(args, fileUri);
+
 		const range: DiffRange | undefined =
 			args.line != null && args.line > 0
 				? {
@@ -2093,13 +2111,134 @@ export class GraphInspectServices {
 						active: 'start',
 					}
 				: undefined;
-		void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+		await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 			repoPath: args.repoPath,
 			lhs: { sha: args.lhs, uri: fileUri },
 			rhs: { sha: args.rhs, uri: fileUri },
 			range: range,
-			showOptions: { preview: true, preserveFocus: false, ...this.context.getOpenEditorShowOptions() },
+			showOptions: showOptions ?? {
+				preview: true,
+				preserveFocus: false,
+				...this.context.getOpenEditorShowOptions(),
+			},
 		});
+		this.rememberOpenedReviewDiff(args);
+	}
+
+	/** Resolves the right side the diff of `args` opens with, the way the diff resolves it, so the reading
+	 *  commands, the comment gutter and the threads find the diff. */
+	private async resolveReviewSide(args: ReviewOpenFileArgs, fileUri: Uri): Promise<void> {
+		if (isReviewWorkingSide(args.rhs)) return;
+
+		let sides = this._reviewSides;
+		if (sides?.repoPath !== args.repoPath || sides.rhs !== args.rhs) {
+			sides = { repoPath: args.repoPath, rhs: args.rhs, byPath: new Map() };
+			this._reviewSides = sides;
+		}
+		if (sides.byPath.has(args.path)) return;
+
+		let side: Uri | undefined;
+		try {
+			const svc = this.container.git.getRepositoryService(args.repoPath);
+			const resolved = await svc.revision.resolveRevision(args.rhs, fileUri);
+			if (resolved.sha === deletedOrMissing || resolved.status === 'D') return;
+
+			side = await svc.getBestRevisionUri(fileUri, resolved.sha);
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to resolve the review diff side');
+		}
+		if (side == null || this._reviewSides !== sides) return;
+
+		const unchanged = side.toString() === this.reviewSideUri(args.repoPath, args.rhs, args.path).toString();
+		sides.byPath.set(args.path, side);
+		if (unchanged || this._reviewReleased) return;
+
+		// The files and threads went on the review's own ref — they go again on the side the diff opens
+		if (this._reviewFilesArgs != null) {
+			await this.setReviewFiles(this._reviewFilesArgs);
+		}
+		if (this._reviewThreadsArgs != null) {
+			setReviewThreads(this, this._reviewThreadsArgs);
+		}
+	}
+
+	private rememberOpenedReviewDiff(args: ReviewOpenFileArgs): void {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const side = this.reviewSideUri(args.repoPath, args.rhs, args.path).toString();
+		for (const group of window.tabGroups.all) {
+			const input = group.activeTab?.input;
+			if (input instanceof TabInputTextDiff && input.modified.toString() === side) {
+				this._openedReviewDiffs.set(getDiffTabKey(input), {
+					anchor: files.anchor,
+					path: args.path,
+					lhs: args.lhs,
+					rhs: args.rhs,
+				});
+			}
+		}
+	}
+
+	/** Reopens a shown review diff that is on refs the review has moved off — its commits were rewritten, or the
+	 *  scope changed — on the current ones, in its place. One in the background is reopened once it's shown. */
+	private refreshStaleReviewDiffs(): void {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const open = new Set<string>();
+		for (const group of window.tabGroups.all) {
+			for (const tab of group.tabs) {
+				if (!(tab.input instanceof TabInputTextDiff)) continue;
+
+				const key = getDiffTabKey(tab.input);
+				open.add(key);
+				if (!tab.isActive || this._reopeningReviewDiffs.has(key)) continue;
+
+				const opened = this._openedReviewDiffs.get(key);
+				if (opened?.anchor !== files.anchor || !files.paths.includes(opened.path)) continue;
+				if (opened.lhs === files.lhs && opened.rhs === files.rhs) continue;
+
+				void this.reopenReviewDiff(files, opened.path, tab, key);
+			}
+		}
+		for (const key of this._openedReviewDiffs.keys()) {
+			if (!open.has(key)) {
+				this._openedReviewDiffs.delete(key);
+			}
+		}
+	}
+
+	private async reopenReviewDiff(files: ReviewFilesArgs, path: string, tab: Tab, key: string): Promise<void> {
+		this._reopeningReviewDiffs.add(key);
+		try {
+			const modified = (tab.input as TabInputTextDiff).modified.toString();
+			const editor = window.visibleTextEditors.find(
+				e => e.viewColumn === tab.group.viewColumn && e.document.uri.toString() === modified,
+			);
+			await this.openReviewFile(
+				{
+					repoPath: files.repoPath,
+					lhs: files.lhs,
+					rhs: files.rhs,
+					path: path,
+					line: editor != null ? editor.selection.active.line + 1 : undefined,
+				},
+				{ viewColumn: tab.group.viewColumn, preview: tab.isPreview, preserveFocus: true },
+			);
+
+			// The same sides on the current refs: the diff opened is this tab
+			const reopened = this._openedReviewDiffs.get(key);
+			if (reopened?.lhs === files.lhs && reopened.rhs === files.rhs) return;
+
+			// A preview tab was replaced by the one just opened; a kept one is still there beside it
+			const old = tab.group.tabs.find(t => t.input instanceof TabInputTextDiff && getDiffTabKey(t.input) === key);
+			if (old != null) {
+				await window.tabGroups.close(old, true);
+			}
+		} finally {
+			this._reopeningReviewDiffs.delete(key);
+		}
 	}
 
 	private async reviewFocusArea(
@@ -4467,4 +4606,8 @@ function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], sco
 	if (resolutions.length > 1 && (input > 0 || output > 0)) {
 		Logger.debug(`run total: tokens=${input} in / ${output} out`, scope);
 	}
+}
+
+function getDiffTabKey(input: TabInputTextDiff): string {
+	return `${input.original.toString()}|${input.modified.toString()}`;
 }

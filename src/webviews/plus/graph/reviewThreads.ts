@@ -33,6 +33,8 @@ export interface ReviewThreadsOwner {
 	/** The review file `uri` is, when it is the right side of one of the review's diffs — where the reader
 	 *  can open a thread of their own. */
 	reviewCommentPath(uri: Uri): string | undefined;
+	/** The right side the review diff of `path` opens with — where its threads go. */
+	reviewSideUri(repoPath: string, rhs: string, path: string): Uri;
 	/** Another instance took the editor over — this one's threads are gone from it. */
 	reviewThreadsReleased(): void;
 }
@@ -258,11 +260,7 @@ function showHeldItem(thread: CommentThread): void {
 
 /** Replaces the shown threads with `args.items` — one thread per finding that has a line, updated in
  *  place where it already exists so an open thread doesn't blink. `undefined` removes them all. */
-export function setReviewThreads(
-	container: Container,
-	next: ReviewThreadsOwner,
-	args: ReviewThreadsArgs | undefined,
-): void {
+export function setReviewThreads(next: ReviewThreadsOwner, args: ReviewThreadsArgs | undefined): void {
 	takeOwnership(next);
 	if (args == null || args.items.length === 0) {
 		clearThreads();
@@ -284,7 +282,7 @@ export function setReviewThreads(
 	const keep = new Set<string>();
 	for (const item of args.items) {
 		keep.add(item.id);
-		const uri = getReviewSideUri(container, args.repoPath, args.rhs, item.path);
+		const uri = next.reviewSideUri(args.repoPath, args.rhs, item.path);
 		const range = new Range(Math.max(0, item.line - 1), 0, Math.max(0, item.lineEnd - 1), 0);
 		let thread = threads.get(item.id);
 		if (thread != null && thread.uri.toString() !== uri.toString()) {
