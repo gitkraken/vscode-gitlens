@@ -393,17 +393,13 @@ export class GraphInspectServices {
 		activeSettling?: ReturnType<typeof setTimeout>;
 		tracking: Disposable;
 	};
-	/** The right side each review diff opens with, by path: the diff resolves a commit to the one that last
-	 *  changed the file, which is often not the review's own ref. Learned as each diff opens. */
+	/** The right side each review diff opens with — the commit that last changed the file, not the review's own ref */
 	private _reviewSides?: { repoPath: string; rhs: string; byPath: Map<string, Uri> };
-	/** The review diffs this instance opened, by their tab's sides, with the refs each was opened on — so one
-	 *  left on refs the review has since moved off (its commits were rewritten) is reopened on the current ones */
+	/** The refs each review diff this instance opened is on, by its tab's sides */
 	private readonly _openedReviewDiffs = new Map<string, OpenedReviewDiff>();
 	private readonly _reopeningReviewDiffs = new Set<string>();
-	/** The review diff last asked for, until its tab shows up — the editor reports a new tab only after the open
-	 *  returns. `claimed` settles with the tab's key. */
+	/** The review diff last asked for, until its tab shows up — the editor can report it after the open returns */
 	private _pendingReviewDiff?: { side: string; diff: OpenedReviewDiff; claimed: Deferred<string> };
-	/** Whether the graph's webview has focus — a reopened review diff hands it back, see `reopenReviewDiff` */
 	graphFocused = false;
 	/** What the webview last set as the review's files and threads, kept while another graph instance has
 	 *  the editor — so this one can take the review back as it stands, see `reclaimReview`. */
@@ -2104,7 +2100,10 @@ export class GraphInspectServices {
 	/** One preview tab, reused file after file, beside an editor-hosted graph — so the panel stays in
 	 *  view to follow along. The checklist, a finding and a plan open through here too, so the first
 	 *  file lands where the steps will keep it. */
-	private async openReviewFile(args: ReviewOpenFileArgs, showOptions?: TextDocumentShowOptions): Promise<void> {
+	private async openReviewFile(
+		args: ReviewOpenFileArgs,
+		showOptions?: TextDocumentShowOptions,
+	): Promise<Deferred<string> | undefined> {
 		const svc = this.container.git.getRepositoryService(args.repoPath);
 		const fileUri = svc.getAbsoluteUri(args.path, args.repoPath);
 		await this.resolveReviewSide(args, fileUri);
@@ -2130,11 +2129,10 @@ export class GraphInspectServices {
 				...this.context.getOpenEditorShowOptions(),
 			},
 		});
-		this.rememberOpenedReviewDiff(args);
+		return this.rememberOpenedReviewDiff(args);
 	}
 
-	/** Resolves the right side the diff of `args` opens with, the way the diff resolves it, so the reading
-	 *  commands, the comment gutter and the threads find the diff. */
+	/** Resolves the diff's right side the way the diff does, so the reading commands, gutter and threads find it */
 	private async resolveReviewSide(args: ReviewOpenFileArgs, fileUri: Uri): Promise<void> {
 		if (isReviewWorkingSide(args.rhs)) return;
 
@@ -2170,17 +2168,19 @@ export class GraphInspectServices {
 		}
 	}
 
-	private rememberOpenedReviewDiff(args: ReviewOpenFileArgs): void {
+	private rememberOpenedReviewDiff(args: ReviewOpenFileArgs): Deferred<string> | undefined {
 		const files = this._reviewFiles;
-		if (files == null) return;
+		if (files == null) return undefined;
 
+		const claimed = defer<string>();
 		this._pendingReviewDiff = {
 			side: this.reviewSideUri(args.repoPath, args.rhs, args.path).toString(),
 			diff: { anchor: files.anchor, path: args.path, lhs: args.lhs, rhs: args.rhs },
-			claimed: defer<string>(),
+			claimed: claimed,
 		};
-		// A diff already open on these sides is revealed rather than opened, so its tab may be there now
+		// The editor may have reported the tab before the open returned
 		this.claimPendingReviewDiff();
+		return claimed;
 	}
 
 	private claimPendingReviewDiff(): void {
@@ -2202,8 +2202,7 @@ export class GraphInspectServices {
 		}
 	}
 
-	/** Reopens a shown review diff that is on refs the review has moved off — its commits were rewritten, or the
-	 *  scope changed — on the current ones, in its place. One in the background is reopened once it's shown. */
+	/** Reopens a shown review diff left on refs the review moved off; one in the background, once it's shown */
 	private refreshStaleReviewDiffs(): void {
 		const files = this._reviewFiles;
 		if (files == null) return;
@@ -2241,7 +2240,7 @@ export class GraphInspectServices {
 			const graphColumn = this.graphFocused
 				? this.context.getOpenEditorShowOptions()?.sourceViewColumn
 				: undefined;
-			await this.openReviewFile(
+			const claimed = await this.openReviewFile(
 				{
 					repoPath: files.repoPath,
 					lhs: files.lhs,
@@ -2252,16 +2251,10 @@ export class GraphInspectServices {
 				{ viewColumn: tab.group.viewColumn, preview: tab.isPreview, preserveFocus: true },
 			);
 
-			const pending = this._pendingReviewDiff;
-			const ours =
-				pending?.diff.path === path && pending.diff.lhs === files.lhs && pending.diff.rhs === files.rhs
-					? pending
-					: undefined;
 			const reopenedKey =
-				ours != null ? await Promise.race([ours.claimed.promise, wait(2000).then(() => undefined)]) : undefined;
-			if (reopenedKey == null || reopenedKey === key) {
-				// No new tab showed up: the diff on the current refs is this one, or it failed to open — either
-				// way, not to be tried again on every tab change
+				claimed != null ? await Promise.race([claimed.promise, wait(2000).then(() => undefined)]) : undefined;
+			if (reopenedKey == null) {
+				// The diff on the current refs is this one, or failed to open — not to be retried on every tab change
 				this._openedReviewDiffs.set(key, { anchor: files.anchor, path: path, lhs: files.lhs, rhs: files.rhs });
 			} else {
 				// A preview tab was replaced by the one just opened; a kept one is still there beside it

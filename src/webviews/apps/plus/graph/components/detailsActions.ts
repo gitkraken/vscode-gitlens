@@ -152,50 +152,54 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 	return false;
 }
 
-/**
- * Carries a scope's commits across a history rewrite (amend, reword, a fixup rebase). The commits below the newest
- * one both lists share are untouched; each rewritten commit above it maps to the commit at the same distance below
- * the tip of the rewritten run, so a reworked commit keeps its place in the scope. `undefined` when every sha is
- * still in `next`, or when nothing can be mapped.
- */
+/** Carries a scope's commits across a history rewrite: a rewritten commit maps to the one with its subject, or — when
+ *  the count is unchanged, as after a reword — to the one in its place. `undefined` when nothing needs or can map. */
 export function remapRewrittenShas(
 	shas: readonly string[],
 	prev: readonly BranchCommitEntry[] | undefined,
 	next: readonly BranchCommitEntry[],
 ): string[] | undefined {
-	const nextShas = new Set(next.map(c => c.sha));
-	if (shas.every(sha => nextShas.has(sha))) return undefined;
+	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
+	if (shas.every(sha => nextIndexes.has(sha))) return undefined;
 	if (!prev?.length) return undefined;
 
-	let prevForkIndex = prev.findIndex(c => nextShas.has(c.sha));
-	let nextForkIndex: number;
+	let prevForkIndex = prev.findIndex(c => nextIndexes.has(c.sha));
+	const nextForkIndex = prevForkIndex < 0 ? next.length : nextIndexes.get(prev[prevForkIndex].sha)!;
 	if (prevForkIndex < 0) {
-		// Nothing shared — the rewrite reached the oldest loaded commit; only a same-length list maps one-to-one
-		if (prev.length !== next.length) return undefined;
-
 		prevForkIndex = prev.length;
-		nextForkIndex = next.length;
-	} else {
-		const forkSha = prev[prevForkIndex].sha;
-		nextForkIndex = next.findIndex(c => c.sha === forkSha);
 	}
+	const rewritten = next.slice(0, nextForkIndex);
 
-	const remapped: string[] = [];
+	const remapped = new Set<string>();
 	for (const sha of shas) {
-		if (nextShas.has(sha)) {
-			remapped.push(sha);
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		// Still there, or below the rewrite and just not loaded now
+		if (nextIndexes.has(sha) || prevIndex < 0 || prevIndex >= prevForkIndex) {
+			remapped.add(sha);
 			continue;
 		}
 
-		const prevIndex = prev.findIndex(c => c.sha === sha);
-		if (prevIndex < 0) continue;
-
-		const nextIndex = nextForkIndex - (prevForkIndex - prevIndex);
-		if (nextIndex >= 0) {
-			remapped.push(next[nextIndex].sha);
+		const subject = getCommitSubject(prev[prevIndex].message);
+		const sameSubject = rewritten.filter(c => getCommitSubject(c.message) === subject);
+		const match =
+			sameSubject.length === 1
+				? sameSubject[0]
+				: rewritten.length === prevForkIndex
+					? rewritten[prevIndex]
+					: undefined;
+		if (match != null) {
+			remapped.add(match.sha);
 		}
 	}
-	return remapped.length > 0 ? remapped : undefined;
+	if (remapped.size === 0) return undefined;
+
+	// Newest first, as the scope keeps them: a reorder can change which commit is the range's tip
+	const order = (sha: string) => nextIndexes.get(sha) ?? next.length;
+	return [...remapped].sort((a, b) => order(a) - order(b));
+}
+
+function getCommitSubject(message: string): string {
+	return message.split('\n', 1)[0].trim();
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -2769,8 +2773,6 @@ export class DetailsActions {
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
 	}
 
-	/** Moves the active mode's commit scope onto the commits a history rewrite replaced its own with, and reloads
-	 *  the scope's files — otherwise the review keeps diffing the commits the rewrite left behind. */
 	private followRewrittenScopeCommits(
 		repoPath: string,
 		prevCommits: readonly BranchCommitEntry[] | undefined,
@@ -3571,8 +3573,7 @@ export class DetailsActions {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
 			}
 
-			// A rewrite (amend, reword, rebase) moves the tip without shifting ahead/behind, which is all the
-			// branch-state refetch watches. Mid-rebase tips are skipped: the scope is carried over once it lands.
+			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase waits
 			if (
 				prev?.repo.path === repoPath &&
 				prev.branch?.reference?.sha !== wip.branch?.reference?.sha &&

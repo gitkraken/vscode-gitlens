@@ -179,11 +179,8 @@ export async function getScopeFiles(
 	return [...merged.values()];
 }
 
-/**
- * The identity of each committed file's reviewed content: its blob at `tip`, or the deletion — the file, not the
- * commit, so a viewed mark outlives a rewrite (an amend, a rebase) that left the file as it was. A file whose blob
- * can't be read falls back to `tip`, which a rewrite does move.
- */
+/** Each committed file's blob at `tip` (or the deletion) — the file, not the commit, so a viewed mark outlives a
+ *  rewrite that left it alone. A blob that can't be read falls back to `tip`. */
 async function getCommittedContentIds(
 	svc: GitRepositoryService,
 	tip: string,
@@ -202,7 +199,8 @@ async function getCommittedContentIds(
 
 	try {
 		for (const entry of await svc.revision.getTreeForRevision(tip, { paths: present }, signal)) {
-			if (entry.type !== 'tree') {
+			// A provider that can't read blob ids (GitHub) lists them empty
+			if (entry.type !== 'tree' && entry.oid) {
 				ids.set(entry.path, entry.oid);
 			}
 		}

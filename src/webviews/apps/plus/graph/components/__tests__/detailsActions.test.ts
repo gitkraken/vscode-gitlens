@@ -1032,46 +1032,98 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 });
 
 suite('remapRewrittenShas', () => {
-	const commits = (...shas: string[]): BranchCommitEntry[] =>
-		shas.map(sha => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry);
+	/** `sha` or `sha:subject`; a rewritten commit keeps its subject unless it was reworded. */
+	const commits = (...entries: string[]): BranchCommitEntry[] =>
+		entries.map(entry => {
+			const [sha, subject] = entry.split(':');
+			const message = `${subject ?? sha.replace("'", '')}\n\nbody`;
+			return { sha: sha, message: message, pushed: false } as unknown as BranchCommitEntry;
+		});
 
-	test('every sha still on the branch → nothing to remap', () => {
-		assert.strictEqual(
-			remapRewrittenShas(['c', 'b'], commits('c', 'b', 'a'), commits('d', 'c', 'b', 'a')),
-			undefined,
-		);
-	});
+	// Lists are newest first, as the branch commits and the scope keep them
+	const cases: { name: string; shas: string[]; prev?: string[]; next: string[]; expected: string[] | undefined }[] = [
+		{
+			name: 'nothing rewritten',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['d', 'c', 'b', 'a'],
+			expected: undefined,
+		},
+		{ name: 'no earlier list', shas: ['b'], next: ["b'"], expected: undefined },
+		{
+			name: 'amend of the tip',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", 'b', 'a'],
+			expected: ["c'", 'b'],
+		},
+		{
+			name: 'amend of an earlier commit',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", "b'", 'a'],
+			expected: ["c'", "b'", 'a'],
+		},
+		{
+			name: 'fixup folded in by an autosquash rebase',
+			shas: ['f:fixup! b', 'c', 'b'],
+			prev: ['f:fixup! b', 'c', 'b', 'a'],
+			next: ["c'", "b'", 'a'],
+			expected: ["c'", "b'"],
+		},
+		{ name: 'reword', shas: ['b'], prev: ['c', 'b', 'a'], next: ["c'", "b':reworded", 'a'], expected: ["b'"] },
+		{ name: 'reorder', shas: ['b'], prev: ['c', 'b', 'a'], next: ["b'", "c'", 'a'], expected: ["b'"] },
+		{
+			name: 'reorder of the whole range',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ["b'", "c'", 'a'],
+			expected: ["b'", "c'"],
+		},
+		{ name: 'drop', shas: ['c', 'b'], prev: ['c', 'b', 'a'], next: ["c'", 'a'], expected: ["c'"] },
+		{ name: 'only the dropped commit', shas: ['b'], prev: ['c', 'b', 'a'], next: ["c'", 'a'], expected: undefined },
+		{
+			name: 'oldest loaded commit rewritten, same count',
+			shas: ['b', 'a'],
+			prev: ['b', 'a'],
+			next: ["b'", "a':reworded"],
+			expected: ["b'", "a'"],
+		},
+		{
+			name: 'a commit below the rewrite that the new page no longer loads',
+			shas: ['u', 'mb'],
+			prev: ['t', 'u', 'mb', 'p1', 'p2'],
+			next: ["t'", 'u'],
+			expected: ['u', 'mb'],
+		},
+		{
+			name: 'a rewritten commit with one below it that is no longer loaded',
+			shas: ['t', 'p1'],
+			prev: ['t', 'u', 'mb', 'p1'],
+			next: ['n', "t'", 'u'],
+			expected: ["t'", 'p1'],
+		},
+	];
 
-	test('amending an earlier commit carries the scope onto the rewritten commits', () => {
-		// b was amended, so c (above it) was rewritten too; a (below) is untouched
-		assert.deepStrictEqual(remapRewrittenShas(['c', 'b', 'a'], commits('c', 'b', 'a'), commits("c'", "b'", 'a')), [
-			"c'",
-			"b'",
-			'a',
-		]);
-		assert.deepStrictEqual(remapRewrittenShas(['b'], commits('c', 'b', 'a'), commits("c'", "b'", 'a')), ["b'"]);
-	});
-
-	test('a fixup folded in by a rebase maps the rest by their place above the untouched commits', () => {
-		// fixup! b was committed on top, then squashed into b by `rebase --autosquash`
-		assert.deepStrictEqual(
-			remapRewrittenShas(['f', 'c', 'b'], commits('f', 'c', 'b', 'a'), commits("c'", "b'", 'a')),
-			["c'", "b'"],
-		);
-	});
-
-	test('a rewrite of the oldest loaded commit maps one-to-one only when the count is unchanged', () => {
-		assert.deepStrictEqual(remapRewrittenShas(['b', 'a'], commits('b', 'a'), commits("b'", "a'")), ["b'", "a'"]);
-		assert.strictEqual(remapRewrittenShas(['b', 'a'], commits('b', 'a'), commits("b'")), undefined);
-	});
-
-	test('no earlier list to map from → undefined', () => {
-		assert.strictEqual(remapRewrittenShas(['b'], undefined, commits("b'")), undefined);
-	});
+	for (const c of cases) {
+		test(c.name, () => {
+			const shaOf = (entry: string) => entry.split(':')[0];
+			assert.deepStrictEqual(
+				remapRewrittenShas(
+					c.shas.map(shaOf),
+					c.prev != null ? commits(...c.prev) : undefined,
+					commits(...c.next),
+				),
+				c.expected,
+			);
+		});
+	}
 });
 
 suite('DetailsActions — scope follows a history rewrite', () => {
-	const commit = (sha: string): BranchCommitEntry => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry;
+	// A rewritten commit (`b'`) keeps the subject of the one it replaced (`b`)
+	const commit = (sha: string): BranchCommitEntry =>
+		({ sha: sha, message: sha.replace("'", ''), pushed: false }) as unknown as BranchCommitEntry;
 	const repo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
 	const wipAt = (revision: number, tip: string): Wip =>
 		({

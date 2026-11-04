@@ -48,7 +48,7 @@ suite('graphScopeService — content ids of the working changes', () => {
 
 suite('graphScopeService — content ids of the committed changes', () => {
 	/** A range whose tip is `tip`, with `a.ts` modified, `b.ts` deleted and `c.ts` unreadable at the tip. */
-	function containerAt(tip: string, blobs: Record<string, string>): Container {
+	function containerAt(tip: string, blobs: Record<string, string | undefined>): Container {
 		return {
 			git: {
 				getRepositoryService: () => ({
@@ -67,8 +67,8 @@ suite('graphScopeService — content ids of the committed changes', () => {
 							assert.ok(!options.paths.includes('b.ts'), 'a deletion is never looked up');
 							return Promise.resolve(
 								options.paths
-									.filter(p => blobs[p] != null)
-									.map(p => ({ ref: rev, oid: blobs[p], path: p, size: 1, type: 'blob' })),
+									.filter(p => p in blobs)
+									.map(p => ({ ref: rev, oid: blobs[p] ?? '', path: p, size: 1, type: 'blob' })),
 							);
 						},
 					},
@@ -98,5 +98,18 @@ suite('graphScopeService — content ids of the committed changes', () => {
 		);
 		assert.strictEqual(after[0].contentId, before[0].contentId, 'the unchanged file is still viewed');
 		assert.notStrictEqual(after[2].contentId, before[2].contentId, 'an unreadable blob falls back to the tip');
+	});
+
+	test('a blob listed without its id falls back to the tip', async () => {
+		const scope = {
+			type: 'wip' as const,
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['tip1', 'base'],
+		};
+		// Listed, but with an empty id — as the GitHub provider lists every entry
+		const files = await getScopeFiles(containerAt('tip1', { 'a.ts': undefined }), '/r', scope);
+
+		assert.strictEqual(files[0].contentId, 'tip1');
 	});
 });
