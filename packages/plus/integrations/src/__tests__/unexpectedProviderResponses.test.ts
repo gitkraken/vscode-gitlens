@@ -8,7 +8,7 @@ import { mergeAssessmentInto, toCollectionScopeFailure } from '../collectionMeta
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, RequestClientError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { throwProviderError, UnexpectedResponseError } from '../providers/providerErrors.js';
 import { ProvidersApi } from '../providers/providersApi.js';
 import type { ProviderWarning } from '../results.js';

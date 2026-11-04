@@ -2,14 +2,17 @@ import { isVsts, parseAzureHttpsUrl } from '@gitlens/git/remotes/azure-devops.js
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import { decodePathSegment } from '../../utils/domain.utils.js';
-import type { AzureRepositoryDescriptor } from './models.js';
 
 export type AzureDevOpsIntegrationIds =
 	| GitCloudHostIntegrationId.AzureDevOps
 	| GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 
-/** The project and repository an Azure repository descriptor names, its `{project}/_git/{repo}` name parsed. */
-export function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
+/**
+ * The project and repository an Azure repository descriptor names, its `{project}/_git/{repo}` name parsed. Takes the
+ * descriptor structurally rather than as `AzureRepositoryDescriptor`, so the facade can export it without its
+ * declaration reaching the provider models.
+ */
+export function getAzureRepositoryIdentity(repo: { owner: string; name: string; project?: string }): {
 	resourceName: string;
 	projectName?: string;
 	repositoryName: string;

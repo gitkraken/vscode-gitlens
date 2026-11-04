@@ -4,9 +4,9 @@ import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderPullRequest } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub, providerPr, stubApi } from './sweepHelpers.js';
 

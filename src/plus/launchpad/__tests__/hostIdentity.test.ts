@@ -1,23 +1,20 @@
 // Initialize view-node dependencies through the extension's command registry entry point.
 import '../../../container.js';
 import * as assert from 'assert';
+import { getGitHubPullRequestIdentityFromMaybeUrl } from '@gitlens/git-github/api/github.utils.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
-import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '@gitlens/integrations/constants.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import { getGitHubPullRequestIdentityFromMaybeUrl } from '@gitlens/integrations/providers/github/github.utils.js';
-import {
-	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '@gitlens/integrations/providers/models.js';
+import { GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import type { GitHostIntegration } from '@gitlens/integrations/index.js';
+import { getActionablePullRequests, toActionablePullRequestInput } from '@gitlens/integrations/index.js';
 import type { Container } from '../../../container.js';
 import { getViewNodeId } from '../../../views/nodes/abstract/viewNode.js';
 import { getConnectedIntegrations as getStartWorkConnectedIntegrations } from '../../startWork/startWorkBase.js';
 import { findLaunchpadItem, getLaunchpadItemKey, getViewerAccountKey } from '../launchpadIdentity.js';
 import type { LaunchpadItem } from '../launchpadProvider.js';
-import { categorizePullRequests, LaunchpadProvider } from '../launchpadProvider.js';
+import { categorizePullRequests, launchpadFanOutConcurrency, LaunchpadProvider } from '../launchpadProvider.js';
 import type { EnrichedItem } from '../models/enrichedItem.js';
 
 const hostA: ProviderReference = {
@@ -49,7 +46,7 @@ function createItem(provider: ProviderReference): LaunchpadItem {
 		new Date(0),
 		new Date(0),
 	);
-	const input = toProviderPullRequestWithUniqueId(pr);
+	const input = toActionablePullRequestInput(pr);
 	return {
 		...getActionablePullRequests([input], { id: account.id })[0],
 		type: 'pullrequest',
@@ -146,7 +143,7 @@ suite('Launchpad host identity', () => {
 	}
 
 	test('searches every host with bounded concurrency and retains results when one host fails', async () => {
-		const items = Array.from({ length: providerFanOutConcurrency * 2 + 1 }, (_, index) =>
+		const items = Array.from({ length: launchpadFanOutConcurrency * 2 + 1 }, (_, index) =>
 			createItem({ ...hostA, domain: `ghe-${index}.example.com` }),
 		);
 		let active = 0;
@@ -178,7 +175,7 @@ suite('Launchpad host identity', () => {
 		await new Promise<void>(resolve => setImmediate(resolve));
 		release();
 		const result = await pendingResult;
-		assert.strictEqual(maximumActive, providerFanOutConcurrency);
+		assert.strictEqual(maximumActive, launchpadFanOutConcurrency);
 		assert.deepStrictEqual(
 			queries,
 			items.map(() => 'author:me'),
@@ -224,7 +221,7 @@ suite('Launchpad host identity', () => {
 	});
 
 	test('bounds account lookups across hosts and retains accounts when one lookup fails', async () => {
-		const items = Array.from({ length: providerFanOutConcurrency * 2 + 1 }, (_, index) =>
+		const items = Array.from({ length: launchpadFanOutConcurrency * 2 + 1 }, (_, index) =>
 			createItem({ ...hostA, domain: `ghe-${index}.example.com` }),
 		);
 		const accountsByHost = new Map(items.map(item => [item.provider.domain, item.currentViewer]));
@@ -263,7 +260,7 @@ suite('Launchpad host identity', () => {
 		release();
 		const accounts = await result;
 
-		assert.strictEqual(maximumActive, providerFanOutConcurrency);
+		assert.strictEqual(maximumActive, launchpadFanOutConcurrency);
 		assert.deepStrictEqual(reads.sort(), items.map(item => item.provider.domain).sort());
 		assert.strictEqual(accounts.size, items.length - 1);
 		assert.strictEqual(accounts.has(getViewerAccountKey(items[0].provider)), false);

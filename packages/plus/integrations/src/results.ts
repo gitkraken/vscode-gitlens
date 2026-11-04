@@ -1,9 +1,15 @@
 import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
-import type { IssueSorting } from '@gitlens/git/models/issue.js';
-import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { IssueSearchCriteria, IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
+import type {
+	PullRequestSearchCriteria,
+	PullRequestShape,
+	PullRequestSorting,
+} from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
 import { isProviderUnreachableError } from './errors.js';
+import type { ProviderRepositoriesInput } from './manager.js';
 import { UnexpectedResponseError } from './providers/providerErrors.js';
 
 export interface ConnectionStateChangeEvent {
@@ -776,4 +782,287 @@ export function mergeUnreadableItems(
 	if (!added.length && complete === existing.complete) return existing;
 
 	return { keys: [...existing.keys, ...new Set(added)], complete: complete };
+}
+
+// The count, batch, branch and current-account reads' input and result shapes. They live here rather than beside their
+// reads (`reads/*`) so the public facade can export them without its declarations reaching the reads' internal context.
+
+/**
+ * One scope to count.
+ *
+ * `key` is caller-owned and echoed back verbatim, so a batch result needs no positional matching by the consumer.
+ * It never reaches the provider query — the aliases in the upstream document are generated — so it can be any
+ * string the caller finds meaningful.
+ */
+export interface IssueCountScope {
+	key: string;
+	/** Repositories to count over. Combines with `org`, exactly as in `searchIssuesPage`. */
+	repos?: ProviderRepositoriesInput;
+	org?: string;
+	/**
+	 * Same criteria model as `searchIssuesPage`, validated against the same capability table.
+	 *
+	 * `criteria.sort` does not affect the count — a total is invariant under ordering — but it is still VALIDATED,
+	 * and an unsupported key refuses this scope exactly as it would refuse the read. That is the point of the
+	 * count: it previews the constraints the read will apply, so one that accepted what the read refuses would
+	 * promise a fetch that can't happen, which is worse than no preview at all.
+	 */
+	criteria?: IssueSearchCriteria;
+}
+
+/** The count for one {@link IssueCountScope}, echoed back under the caller's own `key`. */
+export interface IssueCountResult {
+	key: string;
+	/**
+	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
+	 * zero, which is a real answer. Render the difference: an unreported count means "unknown", and showing it as
+	 * 0 would tell the user this filter matches nothing.
+	 */
+	count?: number;
+	/**
+	 * True when `count` exceeds the provider's own result ceiling, so a full read CANNOT return everything no
+	 * matter how it is paged. This is the signal to warn before starting an expensive fetch.
+	 */
+	exceedsProviderLimit: boolean;
+	/** The ceiling itself, when the provider declares one. */
+	providerLimit?: number;
+}
+
+/**
+ * One scope to count pull requests over — the PR twin of {@link IssueCountScope}.
+ *
+ * `key` is caller-owned and echoed back verbatim, never reaching the provider query (the aliases are generated), so
+ * it can be any string the caller finds meaningful.
+ */
+export interface PullRequestCountScope {
+	key: string;
+	/** Repositories to count over. Combines with `org`, exactly as in `searchPullRequestsPage`. */
+	repos?: ProviderRepositoriesInput;
+	org?: string;
+	/**
+	 * Same criteria model as `searchPullRequestsPage`, validated against the same capability table — so a count
+	 * refuses exactly what the read would, and never previews a fetch that can't happen.
+	 */
+	criteria?: PullRequestSearchCriteria;
+}
+
+/** The count for one {@link PullRequestCountScope}, echoed back under the caller's own `key`. */
+export interface PullRequestCountResult {
+	key: string;
+	/**
+	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
+	 * zero, which is a real answer.
+	 *
+	 * For a multi-state scope, GitHub/GHE report the LARGEST of their per-state counts (the same total
+	 * `searchPullRequestsPage` surfaces, since each state is its own capped search), not their sum. Bitbucket Data
+	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns —
+	 * and so does Azure DevOps Server, which reads every state in one drain.
+	 */
+	count?: number;
+	/**
+	 * True when `count` is a FLOOR rather than the total: the provider has no count query (Bitbucket Data Center),
+	 * so it counts by reading within a budget, and this scope had more than the budget read. Render it as "N+", and
+	 * treat the scope as at least that expensive. Absent means `count` is exact — the provider's own total, or for a
+	 * provider that counts by reading, every match it read.
+	 */
+	lowerBound?: boolean;
+	/**
+	 * True when `count` exceeds the provider's own per-search result ceiling, so a full read CANNOT return
+	 * everything no matter how it is paged. This is the signal to warn before starting an expensive fetch.
+	 */
+	exceedsProviderLimit: boolean;
+	/** The ceiling itself, when the provider declares one. */
+	providerLimit?: number;
+}
+
+/** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
+export type IssueBatchTarget =
+	/**
+	 * A git host's issue, by repository coordinate. GitHub/GHE, GitLab (and self-managed) and Azure DevOps (and
+	 * Server); Bitbucket and Bitbucket Data Center have no issues and refuse.
+	 */
+	| {
+			key: string;
+			/** GitHub owner, GitLab namespace path (may be nested), or Azure DevOps organization (or collection). */
+			owner: string;
+			/**
+			 * Repository name. Required, but ignored on Azure DevOps, whose work items belong to the project rather
+			 * than to a repository; there it only names the project of a project-less Azure DevOps Server path read
+			 * behind a virtual directory (`{vdir}/{collection}/_git/{repo}` as owner `{vdir}`, project `{collection}`).
+			 */
+			repo: string;
+			/** Issue number, GitLab issue iid, or Azure DevOps work item id. */
+			number: number;
+			/** Azure DevOps project. Required there, ignored elsewhere. */
+			project?: string;
+			/** The {@link IssueBatchResult.etag} of the copy the caller holds; see {@link IssueBatchResult}. */
+			etag?: string;
+	  }
+	/**
+	 * An issue tracker's issue, by its own identifier (e.g. `ABC-123`) within a resource. Jira (Cloud and Data
+	 * Center) and Linear. For Jira Data Center `resourceId` is the host — the instance's single resource, as
+	 * `listOrgs` reports it — and `resourceUrl` is not needed, since the browser link is built from the
+	 * connection's own base URL; Jira Cloud requires it.
+	 */
+	| {
+			key: string;
+			resourceId: string;
+			resourceUrl?: string;
+			identifier: string;
+			/**
+			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud and Linear;
+			 * every other tracker accepts it but reads the issue in full.
+			 */
+			etag?: string;
+	  };
+
+/**
+ * The answer for one {@link IssueBatchTarget}, in one of four states:
+ * - `{ key, issue, etag }` — read in full. Every fully read row carries an `etag`, whether or not the caller sent
+ *   one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
+export interface IssueBatchResult {
+	key: string;
+	/**
+	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection) —
+	 * or when it is `unchanged`.
+	 *
+	 * Absent is an answer here, unlike every paged read on this facade: a target that FAILED — its own request
+	 * outright, or just its own alias within an otherwise-answering GitHub chunk (e.g. an org enforcing SAML SSO
+	 * the token isn't authorized for) — is not returned at all and sets `fetchFailed`, so a caller can tell
+	 * "proven absent" from "unknown" and cache the first without ever caching the second.
+	 */
+	issue?: IssueShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the issue's change state — its state and
+	 * update time, plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it back
+	 * as the target's `etag`. An etag from another scheme or another `etagIncludes` set simply compares unequal and
+	 * costs a full read, never a false `unchanged`. A host can add a reaction without moving the update time, so
+	 * unless `'reactions'` is listed, an `unchanged` copy's `thumbsUpCount` may be stale.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `issue` is absent because nothing was read. */
+	unchanged?: true;
+}
+
+/** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
+export interface PullRequestBatchTarget {
+	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
+	key: string;
+	/**
+	 * GitHub owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or
+	 * Azure DevOps organization.
+	 */
+	owner: string;
+	/** Repository name or slug. */
+	repo: string;
+	/** Pull request number, GitLab merge request iid, or Azure DevOps pull request id. */
+	number: number;
+	/** Azure DevOps project. Required there, ignored elsewhere. */
+	project?: string;
+	/**
+	 * The {@link PullRequestBatchResult.etag} of the copy the caller holds. When the host can check it cheaply and
+	 * it still matches, the pull request isn't read again and comes back `unchanged`.
+	 */
+	etag?: string;
+}
+
+/**
+ * The answer for one {@link PullRequestBatchTarget}, in one of four states:
+ * - `{ key, pullRequest, etag }` — read in full, whatever its state. Every fully read row carries an `etag`,
+ *   whether or not the caller sent one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT: it does not exist, or is not visible to this connection.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
+export interface PullRequestBatchResult {
+	key: string;
+	/**
+	 * The resolved pull request, whatever its state, or `undefined` when it PROVABLY does not exist (or is not
+	 * visible to this connection) — or when it is `unchanged`. A target whose read FAILED is not returned at
+	 * all and sets `fetchFailed`.
+	 */
+	pullRequest?: PullRequestShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the pull request's change state — its
+	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
+	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
+	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
+	 * compares unequal and costs a full read, never a false `unchanged` — and so does one from a read that selected
+	 * merge-queue data (see {@link IntegrationManager.getPullRequestsBatch}'s `mergeQueue`) when the other didn't.
+	 * Reactions are never an input: a host can add one without moving the update time, so an `unchanged` copy's
+	 * `thumbsUpCount` may be stale.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
+	unchanged?: true;
+}
+
+/** One branch whose pull requests to find, echoed back under the caller's own `key`. */
+export interface PullRequestBranchTarget {
+	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
+	key: string;
+	/**
+	 * The repository the pull requests are OPENED AGAINST (their base), as in `PullRequestBatchTarget`: GitHub
+	 * owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or Azure
+	 * DevOps organization.
+	 */
+	owner: string;
+	/** Repository name or slug. */
+	repo: string;
+	/** Azure DevOps project. Required there, ignored elsewhere. */
+	project?: string;
+	/** The head branch's short name, without `refs/heads/`. */
+	branch: string;
+	/**
+	 * Owner (GitHub user or org, GitLab namespace, Bitbucket workspace) of the repository the branch lives in, when
+	 * it's a fork. Omitted, or equal to `owner` (ignoring case), means the branch lives in the base repository itself,
+	 * so a caller can pass the owner of whichever remote the branch was pushed to. On GitLab this is the whole
+	 * namespace path, as `owner` is, so a remote's first-slash split can't be passed for either.
+	 *
+	 * A different owner is refused on Bitbucket Data Center and Azure DevOps, where a fork can't be found by its
+	 * owner.
+	 */
+	headOwner?: string;
+}
+
+/** The answer for one {@link PullRequestBranchTarget}. */
+export interface PullRequestBranchResult {
+	key: string;
+	/**
+	 * Every pull request whose head is this branch, in ANY state — open, closed and merged — most recently updated
+	 * first, up to a per-target cap. An empty array is a PROVEN "none" unless `truncated` is set. A target whose
+	 * read failed is not returned at all.
+	 */
+	pullRequests: PullRequestShape[];
+	/**
+	 * Set when a pull request that wasn't returned could still match: more matched than the cap, or the host held
+	 * more pull requests of this branch name than it returned and couldn't rule them out. GitHub/GHE rule them out
+	 * with a second request filtered by head owner, so there it means more than the cap truly match. That request
+	 * can't see a pull request from a since-deleted fork, so on GitHub/GHE such a pull request outside the first
+	 * request's page can be missing even when this is not set.
+	 */
+	truncated?: boolean;
+}
+
+/**
+ * "Who am I on this provider / connection" — {@link IntegrationBase.getCurrentAccount}'s own answer, exposed on
+ * the manager so a caller can ask for it directly instead of waiting for some other read to warm it as a side
+ * effect.
+ */
+export interface CurrentAccountResult {
+	/** The signed-in account, when the provider answered. */
+	account?: Account;
+	warnings: ProviderWarning[];
+	/**
+	 * Set whenever `account` is absent. Unlike a list/batch read, this one has no benign empty answer — "who am
+	 * I" is either resolved or it couldn't be told, never a legitimately empty result — so `account` is never
+	 * missing without a warning explaining why.
+	 */
+	fetchFailed?: boolean;
 }

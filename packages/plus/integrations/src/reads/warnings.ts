@@ -8,7 +8,7 @@ import type {
 	PullRequestSearchCapabilities,
 	PullRequestSorting,
 } from '../providerFilters.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import type {
 	ProviderWarning,
 	ProviderWarningOmissionRecovery,

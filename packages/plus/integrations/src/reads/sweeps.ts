@@ -1,17 +1,18 @@
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	ProviderSweepTarget,
 	ProviderSweepTargetEvent,
 	PullRequestSweepOptions,
 } from '../manager.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import { toPullRequestRow } from '../providers/models.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
 import type { ProviderSweepResult, ProviderSweepTargetRef, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
-import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { drainPullRequests, getPullRequestViewers, resolvePullRequestSweepTargets } from './drains.js';
 import { resolveAccountWidePullRequestFilters, resolvePullRequestFilters } from './filters.js';

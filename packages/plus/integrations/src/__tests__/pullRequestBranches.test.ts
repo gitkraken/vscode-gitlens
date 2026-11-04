@@ -12,7 +12,7 @@ import {
 import { getPullRequestFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { createAzureForkSource, createAzurePullRequest } from '../providers/azure/__tests__/fixtures.js';
 import type { AzurePullRequest } from '../providers/azure/models.js';
 import type { GetPullRequestForRepoFn } from '../providers/models.js';

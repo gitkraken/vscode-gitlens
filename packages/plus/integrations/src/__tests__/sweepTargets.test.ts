@@ -8,9 +8,10 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { ProviderSweepTargetEvent, PullRequestSweepOptions } from '../manager.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderPullRequest } from '../providers/models.js';
-import { PagingMode, PullRequestFilter } from '../providers/models.js';
+import { PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub, primarySession, providerPr, stubApi } from './sweepHelpers.js';
 

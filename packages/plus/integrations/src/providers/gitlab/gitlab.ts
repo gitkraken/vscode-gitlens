@@ -18,7 +18,6 @@ import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import { joinUriPath, parseUri } from '@gitlens/utils/uri.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
-import { providerFanOutConcurrency } from '../../constants.js';
 import type { IntegrationServiceContext } from '../../context.js';
 import {
 	AuthenticationError,
@@ -29,10 +28,11 @@ import {
 	RequestNotFoundError,
 	toRateLimitError,
 } from '../../errors.js';
-import type { IssueEtagInclude, PullRequestEtagInclude } from '../../models/integration.js';
+import type { IssueEtagInclude, PullRequestEtagInclude } from '../../reads/etag.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
-import { selectBranchPullRequests } from '../utils/providerPaging.js';
+import { providerFanOutConcurrency, selectBranchPullRequests } from '../utils/providerPaging.js';
+import type { GitLabUser } from './gitlab.utils.js';
 import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
 	GitLabCommit,
@@ -45,7 +45,6 @@ import type {
 	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabSshKey,
-	GitLabUser,
 } from './models.js';
 import {
 	fromGitLabMergeRequest,

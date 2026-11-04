@@ -10,8 +10,9 @@ import {
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult, IssueEtagFields, IssueEtagInclude } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { azureRestDiscoveryResponse, azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
+import type { IssueEtagFields, IssueEtagInclude } from '../reads/etag.js';
 import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';

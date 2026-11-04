@@ -14,12 +14,8 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import { trimTrailingSlashes } from '@gitlens/utils/path.js';
-import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
-import {
-	azureWorkItemDescriptionRule,
-	azureWorkItemViewerRule,
-	pullRequestRevision,
-} from '../../models/integration.js';
+import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../reads/etag.js';
+import { azureWorkItemDescriptionRule, azureWorkItemViewerRule, pullRequestRevision } from '../../reads/etag.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 import {
 	fromProviderPullRequestMergeableState,
@@ -68,11 +64,6 @@ export interface AzureRemoteRepositoryDescriptor extends ResourceDescriptor {
 	url?: string;
 	cloneUrlHttps?: string;
 	cloneUrlSsh?: string;
-}
-
-export interface AzureProjectInputDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
 }
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';

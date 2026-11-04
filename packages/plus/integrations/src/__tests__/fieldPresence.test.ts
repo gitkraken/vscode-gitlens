@@ -17,7 +17,7 @@ import {
 import type { FieldPresence, IssueFieldGroup, PullRequestFieldGroup } from '../fieldPresence.js';
 import { getIssueFieldPresence, getPullRequestFieldPresence } from '../fieldPresence.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { PagingMode } from '../providers/models.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { assertIssuePresence, assertPullRequestPresence } from './fieldPresenceHelpers.js';

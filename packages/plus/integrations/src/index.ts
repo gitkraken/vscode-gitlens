@@ -9,8 +9,13 @@
 // may be refactored without semver bumps.
 
 import type { Account } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
-import type { IntegrationIds } from './constants.js';
 import type {
 	AccountProvider,
 	ConfigProvider,
@@ -22,6 +27,7 @@ import type {
 } from './context.js';
 import { createIntegrationService } from './integrationService.js';
 import type { IntegrationManager } from './manager.js';
+import type { IntegrationCacheDescriptor } from './models/publicIntegration.js';
 
 export type { Autolink, AutolinkReference, DynamicAutolinkReference, RefSet } from '@gitlens/git/models/autolink.js';
 export type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
@@ -35,11 +41,8 @@ export type IntegrationManagerCacheLoader<T> = (cacheable: CacheController) => {
 	expiresAt?: number;
 };
 
-/** Stable integration identity supplied to the consumer-owned account cache. */
-export interface IntegrationAccountCacheDescriptor {
-	readonly id: IntegrationIds;
-	readonly domain?: string;
-}
+/** The integration identity supplied to the consumer-owned account cache. */
+export type IntegrationAccountCacheDescriptor = IntegrationCacheDescriptor;
 
 /** Cache controls attached to a provider account lookup. */
 export interface IntegrationManagerCacheOptions {
@@ -52,8 +55,11 @@ export interface IntegrationManagerCacheOptions {
 /**
  * Optional consumer-owned cache for values reused by the public manager facade.
  *
- * The manager only needs cross-call caching for provider identity lookups. Other caches used by the GitLens
- * extension host are implementation details and deliberately stay out of this contract.
+ * Only `getCurrentAccount` is required. Each other lookup is optional: one the cache omits runs its loader on every
+ * call, uncached. A cache that keys entries by integration should key them by the descriptor's `id` and `domain`,
+ * and treat `maybeConnected` and `sessionFingerprint` as the entry's etag, so a reconnect or a token change misses.
+ *
+ * The manager calls each method on the cache object itself, so a class instance (methods on its prototype) works.
  */
 export interface IntegrationManagerCacheProvider {
 	getCurrentAccount(
@@ -61,10 +67,83 @@ export interface IntegrationManagerCacheProvider {
 		cacheable: IntegrationManagerCacheLoader<Account>,
 		options?: IntegrationManagerCacheOptions,
 	): IntegrationManagerCacheResult<Account>;
+	getRepositoryMetadata?(
+		repo: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<RepositoryMetadata>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<RepositoryMetadata>;
+	getRepositoryDefaultBranch?(
+		repo: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<DefaultBranch>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<DefaultBranch>;
+	getPullRequestForSha?(
+		sha: string,
+		repo: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<PullRequest>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<PullRequest>;
+	getPullRequestForBranch?(
+		branch: string,
+		repo: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<PullRequest>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<PullRequest>;
+	getPullRequest?(
+		id: string,
+		resource: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<PullRequest>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<PullRequest>;
+	getIssueOrPullRequest?(
+		id: string,
+		type: IssueOrPullRequestType | undefined,
+		resource: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<IssueOrPullRequest>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<IssueOrPullRequest>;
+	getIssue?(
+		id: string,
+		resource: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<Issue>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<Issue>;
+	/** Evicts every cached pull request (a merge can change pull requests no caller can name). */
+	deletePullRequests?(): void;
 }
 
 function loadUncached<T>(loader: IntegrationManagerCacheLoader<T>): IntegrationManagerCacheResult<T> {
 	return loader(new CacheController()).value;
+}
+
+/**
+ * What a consumer cache is handed in place of the integration itself. The getters read through to the integration
+ * when the cache reads them, as reading the integration did, without handing a consumer the class.
+ */
+function toCacheDescriptor(integration: IntegrationCacheDescriptor): IntegrationCacheDescriptor;
+function toCacheDescriptor(integration: IntegrationCacheDescriptor | undefined): IntegrationCacheDescriptor | undefined;
+function toCacheDescriptor(
+	integration: IntegrationCacheDescriptor | undefined,
+): IntegrationCacheDescriptor | undefined {
+	if (integration == null) return undefined;
+
+	return {
+		id: integration.id,
+		domain: integration.domain,
+		get maybeConnected() {
+			return integration.maybeConnected;
+		},
+		get sessionFingerprint() {
+			return integration.sessionFingerprint;
+		},
+	};
 }
 
 const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
@@ -80,13 +159,46 @@ const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
 	deletePullRequests: () => {},
 };
 
+/**
+ * Adapts the consumer's cache to the internal one: each lookup the consumer supplies is called on `cache` itself (never
+ * spread or detached, which would lose a class instance's prototype methods and `this`), and every other lookup runs
+ * uncached.
+ */
 function toIntegrationCacheProvider(cache: IntegrationManagerCacheProvider | undefined): IntegrationCacheProvider {
 	if (cache == null) return uncachedIntegrationCacheProvider;
 
 	return {
-		...uncachedIntegrationCacheProvider,
+		getRepositoryMetadata: (repo, integration, loader, options) =>
+			cache.getRepositoryMetadata != null
+				? cache.getRepositoryMetadata(repo, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getRepositoryDefaultBranch: (repo, integration, loader, options) =>
+			cache.getRepositoryDefaultBranch != null
+				? cache.getRepositoryDefaultBranch(repo, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getPullRequestForSha: (sha, repo, integration, loader, options) =>
+			cache.getPullRequestForSha != null
+				? cache.getPullRequestForSha(sha, repo, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getPullRequestForBranch: (branch, repo, integration, loader, options) =>
+			cache.getPullRequestForBranch != null
+				? cache.getPullRequestForBranch(branch, repo, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getPullRequest: (id, resource, integration, loader, options) =>
+			cache.getPullRequest != null
+				? cache.getPullRequest(id, resource, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getIssueOrPullRequest: (id, type, resource, integration, loader, options) =>
+			cache.getIssueOrPullRequest != null
+				? cache.getIssueOrPullRequest(id, type, resource, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getIssue: (id, resource, integration, loader, options) =>
+			cache.getIssue != null
+				? cache.getIssue(id, resource, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
 		getCurrentAccount: (integration, loader, options) =>
-			cache.getCurrentAccount({ id: integration.id, domain: integration.domain }, loader, options),
+			cache.getCurrentAccount(toCacheDescriptor(integration), loader, options),
+		deletePullRequests: () => cache.deletePullRequests?.(),
 	};
 }
 
@@ -237,18 +349,13 @@ export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelations
 // Account-wide pull-request search criteria and the per-provider capability table.
 export type { PullRequestSearchCapabilities, PullRequestSearchCriteria } from './providerFilters.js';
 // The count-only issue and pull-request probes' input and result shapes.
-export type {
-	IssueCountResult,
-	IssueCountScope,
-	PullRequestCountResult,
-	PullRequestCountScope,
-} from './reads/counts.js';
-export type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
-export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
-export type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
-export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+export type { IssueCountResult, IssueCountScope, PullRequestCountResult, PullRequestCountScope } from './results.js';
+export type { IssueBatchResult, IssueBatchTarget } from './results.js';
+export type { PullRequestBatchResult, PullRequestBatchTarget } from './results.js';
+export type { IssueEtagInclude, PullRequestEtagInclude } from './reads/etag.js';
+export type { PullRequestBranchResult, PullRequestBranchTarget } from './results.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
-export type { CurrentAccountResult } from './reads/currentAccount.js';
+export type { CurrentAccountResult } from './results.js';
 export type { Account } from '@gitlens/git/models/author.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
@@ -258,3 +365,85 @@ export type { PullRequestProjection } from '@gitlens/git/models/pullRequest.js';
 export type { IssueProjection } from '@gitlens/git/models/issue.js';
 export type { FieldPresence, IssueFieldGroup, PullRequestFieldGroup } from './fieldPresence.js';
 export { getIssueFieldPresence, getPullRequestFieldPresence } from './fieldPresence.js';
+
+// Interface-only views of the integrations the manager hands out (`get`, `getIntegrationsForAccountWideRead`), named
+// after the internal classes they view, and the types their members take and return. The classes stay internal; see
+// `models/publicIntegration.ts`.
+export type {
+	GitHostIntegration,
+	Integration,
+	IntegrationById,
+	IntegrationCacheDescriptor,
+	IntegrationConnectedKey,
+	IntegrationCredential,
+	IntegrationResult,
+	IntegrationType,
+	IssuesIntegration,
+	MyPullRequestsForReposOptions,
+	SearchMyPullRequestsOptions,
+	SearchPullRequestsOptions,
+} from './models/publicIntegration.js';
+// Guards over the views. `isIntegration` replaces an `instanceof` check against the internal base class.
+export { isGitHostIntegration, isIntegration, isIssuesIntegration } from './models/publicIntegration.js';
+export {
+	convertRemoteProviderIdToIntegrationId,
+	getIntegrationConnectedKey,
+	getIntegrationIdForRemote,
+	isCloudGitSelfManagedHostIntegrationId,
+	isGitCloudHostIntegrationId,
+	isGitSelfManagedHostIntegrationId,
+	isIssuesHostIntegrationId,
+	isSelfManagedHostIntegrationId,
+} from './utils/integration.utils.js';
+export { getSingleConfiguredDomain } from './utils/domain.utils.js';
+export { getAzureRepositoryIdentity } from './providers/azure/azure.utils.js';
+export { isAzureProviderId } from './providers/providerErrors.js';
+
+// Provider metadata (names, domains, icons, capabilities) and the per-provider feature checks built on it.
+export type { ProviderMetadata } from './providers/metadata.js';
+export { providersMetadata, supportsCodeSuggest } from './providers/metadata.js';
+
+// Token fingerprints, for logging and error reporting without the token itself.
+export type { TokenInfo } from './authentication/models.js';
+export { toTokenInfo, toTokenWithInfo } from './authentication/models.js';
+
+// Entity identifiers: the neutral codec Launchpad (pins/snoozes), drafts and branch-issue associations key by.
+export type {
+	EntityIdentifier,
+	EntityIdentifierFields,
+	EntityIdentifierInput,
+	GitConfigEntityIdentifier,
+	PullRequestEntityIdentifierInput,
+} from './providers/utils.js';
+// Runtime consts (and their same-named value unions) for building identifiers without string literals.
+export {
+	EntityIdentifierProviderType,
+	EntityType,
+	EntityVersion,
+	decodeEntityIdentifier,
+	decodeEntityIdentifiersFromGitConfig,
+	encodeEntityIdentifier,
+	encodeIssueOrPullRequestForGitConfig,
+	getEntityIdentifierInput,
+	getIssueFromGitConfigEntityIdentifier,
+	getIssueOwner,
+	getProviderIdFromEntityIdentifier,
+} from './providers/utils.js';
+
+export { isMaybeGitLabPullRequestUrl, splitOwnerAndRepo } from './providers/gitlab/gitlab.utils.js';
+
+// Actionable pull requests: Launchpad's categorization, over neutral copies of the provider-apis shapes it reads.
+export type {
+	ActionablePullRequest,
+	ActionablePullRequestAccount,
+	ActionablePullRequestCategory,
+	ActionablePullRequestEnrichedItem,
+	ActionablePullRequestEnrichedItems,
+	ActionablePullRequestFields,
+	ActionablePullRequestInput,
+} from './models/actionablePullRequest.js';
+export {
+	ActionablePullRequestBuildStatusState,
+	ActionablePullRequestReviewState,
+} from './models/actionablePullRequest.js';
+export { getActionablePullRequests, toActionablePullRequestInput } from './providers/actionablePullRequests.js';

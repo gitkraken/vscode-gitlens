@@ -1,3 +1,4 @@
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -46,7 +47,6 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
-	providerFanOutConcurrency,
 } from './constants.js';
 import type {
 	AuthenticationSessionsChangeEvent,
@@ -57,26 +57,21 @@ import { toError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
+	IntegrationManager,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
 	PullRequestSweepOptions,
 } from './manager.js';
-import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
-import type {
-	Integration,
-	IntegrationBase,
-	IntegrationById,
-	IntegrationKey,
-	IntegrationResult,
-	IssueEtagInclude,
-	PullRequestEtagInclude,
-} from './models/integration.js';
+import type { GitHostIntegration } from './models/gitHostIntegration.js';
+import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
+import type { IntegrationKey, IntegrationResult, SearchMyPullRequestsOptions } from './models/publicIntegration.js';
+import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
-import type { GitHubApi } from './providers/github/github.js';
+import { providersMetadata } from './providers/metadata.js';
 import type {
 	IssueFilter,
 	IssueSorting,
@@ -85,30 +80,20 @@ import type {
 	ProviderRepositoryShape,
 	PullRequestFilter,
 } from './providers/models.js';
-import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
+import { providerFanOutConcurrency } from './providers/utils/providerPaging.js';
 import { getAutolinkReferences } from './reads/autolinks.js';
 import { broadenIssues } from './reads/broaden.js';
 import type { RepositoryResolutionContext } from './reads/context.js';
-import type {
-	IssueCountResult,
-	IssueCountScope,
-	PullRequestCountResult,
-	PullRequestCountScope,
-} from './reads/counts.js';
 import { countIssues, countPullRequests } from './reads/counts.js';
-import type { CurrentAccountResult } from './reads/currentAccount.js';
 import { getCurrentAccount } from './reads/currentAccount.js';
-import type { SupportedFilters } from './reads/filters.js';
+import type { IssueEtagInclude, PullRequestEtagInclude } from './reads/etag.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listLinearProjects, listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
-import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
-import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
-import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
@@ -118,12 +103,23 @@ import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
+	CurrentAccountResult,
+	IssueBatchResult,
+	IssueBatchTarget,
+	IssueCountResult,
+	IssueCountScope,
 	ProviderBroadenResult,
 	ProviderLinearProjectShape,
 	ProviderPagedResult,
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	PullRequestBatchResult,
+	PullRequestBatchTarget,
+	PullRequestBranchResult,
+	PullRequestBranchTarget,
+	PullRequestCountResult,
+	PullRequestCountScope,
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
@@ -148,7 +144,7 @@ export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeE
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 const resourceLookupTimeoutMs = 10 * 1000;
 
-export class IntegrationService implements Disposable, RepositoryResolutionContext {
+export class IntegrationService implements Disposable, IntegrationManager, RepositoryResolutionContext {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this.configuredIntegrationService.onDidChange;
 	}
@@ -216,16 +212,16 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 	@debug()
 	async connectCloudIntegrations(
-		connect?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
+		options?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
 		source?: Source,
 	): Promise<boolean> {
 		const scope = getScopedLogger();
-		const integrationIds = connect?.integrationIds;
+		const integrationIds = options?.integrationIds;
 		this.ctx.hooks?.connection?.onStarted?.({ integrationIds: integrationIds }, source);
 
 		const connectedIntegrations = new Set<string>();
 		if (integrationIds?.length) {
-			if (connect?.skipIfConnected && !connect?.skipPreSync) {
+			if (options?.skipIfConnected && !options?.skipPreSync) {
 				await this.syncCloudIntegrations(true);
 			}
 
@@ -245,7 +241,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				}
 			}
 
-			if (connect?.skipIfConnected && connectedIntegrations.size === integrationIds.length) {
+			if (options?.skipIfConnected && connectedIntegrations.size === integrationIds.length) {
 				return true;
 			}
 		}
@@ -1586,7 +1582,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	@debug()
-	async manageCloudIntegrations(source: Source | undefined): Promise<void> {
+	async manageCloudIntegrations(source?: Source): Promise<void> {
 		this.ctx.hooks?.connection?.onManaged?.(source);
 
 		// The host owns the GK-Dev manage interaction (sign-in if needed, open settings, wait for the user

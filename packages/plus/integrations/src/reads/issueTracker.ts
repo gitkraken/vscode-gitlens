@@ -4,17 +4,23 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { assessCollectionMetadata, mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
-import type { IntegrationResult } from '../models/integration.js';
 import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueReads.js';
-import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { isLinearIntegration } from '../models/issuesIntegration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { isIssuesIntegration } from '../models/publicIntegration.js';
 import type { LinearIntegration } from '../providers/linear.js';
-import { IssueFilter, providersMetadata } from '../providers/models.js';
-import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
+import { providersMetadata } from '../providers/metadata.js';
+import { IssueFilter } from '../providers/models.js';
+import {
+	mergeCollectionMetadata,
+	parsePageCursor,
+	providerFanOutConcurrency,
+} from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
-import { isIssuesHostIntegrationId, isLinearIntegration } from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { linearProjectIds, parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { discoverResources, runCaptured } from './drains.js';

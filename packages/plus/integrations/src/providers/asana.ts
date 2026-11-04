@@ -20,8 +20,9 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
 import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
+import { providersMetadata } from './metadata.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
-import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
+import { fromProviderIssue, toIssueShape, toProviderIssueStates } from './models.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata.asana;

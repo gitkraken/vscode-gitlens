@@ -4,8 +4,8 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
 import type { ProviderOrganization } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 

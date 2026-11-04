@@ -15,13 +15,13 @@ import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ApiClients } from '../providers/apiClients.js';
 import type { Source } from '../telemetry.js';
 import { isSelfManagedHostIntegrationId, supportedIntegrationIds } from '../utils/integration.utils.js';
+import { CloudIntegrationAuthenticationProvider } from './cloudIntegrationAuthenticationProvider.js';
 import type { CloudIntegrationService } from './cloudIntegrationService.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthenticationProvider.js';
-import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
 export class IntegrationAuthenticationService implements Disposable {

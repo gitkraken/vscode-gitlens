@@ -1,6 +1,6 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { PagingMode } from '../providers/models.js';
+import { PagingMode } from '../providers/metadata.js';
 import { mergeCollectionMetadata, parsePageCursor, toPageCursor } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderPageInfo, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';

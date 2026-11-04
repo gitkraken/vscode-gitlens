@@ -3,12 +3,16 @@
  */
 
 import { Disposable } from 'vscode';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 	isSupportedCloudIntegrationId,
-	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
 } from '@gitlens/integrations/constants.js';
-import { providersMetadata } from '@gitlens/integrations/providers/models.js';
+import { providersMetadata } from '@gitlens/integrations/index.js';
 import type { Container } from '../../../container.js';
 import type { EventRegistration, EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { bufferEventHandler, trackRpcRegistration } from '../eventVisibilityBuffer.js';
@@ -17,6 +21,110 @@ import type { IntegrationChangeEventData, IntegrationStateInfo, RpcEventSubscrip
 // ============================================================
 // Helpers
 // ============================================================
+
+export type IntegrationFeatures = 'prs' | 'issues';
+
+export interface IntegrationDescriptor {
+	id: SupportedCloudIntegrationIds;
+	name: string;
+	icon: string;
+	supports: IntegrationFeatures[];
+	requiresPro: boolean;
+}
+
+export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
+	{
+		id: GitCloudHostIntegrationId.GitHub,
+		name: 'GitHub',
+		icon: 'gl-provider-github',
+		supports: ['prs', 'issues'],
+		requiresPro: false,
+	},
+	{
+		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+		name: 'GitHub Enterprise',
+		icon: 'gl-provider-github',
+		supports: ['prs', 'issues'],
+		requiresPro: true,
+	},
+	{
+		id: GitCloudHostIntegrationId.GitLab,
+		name: 'GitLab',
+		icon: 'gl-provider-gitlab',
+		supports: ['prs', 'issues'],
+		requiresPro: false,
+	},
+	{
+		id: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+		name: 'GitLab Self-Hosted',
+		icon: 'gl-provider-gitlab',
+		supports: ['prs', 'issues'],
+		requiresPro: true,
+	},
+	{
+		id: GitCloudHostIntegrationId.AzureDevOps,
+		name: 'Azure DevOps',
+		icon: 'gl-provider-azdo',
+		supports: ['prs', 'issues'],
+		requiresPro: true,
+	},
+	{
+		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		name: 'Azure DevOps Server',
+		icon: 'gl-provider-azdo',
+		supports: ['prs', 'issues'],
+		requiresPro: true,
+	},
+	{
+		id: GitCloudHostIntegrationId.Bitbucket,
+		name: 'Bitbucket',
+		icon: 'gl-provider-bitbucket',
+		supports: ['prs', 'issues'],
+		requiresPro: false,
+	},
+	{
+		id: GitSelfManagedHostIntegrationId.BitbucketServer,
+		name: 'Bitbucket Data Center',
+		icon: 'gl-provider-bitbucket',
+		supports: ['prs'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Jira,
+		name: 'Jira',
+		icon: 'gl-provider-jira',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesSelfManagedHostIntegrationId.JiraServer,
+		name: 'Jira Data Center',
+		icon: 'gl-provider-jira',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Linear,
+		name: 'Linear',
+		icon: 'gl-provider-linear',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Trello,
+		name: 'Trello',
+		icon: 'gl-provider-trello',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Asana,
+		name: 'Asana',
+		icon: 'gl-provider-asana',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+];
 
 export function getIntegrationStates(container: Container): IntegrationStateInfo[] {
 	const configured = container.integrations.getConfigured();

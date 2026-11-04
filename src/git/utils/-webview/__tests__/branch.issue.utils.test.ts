@@ -8,8 +8,8 @@ import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GkConfigKeys } from '@gitlens/git/providers/config.js';
 import type { GitRunOptions } from '@gitlens/git/run.types.js';
-import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/models.js';
-import { encodeIssueOrPullRequestForGitConfig } from '@gitlens/integrations/providers/utils.js';
+import type { GitConfigEntityIdentifier } from '@gitlens/integrations/index.js';
+import { encodeIssueOrPullRequestForGitConfig } from '@gitlens/integrations/index.js';
 import { createTestRepo } from '../../../../../packages/git-cli/src/providers/__tests__/integration/helpers.js';
 import type { Container } from '../../../../container.js';
 import {

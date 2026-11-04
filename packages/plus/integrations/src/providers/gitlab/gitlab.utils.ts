@@ -1,7 +1,6 @@
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
-import type { GitLabUser } from './models.js';
 
 export type GitLabIntegrationIds =
 	| GitCloudHostIntegrationId.GitLab
@@ -47,6 +46,21 @@ function getNamespacePathBeforeMergeRequest(path: string): string | undefined {
 		segments.shift();
 	}
 	return segments.length > 1 ? segments.join('/') : undefined;
+}
+
+/**
+ * A GitLab user as the user search returns it. Declared here, beside the one helper that reads it, rather than with the
+ * other API models, so this module's declarations (public through `isMaybeGitLabPullRequestUrl`) stay clear of those
+ * models' SDK mappings.
+ */
+export interface GitLabUser {
+	id: number;
+	name: string;
+	username: string;
+	publicEmail: string | undefined;
+	state: string;
+	avatarUrl: string | undefined;
+	webUrl: string;
 }
 
 /**

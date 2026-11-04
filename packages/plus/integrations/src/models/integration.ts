@@ -2,21 +2,9 @@ import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-ap
 import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
-import type { Issue, IssueShape, IssueSyncedWith } from '@gitlens/git/models/issue.js';
-import type {
-	IssueOrPullRequest,
-	IssueOrPullRequestState,
-	IssueOrPullRequestType,
-} from '@gitlens/git/models/issueOrPullRequest.js';
-import type {
-	PullRequest,
-	PullRequestMergeableState,
-	PullRequestMergeQueueEntry,
-	PullRequestReviewDecision,
-	PullRequestReviewState,
-	PullRequestState,
-	PullRequestStatusCheckRollupState,
-} from '@gitlens/git/models/pullRequest.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
@@ -48,7 +36,7 @@ import {
 	markCredentialRefusals,
 	toCollectionScopeFailure,
 } from '../collectionMetadata.js';
-import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
+import type { IntegrationIds, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import {
@@ -59,7 +47,7 @@ import {
 	toError,
 } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import { isAzureProviderId } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
@@ -71,12 +59,18 @@ import type { GitHostIntegration } from './gitHostIntegration.js';
 import { getCachedIssue } from './issueCache.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from './issueReads.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
+import type {
+	IntegrationConnectedKey,
+	IntegrationCredential,
+	IntegrationKey,
+	IntegrationResult,
+	IntegrationType,
+} from './publicIntegration.js';
 
 export type Integration = GitHostIntegration | IssuesIntegration;
 export type IntegrationById<T extends IntegrationIds> = T extends IssuesHostIntegrationIds
 	? IssuesIntegration
 	: GitHostIntegration;
-export type IntegrationType = 'git' | 'issues';
 
 // The issue-read contracts live in their own module (pure data, and their relationship to each other is the
 // point of reading them together); re-exported here so the providers that implement these reads keep one import.
@@ -87,22 +81,6 @@ export type {
 	SearchMyIssuesOptions,
 } from './issueReads.js';
 export type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from './pullRequestReads.js';
-
-// Keep this in step with `isSelfManagedHostIntegrationId`: it is the type-level twin of that predicate, and a
-// disagreement compiles cleanly while the runtime writes a domain-keyed key the type says is unkeyed (so the
-// local-disconnect flag is written under one key and read under another).
-export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extends
-	| GitCloudHostIntegrationId
-	| IssuesCloudHostIntegrationId
-	? `${T}`
-	: `${T}:${string}`;
-
-export type IntegrationConnectedKey<T extends IntegrationIds = IntegrationIds> = `connected:${IntegrationKey<T>}`;
-
-export type IntegrationResult<T> =
-	| { value: T; duration?: number; error?: Error }
-	| { error: Error; duration?: number; value?: never }
-	| undefined;
 
 /** A per-connection read's session that could not be resolved for a retryable reason (see `resolveReadSession`). */
 export class ReadSessionFailure {
@@ -120,168 +98,6 @@ export function isReadSessionFailure(
  * recorded as (see `IntegrationBase.settleBatchRefusals`).
  */
 export type BatchSlot<T> = PromiseFulfilledResult<T> | (PromiseRejectedResult & { failure?: ProviderScopeFailure });
-
-/**
- * An input a pull request's etag can be widened to, each of which a host changes without moving `updatedAt`. Every
- * entry costs its own fields in the cheap check, so a caller picks only the ones it needs. `'checks'` is the check
- * rollup.
- */
-export type PullRequestEtagInclude = 'mergeable' | 'reviewDecision' | 'checks';
-
-/** Every {@link PullRequestEtagInclude}, in the canonical order an etag lists them in. */
-export const pullRequestEtagIncludes: readonly PullRequestEtagInclude[] = ['mergeable', 'reviewDecision', 'checks'];
-
-/**
- * The change state a batch read's etag is computed from (see `reads/etag.ts`), in the NORMALIZED vocabulary of
- * `PullRequestShape` — the values a full row carries after its provider's whole conversion chain, so a cheap
- * check and a full read of the same pull request yield the same fields. Each of `mergeableState`, `reviewDecision`
- * and `statusCheckRollupState` counts only when its {@link PullRequestEtagInclude} is requested.
- */
-export interface PullRequestEtagFields {
-	state: PullRequestState;
-	isDraft?: boolean;
-	updatedDate: Date;
-	headSha?: string;
-	mergeableState?: PullRequestMergeableState;
-	reviewDecision?: PullRequestReviewDecision;
-	statusCheckRollupState?: PullRequestStatusCheckRollupState;
-	/**
-	 * A fingerprint of the fields a host changes without moving an update time ({@link pullRequestRevision}); set
-	 * only for hosts that keep none (Azure DevOps and Server). Part of the etag whenever it is set, not an include.
-	 */
-	revision?: string;
-	/**
-	 * A full row marked `viewerUnresolved`, which no cheap check ever sets: such a row never compares unchanged, so it
-	 * is read in full again rather than kept without a viewer until the pull request changes.
-	 */
-	viewerUnresolved?: true;
-	/**
-	 * The pull request's merge-queue entry, as far as the etag reads it: whether it's queued, in which state and since
-	 * when, none of which moves `updatedDate`. Part of the etag whenever it is set, not an include, and set only on a
-	 * queued pull request, so every other pull request's etag is unchanged by it. Read only where the queue is
-	 * (github.com).
-	 */
-	mergeQueue?: Pick<PullRequestMergeQueueEntry, 'state' | 'enqueuedAt'>;
-	/**
-	 * When the pull request's `mergeQueueRemoval` happened, set only while it has one. Like `mergeQueue`, part of the
-	 * etag whenever it is set, not an include: a pull request that joins its queue and is removed between two checks
-	 * moves neither its update time nor, at either check, `mergeQueue`.
-	 */
-	mergeQueueRemovedAt?: Date;
-	/**
-	 * The read selected merge-queue data (GitHub.com, for a read that asks for it or a host that opts in), whatever
-	 * that data says. Part of the etag whenever it is set, as a marker: without it a pull request that isn't queued and
-	 * has no removal computes the etag it has without the data, so a host that starts asking for the data would keep a
-	 * held row lacking it as `unchanged`. A full row sets it from its `mergeQueueRequired`, which only a read that
-	 * selected the data carries; a cheap check sets it from the same selection.
-	 */
-	mergeQueueRead?: true;
-}
-
-/**
- * The fields of a pull request {@link pullRequestRevision} reads, as a full row carries them. A `PullRequestShape`
- * is one, so a full read passes its row as is and a cheap check builds one from the same mapped values.
- */
-export interface PullRequestRevisionSource {
-	readonly title: string;
-	readonly body?: string;
-	readonly refs?: { readonly base: { readonly branch: string } };
-	readonly reviewRequests?: readonly PullRequestRevisionReviewer[];
-	readonly latestReviews?: readonly PullRequestRevisionReviewer[];
-}
-
-interface PullRequestRevisionReviewer {
-	readonly reviewer: { readonly id: string };
-	readonly state: PullRequestReviewState;
-}
-
-/**
- * {@link PullRequestEtagFields.revision}: a 64-bit hash of a pull request's title, description, target branch and
- * reviewers (each one's id and review state, in a canonical order). Hashed to keep the etag short, so a collision is
- * the only way a change can hide, at about 2^-64.
- */
-export function pullRequestRevision(pr: PullRequestRevisionSource): string {
-	return fnv1aHash64(
-		JSON.stringify([
-			pr.title,
-			pr.body ?? null,
-			pr.refs?.base.branch ?? null,
-			toRevisionReviewers(pr.reviewRequests),
-			toRevisionReviewers(pr.latestReviews),
-		]),
-	);
-}
-
-/** Each reviewer as its serialized `[id, state]`, sorted, so the host's order never moves the revision. */
-function toRevisionReviewers(reviewers: readonly PullRequestRevisionReviewer[] | undefined): string[] | null {
-	return reviewers?.map(r => JSON.stringify([r.reviewer.id, r.state])).sort() ?? null;
-}
-
-/**
- * An input an issue's etag can be widened to, which a host changes without moving `updatedAt`. `'reactions'` is the
- * thumbs-up count, and widens the etag only on hosts whose rows really fetch one (GitHub/GHE and GitLab).
- */
-export type IssueEtagInclude = 'reactions';
-
-/** Every {@link IssueEtagInclude}, in the canonical order an etag lists them in. */
-export const issueEtagIncludes: readonly IssueEtagInclude[] = ['reactions'];
-
-/** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */
-export interface IssueEtagFields {
-	state: IssueOrPullRequestState | undefined;
-	updatedDate: Date;
-	/** Counts only when `'reactions'` is requested, and only from a row whose read fetched reactions. */
-	thumbsUpCount?: number;
-	/**
-	 * Azure DevOps only: the version of the rule a work item's body is read by ({@link azureWorkItemDescriptionRule}).
-	 * A change of rule changes the body without moving `updatedDate`, so a row read under an earlier one must not
-	 * compare unchanged.
-	 */
-	descriptionRule?: number;
-	/**
-	 * Azure DevOps only: the version of the rule a work item's `viewer` is set by ({@link azureWorkItemViewerRule}).
-	 * A full row that names someone but got no viewer (its organization's identity couldn't be read) leaves it out, so
-	 * it never compares unchanged and is read in full again rather than kept without one.
-	 */
-	viewerRule?: number;
-	/**
-	 * Linear only: the row's `syncedWith` links as {@link linearSyncedWithEtagKeys} spells them, so a link added, removed
-	 * or moved to other coordinates changes the etag whether or not the issue's update time moves. `null` on a
-	 * full row without `syncedWith` (held from before it existed, or read while Linear failed to resolve it), which
-	 * never compares unchanged with a cheap check's list.
-	 */
-	syncedWithKeys?: readonly string[] | null;
-}
-
-/**
- * {@link IssueEtagFields.descriptionRule}: the version of the rule an Azure DevOps work item's body is read by, stamped
- * on both sides of its etag. Bumped whenever the rule changes which field a work item's body comes from, so every row
- * a caller holds from before is read in full once. 1: the first rich text field with content (provider-apis'
- * `getAzureWorkItemDescription`), where it used to be only Description. The rule lives in provider-apis, so a bump of
- * that package that changes it must bump this too; the etag tests pin the rule to catch one.
- *
- * It can't cover a row whose read found the organization's field catalog unavailable: that row's body falls back to
- * the built-in fields, and a cheap check, which reads no body, can't tell it from a complete one, so it stays as read
- * until the work item changes.
- */
-export const azureWorkItemDescriptionRule = 1;
-
-/**
- * {@link IssueEtagFields.viewerRule}: the version of the rule an Azure DevOps work item's `viewer` is set by, stamped
- * on both sides of its etag, so every row a caller holds from before it was set is read in full once. 1: the user's
- * identity in the work item's organization (gitkraken/kepler#4291).
- */
-export const azureWorkItemViewerRule = 1;
-
-/**
- * A Linear row's sync links in its etag, sorted: each as its GitHub id and, when known, the coordinates a host matches
- * the GitHub row by, so a link whose coordinates Linear fills in or changes later compares changed.
- */
-export function linearSyncedWithEtagKeys(links: readonly IssueSyncedWith[]): string[] {
-	return links
-		.map(link => (link.owner != null ? `${link.id}:${link.owner}/${link.repo}#${link.number}` : `${link.id}:`))
-		.sort();
-}
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
@@ -461,6 +277,14 @@ export abstract class IntegrationBase<
 		if (this.connectionExpired) return this.getRefreshedSession();
 
 		return this._session;
+	}
+
+	/** {@link getSession}'s token, for a consumer of the public view, which never sees the session itself. */
+	async getCredential(source: Sources): Promise<IntegrationCredential | undefined> {
+		const session = await this.getSession(source);
+		if (session == null) return undefined;
+
+		return { providerId: this.authProvider.id, accessToken: session.accessToken };
 	}
 
 	private async getRefreshedSession(): Promise<ProviderAuthenticationSession | undefined> {

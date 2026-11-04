@@ -1,11 +1,11 @@
 /* oxlint-disable typescript/require-await */
-import type { Account } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import type { Account as AuthorAccount } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import type { ActionablePullRequestAccount } from '@gitlens/integrations/index.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
@@ -358,7 +358,7 @@ export class CliCommandHandlers implements Disposable {
 }
 
 function serializeLaunchpadItem(item: LaunchpadItem): Record<string, unknown> {
-	const toSafeAccount = (account: Account | AuthorAccount | null) => {
+	const toSafeAccount = (account: ActionablePullRequestAccount | AuthorAccount | null) => {
 		if (!account) return undefined;
 		return {
 			id: account.id,

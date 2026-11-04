@@ -2,7 +2,12 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
+import {
+	createIntegrationManager as createPublicIntegrationManager,
+	isGitHostIntegration,
+	isIssuesIntegration,
+} from '../index.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -224,6 +229,60 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 		const integration = await manager.get(GitCloudHostIntegrationId.Bitbucket);
 		assert.ok(integration != null, 'cloud integration resolves');
 		await assert.doesNotReject(() => integration.isConnected());
+		manager.dispose();
+	});
+});
+
+suite('createIntegrationManager (public facade) — integration-object surface', () => {
+	test('hands out integration views from get and the account-wide read', async () => {
+		const runtime = createFakeRuntime();
+		const { cache: _internalCache, ...context } = runtime;
+		const manager = createPublicIntegrationManager(context);
+
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.equal(github.id, GitCloudHostIntegrationId.GitHub);
+		assert.equal(isGitHostIntegration(github), true);
+		assert.equal(isIssuesIntegration(github), false);
+		assert.equal(await manager.get(GitCloudHostIntegrationId.GitHub), github, 'the same instance on every get');
+
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		assert.equal(isIssuesIntegration(jira), true);
+
+		assert.deepEqual(await manager.getIntegrationsForAccountWideRead(GitCloudHostIntegrationId.GitHub), [github]);
+		assert.equal(
+			await manager.isConnectedForAccountWideRead(GitCloudHostIntegrationId.GitHub),
+			false,
+			'nothing is connected in a fresh runtime',
+		);
+
+		manager.dispose();
+	});
+
+	test('exposes the connect, manage, reset and read members the host drives', async () => {
+		const runtime = createFakeRuntime();
+		const { cache: _internalCache, ...context } = runtime;
+		let managed = false;
+		runtime.account.connect = async () => false;
+		runtime.account.openManagement = async () => {
+			managed = true;
+			return false;
+		};
+		const manager = createPublicIntegrationManager(context);
+
+		assert.equal(
+			await manager.connectCloudIntegrations({ integrationIds: [GitCloudHostIntegrationId.GitHub] }),
+			false,
+			'a declined connect flow reports false',
+		);
+		await manager.manageCloudIntegrations(undefined);
+		assert.equal(managed, true, 'management opens through the host');
+		await assert.doesNotReject(() => manager.reset());
+		const prs = await manager.getMyPullRequests([GitCloudHostIntegrationId.GitHub]);
+		assert.deepEqual(prs?.value, [], 'an unconnected host reads as no pull requests');
+		assert.equal(prs?.error, undefined);
+		assert.equal(manager.ignoreSSLErrors({ id: GitCloudHostIntegrationId.GitHub, domain: 'github.com' }), false);
+		assert.ok(manager.github instanceof Promise, 'the shared GitHub client is handed out as a promise');
+
 		manager.dispose();
 	});
 });

@@ -21,6 +21,7 @@ import {
 	type GetAutolinkReferencesOptions,
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
+	type GitHostIntegration,
 	hostFromDomain,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
@@ -152,7 +153,9 @@ async function main(): Promise<void> {
 
 	await check('manager constructs from a vanilla-Node runtime', () => {
 		const manager = createIntegrationManager(buildRuntime());
-		const providerModelsStayPrivate: 'get' extends keyof typeof manager ? false : true = true;
+		// `get` hands out interface-only views; the provider-apis-typed members of the classes behind them stay private.
+		const providerModelsStayPrivate: 'getMyIssuesForReposResult' extends keyof GitHostIntegration ? false : true =
+			true;
 		const providerClientsStayPrivate: 'apis' extends keyof typeof manager ? false : true = true;
 		assert.ok(manager);
 		assert.equal(providerModelsStayPrivate, true);

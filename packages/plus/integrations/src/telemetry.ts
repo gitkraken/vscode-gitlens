@@ -15,15 +15,3 @@ export type Source = {
 };
 
 export type Sources = string;
-
-/**
- * Maps a telemetry `source`/`detail` to the `&context=` value the package appends when building
- * cloud-connect URLs. Owned here in the package (the host no longer carries a duplicate copy).
- */
-export const sourceToContext: { [source: string]: string | undefined } = {
-	launchpad: 'launchpad',
-};
-
-export const detailToContext: { [detail: string]: string | undefined } = {
-	mcp: 'mcp',
-};

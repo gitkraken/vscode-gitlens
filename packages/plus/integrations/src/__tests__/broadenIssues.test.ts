@@ -11,8 +11,8 @@ import {
 } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderIssueSearchPage } from '../models/issueReads.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import type { ProviderIssue, ProviderReposInput, ProviderRepository } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub, connectedGitLab, primarySession } from './sweepHelpers.js';

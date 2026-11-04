@@ -1,6 +1,6 @@
 import type { IssueSyncedWith } from '@gitlens/git/models/issue.js';
-import type { IssueEtagFields } from '../models/integration.js';
-import { linearSyncedWithEtagKeys } from '../models/integration.js';
+import type { IssueEtagFields } from '../reads/etag.js';
+import { linearSyncedWithEtagKeys } from '../reads/etag.js';
 import type { ProviderRequestFunction } from './models.js';
 import { isLinearRateLimitedBody } from './providerErrors.js';
 

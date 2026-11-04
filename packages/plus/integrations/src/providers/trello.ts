@@ -11,7 +11,8 @@ import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
-import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
+import { providersMetadata } from './metadata.js';
+import { fromProviderIssue, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Trello];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

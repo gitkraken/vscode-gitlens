@@ -15,10 +15,7 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
-import {
-	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '@gitlens/integrations/providers/models.js';
+import { getActionablePullRequests, toActionablePullRequestInput } from '@gitlens/integrations/index.js';
 import { formatMergeQueueRemoval } from '../../integrations/utils/pullRequest.mergeQueue.utils.js';
 import { getPullRequestsCacheExpiresAt, getSuggestedActions, isLaunchpadItemStale } from '../launchpadProvider.js';
 import type { LaunchpadActionCategory } from '../models/launchpad.js';
@@ -96,7 +93,7 @@ function createEntry(state: PullRequestMergeQueueState): PullRequestMergeQueueEn
 
 /** What the Launchpad provider does: the shared verdict, then the merge-queue override. */
 function categorize(pr: PullRequest): LaunchpadActionCategory {
-	const [item] = getActionablePullRequests([toProviderPullRequestWithUniqueId(pr)], { id: me.id });
+	const [item] = getActionablePullRequests([toActionablePullRequestInput(pr)], { id: me.id });
 	return getLaunchpadActionCategory(item.suggestedActionCategory, pr);
 }
 
@@ -104,7 +101,7 @@ suite('Launchpad merge queue categorization', () => {
 	test('the shared categorizer calls a queued, approved, green pull request ready to merge', () => {
 		// The premise of the override — if this starts failing, provider-apis learned about queues.
 		const pr = createReadyPullRequest(createEntry(PullRequestMergeQueueState.Queued));
-		const [item] = getActionablePullRequests([toProviderPullRequestWithUniqueId(pr)], { id: me.id });
+		const [item] = getActionablePullRequests([toActionablePullRequestInput(pr)], { id: me.id });
 		assert.strictEqual(item.suggestedActionCategory, 'readyToMerge');
 	});
 

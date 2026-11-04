@@ -11,9 +11,9 @@ import {
 } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
-import type { GitConfigEntityIdentifier } from '../providers/models.js';
 import { markRequestError } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import type { GitConfigEntityIdentifier } from '../providers/utils.js';
 import {
 	encodeIssueOrPullRequestForGitConfig,
 	getIssueFromGitConfigEntityIdentifier,

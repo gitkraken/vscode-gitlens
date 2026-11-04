@@ -11,8 +11,8 @@ import {
 } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { ProviderSweepTargetEvent, PullRequestSweepOptions } from '../manager.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderPullRequest } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
 import { isGitSelfManagedHostIntegrationId, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub, primarySession, providerPr, stubApi } from './sweepHelpers.js';

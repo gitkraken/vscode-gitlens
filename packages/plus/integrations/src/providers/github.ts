@@ -38,25 +38,28 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
-	IssueEtagFields,
-	IssueEtagInclude,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
-	PullRequestEtagFields,
-	PullRequestEtagInclude,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type {
+	IssueEtagFields,
+	IssueEtagInclude,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiPagedResult,
 	ProviderHierarchyResult,
@@ -64,15 +67,9 @@ import type {
 	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
-import {
-	getProviderPullRequestIdentity,
-	IssueFilter,
-	providersMetadata,
-	PullRequestFilter,
-	stampNativePullRequest,
-} from './models.js';
+import { getProviderPullRequestIdentity, IssueFilter, PullRequestFilter, stampNativePullRequest } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { resolveBranchPullRequests } from './utils/providerPaging.js';
+import { providerFanOutConcurrency, resolveBranchPullRequests } from './utils/providerPaging.js';
 
 type GitHubPullRequestFacetCursor = Record<string, string>;
 

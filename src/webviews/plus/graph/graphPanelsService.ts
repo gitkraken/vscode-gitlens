@@ -16,12 +16,14 @@ import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import { getPullRequestFieldPresence } from '@gitlens/integrations/index.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import { getAzureRepositoryIdentity } from '@gitlens/integrations/providers/azure/azure.utils.js';
-import { toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
-import { isAzureProviderId } from '@gitlens/integrations/providers/providerErrors.js';
-import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
+import type { GitHostIntegration } from '@gitlens/integrations/index.js';
+import {
+	getAzureRepositoryIdentity,
+	getIntegrationIdForRemote,
+	getPullRequestFieldPresence,
+	isAzureProviderId,
+	toActionablePullRequestInput,
+} from '@gitlens/integrations/index.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
@@ -995,7 +997,7 @@ export class GraphPanelsService {
 			// conversion drops just that one.
 			for (const pr of prs) {
 				try {
-					const providerPr = toProviderPullRequestWithUniqueId(pr);
+					const providerPr = toActionablePullRequestInput(pr);
 					prsByUuid.set(providerPr.uuid, pr);
 					// The shared pull request model carries no provider reference, and the per-integration
 					// split keys on it.

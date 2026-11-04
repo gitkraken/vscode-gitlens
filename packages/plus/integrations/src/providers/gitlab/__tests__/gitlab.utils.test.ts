@@ -7,7 +7,7 @@ import {
 	selectGitLabUserForCommit,
 	splitOwnerAndRepo,
 } from '../gitlab.utils.js';
-import type { GitLabUser } from '../models.js';
+import type { GitLabUser } from '../gitlab.utils.js';
 
 suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {

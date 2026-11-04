@@ -1,13 +1,10 @@
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import { effectiveIssueSort } from '@gitlens/git/utils/issue.utils.js';
 import type { IntegrationIds } from '../constants.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolveIssueSearchCriteria, resolveIssueSearchScope } from './filters.js';

@@ -15,7 +15,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import {
 	AuthenticationError,
@@ -26,12 +26,12 @@ import {
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { RepositoryCoordinate } from '../models/gitHostIntegration.js';
 import type {
-	IntegrationKey,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
+import type { IntegrationKey } from '../models/publicIntegration.js';
 import { getAzureRepositoryIdentity } from './azure/azure.utils.js';
 import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
@@ -58,6 +58,7 @@ import {
 	toAzureReviewerReads,
 	uniqueAzureNames,
 } from './azureDevOps.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderAzureResource,
@@ -68,13 +69,13 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
-	providersMetadata,
 	PullRequestFilter,
 	pullRequestNamesPeople,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
+import { providerFanOutConcurrency } from './utils/providerPaging.js';
 
 /**
  * Whether `value` can stand as one route segment. Encoding keeps `.` and `..` as they are, and a URL resolves them

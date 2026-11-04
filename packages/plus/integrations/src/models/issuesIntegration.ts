@@ -9,19 +9,16 @@ import { mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession, SessionPublication } from '../authentication/models.js';
 import { failsEveryScope } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
+import type { LinearIntegration } from '../providers/linear.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
-import type {
-	BatchSlot,
-	Integration,
-	IntegrationResult,
-	IntegrationType,
-	IssueEtagFields,
-	IssueEtagInclude,
-} from './integration.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
+import type { IssueEtagFields, IssueEtagInclude } from '../reads/etag.js';
+import type { BatchSlot, Integration } from './integration.js';
 import { IntegrationBase, isReadSessionFailure } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from './issueReads.js';
+import type { IntegrationResult, IssuesIntegration as IssuesIntegrationView } from './publicIntegration.js';
 
 /**
  * Groups requests into searches of at most `maxPerSearch` projects sharing `searchKey`. Undefined, reading
@@ -75,8 +72,9 @@ export function splitProjectIssuesSearch<I>(
 	return split;
 }
 
-export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
-	return integration.type === 'issues';
+/** By id: the provider class is loaded lazily, so it can't be checked with `instanceof` here. */
+export function isLinearIntegration(integration: Integration): integration is LinearIntegration {
+	return integration.id === IssuesCloudHostIntegrationId.Linear;
 }
 
 function sessionPublicationKey(id: string, cloud: boolean | undefined): string {
@@ -86,8 +84,11 @@ function sessionPublicationKey(id: string, cloud: boolean | undefined): string {
 export abstract class IssuesIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> extends IntegrationBase<ID> {
-	readonly type: IntegrationType = 'issues';
+>
+	extends IntegrationBase<ID>
+	implements IssuesIntegrationView
+{
+	readonly type = 'issues';
 	private _discoverySequence = 0;
 	private _globalRetirement = 0;
 	private _primaryPublication = 0;

@@ -38,8 +38,10 @@ import {
 	unsettledMissMessage,
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { ProviderRepositoriesInput } from '../manager.js';
+import { PagingMode } from '../providers/metadata.js';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -56,9 +58,9 @@ import type {
 	ProviderRepository,
 } from '../providers/models.js';
 import {
+	fromProviderPullRequest,
 	isRepoIdsInput,
 	IssueFilter,
-	PagingMode,
 	PullRequestFilter,
 	toIssueShape,
 	toProviderIssueStates,
@@ -66,24 +68,35 @@ import {
 } from '../providers/models.js';
 import { isAzureProviderId } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
-import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
+import {
+	mergeCollectionMetadata,
+	providerFanOutConcurrency,
+	throwIfAllSettledFailed,
+} from '../providers/utils/providerPaging.js';
+import type {
+	IssueEtagFields,
+	IssueEtagInclude,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../reads/etag.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { getSelfManagedBaseUrl, isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
 	BatchSlot,
-	IntegrationResult,
-	IntegrationType,
-	IssueEtagFields,
-	IssueEtagInclude,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
-	PullRequestEtagFields,
-	PullRequestEtagInclude,
 } from './integration.js';
 import { IntegrationBase, isReadSessionFailure } from './integration.js';
 import type { MyIssuesForReposOptions } from './issueReads.js';
+import type {
+	GitHostIntegration as GitHostIntegrationView,
+	IntegrationResult,
+	MyPullRequestsForReposOptions,
+	SearchMyPullRequestsOptions,
+	SearchPullRequestsOptions,
+} from './publicIntegration.js';
 
 /**
  * Whether an SDK read for `providerId` must send the session's secret as an HTTP Basic credential.
@@ -100,50 +113,6 @@ function sendsBasicCredential(providerId: IntegrationIds, session: ProviderAuthe
 function resolveScopeConcurrency(value: number | undefined): number {
 	return value != null && Number.isFinite(value) && value >= 1 ? Math.trunc(value) : providerFanOutConcurrency;
 }
-
-/** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
-export type SearchMyPullRequestsOptions = {
-	/** Suppresses the user-facing notification when the read fails. */
-	silent?: boolean;
-	/**
-	 * PR states to include (open/closed/merged/all). Providers that cannot express it in a single query
-	 * filter the normalized results; omitted preserves the historical open-only behavior.
-	 */
-	state?: PullRequestStateFilter;
-	includeReviewRequested?: boolean;
-};
-
-/** Read options for {@link GitHostIntegration.searchPullRequests} and the provider hook behind it. */
-export type SearchPullRequestsOptions = {
-	/** PR states to include; omitted preserves the provider's default. */
-	include?: PullRequestState[];
-};
-
-type MyPullRequestsForReposOptions = {
-	filters?: PullRequestFilter[];
-	cursor?: string;
-	customUrl?: string;
-	page?: number;
-	pageSize?: number;
-	/** PR states to include; when omitted the provider returns its default (open only). */
-	state?: PullRequestStateFilter | PullRequestStateFilter[];
-	/** Requests the lightweight row shape without per-row build status or commit count. */
-	summary?: boolean;
-	/**
-	 * Most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts that read repository
-	 * by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps;
-	 * GitHub/GHE send one query whatever the repo count. A value that isn't a finite number >= 1 falls back to the
-	 * default.
-	 */
-	scopeConcurrency?: number;
-	/**
-	 * Azure DevOps only, repo-scoped: `false` skips the lookup that fills each row's clone URLs, saving one
-	 * request per repository (and fork source) per page. Rows then carry no `refs.base.url`/`refs.head.url`
-	 * (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be checked out or matched to local
-	 * remotes. Defaults to `true`; other providers ignore it.
-	 */
-	includeRemoteInfo?: boolean;
-};
 
 /** A repository as the batch and branch reads name it. */
 export type RepositoryCoordinate = { owner: string; repo: string; project?: string };
@@ -212,8 +181,11 @@ const summaryPullRequestFields: Required<GitHubPullRequestFieldMap> = {
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> extends IntegrationBase<ID> {
-	readonly type: IntegrationType = 'git';
+>
+	extends IntegrationBase<ID>
+	implements GitHostIntegrationView
+{
+	readonly type = 'git';
 
 	/** The self-managed installation `session` addresses, validated against this integration's host. */
 	protected getSelfManagedInstallationUrl(session: ProviderAuthenticationSession): string {
@@ -1579,12 +1551,20 @@ export abstract class GitHostIntegration<
 		return { value: { ...value, values: values }, duration: result.duration };
 	}
 
+	/**
+	 * The current user's pull requests (or, without `filters`, every pull request) in `reposOrRepoIds`, one page at a
+	 * time; `undefined` when the read failed. {@link getMyPullRequestsForReposResult} keeps the error and the SDK's
+	 * collection metadata.
+	 */
 	async getMyPullRequestsForRepos(
-		reposOrRepoIds: ProviderReposInput,
+		reposOrRepoIds: ProviderRepositoriesInput,
 		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
-	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
-		return (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
+	): Promise<PagedResult<PullRequest> | undefined> {
+		const result = (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
+		if (result == null) return undefined;
+
+		return { paging: result.paging, values: result.values.map(pr => fromProviderPullRequest(pr, this)) };
 	}
 
 	/**

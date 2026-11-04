@@ -10,7 +10,7 @@ import {
 	getStackedMergeCount,
 	isPullRequestInMergeQueue,
 } from '@gitlens/git/utils/pullRequest.utils.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import type { GitHostIntegration } from '@gitlens/integrations/index.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { toAbortSignal } from '../../../../system/-webview/cancellation.js';

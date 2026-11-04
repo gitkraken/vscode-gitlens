@@ -3,10 +3,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { PullRequestMember } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
-import {
-	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '@gitlens/integrations/providers/models.js';
+import { getActionablePullRequests, toActionablePullRequestInput } from '@gitlens/integrations/index.js';
 import { getViewerAccountKey } from '../launchpadIdentity.js';
 import { canonicalizeViewerIdentity, categorizePullRequests } from '../launchpadProvider.js';
 
@@ -60,7 +57,7 @@ function createAccount(id: string, username: string): Account {
 }
 
 function categorize(pr: PullRequest, account: Account, canonicalize: boolean) {
-	const providerPr = toProviderPullRequestWithUniqueId(pr);
+	const providerPr = toActionablePullRequestInput(pr);
 	const input = canonicalize ? canonicalizeViewerIdentity(providerPr, pr, account) : providerPr;
 	return getActionablePullRequests([input], { id: account.id })[0];
 }
@@ -106,7 +103,7 @@ suite('Launchpad viewer identity matching', () => {
 		const pr = createPullRequest(other, viewer);
 		const account = createAccount('guid-viewer', 'Eric Amodio');
 
-		const providerPr = toProviderPullRequestWithUniqueId(pr);
+		const providerPr = toActionablePullRequestInput(pr);
 		assert.strictEqual(
 			canonicalizeViewerIdentity(providerPr, pr, account),
 			providerPr,
@@ -126,7 +123,7 @@ suite('Launchpad viewer identity matching', () => {
 		const pr = Object.assign(createPullRequest(other, viewer), { viewer: { id: 'org-id' } });
 		const account = createAccount('profile-id', 'Eric Amodio');
 
-		const canonicalized = canonicalizeViewerIdentity(toProviderPullRequestWithUniqueId(pr), pr, account);
+		const canonicalized = canonicalizeViewerIdentity(toActionablePullRequestInput(pr), pr, account);
 		assert.strictEqual(canonicalized.author?.id, 'guid-other');
 		assert.strictEqual(canonicalized.reviews?.[0].reviewer.id, 'profile-id');
 
@@ -142,7 +139,7 @@ suite('Launchpad viewer identity matching', () => {
 		const pr = createPullRequest(other, viewer);
 		const account = createAccount('123456', 'eamodio');
 
-		const canonicalized = canonicalizeViewerIdentity(toProviderPullRequestWithUniqueId(pr), pr, account);
+		const canonicalized = canonicalizeViewerIdentity(toActionablePullRequestInput(pr), pr, account);
 		assert.strictEqual(canonicalized.author?.id, 'someone');
 		assert.strictEqual(canonicalized.reviews?.[0].reviewer.id, '123456');
 	});
@@ -160,7 +157,7 @@ suite('Launchpad viewer identity matching', () => {
 		const viewerOnB: PullRequestMember = { id: 'b-42', name: 'Me on B', username: 'me-b' };
 		const author: PullRequestMember = { id: 'b-7', name: 'Someone', username: 'someone' };
 		const pr = createPullRequest(author, viewerOnB);
-		const prOnB = { ...toProviderPullRequestWithUniqueId(pr), provider: hostB };
+		const prOnB = { ...toActionablePullRequestInput(pr), provider: hostB };
 
 		assert.notStrictEqual(getViewerAccountKey(hostA), getViewerAccountKey(hostB));
 		assert.strictEqual(getViewerAccountKey(githubProvider), 'github', 'a cloud provider keeps its id as the key');

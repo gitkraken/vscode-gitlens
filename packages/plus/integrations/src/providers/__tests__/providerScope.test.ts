@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import { PagingMode, resolveProviderScope } from '../models.js';
+import { PagingMode } from '../metadata.js';
+import { resolveProviderScope } from '../models.js';
 
 /**
  * Covers the org/project scope façade (#5435): a single ProviderScope resolves to the provider-appropriate

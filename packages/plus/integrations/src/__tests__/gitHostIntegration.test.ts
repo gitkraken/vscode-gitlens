@@ -14,7 +14,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationKey } from '../models/integration.js';
+import type { IntegrationKey } from '../models/publicIntegration.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**

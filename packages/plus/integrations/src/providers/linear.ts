@@ -15,9 +15,8 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ConnectionResource, ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError, toError } from '../errors.js';
-import type { IntegrationResult, IssueEtagFields } from '../models/integration.js';
 import { isReadSessionFailure } from '../models/integration.js';
 import type {
 	AccountWideIssuesResult,
@@ -31,19 +30,26 @@ import {
 	IssuesIntegration,
 	splitProjectIssuesSearch,
 } from '../models/issuesIntegration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { IssueFilter } from '../providerFilters.js';
+import type { IssueEtagFields } from '../reads/etag.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { linearIssuesEtagMaxNumbers, toLinearIssueEtagFields } from './linearIssuesEtag.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderHierarchyResult,
 	ProviderIssue,
 	ProviderLinearProject,
 } from './models.js';
-import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
+import { fromProviderIssue, toIssueShape, toProviderIssueStates } from './models.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	mergeCollectionMetadata,
+	providerFanOutConcurrency,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

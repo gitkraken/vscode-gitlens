@@ -4,15 +4,20 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { getIssueFieldPresence } from '../fieldPresence.js';
+import type { BatchSlot } from '../models/integration.js';
 import type {
-	BatchSlot,
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-} from '../models/integration.js';
-import { pullRequestEtagIncludes } from '../models/integration.js';
-import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
+} from '../reads/etag.js';
+import {
+	issueEtag,
+	issueEtagFieldsFromShape,
+	pullRequestEtag,
+	pullRequestEtagFieldsFromShape,
+	pullRequestEtagIncludes,
+} from '../reads/etag.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import type { GitHubPullRequestFixture, GitHubPullRequestFixtureOverrides } from './githubFixtures.js';

@@ -7,8 +7,9 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import { BitbucketServerIntegration } from '../providers/bitbucket-server.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderIssue, ProviderPullRequest } from '../providers/models.js';
-import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
+import { IssueFilter, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**

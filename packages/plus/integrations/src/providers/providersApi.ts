@@ -28,7 +28,6 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
-	providerFanOutConcurrency,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
@@ -58,6 +57,8 @@ import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { requestLinearIssuesEtagFields } from './linearIssuesEtag.js';
+import type { PagingMode } from './metadata.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
@@ -72,7 +73,6 @@ import type {
 	JiraIssuePage,
 	PageInfo,
 	PagingInput,
-	PagingMode,
 	ProviderAccount,
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
@@ -101,13 +101,14 @@ import type {
 	Providers,
 	PullRequestFilter,
 } from './models.js';
-import { isRepoIdsInput, providersMetadata } from './models.js';
+import { isRepoIdsInput } from './models.js';
 import { createProviderApiRequest } from './providerApiClient.js';
 import { isAzureProviderId, isProviderIssueNotFoundError, throwProviderError } from './providerErrors.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
 	parsePageCursor,
+	providerFanOutConcurrency,
 	toPageCursor,
 } from './utils/providerPaging.js';
 

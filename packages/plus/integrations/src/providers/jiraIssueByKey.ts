@@ -1,5 +1,5 @@
 import { trimTrailingSlashes } from '@gitlens/utils/path.js';
-import type { IssueEtagFields } from '../models/integration.js';
+import type { IssueEtagFields } from '../reads/etag.js';
 import type { ProviderAccount, ProviderIssue, ProviderRequestFunction } from './models.js';
 
 const jiraCloudApiUrl = 'https://api.atlassian.com/ex/jira';

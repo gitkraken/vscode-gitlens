@@ -6,7 +6,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import type { ProviderPullRequest, ProviderRepository } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { primarySession, providerPr, stubApi } from './sweepHelpers.js';

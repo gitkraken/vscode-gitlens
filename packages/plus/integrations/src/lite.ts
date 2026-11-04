@@ -29,7 +29,7 @@ import type { ProviderApiConfig } from './providers/apiConfig.js';
 import { AzureDevOpsApi } from './providers/azure/azure.js';
 import { BitbucketApi } from './providers/bitbucket/bitbucket.js';
 import { GitLabApi } from './providers/gitlab/gitlab.js';
-import { providersMetadata } from './providers/models.js';
+import { providersMetadata } from './providers/metadata.js';
 
 /** The git-hosting integrations that expose a token-scoped read path here. */
 export type TokenScopedGitHostId =

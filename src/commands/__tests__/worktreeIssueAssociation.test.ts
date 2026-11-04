@@ -5,7 +5,7 @@ import { commands, Uri, window } from 'vscode';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
-import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/models.js';
+import type { GitConfigEntityIdentifier } from '@gitlens/integrations/index.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';

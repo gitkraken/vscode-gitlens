@@ -26,7 +26,7 @@ import {
 	RequestNotFoundError,
 	toRateLimitError,
 } from '../../errors.js';
-import type { PullRequestEtagInclude } from '../../models/integration.js';
+import type { PullRequestEtagInclude } from '../../reads/etag.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';

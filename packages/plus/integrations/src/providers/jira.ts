@@ -13,8 +13,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import type { IssueEtagFields } from '../models/integration.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
@@ -23,10 +22,12 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
 import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
+import type { IssueEtagFields } from '../reads/etag.js';
 import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js';
+import { providersMetadata } from './metadata.js';
 import type { ProviderApiCollectionResult } from './models.js';
-import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
+import { toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
@@ -38,7 +39,11 @@ import {
 	summarizePageMetadata,
 	toUniqueJiraIssueShapes,
 } from './utils/jiraIssueDrains.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	mergeCollectionMetadata,
+	providerFanOutConcurrency,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });

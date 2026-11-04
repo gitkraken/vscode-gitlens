@@ -3,7 +3,7 @@ import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, teardown, test } from 'mocha';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestNotFoundError } from '../errors.js';
 import { createIntegrationService } from '../integrationService.js';
 import {
@@ -22,6 +22,7 @@ import { AzureWorkItemStatesCache } from '../providers/azure/workItemStateCatego
 import type { ProviderIssue } from '../providers/models.js';
 import { fromProviderIssue, toIssueShape } from '../providers/models.js';
 import { ProvidersApi } from '../providers/providersApi.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
 import { issueEtag, issueEtagFieldsFromShape } from '../reads/etag.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedAzure, primarySession } from './sweepHelpers.js';

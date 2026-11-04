@@ -5,8 +5,6 @@ import { AuthenticationErrorReason } from '@gitlens/git/errors.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { IntegrationServiceContext } from '../../context.js';
 
-export { GitHubApi } from '@gitlens/git-github/api/github.js';
-
 export function createGitHubApi(ctx: IntegrationServiceContext): GitHubApi {
 	const launchpad = () => ctx.config.getLaunchpadOptions();
 

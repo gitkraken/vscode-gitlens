@@ -11,7 +11,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { PullRequestFilter } from '../providerFilters.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import type { ProviderReadContext } from '../reads/context.js';
 import { resolvePullRequestSearchCriteria } from '../reads/filters.js';
 import { searchPullRequestsPage } from '../reads/searchPullRequests.js';

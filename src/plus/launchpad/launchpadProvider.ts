@@ -1,10 +1,17 @@
-import type { EnrichedItemsByUniqueId, PullRequestWithUniqueID } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, l10n, Uri } from 'vscode';
+import { isMaybeGitHubPullRequestUrl } from '@gitlens/git-github/api/github.utils.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
-import type { PullRequest, PullRequestMember, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMember,
+	PullRequestRefs,
+	PullRequestRepositoryIdentityDescriptor,
+	PullRequestStackInfo,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -22,24 +29,24 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	isIntegrationId,
-	providerFanOutConcurrency,
 } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
-import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
-import { isMaybeGitLabPullRequestUrl, splitOwnerAndRepo } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
 import type {
-	EnrichablePullRequest,
-	ProviderAccount,
-	ProviderActionablePullRequest,
-} from '@gitlens/integrations/providers/models.js';
+	ActionablePullRequest,
+	ActionablePullRequestAccount,
+	ActionablePullRequestEnrichedItems,
+	ActionablePullRequestInput,
+	ConnectionStateChangeEvent,
+	GitHostIntegration,
+	IntegrationResult,
+} from '@gitlens/integrations/index.js';
 import {
 	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '@gitlens/integrations/providers/models.js';
-import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
-import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+	hostFromDomain,
+	isMaybeGitLabPullRequestUrl,
+	isSelfManagedHostIntegrationId,
+	splitOwnerAndRepo,
+	toActionablePullRequestInput,
+} from '@gitlens/integrations/index.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -138,7 +145,25 @@ export function getSuggestedActions(
 	return actions;
 }
 
-export type LaunchpadPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
+/** How many integrations Launchpad reads from at once. */
+export const launchpadFanOutConcurrency = 6;
+
+/**
+ * A pull request ready for categorization, carrying what Launchpad needs to act on it afterwards. Built on
+ * {@link ActionablePullRequestInput} (not our own {@link PullRequest} model): it is handed to
+ * `getActionablePullRequests`, which categorizes by review state and only knows the provider vocabulary.
+ * {@link toActionablePullRequestInput} is what narrows `reviews` down to it.
+ */
+export type EnrichablePullRequest = ActionablePullRequestInput & {
+	type: 'pullrequest';
+	provider: ProviderReference;
+	enrichable: EnrichableItem;
+	repoIdentity: PullRequestRepositoryIdentityDescriptor;
+	refs?: PullRequestRefs;
+	underlyingPullRequest: PullRequest;
+};
+
+export type LaunchpadPullRequest = EnrichablePullRequest & ActionablePullRequest;
 
 export type LaunchpadItem = LaunchpadPullRequest & {
 	currentViewer: Account;
@@ -279,10 +304,10 @@ export function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLa
  * place both halves — our model for the handles, the account for the id — are in hand.
  */
 export function canonicalizeViewerIdentity(
-	providerPr: PullRequestWithUniqueID,
+	providerPr: ActionablePullRequestInput,
 	pr: PullRequest,
 	account: Account,
-): PullRequestWithUniqueID {
+): ActionablePullRequestInput {
 	// Ids matching the account's need no rewrite; this collects the ones only the handle or the row's viewer identify.
 	const viewerIds = new Set<string>();
 	const viewerId = pr.viewer?.id !== account.id ? pr.viewer?.id : undefined;
@@ -300,7 +325,8 @@ export function canonicalizeViewerIdentity(
 	pr.latestReviews?.forEach(r => collect(r.reviewer));
 	if (!viewerIds.size) return providerPr;
 
-	const rewrite = (person: ProviderAccount) => (viewerIds.has(person.id) ? { ...person, id: account.id } : person);
+	const rewrite = (person: ActionablePullRequestAccount) =>
+		viewerIds.has(person.id) ? { ...person, id: account.id } : person;
 
 	return {
 		...providerPr,
@@ -312,8 +338,8 @@ export function canonicalizeViewerIdentity(
 
 function getEnrichedItemsForHost(
 	provider: { id: string; domain?: string },
-	enrichedItems: EnrichedItemsByUniqueId | undefined,
-): EnrichedItemsByUniqueId | undefined {
+	enrichedItems: ActionablePullRequestEnrichedItems | undefined,
+): ActionablePullRequestEnrichedItems | undefined {
 	if (enrichedItems == null || !isIntegrationId(provider.id) || !isSelfManagedHostIntegrationId(provider.id)) {
 		return enrichedItems;
 	}
@@ -323,7 +349,7 @@ function getEnrichedItemsForHost(
 
 	// Persisted UUIDs can omit the host. Filter before categorizing so the SDK owns pin priority and snooze state.
 	// Compare hosts, not paths: repository renames must not orphan pins. Legacy items without a URL stay usable.
-	const own: EnrichedItemsByUniqueId = {};
+	const own: ActionablePullRequestEnrichedItems = {};
 	for (const [uuid, items] of Object.entries(enrichedItems)) {
 		const matching = items.filter(item => {
 			const url = URL.canParse(item.entityUrl) ? new URL(item.entityUrl) : undefined;
@@ -345,10 +371,10 @@ function getEnrichedItemsForHost(
  *
  *  `options.viewer: 'none'` categorizes with no viewer at all — see below. */
 export function categorizePullRequests(
-	pullRequests: (PullRequestWithUniqueID & { provider: { id: string; domain?: string } })[],
+	pullRequests: (ActionablePullRequestInput & { provider: { id: string; domain?: string } })[],
 	currentUsers: Map<string, Account> | undefined,
-	options?: { enrichedItemsByUniqueId?: EnrichedItemsByUniqueId; viewer?: 'current' | 'none' },
-): ProviderActionablePullRequest[] {
+	options?: { enrichedItemsByUniqueId?: ActionablePullRequestEnrichedItems; viewer?: 'current' | 'none' },
+): ActionablePullRequest[] {
 	// The last resort for a caller that can't resolve an account at all. It gives up every viewer-relative
 	// category (`needsMyReview` becomes unreachable) and, worse, ungates every author-side one, so each fires
 	// for every pull request — a caller asking for it owes its rows the demotions that keeps honest, at
@@ -360,10 +386,10 @@ export function categorizePullRequests(
 
 	const pullRequestsByViewer = groupByMap<
 		string,
-		PullRequestWithUniqueID & { provider: { id: string; domain?: string } }
+		ActionablePullRequestInput & { provider: { id: string; domain?: string } }
 	>(pullRequests, pr => getViewerAccountKey(pr.provider));
 
-	const actionablePullRequests: ProviderActionablePullRequest[] = [];
+	const actionablePullRequests: ActionablePullRequest[] = [];
 	for (const [viewerKey, prs] of pullRequestsByViewer.entries()) {
 		const currentUser = currentUsers?.get(viewerKey);
 		if (currentUser == null) {
@@ -526,7 +552,7 @@ export class LaunchpadProvider implements Disposable {
 
 		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
 
-		const results = await mapSettledBounded(integrations, providerFanOutConcurrency, async integration => {
+		const results = await mapSettledBounded(integrations, launchpadFanOutConcurrency, async integration => {
 			const searchResult = await searchIntegrationPRs(integration);
 			const prs = searchResult?.value;
 			if (prs) {
@@ -989,7 +1015,7 @@ export class LaunchpadProvider implements Disposable {
 			const myAccounts = await this.getViewerAccounts(filteredPrs);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
-				const providerPr = toProviderPullRequestWithUniqueId(pr);
+				const providerPr = toActionablePullRequestInput(pr);
 
 				const providerId = pr.provider.id;
 
@@ -1149,7 +1175,7 @@ export class LaunchpadProvider implements Disposable {
 		}
 
 		const accounts = new Map<string, Account>();
-		await mapSettledBounded([...providers], providerFanOutConcurrency, async ([key, provider]) => {
+		await mapSettledBounded([...providers], launchpadFanOutConcurrency, async ([key, provider]) => {
 			if (!isSupportedLaunchpadIntegrationId(provider.id)) return;
 
 			const integration = await this.container.integrations.get(provider.id, provider.domain);

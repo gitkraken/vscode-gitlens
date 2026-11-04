@@ -5,14 +5,15 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { PagingMode, providersMetadata } from '../providers/metadata.js';
 import type {
 	ProviderIssue,
 	ProviderPullRequest,
 	ProviderReposInput,
 	ProviderRepository,
 } from '../providers/models.js';
-import { PagingMode, providersMetadata, PullRequestFilter } from '../providers/models.js';
+import { PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**

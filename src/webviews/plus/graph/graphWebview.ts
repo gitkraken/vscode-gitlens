@@ -40,7 +40,7 @@ import {
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
 	isIssuesHostIntegrationId,
-} from '@gitlens/integrations/utils/integration.utils.js';
+} from '@gitlens/integrations/index.js';
 import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';

@@ -2,7 +2,7 @@ import type { RefSet } from '@gitlens/git/models/autolink.js';
 import { isIncompleteCollection } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import type { GetAutolinkReferencesOptions } from '../manager.js';
-import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { isIssuesIntegration } from '../models/publicIntegration.js';
 import { createIssueAutolinkReferences } from '../providers/utils/issueAutolinks.js';
 import type { ProviderReadContext } from './context.js';
 

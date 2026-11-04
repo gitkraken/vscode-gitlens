@@ -2,13 +2,13 @@ import type { GitBuildStatus } from '@gitkraken/provider-apis';
 import type { PullRequestProjection, PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { Integration } from '../../models/integration.js';
 import type {
-	Integration,
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-} from '../../models/integration.js';
+} from '../../reads/etag.js';
 import type { ProviderPullRequest } from '../models.js';
 import {
 	fromProviderPullRequest,
@@ -21,16 +21,6 @@ import {
 	toStatusCheckRollupState,
 } from '../models.js';
 import { decideProviderReviewDecision, fromPullRequestReviewDecision } from '../pullRequestReviews.js';
-
-export interface GitLabUser {
-	id: number;
-	name: string;
-	username: string;
-	publicEmail: string | undefined;
-	state: string;
-	avatarUrl: string | undefined;
-	webUrl: string;
-}
 
 /** A user's SSH key as returned by `GET /users/:id/keys`. */
 export interface GitLabSshKey {

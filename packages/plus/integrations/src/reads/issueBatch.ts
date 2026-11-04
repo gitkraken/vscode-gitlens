@@ -1,25 +1,21 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { IntegrationIds, IssuesHostIntegrationIds } from '../constants.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import type { IssueEtagInclude } from '../models/integration.js';
-import { issueEtagIncludes } from '../models/integration.js';
-import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { isGitHostIntegration, isIssuesIntegration } from '../models/publicIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
-import type { ProviderResult, ProviderWarning } from '../results.js';
+import type { IssueBatchResult, IssueBatchTarget, ProviderResult, ProviderWarning } from '../results.js';
 import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	isIssuesSelfManagedHostIntegrationId,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, isIssuesSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { EtaggedBatchRow } from './batchEtags.js';
 import { readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
+import type { IssueEtagInclude } from './etag.js';
 import {
 	findInvalidIssueEtagInclude,
 	issueEtag,
 	issueEtagFieldsFromShape,
+	issueEtagIncludes,
 	normalizeIssueEtagIncludes,
 } from './etag.js';
 import {
@@ -59,82 +55,8 @@ import {
  * one call and etags its rows.
  */
 
-/** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
-export type IssueBatchTarget =
-	/**
-	 * A git host's issue, by repository coordinate. GitHub/GHE, GitLab (and self-managed) and Azure DevOps (and
-	 * Server); Bitbucket and Bitbucket Data Center have no issues and refuse.
-	 */
-	| {
-			key: string;
-			/** GitHub owner, GitLab namespace path (may be nested), or Azure DevOps organization (or collection). */
-			owner: string;
-			/**
-			 * Repository name. Required, but ignored on Azure DevOps, whose work items belong to the project rather
-			 * than to a repository; there it only names the project of a project-less Azure DevOps Server path read
-			 * behind a virtual directory (`{vdir}/{collection}/_git/{repo}` as owner `{vdir}`, project `{collection}`).
-			 */
-			repo: string;
-			/** Issue number, GitLab issue iid, or Azure DevOps work item id. */
-			number: number;
-			/** Azure DevOps project. Required there, ignored elsewhere. */
-			project?: string;
-			/** The {@link IssueBatchResult.etag} of the copy the caller holds; see {@link IssueBatchResult}. */
-			etag?: string;
-	  }
-	/**
-	 * An issue tracker's issue, by its own identifier (e.g. `ABC-123`) within a resource. Jira (Cloud and Data
-	 * Center) and Linear. For Jira Data Center `resourceId` is the host — the instance's single resource, as
-	 * `listOrgs` reports it — and `resourceUrl` is not needed, since the browser link is built from the
-	 * connection's own base URL; Jira Cloud requires it.
-	 */
-	| {
-			key: string;
-			resourceId: string;
-			resourceUrl?: string;
-			identifier: string;
-			/**
-			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud and Linear;
-			 * every other tracker accepts it but reads the issue in full.
-			 */
-			etag?: string;
-	  };
-
 type CoordinateTarget = Extract<IssueBatchTarget, { owner: string }>;
 type TrackerTarget = Extract<IssueBatchTarget, { resourceId: string }>;
-
-/**
- * The answer for one {@link IssueBatchTarget}, in one of four states:
- * - `{ key, issue, etag }` — read in full. Every fully read row carries an `etag`, whether or not the caller sent
- *   one, so a caller can seed its etags from the reads it already makes.
- * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
- *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
- * - `{ key }` — PROVEN ABSENT.
- * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
- */
-export interface IssueBatchResult {
-	key: string;
-	/**
-	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection) —
-	 * or when it is `unchanged`.
-	 *
-	 * Absent is an answer here, unlike every paged read on this facade: a target that FAILED — its own request
-	 * outright, or just its own alias within an otherwise-answering GitHub chunk (e.g. an org enforcing SAML SSO
-	 * the token isn't authorized for) — is not returned at all and sets `fetchFailed`, so a caller can tell
-	 * "proven absent" from "unknown" and cache the first without ever caching the second.
-	 */
-	issue?: IssueShape;
-	/**
-	 * Opaque: compare for equality only, never parse. Computed by core from the issue's change state — its state and
-	 * update time, plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it back
-	 * as the target's `etag`. An etag from another scheme or another `etagIncludes` set simply compares unequal and
-	 * costs a full read, never a false `unchanged`. A host can add a reaction without moving the update time, so
-	 * unless `'reactions'` is listed, an `unchanged` copy's `thumbsUpCount` may be stale.
-	 */
-	etag?: string;
-	/** The caller's copy is current (its `etag` matched); `issue` is absent because nothing was read. */
-	unchanged?: true;
-}
 
 const surface = 'Batch issue resolution';
 

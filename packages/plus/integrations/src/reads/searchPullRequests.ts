@@ -3,13 +3,10 @@ import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolvePullRequestSearchCriteria, resolvePullRequestSearchScope } from './filters.js';

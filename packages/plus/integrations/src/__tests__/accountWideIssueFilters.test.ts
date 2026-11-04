@@ -8,7 +8,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { IssueFilter } from '../providerFilters.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 

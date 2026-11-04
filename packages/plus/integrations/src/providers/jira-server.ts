@@ -15,7 +15,6 @@ import { isIncompleteCollection, toCollectionScopeFailure } from '../collectionM
 import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { IntegrationKey } from '../models/integration.js';
 import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
@@ -24,9 +23,11 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
 import { groupProjectIssuesSearches, IssuesIntegration, toProjectsCollection } from '../models/issuesIntegration.js';
+import type { IntegrationKey } from '../models/publicIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
+import { providersMetadata } from './metadata.js';
 import type { ProviderApiCollectionResult } from './models.js';
-import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
+import { toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraServerMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';

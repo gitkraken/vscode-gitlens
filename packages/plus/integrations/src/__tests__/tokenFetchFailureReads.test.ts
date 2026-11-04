@@ -8,8 +8,8 @@ import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
 import type { ProviderOrganization } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 

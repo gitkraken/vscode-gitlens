@@ -29,17 +29,16 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
-import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
+import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
 import type {
-	AccountWideIssuesResult,
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-	SearchMyIssuesOptions,
-} from '../models/integration.js';
+} from '../reads/etag.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { AzureDevOpsApi } from './azure/azure.js';
 import {
@@ -50,7 +49,6 @@ import {
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
-	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
 	AzureWorkItemEtagRead,
@@ -60,6 +58,7 @@ import {
 	toAzurePullRequestEtagFields,
 	toAzureWorkItemEtagFields,
 } from './azure/models.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
@@ -79,7 +78,6 @@ import {
 	IssueFilter,
 	issueNamesPeople,
 	providerPullRequestMatchesSearch,
-	providersMetadata,
 	PullRequestFilter,
 	pullRequestNamesPeople,
 	toIssueShape,
@@ -87,11 +85,13 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import { throwProviderError } from './providerErrors.js';
+import type { AzureProjectInputDescriptor } from './utils.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
 import {
 	collectProviderPagedResult,
 	flatSettledResultsOrThrow,
 	mergeCollectionMetadata,
+	providerFanOutConcurrency,
 	resolveBranchPullRequests,
 	selectBranchPullRequests,
 } from './utils/providerPaging.js';

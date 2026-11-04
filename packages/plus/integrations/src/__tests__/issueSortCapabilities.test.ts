@@ -5,7 +5,7 @@ import { gitHubIssueSortQualifiers } from '@gitlens/git-github/api/issueSearchQu
 import type { IssueShape, IssueSortField, IssueSorting } from '@gitlens/git/models/issue.js';
 import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import { issue, withManager } from './issueSortHelpers.js';
 
 /**

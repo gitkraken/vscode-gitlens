@@ -198,6 +198,10 @@
 			"types": "./dist/plus/git-github/providers/github/*.d.ts",
 			"default": "./dist/plus/git-github/providers/github/*.js"
 		},
+		"./plus/integrations/constants.js": {
+			"types": "./dist/plus/integrations/constants.d.ts",
+			"default": "./dist/plus/integrations/constants.js"
+		},
 		"./plus/integrations/index.js": {
 			"types": "./dist/plus/integrations/index.d.ts",
 			"default": "./dist/plus/integrations/index.js"

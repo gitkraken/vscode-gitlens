@@ -31360,7 +31360,6 @@
 		"@gitkraken/commit-graph-ui": "workspace:*",
 		"@gitkraken/compose-tools": "0.8.1",
 		"@gitkraken/conflict-tools": "0.2.3",
-		"@gitkraken/provider-apis": "catalog:",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",

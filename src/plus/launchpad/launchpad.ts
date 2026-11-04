@@ -3,7 +3,10 @@ import { commands, l10n, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
+import {
+	ActionablePullRequestBuildStatusState,
+	ActionablePullRequestReviewState,
+} from '@gitlens/integrations/index.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -1550,7 +1553,7 @@ function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOf
 	let status: string | undefined;
 	const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : undefined;
 	const ciStatus = item.headCommit?.buildStatuses?.[0].state;
-	if (ciStatus === ProviderBuildStatusState.Success) {
+	if (ciStatus === ActionablePullRequestBuildStatusState.Success) {
 		if (item.hasConflicts) {
 			status =
 				base == null
@@ -1559,7 +1562,7 @@ function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOf
 		} else {
 			status = l10n.t('$(pass) No conflicts, and passed CI checks');
 		}
-	} else if (ciStatus === ProviderBuildStatusState.Failed) {
+	} else if (ciStatus === ActionablePullRequestBuildStatusState.Failed) {
 		if (item.hasConflicts) {
 			status =
 				base == null
@@ -1607,25 +1610,25 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 					? Uri.parse(review.reviewer.avatarUrl)
 					: new ThemeIcon('account');
 		switch (review.state) {
-			case ProviderPullRequestReviewState.Approved:
+			case ActionablePullRequestReviewState.Approved:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer approved these changes')
 						: l10n.t('{reviewer} approved these changes', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.ChangesRequested:
+			case ActionablePullRequestReviewState.ChangesRequested:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer requested changes')
 						: l10n.t('{reviewer} requested changes', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.Commented:
+			case ActionablePullRequestReviewState.Commented:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer left a comment review')
 						: l10n.t('{reviewer} left a comment review', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.ReviewRequested:
+			case ActionablePullRequestReviewState.ReviewRequested:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t("An unknown reviewer hasn't reviewed these changes yet")

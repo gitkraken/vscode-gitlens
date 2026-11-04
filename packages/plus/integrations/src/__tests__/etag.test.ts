@@ -25,20 +25,18 @@ import type {
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-} from '../models/integration.js';
+} from '../reads/etag.js';
 import {
 	azureWorkItemDescriptionRule,
-	issueEtagIncludes,
-	pullRequestEtagIncludes,
-	pullRequestRevision,
-} from '../models/integration.js';
-import {
 	findInvalidIssueEtagInclude,
 	issueEtag,
 	issueEtagFieldsFromShape,
+	issueEtagIncludes,
 	normalizeIssueEtagIncludes,
 	pullRequestEtag,
 	pullRequestEtagFieldsFromShape,
+	pullRequestEtagIncludes,
+	pullRequestRevision,
 } from '../reads/etag.js';
 
 /**

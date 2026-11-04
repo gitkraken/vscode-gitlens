@@ -23,12 +23,14 @@ import {
 } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { ProviderIssue, ProviderPullRequest, ProviderReposInput } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
+import { fromProviderPullRequest } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import { globalPatNotAllowed, noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+import { providerPr } from './sweepHelpers.js';
 
 /**
  * Verifies the result-returning read cores (`*Result`) introduced for the Kepler warning model:
@@ -102,7 +104,7 @@ suite('read result cores (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary-token');
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const pr = providerPr('1');
 		let capturedToken: string | undefined;
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
@@ -118,7 +120,11 @@ suite('read result cores (#5438)', () => {
 		assert.equal(capturedToken, 'primary-token', 'read used the primary session token');
 
 		const unwrapped = await gh.getMyPullRequestsForRepos(repos);
-		assert.deepEqual(unwrapped?.values, [pr], 'the public wrapper returns the core .value');
+		assert.deepEqual(
+			unwrapped?.values,
+			[fromProviderPullRequest(pr, gh)],
+			'the public wrapper returns the core .value, mapped to pull requests',
+		);
 
 		manager.dispose();
 	});
@@ -411,7 +417,7 @@ suite('read result cores (#5438)', () => {
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const pr = providerPr('1');
 		const soft: IntegrationResult<PagedResult<ProviderPullRequest>> = {
 			value: { values: [pr], paging: undefined },
 			error: new Error('partial'),
@@ -423,7 +429,11 @@ suite('read result cores (#5438)', () => {
 		).getMyPullRequestsForReposResult = () => Promise.resolve(soft);
 
 		const unwrapped = await gh.getMyPullRequestsForRepos(repos);
-		assert.deepEqual(unwrapped?.values, [pr], 'a present soft-warning error does not suppress the value');
+		assert.deepEqual(
+			unwrapped?.values,
+			[fromProviderPullRequest(pr, gh)],
+			'a present soft-warning error does not suppress the value',
+		);
 
 		manager.dispose();
 	});

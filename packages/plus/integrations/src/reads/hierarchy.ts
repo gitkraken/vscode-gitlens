@@ -5,14 +5,15 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-	providerFanOutConcurrency,
 	supportedOrderedCloudIntegrationIds,
 	supportedOrderedCloudIssuesIntegrationIds,
 } from '../constants.js';
 import type { ListLinearProjectsOptions, ListOrgsOptions, ListProjectsOptions } from '../manager.js';
-import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { isLinearIntegration } from '../models/issuesIntegration.js';
+import { isGitHostIntegration, isIssuesIntegration } from '../models/publicIntegration.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
 import { toProviderRepositoryShape } from '../providers/models.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
 import type {
 	ProviderLinearProjectShape,
 	ProviderOrganization,
@@ -22,12 +23,7 @@ import type {
 	ProviderWarning,
 } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	isLinearIntegration,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { discoverResources, runCaptured } from './drains.js';
 import {

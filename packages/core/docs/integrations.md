@@ -15,19 +15,77 @@ never leaks `@gitkraken/provider-apis` types, so a consumer depends on this pack
 
 ## 1. Entry points
 
-| Subpath                                              | Use it for                                                                         |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `@gitkraken/core-gitlens/plus/integrations/index.js` | The session-managed facade: manager factory, public types, and connection helpers. |
-| `@gitkraken/core-gitlens/plus/integrations/lite.js`  | Stateless, token-scoped single reads (no storage/auth lifecycle). See §10.         |
-| `@gitkraken/core-gitlens/git/models/*.js`            | The returned models (`PullRequestShape`, `IssueShape`, …).                         |
+| Subpath                                                  | Use it for                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `@gitkraken/core-gitlens/plus/integrations/index.js`     | The session-managed facade: manager factory, public types, and connection helpers.        |
+| `@gitkraken/core-gitlens/plus/integrations/lite.js`      | Stateless, token-scoped single reads (no storage/auth lifecycle). See §10.                |
+| `@gitkraken/core-gitlens/plus/integrations/constants.js` | Integration ids and simple checks on them. No runtime imports, so webviews can import it. |
+| `@gitkraken/core-gitlens/git/models/*.js`                | The returned models (`PullRequestShape`, `IssueShape`, …).                                |
 
-Everything else under `plus/integrations/**` is internal. `IntegrationService`, the `GitHostIntegration`
-models, and the provider clients are deliberately **not** on the facade: they change without a semver bump.
+Everything else under `plus/integrations/**` is internal. `IntegrationService`, the integration implementation
+classes, and the provider clients are deliberately **not** on the facade: they change without a semver bump. What
+`manager.get(...)` hands out are interface-only views, `GitHostIntegration`, `IssuesIntegration` and
+`Integration` (their union), with the guards `isIntegration`, `isGitHostIntegration` and `isIssuesIntegration` to
+narrow them; use the guards, not `instanceof`.
 `manager.js` / `results.js` are not published subpaths either — their types are re-exported through
 `index.js`, so import them from there.
 
 > If a type you need to name isn't exported from `index.js`, that's a bug in this package — file it rather
 > than re-declaring the shape downstream, which silently drifts.
+
+### 1.1 Integration objects
+
+A view from `manager.get(...)` has the members below, grouped; the doc comments in `publicIntegration.ts` are the
+contract.
+
+- **Identity and state** (both kinds): `type`, `id`, `name`, `icon`, `domain`, `maybeConnected`.
+- **Connection** (both kinds): `access()`, `connect(source)`, `isConnected()`, `getCredential(source)`, and, on a git
+  host, `disconnect()`.
+- **Issues and links** (both kinds): `getIssue`, `getLinkedIssueOrPullRequest`, `autolinks()`.
+- **Git-host reads** (`GitHostIntegration` only): the current account and an account for a commit, repository
+  metadata and default branch, SSH signing keys, pull requests (by id, branch, commit or URL, the current user's,
+  and free-text search), stacked pull requests (only where the host has a stacks concept), `mergePullRequest`, and
+  the merge-queue actions `enqueuePullRequest` and `dequeuePullRequest` (GitHub.com only; every other host answers
+  `unsupported`), with the optional `getMergeQueueEntriesByPullRequestNumber`.
+
+`getCredential(source)` is the only way to a token. It returns `{ providerId, accessToken }`, refreshed first when it
+has expired, or `undefined` when the integration isn't connected or the refresh failed. An unexpired token is returned
+as is, so one the provider has since revoked still comes back. Session objects and `authProvider` are not exposed.
+`sessionFingerprint` (a hash of the session's token) appears only on `IntegrationCacheDescriptor`, which tells a
+consumer-owned cache when to invalidate.
+
+The manager members added for integration objects:
+
+- `get(id, domain?)`: the view for an id. A cloud id always resolves; a self-managed one needs `domain` and resolves
+  to `undefined` when no connection names that host.
+- `connectCloudIntegrations(options?, source?)`: runs the host's cloud connect flow for the given ids (all when
+  omitted), re-syncs, and resolves whether a requested integration became connected.
+- `manageCloudIntegrations(source?)`: opens the host's cloud integrations management and re-syncs on return.
+- `reset()`: resets every integration's local connection state.
+- `getMyPullRequests(integrationIds?, cancellation?, options?)` and `getMyIssues(integrationIds?, options?)`: the
+  current user's items across integrations, as `IntegrationResult`s.
+- `ignoreSSLErrors(integration)`: the `ignoreSSLErrors` setting of the remote configured for that host, if any.
+- `github`: the shared `GitHubApi` client, for a host running its own GitHub-backed git provider.
+  Host-oriented (it hands out a whole client, not a read), so expect it to narrow.
+
+**Actionable pull requests.** `toActionablePullRequestInput(pr)` turns a `PullRequestShape` into the input
+`getActionablePullRequests(...)` categorizes (Launchpad's categories), adding the entity-identifier `uuid` that keys
+pins and snoozes. The `ActionablePullRequest*` types are GitLens-owned copies, so the provider SDK stays out of your
+types.
+
+**Entity identifiers.** `encodeEntityIdentifier(input)` and `decodeEntityIdentifier(encoded)` are the string form
+Launchpad keys pins and snoozes by. `EntityIdentifierInput` is a union with one arm per provider and entity type the
+codec encodes, each requiring the fields it can't encode without. `encodeEntityIdentifier` and
+`getEntityIdentifierInput(pr)` throw when an arm misses a required field:
+
+- Bitbucket and Bitbucket Server need `repoId`.
+- Azure DevOps and Azure DevOps Server need an organization, a project and, for pull requests, `repoId`.
+- Jira (and Jira Server) issues need a project (`projectId`).
+- Trello issues need an account or organization and a project.
+- GitHub and GitLab (and their self-hosted variants) need nothing extra.
+
+Linear isn't encodable, and Jira and Trello have no pull request arm. `getEntityIdentifierInput(pr)` also throws for
+a pull request from a provider with no arm.
 
 ## 2. Building the runtime
 
@@ -41,7 +99,7 @@ broader `IntegrationServiceContext` is internal and is not part of the published
 | `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                                                                                                  |
 | `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, optional `getPullRequestReadOptions()` (`{ mergeQueue: true }` opts GitHub.com reads in to merge-queue data, unless a read says otherwise), a change event. |
 | `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                                                                                                           |
-| `cache`        | no       | `IntegrationManagerCacheProvider`, whose only method is `getCurrentAccount`. Omit it for correct uncached reads; implement it for a long-lived manager to deduplicate provider identity lookups.                                                |
+| `cache`        | no       | `IntegrationManagerCacheProvider`: `getCurrentAccount` is required; the repository, pull-request and issue lookups and `deletePullRequests` are optional (see below). Omit it for correct uncached reads.                                       |
 | `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                                                                                                     |
 | `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                                                                                                  |
 
@@ -50,10 +108,22 @@ A complete, type-checked, dependency-free example (including the optional-cache 
 It runs against the packed artifact in CI, so it catches missing exports as well as source-level mistakes:
 use that file's `buildRuntime()` as your starting point.
 
-The cache callback receives only `{ id, domain }`, a loader, and cache controls (`connectionId`, `etag`,
-expiry). It never exposes GitLens' internal `IntegrationBase` / `GitHostIntegration` classes or requires
-stubs for unrelated repository, pull-request, or issue caches. The fixture uses the package's public
-`PromiseCache` utility, but any cache with the same behavior is valid.
+Each cache method gets the lookup's arguments, an `IntegrationCacheDescriptor`, a loader (called on a miss), and
+cache controls (`connectionId`, `etag`, expiry). The optional methods are:
+
+- `getRepositoryMetadata`, `getRepositoryDefaultBranch`: repository lookups.
+- `getPullRequestForSha`, `getPullRequestForBranch`, `getPullRequest`: pull-request lookups by commit, branch, or id.
+- `getIssue`, `getIssueOrPullRequest`: issue lookups by id.
+- `deletePullRequests()`: evicts every cached pull request (a merge can change pull requests no caller can name).
+
+A method you omit means no caching for that read: its loader runs on every call (and `deletePullRequests` is a
+no-op). Call a method as `cache.method(...)`; the manager never detaches it, so a class instance works.
+
+The descriptor is `{ id, domain, maybeConnected, sessionFingerprint }`, not the integration class. Its getters read
+through to the live integration each time they are read, so the values are live, not snapshots. Key entries by `id`
+and `domain`, and treat `maybeConnected` and `sessionFingerprint` as the entry's etag: when either changes (a
+reconnect, a token change) the entry must miss. The descriptor is `undefined` for lookups with no integration.
+The fixture uses the package's public `PromiseCache` utility, but any cache with the same behavior is valid.
 
 ### Authentication
 

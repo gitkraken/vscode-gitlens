@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `plus/integrations/constants.js` to the published entry points: integration ids, enums and pure id predicates, with no runtime imports, so it is safe in browser bundles (plus/integrations)
+- Expands the `plus/integrations/index.js` facade into the full integrations API GitLens itself now consumes. `IntegrationManager` adds `get` (interface-only `GitHostIntegration`/`IssuesIntegration` views, no provider classes; a git host's view carries `mergePullRequest`, `enqueuePullRequest` and `dequeuePullRequest`, which 0.34.0 left unreachable from the facade, and the optional `getMergeQueueEntriesByPullRequestNumber`), `getIntegrationsForAccountWideRead`, `isConnectedForAccountWideRead`, `connectCloudIntegrations`, `manageCloudIntegrations`, `reset`, `getMyPullRequests`, `getMyIssues`, `ignoreSSLErrors` and `github`. The facade also exports:
+  - the `isIntegration`/`isGitHostIntegration`/`isIssuesIntegration` guards
+  - the integration-id and remote helpers (including `isAzureProviderId`, `getAzureRepositoryIdentity` and `splitOwnerAndRepo`), and provider metadata
+  - a neutral entity-identifier codec (`encodeEntityIdentifier`/`decodeEntityIdentifier` and the git-config helpers)
+  - neutral actionable pull request types with `getActionablePullRequests`
+
+  None of these signatures reference `@gitkraken/provider-apis` types (plus/integrations)
+
+- Adds optional pull request, issue and repository lookups to `IntegrationManagerCacheProvider`. A lookup the cache omits runs uncached. Each one receives an `IntegrationCacheDescriptor`, which adds `maybeConnected` and `sessionFingerprint` to `IntegrationAccountCacheDescriptor` (now an alias of it) so a cache can invalidate on a reconnect or a token change (plus/integrations)
+
+### Changed
+
+- `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
+
 ## [0.37.1] - 2026-11-10
 
 ### Fixed

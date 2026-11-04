@@ -134,9 +134,6 @@ importers:
       '@gitkraken/conflict-tools':
         specifier: 0.2.3
         version: 0.2.3
-      '@gitkraken/provider-apis':
-        specifier: 'catalog:'
-        version: 0.67.0
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0

@@ -226,8 +226,6 @@ export type CloudIntegrationType =
 
 export type CloudIntegrationAuthType = 'oauth' | 'pat';
 
-export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
-
 /** Returns all supported cloud integration ids. */
 export function getSupportedCloudIntegrationIds(): readonly SupportedCloudIntegrationIds[] {
 	// Return the shared const directly (readonly so callers can't mutate it) — this runs on hot,

@@ -3,22 +3,19 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { IssueResourceDescriptor, RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
-import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/models.js';
+import type { GitConfigEntityIdentifier, Integration } from '@gitlens/integrations/index.js';
 import {
+	areDomainsOnSameHost,
 	decodeEntityIdentifiersFromGitConfig,
 	encodeIssueOrPullRequestForGitConfig,
 	getEntityIdentifierInput,
 	getIssueFromGitConfigEntityIdentifier,
 	getIssueOwner,
 	getProviderIdFromEntityIdentifier,
-} from '@gitlens/integrations/providers/utils.js';
-import {
-	areDomainsOnSameHost,
 	getSingleConfiguredDomain,
 	hostFromDomain,
-} from '@gitlens/integrations/utils/domain.utils.js';
-import { isGitSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+	isGitSelfManagedHostIntegrationId,
+} from '@gitlens/integrations/index.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
@@ -147,7 +144,7 @@ export async function getAssociatedIssuesForBranch(
 											container.cache.peekIssue(
 												id,
 												resource,
-												integration as IntegrationBase | undefined,
+												integration as Integration | undefined,
 											),
 									},
 								);

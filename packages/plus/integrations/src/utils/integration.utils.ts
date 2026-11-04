@@ -13,14 +13,12 @@ import {
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
-import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { Integration, IntegrationConnectedKey } from '../models/integration.js';
-import type { LinearIntegration } from '../providers/linear.js';
-// These domain checks come from `providers/models.ts` (already imported here) rather than the individual
-// provider modules: those read `providersMetadata[...]` synchronously at module init, so importing from them
-// while `providers/models.ts` is still loading triggers a TDZ on `providersMetadata`. Importing the shared
-// predicates keeps one definition of each regex — duplicating them let a fix land in only one place.
-import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
+import type { IntegrationConnectedKey } from '../models/publicIntegration.js';
+// These domain checks come from `providers/metadata.ts` rather than the individual provider modules: those read
+// `providersMetadata[...]` synchronously at module init, so importing from them while `providers/metadata.ts` is
+// still loading triggers a TDZ on `providersMetadata`. Importing the shared predicates keeps one definition of each
+// regex — duplicating them let a fix land in only one place.
+import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/metadata.js';
 import { baseUrlFromDomain } from './domain.utils.js';
 
 const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
@@ -139,15 +137,6 @@ export function isNonExpiringZeroTokenIntegrationId(id: IntegrationIds): boolean
 		id === IssuesCloudHostIntegrationId.Trello ||
 		isCloudSelfManagedHostIntegrationId(id)
 	);
-}
-
-/** By id: the provider class is loaded lazily, so it can't be checked with `instanceof` here. */
-export function isLinearIntegration(integration: Integration): integration is LinearIntegration {
-	return integration.id === IssuesCloudHostIntegrationId.Linear;
-}
-
-export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
-	return integration.type === 'git';
 }
 
 export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {

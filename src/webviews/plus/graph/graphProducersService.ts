@@ -8,7 +8,7 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
-import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/index.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';

@@ -17,9 +17,10 @@ import {
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import type { GetPullRequestForRepoFn, ProviderRepoInput } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../reads/etag.js';
 import { pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';

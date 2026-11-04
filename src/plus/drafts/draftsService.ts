@@ -1,5 +1,3 @@
-import type { EntityIdentifier } from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import { l10n } from 'vscode';
 import type { Disposable } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
@@ -14,8 +12,14 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
 import { isSha, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
-import { providersMetadata, supportsCodeSuggest } from '@gitlens/integrations/providers/models.js';
-import { getEntityIdentifierInput } from '@gitlens/integrations/providers/utils.js';
+import type { EntityIdentifier } from '@gitlens/integrations/index.js';
+import {
+	decodeEntityIdentifier,
+	encodeEntityIdentifier,
+	getEntityIdentifierInput,
+	providersMetadata,
+	supportsCodeSuggest,
+} from '@gitlens/integrations/index.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -806,12 +810,12 @@ export class DraftService implements Disposable {
 		}
 		if (integration == null) return undefined;
 
-		const session = await integration.getSession('code-suggest');
-		if (session == null) return undefined;
+		const credential = await integration.getCredential('code-suggest');
+		if (credential == null) return undefined;
 
 		return {
-			provider: integration.authProvider.id,
-			token: session.accessToken,
+			provider: credential.providerId,
+			token: credential.accessToken,
 		};
 	}
 
@@ -865,7 +869,7 @@ export class DraftService implements Disposable {
 		if (!supportsCodeSuggest(pullRequest.provider)) return [];
 
 		const entityIdentifier = getEntityIdentifierInput(pullRequest);
-		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
+		const prEntityId = encodeEntityIdentifier(entityIdentifier);
 		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repository);
 		if (providerAuth == null) return [];
 
@@ -1031,11 +1035,11 @@ function formatPatch(
 
 export function getDraftEntityIdentifier(draft: Draft, patch?: DraftPatch): EntityIdentifier | undefined {
 	if (draft.prEntityId != null) {
-		return EntityIdentifierUtils.decode(draft.prEntityId);
+		return decodeEntityIdentifier(draft.prEntityId);
 	}
 
 	if (patch?.prEntityId != null) {
-		return EntityIdentifierUtils.decode(patch.prEntityId);
+		return decodeEntityIdentifier(patch.prEntityId);
 	}
 
 	return undefined;

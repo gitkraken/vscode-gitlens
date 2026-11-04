@@ -9,7 +9,7 @@ import type {
 	StoredIntegrationConfigurations,
 } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import {
 	areDomainsOnSameHost,
 	baseUrlFromDomain,
