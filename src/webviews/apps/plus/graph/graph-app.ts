@@ -778,6 +778,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _lastGraphSize: { width: number; height: number } | undefined;
 	private _graphSizeObserver: ResizeObserver | undefined;
 	private _releaseSuspensionRafId: number | undefined;
+	/** The host also reports `visible` while the graph stays shown — whenever an editor beside it opens or takes focus */
+	private _webviewShown = false;
 
 	/** Applies the host's shortcut customization to {@link keymap} — a no-op unless the host pushed a
 	 *  new `shortcuts` config object since the last apply. Called from {@link willUpdate} on every
@@ -958,7 +960,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
-		if (!visible) return;
+		const shown = visible && !this._webviewShown;
+		this._webviewShown = visible;
+		if (!shown) return;
 
 		this._hoverTrackingCounter.reset();
 		this._selectionTrackingCounter.reset();
