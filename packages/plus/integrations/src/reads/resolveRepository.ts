@@ -11,6 +11,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { getAzureRepositoryIdentity } from '../providers/azure/azure.utils.js';
+import type { ProviderRepository } from '../providers/models.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 import type { ProviderWarning, RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';
@@ -302,36 +303,23 @@ export async function resolveRepository(
 }
 
 /**
- * The fork fields of a provider repository, read defensively: `@gitkraken/provider-apis` does not declare `isFork`
- * or `parent` on its repository type, so a build of the SDK that carries them is read without the type knowing,
- * and one that doesn't reads as "unknown" (no `isFork`, no `parent`). `namespace` is the owner, workspace, project key
- * or Azure organization, as the SDK uses it elsewhere. A malformed value is dropped rather than half-trusted. A named
- * parent is itself a report of a fork, so it settles an unreported `isFork` to `true`; one beside `isFork: false`
- * contradicts the flag and is dropped.
+ * The fork fields of a provider repository. `namespace` is the owner, workspace, project key, Azure organization or
+ * GitLab group path (`group/subgroup`), as the SDK uses it elsewhere. A named parent is itself a report of a fork, so
+ * it settles an unreported `isFork` to `true`; one beside `isFork: false` contradicts the flag and is dropped. So is
+ * one with an empty namespace or name: the type allows it, and GitLab's is split from a path the server sends, which
+ * leaves no namespace when it has no `/`. It can't address a repository, but the fork is still reported.
  */
-function getForkInfo(repo: object): Pick<RepositoryIdentity, 'isFork' | 'parent'> {
-	const fork = 'isFork' in repo && typeof repo.isFork === 'boolean' ? repo.isFork : undefined;
+function getForkInfo(repo: ProviderRepository): Pick<RepositoryIdentity, 'isFork' | 'parent'> {
+	const { isFork, parent } = repo;
+	if (isFork === false || !parent?.namespace || !parent.name) return { isFork: isFork };
 
-	const parent = 'parent' in repo ? repo.parent : undefined;
-	if (
-		fork === false ||
-		parent == null ||
-		typeof parent !== 'object' ||
-		!('namespace' in parent) ||
-		!('name' in parent) ||
-		typeof parent.namespace !== 'string' ||
-		typeof parent.name !== 'string' ||
-		!parent.namespace ||
-		!parent.name
-	) {
-		return { isFork: fork };
-	}
-
-	const project =
-		'project' in parent && typeof parent.project === 'string' && parent.project ? parent.project : undefined;
 	return {
 		isFork: true,
-		parent: { owner: parent.namespace, name: parent.name, ...(project != null ? { project: project } : {}) },
+		parent: {
+			owner: parent.namespace,
+			name: parent.name,
+			...(parent.project ? { project: parent.project } : {}),
+		},
 	};
 }
 

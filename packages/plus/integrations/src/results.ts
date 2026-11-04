@@ -481,12 +481,12 @@ export interface RepositoryIdentity {
 	isFork?: boolean;
 	/**
 	 * The repository this one was forked from, named as the provider names it and living on the same host
-	 * ({@link providerId} and {@link domain}). `project` is set only on Azure DevOps, where a repository lives in a
-	 * project of its organization. Present only when the provider reports a fork and names its parent; absent means
-	 * "not a fork" or "the provider didn't say", which {@link isFork} tells apart. This is the immediate parent, not the
-	 * root of the fork network: a pull request from a branch of this repository usually targets this repository or
-	 * its parent, but GitHub and Azure DevOps let it target any repository in the network, so a fork of a fork can
-	 * open one against the root.
+	 * ({@link providerId} and {@link domain}), so on GitLab `owner` is the whole group path (`group/subgroup`).
+	 * `project` is set only on Azure DevOps, where a repository lives in a project of its organization. Present only
+	 * when the provider reports a fork and names its parent; absent means "not a fork" or "the provider didn't say",
+	 * which {@link isFork} tells apart. This is the immediate parent, not the root of the fork network: a pull request
+	 * from a branch of this repository usually targets this repository or its parent, but GitHub and Azure DevOps let
+	 * it target any repository in the network, so a fork of a fork can open one against the root.
 	 */
 	parent?: { owner: string; name: string; project?: string };
 }
