@@ -781,6 +781,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** The host also reports `visible` while the graph stays shown — whenever an editor beside it opens or takes focus */
 	private _webviewShown = false;
 
+	/** Focus given to the webview itself (its tab, a focus command, a group switch) goes on to the rows, as on a show */
+	private readonly onWindowFocus = (): void => {
+		if (document.activeElement == null || document.activeElement === document.body) {
+			this.graph?.focus();
+		}
+	};
+
 	/** Applies the host's shortcut customization to {@link keymap} — a no-op unless the host pushed a
 	 *  new `shortcuts` config object since the last apply. Called from {@link willUpdate} on every
 	 *  config push, and once from {@link connectedCallback} right after (re)registering the keymap so
@@ -803,6 +810,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// the next `applyShortcutsConfig()` to re-apply even if the host's `shortcuts` config object
 		// is still the same identity as before disconnect.
 		this._appliedShortcutsConfig = undefined;
+		window.addEventListener('focus', this.onWindowFocus);
 
 		registerGraphKeymap(this.keymap, {
 			isGraphModeShortcut: () => this.isGraphModeShortcut(),
@@ -896,6 +904,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
+		window.removeEventListener('focus', this.onWindowFocus);
 		// Abort in-flight AI runs — this element owns the registry, so teardown cancels them here.
 		abortRunningOperations(this._crossPaneState);
 		// Flush any pending debounced persist write so close-within-200ms-of-a-toggle doesn't
