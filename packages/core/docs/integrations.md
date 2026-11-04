@@ -1097,10 +1097,11 @@ one.
 carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale (on Azure DevOps,
 when the repository or its project is named differently from where it was read).
 It also carries `isFork` and `parent` (the repository a fork was made from, on the same host; `project` only on Azure
-DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, when the
-`@gitkraken/provider-apis` repository returns `isFork` and `parent`, which it does not yet (a consumer can patch the
-SDK to return them). Only `isFork: false` means "not a fork": an identity with no `parent` and no `isFork` is a provider
-that didn't say.
+DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center, Azure DevOps and gitlab.com, where a
+nested group is part of the owner (`group/subgroup`). Self-managed GitLab reports neither, because the field that names
+the parent needs GitLab 17.10 and an older server rejects the whole query. Only `isFork: false` means "not a fork": an
+identity with no `parent` and no `isFork` is a provider that didn't say, and `isFork: true` with no `parent` is a fork
+whose parent the provider didn't name (for example, one the token can't see).
 
 ## 7. Filters are all-or-nothing
 

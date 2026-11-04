@@ -150,10 +150,9 @@ type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
 
-// Local runtime copies of the `@gitkraken/provider-apis` string enums. Duplicated (not imported as
-// values) because the SDK ships as CJS whose named enum exports can't be statically imported as ESM
-// values from the bundled `dist`. Exported so the enum-parity test can deep-equal them against the
-// real SDK enums and turn any upstream drift into a test failure instead of a silent mismatch.
+// Local runtime copies of the `@gitkraken/provider-apis` string enums. Exported so the enum-parity test
+// can deep-equal them against the real SDK enums and turn any upstream drift into a test failure instead
+// of a silent mismatch.
 export const GitBuildStatusState = {
 	ActionRequired: 'ACTION_REQUIRED' as GitBuildStatusState,
 	Cancelled: 'CANCELLED' as GitBuildStatusState,
