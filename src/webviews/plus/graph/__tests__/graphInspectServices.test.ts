@@ -2083,6 +2083,8 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 	let diffs: { rhs: string; path: string }[];
 	/** Paths whose next open the editor drops — an open that fails */
 	let failing: Set<string>;
+	/** The editor reports the new tab after the open returns, rather than before */
+	let lateTabs: boolean;
 	let fake: ReopenFake;
 
 	function show(tab: FakeTab): void {
@@ -2141,6 +2143,7 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		closed = [];
 		diffs = [];
 		failing = new Set();
+		lateTabs = false;
 		sinon.stub(window, 'tabGroups').get(() => ({
 			all: [group],
 			activeTabGroup: group,
@@ -2169,7 +2172,13 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 			const modified = deleted
 				? Uri.parse(`gitlens://${deletedOrMissing}${diff.rhs.uri.path}`)
 				: side(diff.rhs.sha, path);
-			open(new TabInputTextDiff(side(diff.lhs.sha, path), modified), diff.showOptions?.preview ?? true);
+			const openTab = () =>
+				open(new TabInputTextDiff(side(diff.lhs.sha, path), modified), diff.showOptions?.preview ?? true);
+			if (lateTabs) {
+				setTimeout(openTab, 0);
+			} else {
+				openTab();
+			}
 			return Promise.resolve(undefined);
 		});
 
@@ -2188,6 +2197,7 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 	async function openOnTip1(path = 'b.ts', paths?: string[]): Promise<FakeTab> {
 		await fake.setReviewFiles(files('tip1', paths));
 		await fake.openReviewFile({ repoPath: '/repo', lhs: 'base', rhs: 'tip1', path: path });
+		await settle();
 		return group.activeTab!;
 	}
 
@@ -2201,16 +2211,35 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		assert.strictEqual(closed.length, 0, 'the preview tab was replaced, not closed');
 	});
 
-	test('a shown kept diff is replaced: the new one opens kept and the old one closes', async () => {
-		const tab = await openOnTip1();
-		tab.isPreview = false;
+	[false, true].forEach(late => {
+		const when = late ? 'reported after the open returns' : 'reported before the open returns';
 
-		await fake.setReviewFiles(files('tip2'));
-		await settle();
+		test(`a shown kept diff is replaced: the new one opens kept and the old one closes (tab ${when})`, async () => {
+			lateTabs = late;
+			const tab = await openOnTip1();
+			tab.isPreview = false;
 
-		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
-		assert.strictEqual(diffTabs()[0].isPreview, false);
-		assert.deepStrictEqual(closed, [tab]);
+			await fake.setReviewFiles(files('tip2'));
+			await settle();
+
+			assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+			assert.strictEqual(diffTabs()[0].isPreview, false);
+			assert.deepStrictEqual(closed, [tab]);
+		});
+
+		test(`a file the rewrite deleted reopens on the deleted-file placeholder (tab ${when})`, async () => {
+			lateTabs = late;
+			const tab = await openOnTip1('gone.ts', ['gone.ts']);
+			tab.isPreview = false;
+
+			await fake.setReviewFiles(files('tip2', ['gone.ts']));
+			await settle();
+
+			assert.deepStrictEqual(diffTabs().map(modifiedOf), [
+				Uri.parse(`gitlens://${deletedOrMissing}/repo/gone.ts`).toString(),
+			]);
+			assert.deepStrictEqual(closed, [tab], 'the stale kept tab is gone');
+		});
 	});
 
 	test('a diff in the background is left alone until it is shown, then reopened once', async () => {
@@ -2232,10 +2261,10 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 	});
 
 	test('a reopen that opens nothing is not retried on every tab change', async () => {
+		const tab = await openOnTip1();
+		tab.isPreview = false;
 		const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		try {
-			const tab = await openOnTip1();
-			tab.isPreview = false;
 			failing.add('b.ts');
 
 			await fake.setReviewFiles(files('tip2'));
@@ -2248,19 +2277,6 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		} finally {
 			clock.restore();
 		}
-	});
-
-	test('a file the rewrite deleted reopens on the deleted-file placeholder', async () => {
-		const tab = await openOnTip1('gone.ts', ['gone.ts']);
-		tab.isPreview = false;
-
-		await fake.setReviewFiles(files('tip2', ['gone.ts']));
-		await settle();
-
-		assert.deepStrictEqual(diffTabs().map(modifiedOf), [
-			Uri.parse(`gitlens://${deletedOrMissing}/repo/gone.ts`).toString(),
-		]);
-		assert.deepStrictEqual(closed, [tab], 'the stale kept tab is gone');
 	});
 });
 
