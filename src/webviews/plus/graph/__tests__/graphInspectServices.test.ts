@@ -1973,6 +1973,7 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 	const older = 'a'.repeat(40);
 	const sideOf = (sha: string, path: string) => Uri.parse(`gitlens://${sha}/repo/${path}`).toString();
 	let fake: ReviewOwnerFake & {
+		reviewSideUri(repoPath: string, rhs: string, path: string): Uri;
 		resolveReviewSide(args: { repoPath: string; lhs: string; rhs: string; path: string }, uri: Uri): Promise<void>;
 		_reviewFiles?: { commentable: Map<string, string> };
 	};
@@ -2011,7 +2012,8 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 			paths: ['a.ts'],
 		};
 		await fake.setReviewFiles(args);
-		assert.strictEqual(fake._reviewFiles?.commentable.get(sideOf(tip, 'a.ts')), 'a.ts');
+		const ownSide = fake.reviewSideUri('/repo', tip, 'a.ts').toString();
+		assert.strictEqual(fake._reviewFiles?.commentable.get(ownSide), 'a.ts', 'at first, the ref the review is on');
 
 		await fake.resolveReviewSide(
 			{ repoPath: '/repo', lhs: args.lhs, rhs: tip, path: 'a.ts' },

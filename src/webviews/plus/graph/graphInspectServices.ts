@@ -20,7 +20,8 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer, getSettledValue, wait } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
@@ -396,8 +397,11 @@ export class GraphInspectServices {
 	private _reviewSides?: { repoPath: string; rhs: string; byPath: Map<string, Uri> };
 	/** The review diffs this instance opened, by their tab's sides, with the refs each was opened on — so one
 	 *  left on refs the review has since moved off (its commits were rewritten) is reopened on the current ones */
-	private readonly _openedReviewDiffs = new Map<string, { anchor: string; path: string; lhs: string; rhs: string }>();
+	private readonly _openedReviewDiffs = new Map<string, OpenedReviewDiff>();
 	private readonly _reopeningReviewDiffs = new Set<string>();
+	/** The review diff last asked for, until its tab shows up — the editor reports a new tab only after the open
+	 *  returns. `claimed` settles with the tab's key. */
+	private _pendingReviewDiff?: { side: string; diff: OpenedReviewDiff; claimed: Deferred<string> };
 	/** What the webview last set as the review's files and threads, kept while another graph instance has
 	 *  the editor — so this one can take the review back as it stands, see `reclaimReview`. */
 	private _reviewFilesArgs?: ReviewFilesArgs;
@@ -1962,6 +1966,7 @@ export class GraphInspectServices {
 		const onTabs = () => {
 			this.updateActiveReviewFile();
 			refreshReviewCommenting();
+			this.claimPendingReviewDiff();
 			this.refreshStaleReviewDiffs();
 		};
 		const tracking = Disposable.from(
@@ -2166,17 +2171,31 @@ export class GraphInspectServices {
 		const files = this._reviewFiles;
 		if (files == null) return;
 
-		const side = this.reviewSideUri(args.repoPath, args.rhs, args.path).toString();
+		this._pendingReviewDiff = {
+			side: this.reviewSideUri(args.repoPath, args.rhs, args.path).toString(),
+			diff: { anchor: files.anchor, path: args.path, lhs: args.lhs, rhs: args.rhs },
+			claimed: defer<string>(),
+		};
+		// A diff already open on these sides is revealed rather than opened, so its tab may be there now
+		this.claimPendingReviewDiff();
+	}
+
+	private claimPendingReviewDiff(): void {
+		const pending = this._pendingReviewDiff;
+		if (pending == null) return;
+
 		for (const group of window.tabGroups.all) {
 			const input = group.activeTab?.input;
-			if (input instanceof TabInputTextDiff && input.modified.toString() === side) {
-				this._openedReviewDiffs.set(getDiffTabKey(input), {
-					anchor: files.anchor,
-					path: args.path,
-					lhs: args.lhs,
-					rhs: args.rhs,
-				});
-			}
+			if (!(input instanceof TabInputTextDiff) || input.modified.toString() !== pending.side) continue;
+
+			// The tab being reopened has the same right side when only the left one moved
+			const key = getDiffTabKey(input);
+			if (this._reopeningReviewDiffs.has(key)) continue;
+
+			this._openedReviewDiffs.set(key, pending.diff);
+			this._pendingReviewDiff = undefined;
+			pending.claimed.fulfill(key);
+			return;
 		}
 	}
 
@@ -2227,9 +2246,19 @@ export class GraphInspectServices {
 				{ viewColumn: tab.group.viewColumn, preview: tab.isPreview, preserveFocus: true },
 			);
 
-			// The same sides on the current refs: the diff opened is this tab
-			const reopened = this._openedReviewDiffs.get(key);
-			if (reopened?.lhs === files.lhs && reopened.rhs === files.rhs) return;
+			const pending = this._pendingReviewDiff;
+			const ours =
+				pending?.diff.path === path && pending.diff.lhs === files.lhs && pending.diff.rhs === files.rhs
+					? pending
+					: undefined;
+			const reopenedKey =
+				ours != null ? await Promise.race([ours.claimed.promise, wait(2000).then(() => undefined)]) : undefined;
+			// No new tab showed up: the diff on the current refs is this one, or it failed to open — either way, not
+			// to be tried again on every tab change
+			if (reopenedKey == null || reopenedKey === key) {
+				this._openedReviewDiffs.set(key, { anchor: files.anchor, path: path, lhs: files.lhs, rhs: files.rhs });
+				return;
+			}
 
 			// A preview tab was replaced by the one just opened; a kept one is still there beside it
 			const old = tab.group.tabs.find(t => t.input instanceof TabInputTextDiff && getDiffTabKey(t.input) === key);
@@ -4607,6 +4636,8 @@ function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], sco
 		Logger.debug(`run total: tokens=${input} in / ${output} out`, scope);
 	}
 }
+
+type OpenedReviewDiff = { anchor: string; path: string; lhs: string; rhs: string };
 
 function getDiffTabKey(input: TabInputTextDiff): string {
 	return `${input.original.toString()}|${input.modified.toString()}`;
