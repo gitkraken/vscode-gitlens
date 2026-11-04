@@ -22,6 +22,24 @@ import type { CliGitServiceOptions } from '../../../service.js';
 import { createCliGitService } from '../../../service.js';
 import { verifyBaseRemeasure } from './shadowCheck.js';
 
+let reftableSupported: boolean | undefined;
+
+/** Whether the installed git can create a repository with `--ref-format=reftable` (git 2.45 and later) */
+export function supportsReftable(): boolean {
+	if (reftableSupported == null) {
+		const dir = mkdtempSync(join(tmpdir(), 'gitlens-reftable-probe-'));
+		try {
+			execFileSync('git', ['init', '--ref-format=reftable'], { cwd: dir, stdio: 'pipe' });
+			reftableSupported = true;
+		} catch {
+			reftableSupported = false;
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+	return reftableSupported;
+}
+
 export interface TestRepo {
 	path: string;
 	provider: CliGitProvider;
@@ -535,6 +553,8 @@ export function cloneTestRepo(
 		gitOptions?: GitOptions;
 		config?: GitServiceConfig;
 		depth?: number;
+		/** The clone's ref storage; `'reftable'` needs a git that supports it (see {@link supportsReftable}) */
+		refFormat?: 'reftable';
 		indexRefresh?: CliGitProviderOptions['indexRefresh'];
 		refreshIndexAfterWrites?: boolean;
 	},
@@ -545,14 +565,19 @@ export function cloneTestRepo(
 
 	// See `createTestRepo` on why setup runs inside a try/catch: a failure below must not leak `dir`.
 	try {
+		const refFormat = options?.refFormat != null ? [`--ref-format=${options.refFormat}`] : [];
 		if (options?.depth != null) {
 			// A local-path clone with `--depth` needs the `file://` transport (git's plain-path optimization
 			// otherwise ignores depth and hardlinks full history), yielding a genuinely shallow clone.
-			execFileSync('git', ['clone', '--depth', String(options.depth), `file://${originPath}`, dir], {
-				stdio: 'pipe',
-			});
+			execFileSync(
+				'git',
+				['clone', ...refFormat, '--depth', String(options.depth), `file://${originPath}`, dir],
+				{
+					stdio: 'pipe',
+				},
+			);
 		} else {
-			execFileSync('git', ['clone', originPath, dir], { stdio: 'pipe' });
+			execFileSync('git', ['clone', ...refFormat, originPath, dir], { stdio: 'pipe' });
 		}
 		execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
 		execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
