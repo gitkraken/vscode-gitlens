@@ -778,8 +778,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _lastGraphSize: { width: number; height: number } | undefined;
 	private _graphSizeObserver: ResizeObserver | undefined;
 	private _releaseSuspensionRafId: number | undefined;
-	/** The host also reports `visible` while the graph stays shown — whenever an editor beside it opens or takes focus */
-	private _webviewShown = false;
+	/** The host also reports `visible` while the graph stays shown — whenever an editor beside it opens or takes focus.
+	 *  The app only runs once its webview is shown, and no event is replayed at load. */
+	private _webviewShown = true;
 
 	/** Focus given to the webview itself (its tab, a focus command, a group switch) goes on to the rows, as on a show */
 	private readonly onWindowFocus = (): void => {
