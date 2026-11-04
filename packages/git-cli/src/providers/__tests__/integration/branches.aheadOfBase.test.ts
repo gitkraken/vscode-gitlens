@@ -1,15 +1,18 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
+import { patchCheckClock } from '../../branches.js';
 import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
+	addEmptyCommits,
 	checkout,
 	cloneTestRepo,
 	createBranch,
@@ -22,6 +25,7 @@ import {
 	mergeBranch,
 	setConfig,
 	setRemoteHead,
+	supportsReftable,
 } from './helpers.js';
 
 // Every fixture is built before the provider's first read of it: the provider caches merge bases, ref lookups
@@ -100,13 +104,16 @@ function createCandidateRepo(): TestRepo {
 	return repo;
 }
 
+/** How a fixture's clone stores its refs, which decides whether its reflogs are files */
+type CloneOptions = { readonly refFormat?: 'reftable' };
+
 /** A clone of a fresh origin. `git clone` sets `refs/remotes/origin/HEAD`, so the clone's default branch
  *  resolves from the symref. */
-function createClone(): { origin: TestRepo; clone: TestRepo; cleanup: () => void } {
+function createClone(options?: CloneOptions): { origin: TestRepo; clone: TestRepo; cleanup: () => void } {
 	const origin = createTestRepo();
 	let clone: TestRepo;
 	try {
-		clone = cloneTestRepo(origin.path);
+		clone = cloneTestRepo(origin.path, options);
 	} catch (ex) {
 		origin.cleanup();
 		throw ex;
@@ -136,6 +143,141 @@ function createFork(options?: { synced?: boolean }): { origin: TestRepo; clone: 
 		throw ex;
 	}
 	return fork;
+}
+
+/**
+ * `feature` taken off `origin/main` with four commits of its own, then `origin/main` force-moved through `moves`, each
+ * brought in by a real fetch, so its reflog holds them. A move may name one of `feature`'s commits by its index.
+ */
+function createForceMovedBase(
+	moves: (shas: { base: string; commits: string[] }) => string[],
+	options?: CloneOptions,
+): {
+	origin: TestRepo;
+	clone: TestRepo;
+	base: string;
+	commits: string[];
+	cleanup: () => void;
+} {
+	const { origin, clone, cleanup } = createClone(options);
+	try {
+		const base = revParse(clone.path, 'origin/main');
+		createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+		const commits: string[] = [];
+		for (let i = 1; i <= 4; i++) {
+			addCommit(clone.path, `c${i}.txt`, `c${i}`, `c${i}`);
+			commits.push(getHeadSha(clone.path));
+		}
+
+		git(origin.path, 'fetch', '-q', clone.path, 'feature');
+		for (const sha of moves({ base: base, commits: commits })) {
+			git(origin.path, 'reset', '-q', '--hard', sha);
+			fetch(clone.path);
+		}
+		return { origin: origin, clone: clone, base: base, commits: commits, cleanup: cleanup };
+	} catch (ex) {
+		cleanup();
+		throw ex;
+	}
+}
+
+/**
+ * `feature` taken off `origin/main` at `oldTip` with one commit of its own, then `origin/main` rewritten in one real
+ * fetch: another commit put on `oldTip`'s parent, and with `rewrite` `'rebased'` `oldTip` replayed onto it (the same
+ * patch, as a rebase leaves it), or with `'replaced'` not (`oldTip` dropped for good). `pad` empty commits then follow.
+ */
+function createRewrittenBase(
+	rewrite: 'rebased' | 'replaced',
+	pad = 0,
+	options?: CloneOptions,
+): { origin: TestRepo; clone: TestRepo; oldTip: string; cleanup: () => void } {
+	const { origin, clone, cleanup } = createClone(options);
+	try {
+		addCommit(origin.path, 'old-tip.txt', 'old', 'old tip');
+		fetch(clone.path);
+		const oldTip = revParse(clone.path, 'origin/main');
+		createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+		addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+		git(origin.path, 'reset', '-q', '--hard', 'HEAD~1');
+		addCommit(origin.path, 'new-tip.txt', 'new', 'rewritten tip');
+		if (rewrite === 'rebased') {
+			git(origin.path, 'cherry-pick', oldTip);
+		}
+		addEmptyCommits(origin.path, pad);
+		fetch(clone.path);
+		return { origin: origin, clone: clone, oldTip: oldTip, cleanup: cleanup };
+	} catch (ex) {
+		cleanup();
+		throw ex;
+	}
+}
+
+/** Fast-forwards `branch` onto `sha` and resets it back, as a merged pull request undone leaves it, then checks out `back` */
+function moveOntoAndBack(repoPath: string, branch: string, sha: string, back: string): void {
+	const tip = revParse(repoPath, branch);
+	git(repoPath, 'checkout', '-q', branch);
+	git(repoPath, 'merge', '-q', '--ff-only', sha);
+	git(repoPath, 'reset', '-q', '--hard', tip);
+	git(repoPath, 'checkout', '-q', back);
+}
+
+/**
+ * `child` stacked on `parent`, each created from the branch below it: `parent` one commit past `main`, `child` two
+ * past `parent`. `main` is then fast-forwarded onto `child`'s first commit and reset back; `child` is checked out.
+ */
+function createStackOverRewoundMain(repoPath: string): { base: string; parentTip: string; childCommits: string[] } {
+	const base = revParse(repoPath, 'main');
+	git(repoPath, 'checkout', '-q', '-b', 'parent', 'main');
+	addCommit(repoPath, 'parent.txt', 'parent', 'parent');
+	const parentTip = getHeadSha(repoPath);
+	git(repoPath, 'checkout', '-q', '-b', 'child', 'parent');
+	const childCommits: string[] = [];
+	for (let i = 1; i <= 2; i++) {
+		addCommit(repoPath, `child-${i}.txt`, `child ${i}`, `child ${i}`);
+		childCommits.push(getHeadSha(repoPath));
+	}
+	moveOntoAndBack(repoPath, 'main', childCommits[0], 'child');
+	return { base: base, parentTip: parentTip, childCommits: childCommits };
+}
+
+/**
+ * `feat` created from `feat-a`, `feat-a` merged into `main` (one commit past where `feat-a` started) and `feat` rebased
+ * onto `main`, so `main` holds `feat-a` and `feat` has one commit of its own; `feat` is checked out
+ */
+function createRebasedOntoMergedParent(repoPath: string): { parentTip: string; mainTip: string; own: string } {
+	git(repoPath, 'checkout', '-q', '-b', 'feat-a', 'main');
+	addCommit(repoPath, 'feat-a.txt', 'feat-a', 'feat-a work');
+	const parentTip = getHeadSha(repoPath);
+	git(repoPath, 'checkout', '-q', '-b', 'feat', 'feat-a');
+	addCommit(repoPath, 'feat.txt', 'feat', 'feat work');
+	checkout(repoPath, 'main');
+	addCommit(repoPath, 'main-only.txt', 'main', 'main only');
+	mergeBranch(repoPath, 'feat-a', 'merge feat-a');
+	const mainTip = getHeadSha(repoPath);
+	checkout(repoPath, 'feat');
+	git(repoPath, 'rebase', '-q', 'main');
+	return { parentTip: parentTip, mainTip: mainTip, own: getHeadSha(repoPath) };
+}
+
+/** Fails each of `repo`'s git runs whose string arguments `fails` picks, as a run that couldn't start does */
+function failRuns(repo: TestRepo, fails: (args: string[]) => boolean): sinon.SinonStub {
+	const git = repo.provider.git;
+	const run = git.run.bind(git);
+	return sinon
+		.stub(git, 'run')
+		.callsFake(((options: unknown, ...args: unknown[]) =>
+			fails(args.filter((a): a is string => typeof a === 'string'))
+				? Promise.reject(new Error('failed'))
+				: run(options as never, ...(args as never[]))) as typeof git.run);
+}
+
+/** `git merge-base --fork-point <ref> HEAD`, git's own reading */
+function gitForkPoint(repoPath: string, ref: string): string {
+	return execFileSync('git', ['merge-base', '--fork-point', ref, 'HEAD'], {
+		cwd: repoPath,
+		encoding: 'utf-8',
+	}).trim();
 }
 
 suite('BranchesSubProvider.getAheadOfBase', () => {
@@ -621,6 +763,1652 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				assert.strictEqual(result.base?.ref, 'origin/main');
 				// The branch's own commit and the merge; nothing that arrived on the default branch
 				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				cleanup();
+			}
+		});
+	});
+
+	suite('a base force-moved over the branch', () => {
+		test('takes the tip of a stored target moved back off a commit of the branch', async () => {
+			const { clone, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: base,
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the tip of the default branch moved back off a commit of the branch', async () => {
+			const { clone, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: base,
+					forkPoint: base,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the tip when it was moved back to another commit of the branch', async () => {
+			const { clone, commits, cleanup } = createForceMovedBase(({ commits }) => [commits[2], commits[0]]);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, commits[0]);
+				assert.strictEqual(result.base?.ahead, 3);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('keeps the fork point of a rebased base, whose tip the branch lacks, and counts past it', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.notStrictEqual(
+					mergeBase(clone.path, 'origin/main'),
+					oldTip,
+					'the merge base is before the rewrite',
+				);
+				assert.strictEqual(result.base?.forkPoint, oldTip);
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'origin/main'));
+				// Only the branch's own commit, the one `<forkPoint>..HEAD` lists, not the old tip the merge base counts too
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rewritten base that dropped the commit under the branch', async () => {
+			// Moved off the commit to one that neither holds it nor is behind it, as a rebase moves it, but with no commit
+			// of the same patch in its history: the commit is the branch's to show
+			const { clone, oldTip, cleanup } = createRewrittenBase('replaced');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.notStrictEqual(result.base?.forkPoint, oldTip);
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 2,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: mergeBase(clone.path, 'origin/main'),
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rebased base whose replayed commit is too far below its tip to compare', async () => {
+			// The patches are compared only against the base's newest commits, so one replayed deeper reads as dropped,
+			// which shows the commit rather than hides it
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased', 300);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const cherry = execFileSync('git', ['cherry', 'origin/main', oldTip], {
+					cwd: clone.path,
+					encoding: 'utf-8',
+				});
+				assert.strictEqual(cherry.trim(), `- ${oldTip}`, 'the base holds the same patch');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rebased base whose patch comparison ran out of time, and does not run it again', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const git = clone.provider.git;
+				const run = git.run.bind(git);
+				let patchReads = 0;
+				const stub = sinon.stub(git, 'run').callsFake(((options: unknown, ...args: unknown[]) => {
+					if (!args.includes('--cherry-mark')) return run(options as never, ...(args as never[]));
+
+					patchReads++;
+					return Promise.resolve({
+						stdout: '',
+						completion: { status: 'cancelled', reason: 'timeout', error: new Error('timed out') },
+					});
+				}) as typeof git.run);
+				try {
+					for (let i = 0; i < 2; i++) {
+						const result = await getAheadOfBase(clone, 'feature');
+						assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+						assert.strictEqual(result.base?.ahead, 2);
+					}
+				} finally {
+					stub.restore();
+				}
+				assert.strictEqual(patchReads, 1);
+				assert.notStrictEqual(mergeBase(clone.path, 'origin/main'), oldTip);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base once the moved-back base also moves on', async () => {
+			const { origin, clone, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(mergeBase(clone.path, 'origin/main'), base);
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base once a base moved back to another commit of the branch also moves on', async () => {
+			const { origin, clone, commits, cleanup } = createForceMovedBase(({ commits }) => [commits[2], commits[0]]);
+			try {
+				git(origin.path, 'reset', '-q', '--hard', 'HEAD~1');
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+				assert.notStrictEqual(result.base?.forkPoint, commits[2]);
+				assert.strictEqual(result.base?.ahead, 4);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base when the base moved on from a commit of the branch before being moved back behind it', async () => {
+			// Another commit landed on top before both were undone: the move off the branch's commit was a fast-forward,
+			// and only the later move back shows the commit undone
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ commits }) => [commits[1]]);
+			try {
+				addCommit(origin.path, 'landed-after.txt', 'landed after', 'landed after');
+				fetch(clone.path);
+				git(origin.path, 'reset', '-q', '--hard', base);
+				fetch(clone.path);
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const forkPoint = execFileSync('git', ['merge-base', '--fork-point', 'origin/main', 'HEAD'], {
+					cwd: clone.path,
+					encoding: 'utf-8',
+				}).trim();
+				assert.strictEqual(forkPoint, commits[1], "git's fork point is the undone commit");
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base when the move back and the next commit arrive in one fetch', async () => {
+			// The reflog then has one entry off the dropped commits, to a commit that lacks them, which is what a rebased
+			// base looks like too; the base holds no commit of the same patch as either, so they are the branch's
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ commits }) => [commits[1]]);
+			try {
+				git(origin.path, 'reset', '-q', '--hard', base);
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const forkPoint = execFileSync('git', ['merge-base', '--fork-point', 'origin/main', 'HEAD'], {
+					cwd: clone.path,
+					encoding: 'utf-8',
+				}).trim();
+				assert.strictEqual(forkPoint, commits[1], "git's fork point is the dropped commit");
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base when the base took many pushes past a commit of the branch before a reset dropped it', async () => {
+			// Every push past the commit is a move whose message says nothing of its direction; however many there are,
+			// the reset that dropped the commit is what decides
+			const { origin, clone, cleanup } = createClone();
+			try {
+				const base = revParse(clone.path, 'origin/main');
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+				const commits: string[] = [];
+				for (let i = 1; i <= 4; i++) {
+					addCommit(clone.path, `c${i}.txt`, `c${i}`, `c${i}`);
+					commits.push(getHeadSha(clone.path));
+				}
+				git(origin.path, 'config', 'receive.denyCurrentBranch', 'ignore');
+				git(clone.path, 'push', '-q', 'origin', `${commits[1]}:refs/heads/main`);
+				createBranchFromDetachedHead(clone.path, 'landed', commits[1]);
+				for (let i = 1; i <= 9; i++) {
+					addCommit(clone.path, `landed-${i}.txt`, `landed ${i}`, `landed ${i}`);
+					git(clone.path, 'push', '-q', 'origin', 'landed:main');
+				}
+				checkout(clone.path, 'feature');
+				git(origin.path, 'reset', '-q', '--hard', base);
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'origin/main'),
+					commits[1],
+					"git's fork point is the dropped commit",
+				);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base when the reflog has lost the line that moved off a commit of the branch', async () => {
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ base, commits }) => [
+				commits[1],
+				base,
+			]);
+			try {
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				// The move back off the commit; the move on still names the commit it moved from, so the reflog has a gap
+				git(clone.path, 'reflog', 'delete', 'refs/remotes/origin/main@{1}');
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'origin/main'),
+					commits[1],
+					"git's fork point is the dropped commit",
+				);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.strictEqual(result.base?.ahead, 4);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("takes the merge base of a rewritten base named by its remote's HEAD, whose own reflog says nothing of the move", async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('replaced');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/HEAD' });
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'origin/HEAD'),
+					oldTip,
+					"git's fork point is the dropped commit",
+				);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('trusts only the reflog messages git writes for a move forward, and checks the commits for the rest', async () => {
+			const cases: { message: string; forward: boolean }[] = [
+				{ message: 'fetch -q origin: fast-forward', forward: true },
+				{ message: 'pull -q --rebase: Fast-forward', forward: true },
+				{ message: "merge other: Merge made by the 'ort' strategy.", forward: true },
+				{ message: 'commit: a subject', forward: true },
+				{ message: 'commit (merge): a subject', forward: true },
+				{ message: 'update by push', forward: false },
+				{ message: 'fetch origin: forced-update', forward: false },
+				{ message: 'rebase (finish): refs/heads/main onto 1234567', forward: false },
+				{ message: 'reset: moving to HEAD~1', forward: false },
+				{ message: 'commit (amend): a subject', forward: false },
+				// A commit's subject is free text, so it can't vouch for the move
+				{ message: 'commit (amend): chore: fast-forward', forward: false },
+				{ message: "reset: moving to merge: Merge made by the 'ort' strategy.", forward: false },
+			];
+			for (const { message, forward } of cases) {
+				const { clone, cleanup } = createClone();
+				try {
+					const base = revParse(clone.path, 'origin/main');
+					createBranchFromDetachedHead(clone.path, 'other', 'origin/main');
+					addCommit(clone.path, 'other.txt', 'other', 'other');
+					const moved = getHeadSha(clone.path);
+					createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+					addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+					git(clone.path, 'update-ref', '-m', message, 'refs/remotes/origin/main', moved);
+					storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+					const spy = sinon.spy(clone.provider.git, 'run');
+					try {
+						const result = await getAheadOfBase(clone, 'feature');
+						assert.strictEqual(result.base?.forkPoint, base, message);
+						assert.strictEqual(result.base?.ahead, 1, message);
+					} finally {
+						spy.restore();
+					}
+
+					const checks = spy
+						.getCalls()
+						.map(c => c.args.slice(1).filter(a => typeof a === 'string'))
+						.filter(args => args[0] === 'merge-base' && args[1] === base);
+					assert.deepStrictEqual(checks, forward ? [] : [['merge-base', base, moved]], message);
+				} finally {
+					cleanup();
+				}
+			}
+		});
+
+		test('takes the merge base when the ref list has no tip to check the fork point against', async () => {
+			const { origin, clone, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				// `getRefs` answers a failed enumeration with an empty list
+				const refs = sinon.stub(clone.provider.refs, 'getRefs').resolves([]);
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, base);
+					assert.strictEqual(result.base?.ahead, 4);
+				} finally {
+					refs.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rewritten base whose reflog file cannot be read', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('replaced');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'origin/main'),
+					oldTip,
+					"git's fork point is the dropped commit",
+				);
+
+				const fs = clone.provider.context.fs;
+				const readFile = sinon.stub(fs, 'readFile').callsFake(async uri => {
+					if (toFsPath(uri).includes(join('logs', 'refs'))) throw new Error('unreadable');
+					return readFile.wrappedMethod.call(fs, uri);
+				});
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+					assert.strictEqual(result.base?.ahead, 2);
+					assert.ok(readFile.called, 'the reflog file was asked for');
+				} finally {
+					readFile.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('keeps the fork point of a base moved back off it and forward onto it again, then on', async () => {
+			const { origin, clone, commits, cleanup } = createForceMovedBase(({ base, commits }) => [
+				commits[1],
+				base,
+				commits[1],
+			]);
+			try {
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const spy = sinon.spy(clone.provider.git, 'run');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(clone, 'feature');
+				} finally {
+					spy.restore();
+				}
+				assert.strictEqual(result.base?.forkPoint, commits[1]);
+				assert.strictEqual(result.base?.ahead, 2);
+				// The reflog shows the base moved only forward since it last left the commit
+				const mergeBases = spy
+					.getCalls()
+					.map(c => c.args.slice(1).filter(a => typeof a === 'string'))
+					.filter(args => args[0] === 'merge-base');
+				assert.deepStrictEqual(mergeBases, [['merge-base', '--fork-point', 'origin/main', 'HEAD']]);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a base moved back off its fork point and forward onto it again, then rewritten', async () => {
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ base, commits }) => [
+				commits[1],
+				base,
+				commits[1],
+			]);
+			try {
+				git(origin.path, 'reset', '-q', '--hard', base);
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'origin/main'),
+					commits[1],
+					"git's fork point is the dropped commit",
+				);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.strictEqual(result.base?.ahead, 4);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('runs a patch comparison that ran out of time again once a while has passed', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const git = clone.provider.git;
+				const run = git.run.bind(git);
+				let patchReads = 0;
+				let timeOut = true;
+				const stub = sinon.stub(git, 'run').callsFake(((options: unknown, ...args: unknown[]) => {
+					if (!args.includes('--cherry-mark')) return run(options as never, ...(args as never[]));
+
+					patchReads++;
+					if (!timeOut) return run(options as never, ...(args as never[]));
+					return Promise.resolve({
+						stdout: '',
+						completion: {
+							status: 'cancelled',
+							reason: 'timeout',
+							error: new Error('timed out'),
+						},
+					});
+				}) as typeof git.run);
+				let now = Date.now();
+				const clock = sinon.stub(patchCheckClock, 'now').callsFake(() => now);
+				try {
+					assert.strictEqual(
+						(await getAheadOfBase(clone, 'feature')).base?.forkPoint,
+						mergeBase(clone.path, 'origin/main'),
+					);
+					timeOut = false;
+					now += 9 * 60 * 1000;
+					assert.strictEqual(
+						(await getAheadOfBase(clone, 'feature')).base?.forkPoint,
+						mergeBase(clone.path, 'origin/main'),
+					);
+					assert.strictEqual(patchReads, 1, 'not run again while it would likely run out of time again');
+
+					now += 2 * 60 * 1000;
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(patchReads, 2, 'run again');
+					assert.strictEqual(result.base?.forkPoint, oldTip);
+					assert.strictEqual(result.base?.ahead, 1);
+				} finally {
+					clock.restore();
+					stub.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base, counted from it, when the count past a rewritten fork point fails', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const stub = failRuns(clone, args => args.includes(`${oldTip}...HEAD`));
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+					assert.strictEqual(result.base?.ahead, 2);
+				} finally {
+					stub.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('keeps the rewritten fork point, with the count from the merge base, when neither the count past it nor the merge base can be read', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const stub = failRuns(
+					clone,
+					args =>
+						args.includes(`${oldTip}...HEAD`) ||
+						(args[0] === 'merge-base' &&
+							args.includes('HEAD') &&
+							args.includes('origin/main') &&
+							!args.includes('--fork-point')),
+				);
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, oldTip);
+					assert.strictEqual(result.base?.ahead, 2);
+				} finally {
+					stub.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base, counted from it, when the ancestry check of a fork point the base left fails', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const tip = revParse(clone.path, 'origin/main');
+				const stub = failRuns(
+					clone,
+					args => args[0] === 'merge-base' && args.includes(oldTip) && args.includes(tip),
+				);
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+					assert.strictEqual(result.base?.ahead, 2);
+				} finally {
+					stub.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("known limit: counts an empty commit the base dropped below the fork point as the base's while the base has an unrelated empty commit", async () => {
+			// Git's patch comparison takes any two empty commits as the same patch, so the base's own empty commit stands
+			// in for the dropped one, which is left out of the branch's commits
+			const repo = createTestRepo();
+			try {
+				addCommit(repo.path, 'a.txt', 'a', 'a');
+				const base = getHeadSha(repo.path);
+				git(repo.path, 'commit', '-q', '--allow-empty', '-m', 'dropped empty');
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const parentTip = getHeadSha(repo.path);
+				createBranch(repo.path, 'feature', { checkout: true });
+				addCommit(repo.path, 'own.txt', 'own', 'own');
+				checkout(repo.path, 'main');
+				git(repo.path, 'reset', '-q', '--hard', base);
+				addCommit(repo.path, 'other.txt', 'other', 'other');
+				git(repo.path, 'cherry-pick', parentTip);
+				git(repo.path, 'commit', '-q', '--allow-empty', '-m', 'unrelated empty');
+				checkout(repo.path, 'feature');
+				storeTargets(repo.path, 'feature', { detected: 'main' });
+				assert.strictEqual(gitForkPoint(repo.path, 'main'), parentTip);
+
+				const result = await getAheadOfBase(repo, 'feature');
+				// Shown in full, the dropped empty commit would count too: 2 past the merge base's `a`
+				assert.strictEqual(result.base?.forkPoint, parentTip);
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('counts the default branch past the fork point its rebased upstream keeps', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				addCommit(origin.path, 'old-tip.txt', 'old', 'old tip');
+				git(clone.path, 'pull', '-q', '--ff-only');
+				const oldTip = revParse(clone.path, 'origin/main');
+				addCommit(clone.path, 'local.txt', 'local', 'unpushed');
+
+				git(origin.path, 'reset', '-q', '--hard', 'HEAD~1');
+				addCommit(origin.path, 'new-tip.txt', 'new', 'rewritten tip');
+				git(origin.path, 'cherry-pick', oldTip);
+				fetch(clone.path);
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.strictEqual(result.base?.tier, 'upstream');
+				assert.strictEqual(result.base?.forkPoint, oldTip);
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('still defers to the moved-back upstream from a local base holding the dropped commit', async () => {
+			// The local base forks no further than git's reading of the upstream, its dropped commit, so it doesn't take
+			// over as soon as its upstream moves back, though the upstream's own fork point settles below it
+			const { clone, commits, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				git(clone.path, 'branch', '-f', 'main', commits[1]);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: base,
+					forkPoint: base,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('still defers to the moved-back upstream from a local base that pulled the dropped commit', async () => {
+			// The same through a pull: the local base's reflog moved forward onto the commit, with the upstream
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ commits }) => [commits[1]]);
+			try {
+				git(clone.path, 'checkout', '-q', 'main');
+				git(clone.path, 'pull', '-q', '--ff-only');
+				git(clone.path, 'checkout', '-q', 'feature');
+				git(origin.path, 'reset', '-q', '--hard', base);
+				fetch(clone.path);
+				assert.strictEqual(revParse(clone.path, 'main'), commits[1]);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: base,
+					forkPoint: base,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('prefers a local base carrying unpushed work over its upstream moved back off a commit both held', async () => {
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ commits }) => [commits[1]]);
+			try {
+				git(clone.path, 'checkout', '-q', 'main');
+				git(clone.path, 'pull', '-q', '--ff-only');
+				git(origin.path, 'reset', '-q', '--hard', base);
+				fetch(clone.path);
+				addCommit(clone.path, 'unpushed.txt', 'unpushed', 'unpushed on main');
+				const unpushed = getHeadSha(clone.path);
+				createBranchFromDetachedHead(clone.path, 'work', 'main');
+				addCommit(clone.path, 'work.txt', 'work', 'work');
+				assert.strictEqual(gitForkPoint(clone.path, 'origin/main'), commits[1]);
+
+				const result = await getAheadOfBase(clone, 'work');
+				assert.deepStrictEqual(result.base, {
+					ref: 'main',
+					ahead: 1,
+					sha: unpushed,
+					forkPoint: unpushed,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('counts the commit dropped from a parent moved back as the stacked branch its own', async () => {
+			const repo = createTestRepo();
+			try {
+				const base = getHeadSha(repo.path);
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const dropped = getHeadSha(repo.path);
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+				git(repo.path, 'branch', '-f', 'parent', base);
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.tier, 'created');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.notStrictEqual(result.base?.forkPoint, dropped);
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('counts a stacked branch past its fork point from a parent rebased since', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'parent', { checkout: true });
+				const parentCommits: string[] = [];
+				for (let i = 1; i <= 3; i++) {
+					addCommit(repo.path, `parent-${i}.txt`, `parent ${i}`, `parent ${i}`);
+					parentCommits.push(getHeadSha(repo.path));
+				}
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				// Rebased alone, as without `rebase.updateRefs`, which would carry the child along
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.forkPoint, parentCommits[2]);
+				// Only the child's commit, as `<forkPoint>..HEAD` lists, not the parent's three the merge base counts too
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('reports a stacked branch with nothing past its fork point from a rebased parent as 0 ahead of it', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const parentTip = getHeadSha(repo.path);
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				// Rebased alone, as without `rebase.updateRefs`, which would carry the child along
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.deepStrictEqual(result.base, {
+					ref: 'parent',
+					ahead: 0,
+					sha: revParse(repo.path, 'parent'),
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("counts a parent's commit amended in place as the stacked branch's fork point, not its own", async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const amended = getHeadSha(repo.path);
+				git(repo.path, 'branch', 'child', 'parent');
+				git(repo.path, 'commit', '-q', '--amend', '-m', 'parent amended');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.forkPoint, amended);
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("counts a parent's commit amended with new changes as the stacked branch's own", async () => {
+			// Accepted: the old commit shows in the child until it is rebased, which is visible rather than hiding work
+			const repo = createTestRepo();
+			try {
+				const base = getHeadSha(repo.path);
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const amended = getHeadSha(repo.path);
+				git(repo.path, 'branch', 'child', 'parent');
+				writeFileSync(join(repo.path, 'parent.txt'), 'parent changed');
+				git(repo.path, 'commit', '-q', '-a', '--amend', '-m', 'parent');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.notStrictEqual(result.base?.forkPoint, amended);
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("counts a parent's commit amended while rebasing, and the ones after it, as the stacked branch's own", async () => {
+			// Rebased onto a base that moved on, with its middle commit changed: the commit under it has a replayed copy and
+			// stays the parent's, the changed one and the one after it, which replays it, are the child's
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'parent', { checkout: true });
+				const parentCommits: string[] = [];
+				for (let i = 1; i <= 3; i++) {
+					addCommit(repo.path, `parent-${i}.txt`, `parent ${i}`, `parent ${i}`);
+					parentCommits.push(getHeadSha(repo.path));
+				}
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				git(repo.path, 'checkout', '-q', '--detach', 'main');
+				git(repo.path, 'cherry-pick', parentCommits[0]);
+				addCommit(repo.path, 'parent-2.txt', 'parent 2 changed', 'parent 2');
+				git(repo.path, 'cherry-pick', parentCommits[2]);
+				// One move off the old tip, as a rebase makes
+				git(repo.path, 'branch', '-f', 'parent', 'HEAD');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.forkPoint, parentCommits[0]);
+				assert.strictEqual(result.base?.ahead, 3);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("counts a rebased parent's merge, and what it merged, as the stacked branch's own", async () => {
+			// A rebase replays the merged commits in a line and drops the merge, which has no patch to compare
+			const repo = createTestRepo();
+			try {
+				const base = getHeadSha(repo.path);
+				createBranch(repo.path, 'side', { checkout: true });
+				addCommit(repo.path, 'side.txt', 'side', 'side');
+				checkout(repo.path, 'main');
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				git(repo.path, 'merge', '-q', '--no-ff', '-m', 'Merge side', 'side');
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.strictEqual(result.base?.ahead, 4);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('takes the base holding the same patches again as the fork point: a pull request undone and re-landed by cherry-pick', async () => {
+			const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ base, commits }) => [
+				commits[1],
+				base,
+			]);
+			try {
+				git(origin.path, 'cherry-pick', commits[0], commits[1]);
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(mergeBase(clone.path, 'origin/main'), base);
+				assert.strictEqual(result.base?.forkPoint, commits[1]);
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('counts past the part of an undone pull request the base re-landed, and no further', async () => {
+			const { origin, clone, commits, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base]);
+			try {
+				git(origin.path, 'cherry-pick', commits[0]);
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, commits[0]);
+				assert.strictEqual(result.base?.ahead, 3);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("keeps the fork point of a parent's commit reset away and committed again with the same patch", async () => {
+			const repo = createTestRepo();
+			try {
+				const base = getHeadSha(repo.path);
+				createBranch(repo.path, 'parent', { checkout: true });
+				addCommit(repo.path, 'parent.txt', 'parent', 'parent');
+				const replaced = getHeadSha(repo.path);
+				git(repo.path, 'branch', 'child', 'parent');
+				git(repo.path, 'reset', '-q', '--soft', 'HEAD~1');
+				git(repo.path, 'commit', '-q', '-m', 'parent again');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.strictEqual(result.base?.ref, 'parent');
+				assert.notStrictEqual(result.base?.forkPoint, base);
+				assert.strictEqual(result.base?.forkPoint, replaced);
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('reads the base reflog from its file: a base moved only forward adds no process', async () => {
+			const forkPointRead = ['merge-base', '--fork-point', 'origin/main', 'HEAD'];
+			const cases: {
+				name: string;
+				/**
+				 * The fixture, with the merge bases a read asks for, how many counts it takes and how many patch
+				 * comparisons. The branch read is `feature`, with `origin/main` its detected target, unless `branch` and
+				 * `detected` (`null` for none) say otherwise.
+				 */
+				create: () => {
+					clone: TestRepo;
+					cleanup: () => void;
+					mergeBases: string[][];
+					counts: number;
+					patches?: number;
+					branch?: string;
+					detected?: string | null;
+				};
+			}[] = [
+				{
+					name: 'moved only forward',
+					create: () => {
+						const { origin, clone, cleanup } = createClone();
+						try {
+							createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+							addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+							addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+							fetch(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						return { clone: clone, cleanup: cleanup, mergeBases: [forkPointRead], counts: 1 };
+					},
+				},
+				{
+					name: 'moved forward by a push, whose reflog message says nothing of the direction',
+					create: () => {
+						const { origin, clone, cleanup } = createClone();
+						try {
+							const base = revParse(clone.path, 'origin/main');
+							createBranchFromDetachedHead(clone.path, 'other', 'origin/main');
+							addCommit(clone.path, 'other.txt', 'other', 'other');
+							const pushed = getHeadSha(clone.path);
+							createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+							addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+							git(origin.path, 'config', 'receive.denyCurrentBranch', 'ignore');
+							git(clone.path, 'push', '-q', 'origin', 'other:main');
+							// One ancestry check shows the move forward, so nothing is recounted
+							return {
+								clone: clone,
+								cleanup: cleanup,
+								mergeBases: [forkPointRead, ['merge-base', base, pushed]],
+								counts: 1,
+							};
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+					},
+				},
+				{
+					name: 'a local base and its tracking ref, moved only forward',
+					create: () => {
+						const { origin, clone, cleanup } = createClone();
+						try {
+							createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+							addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+							addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+							fetch(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						// The two tie, so nothing is compared
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [['merge-base', '--fork-point', 'main', 'HEAD'], forkPointRead],
+							counts: 1,
+							detected: 'main',
+						};
+					},
+				},
+				{
+					name: 'a parent it was created from, against the default and its tracking ref, all moved only forward',
+					create: () => {
+						const { origin, clone, cleanup } = createClone();
+						let parentTip: string;
+						try {
+							git(clone.path, 'checkout', '-q', '-b', 'parent', 'main');
+							addCommit(clone.path, 'parent.txt', 'parent', 'parent');
+							parentTip = getHeadSha(clone.path);
+							git(clone.path, 'checkout', '-q', '-b', 'feature', 'parent');
+							addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+							addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+							fetch(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						// One ancestry check between the parent and the default's pick
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [
+								['merge-base', '--fork-point', 'parent', 'HEAD'],
+								['merge-base', '--fork-point', 'main', 'HEAD'],
+								forkPointRead,
+								['merge-base', '--is-ancestor', parentTip, revParse(clone.path, 'main')],
+							],
+							counts: 1,
+							detected: null,
+						};
+					},
+				},
+				{
+					name: 'a parent it was created from, against a default moved back off a commit of the branch',
+					create: () => {
+						const { clone, cleanup } = createClone();
+						let stack: ReturnType<typeof createStackOverRewoundMain>;
+						try {
+							stack = createStackOverRewoundMain(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						// Git's reading of the local default is past its tracking ref's, so it is settled: one ancestry check
+						// finds the tip in its history, so the tip, which ties with the tracking ref
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [
+								['merge-base', '--fork-point', 'parent', 'HEAD'],
+								['merge-base', '--fork-point', 'main', 'HEAD'],
+								forkPointRead,
+								['merge-base', '--is-ancestor', stack.childCommits[0], stack.base],
+								['merge-base', stack.childCommits[0], stack.base],
+								['merge-base', '--is-ancestor', stack.parentTip, stack.base],
+							],
+							counts: 1,
+							branch: 'child',
+							detected: null,
+						};
+					},
+				},
+				{
+					name: 'moved back off a commit of the branch, then on',
+					create: () => {
+						const { origin, clone, commits, cleanup } = createForceMovedBase(({ base, commits }) => [
+							commits[1],
+							base,
+						]);
+						try {
+							addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+							fetch(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						// One ancestry check of the fork point against the tip, the patch comparison, then the merge base
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [
+								forkPointRead,
+								['merge-base', commits[1], revParse(clone.path, 'origin/main')],
+								['merge-base', 'HEAD', 'origin/main'],
+							],
+							counts: 1,
+							patches: 1,
+						};
+					},
+				},
+				{
+					name: 'rebased',
+					create: () => {
+						const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
+						// One ancestry check of the fork point against the tip, the patch comparison, then the count past it
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [forkPointRead, ['merge-base', oldTip, revParse(clone.path, 'origin/main')]],
+							counts: 2,
+							patches: 1,
+						};
+					},
+				},
+				{
+					name: 'rewritten, dropping the commit under the branch',
+					create: () => {
+						const { clone, oldTip, cleanup } = createRewrittenBase('replaced');
+						// One ancestry check of the fork point against the tip, the patch comparison, then the merge base,
+						// past which the count already read counts
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [
+								forkPointRead,
+								['merge-base', oldTip, revParse(clone.path, 'origin/main')],
+								['merge-base', 'HEAD', 'origin/main'],
+							],
+							counts: 1,
+							patches: 1,
+						};
+					},
+				},
+				{
+					name: 'moved back and on in one fetch',
+					create: () => {
+						const { origin, clone, commits, base, cleanup } = createForceMovedBase(({ commits }) => [
+							commits[1],
+						]);
+						try {
+							git(origin.path, 'reset', '-q', '--hard', base);
+							addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+							fetch(clone.path);
+						} catch (ex) {
+							cleanup();
+							throw ex;
+						}
+						return {
+							clone: clone,
+							cleanup: cleanup,
+							mergeBases: [
+								forkPointRead,
+								['merge-base', commits[1], revParse(clone.path, 'origin/main')],
+								['merge-base', 'HEAD', 'origin/main'],
+							],
+							counts: 1,
+							patches: 1,
+						};
+					},
+				},
+			];
+
+			for (const c of cases) {
+				const {
+					clone,
+					cleanup,
+					mergeBases,
+					counts,
+					patches = 0,
+					branch = 'feature',
+					detected = 'origin/main',
+				} = c.create();
+				try {
+					if (detected != null) {
+						storeTargets(clone.path, branch, { detected: detected });
+					}
+
+					const spy = sinon.spy(clone.provider.git, 'run');
+					try {
+						await getAheadOfBase(clone, branch);
+					} finally {
+						spy.restore();
+					}
+
+					const calls = spy.getCalls().map(c => c.args.slice(1).filter(a => typeof a === 'string'));
+					assert.deepStrictEqual(
+						calls.filter(args => args[0] === 'merge-base'),
+						mergeBases,
+						c.name,
+					);
+					const revLists = calls.filter(args => args[0] === 'rev-list');
+					const patchReads = revLists.filter(args => args.includes('--cherry-mark'));
+					assert.strictEqual(revLists.length - patchReads.length, counts, c.name);
+					assert.strictEqual(patchReads.length, patches, c.name);
+					// Only the branch's own, for the branch it was created from, when no target is stored
+					assert.deepStrictEqual(
+						calls.filter(args => args[0] === 'reflog').map(args => args.at(-2)),
+						detected != null ? [] : [`refs/heads/${branch}`],
+						c.name,
+					);
+				} finally {
+					cleanup();
+				}
+			}
+		});
+	});
+
+	suite('candidates compared where the branch forked from each', () => {
+		test("measures a stacked branch against its parent, not a default moved back off the branch's commit", async () => {
+			const repo = createTestRepo();
+			try {
+				const { parentTip, childCommits } = createStackOverRewoundMain(repo.path);
+				assert.strictEqual(
+					gitForkPoint(repo.path, 'main'),
+					childCommits[0],
+					"git's fork point is the undone commit",
+				);
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.deepStrictEqual(result.base, {
+					ref: 'parent',
+					ahead: 2,
+					sha: parentTip,
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("measures against a default moved back off the branch's commit once the branch it was created from merged into it", async () => {
+			const repo = createTestRepo();
+			try {
+				const { mainTip, own } = createRebasedOntoMergedParent(repo.path);
+				moveOntoAndBack(repo.path, 'main', own, 'feat');
+				assert.strictEqual(gitForkPoint(repo.path, 'main'), own, "git's fork point is the undone commit");
+
+				const result = await getAheadOfBase(repo, 'feat');
+				assert.deepStrictEqual(result.base, {
+					ref: 'main',
+					ahead: 1,
+					sha: mainTip,
+					forkPoint: mainTip,
+					tier: 'default',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("measures against the default once the branch it was created from merged into it and was moved back off the branch's commit", async () => {
+			const repo = createTestRepo();
+			try {
+				const { parentTip, mainTip, own } = createRebasedOntoMergedParent(repo.path);
+				moveOntoAndBack(repo.path, 'feat-a', own, 'feat');
+				assert.strictEqual(gitForkPoint(repo.path, 'feat-a'), own, "git's fork point is the undone commit");
+				assert.strictEqual(revParse(repo.path, 'feat-a'), parentTip);
+
+				const result = await getAheadOfBase(repo, 'feat');
+				assert.deepStrictEqual(result.base, {
+					ref: 'main',
+					ahead: 1,
+					sha: mainTip,
+					forkPoint: mainTip,
+					tier: 'default',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("keeps a rebased parent's fork point against a default moved back off the branch's commit", async () => {
+			const repo = createTestRepo();
+			try {
+				const base = getHeadSha(repo.path);
+				createBranch(repo.path, 'parent', { checkout: true });
+				const parentCommits: string[] = [];
+				for (let i = 1; i <= 3; i++) {
+					addCommit(repo.path, `parent-${i}.txt`, `parent ${i}`, `parent ${i}`);
+					parentCommits.push(getHeadSha(repo.path));
+				}
+				git(repo.path, 'branch', 'child', 'parent');
+				checkout(repo.path, 'child');
+				addCommit(repo.path, 'child.txt', 'child', 'child');
+				moveOntoAndBack(repo.path, 'main', getHeadSha(repo.path), 'main');
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				// Rebased alone, as without `rebase.updateRefs`, which would carry the child along
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'child');
+				assert.strictEqual(mergeBase(repo.path, 'parent'), base, 'the merge base is below the rebase');
+
+				const result = await getAheadOfBase(repo, 'child');
+				assert.deepStrictEqual(result.base, {
+					ref: 'parent',
+					ahead: 1,
+					sha: revParse(repo.path, 'parent'),
+					forkPoint: parentCommits[2],
+					tier: 'created',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+	});
+
+	suite('a base in a reftable repository', () => {
+		const reftable = { refFormat: 'reftable' } as const;
+
+		suiteSetup(function () {
+			if (!supportsReftable()) {
+				this.skip();
+			}
+		});
+
+		/** Spies on the uncached spawn path under `Git.run`, which a `run` served from a result cache never reaches */
+		function spyOnSpawns(repo: TestRepo): sinon.SinonSpy {
+			return sinon.spy(
+				repo.provider.git as unknown as {
+					runCore: (...args: unknown[]) => unknown;
+				},
+				'runCore',
+			);
+		}
+
+		/** What `spy` (see {@link spyOnSpawns}) saw spawned, as each spawn's string arguments, global options first */
+		function spawns(spy: sinon.SinonSpy): string[][] {
+			return spy.getCalls().map(c => (c.args[1] as unknown[]).filter((a): a is string => typeof a === 'string'));
+		}
+
+		/** The spawns that read the base's reflog: the entries, and the value before the oldest one */
+		function reflogSpawns(spy: sinon.SinonSpy): string[][] {
+			return spawns(spy).filter(args => args.includes('reflog') || args.some(a => /@\{\d+\}$/.test(a)));
+		}
+
+		test('keeps its own reflog out of files, so the fixture is the repository it claims to be', () => {
+			const { clone, cleanup } = createClone(reftable);
+			try {
+				assert.ok(existsSync(join(clone.path, '.git', 'reftable', 'tables.list')));
+				assert.ok(!existsSync(join(clone.path, '.git', 'logs')));
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the tip of a stored target moved back off a commit of the branch', async () => {
+			const { clone, base, cleanup } = createForceMovedBase(({ base, commits }) => [commits[1], base], reftable);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 4,
+					sha: base,
+					forkPoint: base,
+					tier: 'detected',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the tip when it was moved back to another commit of the branch', async () => {
+			const { clone, commits, cleanup } = createForceMovedBase(
+				({ commits }) => [commits[2], commits[0]],
+				reftable,
+			);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, commits[0]);
+				assert.strictEqual(result.base?.ahead, 3);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base once the moved-back base also moves on', async () => {
+			const { origin, clone, base, cleanup } = createForceMovedBase(
+				({ base, commits }) => [commits[1], base],
+				reftable,
+			);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, base);
+				assert.strictEqual(result.base?.ahead, 4);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('keeps the fork point of a rebased base, whose tip the branch lacks, and counts past it', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased', 0, reftable);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.notStrictEqual(
+					mergeBase(clone.path, 'origin/main'),
+					oldTip,
+					'the merge base is before the rewrite',
+				);
+				assert.strictEqual(result.base?.forkPoint, oldTip);
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'origin/main'));
+				assert.strictEqual(result.base?.ahead, 1);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rewritten base that dropped the commit under the branch', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('replaced', 0, reftable);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+				assert.notStrictEqual(result.base?.forkPoint, oldTip);
+				assert.strictEqual(result.base?.ahead, 2);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("measures a stacked branch against its parent, not a default moved back off the branch's commit", async () => {
+			const { clone, cleanup } = createClone(reftable);
+			try {
+				const { parentTip, childCommits } = createStackOverRewoundMain(clone.path);
+				assert.strictEqual(
+					gitForkPoint(clone.path, 'main'),
+					childCommits[0],
+					"git's fork point is the undone commit",
+				);
+
+				const result = await getAheadOfBase(clone, 'child');
+				assert.deepStrictEqual(result.base, {
+					ref: 'parent',
+					ahead: 2,
+					sha: parentTip,
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('settles a rewritten base without its reflog: one ancestry check of the fork point for each tip', async () => {
+			const { origin, clone, oldTip, cleanup } = createRewrittenBase('rebased', 0, reftable);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				const ancestryChecks = (spy: sinon.SinonSpy, tip: string) =>
+					spawns(spy).filter(
+						args => args.includes('merge-base') && args.at(-2) === oldTip && args.at(-1) === tip,
+					);
+
+				const spy = spyOnSpawns(clone);
+				try {
+					const tip = revParse(clone.path, 'origin/main');
+					const first = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(first.base?.forkPoint, oldTip);
+					assert.strictEqual(first.base?.ahead, 1);
+					assert.deepStrictEqual(reflogSpawns(spy), [], 'the reflog is never read');
+					assert.strictEqual(ancestryChecks(spy, tip).length, 1);
+
+					spy.resetHistory();
+					assert.deepStrictEqual(await getAheadOfBase(clone, 'feature'), first);
+					assert.deepStrictEqual(ancestryChecks(spy, tip), [], 'the second read reuses the first');
+
+					addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+					fetch(clone.path);
+					// No watcher runs here to drop the cached ref list
+					await clone.provider.refs.getRefs(clone.path, undefined, { force: true });
+					spy.resetHistory();
+					const fetched = await getAheadOfBase(clone, 'feature');
+					const movedTip = revParse(clone.path, 'origin/main');
+					assert.strictEqual(fetched.base?.forkPoint, oldTip);
+					assert.strictEqual(fetched.base?.sha, movedTip);
+					assert.strictEqual(ancestryChecks(spy, movedTip).length, 1, 'the moved tip is checked');
+					assert.deepStrictEqual(reflogSpawns(spy), []);
+				} finally {
+					spy.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('settles a base moved back off a commit of the branch again each time it moves on', async () => {
+			const { origin, clone, base, cleanup } = createForceMovedBase(
+				({ base, commits }) => [commits[1], base],
+				reftable,
+			);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				await clone.provider.refs.getRefs(clone.path, undefined, {
+					force: true,
+				});
+				assert.strictEqual((await getAheadOfBase(clone, 'feature')).base?.forkPoint, base);
+
+				addCommit(origin.path, 'moved-on-again.txt', 'moved on again', 'moved on again');
+				fetch(clone.path);
+				await clone.provider.refs.getRefs(clone.path, undefined, {
+					force: true,
+				});
+				const moved = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(moved.base?.forkPoint, base);
+				assert.strictEqual(moved.base?.ahead, 4);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('shares one ancestry check of the fork point between worktrees of one repository', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('rebased', 0, reftable);
+			const worktrees = mkdtempSync(join(tmpdir(), 'gitlens-reftable-worktrees-'));
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				storeTargets(clone.path, 'second', { detected: 'origin/main' });
+				const second = join(worktrees, 'second');
+				git(clone.path, 'worktree', 'add', '-q', '--no-track', '-b', 'second', second, 'feature');
+				addCommit(second, 'second-only.txt', 'second', 'second only');
+				clone.provider.cache.registerRepoPath(fileUri(second), await clone.provider.config.getGitDir(second));
+
+				const spy = spyOnSpawns(clone);
+				try {
+					const first = await clone.provider.branches.getAheadOfBase(clone.path, 'feature');
+					const other = await clone.provider.branches.getAheadOfBase(second, 'second');
+					assert.strictEqual(first.base?.forkPoint, other.base?.forkPoint);
+					assert.strictEqual(first.base?.ahead, 1);
+					assert.strictEqual(other.base?.ahead, 2);
+					assert.strictEqual(
+						spawns(spy).filter(args => args.includes('merge-base') && args.at(-2) === oldTip).length,
+						1,
+						'one ancestry check for both',
+					);
+					assert.deepStrictEqual(reflogSpawns(spy), []);
+				} finally {
+					spy.restore();
+				}
+			} finally {
+				rmSync(worktrees, { recursive: true, force: true });
+				cleanup();
+			}
+		});
+
+		test('takes the merge base of a rewritten base whose reflog git cannot read', async () => {
+			const { clone, oldTip, cleanup } = createRewrittenBase('replaced', 0, reftable);
+			try {
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+
+				const git = clone.provider.git;
+				const run = git.run.bind(git);
+				const stub = sinon
+					.stub(git, 'run')
+					.callsFake(((options: unknown, ...args: unknown[]) =>
+						args[0] === 'reflog'
+							? Promise.reject(new Error('boom'))
+							: run(options as never, ...(args as never[]))) as never);
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
+					assert.notStrictEqual(result.base?.forkPoint, oldTip);
+					assert.strictEqual(result.base?.ahead, 2);
+				} finally {
+					stub.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+	});
+
+	suite('a base ref with no reflog file', () => {
+		test('spawns nothing to read a reflog it does not have', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				// `origin/main` then moves with no entry in any reflog, as after a clone, so `--fork-point` finds the merge base
+				setConfig(clone.path, 'core.logAllRefUpdates', 'false');
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+				addCommit(origin.path, 'moved-on.txt', 'moved on', 'moved on');
+				fetch(clone.path);
+				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				assert.ok(!existsSync(join(clone.path, '.git', 'logs', 'refs', 'remotes', 'origin', 'main')));
+
+				const spy = sinon.spy(clone.provider.git, 'run');
+				try {
+					const result = await getAheadOfBase(clone, 'feature');
+					assert.strictEqual(result.base?.ahead, 1);
+				} finally {
+					spy.restore();
+				}
+
+				const calls = spy.getCalls().map(c => c.args.slice(1).filter(a => typeof a === 'string'));
+				assert.deepStrictEqual(
+					calls.filter(args => args[0] === 'reflog' || args.some(a => /@\{\d+\}$/.test(a))),
+					[],
+				);
+				// With no reflog, git's reading is the merge base, so no ancestry check of it is needed
+				assert.deepStrictEqual(
+					calls.filter(args => args[0] === 'merge-base'),
+					[
+						['merge-base', '--fork-point', 'origin/main', 'HEAD'],
+						['merge-base', 'HEAD', 'origin/main'],
+					],
+				);
 			} finally {
 				cleanup();
 			}

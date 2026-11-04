@@ -61,10 +61,10 @@ function nextChange(sub: WorktreeSummarySubscription): Promise<WorktreeSummary> 
  * Before the base re-measure, each linked worktree's refresh resolved its base again with 4 processes of its own
  * (`rev-parse main@{u}`, `merge-base --fork-point` against `main` and against `origin/main`, and `rev-list
  * --left-right --count`), and the first of them also read the remotes. Then each ran 1 (`rev-list --count`). Now, with
- * git 2.41 or later, each runs none: the repository's checkouts share one read of the base's reflog, one `rev-parse` of
- * the value before its oldest entry, one `rev-list` of what they reach off the new tip's history and one `for-each-ref`
- * counting every local branch past the new tip, besides the ref list and remote `HEAD` reads every refresh after a
- * fetch shares. Before 2.41 each still runs its own `rev-list --count`.
+ * git 2.41 or later, each runs none: the repository's checkouts share one read of the base's reflog file, which spawns
+ * nothing (it took a `reflog` and a `rev-parse` of the value before its oldest entry), one `rev-list` of what it reaches
+ * off the new tip's history and one `for-each-ref` counting every local branch past the new tip, besides the ref list
+ * and remote `HEAD` reads every refresh after a fetch shares. Before 2.41 each still runs its own `rev-list --count`.
  */
 suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 	const worktreeCount = 4;
@@ -262,11 +262,14 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 				const key = getRepositoryKey(wt.path);
 				return spawned.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
 			});
-			const reflogReads = spawned.filter(m => m.includes(' reflog show '));
+			// Each read of whether the base only moved forward spawns one walk of what its reflog reaches
+			const reflogReads = spawned.filter(m => m.includes(' rev-list --max-count=') && m.includes(' --stdin'));
+			const reflogSpawns = spawned.filter(m => m.includes(' reflog show ') || /@\{\d+\}/.test(m));
 			const counts = spawned.filter(m => m.includes('%(ahead-behind:'));
 			console.error(
 				`[measure] base refresh with a branch created during the refreshes: ${reflogReads.length} reflog read(s), ${counts.length} shared count(s), ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree`,
 			);
+			assert.deepStrictEqual(reflogSpawns, [], 'the reflog is read from its file');
 
 			const aheadBehind = await provider.git.supports('git:for-each-ref:ahead-behind');
 			const own = aheadBehind ? 0 : 1;
