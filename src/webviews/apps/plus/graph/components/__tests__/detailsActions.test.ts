@@ -1236,6 +1236,45 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		assert.strictEqual(calls, 1, 'no paging for a commit that is gone');
 	});
 
+	test('a pushed tip move refetches once the rebase has landed', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [commit("c'"), commit("b'"), commit('a')], hasMore: false };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		const paused = wipAt(2, 'x');
+		paused.changes = { pausedOpStatus: { type: 'rebase' } } as unknown as Wip['changes'];
+		actions.applyPushedWip(paused);
+		assert.strictEqual(calls, 0, 'no refetch while the rebase is paused');
+
+		actions.applyPushedWip(wipAt(4, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(calls, 1, 'the landed rebase refetches');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["c'", "b'"],
+		});
+	});
+
 	test('a tip that moves mid-rebase waits for the rebase to finish', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');

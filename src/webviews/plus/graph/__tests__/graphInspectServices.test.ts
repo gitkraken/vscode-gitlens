@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { CommentController, CommentThread } from 'vscode';
-import { commands, comments, Uri } from 'vscode';
+import { commands, comments, EventEmitter, TabInputTextDiff, Uri, window } from 'vscode';
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
@@ -2054,6 +2054,213 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 		);
 
 		assert.strictEqual(fake._reviewFiles?.commentable.get(sideOf(deletedOrMissing, 'gone.ts')), 'gone.ts');
+	});
+});
+
+// The reopen of a review diff left on rewritten commits, end to end: the editor's tabs are faked (groups, the tab
+// change event, close) and `gitlens.diffWith` opens a tab in them the way the editor does — a preview tab replaces
+// the group's preview tab — so what is checked is which tabs the reader ends up with.
+suite('graphInspectServices — a review diff left on rewritten commits reopens on the new ones', () => {
+	type FakeTab = { input: unknown; isActive: boolean; isPreview: boolean; group: FakeGroup };
+	type FakeGroup = { viewColumn: number; tabs: FakeTab[]; activeTab?: FakeTab };
+	type ReopenFake = ReviewOwnerFake & {
+		openReviewFile(args: { repoPath: string; lhs: string; rhs: string; path: string }): Promise<unknown>;
+		_openedReviewDiffs: Map<string, { lhs: string; rhs: string }>;
+	};
+
+	const side = (sha: string, path: string) => Uri.parse(`gitlens://${sha}/repo/${path}`);
+	const files = (rhs: string, paths = ['b.ts']): ReviewFilesArgs => ({
+		anchor: 'wip|/repo',
+		repoPath: '/repo',
+		lhs: 'base',
+		rhs: rhs,
+		paths: paths,
+	});
+
+	let group: FakeGroup;
+	let onTabs: EventEmitter<void>;
+	let closed: FakeTab[];
+	let diffs: { rhs: string; path: string }[];
+	/** Paths whose next open the editor drops — an open that fails */
+	let failing: Set<string>;
+	let fake: ReopenFake;
+
+	function show(tab: FakeTab): void {
+		for (const t of group.tabs) {
+			t.isActive = false;
+		}
+		tab.isActive = true;
+		group.activeTab = tab;
+		onTabs.fire();
+	}
+
+	function open(input: unknown, preview: boolean): FakeTab {
+		if (preview) {
+			group.tabs = group.tabs.filter(t => !t.isPreview);
+		}
+		const tab: FakeTab = { input: input, isActive: false, isPreview: preview, group: group };
+		group.tabs.push(tab);
+		show(tab);
+		return tab;
+	}
+
+	const diffTabs = () => group.tabs.filter(t => t.input instanceof TabInputTextDiff);
+	const modifiedOf = (tab: FakeTab) => (tab.input as TabInputTextDiff).modified.toString();
+	const settle = async () => {
+		for (let i = 0; i < 20; i++) {
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+		}
+	};
+
+	setup(async () => {
+		const { Container: ContainerClass } = await import('../../../../container.js');
+		const git = {
+			getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+			getRepositoryService: () => ({
+				getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+				revision: {
+					// `gone.ts` is deleted on the rewritten side
+					resolveRevision: (ref: string, uri: Uri) =>
+						Promise.resolve(
+							ref === 'tip2' && uri.path.endsWith('gone.ts')
+								? { sha: ref, revision: ref, status: 'D' }
+								: { sha: ref, revision: ref },
+						),
+				},
+				getBestRevisionUri: (uri: Uri, sha: string) =>
+					Promise.resolve(sha === deletedOrMissing ? undefined : Uri.parse(`gitlens://${sha}${uri.path}`)),
+				getRevisionUri: (sha: string, path: string) => Uri.parse(`gitlens://${sha}${path}`),
+			}),
+			getRevisionUriFromGitUri: (uri: { sha?: string; path: string }) =>
+				Uri.parse(`gitlens://${uri.sha}${uri.path}`),
+		};
+		sinon.stub(ContainerClass, 'instance').get(() => ({ git: git }));
+
+		group = { viewColumn: 1, tabs: [] };
+		onTabs = new EventEmitter<void>();
+		closed = [];
+		diffs = [];
+		failing = new Set();
+		sinon.stub(window, 'tabGroups').get(() => ({
+			all: [group],
+			activeTabGroup: group,
+			onDidChangeTabs: onTabs.event,
+			onDidChangeTabGroups: () => ({ dispose: () => {} }),
+			close: (tab: FakeTab) => {
+				group.tabs = group.tabs.filter(t => t !== tab);
+				closed.push(tab);
+				return Promise.resolve(true);
+			},
+		}));
+		sinon.stub(window, 'visibleTextEditors').get(() => []);
+		sinon.stub(commands, 'executeCommand').callsFake((command: string, ...args: unknown[]) => {
+			if (command !== 'gitlens.diffWith') return Promise.resolve(undefined);
+
+			const diff = args[0] as {
+				lhs: { sha: string; uri: Uri };
+				rhs: { sha: string; uri: Uri };
+				showOptions?: { preview?: boolean };
+			};
+			const path = diff.rhs.uri.path.split('/').pop()!;
+			diffs.push({ rhs: diff.rhs.sha, path: path });
+			if (failing.delete(path)) return Promise.resolve(undefined);
+
+			const deleted = diff.rhs.sha === 'tip2' && path === 'gone.ts';
+			const modified = deleted
+				? Uri.parse(`gitlens://${deletedOrMissing}${diff.rhs.uri.path}`)
+				: side(diff.rhs.sha, path);
+			open(new TabInputTextDiff(side(diff.lhs.sha, path), modified), diff.showOptions?.preview ?? true);
+			return Promise.resolve(undefined);
+		});
+
+		fake = Object.assign(createReviewOwnerFake(), {
+			context: { container: { git: git }, getOpenEditorShowOptions: () => undefined },
+		}) as unknown as ReopenFake;
+	});
+
+	teardown(() => {
+		fake.clearReviewFiles();
+		disposeReviewThreads();
+		onTabs.dispose();
+		sinon.restore();
+	});
+
+	async function openOnTip1(path = 'b.ts', paths?: string[]): Promise<FakeTab> {
+		await fake.setReviewFiles(files('tip1', paths));
+		await fake.openReviewFile({ repoPath: '/repo', lhs: 'base', rhs: 'tip1', path: path });
+		return group.activeTab!;
+	}
+
+	test('a shown preview diff is reopened in place on the rewritten commit', async () => {
+		await openOnTip1();
+
+		await fake.setReviewFiles(files('tip2'));
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+		assert.strictEqual(closed.length, 0, 'the preview tab was replaced, not closed');
+	});
+
+	test('a shown kept diff is replaced: the new one opens kept and the old one closes', async () => {
+		const tab = await openOnTip1();
+		tab.isPreview = false;
+
+		await fake.setReviewFiles(files('tip2'));
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+		assert.strictEqual(diffTabs()[0].isPreview, false);
+		assert.deepStrictEqual(closed, [tab]);
+	});
+
+	test('a diff in the background is left alone until it is shown, then reopened once', async () => {
+		const tab = await openOnTip1();
+		tab.isPreview = false;
+		open({}, false);
+
+		await fake.setReviewFiles(files('tip2'));
+		await settle();
+		assert.strictEqual(diffs.length, 1, 'nothing reopened in the background');
+
+		show(tab);
+		await settle();
+		show(group.tabs.find(t => t.input instanceof TabInputTextDiff)!);
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+		assert.strictEqual(diffs.length, 2, 'reopened exactly once');
+	});
+
+	test('a reopen that opens nothing is not retried on every tab change', async () => {
+		const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const tab = await openOnTip1();
+			tab.isPreview = false;
+			failing.add('b.ts');
+
+			await fake.setReviewFiles(files('tip2'));
+			await clock.tickAsync(2500);
+			onTabs.fire();
+			await clock.tickAsync(2500);
+
+			assert.strictEqual(diffs.length, 2, 'one attempt only');
+			assert.deepStrictEqual(diffTabs(), [tab], 'the tab it had stays');
+		} finally {
+			clock.restore();
+		}
+	});
+
+	test('a file the rewrite deleted reopens on the deleted-file placeholder', async () => {
+		const tab = await openOnTip1('gone.ts', ['gone.ts']);
+		tab.isPreview = false;
+
+		await fake.setReviewFiles(files('tip2', ['gone.ts']));
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [
+			Uri.parse(`gitlens://${deletedOrMissing}/repo/gone.ts`).toString(),
+		]);
+		assert.deepStrictEqual(closed, [tab], 'the stale kept tab is gone');
 	});
 });
 
