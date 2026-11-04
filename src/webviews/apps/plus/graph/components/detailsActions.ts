@@ -2695,11 +2695,12 @@ export class DetailsActions {
 		this._branchCommitsController = controller;
 
 		this.state.branchCommitsFetching.set(true);
+		let prevCommits: readonly BranchCommitEntry[] | undefined;
 		try {
 			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
 			if (controller.signal.aborted) return;
 
-			const prevCommits =
+			prevCommits =
 				this._branchCommitsFetchedRepoPath != null &&
 				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
 					? this.state.branchCommits.get()
@@ -2717,6 +2718,7 @@ export class DetailsActions {
 		}
 
 		this.rederiveDeferredDefaultScope(repoPath);
+		this.reloadScopeCommitsPagedOut(repoPath, prevCommits);
 	}
 
 	/**
@@ -2787,6 +2789,18 @@ export class DetailsActions {
 		const remapped: ScopeSelection = { ...scope, includeShas: includeShas };
 		this.state.scope.set(remapped);
 		void this.resources.scopeFiles.fetch(repoPath, remapped);
+	}
+
+	/** A refetch lists the first page again: pages back while the scope holds commits that were listed before it */
+	private reloadScopeCommitsPagedOut(repoPath: string, prevCommits: readonly BranchCommitEntry[] | undefined): void {
+		const scope = this.state.scope.get();
+		if (scope?.type !== 'wip' || prevCommits == null) return;
+
+		const listed = new Set(this.state.branchCommits.get()?.map(c => c.sha));
+		const listedBefore = new Set(prevCommits.map(c => c.sha));
+		if (scope.includeShas.some(sha => !listed.has(sha) && listedBefore.has(sha))) {
+			void this.ensureBranchCommitsCover(repoPath, scope.includeShas);
+		}
 	}
 
 	/**

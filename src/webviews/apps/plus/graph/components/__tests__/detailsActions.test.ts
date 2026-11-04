@@ -1174,6 +1174,41 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		assert.deepStrictEqual(fetchedScopes.at(-1), expected, 'the files are reloaded for the rewritten commits');
 	});
 
+	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		// The scope reaches past the merge base, into commits a Load more listed
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'm1'] });
+
+		const firstPage = [commit('c'), commit('b')];
+		const pages: { limit?: number }[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async (_repoPath: string, options?: { limit?: number }) => {
+					pages.push({ limit: options?.limit });
+					return options?.limit != null
+						? { commits: [...firstPage, commit('m1'), commit('m0')], hasMore: false }
+						: { commits: firstPage, hasMore: true };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([...firstPage, commit('m1'), commit('m0')]);
+
+		await actions.fetchBranchCommits('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.ok(
+			state.branchCommits.get()?.some(c => c.sha === 'm1'),
+			'the scope commit is listed again',
+		);
+		assert.strictEqual(pages.length, 2, 'one page back');
+	});
+
 	test('a tip that moves mid-rebase waits for the rebase to finish', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');
