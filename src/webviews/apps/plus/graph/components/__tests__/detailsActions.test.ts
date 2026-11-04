@@ -15,7 +15,7 @@ import type {
 import { createResource } from '../../../../shared/state/resource.js';
 import type { AppState } from '../../context.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
-import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
+import { DetailsActions, remapRewrittenShas, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
 
 function createResources(overrides: Partial<DetailsResources> = {}): DetailsResources {
@@ -1028,6 +1028,124 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 		await actions.ensureBranchCommitsCover(undefined, ['h']);
 
 		assert.strictEqual(calls(), 0, 'nothing to cover');
+	});
+});
+
+suite('remapRewrittenShas', () => {
+	const commits = (...shas: string[]): BranchCommitEntry[] =>
+		shas.map(sha => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry);
+
+	test('every sha still on the branch → nothing to remap', () => {
+		assert.strictEqual(
+			remapRewrittenShas(['c', 'b'], commits('c', 'b', 'a'), commits('d', 'c', 'b', 'a')),
+			undefined,
+		);
+	});
+
+	test('amending an earlier commit carries the scope onto the rewritten commits', () => {
+		// b was amended, so c (above it) was rewritten too; a (below) is untouched
+		assert.deepStrictEqual(remapRewrittenShas(['c', 'b', 'a'], commits('c', 'b', 'a'), commits("c'", "b'", 'a')), [
+			"c'",
+			"b'",
+			'a',
+		]);
+		assert.deepStrictEqual(remapRewrittenShas(['b'], commits('c', 'b', 'a'), commits("c'", "b'", 'a')), ["b'"]);
+	});
+
+	test('a fixup folded in by a rebase maps the rest by their place above the untouched commits', () => {
+		// fixup! b was committed on top, then squashed into b by `rebase --autosquash`
+		assert.deepStrictEqual(
+			remapRewrittenShas(['f', 'c', 'b'], commits('f', 'c', 'b', 'a'), commits("c'", "b'", 'a')),
+			["c'", "b'"],
+		);
+	});
+
+	test('a rewrite of the oldest loaded commit maps one-to-one only when the count is unchanged', () => {
+		assert.deepStrictEqual(remapRewrittenShas(['b', 'a'], commits('b', 'a'), commits("b'", "a'")), ["b'", "a'"]);
+		assert.strictEqual(remapRewrittenShas(['b', 'a'], commits('b', 'a'), commits("b'")), undefined);
+	});
+
+	test('no earlier list to map from → undefined', () => {
+		assert.strictEqual(remapRewrittenShas(['b'], undefined, commits("b'")), undefined);
+	});
+});
+
+suite('DetailsActions — scope follows a history rewrite', () => {
+	const commit = (sha: string): BranchCommitEntry => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry;
+	const repo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
+	const wipAt = (revision: number, tip: string): Wip =>
+		({
+			changes: undefined,
+			repositoryCount: 1,
+			repo: repo,
+			revision: revision,
+			// No branch name, so the push doesn't also start a branch-enrichment fetch
+			branch: { repoPath: '/repo', reference: { sha: tip } },
+		}) as unknown as Wip;
+
+	test('an amend of an earlier commit moves the review scope and refetches its files', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+
+		let branchCommits: BranchCommitsResult = { commits: [commit('c'), commit('b'), commit('a')], hasMore: false };
+		const services = {
+			...createServices(),
+			graphInspect: { getBranchCommits: async () => branchCommits },
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, scope: ScopeSelection) => {
+				fetchedScopes.push(scope);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		await actions.fetchBranchCommits('/repo');
+
+		// The agent amends b: c is rewritten on top of the new b, the tip moves, ahead/behind stays the same
+		branchCommits = { commits: [commit("c'"), commit("b'"), commit('a')], hasMore: false };
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		const expected: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["c'", "b'"],
+		};
+		assert.deepStrictEqual(state.scope.get(), expected);
+		assert.deepStrictEqual(fetchedScopes.at(-1), expected, 'the files are reloaded for the rewritten commits');
+	});
+
+	test('a tip that moves mid-rebase waits for the rebase to finish', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [], hasMore: false };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		const paused = wipAt(2, 'x');
+		paused.changes = { pausedOpStatus: { type: 'rebase' } } as unknown as Wip['changes'];
+		actions.applyPushedWip(paused);
+
+		assert.strictEqual(calls, 0, 'no refetch while the rebase is paused');
 	});
 });
 

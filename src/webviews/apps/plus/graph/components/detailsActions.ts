@@ -51,6 +51,7 @@ import { defaultViewFilesConfig } from '../../../../commitDetails/protocol.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	AutoRebaseSummaryResult,
+	BranchCommitEntry,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	BranchComparisonOptions,
@@ -149,6 +150,52 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 		);
 	}
 	return false;
+}
+
+/**
+ * Carries a scope's commits across a history rewrite (amend, reword, a fixup rebase). The commits below the newest
+ * one both lists share are untouched; each rewritten commit above it maps to the commit at the same distance below
+ * the tip of the rewritten run, so a reworked commit keeps its place in the scope. `undefined` when every sha is
+ * still in `next`, or when nothing can be mapped.
+ */
+export function remapRewrittenShas(
+	shas: readonly string[],
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+): string[] | undefined {
+	const nextShas = new Set(next.map(c => c.sha));
+	if (shas.every(sha => nextShas.has(sha))) return undefined;
+	if (!prev?.length) return undefined;
+
+	let prevForkIndex = prev.findIndex(c => nextShas.has(c.sha));
+	let nextForkIndex: number;
+	if (prevForkIndex < 0) {
+		// Nothing shared — the rewrite reached the oldest loaded commit; only a same-length list maps one-to-one
+		if (prev.length !== next.length) return undefined;
+
+		prevForkIndex = prev.length;
+		nextForkIndex = next.length;
+	} else {
+		const forkSha = prev[prevForkIndex].sha;
+		nextForkIndex = next.findIndex(c => c.sha === forkSha);
+	}
+
+	const remapped: string[] = [];
+	for (const sha of shas) {
+		if (nextShas.has(sha)) {
+			remapped.push(sha);
+			continue;
+		}
+
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		if (prevIndex < 0) continue;
+
+		const nextIndex = nextForkIndex - (prevForkIndex - prevIndex);
+		if (nextIndex >= 0) {
+			remapped.push(next[nextIndex].sha);
+		}
+	}
+	return remapped.length > 0 ? remapped : undefined;
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -2648,10 +2695,16 @@ export class DetailsActions {
 			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
 			if (controller.signal.aborted) return;
 
+			const prevCommits =
+				this._branchCommitsFetchedRepoPath != null &&
+				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
+					? this.state.branchCommits.get()
+					: undefined;
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
+			this.followRewrittenScopeCommits(repoPath, prevCommits, result.commits);
 		} finally {
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
@@ -2714,6 +2767,24 @@ export class DetailsActions {
 
 		this.state.scope.set(refreshedScope);
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
+	}
+
+	/** Moves the active mode's commit scope onto the commits a history rewrite replaced its own with, and reloads
+	 *  the scope's files — otherwise the review keeps diffing the commits the rewrite left behind. */
+	private followRewrittenScopeCommits(
+		repoPath: string,
+		prevCommits: readonly BranchCommitEntry[] | undefined,
+		nextCommits: readonly BranchCommitEntry[],
+	): void {
+		const scope = this.state.scope.get();
+		if (scope?.type !== 'wip' || scope.includeShas.length === 0) return;
+
+		const includeShas = remapRewrittenShas(scope.includeShas, prevCommits, nextCommits);
+		if (includeShas == null) return;
+
+		const remapped: ScopeSelection = { ...scope, includeShas: includeShas };
+		this.state.scope.set(remapped);
+		void this.resources.scopeFiles.fetch(repoPath, remapped);
 	}
 
 	/**
@@ -3498,6 +3569,17 @@ export class DetailsActions {
 			const scope = this.state.scope.get();
 			if (scope?.type === 'wip' && repoPath === this.state.activeModeRepoPath.get()) {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
+			}
+
+			// A rewrite (amend, reword, rebase) moves the tip without shifting ahead/behind, which is all the
+			// branch-state refetch watches. Mid-rebase tips are skipped: the scope is carried over once it lands.
+			if (
+				prev?.repo.path === repoPath &&
+				prev.branch?.reference?.sha !== wip.branch?.reference?.sha &&
+				wip.changes?.pausedOpStatus == null &&
+				repoPath === this.state.activeModeRepoPath.get()
+			) {
+				void this.fetchBranchCommits(repoPath);
 			}
 		}
 		const branchName = wip.branch?.name;
