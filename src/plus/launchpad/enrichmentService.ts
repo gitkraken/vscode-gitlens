@@ -223,6 +223,9 @@ const supportedIntegrationIdsToEnrich: Record<IntegrationIds, EnrichedItemRespon
 	[IssuesSelfManagedHostIntegrationId.JiraServer]: 'jira',
 	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
+	// Not enrichable until the enrich backend accepts an `asana` provider: it validates `provider` against a fixed
+	// set, so sending one it doesn't know would be rejected rather than pinned or snoozed.
+	[IssuesCloudHostIntegrationId.Asana]: undefined,
 };
 
 export function convertRemoteProviderToEnrichProvider(provider: RemoteProvider): EnrichedItemResponse['provider'] {

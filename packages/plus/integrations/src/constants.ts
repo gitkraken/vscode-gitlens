@@ -20,6 +20,7 @@ export enum IssuesCloudHostIntegrationId {
 	Jira = 'jira',
 	Linear = 'linear',
 	Trello = 'trello',
+	Asana = 'asana',
 }
 
 /**
@@ -65,6 +66,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
+	IssuesCloudHostIntegrationId.Asana,
 ];
 
 /**
@@ -93,6 +95,7 @@ export const integrationIds = [
 	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
+	IssuesCloudHostIntegrationId.Asana,
 ];
 
 export type SupportedCloudIntegrationIds = (typeof supportedOrderedCloudIntegrationIds)[number];
@@ -229,6 +232,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		id: IssuesCloudHostIntegrationId.Trello,
 		name: 'Trello',
 		icon: 'gl-provider-trello',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Asana,
+		name: 'Asana',
+		icon: 'gl-provider-asana',
 		supports: ['issues'],
 		requiresPro: true,
 	},
