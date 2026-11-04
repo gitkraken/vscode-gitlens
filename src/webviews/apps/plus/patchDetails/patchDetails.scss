@@ -1,10 +1,9 @@
 @use '../../shared/styles/colors';
 @use '../../shared/styles/details-base';
-@use '../../shared/styles/utils';
 
 body {
-	--gl-patch-ghost-color: var(--color-foreground--50);
-	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	--gl-patch-ghost-color: var(--vscode-descriptionForeground);
+	--gitlens-tree-foreground: var(--vscode-foreground);
 }
 
 // When menu-list is inside a popover, the popover body provides the visual
@@ -40,32 +39,8 @@ gl-popover[appearance='menu'] menu-list {
 		pointer-events: none;
 	}
 
-	&:focus {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-		outline-offset: -1px;
-	}
-
 	&:hover {
-		color: var(--vscode-foreground);
 		text-decoration: none;
-
-		@include utils.dark-theme($selectorPostfix: ' &') {
-			background-color: var(--color-background--lighten-15);
-		}
-
-		@include utils.light-theme($selectorPostfix: ' &') {
-			background-color: var(--color-background--darken-15);
-		}
-	}
-
-	&.is-active {
-		@include utils.dark-theme($selectorPostfix: ' &') {
-			background-color: var(--color-background--lighten-10);
-		}
-
-		@include utils.light-theme($selectorPostfix: ' &') {
-			background-color: var(--color-background--darken-10);
-		}
 	}
 
 	&.is-disabled {
@@ -86,8 +61,6 @@ gl-popover[appearance='menu'] menu-list {
 		inset: 0.1rem var(--gitlens-scrollbar-gutter-width) 0.5rem var(--gitlens-gutter-width);
 	}
 
-	background-color: var(--vscode-sideBar-background);
-
 	&__actionbar {
 		display: flex;
 		flex-flow: row wrap;
@@ -107,19 +80,7 @@ gl-popover[appearance='menu'] menu-list {
 			text-overflow: ellipsis;
 			font-family: var(--vscode-editor-font-family);
 			white-space: nowrap;
-			border: var(--gl-border-width) solid var(--color-background--level-15);
 			border-radius: var(--gl-radius-sm);
-		}
-
-		&.is-pinned {
-			background-color: var(--color-alert-warningBackground);
-			border-radius: var(--gl-radius-sm);
-			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
-
-			.commit-action:hover,
-			.commit-action.is-active {
-				background-color: var(--color-alert-warningHoverBackground);
-			}
 		}
 	}
 
@@ -171,7 +132,7 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 .section--action {
-	border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+	border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 	padding: {
 		top: 1.5rem;
 		bottom: 1.5rem;
@@ -216,7 +177,7 @@ gl-popover[appearance='menu'] menu-list {
 		}
 
 		&:focus {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
 		}
 
@@ -370,9 +331,9 @@ textarea.message-input__control {
 	align-items: center;
 	padding: var(--gl-space-8) var(--gl-space-12);
 	line-height: 1.2;
-	color: var(--color-alert-foreground);
-	background-color: var(--color-alert-errorBackground);
-	border-left: 0.3rem solid var(--color-alert-errorBorder);
+	color: var(--gl-color-feedback-danger-fg);
+	background-color: var(--gl-color-feedback-danger-bg);
+	border-left: 0.3rem solid var(--gl-color-feedback-danger-border);
 
 	code-icon {
 		margin-right: var(--gl-space-4);

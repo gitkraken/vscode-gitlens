@@ -5,7 +5,7 @@
 
 :root {
 	--gitlens-scrollbar-gutter-width: 10px;
-	--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	--gitlens-tree-foreground: var(--vscode-foreground);
 }
 
 @include utils.dark-theme {
@@ -169,13 +169,11 @@ ul {
 		right: 0.4rem;
 		bottom: 0.4rem;
 		z-index: 1;
-		color: var(--vscode-descriptionForeground);
 		opacity: 0.7;
 		transition: opacity var(--gl-duration-fast) ease;
 
 		&:hover,
 		&:focus-within {
-			color: var(--vscode-foreground);
 			opacity: 1;
 		}
 	}
@@ -195,8 +193,6 @@ ul {
 .message-block-row--actions {
 	padding: var(--gl-space-2);
 	font-size: var(--gl-font-base);
-	color: var(--color-foreground--65);
-	background: var(--color-background--level-075);
 
 	&:last-child {
 		border-radius: 0 0 var(--gl-radius-xs) var(--gl-radius-xs);
@@ -214,14 +210,6 @@ ul {
 	.reachability-summary code-icon,
 	.reachability-summary gl-action-chip::part(icon) {
 		--code-icon-size: 12px;
-	}
-
-	gl-action-chip.error {
-		background-color: var(--color-alert-errorBackground);
-	}
-
-	gl-action-chip.warning {
-		background-color: var(--color-alert-warningHoverBackground);
 	}
 }
 
@@ -263,7 +251,6 @@ ul {
 	max-width: 100%;
 	padding: 0.1rem 0.25rem;
 	overflow: hidden;
-	color: var(--color-foreground--65);
 	border-radius: var(--gl-radius-sm);
 	--chip-text-transform: none;
 	--chip-background: transparent;
@@ -279,15 +266,6 @@ ul {
 
 	&--local-branch {
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
-	}
-
-	&--remote-branch {
-		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
-	}
-
-	&--tag {
-		color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 70%, var(--color-foreground) 30%);
 	}
 
 	&--current &__label {
@@ -319,7 +297,6 @@ ul {
 		padding-left: var(--gl-space-4);
 		font-size: var(--gl-font-micro);
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--color-foreground--50);
 	}
 }
 
@@ -377,8 +354,8 @@ ul {
 	max-height: 100vh;
 	overflow: auto;
 	scrollbar-gutter: stable;
-	color: var(--vscode-sideBar-foreground);
-	background-color: var(--color-background);
+	color: var(--vscode-foreground);
+	background-color: var(--gl-color-surface-base);
 
 	[aria-hidden='true'] {
 		display: none;
@@ -395,7 +372,7 @@ ul {
 
 	&.has-error {
 		padding-left: var(--gl-space-8);
-		border-left-color: var(--color-alert-errorBorder);
+		border-left-color: var(--gl-color-feedback-danger-border);
 		border-left-width: 0.3rem;
 	}
 
