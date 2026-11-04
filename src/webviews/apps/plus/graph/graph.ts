@@ -334,10 +334,15 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 				if ('rows' in partial) {
 					this.appElement.resetHover();
 
-					// Focus the graph after initial rows are loaded
+					// Focus the graph after initial rows are loaded — if the webview has focus: focusing into an unfocused
+					// one takes it from the editor the reader just moved to
 					if (!this._initialRowsLoaded && partial.rows?.length) {
 						this._initialRowsLoaded = true;
-						requestAnimationFrame(() => this.appElement?.graph?.focus());
+						requestAnimationFrame(() => {
+							if (document.hasFocus()) {
+								this.appElement?.graph?.focus();
+							}
+						});
 					}
 				}
 			},
