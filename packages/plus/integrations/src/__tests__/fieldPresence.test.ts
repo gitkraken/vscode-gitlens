@@ -781,6 +781,7 @@ const issueTables: Record<string, readonly string[]> = {
 	'jira-issues': [IssuesCloudHostIntegrationId.Jira, IssuesSelfManagedHostIntegrationId.JiraServer],
 	'linear-issues': [IssuesCloudHostIntegrationId.Linear],
 	'trello-issues': [IssuesCloudHostIntegrationId.Trello],
+	'asana-issues': [IssuesCloudHostIntegrationId.Asana],
 };
 
 suite('Field presence docs', () => {

@@ -139,7 +139,13 @@ export type GraphHostingServiceType =
 	| 'azureDevops'
 	| 'bitbucket'
 	| 'bitbucketServer';
-export type GraphIssueTrackerType = GraphHostingServiceType | 'jiraCloud' | 'jiraServer' | 'trello' | 'linear';
+export type GraphIssueTrackerType =
+	| GraphHostingServiceType
+	| 'jiraCloud'
+	| 'jiraServer'
+	| 'trello'
+	| 'linear'
+	| 'asana';
 
 interface BaseRefMetadata {
 	context?: SerializedGraphItemContext;
