@@ -2797,8 +2797,11 @@ export class DetailsActions {
 		if (scope?.type !== 'wip' || prevCommits == null) return;
 
 		const listed = new Set(this.state.branchCommits.get()?.map(c => c.sha));
-		const listedBefore = new Set(prevCommits.map(c => c.sha));
-		if (scope.includeShas.some(sha => !listed.has(sha) && listedBefore.has(sha))) {
+		// Only history below the newest commit both lists share is untouched — a commit above it was rewritten away
+		const fork = prevCommits.findIndex(c => listed.has(c.sha));
+		if (fork < 0) return;
+
+		if (scope.includeShas.some(sha => !listed.has(sha) && prevCommits.findIndex(c => c.sha === sha) > fork)) {
 			void this.ensureBranchCommitsCover(repoPath, scope.includeShas);
 		}
 	}

@@ -1209,6 +1209,33 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		assert.strictEqual(pages.length, 2, 'one page back');
 	});
 
+	test('a scope commit an undo removed does not page through the history', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c3'] });
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [commit('c2'), commit('c1')], hasMore: true };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c3'), commit('c2'), commit('c1')]);
+
+		await actions.fetchBranchCommits('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(calls, 1, 'no paging for a commit that is gone');
+	});
+
 	test('a tip that moves mid-rebase waits for the rebase to finish', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');
