@@ -3591,10 +3591,13 @@ export class DetailsActions {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
 			}
 
-			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase waits
+			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+			const rewritten =
+				prev?.branch?.reference?.sha !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
 			if (
 				prev?.repo.path === repoPath &&
-				prev.branch?.reference?.sha !== wip.branch?.reference?.sha &&
+				rewritten &&
 				wip.changes?.pausedOpStatus == null &&
 				repoPath === this.state.activeModeRepoPath.get()
 			) {

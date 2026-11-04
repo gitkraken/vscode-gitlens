@@ -1258,11 +1258,13 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
 
 		actions.applyPushedWip(wipAt(1, 'c'));
-		const paused = wipAt(2, 'x');
+		// An `edit` stop on the tip: HEAD is already on the amended commit while paused
+		const paused = wipAt(2, "c'");
 		paused.changes = { pausedOpStatus: { type: 'rebase' } } as unknown as Wip['changes'];
 		actions.applyPushedWip(paused);
 		assert.strictEqual(calls, 0, 'no refetch while the rebase is paused');
 
+		// …and the rebase lands with the tip it already had
 		actions.applyPushedWip(wipAt(4, "c'"));
 		await new Promise<void>(resolve => setTimeout(resolve, 0));
 
