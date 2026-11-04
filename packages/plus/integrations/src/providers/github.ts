@@ -1190,8 +1190,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	/**
 	 * Stack membership for every stacked pull request in the repository, keyed by pull request number.
 	 *
-	 * List surfaces get their pull requests from the shared providers API, whose type carries no stack
-	 * membership, so the `stack`/`stackEntry` fields selected on the native per-pull-request reads never
+	 * List surfaces get their pull requests from the shared providers API, and our mapping of those drops the
+	 * `stack` it reports, so the `stack`/`stackEntry` fields selected on the native per-pull-request reads never
 	 * reach them. This fills that gap in a single request for the whole repository, rather than a
 	 * per-pull-request enrichment that would scale with the list.
 	 *
@@ -1393,13 +1393,8 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	}
 
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {
-		// Undefined on purpose, NOT 'https://api.github.com'. `@gitkraken/provider-apis` treats this value as an
-		// *enterprise* base and derives both endpoints from it by appending GitHub Enterprise's paths:
-		// `getRESTBaseUrl` appends `/api/v3` and `getGraphQLEndpoint` appends `/api/graphql` (githubHelpers.ts).
-		// Handing it the cloud host therefore built `https://api.github.com/api/graphql`, which GitHub answers
-		// 404 — every cloud GraphQL read (orgs, repos, PR/issue search) failed as `not-found`. Omitting it is
-		// what selects the cloud endpoints (`GITHUB_API_URL` / `GITHUB_GRAPHQL_API_URL`), so cloud must pass
-		// nothing and only GHE passes its instance base.
+		// Undefined on purpose: omitting it is what selects `@gitkraken/provider-apis`' cloud endpoints, so cloud
+		// passes nothing and only GHE passes its instance base.
 		return undefined;
 	}
 

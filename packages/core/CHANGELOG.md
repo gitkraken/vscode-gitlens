@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds Asana as an issue integration (`IssuesCloudHostIntegrationId.Asana`): an `AsanaIntegration` with workspaces as resources and their unarchived projects as projects, tasks mapped to the shared issue shape (open is incomplete, closed is completed), "my issues" read per workspace from the tasks assigned to the user, cloud auth via the shared provider, Asana issue entity identifiers keyed by workspace for branch associations, the `gl-provider-asana` glyph, and Asana in the supported cloud-integration descriptors/lists. Asana's task list can't be ordered, so it advertises no issue sorts, and a tracker read scoped to the user reads the user's tasks once per workspace and splits them into its projects (plus/integrations)
 - Adds `trimTrailingSlashes` to `utils/path.js`, trimming every trailing `/` where `trimTrailingSlash` trims one, in a linear scan (utils)
+- Adds a repository's fork status and parent to the identities `IntegrationManager.resolveRepository` returns, by bumping `@gitkraken/provider-apis` to 0.67.0: `isFork` and `parent` are now set for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, where core 0.28.0 read fields the SDK didn't return yet, and for gitlab.com, where a nested group is part of the owner (`parent.owner: 'group/subgroup'`). Self-managed GitLab leaves both `undefined`, because the field that names the parent needs GitLab 17.10 and an older server rejects the whole query. A consumer patching the SDK to return these fields can drop the patch (plus/integrations)
+
+### Changed
+
+- Changes how `@gitkraken/provider-apis` 0.67.0 loads for a consumer of core under Node ESM: it now ships an ESM build, so `import` resolves to `dist/*.mjs` while `require` still gets the CommonJS build, and core binds its factory through the new named `makeProviderAPIs` export, which is the same function in both (plus/integrations)
 
 ### Removed
 
@@ -19,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes trimming trailing slashes in `getIgnoredPaths`/`getIgnoredEntries` path handling and in self-managed host and URL normalization taking quadratic time on a long run of `/` that doesn't end the value; results are unchanged (git-cli, plus/integrations)
 - Fixes `IntegrationManager.resolveRepository` reporting every Azure DevOps and Azure DevOps Server repository as `renamed: true`: it compared the provider's bare repository name with the remote's `{project}/_git/{repo}` path, which never match. It now compares the repository names and the projects (ignoring case), so `renamed` is `true` only when Azure names the repository or its project differently from the remote. A Server remote whose path the integration reads as a different collection and project than the parser did (a repository named after its project behind a virtual directory) is compared against the collection and project it was read at, so the re-read is not a rename but a later rename of either still is (plus/integrations)
+- Fixes `IntegrationManager.resolveRepository` reporting a GitLab repository as `not-found` when the reply carried only GraphQL errors, such as a rejected query, because the SDK threw the same message as for a missing project. With `@gitkraken/provider-apis` 0.67.0 the SDK keeps those errors, so that reply now resolves as `undetermined` with a warning, and only a null project with no errors is `not-found` (plus/integrations)
 
 ## [0.28.0] - 2026-11-02
 

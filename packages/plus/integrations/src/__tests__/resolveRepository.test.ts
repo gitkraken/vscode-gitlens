@@ -455,7 +455,7 @@ suite('resolveRepository (#5438)', () => {
 			assert.equal(resolution.identity?.isFork, false, label);
 			assert.equal(resolution.identity?.parent, undefined, label);
 
-			// An SDK that doesn't carry the fields says nothing, which is not "not a fork".
+			// A provider that doesn't report the fields says nothing, which is not "not a fork".
 			resolution = await resolve({ ...repo });
 			assert.equal(resolution.identity?.isFork, undefined, label);
 			assert.equal(resolution.identity?.parent, undefined, label);
@@ -892,9 +892,8 @@ suite('resolveRepository (#5438)', () => {
 });
 
 // #5559: GitHub/GitLab `getRepo` are GraphQL and never throw `RequestNotFoundError` for a missing repo —
-// they throw a `GraphQLErrors` (GitHub) or a bare `Error` (GitLab). These tests stub the REAL `getRepoFn`
-// with those SDK error shapes and go through the real `ProvidersApi.getRepo`, so they exercise the
-// classification the previous `RequestNotFoundError`-shaped stub could never reach.
+// they throw a `GraphQLErrors`. These tests stub the REAL `getRepoFn` with that SDK error shape and go
+// through the real `ProvidersApi.getRepo`, so they exercise its classification.
 suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 	test('GitHub: a GraphQLErrors with a NOT_FOUND-typed entry maps to not-found', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
@@ -977,6 +976,27 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		});
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'undetermined');
+		assert.notEqual(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a NOT_FOUND entry on the repository parent says nothing about the repository', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Repository octocat/hello not found', [
+				{
+					type: 'NOT_FOUND',
+					message: 'Could not resolve node',
+					path: ['repository', 'parent'],
+					locations: [],
+				},
+			]);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
 		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
 
@@ -1228,21 +1248,7 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		manager.dispose();
 	});
 
-	test('GitLab: a bare Error("Repository <path> not found") maps to not-found', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
-		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitLab, () => {
-			throw new Error('Repository group/proj not found');
-		});
-
-		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
-		assert.equal(result.resolution.status, 'not-found');
-		assert.equal(result.resolution.warning, undefined);
-
-		manager.dispose();
-	});
-
-	test('GitLab: an unrelated bare Error stays an error (message guard is specific)', async () => {
+	test('GitLab: an unrelated Error stays an error', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
 		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitLab, () => {
@@ -1255,6 +1261,242 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 
 		manager.dispose();
 	});
+});
+
+/**
+ * `getRepo` through the real SDK, answered at `fetch`: what GitLab's query asks for and how its reply comes out decide
+ * the fork fields and the not-found classification, so stubbing either side of the SDK would prove neither.
+ */
+suite('resolveRepository — GitLab through provider-apis', () => {
+	const project = {
+		id: 'gid://gitlab/Project/1',
+		fullPath: 'contributor/hello',
+		webUrl: 'https://gitlab.com/contributor/hello',
+		httpUrlToRepo: 'https://gitlab.com/contributor/hello.git',
+		sshUrlToRepo: 'git@gitlab.com:contributor/hello.git',
+		repository: { rootRef: 'main' },
+		userPermissions: { adminOperations: false, pushCode: true },
+	};
+
+	function answerGitLab(reply: { project: unknown; errors?: { message: string }[] }) {
+		const runtime = createFakeRuntime();
+		const requests: { url: string; query: string }[] = [];
+		runtime.http.fetch = (input, init) => {
+			requests.push({
+				url: String(input),
+				query: (JSON.parse(init?.body as string) as { query: string }).query,
+			});
+			return Promise.resolve(
+				new Response(JSON.stringify({ data: { project: reply.project }, errors: reply.errors }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		};
+		return { manager: createIntegrationManager(runtime), requests: requests };
+	}
+
+	const resolveGitLabDotCom = async (manager: ReturnType<typeof createIntegrationManager>) => {
+		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
+		return (await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/contributor/hello.git' })).resolution;
+	};
+
+	test('gitlab.com: a fork carries its parent, with a nested group as the owner', async () => {
+		const { manager, requests } = answerGitLab({
+			project: { ...project, isForked: true, forkedFrom: { fullPath: 'group/subgroup/hello' } },
+		});
+
+		const resolution = await resolveGitLabDotCom(manager);
+		assert.equal(resolution.status, 'resolved');
+		assert.equal(resolution.identity?.owner, 'contributor');
+		assert.equal(resolution.identity?.isFork, true);
+		assert.deepEqual(resolution.identity?.parent, { owner: 'group/subgroup', name: 'hello' });
+		assert.ok(requests[0].query.includes('forkedFrom'), 'gitlab.com is asked for the fork fields');
+
+		manager.dispose();
+	});
+
+	test('gitlab.com: a fork whose parent the token cannot see is still a fork', async () => {
+		const { manager } = answerGitLab({ project: { ...project, isForked: true, forkedFrom: null } });
+
+		const resolution = await resolveGitLabDotCom(manager);
+		assert.equal(resolution.identity?.isFork, true);
+		assert.equal(resolution.identity?.parent, undefined);
+
+		manager.dispose();
+	});
+
+	test('gitlab.com: a repository that is not a fork has no parent', async () => {
+		const { manager } = answerGitLab({ project: { ...project, isForked: false, forkedFrom: null } });
+
+		const resolution = await resolveGitLabDotCom(manager);
+		assert.equal(resolution.status, 'resolved');
+		assert.equal(resolution.identity?.isFork, false);
+		assert.equal(resolution.identity?.parent, undefined);
+
+		manager.dispose();
+	});
+
+	test('self-managed: the fork fields are not asked for, so neither is reported', async () => {
+		const { manager, requests } = answerGitLab({
+			project: {
+				...project,
+				webUrl: 'https://gitlab.example.com/contributor/hello',
+				httpUrlToRepo: 'https://gitlab.example.com/contributor/hello.git',
+				sshUrlToRepo: 'git@gitlab.example.com:contributor/hello.git',
+			},
+		});
+		await connectSelfManaged(manager, GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted, 'gitlab.example.com');
+
+		const { resolution } = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+			domain: 'gitlab.example.com',
+			remoteUrl: 'https://gitlab.example.com/contributor/hello.git',
+		});
+		assert.equal(resolution.status, 'resolved');
+		assert.equal(resolution.identity?.isFork, undefined);
+		assert.equal(resolution.identity?.parent, undefined);
+		assert.ok(requests[0].url.startsWith('https://gitlab.example.com/'), requests[0].url);
+		assert.ok(!requests[0].query.includes('isForked'), 'an older server would reject the whole query');
+		assert.ok(!requests[0].query.includes('forkedFrom'), 'an older server would reject the whole query');
+
+		manager.dispose();
+	});
+
+	test('a null project with no errors is not-found', async () => {
+		const { manager } = answerGitLab({ project: null });
+
+		const resolution = await resolveGitLabDotCom(manager);
+		assert.equal(resolution.status, 'not-found');
+		assert.equal(resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('a null project in a reply carrying errors is not a false not-found', async () => {
+		const { manager } = answerGitLab({ project: null, errors: [{ message: 'Internal server error' }] });
+
+		const resolution = await resolveGitLabDotCom(manager);
+		assert.equal(resolution.status, 'undetermined');
+		assert.notEqual(resolution.warning, undefined);
+
+		manager.dispose();
+	});
+});
+
+/** The other hosts' replies through the real SDK: the `stubGetRepo` cases above can't tell whether it returns a fork. */
+suite('resolveRepository — fork fields through provider-apis', () => {
+	const cases: {
+		label: string;
+		connect: (manager: ReturnType<typeof createIntegrationManager>) => Promise<unknown>;
+		options: { providerId?: GitSelfManagedHostIntegrationId; domain?: string };
+		remoteUrl: string;
+		read: string;
+		reply: unknown;
+		parent: { owner: string; name: string; project?: string };
+	}[] = [
+		{
+			label: 'GitHub',
+			connect: m => connect(m, GitCloudHostIntegrationId.GitHub, 'github.com'),
+			options: {},
+			remoteUrl: 'https://github.com/contributor/hello.git',
+			read: 'https://api.github.com/graphql',
+			reply: {
+				data: {
+					repository: {
+						id: 'R_1',
+						databaseId: 1,
+						name: 'hello',
+						owner: { login: 'contributor' },
+						url: 'https://github.com/contributor/hello',
+						sshUrl: 'git@github.com:contributor/hello.git',
+						isFork: true,
+						parent: { name: 'hello', owner: { login: 'octocat' } },
+					},
+				},
+			},
+			parent: { owner: 'octocat', name: 'hello' },
+		},
+		{
+			label: 'Bitbucket Cloud',
+			connect: m => connect(m, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org'),
+			options: {},
+			remoteUrl: 'https://bitbucket.org/contributor/hello.git',
+			read: '/repositories/contributor/hello',
+			reply: {
+				uuid: '{1}',
+				slug: 'hello',
+				workspace: { slug: 'contributor' },
+				links: { html: { href: 'https://bitbucket.org/contributor/hello' }, clone: [] },
+				mainbranch: { name: 'main' },
+				parent: { full_name: 'octocat/hello' },
+			},
+			parent: { owner: 'octocat', name: 'hello' },
+		},
+		{
+			label: 'Bitbucket Data Center',
+			connect: m =>
+				connectSelfManaged(m, GitSelfManagedHostIntegrationId.BitbucketServer, 'bitbucket.example.com'),
+			options: { providerId: GitSelfManagedHostIntegrationId.BitbucketServer, domain: 'bitbucket.example.com' },
+			remoteUrl: 'https://bitbucket.example.com/scm/~contributor/hello.git',
+			read: '/projects/~contributor/repos/hello',
+			reply: {
+				id: 1,
+				slug: 'hello',
+				project: { key: '~contributor' },
+				links: { self: [{ href: 'https://bitbucket.example.com/users/contributor/repos/hello' }], clone: [] },
+				origin: { slug: 'hello', project: { key: 'TEAM' } },
+			},
+			parent: { owner: 'TEAM', name: 'hello' },
+		},
+		{
+			label: 'Azure DevOps',
+			connect: m => connect(m, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com'),
+			options: {},
+			remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+			read: '/myorg/myproject/_apis/git/repositories/myrepo?includeParent=true',
+			reply: {
+				id: 'r1',
+				name: 'myrepo',
+				project: { id: 'p1', name: 'myproject' },
+				webUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+				remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+				sshUrl: 'git@ssh.dev.azure.com:v3/myorg/myproject/myrepo',
+				isFork: true,
+				parentRepository: { name: 'upstream', project: { name: 'coreproject' } },
+			},
+			parent: { owner: 'myorg', name: 'upstream', project: 'coreproject' },
+		},
+	];
+
+	for (const { label, connect: connectProvider, options, remoteUrl, read, reply, parent } of cases) {
+		test(`${label}: a fork carries its parent`, async () => {
+			const runtime = createFakeRuntime();
+			const requests: string[] = [];
+			runtime.http.fetch = input => {
+				requests.push(String(input));
+				return Promise.resolve(
+					new Response(JSON.stringify(reply), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					}),
+				);
+			};
+			const manager = createIntegrationManager(runtime);
+			await connectProvider(manager);
+
+			const { resolution } = await manager.resolveRepository({ ...options, remoteUrl: remoteUrl });
+			assert.equal(resolution.status, 'resolved');
+			assert.equal(resolution.identity?.isFork, true);
+			assert.deepEqual(resolution.identity?.parent, parent);
+			assert.ok(
+				requests.some(url => url.includes(read)),
+				requests.join(', '),
+			);
+
+			manager.dispose();
+		});
+	}
 });
 
 /**
