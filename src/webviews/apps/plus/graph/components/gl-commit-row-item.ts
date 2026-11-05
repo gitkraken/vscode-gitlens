@@ -81,7 +81,7 @@ export class GlCommitRowItem extends LitElement {
 				z-index: 1;
 				padding: 0.1rem;
 				pointer-events: none;
-				background: var(--vscode-editor-background);
+				background: var(--gl-color-surface-aside);
 				border-radius: 50%;
 				transform: translate(-50%, -50%);
 			}
@@ -91,7 +91,7 @@ export class GlCommitRowItem extends LitElement {
 			}
 
 			.item:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 

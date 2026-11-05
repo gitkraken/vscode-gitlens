@@ -254,7 +254,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: flex;
 				flex: none;
 				flex-direction: column;
-				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.auto-rebase__history {
@@ -268,7 +268,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-8);
 				justify-content: flex-end;
 				padding: var(--gl-space-8) var(--gl-space-12);
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Progress summary above the sections — orientation before detail. */
@@ -278,7 +278,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-6);
 				padding: var(--gl-space-10) var(--gl-space-12);
-				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-progress__text {
@@ -297,7 +297,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 			.resolve-progress__need {
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--vscode-editorWarning-foreground, #cca700);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.resolve-progress__bar {
@@ -316,11 +316,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-progress__bar-seg--done {
-				background: var(--vscode-charts-green, var(--vscode-testing-iconPassed, currentColor));
+				background: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.resolve-progress__bar-seg--need {
-				background: var(--vscode-editorWarning-foreground, #cca700);
+				background: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			/* Counted, collapsible result-group headers (Resolved / Needs your input). */
@@ -343,7 +343,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 				text-align: left;
 				cursor: pointer;
-				background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				background: var(--gl-color-surface-aside);
 				border: none;
 			}
 
@@ -361,12 +361,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-section__head--resolved .resolve-section__status {
-				color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.resolve-section__head--needs,
 			.resolve-section__head--needs .resolve-section__status {
-				color: var(--vscode-editorWarning-foreground, #cca700);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.resolve-section__label {
@@ -386,8 +386,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-section__head--needs .resolve-section__count {
-				color: var(--vscode-editorWarning-foreground, #cca700);
-				background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 22%, transparent);
+				color: var(--gl-color-feedback-warning-quiet-fg);
+				background: color-mix(in srgb, var(--gl-color-feedback-warning-quiet-fg) 22%, transparent);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-quiet-border);
 			}
 
 			.resolve-file {
@@ -395,7 +396,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-2);
 				padding: 0.5rem 1.2rem;
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-file__head {
@@ -441,7 +442,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-file__error {
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			/* Rename/rename decision: the two candidate names shown as indented side rows under the header. */
@@ -451,7 +452,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-4);
 				padding-left: var(--gl-space-8);
 				margin: var(--gl-space-6) 0 var(--gl-space-2) var(--gl-space-6);
-				border-left: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-left: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-file__side {
@@ -498,7 +499,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-8);
 				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
 				container: resolve-ready / inline-size;
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-gate {

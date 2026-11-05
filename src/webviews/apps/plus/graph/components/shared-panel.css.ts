@@ -37,7 +37,7 @@ export const panelAutolinkStripStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		--code-icon-size: 1.2rem;
 	}
 
@@ -148,8 +148,8 @@ export const panelStaleBannerStyles = css`
 		align-items: center;
 		padding: var(--gl-space-6) var(--gl-space-8);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-editorWarning-foreground, #cca700);
-		background-color: var(--vscode-editorWarning-background, rgb(204 167 0 / 10%));
+		color: var(--gl-color-feedback-warning-fg);
+		background-color: var(--gl-color-feedback-warning-bg);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -182,7 +182,7 @@ export const panelScopeSplitStyles = css`
 		height: 100%;
 		padding: var(--gl-space-6);
 		overflow: hidden;
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.scope-split__files {
@@ -225,10 +225,9 @@ export const panelErrorStyles = css`
 		padding: var(--gl-space-10) var(--gl-space-12);
 		margin: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-foreground);
-		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
-		border: var(--gl-border-width) solid
-			var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+		color: var(--gl-color-feedback-danger-fg);
+		background: var(--gl-color-feedback-danger-bg);
+		border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -241,17 +240,17 @@ export const panelErrorStyles = css`
 	.panel-error__icon {
 		flex-shrink: 0;
 		font-size: var(--gl-font-lg);
-		color: var(--vscode-editorError-foreground);
+		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
 	.panel-error__title {
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-foreground);
+		color: var(--gl-color-feedback-danger-fg);
 	}
 
 	.panel-error__message {
 		line-height: 1.4;
-		color: var(--vscode-foreground);
+		color: var(--gl-color-feedback-danger-fg);
 		overflow-wrap: anywhere;
 	}
 

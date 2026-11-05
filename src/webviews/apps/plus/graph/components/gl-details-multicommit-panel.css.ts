@@ -4,7 +4,7 @@ export { panelActionInputStyles, panelHostStyles } from './shared-panel.css.js';
 
 export const multiCommitPanelStyles = css`
 	:host {
-		--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)));
+		--mode-header-bg: var(--gl-color-surface-aside);
 	}
 
 	.compare-metadata {
@@ -17,8 +17,8 @@ export const multiCommitPanelStyles = css`
 		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.compare-metadata__left {
@@ -37,7 +37,7 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata__dots {
 		font-family: var(--vscode-editor-font-family, monospace);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-metadata__right {
@@ -54,7 +54,7 @@ export const multiCommitPanelStyles = css`
 		gap: var(--gl-space-8);
 		align-items: center;
 		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -90,15 +90,21 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-metadata__right .mode-status__resume:hover {
-		color: var(--vscode-foreground);
-		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--gl-color-action-quiet-fg);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.compare-metadata__right .mode-status__resume:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.compare-metadata__right .mode-status__resume:focus-visible {
-		color: var(--vscode-foreground);
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		color: var(--gl-color-action-quiet-fg);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	.compare-metadata__right .mode-status__resume-verb {
@@ -128,7 +134,7 @@ export const multiCommitPanelStyles = css`
 	.pole-card--loading {
 		padding: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-middle {
@@ -149,7 +155,7 @@ export const multiCommitPanelStyles = css`
 	.compare-middle__rule {
 		flex: 1;
 		height: 1px;
-		background: var(--vscode-sideBarSectionHeader-border);
+		background: var(--gl-color-divider-base);
 	}
 
 	.compare-middle__count {
@@ -160,7 +166,7 @@ export const multiCommitPanelStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -173,10 +179,10 @@ export const multiCommitPanelStyles = css`
 		width: 3rem;
 		height: 2.4rem;
 		padding: 0.3rem 0.6rem;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		cursor: pointer;
 		background: var(--color-background--level-10);
-		border: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border: var(--gl-border-width) solid var(--gl-color-action-secondary-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -186,8 +192,14 @@ export const multiCommitPanelStyles = css`
 
 	.compare-middle__swap:hover {
 		color: var(--color-foreground);
-		background: var(--vscode-toolbar-hoverBackground);
-		border-color: var(--color-foreground--50);
+		background: var(--gl-color-action-quiet-bg-hover);
+		border-color: var(--vscode-descriptionForeground);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.compare-middle__swap:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	/* Multi-select strip wraps onto more rows; the compare panel's stays single-row. */
@@ -200,7 +212,7 @@ export const multiCommitPanelStyles = css`
 		flex: none;
 		flex-direction: column;
 		padding-bottom: var(--gl-space-4);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.compare-files {
@@ -237,6 +249,6 @@ export const multiCommitPanelStyles = css`
 		justify-content: center;
 		padding: var(--gl-space-20);
 		font-size: var(--gl-font-base);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 `;

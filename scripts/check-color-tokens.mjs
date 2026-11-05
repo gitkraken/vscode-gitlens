@@ -26,7 +26,6 @@ const skipDirectories = new Set(['node_modules', 'dist', 'out', '.git', '__tests
 /** @type {Map<string, string>} */
 const reserved = new Map([
 	['--gl-color-feedback-info-bg-hover', 'awaiting migration'],
-	['--gl-color-feedback-danger-quiet-border', 'awaiting the HC companion policy'],
 	['--gl-color-feedback-success-quiet-border', 'awaiting the HC companion policy'],
 ]);
 

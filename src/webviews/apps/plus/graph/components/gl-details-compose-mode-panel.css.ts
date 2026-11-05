@@ -156,7 +156,7 @@ export const composeModePanelStyles = css`
 	/* Border on the bottom of the scope section (proposed-commits list) so the divider
 	   sits flush against it. */
 	.compose-plan__split-start {
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	/* Unified action zone pinned to the bottom of the panel: the "Recompose Changes" gate on top,
@@ -293,7 +293,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
 	}
 
@@ -476,7 +476,7 @@ export const composeModePanelStyles = css`
 	.compose-commit__check--off {
 		--button-foreground: var(--vscode-button-foreground, #fff);
 		--button-background: transparent;
-		--button-border: var(--color-foreground--50);
+		--button-border: var(--vscode-descriptionForeground);
 		--button-hover-background: color-mix(in srgb, var(--check-accent) 22%, transparent);
 	}
 
@@ -492,7 +492,7 @@ export const composeModePanelStyles = css`
 		margin-top: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		border-top: var(--gl-border-width) dashed var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) dashed var(--gl-color-divider-base);
 	}
 
 	.compose-base__marker {

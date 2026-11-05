@@ -89,7 +89,7 @@ export const nextStepStyles = css`
 
 	.next-step__icon {
 		flex-shrink: 0;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.next-step__label {

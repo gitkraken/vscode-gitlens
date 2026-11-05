@@ -3,7 +3,7 @@ import { css } from 'lit';
 export const detailsWipHeaderStyles = css`
 	:host {
 		display: contents;
-		--mode-header-bg: var(--titlebar-bg, var(--color-background--level-05));
+		--mode-header-bg: var(--gl-color-surface-aside);
 	}
 
 	.graph-details-header__title-group {
@@ -167,7 +167,7 @@ export const detailsWipHeaderStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -205,15 +205,21 @@ export const detailsWipHeaderStyles = css`
 	}
 
 	.mode-status__resume:hover {
-		color: var(--vscode-foreground);
-		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--gl-color-action-quiet-fg);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.mode-status__resume:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.mode-status__resume:focus-visible {
-		color: var(--vscode-foreground);
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		color: var(--gl-color-action-quiet-fg);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	.mode-status__resume-verb {
@@ -308,7 +314,13 @@ export const detailsWipHeaderStyles = css`
 
 	.issue-chip-group:hover,
 	.issue-chip-group:focus-within {
-		background-color: var(--vscode-toolbar-hoverBackground);
+		background-color: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.issue-chip-group:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.issue-chip-group gl-autolink-chip {
@@ -322,7 +334,7 @@ export const detailsWipHeaderStyles = css`
 		height: 2rem;
 		padding: 0 var(--gl-space-4);
 		margin-left: -0.2rem;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 		cursor: pointer;
 		background: none;
 		border: none;
@@ -339,18 +351,18 @@ export const detailsWipHeaderStyles = css`
 	}
 
 	.issue-chip-group__remove:hover {
-		color: var(--vscode-errorForeground);
+		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
 	.issue-chip-group__remove:focus-visible {
-		color: var(--vscode-errorForeground);
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		color: var(--gl-color-feedback-danger-quiet-fg);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
 	}
 
 	.associate-issue-action {
 		flex-shrink: 0;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.associate-issue-action--trailing {
