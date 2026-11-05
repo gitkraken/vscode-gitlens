@@ -384,14 +384,16 @@ jobs:
 
     # `@signed-in` specs: a worker signs in to the GitKraken test account (tests/e2e/fixtures/gkSignIn.ts) so the
     # account's cloud integrations come with it — see docs/testing.md § signed-in workers. A separate job, not a step
-    # of e2e-tests, so the regular legs never hold the credentials (repository secrets, read only by this job's
-    # steps). Off until a maintainer sets the repository variable `E2E_SIGNED_IN` to `true`; on other refs it doesn't
+    # of e2e-tests, so the regular legs never hold the credentials (secrets of the `e2e-staging` Environment, which
+    # only `main` can deploy to). Off until a maintainer sets the repository variable `E2E_SIGNED_IN` to `true` — a
+    # repository variable, since the `if` is evaluated before the Environment is attached; on other refs it doesn't
     # start rather than fail. VS Code only, staging only — every sign-in mints an account token the backend never
     # expires, so CI never signs in to production.
     e2e-signed-in:
         name: E2E Tests (VS Code, signed in - staging)
         runs-on: ubuntu-latest
         if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.E2E_SIGNED_IN == 'true' }}
+        environment: e2e-staging
         permissions:
             contents: read
         # One run at a time: two runs would sign the same test account in at once

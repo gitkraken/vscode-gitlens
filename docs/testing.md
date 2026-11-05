@@ -225,15 +225,16 @@ Two side effects to know about:
 In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the regular e2e legs run with
 `--grep-invert @signed-in` and hold no credentials. The job:
 
-- starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true`;
-- takes its secrets from the repository: `GK_E2E_ACCESS_TOKEN_COOKIE` (the staging test account's
-  `stagingAccessToken`), a Cloudflare Access service token (`GK_E2E_CF_ACCESS_CLIENT_ID` /
-  `GK_E2E_CF_ACCESS_CLIENT_SECRET`) and `GK_E2E_GITHUB_TOKEN`, read-only on the private test-data repository. Only
-  this job's steps reference them, but repository secrets reach any workflow run in the repository: anyone who can
-  push a branch can run a workflow that reads them (forks and their pull requests can't). The job's `if` lives in a
-  workflow file any branch can change, so it doesn't guard them. Keep the values narrow and replaceable — the
-  session ends when the test account signs out of the staging site, the GitHub token is scoped to the one repository,
-  and the service token can be reissued — and move them to an Environment restricted to `main` once one exists;
+- starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true` (a
+  repository variable, not an Environment one: the job's `if` is evaluated before the Environment is attached);
+- takes its secrets from the `e2e-staging` Environment, whose deployments are limited to `main`:
+  `GK_E2E_ACCESS_TOKEN_COOKIE` (the staging test account's `stagingAccessToken`), a Cloudflare Access service token
+  (`GK_E2E_CF_ACCESS_CLIENT_ID` / `GK_E2E_CF_ACCESS_CLIENT_SECRET`) and `GK_E2E_GITHUB_TOKEN`, read-only on the
+  private test-data repository. Repository secrets would reach any workflow run in the repository — a branch that
+  edits `ci.yml` could read them whatever the job's `if` says — while an Environment's secrets reach only a job that
+  deploys to it, and only from `main`. Don't add them back as repository secrets. Keep the values narrow and
+  replaceable all the same — the session ends when the test account signs out of the staging site, the GitHub token
+  is scoped to the one repository, and the service token can be reissued;
 - reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
   GitHub URL fails the run instead of skipping it (`E2E_REQUIRE_SIGNIN`), while an unset `E2E_REQUIRED_INTEGRATIONS`
   falls back to its default list;
