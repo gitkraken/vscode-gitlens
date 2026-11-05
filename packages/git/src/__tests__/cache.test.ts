@@ -3,6 +3,7 @@ import * as sinon from 'sinon';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { BranchMetadataChange, CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
 import { Cache, resetDropsPendingRuns, shouldEvictBlameCacheEntry } from '../cache.js';
@@ -2424,6 +2425,243 @@ suite('GitWorktree.name', () => {
 		);
 
 		assert.strictEqual(worktree.name, 'feature/x');
+	});
+});
+
+suite('Cache.getSharedBranches', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function createCache(): Cache {
+		const cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		return cache;
+	}
+
+	test('shares one list by common path, without creating a branches entry', async () => {
+		using cache = createCache();
+		const values = [new GitBranch(repoPath, 'refs/heads/main', false, undefined, undefined, 'abc123')];
+		let factoryCount = 0;
+		let commonPath: string | undefined;
+		const factory = (path: string): PagedResult<GitBranch> => {
+			factoryCount++;
+			commonPath = path;
+			return { values: values };
+		};
+
+		const fromWorktree = await cache.getSharedBranches(worktree, factory);
+		const fromRepo = await cache.getSharedBranches(repoPath, factory);
+
+		assert.strictEqual(factoryCount, 1);
+		assert.strictEqual(commonPath, repoPath);
+		assert.strictEqual(fromWorktree.values, values);
+		assert.strictEqual(fromRepo, fromWorktree);
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+	});
+
+	test('a read invalidated by its factory carries that to the mapped entries and is not kept', async () => {
+		using cache = createCache();
+		let factoryCount = 0;
+		let release!: () => void;
+		const released = new Promise<void>(resolve => (release = resolve));
+		const shared = cache.getSharedBranches(worktree, async (_commonPath, cacheable) => {
+			factoryCount++;
+			await released;
+			cacheable.invalidate();
+			return { values: [] };
+		});
+
+		const unusedFactory = (): PagedResult<GitBranch> => assert.fail('joins the read in flight');
+		const mapped = [
+			cache.getBranches(worktree, unusedFactory, identity),
+			cache.getBranches(repoPath, unusedFactory, identity),
+		];
+		assert.strictEqual(cache.branches.has(worktree), true);
+		assert.strictEqual(cache.branches.has(repoPath), true);
+
+		release();
+		await Promise.all([shared, ...mapped]);
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+
+		await cache.getSharedBranches(worktree, () => {
+			factoryCount++;
+			return { values: [] };
+		});
+		assert.strictEqual(factoryCount, 2, 'the invalidated list is read again');
+	});
+
+	for (const invalidated of [true, false]) {
+		test(`a list ${invalidated ? 'its factory invalidated is not' : 'that was kept is'} reported as kept`, async () => {
+			using cache = createCache();
+			const shared = await cache.getSharedBranches(worktree, (path, cacheable) => {
+				if (invalidated) {
+					cacheable.invalidate();
+				}
+				return { values: [new GitBranch(path, 'refs/heads/main', true, undefined, undefined, 'abc123')] };
+			});
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			assert.strictEqual(cache.isSharedBranchesKept(worktree, shared), !invalidated);
+			assert.strictEqual(cache.isSharedBranchesKept(repoPath, shared), !invalidated);
+		});
+	}
+
+	test("a refused read leaves a sibling's settled current branch", async () => {
+		using cache = createCache();
+		const current = new GitBranch(repoPath, 'refs/heads/main', true, undefined, undefined, 'abc123');
+		await cache.branch.getOrCreate(repoPath, () => Promise.resolve(current));
+
+		await cache.getSharedBranches(worktree, (_path, cacheable) => {
+			cacheable.invalidate();
+			return { values: [] };
+		});
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(cache.branch.has(repoPath), true);
+	});
+
+	test('getBranches builds its mapped entry from the same list', async () => {
+		using cache = createCache();
+		let factoryCount = 0;
+		const factory = (): PagedResult<GitBranch> => {
+			factoryCount++;
+			return { values: [] };
+		};
+
+		const fromShared = await cache.getSharedBranches(worktree, factory);
+		let mappedFrom: PagedResult<GitBranch> | undefined;
+		await cache.getBranches(worktree, factory, result => {
+			mappedFrom = result;
+			return result;
+		});
+
+		assert.strictEqual(factoryCount, 1);
+		assert.strictEqual(mappedFrom, fromShared);
+		assert.strictEqual(cache.branches.has(worktree), true);
+	});
+
+	test('one aborted caller does not abort the read for another', async () => {
+		using cache = createCache();
+		const controller = new AbortController();
+		let release!: (result: PagedResult<GitBranch>) => void;
+		const factory = (
+			_commonPath: string,
+			_cacheable: unknown,
+			_signal?: AbortSignal,
+		): Promise<PagedResult<GitBranch>> => new Promise<PagedResult<GitBranch>>(resolve => (release = resolve));
+
+		const aborted = cache.getSharedBranches(worktree, factory, controller.signal);
+		const waiting = cache.getSharedBranches(repoPath, factory);
+		controller.abort();
+
+		await assert.rejects(aborted, (ex: unknown) => isCancellationError(ex));
+
+		const result = { values: [] };
+		release(result);
+		assert.strictEqual(await waiting, result);
+	});
+});
+
+suite("Cache — a 'branch' clear and a worktree's own branch list", () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function count(cache: Cache, name: string): number | undefined {
+		return cache.getResourceUsage()[`cache.${name}.entries.count`];
+	}
+
+	function list(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', false, undefined, undefined, 'abc123')] };
+	}
+
+	async function createCache(): Promise<Cache> {
+		const cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		await cache.getBranches(worktree, list, identity);
+		await cache.getBranches(repoPath, list, identity);
+		return cache;
+	}
+
+	for (const [name, clear] of [
+		['evictCaches', (cache: Cache) => cache.evictCaches(worktree, 'branch')],
+		['clearCaches', (cache: Cache) => cache.clearCaches(worktree, 'branch')],
+	] as const) {
+		test(`${name} drops only that worktree's mapped list`, async () => {
+			using cache = await createCache();
+			assert.strictEqual(count(cache, 'sharedBranches'), 1);
+
+			clear(cache);
+
+			assert.strictEqual(
+				cache.branches.has(worktree),
+				false,
+				"the worktree's list marked the old branch current",
+			);
+			assert.strictEqual(cache.branches.has(repoPath), true, "a sibling's list stays");
+			assert.strictEqual(count(cache, 'sharedBranches'), 1, 'the shared list stays');
+		});
+	}
+
+	test("a read after a watcher 'branch' change does not join a mapper that started before it", async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		const blocked = defer<void>();
+		const before = list(worktree);
+		const after = list(worktree);
+
+		const first = cache.getBranches(worktree, list, async () => {
+			await blocked.promise;
+			return before;
+		});
+		cache.onRepositoryChanged(worktree, ['rebase']);
+		let mapperCount = 0;
+		const second = cache.getBranches(worktree, list, () => {
+			mapperCount++;
+			return after;
+		});
+
+		blocked.fulfill();
+
+		assert.strictEqual(await second, after);
+		assert.strictEqual(mapperCount, 1);
+		assert.strictEqual(await first, before, 'the earlier waiter still gets its answer');
+	});
+
+	test("a repository-wide 'branch' clear drops every mapped list and keeps the shared one", async () => {
+		using cache = await createCache();
+
+		cache.clearCaches(undefined, 'branch');
+
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+		let factoryCount = 0;
+		await cache.getBranches(
+			worktree,
+			path => {
+				factoryCount++;
+				return list(path);
+			},
+			identity,
+		);
+		assert.strictEqual(factoryCount, 0, 'the shared list stays');
 	});
 });
 

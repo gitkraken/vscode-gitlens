@@ -959,6 +959,18 @@ export class Cache implements Disposable {
 				cache.delete(repoPath);
 			}
 		}
+
+		// The checkout's own mapped list marks its old branch current. Not through `keysToClear`: `branches` is shared,
+		// so the loop would drop every sibling's list and the shared one too. Deleted even when sharing reads in flight:
+		// a read issued after this must not join a mapper that read the old current branch, and `delete` leaves that
+		// mapper's existing waiters alone
+		if (types.includes('branch') && !types.includes('branches')) {
+			if (repoPath == null) {
+				this._caches.branches?.clear();
+			} else {
+				this._caches.branches?.delete(repoPath);
+			}
+		}
 	}
 
 	/**
@@ -1429,6 +1441,51 @@ export class Cache implements Disposable {
 		return this._gkConfigSnapshots.get(this.getCommonPath(repoPath));
 	}
 
+	/**
+	 * The raw branch list shared by `repoPath`'s worktrees. It holds entries for the common path, so a caller maps what
+	 * it needs for `repoPath`; {@link getBranches} keeps a mapped copy per worktree.
+	 */
+	getSharedBranches(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		const commonPath = this.getCommonPath(repoPath);
+
+		return this.sharedBranches.getOrCreate(
+			commonPath,
+			(cacheable, signal) => {
+				const p = Promise.resolve(factory(commonPath, cacheable, signal));
+				// On factory invalidation, propagate to the derived per-worktree mapper entries via soft-invalidate —
+				// existing waiters complete, and each entry self-evicts on settle so the next callers build fresh
+				// derived entries. A `getBranch` answer decides for itself, through `isSharedBranchesKept`
+				void p
+					.finally(() => {
+						if (cacheable.invalidated) {
+							this.branches.invalidate(commonPath);
+							for (const worktreePath of this.getWorktreePaths(commonPath)) {
+								this.branches.invalidate(worktreePath);
+							}
+						}
+					})
+					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
+					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
+					.catch(() => {});
+				return p;
+			},
+			cancellation,
+		);
+	}
+
+	/** Whether `result`, from {@link getSharedBranches}, is still the list kept for `repoPath`: not refused, replaced or evicted */
+	isSharedBranchesKept(repoPath: string, result: PagedResult<GitBranch>): boolean {
+		return this._caches.sharedBranches?.getSettled(this.getCommonPath(repoPath))?.value === result;
+	}
+
 	getBranches(
 		repoPath: string,
 		factory: (
@@ -1452,29 +1509,7 @@ export class Cache implements Disposable {
 		// below to build the mapped entry. Swallow any rejection on this dangling reference so
 		// it doesn't surface as an unhandled rejection; the real caller-facing promise (via
 		// `branches.getOrCreate` below) is where caller cancellation flows to.
-		const registration = this.sharedBranches.getOrCreate(
-			commonPath,
-			(cacheable, signal) => {
-				const p = Promise.resolve(factory(commonPath, cacheable, signal));
-				// On factory invalidation, propagate to the derived per-worktree mapper entries
-				// via soft-invalidate — existing waiters on the mapper complete, and the entry
-				// self-evicts on mapper settle so the next callers build fresh derived entries.
-				void p
-					.finally(() => {
-						if (cacheable.invalidated) {
-							this.branches.invalidate(commonPath);
-							for (const worktreePath of this.getWorktreePaths(commonPath)) {
-								this.branches.invalidate(worktreePath);
-							}
-						}
-					})
-					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
-					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
-					.catch(() => {});
-				return p;
-			},
-			cancellation,
-		);
+		const registration = this.getSharedBranches(repoPath, factory, cancellation);
 		void registration.catch(() => {});
 
 		// Build the per-`repoPath` mapped entry through `getOrCreate` so mapper internal git

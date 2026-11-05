@@ -47,6 +47,7 @@ import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
@@ -273,6 +274,44 @@ function toRefPatterns(refs: ReadonlySet<string>): string[] | undefined {
 /** The stored keys a merge target is read from: the user's pick, the detected target and its legacy key, and the recorded base */
 const storedMergeKeys = ['gk-merge-target-user', 'gk-merge-target', 'gk-target-base', 'gk-merge-base'] as const;
 
+/**
+ * `branch`, from the list shared by a repository's worktrees, as `repoPath` sees it. The copy holds the same metadata
+ * object, which `Cache.patchBranchMetadata` updates in place.
+ *
+ * A list read before a checkout gives the branch now current `worktree: false`. `keepUnlisted` keeps that, so a reader
+ * of the whole list (`findStaleBranches`) can tell the list is stale; otherwise the current branch names `repoPath`.
+ */
+function mapSharedBranch(
+	branch: GitBranch,
+	repoPath: string,
+	commonPath: string,
+	isCurrent: boolean,
+	defaultWorktreePath: string | undefined,
+	keepUnlisted: boolean,
+): GitBranch {
+	// Only create new object if something changed
+	if (!isCurrent && repoPath === commonPath) return branch;
+
+	// For current branch, ensure worktree is set (fallback when git doesn't support worktreePath)
+	let worktree = branch.worktree;
+	if (isCurrent && (worktree == null || (worktree === false && !keepUnlisted))) {
+		worktree = { path: repoPath, isDefault: repoPath === defaultWorktreePath };
+	}
+
+	return new GitBranch(
+		repoPath, // Use target worktree path
+		branch.refName,
+		isCurrent,
+		branch.date,
+		branch.metadata,
+		branch.sha,
+		branch.upstream,
+		worktree,
+		false, // detached - only true for detached HEAD branch itself
+		false, // rebasing - only true for detached HEAD branch in rebase
+	);
+}
+
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
 	private readonly aheadBehindBySha = new LruMap<string, { ahead: number; behind: number }>(4096);
@@ -365,36 +404,133 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined> {
+		const scope = getScopedLogger();
+
 		if (options?.force) {
 			this.cache.evictCaches(repoPath, 'branches');
 		}
 
-		if (name != null) {
-			const {
-				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name }, cancellation);
-			return branch;
-		}
+		if (name != null) return (await this.getBranchFromSharedList(repoPath, name, scope, cancellation)).branch;
 
-		const branchPromise = this.cache.branch.getOrCreate(
+		return this.cache.branch.getOrCreate(
 			repoPath,
-			async (_cacheable, signal) => {
-				const {
-					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current }, signal);
-				return branch ?? this.getCurrentBranch(repoPath, undefined, undefined, signal);
+			async (cacheable, signal) => {
+				const result = await this.getBranchFromSharedList(repoPath, undefined, scope, signal);
+				const branch = result.branch ?? (await this.getCurrentBranch(repoPath, undefined, undefined, signal));
+				// An answer from a list that wasn't kept comes from `git log -n1`, without the ahead/behind counts and date
+				// a listing gives. An unborn branch with no upstream has no date either, and nothing a listing could add
+				if (
+					!result.kept &&
+					(branch == null || branch.date != null || branch.sha != null || branch.upstream != null)
+				) {
+					cacheable.invalidate();
+				}
+				return branch;
 			},
 			cancellation,
 		);
+	}
 
-		if (branchPromise == null) {
-			const {
-				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-			return branch ?? this.getCurrentBranch(repoPath, undefined, undefined, cancellation);
+	/**
+	 * What `getBranches(repoPath)` would answer for the named branch, or for the current one when `name` is omitted,
+	 * without keeping that worktree's copy of the whole list, and whether the shared list it read is still kept
+	 */
+	private async getBranchFromSharedList(
+		repoPath: string,
+		name: string | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<{ branch: GitBranch | undefined; kept: boolean }> {
+		if (repoPath == null) return { branch: undefined, kept: true };
+
+		const commonPath = this.cache.getCommonPath(repoPath);
+
+		// The list comes first: reading it seeds every worktree's current branch reference, so a sweep of the worktrees
+		// runs no rev-parse for each
+		const shared = await this.cache.getSharedBranches(
+			repoPath,
+			(_commonPath, cacheable, signal) =>
+				this.getSharedBranchesCore(commonPath, undefined, scope, cacheable, signal),
+			cancellation,
+		);
+		const kept = this.cache.isSharedBranchesKept(repoPath, shared);
+		const { values } = shared;
+		if (!values.length) return { branch: undefined, kept: kept };
+
+		const { currentRef, defaultWorktreePath, isDetached } = await this.getCurrentRefAndDefaultWorktreePath(
+			repoPath,
+			commonPath,
+			cancellation,
+		);
+
+		const isCurrent = (b: GitBranch): boolean => !b.remote && b.name === currentRef?.name && !isDetached;
+
+		if (name == null) {
+			const current = values.find(isCurrent);
+			if (current != null) {
+				return {
+					branch: mapSharedBranch(current, repoPath, commonPath, true, defaultWorktreePath, false),
+					kept: kept,
+				};
+			}
+			if (currentRef == null) return { branch: undefined, kept: kept };
+
+			const metadataMap = await this.getBranchMetadataMap(commonPath);
+			const branch = await this.getCurrentBranch(
+				repoPath,
+				metadataMap,
+				this.context.config?.commits.ordering ?? undefined,
+				cancellation,
+			);
+			return { branch: branch, kept: kept };
 		}
 
-		return branchPromise;
+		// A list holding no current branch gets one of its own, as `getBranches` builds it. The cached answer is used so
+		// that named reads in a detached worktree don't each run `git log`
+		const special =
+			isDetached || (currentRef != null && !values.some(isCurrent))
+				? await this.getBranch(repoPath, undefined, undefined, cancellation)
+				: undefined;
+
+		// That branch replaces the entry with its id, keeping the list's order, otherwise it goes ahead of them all
+		const replaced =
+			special != null ? values.findIndex(b => b.remote === special.remote && b.name === special.name) : -1;
+		if (replaced === -1 && special?.name === name) return { branch: special, kept: kept };
+
+		const index = values.findIndex((b, i) => (i === replaced ? special?.name : b.name) === name);
+		if (index === -1) return { branch: undefined, kept: kept };
+		if (index === replaced) return { branch: special, kept: kept };
+
+		const branch = values[index];
+		return {
+			branch: mapSharedBranch(branch, repoPath, commonPath, isCurrent(branch), defaultWorktreePath, false),
+			kept: kept,
+		};
+	}
+
+	/** The current ref of `repoPath` and the default worktree path of `commonPath`, rejecting if the caller aborted mid-read */
+	private async getCurrentRefAndDefaultWorktreePath(
+		repoPath: string,
+		commonPath: string,
+		cancellation?: AbortSignal,
+	): Promise<{
+		currentRef: GitBranchReference | undefined;
+		defaultWorktreePath: string | undefined;
+		isDetached: boolean;
+	}> {
+		const [currentRefResult, defaultWorktreePathResult] = await Promise.allSettled([
+			this.getCurrentBranchReferenceCore(repoPath, undefined, cancellation),
+			this.provider.config.getDefaultWorktreePath?.(commonPath),
+		]);
+
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const currentRef = getSettledValue(currentRefResult);
+		return {
+			currentRef: currentRef,
+			defaultWorktreePath: getSettledValue(defaultWorktreePathResult),
+			isDetached: currentRef != null && isDetachedHead(currentRef.name),
+		};
 	}
 
 	private async getCurrentBranch(
@@ -457,6 +593,154 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branch;
 	}
 
+	/** The branches of the repository at `commonPath`, as the list every one of its worktrees maps from */
+	private async getSharedBranchesCore(
+		commonPath: string,
+		ordering: 'date' | 'author-date' | 'topo' | null | undefined,
+		scope: ScopedLogger | undefined,
+		cacheable?: CacheController,
+		signal?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		try {
+			const [recordsResult, supportedResult, defaultWorktreePathResult, metadataMapResult] =
+				await Promise.allSettled([
+					this.provider.refs.getRefs(commonPath, signal),
+					this.git.supported('git:for-each-ref'),
+					this.provider.config.getDefaultWorktreePath?.(commonPath),
+					this.getBranchMetadataMap(commonPath),
+				]);
+
+			const records = getSettledValue(recordsResult) ?? [];
+			const supported = getSettledValue(supportedResult) ?? [];
+			const metadataMap = getSettledValue(metadataMapResult) ?? new Map<string, BranchMetadata>();
+			const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
+			const worktreePathSupported = supported.includes('git:for-each-ref:worktreePath');
+
+			// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
+			if (!records.length) {
+				// Never CACHE that conclusion. `getRefs` reports a failed enumeration the same way as a
+				// genuinely ref-less repo — an empty array (it invalidates its own entry but doesn't
+				// throw) — so a transient `for-each-ref` failure would otherwise pin this degraded
+				// current-branch-only list in a map with no TTL, and every branch consumer would see a
+				// one-branch repo for the session. A truly empty repo re-reads cheaply, so refusing the
+				// entry costs nothing in the case this is actually meant to serve.
+				cacheable?.invalidate();
+
+				const current = await this.getCurrentBranch(
+					commonPath,
+					metadataMap,
+					ordering ?? this.context.config?.commits.ordering ?? undefined,
+					signal,
+				);
+				return current != null ? { values: [current] } : emptyPagedResult;
+			}
+
+			using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
+
+			const branches: GitBranch[] = [];
+
+			// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
+			// told from the upstream's short name alone, so read the remote names once, only if needed
+			let remoteNames: Promise<string[]> | undefined;
+			const resolveUpstreamRemote = async (upstream: string): Promise<string | undefined> => {
+				if (!upstream.startsWith('refs/remotes/')) return undefined;
+
+				const { name } = parseRefName(upstream);
+				if (!name.includes('/', name.indexOf('/') + 1)) return undefined;
+
+				remoteNames ??= this.provider.remotes.getRemotes(commonPath, undefined, signal).then(
+					remotes => {
+						// `getRemotes` answers a failed read as no remotes, which leaves only the first-segment split
+						if (!remotes.length) {
+							cacheable?.invalidate();
+						}
+						return remotes.map(r => r.name);
+					},
+					(ex: unknown) => {
+						if (isCancellationError(ex)) throw ex;
+
+						// Fall back to the first-segment split, but don't cache a list read without the remotes
+						cacheable?.invalidate();
+						return [];
+					},
+				);
+				return splitRemoteBranchName(name, await remoteNames)?.[0];
+			};
+
+			for (const record of records) {
+				const fullName = record.name;
+				// Filter to branches and remote-tracking branches; skip tags from the unified records.
+				if (!fullName.startsWith('refs/heads/') && !fullName.startsWith('refs/remotes/')) continue;
+				// Skip HEAD refs in remote branches
+				if (isRemoteHEAD(fullName)) continue;
+
+				const upstream = parseUpstream(
+					record.upstream,
+					record.upstreamTracking,
+					record.upstreamRemote ??
+						(!worktreePathSupported ? await resolveUpstreamRemote(record.upstream) : undefined),
+					record.upstreamRemoteRef,
+				);
+
+				const metadata = metadataMap.get(parseRefName(fullName).name);
+				const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
+
+				branches.push(
+					new GitBranch(
+						commonPath,
+						fullName,
+						false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
+						record.committerDate ? new Date(record.committerDate) : undefined,
+						metadata,
+						record.objectname,
+						upstream,
+						worktreePathSupported
+							? worktreePath
+								? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
+								: false
+							: undefined,
+					),
+				);
+			}
+
+			sw?.stop({ suffix: ` parsed ${branches.length} branches` });
+
+			// Pre-populate current branch cache for worktrees based on worktreePath info
+			// This eliminates the need for rev-parse calls during branch reconstruction
+			for (const branch of branches) {
+				// oxlint-disable-next-line typescript/prefer-optional-chain
+				if (branch.worktree && branch.worktree.path) {
+					const { name } = parseRefName(branch.refName);
+					const reference = createReference(name, branch.worktree.path, {
+						refType: 'branch',
+						name: name,
+						id: getBranchId(branch.worktree.path, false, name),
+						remote: false,
+						upstream: branch.upstream?.name
+							? {
+									name: branch.upstream.name,
+									missing: branch.upstream.missing,
+									remote: branch.upstream.remote,
+									remoteBranch: branch.upstream.remoteBranch,
+									local: branch.upstream.local,
+								}
+							: undefined,
+						sha: branch.sha,
+					});
+					this.cache.setCurrentBranchReferenceIfAbsent(branch.worktree.path, reference);
+				}
+			}
+
+			return branches.length ? { values: branches } : emptyPagedResult;
+		} catch (ex) {
+			// Signal cache invalidation so the shared cache entry is cleaned up
+			cacheable?.invalidate();
+			if (isCancellationError(ex)) throw ex;
+
+			return emptyPagedResult;
+		}
+	}
+
 	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getBranches(
 		repoPath: string,
@@ -472,154 +756,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (
-			commonPath: string,
-			cacheable?: CacheController,
-			signal?: AbortSignal,
-		): Promise<PagedResult<GitBranch>> => {
-			// Prefer the aggregate signal from the cache when present; fall back to the caller's
-			// own cancellation when bypassing the cache (e.g. paging-cursor path).
-			signal ??= cancellation;
-			try {
-				const [recordsResult, supportedResult, defaultWorktreePathResult, metadataMapResult] =
-					await Promise.allSettled([
-						this.provider.refs.getRefs(commonPath, signal),
-						this.git.supported('git:for-each-ref'),
-						this.provider.config.getDefaultWorktreePath?.(commonPath),
-						this.getBranchMetadataMap(commonPath),
-					]);
-
-				const records = getSettledValue(recordsResult) ?? [];
-				const supported = getSettledValue(supportedResult) ?? [];
-				const metadataMap = getSettledValue(metadataMapResult) ?? new Map<string, BranchMetadata>();
-				const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
-				const worktreePathSupported = supported.includes('git:for-each-ref:worktreePath');
-
-				// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-				if (!records.length) {
-					// Never CACHE that conclusion. `getRefs` reports a failed enumeration the same way as a
-					// genuinely ref-less repo — an empty array (it invalidates its own entry but doesn't
-					// throw) — so a transient `for-each-ref` failure would otherwise pin this degraded
-					// current-branch-only list in a map with no TTL, and every branch consumer would see a
-					// one-branch repo for the session. A truly empty repo re-reads cheaply, so refusing the
-					// entry costs nothing in the case this is actually meant to serve.
-					cacheable?.invalidate();
-
-					const current = await this.getCurrentBranch(
-						commonPath,
-						metadataMap,
-						options?.ordering ?? this.context.config?.commits.ordering ?? undefined,
-						signal,
-					);
-					return current != null ? { values: [current] } : emptyPagedResult;
-				}
-
-				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-
-				const branches: GitBranch[] = [];
-
-				// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
-				// told from the upstream's short name alone, so read the remote names once, only if needed
-				let remoteNames: Promise<string[]> | undefined;
-				const resolveUpstreamRemote = async (upstream: string): Promise<string | undefined> => {
-					if (!upstream.startsWith('refs/remotes/')) return undefined;
-
-					const { name } = parseRefName(upstream);
-					if (!name.includes('/', name.indexOf('/') + 1)) return undefined;
-
-					remoteNames ??= this.provider.remotes.getRemotes(commonPath, undefined, signal).then(
-						remotes => {
-							// `getRemotes` answers a failed read as no remotes, which leaves only the first-segment split
-							if (!remotes.length) {
-								cacheable?.invalidate();
-							}
-							return remotes.map(r => r.name);
-						},
-						(ex: unknown) => {
-							if (isCancellationError(ex)) throw ex;
-
-							// Fall back to the first-segment split, but don't cache a list read without the remotes
-							cacheable?.invalidate();
-							return [];
-						},
-					);
-					return splitRemoteBranchName(name, await remoteNames)?.[0];
-				};
-
-				for (const record of records) {
-					const fullName = record.name;
-					// Filter to branches and remote-tracking branches; skip tags from the unified records.
-					if (!fullName.startsWith('refs/heads/') && !fullName.startsWith('refs/remotes/')) continue;
-					// Skip HEAD refs in remote branches
-					if (isRemoteHEAD(fullName)) continue;
-
-					const upstream = parseUpstream(
-						record.upstream,
-						record.upstreamTracking,
-						record.upstreamRemote ??
-							(!worktreePathSupported ? await resolveUpstreamRemote(record.upstream) : undefined),
-						record.upstreamRemoteRef,
-					);
-
-					const metadata = metadataMap.get(parseRefName(fullName).name);
-					const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
-
-					branches.push(
-						new GitBranch(
-							commonPath,
-							fullName,
-							false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
-							record.committerDate ? new Date(record.committerDate) : undefined,
-							metadata,
-							record.objectname,
-							upstream,
-							worktreePathSupported
-								? worktreePath
-									? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
-									: false
-								: undefined,
-						),
-					);
-				}
-
-				sw?.stop({ suffix: ` parsed ${branches.length} branches` });
-
-				// Pre-populate current branch cache for worktrees based on worktreePath info
-				// This eliminates the need for rev-parse calls during branch reconstruction
-				for (const branch of branches) {
-					// oxlint-disable-next-line typescript/prefer-optional-chain
-					if (branch.worktree && branch.worktree.path) {
-						const { name } = parseRefName(branch.refName);
-						const reference = createReference(name, branch.worktree.path, {
-							refType: 'branch',
-							name: name,
-							id: getBranchId(branch.worktree.path, false, name),
-							remote: false,
-							upstream: branch.upstream?.name
-								? {
-										name: branch.upstream.name,
-										missing: branch.upstream.missing,
-										remote: branch.upstream.remote,
-										remoteBranch: branch.upstream.remoteBranch,
-										local: branch.upstream.local,
-									}
-								: undefined,
-							sha: branch.sha,
-						});
-						this.cache.setCurrentBranchReferenceIfAbsent(branch.worktree.path, reference);
-					}
-				}
-
-				return branches.length ? { values: branches } : emptyPagedResult;
-			} catch (ex) {
-				// Signal cache invalidation so the shared cache entry is cleaned up
-				cacheable?.invalidate();
-				if (isCancellationError(ex)) throw ex;
-
-				return emptyPagedResult;
-			}
-		};
-
 		// Mapper function that adjusts branches for a specific worktree
 		const mapBranches = async (
 			shared: PagedResult<GitBranch>,
@@ -634,37 +770,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			mapperSignal ??= cancellation;
 
 			// Get current branch info and default worktree path for the target worktree
-			const [currentRefResult, defaultWorktreePathResult] = await Promise.allSettled([
-				this.getCurrentBranchReferenceCore(targetRepoPath, undefined, mapperSignal),
-				this.provider.config.getDefaultWorktreePath?.(commonPath),
-			]);
-			const currentRef = getSettledValue(currentRefResult);
-			const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
-			const isDetached = currentRef != null && isDetachedHead(currentRef.name);
+			const { currentRef, defaultWorktreePath, isDetached } = await this.getCurrentRefAndDefaultWorktreePath(
+				targetRepoPath,
+				commonPath,
+				mapperSignal,
+			);
 
 			// Clone branches with correct repoPath and current flag
 			const branches: GitBranch[] = shared.values.map(b => {
 				// Check if this branch is current in the target worktree
 				const isCurrent = !b.remote && b.name === currentRef?.name && !isDetached;
-
-				// Only create new object if something changed
-				if (!isCurrent && targetRepoPath === commonPath) return b;
-
-				return new GitBranch(
-					targetRepoPath, // Use target worktree path
-					b.refName,
-					isCurrent,
-					b.date,
-					b.metadata,
-					b.sha,
-					b.upstream,
-					// For current branch, ensure worktree is set (fallback when git doesn't support worktreePath)
-					isCurrent
-						? (b.worktree ?? { path: targetRepoPath, isDefault: targetRepoPath === defaultWorktreePath })
-						: b.worktree,
-					false, // detached - only true for detached HEAD branch itself
-					false, // rebasing - only true for detached HEAD branch in rebase
-				);
+				return mapSharedBranch(b, targetRepoPath, commonPath, isCurrent, defaultWorktreePath, true);
 			});
 
 			// Handle detached HEAD - need to create a special branch for it
@@ -695,11 +811,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// Use paging cursor to bypass cache if paginating
 		if (options?.paging?.cursor != null) {
 			const commonPath = this.cache.getCommonPath(repoPath);
-			const shared = await getCore(commonPath);
+			// Bypasses the cache, so it runs under the caller's own cancellation
+			const shared = await this.getSharedBranchesCore(
+				commonPath,
+				options.ordering,
+				scope,
+				undefined,
+				cancellation,
+			);
 			// Still apply the mapper to ensure correct repoPath and current flag for the requesting worktree
 			result = await mapBranches(shared, repoPath, commonPath);
 		} else {
-			result = await this.cache.getBranches(repoPath, getCore, mapBranches, cancellation);
+			result = await this.cache.getBranches(
+				repoPath,
+				(commonPath, cacheable, signal) =>
+					this.getSharedBranchesCore(commonPath, options?.ordering, scope, cacheable, signal ?? cancellation),
+				mapBranches,
+				cancellation,
+			);
 		}
 
 		if (options?.filter != null) {
