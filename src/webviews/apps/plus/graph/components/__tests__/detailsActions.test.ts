@@ -1048,6 +1048,7 @@ suite('remapScopeRange', () => {
 		prev?: string[];
 		next: string[];
 		patchIds?: Record<string, string>;
+		mergeBases?: { prev?: string; next?: string };
 		expected: string[] | undefined;
 	}[] = [
 		{
@@ -1187,6 +1188,32 @@ suite('remapScopeRange', () => {
 			expected: ["c'", "b'"],
 		},
 		{
+			name: 'a first commit on a branch: working changes committed on top of its merge base',
+			shas: [],
+			wip: true,
+			// With no commits of its own the window is the plain branch log; after the commit it leaves out its merge base
+			prev: ['m0', 'm1', 'm2'],
+			next: ['c1'],
+			mergeBases: { next: 'm0' },
+			expected: ['c1'],
+		},
+		{
+			name: 'a first commit on a branch, over a scope on its tip',
+			shas: ['m0'],
+			prev: ['m0', 'm1', 'm2'],
+			next: ['c1'],
+			mergeBases: { next: 'm0' },
+			expected: ['c1'],
+		},
+		{
+			name: "an undo of a branch's only commit",
+			shas: ['c1'],
+			prev: ['c1'],
+			next: ['m0', 'm1', 'm2'],
+			mergeBases: { prev: 'm0' },
+			expected: undefined,
+		},
+		{
 			name: 'a squash with a new message',
 			shas: ['c', 'b'],
 			prev: ['c', 'b', 'a'],
@@ -1203,6 +1230,7 @@ suite('remapScopeRange', () => {
 					{ includeShas: c.shas.map(shaOf), includesWip: c.wip ?? false },
 					c.prev != null ? commits(...c.prev) : undefined,
 					commits(...c.next),
+					c.mergeBases,
 					c.patchIds,
 				),
 				c.expected,

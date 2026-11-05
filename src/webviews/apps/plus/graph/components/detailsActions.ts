@@ -152,18 +152,26 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 	return false;
 }
 
+type MergeBases = { prev?: string; next?: string };
+
 function findRewrite(
 	prev: readonly BranchCommitEntry[],
 	next: readonly BranchCommitEntry[],
+	mergeBases: MergeBases | undefined,
 ): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly BranchCommitEntry[] } {
 	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
-	const prevForkIndex = prev.findIndex(c => nextIndexes.has(c.sha));
+	// A branch window leaves out its merge base, where the old and new history can still meet (a first commit, an undo)
+	if (mergeBases?.next != null && !nextIndexes.has(mergeBases.next)) {
+		nextIndexes.set(mergeBases.next, next.length);
+	}
+	const prevShas = mergeBases?.prev != null ? [...prev.map(c => c.sha), mergeBases.prev] : prev.map(c => c.sha);
+	const prevForkIndex = prevShas.findIndex(sha => nextIndexes.has(sha));
 	return prevForkIndex < 0
 		? { nextIndexes: nextIndexes, prevForkIndex: prev.length, rewritten: next }
 		: {
 				nextIndexes: nextIndexes,
 				prevForkIndex: prevForkIndex,
-				rewritten: next.slice(0, nextIndexes.get(prev[prevForkIndex].sha)),
+				rewritten: next.slice(0, nextIndexes.get(prevShas[prevForkIndex])),
 			};
 }
 
@@ -172,10 +180,11 @@ export function getRewrittenScopeShas(
 	shas: readonly string[],
 	prev: readonly BranchCommitEntry[] | undefined,
 	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
 ): string[] {
 	if (!prev?.length) return [];
 
-	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next);
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
 	const replaced = shas.filter(sha => {
 		const prevIndex = prev.findIndex(c => c.sha === sha);
 		return !nextIndexes.has(sha) && prevIndex >= 0 && prevIndex < prevForkIndex;
@@ -189,19 +198,19 @@ export function remapScopeRange(
 	scope: { includeShas: readonly string[]; includesWip: boolean },
 	prev: readonly BranchCommitEntry[] | undefined,
 	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
 	patchIds?: Readonly<Record<string, string>>,
 ): string[] | undefined {
 	const shas = scope.includeShas;
 	if (!prev?.length || !next.length) return undefined;
 
-	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next);
-	const mapOne = (sha: string): number | 'kept' | undefined => {
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
+	const mapOne = (sha: string): number | 'belowRewriteUnloaded' | undefined => {
 		const index = nextIndexes.get(sha);
 		if (index != null) return index;
 
 		const prevIndex = prev.findIndex(c => c.sha === sha);
-		// Below the rewrite and just not loaded now
-		if (prevIndex < 0 || prevIndex >= prevForkIndex) return 'kept';
+		if (prevIndex < 0 || prevIndex >= prevForkIndex) return 'belowRewriteUnloaded';
 
 		const patchId = patchIds?.[sha];
 		const subject = getCommitSubject(prev[prevIndex].message);
@@ -227,18 +236,18 @@ export function remapScopeRange(
 
 	const mapped = shas.map(sha => ({ sha: sha, index: mapOne(sha) }));
 	const indexes = mapped.map(m => m.index).filter(i => typeof i === 'number');
-	const kept = mapped.filter(m => m.index === 'kept').map(m => m.sha);
+	const unloaded = mapped.filter(m => m.index === 'belowRewriteUnloaded').map(m => m.sha);
 
 	const holdsTip = scope.includesWip || shas[0] === prev[0].sha;
 	const top = holdsTip ? 0 : indexes.length ? Math.min(...indexes) : undefined;
-	let bottom = kept.length ? next.length - 1 : indexes.length ? Math.max(...indexes) : undefined;
-	// An oldest commit that no longer maps widens the range to the rewritten ones rather than silently shrinking it
-	if (mapped.at(-1)!.index == null && rewritten.length) {
+	let bottom = unloaded.length ? next.length - 1 : indexes.length ? Math.max(...indexes) : undefined;
+	const oldestLost = mapped.at(-1)!.index == null;
+	if (oldestLost && rewritten.length) {
 		bottom = Math.max(bottom ?? 0, rewritten.length - 1);
 	}
 	if (top == null || bottom == null) return undefined;
 
-	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...kept];
+	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...unloaded];
 	return areEqual(remapped, shas) ? undefined : remapped;
 }
 
@@ -2754,7 +2763,17 @@ export class DetailsActions {
 					: undefined;
 			const scopeBeforeTipMove = this._scopeBeforeTipMove;
 			const scope = scopeBeforeTipMove ?? this.state.scope.get();
-			const remapped = await this.remapScope(repoPath, scope, prevCommits, result.commits, controller.signal);
+			const remapped = await this.remapScope(
+				repoPath,
+				scope,
+				prevCommits,
+				result.commits,
+				{
+					prev: prevCommits != null ? this.state.branchMergeBase.get()?.sha : undefined,
+					next: result.mergeBase?.sha,
+				},
+				controller.signal,
+			);
 			if (controller.signal.aborted) return;
 
 			this.state.branchCommits.set(result.commits);
@@ -2838,11 +2857,12 @@ export class DetailsActions {
 		scope: ScopeSelection | undefined,
 		prevCommits: readonly BranchCommitEntry[] | undefined,
 		nextCommits: readonly BranchCommitEntry[],
+		mergeBases: MergeBases,
 		signal: AbortSignal,
 	): Promise<ScopeSelection | undefined> {
 		if (scope?.type !== 'wip') return undefined;
 
-		const rewrittenShas = getRewrittenScopeShas(scope.includeShas, prevCommits, nextCommits);
+		const rewrittenShas = getRewrittenScopeShas(scope.includeShas, prevCommits, nextCommits, mergeBases);
 		const patchIds = rewrittenShas.length
 			? await this.services.graphInspect.getCommitPatchIds(repoPath, rewrittenShas, signal).catch(() => undefined)
 			: undefined;
@@ -2850,6 +2870,7 @@ export class DetailsActions {
 			{ includeShas: scope.includeShas, includesWip: scope.includeStaged || scope.includeUnstaged },
 			prevCommits,
 			nextCommits,
+			mergeBases,
 			patchIds,
 		);
 		return includeShas != null ? { ...scope, includeShas: includeShas } : undefined;
