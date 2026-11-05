@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes `WorktreeSummaryService` treating a git command that ran past its time limit, or was killed from outside, as a caller cancelling, which dropped the read. A first read cut short that way left the worktree with no summary and no error, so every `getSummary`/`getSummarySnapshot` threw a bare "No summary available" until some git event queued another read. It now counts as the read's failure: a reader with no summary to answer reads once more, joining a read in flight, then rejects with the `CancellationError` (reason `timeout`) if that read is cut short too; a new subscriber reads once more too. A refresh cut short that way now marks the value `stale` and fires once, as any failed refresh does, where it left the value looking current without the change it was reading until the next event; the next event reads everything. A base read cut short fails only the base, as any failed base read does, so the summary still comes back with the other fields, `stale`, and a cut-short read of the base's config inputs or a remote's `HEAD` symref counts as unknown, where either dropped the whole read. A reader's own cancellation still rejects only that reader, as a cancellation, and aborts no read (git)
+
 ## [0.29.0] - 2026-11-04
 
 ### Added
