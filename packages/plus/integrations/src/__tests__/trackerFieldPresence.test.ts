@@ -499,7 +499,14 @@ suite('Linear field presence', () => {
 			project: null,
 			team: { id: 'team-1', name: 'Team', key: 'ENG', icon: null },
 			state: { id: 'state-1', name: 'In Progress', color: '#000', type: 'started' },
-			projectMilestone: null,
+			projectMilestone: {
+				id: 'milestone-1',
+				sortOrder: 1,
+				name: 'Beta',
+				description: null,
+				status: 'done',
+				targetDate: '2026-12-01',
+			},
 			labels: { nodes: [{ id: 'label-1', name: 'bug' }] },
 			comments: { nodes: [{ id: 'comment-1' }] },
 		};
@@ -568,6 +575,12 @@ suite('Linear field presence', () => {
 		assert.equal(presence.reactions, 'not-requested', `${label}: reactions`);
 		assert.equal(row.repository, undefined, `${label}: a tracker issue has no repository`);
 		assert.equal(presence.access, 'unavailable', `${label}: the viewer's access is unavailable`);
+		// The project milestone: done is closed, and it has no page of its own.
+		assert.deepEqual(
+			row.milestone,
+			{ id: 'milestone-1', title: 'Beta', state: 'closed', dueDate: new Date('2026-12-01') },
+			`${label}: the project milestone`,
+		);
 	}
 
 	function assertNoLabelsOrCommentsSelected(issueQueries: readonly string[]): void {

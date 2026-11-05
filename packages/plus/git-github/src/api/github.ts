@@ -373,8 +373,24 @@ const asyncMergePollIntervalMs = 2000;
  *  generous — giving up early would report a failure for a merge still in progress. */
 const maxAsyncMergePolls = 300;
 
+/**
+ * Appended to the issue and pull request fragments rather than to {@link gqlIssueOrPullRequestFragment}, which also
+ * feeds the autolink lookups that don't need it. Assigning or clearing a milestone moves the item's `updatedAt`, so the
+ * etag fragments don't select it. Editing the milestone itself (its title, due date or state) moves no item's.
+ */
+const gqlMilestoneFragment = `
+milestone {
+	id
+	title
+	state
+	dueOn
+	url
+}
+`;
+
 const gqlPullRequestLiteFragment = `
 ${gqlIssueOrPullRequestFragment}
+${gqlMilestoneFragment}
 author {
 	login
 	avatarUrl(size: $avatarSize)
@@ -482,6 +498,7 @@ viewerCanUpdate
 
 const gqIssueFragment = `
 ${gqlIssueOrPullRequestFragment}
+${gqlMilestoneFragment}
 assignees(first: 100) {
 	nodes {
 		login

@@ -24,6 +24,7 @@ import type {
 	GitLab,
 	GitLabGroup,
 	GitMergeStrategy,
+	GitMilestone,
 	GitPullRequest,
 	GitPullRequestMergeableState as GitPullRequestMergeableStateType,
 	GitPullRequestReviewState as GitPullRequestReviewStateType,
@@ -63,6 +64,7 @@ import type {
 	IssueSyncedWith,
 } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestProjection,
 	PullRequestRef,
@@ -1556,6 +1558,26 @@ export function toIssueShape(
 		...toIssueViewer(issue, options?.viewer),
 		// Only when the provider reports it, so a row from any other provider keeps exactly the keys it always had.
 		...(issue.syncedWith != null ? { syncedWith: toIssueSyncedWith(issue.syncedWith) } : {}),
+		// Only when the provider reports it (GitHub, GitLab, Linear), so `undefined` keeps meaning "not read" rather than
+		// "none", and a row from any other provider keeps exactly the keys it always had.
+		...(issue.milestone !== undefined ? { milestone: toIssueMilestone(issue.milestone) } : {}),
+	};
+}
+
+/**
+ * provider-apis' `id` is a GitHub milestone's per-repository number and a GitLab milestone's bare database id, so the
+ * GraphQL id, which is unique on the host, wins where there is one. A Linear project milestone has only its UUID.
+ */
+function toIssueMilestone(milestone: GitMilestone | null): IssueMilestone | null {
+	if (milestone == null) return null;
+
+	return {
+		id: milestone.graphQLId || milestone.id,
+		title: milestone.title,
+		state: milestone.isOpen ? 'open' : 'closed',
+		...(milestone.dueDate != null ? { dueDate: milestone.dueDate } : {}),
+		// Linear sends `''`: a project milestone has no page of its own.
+		...(milestone.url ? { url: milestone.url } : {}),
 	};
 }
 
@@ -2015,6 +2037,8 @@ export function fromProviderPullRequest(
 		options?.projection,
 		options?.currentAccount ?? undefined,
 		options?.currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined,
+		// Only GitHub and GitLab report it; `undefined` stays "not read" rather than "none".
+		pr.milestone !== undefined ? toIssueMilestone(pr.milestone) : undefined,
 	);
 }
 
@@ -2174,6 +2198,8 @@ export function fromProviderIssue(
 		viewer?.viewer,
 		viewer?.viewerUnresolved,
 		issue.syncedWith != null ? toIssueSyncedWith(issue.syncedWith) : undefined,
+		// As in `toIssueShape`.
+		issue.milestone !== undefined ? toIssueMilestone(issue.milestone) : undefined,
 	);
 }
 
