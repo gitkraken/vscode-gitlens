@@ -11,9 +11,11 @@ import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
+import type { GitBranchReference, RefRecord } from '../models/reference.js';
 import type { GitTag } from '../models/tag.js';
 import { GitWorktree } from '../models/worktree.js';
 import type { GitResult } from '../run.types.js';
+import { createReference } from '../utils/reference.utils.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
 	const blame: GitBlame = {
@@ -2093,6 +2095,167 @@ suite('Cache.getCloseGeneration', () => {
 	test('a sibling path closing does not disturb this one', () => {
 		cache.unregisterRepoPath('/test/repo-feature');
 		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
+	});
+});
+
+suite('Cache.setCurrentBranchReferenceIfAbsent', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const sibling = '/test/repo-sibling';
+	/** How many worktree paths the cache tracks the drop of before folding the oldest into the all-paths floor */
+	const dropsTracked = 128;
+
+	function reference(path: string): GitBranchReference {
+		return createReference('main', path, { refType: 'branch', name: 'main', remote: false });
+	}
+
+	function recordOf(worktreePath: string | undefined): RefRecord {
+		return {
+			current: '',
+			name: `refs/heads/${worktreePath ?? 'none'}`,
+			objectname: '',
+			peeledObjectname: '',
+			upstream: '',
+			upstreamTracking: '',
+			committerDate: '',
+			creatorDate: '',
+			authorDate: '',
+			subject: '',
+			worktreePath: worktreePath,
+			push: '',
+		};
+	}
+
+	/** A listing with a record checked out in each of `paths`, and one checked out nowhere */
+	function recordsOf(paths: readonly string[]): RefRecord[] {
+		return [...paths.map(recordOf), recordOf(undefined)];
+	}
+
+	async function seeded(cache: Cache, path: string, records: readonly RefRecord[]): Promise<boolean> {
+		const record = records.find(r => r.worktreePath === path);
+		assert.ok(record != null, `the listing should have a record checked out in ${path}`);
+		cache.setCurrentBranchReferenceIfAbsent(path, reference(path), record);
+		return (await cache.currentBranchReference.get(path)) != null;
+	}
+
+	function readListing(cache: Cache, paths: readonly string[] = [worktree, sibling]): Promise<RefRecord[]> {
+		return cache.getRefs(repoPath, () => recordsOf(paths));
+	}
+
+	/** A listing that is still being read until {@link done} is called */
+	function startListing(
+		cache: Cache,
+		paths: readonly string[] = [worktree, sibling],
+	): { listing: Promise<RefRecord[]>; done: () => void } {
+		const read = defer<RefRecord[]>();
+		return { listing: cache.getRefs(repoPath, () => read.promise), done: () => read.fulfill(recordsOf(paths)) };
+	}
+
+	test('a listing seeds every worktree', async () => {
+		using cache = new Cache();
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, records));
+		assert.ok(await seeded(cache, sibling, records));
+	});
+
+	test('a record from a copy of the listing seeds', async () => {
+		using cache = new Cache();
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, [...records]));
+		assert.ok(await seeded(cache, sibling, records.toReversed()));
+	});
+
+	test("a listing read across a worktree's branch eviction seeds only its siblings", async () => {
+		using cache = new Cache();
+		const { listing, done } = startListing(cache);
+		cache.evictCaches(worktree, 'branch');
+		done();
+		const records = await listing;
+
+		assert.strictEqual(await seeded(cache, worktree, records), false);
+		assert.ok(await seeded(cache, sibling, records));
+	});
+
+	test('a listing started after the eviction seeds the worktree', async () => {
+		using cache = new Cache();
+		cache.evictCaches(worktree, 'branch');
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, records));
+	});
+
+	for (const [name, drop] of [
+		['a config eviction', (cache: Cache) => cache.evictCaches(worktree, 'config')],
+		['unregistering the worktree', (cache: Cache) => cache.unregisterRepoPath(worktree)],
+	] as const) {
+		test(`a listing read across ${name} doesn't seed the worktree`, async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache);
+			drop(cache);
+			done();
+
+			assert.strictEqual(await seeded(cache, worktree, await listing), false);
+		});
+	}
+
+	for (const [name, drop] of [
+		['a full clear', (cache: Cache) => cache.clearCaches(undefined)],
+		['a reset', (cache: Cache) => cache.reset()],
+	] as const) {
+		test(`a listing read across ${name} seeds no worktree`, async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache);
+			drop(cache);
+			done();
+			const records = await listing;
+
+			assert.strictEqual(await seeded(cache, worktree, records), false);
+			assert.strictEqual(await seeded(cache, sibling, records), false);
+		});
+	}
+
+	test("a record the cache didn't read seeds nothing", async () => {
+		using cache = new Cache();
+
+		assert.strictEqual(await seeded(cache, worktree, recordsOf([worktree])), false);
+	});
+
+	suite('with more dropped worktrees than are tracked', () => {
+		const paths = Array.from({ length: dropsTracked + 3 }, (_, i) => `/test/repo-wt-${i}`);
+
+		function dropAll(cache: Cache): void {
+			for (const path of paths) {
+				cache.evictCaches(path, 'branch');
+			}
+		}
+
+		test('only as many drops are kept as are tracked', () => {
+			using cache = new Cache();
+			dropAll(cache);
+
+			assert.strictEqual(cache.getResourceUsage()['cache.currentBranchDroppedAt.entries.count'], dropsTracked);
+		});
+
+		test('a listing started before the oldest drop no longer seeds its worktree', async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache, paths);
+			dropAll(cache);
+			done();
+
+			assert.strictEqual(await seeded(cache, paths[0], await listing), false);
+		});
+
+		test('a listing started after every drop seeds every worktree', async () => {
+			using cache = new Cache();
+			dropAll(cache);
+			const records = await readListing(cache, paths);
+
+			for (const path of paths) {
+				assert.ok(await seeded(cache, path, records), path);
+			}
+		});
 	});
 });
 
