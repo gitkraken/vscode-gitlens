@@ -198,7 +198,9 @@ before any target was read.
 
 The hosts with a cheap check select only the change state:
 
-- **GitHub/GHE:** one aliased document per 25 targets, like the full read.
+- **GitHub/GHE:** one aliased document per 25 targets, like the full read. Assigning or clearing a milestone moves
+  the update time, so the etag sees it; editing the milestone itself (its title, due date or state) doesn't, and a row
+  that compares unchanged keeps the milestone as it was read.
 - **GitLab and GitLab self-managed:** one query per project per 100 iids. That drops to 10 iids when `etagIncludes`
   has `'checks'`, because GitLab resolves every job of each head pipeline for that input. GitLab resets a merge
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
@@ -339,10 +341,11 @@ A group is `fetched` only if every field in it is. Pull request groups: `descrip
 reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`statusCheckRollupState`), `mergeable`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
-the identity it was matched against) and `stack`. `statusCheckRollupState`, `commitCount` and `viewerCanUpdate` live on
-the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`, and
-`bodyField` where the provider sets it, so take both from the same row), `assignees`, `labels`, `comments`
-(`commentsCount`), `reactions` (`thumbsUpCount`) and `access` (`repository.accessLevel`).
+the identity it was matched against), `stack` and `milestone`. `statusCheckRollupState`, `commitCount` and
+`viewerCanUpdate` live on the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups:
+`description` (`body`, and `bodyField` where the provider sets it, so take both from the same row), `assignees`,
+`labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`), `access` (`repository.accessLevel`) and
+`milestone` (on Linear, the issue's project milestone).
 
 Each table below covers a cloud host and its self-managed variant: where a cell reads `cloud / self-managed` the two
 differ, and `—` means that host never produces the tag.
@@ -367,6 +370,7 @@ differ, and `—` means that host never produces the tag.
 | access         | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
 | authoredByMe   | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested           | not-requested | not-requested         |
 | stack          | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
+| milestone      | fetched               | fetched               | fetched               | fetched               | fetched               | fetched               | fetched                 | fetched       | fetched               |
 
 <!-- field-presence: issues -->
 
@@ -378,6 +382,7 @@ differ, and `—` means that host never produces the tag.
 | comments    | fetched | fetched | fetched | fetched       | fetched |
 | reactions   | fetched | fetched | fetched | fetched       | fetched |
 | access      | fetched | fetched | fetched | not-requested | fetched |
+| milestone   | fetched | fetched | fetched | fetched       | fetched |
 
 The cells that aren't obvious from the projection names:
 
@@ -432,6 +437,7 @@ What holds for all of them:
 | access         | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
 | authoredByMe   | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
 | stack          | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
+| milestone      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
 
 <!-- field-presence: gitlab-issues -->
 
@@ -443,6 +449,7 @@ What holds for all of them:
 | comments    | fetched / not-requested | fetched       | fetched / not-requested | fetched / not-requested |
 | reactions   | fetched                 | fetched       | fetched                 | fetched                 |
 | access      | not-requested           | not-requested | not-requested           | not-requested           |
+| milestone   | fetched                 | not-requested | fetched                 | fetched                 |
 
 - The point reads and the free-text search are GitLens' own, and leave everything but the merge request's identity,
   refs and dates off the row, including the description they select. Every other read is provider-apis'.
@@ -450,6 +457,9 @@ What holds for all of them:
   count nullable, so diff stats and commit counts are never `fetched`. GitLab.com's comment count resolver answers 0
   rather than null, so its comment count is; a self-managed version's isn't known to. The account-wide issue read is
   REST, whose comment count is always a number.
+- The account-wide issue read's REST normalizer drops the milestone the response carries, so `milestone` is
+  `not-requested` on `account`, though the host's "my issues" read, which shares the tag, reads it over GraphQL. It is
+  also `not-requested` on GitLens' own merge request reads.
 
 <!-- field-presence: azure-pull-requests -->
 
@@ -469,6 +479,7 @@ What holds for all of them:
 | access         | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
 | authoredByMe   | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
 | stack          | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| milestone      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 
 <!-- field-presence: azure-issues -->
 
@@ -480,6 +491,7 @@ What holds for all of them:
 | comments    | fetched       | — / fetched       | fetched     | fetched     | fetched     |
 | reactions   | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
 | access      | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
+| milestone   | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
 
 - Azure truncates the description of a pull request it lists (to 400 characters), so only the batch reads, which
   fetch each pull request by id, have it. GitLens' own point reads leave it off the row.
@@ -504,6 +516,7 @@ What holds for all of them:
 | access         | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
 | authoredByMe   | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
 | stack          | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| milestone      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: bitbucket-issues -->
 
@@ -515,6 +528,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested |
 | reactions   | unavailable   | unavailable   |
 | access      | not-requested | not-requested |
+| milestone   | unavailable   | unavailable   |
 
 - Bitbucket Cloud's point and batch reads are GitLens' own, which drop the comment count. The point read for a commit
   selects `+values.*`, which isn't known to bring the participants the reviews come from as the other point reads'
@@ -534,6 +548,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested | not-requested | fetched / not-requested |
 | reactions   | unavailable   | unavailable   | unavailable   | unavailable             |
 | access      | unavailable   | unavailable   | unavailable   | unavailable             |
+| milestone   | unavailable   | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: linear-issues -->
 
@@ -545,6 +560,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested | not-requested | not-requested |
 | reactions   | not-requested | not-requested | not-requested | not-requested |
 | access      | unavailable   | unavailable   | unavailable   | unavailable   |
+| milestone   | fetched       | fetched       | fetched       | fetched       |
 
 <!-- field-presence: trello-issues -->
 
@@ -556,6 +572,7 @@ What holds for all of them:
 | comments    | fetched       | fetched       |
 | reactions   | unavailable   | unavailable   |
 | access      | unavailable   | unavailable   |
+| milestone   | unavailable   | unavailable   |
 
 <!-- field-presence: asana-issues -->
 
@@ -567,6 +584,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested | not-requested |
 | reactions   | fetched       | fetched       | fetched       |
 | access      | unavailable   | unavailable   | unavailable   |
+| milestone   | unavailable   | unavailable   | unavailable   |
 
 - Tracker issues belong to no repository, so `access` is `unavailable`.
 - provider-apis' Jira converter counts the comments embedded in the issue rather than reading their total, so only
