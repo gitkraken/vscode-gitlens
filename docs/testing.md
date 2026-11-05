@@ -230,9 +230,12 @@ In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the r
 - takes its secrets from the `e2e-staging` Environment, whose deployments are limited to `main`:
   `GK_E2E_ACCESS_TOKEN_COOKIE` (the staging test account's `stagingAccessToken`), a Cloudflare Access service token
   (`GK_E2E_CF_ACCESS_CLIENT_ID` / `GK_E2E_CF_ACCESS_CLIENT_SECRET`) and `GK_E2E_GITHUB_TOKEN`, read-only on the
-  private test-data repository. Repository secrets would reach any workflow run in the repository — a branch that
-  edits `ci.yml` could read them whatever the job's `if` says — while an Environment's secrets reach only a job that
-  deploys to it, and only from `main`. Don't add them back as repository secrets. Keep the values narrow and
+  private test-data repository. Repository secrets would reach any workflow run from a branch of this repository
+  (forks and their pull requests get none) — a branch that edits `ci.yml` could read them whatever the job's `if`
+  says — while an Environment's secrets reach only a job that deploys to it, from a run whose ref is `main`. That
+  makes the guarantee "only workflow code reviewed into `main`": runs triggered by `schedule`, `issue_comment`,
+  `workflow_run` or `pull_request_target` carry `main` as their ref too, so never reference `e2e-staging` from a job
+  that runs pull-request code. Don't add the secrets back at repository level. Keep the values narrow and
   replaceable all the same — the session ends when the test account signs out of the staging site, the GitHub token
   is scoped to the one repository, and the service token can be reissued;
 - reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
@@ -256,7 +259,10 @@ e-mail, and other repositories' pull requests and issues.
 
 The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
 to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`
-value — set it through `gh secret set …` reading from a prompt or a file, never as an argument.
+value in the `e2e-staging` Environment — `gh secret set --env e2e-staging GK_E2E_ACCESS_TOKEN_COOKIE` (admin access
+needed), reading the value from the prompt or a file, never as an argument. Without `--env` it lands in a repository
+secret instead: that puts the cookie back within reach of every branch, and the Environment's older copy still takes
+precedence, so the job keeps failing.
 
 ### Login-walled forks (Cursor, Kiro)
 
