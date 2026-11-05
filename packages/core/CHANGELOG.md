@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-05
+
 ### Changed
 
 - Changes `getGitDir` to walk the folders above a checkout once for all the checkouts in one folder resolved within a few seconds of each other, rather than once each, when deciding whether a repository above could track the checkout as a submodule. The git dir and common git dir it reports aren't affected. A checkout resolved within those seconds can take a sibling's answer from before a superproject was created around them, and so report no `parentUri`. As before, `getGitDir` keeps each checkout's answer until it is unregistered or the cache is reset, so a superproject created after a checkout was resolved isn't seen either way. Adds `Cache.superprojects`, cleared wherever `gitDir` is, and an optional `superprojects` cache to `readGitDirs` (git, git-cli)
@@ -1119,7 +1121,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...HEAD
+[0.30.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...gitkraken:releases/core/v0.30.0
 [0.29.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...gitkraken:releases/core/v0.29.0
 [0.28.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...gitkraken:releases/core/v0.28.0
 [0.27.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...gitkraken:releases/core/v0.27.0
