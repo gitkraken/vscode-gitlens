@@ -306,6 +306,21 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('does not flag renamed when the remote has a trailing slash', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await connect(manager, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org');
+		// Bitbucket Cloud answers a path with a trailing slash, naming the repository without it.
+		stubGetRepo(bb, () =>
+			Promise.resolve({ id: 'r1', namespace: 'octocat', name: 'hello' } as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://bitbucket.org/octocat/hello/' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.renamed, false);
+
+		manager.dispose();
+	});
+
 	test('carries the fork flag and parent the provider reports', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
@@ -1280,12 +1295,13 @@ suite('resolveRepository — GitLab through provider-apis', () => {
 
 	function answerGitLab(reply: { project: unknown; errors?: { message: string }[] }) {
 		const runtime = createFakeRuntime();
-		const requests: { url: string; query: string }[] = [];
+		const requests: { url: string; query: string; fullPath: string }[] = [];
 		runtime.http.fetch = (input, init) => {
-			requests.push({
-				url: String(input),
-				query: (JSON.parse(init?.body as string) as { query: string }).query,
-			});
+			const { query, variables } = JSON.parse(init?.body as string) as {
+				query: string;
+				variables: { fullPath: string };
+			};
+			requests.push({ url: String(input), query: query, fullPath: variables.fullPath });
 			return Promise.resolve(
 				new Response(JSON.stringify({ data: { project: reply.project }, errors: reply.errors }), {
 					status: 200,
@@ -1361,6 +1377,117 @@ suite('resolveRepository — GitLab through provider-apis', () => {
 		assert.ok(!requests[0].query.includes('forkedFrom'), 'an older server would reject the whole query');
 
 		manager.dispose();
+	});
+
+	for (const host of [
+		{
+			label: 'gitlab.com',
+			domain: 'gitlab.com',
+			connect: (manager: ReturnType<typeof createIntegrationManager>) =>
+				connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com'),
+			options: {},
+		},
+		{
+			label: 'self-managed',
+			domain: 'gitlab.example.com',
+			connect: (manager: ReturnType<typeof createIntegrationManager>) =>
+				connectSelfManaged(
+					manager,
+					GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+					'gitlab.example.com',
+				),
+			options: {
+				providerId: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+				domain: 'gitlab.example.com',
+			},
+		},
+	]) {
+		const resolveNested = async (
+			remotePath: string,
+			fullPath: string,
+			remoteUrl = `https://${host.domain}/${remotePath}.git`,
+		) => {
+			const { manager, requests } = answerGitLab({ project: { ...project, fullPath: fullPath } });
+			await host.connect(manager);
+
+			const { resolution } = await manager.resolveRepository({ ...host.options, remoteUrl: remoteUrl });
+			manager.dispose();
+
+			assert.equal(resolution.status, 'resolved');
+			assert.equal(requests[0].fullPath, remotePath, 'the read addresses the whole path');
+			return resolution.identity;
+		};
+
+		test(`${host.label}: a repository in a nested group is not renamed`, async () => {
+			const identity = await resolveNested('acme/platform/kepler', 'acme/platform/kepler');
+			assert.equal(identity?.owner, 'acme/platform');
+			assert.equal(identity?.name, 'kepler');
+			assert.equal(identity?.renamed, false);
+		});
+
+		test(`${host.label}: a nested group answered in other casing is not renamed`, async () => {
+			const identity = await resolveNested('ACME/Platform/kepler', 'acme/platform/Kepler');
+			assert.equal(identity?.renamed, false);
+		});
+
+		test(`${host.label}: an SSH remote in a nested group is not renamed`, async () => {
+			const identity = await resolveNested(
+				'acme/platform/kepler',
+				'acme/platform/kepler',
+				`git@${host.domain}:acme/platform/kepler.git`,
+			);
+			assert.equal(identity?.renamed, false);
+		});
+
+		test(`${host.label}: a remote with a trailing slash reads the path without it`, async () => {
+			const identity = await resolveNested(
+				'acme/platform/kepler',
+				'acme/platform/kepler',
+				`https://${host.domain}/acme/platform/kepler/`,
+			);
+			assert.equal(identity?.renamed, false);
+		});
+
+		// GitLab answers a renamed or moved path with no project, so no server sends these three: they pin the compare.
+		test(`${host.label}: a repository renamed within a nested group is renamed`, async () => {
+			const identity = await resolveNested('acme/platform/old-name', 'acme/platform/kepler');
+			assert.equal(identity?.owner, 'acme/platform');
+			assert.equal(identity?.name, 'kepler');
+			assert.equal(identity?.renamed, true);
+		});
+
+		test(`${host.label}: a repository moved to another nested group is renamed`, async () => {
+			const identity = await resolveNested('acme/platform/kepler', 'acme/tools/kepler');
+			assert.equal(identity?.owner, 'acme/tools');
+			assert.equal(identity?.renamed, true);
+		});
+
+		test(`${host.label}: a repository moved out of a nested group is renamed`, async () => {
+			const identity = await resolveNested('acme/platform/kepler', 'acme/kepler');
+			assert.equal(identity?.owner, 'acme');
+			assert.equal(identity?.renamed, true);
+		});
+
+		test(`${host.label}: a repository in a flat path is not renamed`, async () => {
+			const identity = await resolveNested('acme/kepler', 'acme/kepler');
+			assert.equal(identity?.renamed, false);
+		});
+	}
+
+	test('self-managed: a nested group under a context path reads the path below it', async () => {
+		const { manager, requests } = answerGitLab({ project: { ...project, fullPath: 'acme/platform/kepler' } });
+		await connectSelfManaged(manager, GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted, 'gitlab.example.com');
+
+		const { resolution } = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+			domain: 'https://gitlab.example.com/gitlab',
+			remoteUrl: 'https://gitlab.example.com/gitlab/acme/platform/kepler.git',
+		});
+		manager.dispose();
+
+		assert.equal(resolution.status, 'resolved');
+		assert.equal(requests[0].fullPath, 'acme/platform/kepler');
+		assert.equal(resolution.identity?.renamed, false);
 	});
 
 	test('a null project with no errors is not-found', async () => {

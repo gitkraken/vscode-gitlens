@@ -1095,7 +1095,9 @@ one.
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
 carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale (on Azure DevOps,
-when the repository or its project is named differently from where it was read).
+when the repository or its project is named differently from where it was read). Owner and name are compared as one
+path, because the remote and the provider split a GitLab nested group differently. GitLab's lookup doesn't follow a
+renamed or moved path, so a stale GitLab remote is `not-found` rather than `renamed`.
 It also carries `isFork` and `parent` (the repository a fork was made from, on the same host; `project` only on Azure
 DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center, Azure DevOps and gitlab.com, where a
 nested group is part of the owner (`group/subgroup`). Self-managed GitLab reports neither, because the field that names
