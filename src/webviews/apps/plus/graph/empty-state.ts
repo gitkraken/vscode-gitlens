@@ -113,7 +113,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				margin: 0;
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.08em;
 			}
@@ -135,13 +135,13 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 			}
 
 			.action:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: 1px solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
 			.action__icon {
 				flex: none;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 			}
 
 			.action__icon.is-issue {
@@ -166,7 +166,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 
 			.action__desc {
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			@media (height <= 360px) {

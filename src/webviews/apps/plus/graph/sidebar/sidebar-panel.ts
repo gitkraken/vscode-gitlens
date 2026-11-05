@@ -507,8 +507,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				height: 100%;
 				overflow: visible;
-				background-color: var(--color-view-background);
-				border-color: var(--vscode-sideBar-border, transparent);
+				background-color: var(--gl-color-surface-aside);
+				border-color: var(--gl-color-border-aside, transparent);
 				border-right: var(--gl-border-width) solid transparent;
 			}
 
@@ -557,9 +557,9 @@ would expose the graph through fade or at the gap left by the translate). */
 				padding: 0 0 0 var(--gl-space-4);
 				font-size: var(--gl-view-header-font-size, var(--gl-font-sm));
 				font-weight: var(--gl-view-header-font-weight, var(--gl-font-weight-semibold));
-				color: var(--color-view-header-foreground);
+				color: var(--vscode-sideBarSectionHeader-foreground);
 				text-transform: var(--gl-view-header-text-transform);
-				background-color: var(--color-view-background);
+				background-color: var(--gl-color-surface-aside);
 				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 				border-bottom: var(--gl-border-width) solid transparent;
 			}
@@ -624,13 +624,12 @@ would expose the graph through fade or at the gap left by the translate). */
 				padding: var(--gl-space-4) var(--gl-space-6);
 				font-size: var(--gl-font-sm);
 				color: var(--vscode-descriptionForeground);
-				border-bottom: var(--gl-border-width) solid
-					var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 			}
 
 			.error-strip__icon {
 				flex: none;
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.error-strip__message {
@@ -725,7 +724,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-12);
 				font-style: italic;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 		`,
 	];

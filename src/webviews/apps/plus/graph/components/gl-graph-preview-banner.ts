@@ -34,13 +34,13 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 			align-items: center;
 			padding: var(--gl-space-4) var(--gl-space-8);
 			font-size: var(--gl-font-md);
-			background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 8%);
-			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			background: color-mix(in lab, var(--gl-color-surface-base) 100%, var(--vscode-foreground) 8%);
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.strip__icon {
 			flex: none;
-			color: var(--color-alert-infoBorder);
+			color: var(--gl-color-feedback-info-quiet-fg);
 		}
 
 		.strip__msg {
@@ -72,7 +72,7 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 			padding: 0.2rem 0.5rem;
 			font: inherit;
 			font-size: var(--gl-font-md);
-			color: var(--vscode-textLink-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: none;
 			cursor: pointer;
 			background: none;
@@ -87,9 +87,9 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 		}
 
 		.strip__cta:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0;
-			border-color: var(--vscode-focusBorder);
+			border-color: var(--gl-color-border-focus);
 		}
 	`;
 

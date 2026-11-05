@@ -141,8 +141,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-4);
 				min-width: 0;
 				padding: var(--gl-space-8) var(--gl-space-4);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Hover tints the row; focus inside draws an inset focus border (the row's own border is only its top edge),
@@ -154,7 +153,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			}
 
 			.row:focus-within {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -187,13 +186,13 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			/* The sender, standing in for a headline the notification doesn't have */
 			.row__headline--byline {
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row__time {
 				flex: none;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row__body,
@@ -205,7 +204,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				margin: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				white-space: nowrap;
 			}
 
@@ -218,16 +217,16 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 
 			.row--read .row__dot {
 				background-color: transparent;
-				border-color: var(--color-foreground--50);
+				border-color: var(--vscode-descriptionForeground);
 			}
 
 			.row--read .row__headline {
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row--read .row__body {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.note {
@@ -243,7 +242,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			}
 
 			.note--error {
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.empty {
@@ -253,7 +252,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: var(--gl-space-16);
 				margin: 0;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}
 
@@ -274,8 +273,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				align-items: center;
 				justify-content: space-between;
 				padding: var(--gl-space-8) var(--gl-space-4) var(--gl-space-4);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 		`,
 	];

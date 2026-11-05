@@ -115,30 +115,14 @@ export class GlGraphOverviewCard extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 8%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 12%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 8%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 12%);
 		}
 
 		:host-context(.vscode-light),
 		:host-context(.vscode-high-contrast-light) {
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 6%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 10%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 6%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 10%);
 		}
 
 		/* Lights up when one or more selected/focused graph rows live on this branch.

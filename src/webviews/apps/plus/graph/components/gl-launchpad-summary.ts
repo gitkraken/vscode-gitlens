@@ -84,14 +84,14 @@ export class GlLaunchpadSummary extends LitElement {
 			}
 
 			.launchpad-item--link:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
 			}
 
 			.launchpad-item--muted {
 				font-style: italic;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.launchpad-item--mergeable {

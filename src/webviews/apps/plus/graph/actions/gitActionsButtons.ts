@@ -306,7 +306,6 @@ the parent's intrinsic min-content beyond the icon size. */
 				padding: var(--gl-space-4) var(--gl-space-8);
 				font-size: var(--gl-font-md);
 				line-height: 1.4;
-				color: var(--vscode-menu-foreground);
 			}
 
 			.fetch-popover__info-secondary {
@@ -325,7 +324,6 @@ the parent's intrinsic min-content beyond the icon size. */
 				align-items: center;
 				min-height: 2.4rem;
 				padding: 0.3rem 0.4rem 0.3rem 0.8rem;
-				color: var(--vscode-menu-foreground);
 			}
 
 			.fetch-popover__row gl-checkbox {
@@ -348,8 +346,8 @@ the parent's intrinsic min-content beyond the icon size. */
 			.fetch-popover__row gl-button {
 				flex: none;
 				--button-padding: 0.2rem;
-				--button-foreground: var(--vscode-menu-foreground, var(--vscode-foreground));
-				--button-hover-background: color-mix(in srgb, var(--vscode-menu-foreground) 18%, transparent);
+				--button-foreground: var(--gl-color-action-quiet-fg);
+				--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 
 				opacity: 0.7;
 			}
@@ -362,7 +360,6 @@ the parent's intrinsic min-content beyond the icon size. */
 				padding: 0 0.8rem 0.4rem 2.6rem;
 				font-size: var(--gl-font-sm);
 				line-height: 1.4;
-				color: var(--vscode-menu-foreground);
 				opacity: 0.7;
 			}
 
@@ -728,7 +725,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			.banner--blocked {
-				--banner-color: var(--vscode-editorError-foreground);
+				--banner-color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.banner--conflict {
@@ -744,7 +741,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 				container-type: inline-size;
 				overflow: hidden;
 				background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
-				border-top: 1px solid var(--vscode-menu-separatorBackground);
+				border-top: 1px solid var(--gl-color-divider-base);
 			}
 
 			/* The timestamp is the only thing here that yields — the action never shrinks, wraps, or gets
@@ -779,13 +776,20 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 				color: inherit;
 				white-space: nowrap;
 				cursor: pointer;
-				background-color: var(--vscode-list-hoverBackground);
-				border: 1px solid color-mix(in srgb, var(--vscode-foreground) 30%, transparent);
+				background-color: var(--gl-color-action-secondary-bg);
+				border: 1px solid var(--gl-color-action-secondary-border);
 				border-radius: var(--gl-radius-sm);
 			}
 
 			.jump:hover {
-				background-color: color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+				background-color: var(--gl-color-action-secondary-bg-hover);
+			}
+
+			/* High-contrast hover cue; the secondary button colors are unset there, so the hover fill is too.
+			   Not while focused, so the focus ring wins */
+			.jump:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 		`,
 	];

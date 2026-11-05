@@ -73,7 +73,8 @@ gl-commit-graph {
 	gl-agent-mark.gl-graph__row-action-status {
 		// The row colour can be translucent, so hand over the same composite the other row-action
 		// chips use rather than a bare var — a semi-transparent chip hides nothing.
-		--gl-agent-mark-chip: linear-gradient(var(--row-background), var(--row-background)), var(--color-background);
+		--gl-agent-mark-chip:
+			linear-gradient(var(--row-background), var(--row-background)), var(--vscode-editor-background);
 
 		right: 0.05em;
 		bottom: 0.05em;
@@ -84,31 +85,17 @@ gl-commit-graph {
 }
 
 @mixin focusStyles() {
-	outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+	outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 	outline-offset: -1px;
 }
 
-@include utils.dark-theme {
-	--popover-bg: var(--color-background--lighten-15);
-
-	// --titlebar-bg: var(--color-background--lighten-075);
-	--titlebar-bg: var(--color-background);
-}
-
-@include utils.light-theme {
-	--popover-bg: var(--color-background--darken-15);
-
-	// --titlebar-bg: var(--color-background--darken-075);
-	--titlebar-bg: var(--color-background);
-}
-
 :root {
-	--titlebar-fg: var(--color-foreground--65);
+	--titlebar-bg: var(--gl-color-surface-base);
+	--titlebar-fg: var(--vscode-descriptionForeground);
 	--color-graph-contrast-border: var(--vscode-list-focusOutline);
 	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
-	--color-graph-actionbar-selectedBackground: var(--vscode-toolbar-hoverBackground);
 
-	--color-graph-text-disabled: color-mix(in srgb, transparent 50%, var(--color-graph-text-selected));
+	--color-graph-text-disabled: var(--vscode-disabledForeground);
 
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
@@ -148,10 +135,9 @@ gl-commit-graph {
 	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
 	--gl-row-marker-target: var(--color-graph-scroll-marker-merge-target);
 	--gl-row-marker-focal: var(--gl-chip-scoped-color);
-	--gl-row-marker-base: var(--vscode-descriptionForeground, #8b949e);
+	--gl-row-marker-base: var(--vscode-descriptionForeground);
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
-	--color-graph-minimap-focusLine: var(--vscode-foreground);
 
 	--color-graph-minimap-marker-head: var(--vscode-gitlens-graphMinimapMarkerHeadColor);
 	--color-graph-scroll-marker-head: var(--vscode-gitlens-graphScrollMarkerHeadColor);
@@ -200,7 +186,6 @@ gl-commit-graph {
 	--color-graph-minimap-tip-remoteForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
 
 	--color-graph-scroll-marker-selection: var(--vscode-editorCursor-foreground);
-	--color-graph-minimap-marker-selection: var(--color-graph-scroll-marker-selection);
 
 	--color-graph-minimap-tip-stashBackground: var(--color-graph-scroll-marker-stashes);
 	--color-graph-minimap-tip-stashBorder: var(--color-graph-scroll-marker-stashes);
@@ -230,24 +215,14 @@ gl-commit-graph {
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 
 	--graph-column-scrollbar-thickness: 14px;
-
-	--color-graph-background: var(--vscode-editor-background, var(--color-background));
 }
 
 @include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--graph-theme-opacity-factor: '1';
-
-	--color-graph-actionbar-background: color-mix(in srgb, #fff 5%, var(--color-background));
-	--color-graph-background1: color-mix(in srgb, #fff 5%, var(--color-background));
-	--color-graph-background2: color-mix(in srgb, #fff 10%, var(--color-background));
 }
 
 @include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--graph-theme-opacity-factor: '0.5';
-
-	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
-	--color-graph-background1: color-mix(in srgb, #000 5%, var(--color-background));
-	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
 }
 
 // Light DOM
@@ -263,7 +238,7 @@ body {
 :focus,
 :focus-within,
 :focus-visible {
-	outline-color: var(--vscode-focusBorder);
+	outline-color: var(--gl-color-border-focus);
 }
 
 ::-webkit-scrollbar {
@@ -309,12 +284,6 @@ button:not([disabled]),
 	}
 }
 
-.popover::part(body) {
-	padding: 0;
-	font-size: var(--vscode-font-size);
-	background-color: var(--vscode-menu-background);
-}
-
 gl-graph-app {
 	display: contents;
 }
@@ -327,19 +296,6 @@ gl-graph-app {
 	height: 100vh;
 	overflow: hidden;
 
-	// Account + integrations bar (issue #5411): sits above the graph header so account/integrations
-	// state is available when the Graph is the main GitLens panel. When the view is vertically
-	// constrained, the row is dropped and compact chips render inline in the graph header instead —
-	// see `headerInlineEnterPx`/`_headerInlineMode` in graph-app.ts (issue #5449).
-	&__account-bar {
-		position: relative;
-		z-index: var(--gl-z-sticky);
-		flex: none;
-		min-width: 0;
-		padding: var(--gl-space-4) var(--gl-space-6);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
-	}
-
 	&__header {
 		position: relative;
 		z-index: var(--gl-z-sticky);
@@ -350,7 +306,7 @@ gl-graph-app {
 		position: relative;
 		flex: 1;
 		overflow: hidden;
-		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+		border-color: var(--gl-color-divider-base);
 		border-top: var(--gl-border-width) solid transparent;
 		isolation: isolate;
 	}
@@ -448,22 +404,22 @@ gl-graph-app {
 	&__details-pane {
 		// Provide the CSS variables that details-base.scss normally sets on :root
 		--gitlens-scrollbar-gutter-width: 10px;
-		--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+		--gitlens-tree-foreground: var(--vscode-foreground);
 
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
 		font-size: var(--font-size);
-		color: var(--vscode-sideBar-foreground, var(--color-foreground));
-		background-color: var(--vscode-sideBar-background, var(--color-background));
+		color: var(--vscode-foreground);
+		background-color: var(--gl-color-surface-aside);
 
 		.graph__details-split[orientation='horizontal'] & {
-			border-left: var(--gl-border-width) solid var(--vscode-sideBar-border);
+			border-left: var(--gl-border-width) solid var(--gl-color-border-aside);
 		}
 
 		.graph__details-split[orientation='vertical'] & {
-			border-top: var(--gl-border-width) solid var(--vscode-sideBar-border);
+			border-top: var(--gl-border-width) solid var(--gl-color-border-aside);
 		}
 
 		gl-graph-details-panel {
@@ -523,7 +479,7 @@ gl-graph-app {
 			position: sticky;
 			bottom: 0;
 			z-index: var(--gl-z-raised);
-			background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+			background-color: var(--gl-color-surface-aside);
 		}
 
 		&:hover .details-content,
@@ -589,7 +545,7 @@ gl-graph-app {
 				align-items: center;
 				justify-content: center;
 				min-height: 8rem;
-				color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+				color: var(--vscode-descriptionForeground);
 			}
 		}
 
@@ -643,10 +599,7 @@ gl-graph-app {
 
 			// Sash gets a 1px line at rest, grows to fill on hover/drag (cf. rebase .conflict-split).
 			&:not([disabled])::part(divider) {
-				background-image: linear-gradient(
-					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border)),
-					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border))
-				);
+				background-image: linear-gradient(var(--gl-color-divider-base), var(--gl-color-divider-base));
 				background-repeat: no-repeat;
 				background-position: center;
 				background-size: 100% 1px;
@@ -848,15 +801,6 @@ gl-graph-app {
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-}
-
-.details-loading {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: var(--gl-space-20) var(--gl-space-12);
-	font-size: var(--gl-font-md);
-	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 }
 
 .details-stale {

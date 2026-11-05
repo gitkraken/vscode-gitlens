@@ -11,8 +11,8 @@ export const overviewBarStyles = css`
 		align-items: center;
 		padding-block-end: 0.3rem;
 		font-family: var(--font-family);
-		background: var(--color-background);
-		border-block-end: var(--gl-border-width) solid var(--vscode-panel-border, var(--color-foreground--25));
+		background: var(--gl-color-surface-base);
+		border-block-end: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.bar {
@@ -51,7 +51,7 @@ export const overviewBarStyles = css`
 		--_fade-width: 2.4rem;
 		/* Matches what :host paints, so pills (translucent color-mix fills) dissolve into the bar's own
 		   backdrop instead of under a foreign color. */
-		--_fade-bg: var(--color-background);
+		--_fade-bg: var(--gl-color-surface-base);
 		/* Hold the fade opaque for its first quarter before ramping — a bare edge-to-edge ramp over 2.4rem
 		   never gets dark enough to read as "there's more", it just dims the pill. Same shape and width as
 		   the commit-message scroller's fades, so both surfaces cut off identically. */

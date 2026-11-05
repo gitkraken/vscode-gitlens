@@ -141,7 +141,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			:focus,
 			:focus-within,
 			:focus-visible {
-				outline-color: var(--vscode-focusBorder);
+				outline-color: var(--gl-color-border-focus);
 			}
 
 			progress-indicator {

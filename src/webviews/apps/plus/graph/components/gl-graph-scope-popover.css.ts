@@ -24,7 +24,7 @@ export const graphScopePopoverStyles = css`
 	}
 
 	.mode-chip:hover {
-		background: var(--color-graph-actionbar-selectedBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	.mode-chip:focus-visible {
