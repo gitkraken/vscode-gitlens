@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-04
+
 ### Added
 
 - Adds Asana as an issue integration (`IssuesCloudHostIntegrationId.Asana`): an `AsanaIntegration` with workspaces as resources and their unarchived projects as projects, tasks mapped to the shared issue shape (open is incomplete, closed is completed), "my issues" read per workspace from the tasks assigned to the user, cloud auth via the shared provider, Asana issue entity identifiers keyed by workspace for branch associations, the `gl-provider-asana` glyph, and Asana in the supported cloud-integration descriptors/lists. Asana's task list can't be ordered, so it advertises no issue sorts, and a tracker read scoped to the user reads the user's tasks once per workspace and splits them into its projects (plus/integrations)
@@ -1103,7 +1105,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...HEAD
+[0.29.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...gitkraken:releases/core/v0.29.0
 [0.28.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...gitkraken:releases/core/v0.28.0
 [0.27.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.26.0...gitkraken:releases/core/v0.27.0
 [0.26.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.25.0...gitkraken:releases/core/v0.26.0
