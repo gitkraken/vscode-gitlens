@@ -3,6 +3,7 @@ import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import * as nodeProcess from 'node:process';
 import { normalizePath } from '@gitlens/utils/path.js';
+import type { PromiseCache } from '@gitlens/utils/promiseCache.js';
 
 /** Environment variables that change which repository, git dir or working tree git finds from a `cwd` */
 const locationEnvKeys = [
@@ -66,16 +67,26 @@ export function parseCommonDir(content: string): string | undefined {
  * uid: Windows has none, so there a folder git would refuse is still read), or a repository above it whose working
  * tree might track it as a submodule. The caller rules out the environment (see {@link isGitDirMovedByEnv}).
  * Never rejects.
+ *
+ * Sibling checkouts ask the same question of the same folders, so `superprojects`, when given, holds the answers by
+ * parent folder. A stale one can't change the git dirs: "no" can only miss a superproject created since, and "maybe"
+ * only asks git.
  */
-export async function readGitDirs(repoPath: string): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
+export async function readGitDirs(
+	repoPath: string,
+	superprojects?: PromiseCache<string, boolean>,
+): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
 	try {
-		return await readGitDirsCore(repoPath);
+		return await readGitDirsCore(repoPath, superprojects);
 	} catch {
 		return undefined;
 	}
 }
 
-async function readGitDirsCore(repoPath: string): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
+async function readGitDirsCore(
+	repoPath: string,
+	superprojects: PromiseCache<string, boolean> | undefined,
+): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
 	if (!isAbsolute(repoPath)) return undefined;
 
 	// git searches from the physical `cwd`, so a relative path in a `.git` file resolves against it
@@ -128,7 +139,14 @@ async function readGitDirsCore(repoPath: string): Promise<{ gitDir: string; comm
 		if (owners.some(o => o !== uid)) return undefined;
 	}
 
-	if (await mayHaveSuperproject(realRepoPath)) return undefined;
+	// A checkout at a filesystem root is its own parent folder, but asks about the folders above it, where a
+	// checkout below it asks about the root too
+	const parentFolder = dirname(realRepoPath);
+	const mayHave =
+		superprojects != null && parentFolder !== realRepoPath
+			? superprojects.getOrCreate(parentFolder, () => mayHaveSuperproject(realRepoPath))
+			: mayHaveSuperproject(realRepoPath);
+	if (await mayHave) return undefined;
 
 	return { gitDir: gitDir, commonGitDir: commonGitDir };
 }

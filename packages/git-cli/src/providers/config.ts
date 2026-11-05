@@ -616,7 +616,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (this.context.workspace?.isTrusted === false || this.git.options.isTrusted?.() === false) return undefined;
 		if (isGitDirMovedByEnv(this.git.getRunEnvironment())) return undefined;
 
-		return readGitDirs(repoPath);
+		return readGitDirs(repoPath, this.cache.superprojects);
 	}
 
 	/**

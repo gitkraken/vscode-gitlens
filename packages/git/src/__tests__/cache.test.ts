@@ -2630,6 +2630,40 @@ suite('Cache.registerRepoPath', () => {
 	});
 });
 
+suite('Cache.superprojects', () => {
+	const repoPath = '/test/repo';
+
+	function populate(cache: Cache): Promise<boolean> {
+		return cache.superprojects.getOrCreate('/parent', () => Promise.resolve(false));
+	}
+
+	for (const [name, clear] of [
+		['reset', (cache: Cache) => cache.reset()],
+		['a full clear of one repository', (cache: Cache) => cache.clearCaches(repoPath)],
+		['unregistering a repository', (cache: Cache) => cache.unregisterRepoPath(repoPath)],
+	] as const) {
+		test(`${name} empties it`, async () => {
+			using cache = new Cache();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			await populate(cache);
+			assert.strictEqual(cache.superprojects.size, 1);
+
+			clear(cache);
+
+			assert.strictEqual(cache.superprojects.size, 0);
+		});
+	}
+
+	test('a typed clear keeps it', async () => {
+		using cache = new Cache();
+		await populate(cache);
+
+		cache.clearCaches(repoPath, 'branches');
+
+		assert.strictEqual(cache.superprojects.size, 1);
+	});
+});
+
 suite('Cache.getSharedBranches', () => {
 	const repoPath = '/test/repo';
 	const worktree = '/test/repo-wt';
