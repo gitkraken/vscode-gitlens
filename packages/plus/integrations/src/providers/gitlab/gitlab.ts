@@ -49,6 +49,7 @@ import {
 	fromGitLabMergeRequest,
 	fromGitLabMergeRequestREST,
 	fromGitLabMergeRequestState,
+	getRepoName,
 	getRepoNamespace,
 	gitLabEtagFieldsMaxIids,
 	toGitLabMergeRequestState,
@@ -620,6 +621,8 @@ export class GitLabApi implements Disposable {
 
 			if (pr == null) return undefined;
 
+			// A caller holding a remote's descriptor split a nested group at its first slash.
+			const fullPath = `${owner}/${repo}`;
 			return new PullRequest(
 				provider,
 				{
@@ -636,7 +639,7 @@ export class GitLabApi implements Disposable {
 				undefined,
 				pr.title,
 				pr.webUrl,
-				{ owner: owner, repo: repo },
+				{ owner: getRepoNamespace(fullPath), repo: getRepoName(fullPath) },
 				fromGitLabMergeRequestState(pr.state),
 				new Date(pr.createdAt),
 				new Date(pr.updatedAt),
@@ -722,7 +725,14 @@ export class GitLabApi implements Disposable {
 				);
 			}
 
-			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo }, 'point');
+			// A caller holding a remote's descriptor split a nested group at its first slash.
+			const fullPath = `${owner}/${repo}`;
+			return fromGitLabMergeRequestREST(
+				mrs[0],
+				provider,
+				{ owner: getRepoNamespace(fullPath), repo: getRepoName(fullPath) },
+				'point',
+			);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
