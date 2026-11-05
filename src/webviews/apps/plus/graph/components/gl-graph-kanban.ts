@@ -16,6 +16,7 @@ import {
 	agentPhaseToCategory,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
+	createAgentSessionKeplerHref,
 	createStickyDetailResolver,
 	describeAgentSession,
 	filterAgentSessionsForFamily,
@@ -87,7 +88,7 @@ const columns: readonly KanbanColumnDef[] = [
  *  their telemetry names through the events map (same table style as the sidebar's
  *  `graphSidebarActionTelemetry`) so the DOM attributes and the metric can't drift. Permission actions
  *  are deliberately absent — their event carries a different payload. */
-type SessionActionTelemetryAttribute = 'open-session' | 'resume-session' | 'open-plan';
+type SessionActionTelemetryAttribute = 'open-session' | 'resume-session' | 'open-plan' | 'open-in-kepler';
 
 const sessionActionTelemetryNames: Record<
 	SessionActionTelemetryAttribute,
@@ -96,6 +97,7 @@ const sessionActionTelemetryNames: Record<
 	'open-session': 'openSession',
 	'resume-session': 'resumeSession',
 	'open-plan': 'openPlanFile',
+	'open-in-kepler': 'openInKepler',
 };
 
 function columnIdForSession(session: AgentSessionState): KanbanColumnId {
@@ -404,6 +406,7 @@ even when the subtitle is missing so the Open Session stays visually anchored. *
 			}
 
 			.card__open,
+			.card__kepler,
 			.card__archive {
 				flex: none;
 			}
@@ -1025,6 +1028,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 		const detail = ghost ? this.ghostLocationHint(session) : this.resolveStickyDetail(session, category);
 		const openActions = getAgentSessionOpenActions(session);
 		const archiveHref = session.phase === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
+		const keplerHref = createAgentSessionKeplerHref(session);
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
 		// interactive descendants (gl-button for Open Session / Allow / Deny / View Plan) without
@@ -1063,6 +1067,20 @@ Allow / Deny / View Plan cluster left-aligned. */
 					subtitle != null
 						? html`<span class="card__subtitle">${subtitle}</span>`
 						: html`<span class="card__subtitle"></span>`
+				}
+				${
+					keplerHref != null
+						? html`<gl-button
+								class="card__kepler"
+								appearance="toolbar"
+								tooltip=${l10n.t('Open Session in Kepler')}
+								aria-label=${l10n.t('Open Session in Kepler')}
+								data-telemetry-action="open-in-kepler"
+								href=${keplerHref}
+							>
+								<code-icon icon="gl-kepler"></code-icon>
+							</gl-button>`
+						: nothing
 				}
 				${
 					archiveHref != null

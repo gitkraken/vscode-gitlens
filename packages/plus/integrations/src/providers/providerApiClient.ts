@@ -28,7 +28,7 @@ export function createProviderApiRequest(
 			});
 			return await parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
 		} catch (ex) {
-			throw markRequestError(ex);
+			throw markRequestError(ex, { url: url, method: options.method });
 		}
 	};
 }

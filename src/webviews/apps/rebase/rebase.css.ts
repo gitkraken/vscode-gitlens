@@ -16,36 +16,6 @@ export const rebaseStyles = css`
 		--font-family: var(--vscode-font-family);
 		--font-size: var(--vscode-font-size);
 
-		/* Colors */
-		--color-background: var(--vscode-editor-background);
-		--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
-		--color-link-foreground: var(--vscode-textLink-foreground);
-		--color-focus-border: var(--vscode-focusBorder);
-
-		/* Background variants */
-		--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
-		--color-background--darken-05: color-mix(in srgb, #000 5%, var(--color-background));
-		--color-background--lighten-15: color-mix(in srgb, #fff 15%, var(--color-background));
-		--color-background--darken-15: color-mix(in srgb, #000 15%, var(--color-background));
-		--color-background--lighten-30: color-mix(in srgb, #fff 30%, var(--color-background));
-		--color-background--darken-30: color-mix(in srgb, #000 30%, var(--color-background));
-		--color-background--darken-50: color-mix(in srgb, #000 50%, var(--color-background));
-
-		/* Foreground variants */
-		--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
-		--color-foreground--65: color-mix(in srgb, transparent 35%, var(--color-foreground));
-		--color-foreground--50: color-mix(in srgb, transparent 50%, var(--color-foreground));
-		--color-foreground--35: color-mix(in srgb, transparent 65%, var(--color-foreground));
-		--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
-
-		/* Highlight colors */
-		--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
-		--color-highlight--50: color-mix(in srgb, transparent 50%, var(--color-highlight));
-		--color-highlight--25: color-mix(in srgb, transparent 75%, var(--color-highlight));
-		--color-highlight--10: color-mix(in srgb, transparent 90%, var(--color-highlight));
-
-		--focus-color: var(--vscode-focusBorder);
-
 		/* Host element styles */
 		display: block;
 		min-width: 0;
@@ -53,12 +23,12 @@ export const rebaseStyles = css`
 		font-size: var(--font-size);
 		line-height: 1.4;
 		color: var(--color-foreground);
-		background-color: var(--color-background);
+		background-color: var(--gl-color-surface-base);
 	}
 
 	:focus,
 	:focus-within {
-		outline-color: var(--focus-color);
+		outline-color: var(--gl-color-border-focus);
 	}
 
 	/* ==========================================================================
@@ -66,12 +36,12 @@ export const rebaseStyles = css`
 	   ========================================================================== */
 
 	a {
-		color: var(--color-link-foreground);
+		color: var(--gl-color-action-link-fg);
 		text-decoration: none;
 	}
 
 	a:focus {
-		outline: var(--gl-border-width) solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 
@@ -166,10 +136,10 @@ export const rebaseStyles = css`
 		margin-block-end: 0.5rem;
 
 		/* Info-style colors */
-		--gl-banner-primary-background: var(--vscode-inputValidation-infoBackground, rgb(0 127 212 / 15%));
-		--gl-banner-secondary-background: var(--vscode-inputValidation-infoBackground, rgb(0 127 212 / 15%));
-		--gl-banner-text-color: var(--vscode-inputValidation-infoForeground, inherit);
-		--gl-banner-primary-emphasis-background: var(--vscode-inputValidation-infoBorder, #007fd4);
+		--gl-banner-primary-background: var(--gl-color-feedback-info-bg);
+		--gl-banner-secondary-background: var(--gl-color-feedback-info-bg);
+		--gl-banner-text-color: var(--gl-color-feedback-info-fg);
+		--gl-banner-primary-emphasis-background: var(--gl-color-feedback-info-border);
 	}
 
 	/* ==========================================================================
@@ -208,7 +178,7 @@ export const rebaseStyles = css`
 		margin-left: var(--gl-space-10);
 		overflow: hidden;
 		text-overflow: ellipsis;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -313,17 +283,28 @@ export const rebaseStyles = css`
 	   Entries
 	   ========================================================================== */
 
+	/* Non-scrolling frame: the scrollable base style recolors the virtualizer's own border on hover/focus,
+	   so the divider borders live on this wrapper instead */
+	.entries-frame {
+		box-sizing: border-box;
+		display: flex;
+		flex: 1 1 0;
+		flex-direction: column;
+		min-height: 0;
+		margin: 0.5rem 1rem;
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
+	}
+
 	.entries {
 		box-sizing: border-box;
 		display: block;
 		flex: 1 1 0;
-		min-height: 0;
-		margin: 0.5rem 1rem;
+		/* lit-virtualizer sets an inline min-height: 150px, which overflows (and clips) a shorter conflict split pane */
+		min-height: 0 !important;
 		overflow-x: hidden !important;
 		overflow-y: auto;
 		outline: none;
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 
 		--current-entry-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor, #c4a000);
 
@@ -346,7 +327,7 @@ export const rebaseStyles = css`
 		justify-content: center;
 		margin-top: 3rem;
 		font-style: italic;
-		color: var(--color-foreground--85);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	gl-rebase-entry.dragging {
@@ -388,7 +369,7 @@ export const rebaseStyles = css`
 		flex-direction: column;
 		overflow: hidden;
 
-		> .entries {
+		> .entries-frame {
 			border-bottom: none;
 		}
 	}
@@ -398,10 +379,7 @@ export const rebaseStyles = css`
 		min-height: 0;
 
 		&::part(divider) {
-			background-image: linear-gradient(
-				var(--vscode-sideBarSectionHeader-border, rgb(128 128 128 / 35%)),
-				var(--vscode-sideBarSectionHeader-border, rgb(128 128 128 / 35%))
-			);
+			background-image: linear-gradient(var(--gl-color-divider-base), var(--gl-color-divider-base));
 			background-repeat: no-repeat;
 			background-position: center;
 			background-size: 100% 1px;
@@ -434,7 +412,7 @@ export const rebaseStyles = css`
 		align-items: center;
 		padding: 0.5rem 0;
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-editorWarning-foreground, #cca700);
+		color: var(--gl-color-feedback-warning-quiet-fg);
 	}
 
 	.conflict-panel__header > span {
@@ -461,7 +439,7 @@ export const rebaseStyles = css`
 		justify-content: flex-end;
 		min-width: 0;
 		padding: 0.5rem 1rem;
-		background: var(--color-background);
+		background: var(--gl-color-surface-base);
 	}
 
 	.shortcuts {
@@ -483,7 +461,7 @@ export const rebaseStyles = css`
 		flex: 0 0 auto;
 		gap: var(--gl-space-2);
 		align-items: baseline;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 
 		kbd {
@@ -515,7 +493,7 @@ export const rebaseStyles = css`
 	/* Both halves are secondary-appearance buttons here, so the seam derives from the secondary
 	   foreground instead of the shared module's primary-foreground default. */
 	.split-btn {
-		--gl-split-btn-seam: color-mix(in srgb, transparent 72%, var(--vscode-button-secondaryForeground));
+		--gl-split-btn-seam: color-mix(in srgb, transparent 72%, var(--gl-color-action-secondary-fg));
 	}
 
 	gl-rebase-conflict-indicator {
@@ -542,9 +520,9 @@ export const rebaseStyles = css`
 		border-radius: var(--gl-radius-sm);
 
 		&.warning {
-			color: var(--vscode-inputValidation-warningForeground, #cca700);
-			background-color: var(--vscode-inputValidation-warningBackground, rgb(200 140 0 / 20%));
-			border: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder, #cca700);
+			color: var(--gl-color-feedback-warning-fg);
+			background-color: var(--gl-color-feedback-warning-bg);
+			border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 		}
 	}
 

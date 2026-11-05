@@ -88,6 +88,7 @@ suite('KeplerCommand', () => {
 			provider: 'github',
 			repo: localPath,
 			action: 'default-review',
+			host: 'local',
 		});
 	});
 
@@ -117,14 +118,17 @@ suite('KeplerCommand', () => {
 		assert.ok(!('repo' in parseLink(String(openExternal.firstCall.args[0]))));
 	});
 
-	test('newTask from a repository node sends only the repo', async () => {
+	test('newTask from a repository node sends only the repo and the machine it is on', async () => {
 		const command = makeCommand(makeContainer({ knownRepoPath: localPath }));
 
 		await command.preExecute(
 			viewItemContext('gitlens.kepler.newTask', makeNode('repository', { repo: { path: localPath } })),
 		);
 
-		assert.deepStrictEqual(parseLink(String(openExternal.firstCall.args[0])), { repo: localPath });
+		assert.deepStrictEqual(parseLink(String(openExternal.firstCall.args[0])), {
+			repo: localPath,
+			host: 'local',
+		});
 	});
 
 	test('startReview without a PR does nothing', async () => {

@@ -260,7 +260,9 @@ export class GlPopover extends GlElement {
 				border-color: var(--gl-elevation-border-color, var(--color-contrast-border));
 			}
 
+			/* border-box so the cap includes the body's padding and border, which would otherwise overflow the view */
 			:host([auto-size-vertical]) .popover__body {
+				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
 				max-height: var(--auto-size-available-height);
@@ -481,6 +483,22 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true })
 	appearance?: 'menu';
 
+	/**
+	 * Set when the content is a panel of controls the user is meant to Tab into (buttons, links, inputs): the
+	 * body becomes a non-modal `role="dialog"` named by `label`, which is then required. Leave unset for
+	 * informational hover/focus cards (the body announces politely while open instead) and for content that
+	 * owns its own widget role (`menu`, `listbox`, `alertdialog`), which a dialog wrapper would only nest.
+	 */
+	@property({ type: Boolean })
+	interactive: boolean = false;
+
+	/**
+	 * Accessible name for the popover's body; required with `interactive`. Rendered as `aria-label` because the
+	 * content is slotted light DOM, which `aria-labelledby` on the shadow-DOM body can't reference.
+	 */
+	@property()
+	label?: string;
+
 	@state() private suppressed: boolean = false;
 
 	@state() private _resolvedPlacement?: WaPopup['placement'];
@@ -584,7 +602,7 @@ export class GlPopover extends GlElement {
 			hover-bridge
 			@wa-reposition=${this.handleReposition}
 		>
-			<div slot="anchor" aria-describedby="popover">
+			<div slot="anchor">
 				<slot name="anchor"></slot>
 			</div>
 
@@ -592,8 +610,9 @@ export class GlPopover extends GlElement {
 				part="body"
 				id="popover"
 				class="popover__body scrollable ${this.appearance === 'menu' ? 'is-menu' : ''}"
-				role="tooltip"
-				aria-live=${this.open ? 'polite' : 'off'}
+				role=${ifDefined(this.interactive ? 'dialog' : undefined)}
+				aria-label=${ifDefined(this.label)}
+				aria-live=${ifDefined(this.interactive ? undefined : this.open ? 'polite' : 'off')}
 			>
 				<slot name="content"></slot>
 				${handles.map(

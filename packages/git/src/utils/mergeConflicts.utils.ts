@@ -8,7 +8,7 @@ export function createConflictDetectionError(reason: ConflictDetectionErrorReaso
 function getConflictDetectionErrorMessage(reason: ConflictDetectionErrorReason): string {
 	switch (reason) {
 		case 'unsupported':
-			return 'Unable to detect conflicts because Git 2.38 or later is required';
+			return 'Unable to detect conflicts because Git 2.45 or later is required';
 		case 'noParent':
 			return 'Unable to detect conflicts because the selection includes the initial commit';
 		case 'noMergeBase':
@@ -27,7 +27,7 @@ export function getConflictDetectionErrorDisplayMessage(
 ): string {
 	switch (reason) {
 		case 'unsupported':
-			return l10n.t('Unable to detect conflicts because Git 2.38 or later is required');
+			return l10n.t('Unable to detect conflicts because Git 2.45 or later is required');
 		case 'noParent':
 			return l10n.t('Unable to detect conflicts because the selection includes the initial commit');
 		case 'noMergeBase':

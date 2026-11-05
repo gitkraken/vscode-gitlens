@@ -4,22 +4,23 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { assessCollectionMetadata, mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueReads.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import type { LinearIntegration } from '../providers/linear.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
-import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, isLinearIntegration } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
-import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
+import { linearProjectIds, parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { discoverResources, runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
-import type { SelectionTarget } from './selectionConfirmation.js';
+import type { SelectionTarget, TrackerSelectorKind } from './selectionConfirmation.js';
 import { confirmCredential, confirmSelection, toSelectionAction } from './selectionConfirmation.js';
 import {
 	incompleteReadWarning,
@@ -41,7 +42,10 @@ export function listIssueTrackerIssuesPage(
 		org?: string;
 		project?: string;
 		filters?: IssueFilter[];
-		/** Broadens the read to every assignee. Scopes to user-assigned issues when omitted. */
+		/**
+		 * Broadens the read to every assignee. Scopes to the user's issues when omitted: those assigned to them, and on
+		 * Linear also the GitHub-synced issues they created (unless `filters` asks for `Assignee` by name).
+		 */
 		includeAllAssignees?: boolean;
 		/**
 		 * How to order the issues, as `field:direction`. Omitted orders most-recently-updated-first where the
@@ -68,6 +72,16 @@ export function listIssueTrackerIssuesPage(
 		 * another for `'closed'`/`'all'` refuses the read rather than serving its open issues.
 		 */
 		state?: IssueStateFilter;
+		/**
+		 * Linear only: narrows the read to issues in any of these Linear Projects (Linear's `Project` entity, by id).
+		 *
+		 * A narrowing of each team's read, not a scope of its own: the read is still windowed and selected by team
+		 * (`org`/`project`), and each team reports the issues in these Projects, server-side, so they don't count
+		 * against its page backstop. A Linear Project spans teams, so a read of every team is what reads a Project
+		 * whole. Refused by every other tracker rather than ignored, since ignoring it would publish the whole project.
+		 * Recorded in a composite cursor and checked on resume, as `state` is.
+		 */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
@@ -107,6 +121,7 @@ async function readIssueTrackerIssuesPage(
 		Math.trunc(compositeCursor?.currentPage ?? parsePageCursor(options.cursor) ?? options.page ?? 1),
 	);
 	const projectsPerPage = Math.max(1, Math.trunc(options.itemsPerPage ?? 20));
+	const linearProjects = linearProjectIds(options.linearProjects);
 
 	const items: IssueShape[] = [];
 	const warnings: ProviderWarning[] = [];
@@ -130,6 +145,7 @@ async function readIssueTrackerIssuesPage(
 						retryProjects: retry.projects ?? [],
 						completedProjects: retry.completedProjects ?? [],
 						state: options.state,
+						linearProjects: linearProjects,
 					})
 				: undefined;
 		return {
@@ -247,7 +263,69 @@ async function readIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
+	// Refused before any request like the state. A value that is not a list of non-empty ids is caller input, refused
+	// rather than dropped, since dropping it (or its last entry) widens the read to every issue; another tracker would
+	// ignore it and publish its whole project.
+	if (options.linearProjects != null) {
+		if (
+			!Array.isArray(options.linearProjects) ||
+			options.linearProjects.some(id => typeof id !== 'string' || id.length === 0)
+		) {
+			warnings.push(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'Linear Projects must be a list of non-empty ids.',
+				),
+			);
+			return emptyPage(true);
+		}
+		if (options.linearProjects.length > 0 && options.providerId !== IssuesCloudHostIntegrationId.Linear) {
+			warnings.push(
+				unsupportedWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					`Narrowing by Linear Project is not supported by '${options.providerId}'.`,
+				),
+			);
+			return emptyPage(true);
+		}
+	}
+
+	// As with the state: a cursor resumed under other Projects skips teams drained under the ones it was minted for.
+	// Only a composite cursor records them, so any other cursor came from a read narrowed to none.
+	if (
+		options.cursor != null &&
+		(compositeCursor?.linearProjects ?? []).join('\0') !== (linearProjects ?? []).join('\0')
+	) {
+		warnings.push(
+			otherWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				'The cursor belongs to a read of other Linear Projects; start again without it.',
+			),
+		);
+		return emptyPage(true);
+	}
+
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
+
+	// A Project id the workspace no longer lists narrows every team to nothing, which would read as a Project with no
+	// issues. Reported as a selector miss instead, as an `org` or `project` that matches nothing is.
+	if (linearProjects != null && isLinearIntegration(integration)) {
+		const missing = await findUnlistedLinearProject(integration, linearProjects, options.connectionId);
+		if (missing != null) {
+			warnings.push(
+				unmatchedSelectorWarning(options.providerId, domain, options.connectionId, {
+					kind: 'linearProject',
+					value: missing,
+				}),
+			);
+		}
+	}
 
 	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
@@ -296,7 +374,9 @@ async function readIssueTrackerIssuesPage(
 	 * a stale one is dropped and the read made once more over fresh lists; that read confirms the same way, since its
 	 * own discovery can still be joined to one started before the drop.
 	 */
-	const missSelection = async (selector: ProviderWarningSelector): Promise<ProviderPagedResult<IssueShape>> => {
+	const missSelection = async (
+		selector: ProviderWarningSelector & { kind: TrackerSelectorKind },
+	): Promise<ProviderPagedResult<IssueShape>> => {
 		const next = toSelectionAction(await confirmSelection(selectionTarget, selector.kind), refreshed);
 		switch (next.action) {
 			case 'unconfirmed':
@@ -422,7 +502,7 @@ async function readIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
+	// Scope to the current user's issues unless the caller broadens to all assignees. Resolve the
 	// handle from each resource's own account (multi-account safe), capturing any error so its kind
 	// (e.g. auth) is preserved rather than collapsed to a generic warning.
 	let usersByResourceId: Map<string, string> | undefined;
@@ -631,6 +711,7 @@ async function readIssueTrackerIssuesPage(
 					filters: options.filters,
 					sort: sort,
 					state: options.state,
+					...(linearProjects != null ? { linearProjects: linearProjects } : {}),
 				},
 			})),
 			options.connectionId,
@@ -764,6 +845,7 @@ async function readIssueTrackerIssuesPage(
 				? [...completedProjectKeys]
 				: [],
 		state: options.state,
+		linearProjects: linearProjects,
 	});
 	return {
 		items: orderedItems,
@@ -776,4 +858,32 @@ async function readIssueTrackerIssuesPage(
 		requestFailed: requestFailed,
 		unexpectedGap: nextPage != null && cursor == null,
 	};
+}
+
+/**
+ * The first of `ids` the workspace's Projects don't list, confirmed against a list read past the cache, since a cached
+ * one can predate a Project created since. Undefined when every id is listed, or when no complete list can prove one
+ * missing: the read then goes ahead, and an id that names nothing reads as empty.
+ */
+async function findUnlistedLinearProject(
+	integration: LinearIntegration,
+	ids: readonly string[],
+	connectionId: string | undefined,
+): Promise<string | undefined> {
+	let unlisted: string | undefined;
+	for (const fresh of [false, true]) {
+		const projects = (await integration.getWorkspaceProjectsResult(connectionId, { fresh: fresh }))?.value;
+		if (
+			projects == null ||
+			projects.truncated === true ||
+			(projects.metadata != null && projects.metadata.completeness !== 'complete')
+		) {
+			return undefined;
+		}
+
+		const listed = new Set(projects.values.map(project => project.id));
+		unlisted = ids.find(id => !listed.has(id));
+		if (unlisted == null) return undefined;
+	}
+	return unlisted;
 }

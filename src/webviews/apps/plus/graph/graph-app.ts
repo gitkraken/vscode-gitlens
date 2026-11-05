@@ -91,6 +91,8 @@ import type { GraphCrossPaneState } from './graphCrossPaneState.js';
 import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
 import { createGraphLaunchpadState, graphLaunchpadContext } from './graphLaunchpadState.js';
+import type { GraphNotificationsState } from './graphNotificationsState.js';
+import { createGraphNotificationsState, graphNotificationsContext } from './graphNotificationsState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import { JumpToastController } from './jumpToastController.js';
 import { createGraphKeymapDispatcher } from './keymap/graphKeymap.js';
@@ -647,6 +649,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  first resolves (a `@consume`d context value, so it isn't in `updated`'s changedProperties). */
 	private _launchpadInitialized = false;
 
+	// Shared GitKraken notifications inbox for the header's bell — seeded and kept fresh here (see
+	// `graphNotificationsState.ts`), so the bell never fetches on its own.
+	@provide({ context: graphNotificationsContext })
+	private readonly _notificationsState: GraphNotificationsState = createGraphNotificationsState();
+
+	/** One-shot guard for the notifications inbox wiring (same `services` pattern as the Launchpad's). */
+	private _notificationsInitialized = false;
+
 	// Account/integrations state (issue #5411). The account rollup's chips consume these shared
 	// contexts; provide them here (the common ancestor) and populate from the host once
 	// `services` resolves. `promosContext` is provided globally by the app host.
@@ -686,6 +696,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  started from `updated()` once `services` resolves. */
 	private readonly accountLaunchpad = new AccountLaunchpadController(this, {
 		launchpadState: () => this._launchpadState,
+		notificationsState: () => this._notificationsState,
 		subscriptionCtx: () => this._subscriptionCtx,
 		integrationsState: () => this._integrationsState,
 		aiState: () => this._aiState,
@@ -1689,6 +1700,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (!this._accountContextsInitialized && this.services != null) {
 			this._accountContextsInitialized = true;
 			void this.accountLaunchpad.initAccountContexts(this.services);
+		}
+
+		if (!this._notificationsInitialized && this.services != null) {
+			this._notificationsInitialized = true;
+			void this.accountLaunchpad.initNotifications(this.services);
 		}
 
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`

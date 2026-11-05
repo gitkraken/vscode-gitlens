@@ -110,6 +110,30 @@ suite('resolveBranchRemote Test Suite', () => {
 		assert.strictEqual(result.name, 'feature');
 	});
 
+	// #4950: the Graph's remote refs carry the remote's own name in `upstream`
+	test("a remote-tracking reference has no upstream, even carrying the Graph's remote name in it", async () => {
+		const graphRef = (name: string, remote: string) =>
+			createReference(name, '/repo', {
+				refType: 'branch',
+				name: name,
+				remote: true,
+				upstream: { name: remote, missing: false },
+			});
+
+		const { provider } = providerWith(['upstream', 'team', 'team/fork']);
+		assert.deepStrictEqual(await resolveBranchRemote(provider, '/repo', graphRef('upstream/main', 'upstream')), {
+			name: 'main',
+			remote: 'upstream',
+			upstream: undefined,
+			local: false,
+		});
+
+		const nested = await resolveBranchRemote(provider, '/repo', graphRef('team/fork/main', 'team/fork'));
+		assert.strictEqual(nested.remote, 'team/fork');
+		assert.strictEqual(nested.name, 'main');
+		assert.strictEqual(nested.upstream, undefined);
+	});
+
 	test('a reference carrying neither local nor remote is looked up, and a fresh local upstream has no remote', async () => {
 		const { provider, getRemotes, getBranch } = providerWith(
 			['origin', 'release'],

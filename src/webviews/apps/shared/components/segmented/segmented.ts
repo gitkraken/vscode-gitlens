@@ -39,6 +39,11 @@ export class GlSegmentedControl extends GlElement {
 	@property({ type: String })
 	label?: string;
 
+	/** Focuses the selected segment — the group's single tab stop. */
+	override focus(options?: FocusOptions): void {
+		this.renderRoot.querySelector<HTMLButtonElement>('button[tabindex="0"]')?.focus(options);
+	}
+
 	private select(value: string) {
 		if (this.disabled || value === this.value) return;
 

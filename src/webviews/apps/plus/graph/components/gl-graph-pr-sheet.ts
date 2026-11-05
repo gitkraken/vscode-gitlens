@@ -1283,7 +1283,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				<code-icon icon="git-compare" slot="prefix"></code-icon>${l10n.t('Compare Changes')}
 			</gl-button>
 			${
-				this.aiEnabled && pr.state === 'opened'
+				pr.state === 'opened'
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.dispatchReviewChanges}>
 							<code-icon icon="checklist" slot="prefix"></code-icon>${l10n.t('Review Changes')}
 						</gl-button>`

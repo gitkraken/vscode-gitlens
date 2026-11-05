@@ -31,6 +31,7 @@ import type {
 	AutoRebaseSummary,
 	ConflictSide,
 	GraphServices,
+	ReviewThreadsArgs,
 	StackRebasePushableBranch,
 	UndoAutoRebaseResult,
 	VirtualRefShape,
@@ -42,6 +43,7 @@ import type {
 	State,
 } from '../../../../plus/graph/protocol.js';
 import { isWipSelectionSha } from '../../../../plus/graph/protocol.js';
+import { getReviewDiffEndpoints } from '../../../../plus/graph/reviewDiffEndpoints.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
@@ -87,7 +89,7 @@ import {
 	resolveBranchSheetScope,
 } from './branchSheet.utils.js';
 import type { DetailsActions } from './detailsActions.js';
-import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
+import { countReviewFindingSeverities, scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
 import type {
@@ -115,12 +117,29 @@ import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
+	ReviewDeepReviewDetail,
+	ReviewFileExcludedDetail,
+	ReviewFilesViewedDetail,
+	ReviewFindingDeleteDetail,
+	ReviewFindingNoteDeleteDetail,
+	ReviewFindingNoteDetail,
+	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
+	ReviewReadingStepDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
+import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
+import {
+	countReviewFindingStates,
+	getReviewPanelStatus,
+	getReviewProgress,
+	getReviewReadingOrder,
+	getReviewThreadItems,
+	withReviewComments,
+} from './reviewSession.js';
 import type {
 	PullRequestSheetPayload,
 	PullRequestSheetTarget,
@@ -218,6 +237,20 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 		${counts}
 		<code-icon class="mode-status__resume-arrow" icon="arrow-right"></code-icon>
 	</button>`;
+}
+
+/** "5/12 viewed · 3 findings open" — a review session's progress for the mode-status row. */
+function formatReviewProgress(progress: ReviewProgress, counts: ReviewFindingCounts, hasResult: boolean) {
+	const viewedText = l10n.t('{viewed}/{total} viewed', { viewed: progress.viewed, total: progress.total });
+	const findingsText = formatPlural(
+		l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'),
+		{ count: counts.open },
+	);
+	return html`<span class="mode-status__group"><code-icon icon="checklist"></code-icon>${viewedText}</span> ${
+			hasResult
+				? html`<span class="mode-status__group"><code-icon icon="search"></code-icon>${findingsText}</span>`
+				: nothing
+		}`;
 }
 
 /** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
@@ -2362,7 +2395,184 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** {@link DetailsWorkflowHost.sendReviewFindingToAgent} */
+	sendReviewFindingToAgent(findingId: string, instructions?: string): void {
+		void this.settledReviewModePanel().then(panel => panel?.sendFindingToAgent(findingId, instructions));
+	}
+
+	/** {@link DetailsWorkflowHost.askReviewerAboutFinding} */
+	askReviewerAboutFinding(findingId: string, question?: string): void {
+		void this.settledReviewModePanel().then(panel => panel?.askReviewer(findingId, question));
+	}
+
+	/** The review panel once it has rendered what was just registered — a comment written and handed off in
+	 *  one step must already be among the panel's findings when the hand-off looks it up. */
+	private async settledReviewModePanel() {
+		await new Promise(resolve => setTimeout(resolve, 0));
+		await this.updateComplete;
+		const panel = this.findReviewModePanel();
+		await panel?.updateComplete;
+		return panel;
+	}
+
+	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
+	private _reviewThreadsSynced?: {
+		result: unknown;
+		findingStates: unknown;
+		notes: unknown;
+		scope: unknown;
+		repoPath: unknown;
+		anchor: AnchorKey;
+	};
+
+	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
+	 *  when one of the inputs changed and clearing once the review is gone. */
+	private syncReviewThreads(): void {
+		if (this._actions == null) return;
+
+		const entry =
+			this._state.activeMode.get() === 'review' && this.engagedRunningOperation?.kind === 'review'
+				? this.engagedRunningOperation
+				: undefined;
+		const value = entry?.result ?? (entry != null ? this._actions.resources.review.value.get() : undefined);
+		const result = withReviewComments(
+			value != null && 'result' in value ? value.result : undefined,
+			entry?.session,
+		);
+		const findingStates = entry?.session?.findingStates;
+		const notes = entry?.session?.notes;
+		const scope = this._state.scope.get();
+		const repoPath = this.effectiveRepoPath;
+		const anchor = this.engagedAnchorKey;
+		const synced = this._reviewThreadsSynced;
+		if (
+			synced != null &&
+			synced.result === result &&
+			synced.findingStates === findingStates &&
+			synced.notes === notes &&
+			synced.scope === scope &&
+			synced.repoPath === repoPath &&
+			synced.anchor === anchor
+		) {
+			return;
+		}
+
+		const endpoints = getReviewDiffEndpoints(scope);
+		if (result == null || repoPath == null || endpoints == null) {
+			if (synced != null) {
+				this._reviewThreadsSynced = undefined;
+				this._actions.setReviewThreads(undefined);
+			}
+			return;
+		}
+
+		this._reviewThreadsSynced = {
+			result: result,
+			findingStates: findingStates,
+			notes: notes,
+			scope: scope,
+			repoPath: repoPath,
+			anchor: anchor,
+		};
+		const args: ReviewThreadsArgs = {
+			anchor: anchor,
+			repoPath: repoPath,
+			rhs: endpoints.rhs,
+			items: getReviewThreadItems(result, entry?.session),
+		};
+		this._actions.setReviewThreads(args);
+	}
+
+	/** The review panel's reading order — the plan's order, then the checklist top to bottom as rendered. */
+	private _reviewReadingOrder?: readonly string[];
+
+	/** What the host currently holds as the review's files — identity of the inputs it was built from. */
+	private _reviewFilesSynced?: {
+		files: unknown;
+		order: unknown;
+		excluded: unknown;
+		scope: unknown;
+		repoPath: unknown;
+		anchor: AnchorKey;
+	};
+
+	/** Keeps the host's set of review files — the diffs that get the reading commands, in reading order —
+	 *  in step with the engaged review, re-sending only when an input changed and clearing once the
+	 *  review is left. */
+	private syncReviewFiles(): void {
+		if (this._actions == null) return;
+
+		const inReview = this._state.activeMode.get() === 'review';
+		const entry =
+			inReview && this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation : undefined;
+		const files = inReview ? this._actions.resources.scopeFiles.value.get() : undefined;
+		const order = inReview ? this._reviewReadingOrder : undefined;
+		const excluded = entry?.session?.excluded;
+		const scope = this._state.scope.get();
+		const repoPath = this.effectiveRepoPath;
+		const anchor = this.engagedAnchorKey;
+		const synced = this._reviewFilesSynced;
+		if (
+			synced != null &&
+			synced.files === files &&
+			synced.order === order &&
+			synced.excluded === excluded &&
+			synced.scope === scope &&
+			synced.repoPath === repoPath &&
+			synced.anchor === anchor
+		) {
+			return;
+		}
+
+		const endpoints = getReviewDiffEndpoints(scope);
+		// The panel announces its order once rendered; until then the plan-then-path order stands in
+		const paths = inReview && files != null ? (order ?? getReviewReadingOrder(entry?.session, files)) : [];
+		if (paths.length === 0 || repoPath == null || endpoints == null) {
+			if (synced != null) {
+				this._reviewFilesSynced = undefined;
+				this._actions.setReviewFiles(undefined);
+			}
+			return;
+		}
+
+		this._reviewFilesSynced = {
+			files: files,
+			order: order,
+			excluded: excluded,
+			scope: scope,
+			repoPath: repoPath,
+			anchor: anchor,
+		};
+		// The review's key goes along, so what the reader does in the editor comes back as this review's
+		this._actions.setReviewFiles({
+			anchor: anchor,
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs,
+			paths: [...paths],
+		});
+	}
+
+	/** Opens a review file's diff with the review's endpoints — from the checklist, a finding, or a plan —
+	 *  placed where the reading steps place theirs, so the panel stays in view to follow along. */
+	private openReviewFile(filePath: string, line?: number, lineEnd?: number): void {
+		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
+		const repoPath = this.effectiveRepoPath;
+		if (!endpoints || !repoPath) return;
+
+		this._actions.openReviewFile({
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs,
+			path: filePath,
+			line: line,
+			lineEnd: lineEnd,
+		});
+	}
+
 	override updated(changedProperties: Map<string, unknown>): void {
+		this.syncReviewThreads();
+		this.syncReviewFiles();
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
@@ -2683,6 +2893,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 
 			const value = this._actions?.resources?.review.value.get();
+			// Once the reader has a session, progress is the headline — the findings count rides along.
+			const session =
+				this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation.session : undefined;
+			const progress = getReviewProgress(session, this._actions?.resources?.scopeFiles.value.get());
+			if (progress.total > 0) {
+				const result = withReviewComments(
+					value != null && 'result' in value ? value.result : undefined,
+					session,
+				);
+				return formatReviewProgress(progress, countReviewFindingStates(result, session), result != null);
+			}
+
 			if (value != null && 'result' in value && value.result?.focusAreas) {
 				const areas = value.result.focusAreas;
 				const findingCount = areas.reduce((sum, a) => sum + (a.findings?.length ?? 0), 0);
@@ -2701,17 +2923,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return undefined;
 	}
 
-	/** True when the active mode has reached its "results" sub-state — review showing
-	 *  findings or compose showing a plan. In that state the main header's close button is
-	 *  rendered as a back arrow so the user can pop back to the scope picker (the old
-	 *  sub-headers in the mode panels are gone; the main header carries this affordance). */
+	/** True when compose has reached its "results" sub-state — a plan showing. In that state the
+	 *  main header gains a Restart chip to pop back to the scope picker (the old sub-headers in
+	 *  the mode panels are gone; the main header carries this affordance). Review has no such
+	 *  state: its checklist stays up beside the findings, and Delete Findings is the way back,
+	 *  so a Restart there would only hide the findings while their threads stay in the diffs. */
 	private get inModeResultsView(): boolean {
-		const mode = this._state.activeMode.get();
-		if (mode !== 'compose' && mode !== 'review') return false;
+		if (this._state.activeMode.get() !== 'compose') return false;
 		// Only `'complete'` renders the results body. `'backed'` reverts to the scope picker
 		// with a Resume bar on top — same chrome as idle (Refresh + Close), not results
 		// chrome (Restart + Close), so Restart correctly disappears after the user clicks it.
-		return this.engagedModeStatus?.[mode]?.execState === 'complete';
+		return this.engagedModeStatus?.compose?.execState === 'complete';
 	}
 
 	private handleModeBack = (e: CustomEvent<{ mode: 'compose' | 'review' }>): void => {
@@ -2796,6 +3018,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
+		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
+		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
+		this._actions.deepReviewHandler = state => this._workflow.review.applyDeepReviewState(state);
 
 		if (this._pendingCompare != null) {
 			const { params, onReady, options } = this._pendingCompare;
@@ -3476,7 +3701,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.progressMessage=${this._state.composeProgressMessage.get()}
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
-			.backPreview=${this._state.composeBackPreview.get()}
 			.excludedCommitIds=${this._state.composeRefineExcludedCommitIds.get()}
 			.regeneratingCommitId=${this._state.composeRegeneratingCommitId.get()}
 			@compose-generate=${handleCompose}
@@ -3487,7 +3711,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._workflow.compose.reorderCommits(e.detail.orderedCommitIds)}
 			@compose-move-file=${(e: CustomEvent<{ paths: string[]; fromCommitId: string; toCommitId: string }>) =>
 				void this._workflow.compose.moveFile(e.detail.fromCommitId, e.detail.toCommitId, e.detail.paths)}
-			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
 			@compose-error-back=${() => this._workflow.compose.backFromError()}
 			@compose-error-retry=${() => {
@@ -3796,7 +4019,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.explainBusy=${this._state.compareExplainBusy.get()}
 			.generateChangelogBusy=${this._state.compareGenerateChangelogBusy.get()}
 			.filesCollapsable=${false}
-			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.activeMode=${this._state.activeMode.get()}
 			.modeStatus=${this.engagedModeStatus}
 			.modeStatusText=${this.computeModeStatusText()}
@@ -3885,20 +4107,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const reviewEntry = this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation : undefined;
 		const reviewResource = this._actions.resources.review;
 		const reviewValue = reviewEntry?.result ?? reviewResource.value.get();
-		const reviewResult = reviewValue && 'result' in reviewValue ? reviewValue.result : undefined;
+		// The reader's own comments ride along as a focus area of their own, with or without a run
+		const reviewResult = withReviewComments(
+			reviewValue && 'result' in reviewValue ? reviewValue.result : undefined,
+			reviewEntry?.session,
+		);
 		const reviewError =
 			(reviewValue && 'error' in reviewValue ? reviewValue.error.message : undefined) ??
 			reviewResource.error.get();
-		const mappedReviewStatus: 'idle' | 'loading' | 'ready' | 'error' =
-			reviewEntry?.execState === 'generating'
-				? 'loading'
-				: reviewEntry?.execState === 'backed'
-					? 'idle'
-					: reviewResult != null
-						? 'ready'
-						: reviewError != null
-							? 'error'
-							: 'idle';
+		const mappedReviewStatus = getReviewPanelStatus(
+			reviewEntry?.execState,
+			reviewValue,
+			reviewResult,
+			reviewResource.error.get(),
+		);
 
 		const content = html`<gl-details-review-mode-panel
 			.showSearchBox=${this.showSearchBox}
@@ -3907,7 +4129,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.result=${reviewResult}
 			.status=${mappedReviewStatus}
 			.errorMessage=${reviewError}
-			.stale=${this._state.wipStale.get()}
+			.session=${reviewEntry?.session}
+			.findingsContent=${reviewEntry?.findingsContent}
+			.reading=${reviewEntry?.reading}
+			.orient=${reviewEntry?.orient}
+			?orient-running=${reviewEntry?.orientRun != null}
+			.orientError=${reviewEntry?.orientError}
+			.deepReview=${reviewEntry?.deepReview}
+			.deepReviewAvailability=${this._state.deepReviewAvailability.get()}
+			.keymap=${this._state.preferences.get()?.keymap}
+			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
 			.files=${reviewFiles}
@@ -3919,12 +4150,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${reviewEntry?.prompt}
-			.excludedFiles=${reviewEntry?.excludedFiles ?? emptyModeExclusions}
 			.idleDraft=${reviewEntry?.idleDraft}
-			.refineMode=${reviewEntry?.refineMode}
-			.refineDraft=${reviewEntry?.refineDraft}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
-			.backPreview=${this._state.reviewBackPreview.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
@@ -3944,17 +4171,52 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				);
 			}}
 			@review-analyze-area=${(e: CustomEvent<ReviewAnalyzeAreaDetail>) => this.handleReviewAnalyzeArea(e)}
-			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) => {
-				const endpoints = getReviewDiffEndpoints(this._state.scope.get());
-				if (!endpoints) return;
+			@review-files-viewed=${(e: CustomEvent<ReviewFilesViewedDetail>) =>
+				this._workflow.review.setFilesViewed(e.detail.files, e.detail.viewed)}
+			@review-file-excluded=${(e: CustomEvent<ReviewFileExcludedDetail>) =>
+				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
+			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
+				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
+			@review-finding-note=${(e: CustomEvent<ReviewFindingNoteDetail>) =>
+				this._workflow.review.addFindingNote(e.detail.findingId, e.detail.text)}
+			@review-finding-delete=${(e: CustomEvent<ReviewFindingDeleteDetail>) =>
+				this._workflow.review.deleteFinding(e.detail.findingId)}
+			@review-finding-note-delete=${(e: CustomEvent<ReviewFindingNoteDeleteDetail>) =>
+				this._workflow.review.deleteFindingNote(e.detail.findingId, e.detail.noteId)}
+			@review-orient=${(e: CustomEvent<{ prompt?: string; scopeLabel?: string }>) => {
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel('review');
+					return;
+				}
 
-				this._actions.openFileByPath(e.detail.filePath, this.effectiveRepoPath, {
-					lhs: endpoints.lhs,
-					rhs: endpoints.rhs,
-					line: e.detail.line,
-				});
+				const panel = this.findReviewModePanel();
+				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
+				this._workflow.review.runOrient(
+					this.effectiveRepoPath,
+					e.detail?.prompt,
+					excludedFiles,
+					e.detail?.scopeLabel,
+				);
 			}}
-			@review-forward=${() => this._workflow.review.forward()}
+			@review-orient-clear=${() => this._workflow.review.clearOrient()}
+			@review-deep-review=${(e: CustomEvent<ReviewDeepReviewDetail>) =>
+				void this._workflow.review.startDeepReview(
+					this.effectiveRepoPath,
+					e.detail.prompt,
+					e.detail.scopeLabel,
+					e.detail.files,
+					e.detail.priorFindings,
+					e.detail.focus,
+				)}
+			@review-deep-review-hide=${() => this._workflow.review.hideDeepReview()}
+			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>
+				this._actions.stepReviewReading(e.detail.action, e.detail.path)}
+			@review-reading-order=${(e: CustomEvent<{ paths: string[] }>) => {
+				this._reviewReadingOrder = e.detail.paths;
+				this.requestUpdate();
+			}}
+			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) =>
+				this.openReviewFile(e.detail.filePath, e.detail.line, e.detail.lineEnd)}
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@review-error-back=${() => this._workflow.review.backFromError()}
 			@review-error-retry=${() => {
@@ -3983,28 +4245,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// Clamp content overflow during the results→plain-view swap so the panel doesn't jump.
 				this.suppressContentOverflow();
 				this._workflow.review.discard();
-			}}
-			@review-refine=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Same model gate as the initial run. A follow-up continues the conversation that
-				// produced the current findings against the same scope — in the ready state the
-				// scope picker isn't mounted, so `panel.selectedIds` is undefined and `runReview`
-				// falls back to the stored scope.
-				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel('review');
-					return;
-				}
-
-				const panel = this.findReviewModePanel();
-				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
-				this._workflow.runReview(
-					this.effectiveRepoPath,
-					e.detail?.prompt,
-					excludedFiles,
-					this.getCurrentScopeFilesCount(),
-					panel?.selectedIds,
-					scopeItems ?? undefined,
-					{ mode: 'refine' },
-				);
 			}}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
@@ -4053,6 +4293,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-resolve-mode-panel
 			.status=${mappedStatus}
 			.errorMessage=${resolveError}
+			.errorAction=${resolveValue && 'error' in resolveValue ? resolveValue.error.action : undefined}
+			.aiUnavailable=${resolveData?.aiUnavailable}
 			.resolutions=${resolveData?.resolutions}
 			.errors=${resolveData?.errors}
 			.skipped=${resolveData?.skipped}
@@ -4213,13 +4455,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleReviewFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
 		// Open in a diff editor matching the review's reference frame, mirroring the AI link path.
-		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
-		if (!endpoints) return;
-
-		this._actions.openFileByPath(e.detail.path, this.effectiveRepoPath, {
-			lhs: endpoints.lhs,
-			rhs: endpoints.rhs,
-		});
+		this.openReviewFile(e.detail.path);
 	};
 
 	/** Opens the idle curation tree's files as a multi-diff in the scope's reference frame. */
@@ -4277,6 +4513,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (!repoPath || !scope || !reviewResult) return;
 
 		const { focusAreaId, files } = e.detail;
+		const run = this._workflow.review.startFocusAreaRun(focusAreaId);
+		if (run == null) return;
+
 		const panel = this.findReviewModePanel();
 		panel?.setFocusAreaLoading(focusAreaId);
 
@@ -4292,9 +4531,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				focusAreaId,
 				files,
 				reviewResult.overview,
-				undefined,
+				run.prompt,
 				excludedFiles,
+				run.signal,
 			);
+			// Superseded or torn down — the host answers a cancelled run with an error result, which
+			// is neither a failure to report nor a state to paint.
+			if (run.signal.aborted) return;
 
 			const duration = performance.now() - startedAt;
 			if ('error' in result && result.error) {
@@ -4305,8 +4548,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					'failure.error.message': result.error.message,
 				});
 			} else if ('result' in result && result.result) {
-				this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
-				panel?.updateFocusAreaFindings(focusAreaId, result.result);
+				const detail = this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
+				panel?.updateFocusAreaFindings(focusAreaId, detail);
 				const counts = countReviewFindingSeverities(result.result.findings);
 				this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/completed', {
 					...aiContext,
@@ -4318,12 +4561,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				});
 			}
 		} catch (ex) {
+			if (run.signal.aborted) return;
+
 			panel?.setFocusAreaError(focusAreaId);
 			this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
 				...aiContext,
 				duration: performance.now() - startedAt,
 				'failure.error.message': runFailureMessage(ex),
 			});
+		} finally {
+			this._workflow.review.settleFocusAreaRun(focusAreaId, run.signal);
 		}
 	}
 
@@ -4331,7 +4578,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const repoPath = this.effectiveRepoPath;
 		if (!repoPath) return;
 
-		const { granularity, scopeLabel, reviewMarkdown } = e.detail;
+		const { granularity, scopeLabel, reviewMarkdown, instructions } = e.detail;
 		if (!reviewMarkdown) return;
 
 		this._actions.sendTelemetryEvent('graphDetails/review/sentToAgent', { granularity: granularity });
@@ -4341,6 +4588,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			scopeLabel: scopeLabel,
 			reviewMarkdown: reviewMarkdown,
 			granularity: granularity,
+			instructions: instructions,
 		});
 	}
 
@@ -4638,10 +4886,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
 		const mode = this._state.activeMode.get();
-		if (mode === 'review') {
-			const panel = this.findReviewModePanel();
-			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;
-		}
 		if (mode === 'compose') {
 			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
 			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;

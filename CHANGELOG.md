@@ -8,6 +8,51 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds GitKraken notifications to GitLens for messages about your account and organization
+  - Adds a notifications bell to the _Commit Graph_ header with an unread badge &mdash; shows your newest notifications with quick actions to follow their links and mark them read
+  - Adds a _Notifications_ section to _GitLens Settings_, with an unread count in its navigation &mdash; filter by all, unread, or read, mark notifications read or unread, delete them, and follow their links
+  - Pops up only new security and system notices, and never while notifications are open
+  - Paid plans can opt out of marketing notifications
+- Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through rather than a one-off AI report: a checklist of the changed files tracks what you've viewed and brings back a file that changes after, reading controls step through the files in order from the diff editor, and findings and your own comments live as comment threads in the diff, where you can reply to them, dismiss them or hand them to your agent
+- Adds _Orient_ and _Review in Repo_ beside _Review Diff_ &mdash; AI becomes one lens on the review rather than a requirement for it: _Orient_ plans the order to read the files in, _Review Diff_ finds issues in the diff, and _Review in Repo_ hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review
+
+### Changed
+
+- Changes GitLens webview colors to follow your theme more closely &mdash; banner text uses the theme's text color instead of pure white or black, the _Security_ and _System_ notification chips use the theme's warning colors instead of the Git conflict red, and autocomplete dropdowns use VS Code's suggestion colors
+- Changes the Pro feature gates, the feature badge, the _Commit Graph_ account chip, _GitLens Settings_ → _Account_, the Welcome page and the Pro-gated view prompts to offer _Upgrade to Pro_ alongside _Reactivate Pro Trial_, so an account the server won't reactivate isn't left without a path to Pro ([#6010](https://github.com/gitkraken/vscode-gitlens/issues/6010))
+
+### Fixed
+
+- Fixes [#4772](https://github.com/gitkraken/vscode-gitlens/issues/4772) - _Copy Link to Repository_ and other deep link commands fail with "Buffer is not defined" in github.dev and vscode.dev
+- Fixes [#4950](https://github.com/gitkraken/vscode-gitlens/issues/4950) - _Fetch_ on a remote branch in the _Commit Graph_ runs `git fetch <remote> <remote>` and fails &mdash; it now fetches the branch itself
+- Fixes _Generate Commit Message_ appearing twice in the _Source Control_ title bar &mdash; it now appears only in the GitLens AI (sparkle) menu ([#4396](https://github.com/gitkraken/vscode-gitlens/issues/4396))
+- Fixes _Compose Commits_ appearing in both the _Source Control_ title bar's GitLens AI (sparkle) menu and its overflow menu &mdash; it now appears only in the GitLens AI menu
+- Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
+- Fixes the _Commit Graph_'s _Pull Requests_ panel saying it can't list pull requests for Azure DevOps and Azure DevOps Server repositories &mdash; it now lists the repository's open pull requests
+- Fixes AI conflict resolution sending a request for every remaining file after AI becomes unavailable (e.g. the weekly AI allowance runs out mid-run) &mdash; it now stops starting new files and also stops when an AI provider rejects its API key, the _Commit Graph_'s _Resolve_ mode now chooses the AI model once per run instead of once per request, and it shows one message explaining why AI is unavailable (with a way to get more AI credits when the allowance runs out) instead of repeating the error on every file
+- Fixes natural language commit search sending a second AI request when the first one fails
+- Fixes AI errors saying "You have exceeded your user token limit" when the weekly AI allowance runs out &mdash; they now say you've reached the weekly AI usage included in your plan
+- Fixes the interactive rebase editor reporting _No Conflicts Detected_ for a rebase that conflicts on Git versions before 2.45 &mdash; conflict detection now needs Git 2.45 or later, and when it can't run it says so instead of reporting no conflicts
+- Fixes the interactive rebase editor's commit list borders taking on the scrollbar color whenever the editor is hovered or focused &mdash; they now keep the theme's separator color
+- Fixes the interactive rebase editor cutting off the last commits in the list when the conflict panel is open and the list's pane is short &mdash; the list now fits its pane and scrolls to the end
+- Fixes the icon buttons in _GitLens Settings_ (e.g. delete and expand on autolinks and custom remotes) showing no hover feedback in high contrast themes
+- Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
+- Fixes the text on warning and danger buttons (e.g. _Abort_ in the interactive rebase editor) being hard to read in light themes
+- Fixes secondary buttons in GitLens webviews showing a blue outline in the 2026 themes
+- Fixes toolbar buttons, action icons, chips, breadcrumbs and the _Commit Graph_ search's result navigation in GitLens webviews showing no hover feedback in high contrast themes
+- Fixes the selected suggestion in GitLens autocomplete dropdowns (e.g. the _Commit Graph_ search) being invisible in high contrast themes
+- Fixes the error banner in _Visual File History_, _GitLens Settings_ and _Inspect_ having no visible edge in high contrast themes
+- Fixes links in the Pro feature badge's popup showing as plain text instead of in the link color
+- Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
+- Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
+- Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
+- Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
+- Fixes _Review Changes_ losing the line numbers of the rest of a hunk after a removed line that starts with `-- ` (such as a SQL or Lua comment) or an added line that starts with `++ `, which left the review's comments on those lines pointing at the wrong place
+
+## [19.5.0] - 2026-10-27
+
+### Added
+
 - Adds a reachability check to _Add Remote_ &mdash; the confirm step probes the URL and, when it can't be reached, says why and offers _Add Remote Anyway_, _Change URL_, or a retry; the name defaults to `origin` on a repository with no remotes
 - Adds _Publish Repository_ to branch and worktree rows in the views when their repository has no remotes
 - Adds _Remove Remote_ to the error shown when a push can't reach a remote that has never been fetched from (e.g. one just added with a mistyped URL)
@@ -18,7 +63,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes _Publish Repository_ in the _Commit Graph_ and views to open the push wizard's chooser (_Publish Repository…_ or _Add Remote…_) with the clicked action pre-selected, rather than handing straight to VS Code's publish flow &mdash; _Add Remote…_ continues into the publish confirm without a fetch step, and a multi-repository push now skips (and names) repositories without remotes instead of failing
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
 - Changes how a branch's merge target is chosen when none is saved or detected &mdash; the default branch is found from local branches first (an `upstream` remote's, then `origin`'s) and the remote is asked only when they name none, the default branch itself is measured against its own upstream, and a branch created from another branch is measured against it until that branch is merged; the guess for a branch created with `git checkout -b` is no longer saved
-- Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
+- Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree, switching branches in one worktree refreshes the others once instead of twice, and locking or unlocking a worktree no longer discards the others' cached Git data
+- Changes _Push to Here…_ to push onto the branch's upstream rather than a remote branch named like the local one &mdash; they differ when, e.g., local `foo` tracks `origin/bar`
+- Improves staging, unstaging, discarding, and committing when another Git process (VS Code's Git extension, a terminal, an AI agent) briefly holds the index lock &mdash; GitLens now waits and retries instead of failing with an `index.lock` error
+- Improves how views and the _Commit Graph_ follow Git's ignore rules when watching for file changes &mdash; changes in folders ignored by a nested `.gitignore` (such as a package's `dist/`) no longer trigger refreshes, and `info/exclude` in linked worktrees, a `~/` path in `core.excludesFile`, the global `~/.config/git/ignore` file, and `core.ignorecase` are now respected
 
 ### Fixed
 
@@ -27,21 +75,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Add Remote and Fetch_ hanging (or closing silently) when the fetch failed, leaving the remote behind &mdash; it now warns and offers _Remove Remote_
 - Fixes pressing Enter on an invalid value in a wizard input (a remote URL, a branch name) navigating away &mdash; the field now stays open with the message until the value is valid
 - Fixes _Don't Ask Again_ appearing on push confirmations it cannot skip &mdash; the no-remotes chooser, the publish step, and the behind-upstream guard
+- Fixes GitLens terminal links (commits, branches, tags, ranges, and git commands) not working in multi-repository workspaces &mdash; links now use the repository containing the terminal's working directory, when shell integration reports it ([#5986](https://github.com/gitkraken/vscode-gitlens/issues/5986)) &mdash; thanks to [PR #5196](https://github.com/gitkraken/vscode-gitlens/pull/5196) by yuezichong ([@qianxunslimg](https://github.com/qianxunslimg))
 - Fixes opening the changes of a file that was deleted (or renamed away) and re-added failing with "file not found" &mdash; the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914)) &mdash; thanks to [PR #5930](https://github.com/gitkraken/vscode-gitlens/pull/5930) by Andrés Martínez ([@amartinez1224](https://github.com/amartinez1224))
 - Fixes _Open Blame Prior to this Change_ on a line whose change added the file (including a file that was deleted or renamed away and re-added) opening an empty file picker or a blank document &mdash; it now says the file didn't exist before that change ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914))
 - Fixes Azure DevOps work items whose type keeps its content outside Description, such as a Bug's Repro Steps or a custom field on an inherited process, showing no description ([#6047](https://github.com/gitkraken/vscode-gitlens/issues/6047))
-- Fixes Azure DevOps issue lists misclassifying Removed work items without closure dates ([#6013](https://github.com/gitkraken/vscode-gitlens/issues/6013))
+- Fixes Removed Azure DevOps work items, and completed ones with no closed date, showing as open in _Start Work_'s issue list, autolinks, and a branch's associated issues ([#6013](https://github.com/gitkraken/vscode-gitlens/issues/6013), [#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041))
+- Fixes the Azure DevOps Server integration on Team Foundation Server 2018 &mdash; work item details on autolinks, pull requests for commits, pull request details, and team review requests no longer fail on unsupported REST API versions ([#6048](https://github.com/gitkraken/vscode-gitlens/issues/6048))
 - Fixes Azure DevOps repositories cloned with a legacy `https://{org}.visualstudio.com/DefaultCollection/…` remote never showing pull requests, work items or commit authors, and filling the log with `Invalid Azure repository descriptor` errors ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) &mdash; also fixes remotes that name no project (`…/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`), whose project is named after the repository
 - Fixes Azure DevOps repositories named after their project and cloned without the project segment (`…/{collection}/_git/{repo}`, as TFS 2018 offers them) never showing pull requests or commit authors ([#6000](https://github.com/gitkraken/vscode-gitlens/issues/6000))
-- Fixes Azure DevOps showing no authored or review-requested pull requests, and failing to read the user's groups, for accounts whose profile id differs from their identity in an organization; Launchpad also categorizes those pull requests as the user's ([#6032](https://github.com/gitkraken/vscode-gitlens/issues/6032))
+- Fixes Azure DevOps showing no authored or review-requested pull requests in _Launchpad_, including those requested of the user's teams, for accounts whose profile id differs from their identity in an organization; _Launchpad_ also categorizes those pull requests as the user's ([#6032](https://github.com/gitkraken/vscode-gitlens/issues/6032))
+- Fixes Jira issues in a done status with no resolution set showing as open in autolinks, hovers, and a branch's associated issues
 - Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
 - Fixes a branch's merge target counting commits that are already on the remote when the target is an out-of-date local branch &mdash; a merge target is now measured against the local branch or its upstream, whichever the branch split off from more recently
 - Fixes the merge target status being hidden when a branch's target is a local branch whose name ends with the branch's own name, such as `release/main` for `main`, and both are at the same commit
-- Fixes _Home_ and _Commit Graph_ branch cards measuring the overview and the merge target status against different targets for a branch that tracks a remote other than `origin`
+- Fixes _Commit Graph_ branch cards measuring the overview and the merge target status against different targets for a branch that tracks a remote other than `origin`
 - Fixes the _Commit Graph_'s commit scope picker ignoring a branch's saved or pull request merge target
 - Fixes _Explain Branch_ comparing against the current branch, instead of reporting that no base branch was found, for a branch with no merge target
 - Fixes _Create Pull Request_ cutting a local merge target's name at its first slash when choosing the pull request's base &mdash; `release/2.0` became `2.0`
 - Fixes a branch's base never being found from where it was created when Git's `grep.patternType` is set to `fixed`
+- Fixes push, pull, and fetch going to the wrong remote or branch when a remote's name contains a slash (e.g. `team/fork`), when a custom fetch refspec stores a remote's branches under another name, or when a remote is named `remotes`
+- Fixes a branch that tracks another local branch being treated as tracking a remote of that name &mdash; fetch and pull no longer target a nonexistent remote, _Publish Branch_ no longer publishes it under the local branch's name, and pushing a branch whose remote was removed now says it has no upstream instead of pushing somewhere unexpected
+- Fixes the _Commit Graph_ mixing up local and remote branches with similar names &mdash; a local `team/fork/work` beside a remote `team/fork` no longer shows as a remote branch, a local and a remote branch with the same short name no longer merge into one (losing the current-branch and worktree markers), and refs such as `refs/pull/*` no longer show as local branches
+- Fixes worktrees that use `extensions.worktreeConfig` sharing one worktree's Git config &mdash; each worktree now uses its own user identity, commit signing, and pull/rebase settings
+- Fixes _Start Work_ not carrying on after signing in from its account gate &mdash; the flow now continues, and _Start Work_, _Start Review_, and _Launchpad_ no longer offer to connect an integration your account already has ([#5988](https://github.com/gitkraken/vscode-gitlens/issues/5988))
+- Fixes _Reactivate Pro Trial_ occasionally being offered again after the server refused it ([#6008](https://github.com/gitkraken/vscode-gitlens/issues/6008))
 
 ## [19.4.0] - 2026-10-15
 
@@ -51,6 +108,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Offers _Add Remote…_ beside _Publish Repository…_ in the push wizard and the _Working Changes_ next steps, for hosts VS Code can't publish to, and hides _Fetch_ while the repository has no remotes
 - Adds configurable branch names for _Start Work_ with `gitlens.startWork.branchNameFormat`, using `${id}` and `${title}` tokens, plus a format editor and live preview in GitLens Settings ([#5925](https://github.com/gitkraken/vscode-gitlens/issues/5925))
 
+- Adds an _Open Session in Kepler_ action to agent sessions in the _Commit Graph_ &mdash; in the _Agents_ sidebar, session cards, the agent status pill and a session's context menu &mdash; which opens the session in Kepler, when Kepler is installed
 - Adds connecting a self-hosted _Jira Data Center_ (or Jira Server) instance from the integrations in _GitLens Settings_ ([#5864](https://github.com/gitkraken/vscode-gitlens/issues/5864)) &mdash; it connects through your GitKraken account like the other self-hosted integrations, with each configured host as its own connection. For now, a connected instance is used only to show the issues associated with a branch; _Start Work_, autolinks, and the _Commit Graph_'s issue tracker picker don't support it yet
   - The _Commit Graph_'s check for whether any issue integration is connected now looks at every configured host of a self-hosted tracker, so disconnecting one host no longer turns off issue enrichment while another is still connected
   - Reads a branch's associated _Jira Data Center_ issues from the instance the association names, never from another configured host that happens to be primary ([#5872](https://github.com/gitkraken/vscode-gitlens/issues/5872))
@@ -68,7 +126,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes GitLens terminal links (commits, branches, tags, ranges, and git commands) not working in multi-repository workspaces &mdash; links now use the repository containing the terminal's working directory, when shell integration reports it ([#5986](https://github.com/gitkraken/vscode-gitlens/issues/5986)) &mdash; thanks to [PR #5196](https://github.com/gitkraken/vscode-gitlens/pull/5196) by yuezichong ([@qianxunslimg](https://github.com/qianxunslimg))
 - Fixes Pro feature gates and account surfaces still offering _Reactivate Pro Trial_ after the server refused the reactivation &mdash; once refused, they show the _Upgrade to Pro_ messaging instead ([#5987](https://github.com/gitkraken/vscode-gitlens/issues/5987))
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
 - Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree
@@ -96,6 +153,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Start Task in Kepler_ to repositories, and _Start Review in Kepler_ to pull requests in GitLens views, _Launchpad_, and the _Commit Graph_ &mdash; each opens Kepler with the repository or pull request ready to go
   - Adds _Open in Kepler_ to _Start Work_ and _Start PR Review_ for items Kepler supports, alongside opening in an agent or continuing manually &mdash; or choose `kepler` for `gitlens.ai.openInAgent` to go straight there
   - Offers to get the Kepler application when it isn't installed, and stops showing the _Try Kepler_ banner once it is
+  - Opens Kepler on the machine you're working on when using Remote - SSH or WSL, so the task lands in the Kepler window connected to that machine
 - Adds rebasing an entire stacked pull request chain in one action ([#5838](https://github.com/gitkraken/vscode-gitlens/issues/5838))
   - _Rebase Stack..._ cascades bottom to top, replaying each layer onto the one below it and the bottom layer onto the stack's trunk &mdash; and creates a local branch for any layer you haven't checked out, so no link in the chain is skipped
   - _Auto-Rebase Stack..._ resolves conflicts with AI the whole way up, pausing instead of unwinding when it needs your help &mdash; _Continue with Auto-Rebase_ then picks up the rest of the stack, not just the branch you fixed
@@ -7538,7 +7596,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.4.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.5.0...HEAD
+[19.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.4.0...gitkraken:v19.5.0
 [19.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.3.0...gitkraken:v19.4.0
 [19.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.2.0...gitkraken:v19.3.0
 [19.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...gitkraken:v19.2.0

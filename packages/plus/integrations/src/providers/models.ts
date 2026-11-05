@@ -34,6 +34,7 @@ import type {
 	JiraServerProject,
 	Linear,
 	LinearOrganization,
+	LinearProject,
 	LinearTeam,
 	NumberedPageInput,
 	Organization,
@@ -56,6 +57,7 @@ import type {
 	IssueProviderState,
 	IssueShape,
 	IssueStateFilter,
+	IssueSyncedWith,
 } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
@@ -240,6 +242,8 @@ export type ProviderJiraResource = JiraResource;
 export type ProviderJiraServerProject = JiraServerProject;
 export type ProviderLinearTeam = LinearTeam;
 export type ProviderLinearOrganization = LinearOrganization;
+// Linear's own `Project` entity, which can span several teams; not the teams core lists as a tracker's projects.
+export type ProviderLinearProject = LinearProject;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -662,6 +666,7 @@ export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Pr
 // Derived from the client method, like the Jira reads below, so a filter the SDK adds (`assignees`, `states`)
 // reaches the type system instead of being smuggled through `getPagedResult`'s `any`.
 export type GetLinearIssuesFn = Linear['getIssues'];
+export type GetLinearProjectsFn = Linear['getProjects'];
 /**
  * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
  * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
@@ -785,6 +790,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getLinearOrganizationFn?: GetLinearOrganizationFn;
 	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
 	getLinearIssuesFn?: GetLinearIssuesFn;
+	getLinearProjectsFn?: GetLinearProjectsFn;
 	getLinearCurrentUserFn?: GetLinearCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForCurrentUserFn?: GetBitbucketResourcesForCurrentUserFn;
@@ -1210,6 +1216,7 @@ export const providersMetadata: ProvidersMetadata = {
 		name: 'Bitbucket Data Center',
 		type: 'git',
 		iconKey: GitSelfManagedHostIntegrationId.BitbucketServer,
+		pullRequestsPagingMode: PagingMode.Repo,
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		supportedAccountWidePullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		supportedPullRequestSearch: bitbucketServerPullRequestSearchCapabilities,
@@ -1359,7 +1366,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Linear,
 		scopes: [],
-		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
+		// The user-scoped tracker read scopes Linear's "my issues" by the viewer's id: assigned issues, plus the
+		// GitHub-synced issues the viewer created unless `Assignee` is asked for by name. Author/mention aren't supported.
 		supportedIssueFilters: [IssueFilter.Assignee],
 		// Both directions, and one table for both reads: they are the same root `issues` query taking the same
 		// `sort` argument, so there is no account-wide narrowing to declare.
@@ -1487,15 +1495,7 @@ export function toIssueShape(
 				avatarUrl: assignee.avatarUrl ?? undefined,
 				url: assignee.url ?? undefined,
 			})) ?? [],
-		project:
-			issue.project?.id && issue.project.resourceId && issue.project.namespace
-				? {
-						id: issue.project.id,
-						name: issue.project.name,
-						resourceId: issue.project.resourceId,
-						resourceName: issue.project.namespace,
-					}
-				: undefined,
+		project: toIssueProject(issue.project, provider),
 		repository:
 			issue.repository?.owner?.login != null
 				? {
@@ -1518,7 +1518,37 @@ export function toIssueShape(
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
 		...(options?.projection != null ? { projection: options.projection } : {}),
 		...toIssueViewer(issue, options?.viewer),
+		// Only when the provider reports it, so a row from any other provider keeps exactly the keys it always had.
+		...(issue.syncedWith != null ? { syncedWith: toIssueSyncedWith(issue.syncedWith) } : {}),
 	};
+}
+
+function toIssueProject(project: ProviderIssue['project'], provider: ProviderReference): IssueProject | undefined {
+	if (!project?.id || !project.resourceId || (!project.namespace && !isJiraIntegrationId(provider.id))) {
+		return undefined;
+	}
+
+	return {
+		id: project.id,
+		name: project.name,
+		resourceId: project.resourceId,
+		// Jira identifies its site by resourceId; the API need not supply a display name for it.
+		resourceName: project.namespace ?? '',
+	};
+}
+
+function toIssueSyncedWith(syncedWith: NonNullable<ProviderIssue['syncedWith']>): IssueSyncedWith[] {
+	return syncedWith.map(synced =>
+		synced.owner != null
+			? {
+					provider: synced.service,
+					id: synced.id,
+					owner: synced.owner,
+					repo: synced.repo,
+					number: synced.number,
+				}
+			: { provider: synced.service, id: synced.id },
+	);
 }
 
 export function toIssueBodyField(field: NonNullable<ProviderIssue['descriptionField']>): IssueBodyField {
@@ -2097,14 +2127,7 @@ export function fromProviderIssue(
 					resourceId: options.project.resourceId,
 					resourceName: options.project.resourceName,
 				}
-			: issue.project?.id && issue.project?.resourceId && issue.project?.namespace
-				? {
-						id: issue.project.id,
-						name: issue.project.name,
-						resourceId: issue.project.resourceId,
-						resourceName: issue.project.namespace,
-					}
-				: undefined,
+			: toIssueProject(issue.project, integration),
 		identifier,
 		issue.type ?? undefined,
 		toIssueProviderState(issue.state),
@@ -2114,6 +2137,7 @@ export function fromProviderIssue(
 		issue.descriptionField != null ? toIssueBodyField(issue.descriptionField) : undefined,
 		viewer?.viewer,
 		viewer?.viewerUnresolved,
+		issue.syncedWith != null ? toIssueSyncedWith(issue.syncedWith) : undefined,
 	);
 }
 

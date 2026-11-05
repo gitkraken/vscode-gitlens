@@ -268,10 +268,14 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(result.type, 'escalated');
 		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'ai-unavailable');
 		assert.strictEqual(
-			result.type === 'escalated' && /token limit/i.test(result.escalation.message),
+			result.type === 'escalated' && /weekly AI usage/i.test(result.escalation.message),
 			true,
 			'the message must carry the real cause, not the file name',
 		);
+		// The handoff carries the real error, not just its text, so the Resolve panel can report the lost AI
+		// once instead of on every file.
+		const handedOff = result.type === 'escalated' ? result.handoff?.errors[0].error : undefined;
+		assert.ok(handedOff instanceof AIError && handedOff.reason === AIErrorReason.UserQuotaExceeded);
 		// Nothing written, and the rebase is left paused for the user — not aborted over a billing state.
 		assert.strictEqual(repo.applied.length, 0);
 		assert.strictEqual(repo.continues.length, 0);

@@ -12,11 +12,13 @@ import type { createOnboardingState } from '../../shared/contexts/onboarding.js'
 import type { subscriptionContext } from '../../shared/contexts/subscription.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
+import type { GraphNotificationsState } from './graphNotificationsState.js';
 
 /** One-time-bound view of the host-owned stores the account-rollup/Launchpad bootstrap populates. Built
  *  ONCE by `<gl-graph-app>` as closures over itself; none of these run on a hot path. */
 export type AccountLaunchpadHostDeps = {
 	launchpadState(): GraphLaunchpadState;
+	notificationsState(): GraphNotificationsState;
 	subscriptionCtx(): ContextProvider<typeof subscriptionContext>;
 	integrationsState(): ReturnType<typeof createIntegrationsState>;
 	aiState(): ReturnType<typeof createAIState>;
@@ -44,6 +46,7 @@ export class AccountLaunchpadController implements ReactiveController {
 	private readonly _launchpadRefreshDebounced: Deferrable<() => void>;
 
 	private _accountUnsubscribe: (() => void) | undefined;
+	private _notificationsUnsubscribe: (() => void) | undefined;
 
 	private readonly deps: AccountLaunchpadHostDeps;
 
@@ -60,6 +63,38 @@ export class AccountLaunchpadController implements ReactiveController {
 
 		this._accountUnsubscribe?.();
 		this._accountUnsubscribe = undefined;
+
+		this._notificationsUnsubscribe?.();
+		this._notificationsUnsubscribe = undefined;
+	}
+
+	/** Starts the shared notifications inbox (the header's bell) once `services` resolves: subscribes to the
+	 *  host's changes, then seeds the store from its current state. A failure just leaves the bell hidden. */
+	async initNotifications(services: Remote<GraphServices>): Promise<void> {
+		const state = this.deps.notificationsState();
+		try {
+			const notifications = await services.notifications;
+			const unsubscribe = await subscribeAll([
+				async () => notifications.onNotificationsChanged(inbox => state.inbox.set(inbox)),
+			]);
+			// See `initAccountContexts`: don't keep a subscription for an element that disconnected meanwhile
+			if (!this.deps.isConnected()) {
+				unsubscribe?.();
+				return;
+			}
+
+			this._notificationsUnsubscribe = unsubscribe;
+			state.service.set(notifications);
+
+			/* oxlint-disable-next-line typescript/await-thenable -- Supertalk proxy properties are thenable at runtime */
+			const inboxSignal = await notifications.notificationsState;
+			// A change event may have landed while this was in flight; it's newer than the snapshot
+			if (state.inbox.get() === undefined) {
+				state.inbox.set(inboxSignal.get());
+			}
+		} catch {
+			// Non-critical — the bell just stays hidden.
+		}
 	}
 
 	/** Starts the shared Launchpad pipeline once `services` resolves: subscribes to host-side

@@ -223,7 +223,31 @@ export interface IssueShape extends IssueOrPullRequest {
 	 * field is still one whose provider has no per-row identity, matched against the account.
 	 */
 	readonly viewerUnresolved?: true;
+	/**
+	 * The GitHub issues an issue tracker keeps in two-way sync with this issue (Linear's GitHub Issues sync), so a
+	 * consumer reading both providers can tell the two copies are one issue. Set on Linear rows only, empty when the
+	 * issue syncs with none; absent on every other provider, and when the tracker failed to resolve the list.
+	 */
+	readonly syncedWith?: IssueSyncedWith[];
 }
+
+/**
+ * A GitHub issue a tracker issue is kept in sync with. The tracker's link names no host, and Linear also syncs with
+ * GitHub Enterprise Cloud, so the coordinates alone can name issues on two hosts. `owner`, `repo` and `number` are all
+ * set, or all absent when the tracker reports the link without them or failed to resolve that link's details.
+ */
+export type IssueSyncedWith = {
+	readonly provider: 'github';
+	/**
+	 * The GitHub issue's database id (its REST `id`) as the tracker stored it. A GitHub row's `nodeId` is its GraphQL
+	 * node ID instead, so the two don't compare: match a GitHub row on the coordinates, comparing `owner` and `repo`
+	 * case-insensitively, as GitHub does.
+	 */
+	readonly id: string;
+} & (
+	| { readonly owner: string; readonly repo: string; readonly number: number }
+	| { readonly owner?: never; readonly repo?: never; readonly number?: never }
+);
 
 @loggable(i => i.id)
 export class Issue implements IssueShape {
@@ -257,6 +281,7 @@ export class Issue implements IssueShape {
 		public readonly bodyField?: IssueBodyField,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
+		public readonly syncedWith?: IssueSyncedWith[],
 	) {}
 
 	static is(issue: unknown): issue is Issue {

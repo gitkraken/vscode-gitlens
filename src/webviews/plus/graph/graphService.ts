@@ -1,5 +1,11 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
-import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
+import type {
+	AIReviewDetailResult,
+	AIReviewFinding,
+	AIReviewOrientResult,
+	AIReviewResult,
+	AIReviewSeverity,
+} from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -20,6 +26,7 @@ import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referenceP
 import type { RunningWorktreeTask } from '../../../worktrees/worktreeTaskService.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
+import type { NotificationsRpcService } from '../../rpc/services/notifications.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
 import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
@@ -128,7 +135,18 @@ export type ConflictFallbackInfo = {
 	renameOf?: string;
 };
 
-export type ResolveFileError = { filePath: string; message: string } & ConflictFallbackInfo;
+/** `message` is absent when the run-level {@link ResolveAIUnavailable} notice explains the failure — AI
+ *  became unavailable, so every such row would otherwise repeat the same text. */
+export type ResolveFileError = { filePath: string; message?: string } & ConflictFallbackInfo;
+
+/** AI became unavailable partway through a resolve run (quota, rate limit, sign-in, offline, …). Reported
+ *  once for the run instead of on every file it left unresolved. */
+export type ResolveAIUnavailable = {
+	/** What happened, ready to show. */
+	message: string;
+	/** `purchase-credits`: the weekly AI usage ran out and this user may buy more — offer Get More Credits. */
+	action?: 'purchase-credits';
+};
 
 /** A conflicted file the resolver couldn't auto-resolve (e.g. binary or a marker-less conflict) —
  *  it still needs manual attention, but distinct from a failure: retrying won't help. */
@@ -154,16 +172,20 @@ export type ResolveResult =
 				resolutions: ResolvedFileSummary[];
 				errors?: ResolveFileError[];
 				skipped?: ResolveSkippedFile[];
-				/** Present only when seeded from an automatic-rebase escalation — tells the panel the
-				 *  run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
+				/** Present while an escalated automatic rebase is paused on this rebase (seeded from its
+				 *  handoff, or a Retry/Refine of that step) — tells the panel the run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
 				autoRebase?: { sessionId: string; stepNumber?: number; totalSteps?: number };
+				/** Present when AI became unavailable after some files were already resolved. The files it left
+				 *  unresolved stay in `errors` without a `message` of their own. */
+				aiUnavailable?: ResolveAIUnavailable;
 				/** Resolver effort summed over the run, for telemetry only — aggregated host-side because
 				 *  the per-file `metrics` never cross the IPC boundary. A count is `undefined` when no
 				 *  resolution reported it, so "not measured" stays distinct from "zero". */
 				metrics?: { steps?: number; toolCalls?: number };
 			};
 	  }
-	| { error: { message: string } }
+	/** `action` is set when the run failed because AI is unavailable and the panel can offer a way out. */
+	| { error: { message: string; action?: ResolveAIUnavailable['action'] } }
 	| { cancelled: true };
 
 /** Result of re-resolving a single file with user feedback — the replacement summary for that file. */
@@ -279,9 +301,207 @@ export type ScopeFile = GitFileChangeShape & {
 	anchorSha?: string;
 	/** Resolved base (parent of the oldest included sha) of the range diff; absent for root-anchored ranges */
 	anchorBaseSha?: string;
+	/** Identity of the content under review — a blob id for working-tree/index files, the anchor sha for
+	 *  committed ones. A review session compares it to decide whether a viewed mark still holds. Absent
+	 *  when the provider can't compute it (the mark then never goes stale). */
+	contentId?: string;
 };
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
+
+export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
+
+/** The review a deep review belongs to — echoed back on every report so the panel folds the findings into
+ *  that review and no other. Opaque to the host, which tells reviews apart by {@link DeepReviewArgs.anchorKey}. */
+export interface DeepReviewAnchor {
+	kind: string;
+	repoPath: string;
+	sha?: string;
+	shas?: string[];
+}
+
+/** What an Orient too large for the model needs to go to the CLI agent instead: the review it plans (see
+ *  {@link DeepReviewArgs}) and how the agent is told what the changes are. */
+export interface OrientInRepoArgs {
+	anchor: DeepReviewAnchor;
+	anchorKey: string;
+	scopeLabel: string;
+}
+
+export interface DeepReviewArgs {
+	repoPath: string;
+	anchor: DeepReviewAnchor;
+	/** The same review as the panel keys its reviews (see {@link ReviewFilesArgs.anchor}): a question goes into
+	 *  an open channel only when its key is this one */
+	anchorKey: string;
+	scope: ScopeSelection;
+	/** How the panel describes the scope — what the agent is told it is reviewing */
+	scopeLabel: string;
+	/** The checklist's files, so the agent knows the whole changeset even if the diff is large */
+	files: string[];
+	/** What an earlier review found and what the reader said about it (see `formatReviewForAgentContext`),
+	 *  so the agent builds on it instead of finding it again */
+	priorFindings?: string;
+	prompt?: string;
+	/** A question or remark on one finding, for the agent to take up instead of a whole review: the
+	 *  finding as context and the reader's words. Goes into the running channel and session when there
+	 *  is one for the same review, so the answer lands in the finding's thread. */
+	focus?: { findingId: string; finding: string; question?: string };
+}
+
+export type DeepReviewStartResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error'; message?: string };
+
+/** Whether a deep review can start here at all: the report channel needs the local server (absent on
+ *  the web) and an agent must be available to hand the changes to. */
+export type DeepReviewAvailability = { available: true } | { available: false; reason: 'no-agents' | 'no-channel' };
+
+/** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
+ *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
+export interface DeepReviewState {
+	/** Which start this is — a new channel numbers its findings from 1 again, so the panel's "applied up
+	 *  to" counters belong to one run */
+	run: number;
+	anchor: DeepReviewAnchor;
+	/** {@link DeepReviewArgs.anchorKey} of the start that opened the channel */
+	anchorKey: string;
+	/** What the channel is open for: a whole review, or only a question on a finding — which leaves the
+	 *  channel open for the next question and does not read as a review running */
+	purpose: 'review' | 'ask';
+	/** Whether the prompt has reached an agent: `pending` while one is picked and the prompt sent, `failed`
+	 *  while a failed hand-over's Retry is on offer, `delivered` once one got through — only then is a review
+	 *  running, rather than a channel waiting on an agent that may never come */
+	handOff: 'pending' | 'failed' | 'delivered';
+	active: boolean;
+	done: boolean;
+	findings: { seq: number; finding: AIReviewFinding }[];
+	/** What the agent added to findings that were already there, append-only like the findings */
+	notes: { seq: number; findingId: string; text: string }[];
+}
+
+export type ReviewReadingAction = 'next' | 'previous' | 'markViewed';
+
+/** A review file to open in its diff — placed beside an editor-hosted graph, the way the reading steps place theirs. */
+export interface ReviewOpenFileArgs {
+	repoPath: string;
+	lhs: string;
+	rhs: string;
+	path: string;
+	line?: number;
+	lineEnd?: number;
+}
+
+/** The files a review is reading: any of their diffs gets the reading commands (title buttons and
+ *  keybindings), which step through them in this order. */
+export interface ReviewFilesArgs {
+	/** The review the files are read for, as the panel keys its reviews — opaque to the host, which stamps
+	 *  what the editor does with it (see {@link ReviewReadingState}, {@link ReviewThreadActionsState}). */
+	anchor: string;
+	repoPath: string;
+	/** Refs the diffs open with — the same endpoints the panel's own file links use. */
+	lhs: string;
+	rhs: string;
+	/** The files, in reading order. */
+	paths: string[];
+}
+
+export type ReviewThreadState = 'open' | 'dismissed';
+
+/** A remark on a finding: the reader's reply on its thread or in its card (why it was closed, a question,
+ *  a correction), or an agent's addition to a finding that was already there. Kept with the session and
+ *  shown wherever the finding is — the thread, the card, the exports, the next review's context. */
+export interface ReviewFindingNote {
+	/** Given when the note joins the session, so it can be removed by itself */
+	id?: string;
+	author: 'user' | 'agent';
+	text: string;
+	/** When it was written, epoch ms */
+	at: number;
+}
+
+/** A finding as the diff editor shows it: an inline comment thread at its line. */
+export interface ReviewThreadItem {
+	/** The thread's own key — a finding with several places has a thread per place */
+	id: string;
+	/** The finding the thread shows; its actions and notes are the finding's */
+	findingId: string;
+	path: string;
+	line: number;
+	lineEnd: number;
+	severity: AIReviewSeverity;
+	title: string;
+	description: string;
+	state: ReviewThreadState;
+	source?: 'agent' | 'user';
+	/** Who opened a comment of the review's own (`source: 'user'`) when it wasn't the reader */
+	author?: 'agent';
+	notes?: ReviewFindingNote[];
+}
+
+export interface ReviewThreadsArgs {
+	/** The review the threads show, as the panel keys its reviews — see {@link ReviewFilesArgs.anchor} */
+	anchor: string;
+	repoPath: string;
+	/** The side of the review's diff the threads sit on — what document they open in. */
+	rhs: string;
+	items: ReviewThreadItem[];
+}
+
+export type ReviewThreadAction =
+	| 'dismiss'
+	| 'reopen'
+	| 'sendToAgent'
+	| 'reply'
+	| 'askReviewer'
+	| 'address'
+	| 'comment'
+	| 'editComment'
+	| 'editNote'
+	| 'delete'
+	| 'deleteOpening'
+	| 'deleteNote';
+
+/** Where the reader opened a thread of their own: a review file and the lines on the diff's right side. */
+export interface ReviewCommentPlace {
+	path: string;
+	line: number;
+	lineEnd: number;
+}
+
+/** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
+ *  for a while applies exactly the ones it hasn't. The actions are one review's — the journal starts over
+ *  when the panel's review changes, and the sequence runs on across reviews, so the count a review has
+ *  applied never passes over actions made in it later. A `reply` carries its text; a `comment` — a thread the
+ *  reader opened on a line — carries its text and place, and its `findingId` is the new comment's. `delete`
+ *  removes the finding with all its threads; `deleteOpening` only its opening words, the first reply taking
+ *  their place (the finding goes when there is none); `editNote` and `deleteNote` act on one note, by
+ *  `noteId`. */
+export interface ReviewThreadActionsState {
+	/** The review the actions were taken in — the `anchor` of the threads and files they were made on */
+	anchor: string;
+	actions: {
+		seq: number;
+		findingId: string;
+		action: ReviewThreadAction;
+		text?: string;
+		place?: ReviewCommentPlace;
+		noteId?: string;
+	}[];
+}
+
+/** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only
+ *  for one review's files, so a panel that was hidden for a while applies only the marks it hasn't seen. */
+export interface ReviewReadingState {
+	/** The review the files are read for — the `anchor` of the files the marks were made on */
+	anchor: string;
+	/** The review file whose diff is the active editor, when one is. */
+	active?: string;
+	marked: string[];
+	/** How many marks the editor made before the first of `marked` — numbered across reviews and across
+	 *  a reading let go and taken back, so the count a review has applied never passes over its new marks. */
+	markedBefore: number;
+}
 
 /**
  * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
@@ -297,7 +517,7 @@ export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { m
 
 export type AddressReviewFindingsResult =
 	| { ok: true }
-	| { ok: false; reason: 'no-agents' | 'no-ai-model' | 'error'; message?: string };
+	| { ok: false; reason: 'no-agents' | 'cancelled' | 'error'; message?: string };
 
 export interface AddressReviewFindingsArgs {
 	repoPath: string;
@@ -587,6 +807,46 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** The deep depth: hands the scope to an agent that can build, test and read beyond the diff, with a
+	 *  channel to report findings back into this review. Findings arrive on {@link onDeepReview}. */
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult>;
+	/** Closes the report channel; what was reported stays. */
+	stopDeepReview(): Promise<void>;
+	/** Whether {@link startDeepReview} could succeed here — the panel disables the depth with the reason
+	 *  rather than letting a click find out. */
+	getDeepReviewAvailability(): Promise<DeepReviewAvailability>;
+	/** The same answer again whenever it can change: the local channel comes up after the panel asked, or
+	 *  the agents list changes. */
+	readonly onDeepReviewAvailability: RpcEventSubscription<DeepReviewAvailability>;
+	readonly onDeepReview: RpcEventSubscription<DeepReviewState | undefined>;
+	/** The orient depth: groups and orders the scope's files from their manifest, one line of context
+	 *  each — a reading order for the panel's checklist, no findings. */
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		/** The review the plan is for: when the scope is too large for the model, the CLI agent plans it */
+		inRepo?: OrientInRepoArgs,
+		signal?: AbortSignal,
+	): Promise<ReviewOrientResult>;
+	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings
+	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
+	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
+	 *  keybindings and title buttons do. */
+	reviewStep(action: ReviewReadingAction, path?: string): Promise<void>;
+	/** Opens a review file's diff where the reading steps open theirs — beside an editor-hosted graph. */
+	openReviewFile(args: ReviewOpenFileArgs): Promise<void>;
+	/** The active review file and the editor-made viewed marks; `undefined` once the review is left. */
+	readonly onReviewReading: RpcEventSubscription<ReviewReadingState | undefined>;
+	/** Mirrors the review's findings as inline comment threads in their diffs; `undefined` clears them. */
+	setReviewThreads(args: ReviewThreadsArgs | undefined): Promise<void>;
+	/** Thread actions taken from the editor (resolve, dismiss, reopen, send to agent). */
+	readonly onReviewThreadActions: RpcEventSubscription<ReviewThreadActionsState | undefined>;
+	/** Tells the reader that a question for the reviewer, or a finding for the agent, taken from a thread
+	 *  was not sent: the review it was taken in is no longer the one shown. */
+	warnReviewHandOffDropped(to: 'reviewer' | 'agent'): Promise<void>;
 	/**
 	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
 	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce
@@ -1512,6 +1772,8 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly feedback: GraphFeedbackService;
 	readonly launchpad: GraphLaunchpadService;
 	readonly navigation: GraphNavigationService;
+	/** The GitKraken notifications inbox, for the header's bell */
+	readonly notifications: NotificationsRpcService;
 	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
 	readonly search: GraphSearchService;

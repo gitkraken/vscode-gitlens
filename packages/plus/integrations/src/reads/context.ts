@@ -61,11 +61,12 @@ export interface ProviderReadContext {
 		domain?: string,
 	): { warnings: ProviderWarning[]; fetchFailed: boolean };
 
-	/** Forces a session refresh before a read when the caller asked for one. Best-effort; never throws. */
+	/** Forces a session refresh before a read when the caller asked for one. Best-effort unless strict failure propagation is requested. */
 	forceRefreshIfRequested(
 		integration: Integration,
 		forceSync: boolean | undefined,
 		connectionId: string | undefined,
+		options?: { throwOnFailure?: boolean },
 	): Promise<void>;
 
 	/** The configured connection descriptors, as `getConfigured` exposes them. */

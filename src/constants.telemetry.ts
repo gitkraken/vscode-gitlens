@@ -1,3 +1,4 @@
+import type { AgentHookClientId } from '@gitlens/agents/agentCapabilities.js';
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitHealthDurationBucket, GitOptimizationTier } from '@gitlens/git/gitHealth.js';
@@ -616,6 +617,16 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/review/generateFocusArea/completed': GraphDetailsReviewGenerateFocusAreaCompletedEvent;
 	/** Sent when a per-focus-area review (two-pass) generation fails */
 	'graphDetails/review/generateFocusArea/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when an orient pass (reading plan for the review's files) completes successfully */
+	'graphDetails/review/generateOrient/completed': GraphDetailsReviewGenerateOrientCompletedEvent;
+	/** Sent when an orient pass fails */
+	'graphDetails/review/generateOrient/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when the user hands the review to an agent (deep review) */
+	'graphDetails/review/deepReview/started': GraphDetailsReviewLifecycleEvent;
+	/** Sent when a deep review could not be handed to an agent */
+	'graphDetails/review/deepReview/failed': GraphDetailsReviewDeepReviewFailedEvent;
+	/** Sent when the agent reports the deep review done */
+	'graphDetails/review/deepReview/finished': GraphDetailsReviewDeepReviewFinishedEvent;
 	/** Sent when the user copies all or part of a review to clipboard */
 	'graphDetails/review/copied': GraphDetailsReviewActionEvent;
 	/** Sent when the user sends all or part of a review to an AI agent */
@@ -652,6 +663,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/task/start': KeplerTaskStartEvent;
 	/** Sent when starting a Kepler task fails — the item's provider is one Kepler cannot serve, or the deep link could not be handed off */
 	'kepler/task/start/failed': KeplerTaskStartFailedEvent;
+	/** Sent when the user opens an agent session in Kepler — a deep link into an installed Kepler was handed off. Records what was sent, not whether Kepler handled it */
+	'kepler/session/open': KeplerSessionOpenEvent;
+	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
+	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -1035,7 +1050,7 @@ interface AIExplainEvent extends AIEventDataSendBase {
 interface AIReviewEvent extends AIEventDataSendBase {
 	type: 'review';
 	reviewType: 'commit' | 'wip' | 'compare';
-	reviewMode: 'single-pass' | 'two-pass';
+	reviewMode: 'single-pass' | 'two-pass' | 'orient';
 }
 
 export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
@@ -1624,6 +1639,23 @@ interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 	'findings.severity.critical.count': number;
 	'findings.severity.warning.count': number;
 	'findings.severity.suggestion.count': number;
+}
+
+interface GraphDetailsReviewDeepReviewFailedEvent extends GraphContextEventData {
+	reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error';
+}
+
+interface GraphDetailsReviewDeepReviewFinishedEvent extends GraphContextEventData {
+	/** Findings the agent reported over the whole review */
+	'findings.count': number;
+}
+
+interface GraphDetailsReviewGenerateOrientCompletedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
+	duration: number;
+	/** Reading groups the plan produced */
+	'result.groups.count': number;
+	/** Files the plan placed */
+	'result.files.count': number;
 }
 
 interface GraphDetailsReviewGenerateFocusAreaFailedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
@@ -2298,7 +2330,7 @@ interface GraphSidebarAgentsPermissionResolvedEvent extends GraphContextEventDat
 }
 
 interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | 'openInKepler';
 }
 
 interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
@@ -2523,7 +2555,7 @@ interface GraphSidebarPullRequestsShownEvent extends GraphContextEventData {
 	'pullRequests.draft.count': number;
 	/** Number whose head lives in a fork — these carry no ref the graph can scope to, so they have no Focus action */
 	'pullRequests.fork.count': number;
-	/** Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list */
+	/** Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a connected remote whose URL doesn't name what the host's repo-scoped pull request query needs, such as an Azure DevOps project) instead of a list */
 	emptyReason?: 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported';
 }
 
@@ -2729,7 +2761,7 @@ interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
 }
 
 interface GraphKanbanSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'resumeSession' | 'openPlanFile';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openInKepler';
 }
 
 interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
@@ -2757,6 +2789,20 @@ interface KeplerTaskStartEvent {
 interface KeplerTaskStartFailedEvent extends KeplerTaskStartEvent {
 	/** Why the task was not started. `not-installed` = Kepler is not installed, so no link was sent; `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off */
 	'failure.reason': 'not-installed' | 'open-failed' | 'unsupported-provider';
+}
+
+interface KeplerSessionOpenEvent {
+	/** The Kepler adapter id of the session's agent */
+	agent: AgentHookClientId;
+	/** Whether the session's working directory was sent as the `cwd=` hint */
+	'cwd.resolved': boolean;
+	/** The Kepler channel the deep link targets */
+	channel: KeplerChannel;
+}
+
+interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
+	/** Why the session was not opened. `not-installed` = Kepler is not installed, so no link was sent; `open-failed` = the deep link could not be handed off */
+	'failure.reason': 'not-installed' | 'open-failed';
 }
 
 type InspectCommitContextEventData = {

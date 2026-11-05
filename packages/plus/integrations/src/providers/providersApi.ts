@@ -88,6 +88,7 @@ import type {
 	ProviderJiraResource,
 	ProviderJiraServerProject,
 	ProviderLinearOrganization,
+	ProviderLinearProject,
 	ProviderLinearTeam,
 	ProviderOrganization,
 	ProviderPullRequest,
@@ -527,6 +528,7 @@ export class ProvidersApi implements Disposable {
 				getLinearOrganizationFn: providerApis.linear.getLinearOrganization.bind(providerApis.linear),
 				getLinearTeamsForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(providerApis.linear),
 				getLinearIssuesFn: providerApis.linear.getIssues.bind(providerApis.linear),
+				getLinearProjectsFn: providerApis.linear.getProjects.bind(providerApis.linear),
 				getLinearCurrentUserFn: providerApis.linear.getCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
@@ -1318,6 +1320,25 @@ export class ProvidersApi implements Disposable {
 	}
 
 	/**
+	 * One page of the workspace's Linear Projects (Linear's `Project` entity, not its teams). Follow `paging.cursor`.
+	 */
+	async getLinearProjects(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderLinearProject>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getLinearProjectsFn',
+		);
+		return this.getPagedResult<ProviderLinearProject>(
+			{},
+			provider.getLinearProjectsFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/**
 	 * Reads issues scoped to Linear teams/projects/labels/assignees (Linear's issue-list filter). One page per
 	 * call — follow `paging.cursor`. `assignees` takes Linear user ids (the viewer's `id`), not names.
 	 */
@@ -1329,6 +1350,8 @@ export class ProvidersApi implements Disposable {
 			labels?: string[];
 			/** Linear user ids (the viewer's `id`), not names. */
 			assignees?: string[];
+			/** Linear user ids whose GitHub-synced issues (created by one of them) to read as well, ORed with `assignees`. */
+			githubSyncedCreators?: string[];
 			/** Omitted reads open issues (workflow state type other than `completed`/`canceled`). */
 			states?: GitIssueState[];
 		},
@@ -2769,8 +2792,7 @@ export class ProvidersApi implements Disposable {
 		try {
 			return await requestJiraIssueByKey(this.request, tokenWithInfo.accessToken, resourceId, resourceUrl, key);
 		} catch (e) {
-			const status = (e as { response?: { status?: unknown } }).response?.status;
-			if (status === 404) return undefined;
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}

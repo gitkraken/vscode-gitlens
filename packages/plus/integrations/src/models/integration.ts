@@ -2,7 +2,7 @@ import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-ap
 import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueShape, IssueSyncedWith } from '@gitlens/git/models/issue.js';
 import type {
 	IssueOrPullRequest,
 	IssueOrPullRequestState,
@@ -17,7 +17,7 @@ import type {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -33,7 +33,12 @@ import type {
 	IntegrationAuthenticationSessionDescriptor,
 } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { ConnectionResource, ProviderAuthenticationSession } from '../authentication/models.js';
+import type {
+	ConnectionResource,
+	ProviderAuthenticationSession,
+	SessionPublication,
+} from '../authentication/models.js';
+import { getSessionIdentity } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
 import type { ProviderRefusal, ProviderScopeFailure } from '../collectionMetadata.js';
 import {
@@ -217,6 +222,13 @@ export interface IssueEtagFields {
 	 * it never compares unchanged and is read in full again rather than kept without one.
 	 */
 	viewerRule?: number;
+	/**
+	 * Linear only: the row's `syncedWith` links as {@link linearSyncedWithEtagKeys} spells them, so a link added, removed
+	 * or moved to other coordinates changes the etag whether or not the issue's update time moves. `null` on a
+	 * full row without `syncedWith` (held from before it existed, or read while Linear failed to resolve it), which
+	 * never compares unchanged with a cheap check's list.
+	 */
+	syncedWithKeys?: readonly string[] | null;
 }
 
 /**
@@ -238,6 +250,16 @@ export const azureWorkItemDescriptionRule = 1;
  * identity in the work item's organization (gitkraken/kepler#4291).
  */
 export const azureWorkItemViewerRule = 1;
+
+/**
+ * A Linear row's sync links in its etag, sorted: each as its GitHub id and, when known, the coordinates a host matches
+ * the GitHub row by, so a link whose coordinates Linear fills in or changes later compares changed.
+ */
+export function linearSyncedWithEtagKeys(links: readonly IssueSyncedWith[]): string[] {
+	return links
+		.map(link => (link.owner != null ? `${link.id}:${link.owner}/${link.repo}#${link.number}` : `${link.id}:`))
+		.sort();
+}
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
@@ -316,6 +338,7 @@ export abstract class IntegrationBase<
 	) {}
 
 	dispose(): void {
+		this.invalidateDiscoveryCaches();
 		this._onDidChange.dispose();
 	}
 
@@ -682,22 +705,99 @@ export abstract class IntegrationBase<
 	 */
 	invalidateDiscoveryCaches(): void {}
 
-	private static readonly requestExceptionLimit = 5;
-	private requestExceptionCount = 0;
+	invalidateDiscoveryForConnection(_connectionId?: string): void {
+		this.invalidateDiscoveryCaches();
+	}
 
-	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all'): void {
-		this.requestExceptionCount = 0;
-		if (syncReqUsecase === 'all') {
-			this._syncRequestsPerFailedUsecase.clear();
-			// 'all' is the whole-integration reset: a disconnect, or a re-sync that produced a new access token.
-			this.onStoredTokensReplaced();
-		} else {
-			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
+	getSessionDiscoveryGeneration(_sessionId?: string, _connectionId?: string, _cloud?: boolean): number {
+		return this.discoveryGeneration;
+	}
+
+	get discoveryGeneration(): number {
+		return 0;
+	}
+
+	protected isResolvedSessionCurrent(
+		_session: ProviderAuthenticationSession | undefined,
+		_generation: number,
+	): boolean {
+		return true;
+	}
+
+	onSessionPublishing(publication: SessionPublication): void {
+		const { session, previousSessionId, replacePrimary } = publication;
+		const cloud = session != null ? session.cloud : publication.cloud;
+		const sameVariant = cloud == null || this._session?.cloud == null || cloud === this._session.cloud;
+		const affectsPrimary =
+			(replacePrimary === true && (session != null || cloud == null || (this._session != null && sameVariant))) ||
+			(this._session === null && session != null) ||
+			(this._session != null &&
+				sameVariant &&
+				(session?.id === this._session.id || previousSessionId === this._session.id));
+		if (affectsPrimary && getSessionIdentity(this._session) !== getSessionIdentity(session)) {
+			this._session = undefined;
 		}
+		this.invalidatePublishedSession(publication, affectsPrimary);
+	}
+
+	protected invalidatePublishedSession(_publication: SessionPublication, _affectsPrimary: boolean): void {
+		this.invalidateDiscoveryCaches();
+	}
+
+	private static readonly requestExceptionLimit = 5;
+	/** The primary connection's strikes (see {@link trackRequestException}). */
+	private requestExceptionCount = 0;
+	/** The strikes of every other connection, by connection id. */
+	private readonly connectionRequestExceptionCounts = new Map<string, number>();
+
+	/**
+	 * The connection a read's strikes and successes count against: `undefined` for the primary, which a read reaches
+	 * by omitting `connectionId` or by naming it, else the connection named. The primary is named by its session's id,
+	 * which is its connection's id, or, before that session is resolved, by the connection configured as primary.
+	 */
+	private getSecondaryConnectionId(connectionId: string | undefined): string | undefined {
+		if (!connectionId || connectionId === this._session?.id) return undefined;
+		if (
+			connectionId ===
+			this.authenticationService.getPrimaryConnectionId(this.authProvider.id, this.authProviderDescriptor)
+		) {
+			return undefined;
+		}
+
+		return connectionId;
+	}
+
+	private resetRecoveryAccounting(): void {
+		this.requestExceptionCount = 0;
+		this.connectionRequestExceptionCounts.clear();
+		this._syncRequestsPerFailedUsecase.clear();
+		this._rejectedTokens.clear();
 	}
 
 	/**
-	 * Resets request exceptions without resetting the amount of syncs
+	 * Clears the strikes of the connection `connectionId` names (the primary when omitted) after a read of it
+	 * succeeded, or of every connection for `'all'`.
+	 */
+	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all', connectionId?: string): void {
+		if (syncReqUsecase === 'all') {
+			this.resetRecoveryAccounting();
+			this.invalidateDiscoveryCaches();
+			return;
+		}
+
+		const secondary = this.getSecondaryConnectionId(connectionId);
+		if (secondary != null) {
+			this.connectionRequestExceptionCounts.delete(secondary);
+			return;
+		}
+
+		this.requestExceptionCount = 0;
+		// Only the primary session's refused token requests a re-sync, so only a read of the primary settles one.
+		this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
+	}
+
+	/**
+	 * Resets the primary connection's request exceptions without resetting the amount of syncs
 	 */
 	smoothifyRequestExceptionCount(): void {
 		// On resync we reset exception count only to avoid infinitive syncs on failure
@@ -720,6 +820,9 @@ export abstract class IntegrationBase<
 		// A connection was deleted, or a different one became primary. Ahead of the guard — see
 		// `onStoredTokensReplaced`.
 		this.onStoredTokensReplaced();
+		// The strikes are kept by role, so the former primary's would otherwise pass to the new one.
+		this.requestExceptionCount = 0;
+		this.connectionRequestExceptionCounts.clear();
 
 		// Queued, so a resolution already running finishes with the former primary and this one then re-resolves.
 		return this.runSessionTransition(async () => {
@@ -751,6 +854,7 @@ export abstract class IntegrationBase<
 	private async syncCloudConnectionLocked(
 		state: 'connected' | 'disconnected',
 		forceSync: boolean,
+		reason: 'explicit' | 'expired' = 'explicit',
 	): Promise<Error | undefined> {
 		const scope = getScopedLogger();
 		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
@@ -777,9 +881,10 @@ export abstract class IntegrationBase<
 				if (forceSync) {
 					// Get a new session from the cloud. The stored one is refetched rather than deleted first (see
 					// `GetSessionOptions.refetch`), so a fetch that fails transiently keeps the token it had.
-					// Not left to the token-changed check below, which needs an `oldSession` — see
-					// `onStoredTokensReplaced`.
-					this.onStoredTokensReplaced();
+					if (reason === 'explicit') {
+						this._rejectedTokens.clear();
+						this.invalidateDiscoveryForConnection();
+					}
 					// The cached session is kept while the replacement is fetched (the refetch does not read it): a
 					// transient failure then leaves it as it was, expiry included, and a read meanwhile does not have to
 					// resolve a session of its own, which during a GK API outage fails the same way and reports the
@@ -815,8 +920,13 @@ export abstract class IntegrationBase<
 					failure = toError(ex);
 				}
 
-				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
-					this.resetRequestExceptionCount('all');
+				if (
+					oldSession &&
+					newSession &&
+					newSession === this._session &&
+					newSession.accessToken !== oldSession.accessToken
+				) {
+					this.resetRecoveryAccounting();
 				}
 
 				// The forced re-sync above kept the stored token and its descriptor until a replacement arrived.
@@ -983,11 +1093,13 @@ export abstract class IntegrationBase<
 	 * Shows one notice, and spends at most one strike, for a batch read whose targets failed with a server error or a
 	 * timeout. Our own clients leave both to the batch (see `reportRequestFailure`) instead of spending them per
 	 * target. `strike` is true only when every target failed and the call's own failure spent none: a call that
-	 * answered some targets showed the host is up, and budgets strikes the same way as the rest of its failures.
+	 * answered some targets showed the host is up, and budgets strikes the same way as the rest of its failures. The
+	 * strike is `connectionId`'s, the connection the call read.
 	 */
 	protected reportDeferredRequestFailures(
 		slots: readonly PromiseSettledResult<unknown>[] | undefined,
 		strike: boolean,
+		connectionId: string | undefined,
 	): void {
 		let notify: (() => void) | undefined;
 		for (const slot of slots ?? []) {
@@ -1000,7 +1112,7 @@ export abstract class IntegrationBase<
 		if (notify == null) return;
 
 		if (strike) {
-			this.trackRequestException();
+			this.trackRequestException({ connectionId: connectionId });
 		}
 		notify();
 	}
@@ -1069,7 +1181,7 @@ export abstract class IntegrationBase<
 		attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
 	}
 
-	/** Returns whether it spent a strike toward disconnecting (see {@link trackRequestException}). */
+	/** Returns whether it spent a strike (see {@link trackRequestException}). */
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
@@ -1096,8 +1208,8 @@ export abstract class IntegrationBase<
 		// uninstalled app) is not self-healing, so the read failed identically until the user reconnected
 		// by hand. Record the rejection against the connection instead; `resolveReadSession` consumes it
 		// and forces the cloud `/refresh` on the next read of that connection. When there is nothing to
-		// recover, fall through to the shared failure budget, which disconnects after
-		// `requestExceptionLimit` and surfaces the reconnect prompt.
+		// recover, fall through to that connection's failure budget (see `trackRequestException`), which for
+		// the primary disconnects after `requestExceptionLimit` and surfaces the reconnect prompt.
 		if (ex instanceof AuthenticationError && options?.connectionId) {
 			if (this._rejectedTokens.recordRejection(options.connectionId)) return false;
 
@@ -1151,7 +1263,7 @@ export abstract class IntegrationBase<
 					failure = this._lastResyncFailure;
 				} else if (this._session != null && this.connectionExpired === true) {
 					try {
-						failure = await this.syncCloudConnectionLocked('connected', true);
+						failure = await this.syncCloudConnectionLocked('connected', true, 'expired');
 					} catch (ex) {
 						failure = toError(ex);
 					}
@@ -1177,8 +1289,27 @@ export abstract class IntegrationBase<
 		return undefined;
 	}
 
+	/**
+	 * Spends a strike against the connection `connectionId` names (the primary when omitted); a server error or timeout
+	 * our API clients report names the connection whose token made the request (see `reportRequestFailure`). At
+	 * `requestExceptionLimit` the primary session is dropped for this session of the host. Another connection has no
+	 * cached session to drop, since each read resolves its own, so its failures go on surfacing on its reads, and
+	 * reaching the limit leaves the primary and every other connection as they are.
+	 */
 	@trace()
-	trackRequestException(options?: { silent?: boolean }): void {
+	trackRequestException(options?: { silent?: boolean; connectionId?: string }): void {
+		const secondary = this.getSecondaryConnectionId(options?.connectionId);
+		if (secondary != null) {
+			const count = (this.connectionRequestExceptionCounts.get(secondary) ?? 0) + 1;
+			this.connectionRequestExceptionCounts.set(secondary, count);
+			if (count === IntegrationBase.requestExceptionLimit) {
+				Logger.warn(
+					`${this.name} connection '${secondary}' has failed ${count} requests since its last success; it is not the primary, so nothing is disconnected`,
+				);
+			}
+			return;
+		}
+
 		this.requestExceptionCount++;
 
 		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
@@ -1269,8 +1400,14 @@ export abstract class IntegrationBase<
 		}
 		if (this.ctx.config.isIntegrationsEnabled?.() === false) return undefined;
 
+		const generation = this.discoveryGeneration;
+
 		if (createIfNeeded || sync) {
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+			if (this.getSessionDiscoveryGeneration(this._session?.id, undefined, this._session?.cloud) > generation) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 		} else if (this.ctx.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
 		}
@@ -1292,7 +1429,17 @@ export abstract class IntegrationBase<
 				session = undefined;
 			}
 		} catch (ex) {
+			if (isCancellationError(ex) || !this.isResolvedSessionCurrent(undefined, generation)) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
+
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+
+			if (!this.isResolvedSessionCurrent(undefined, generation)) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 
 			// Only interactive paths can prompt for consent, so a sync failure must reach the rethrow below.
 			if (!sync && ex instanceof Error && ex.message.includes('User did not consent')) {
@@ -1310,19 +1457,53 @@ export abstract class IntegrationBase<
 			session = null;
 		}
 
-		if (session === undefined && !createIfNeeded && !sync) {
-			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		if (!this.isResolvedSessionCurrent(session ?? undefined, generation)) {
+			if (sync) throw new CancellationError();
+			return undefined;
 		}
 
+		if (session === undefined && !createIfNeeded && !sync) {
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+			if (!this.isResolvedSessionCurrent(undefined, generation)) return undefined;
+		}
+
+		if (getSessionIdentity(this._session) !== getSessionIdentity(session)) {
+			// Retire reads before the replacement becomes visible across the storage await.
+			this.onSessionPublishing({ session: session ?? undefined, replacePrimary: true });
+		} else if (refetch && session != null) {
+			this.onSessionPublishing({ session: session, replacePrimary: true });
+		}
 		this._session = session ?? null;
 		this.smoothifyRequestExceptionCount();
 
 		if (session != null) {
+			const publishedGeneration = this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud);
 			await this.ctx.storage.storeWorkspace(this.connectedKey, true);
+			if (
+				this._session !== session ||
+				publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+			) {
+				if (sync) throw new CancellationError();
+				return undefined;
+			}
 
 			queueMicrotask(() => {
+				if (
+					this._session !== session ||
+					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+				) {
+					return;
+				}
+
 				this._onDidChange.fire();
 				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
+				if (
+					this._session !== session ||
+					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
+				) {
+					return;
+				}
+
 				// Fired detached, so there is no caller left to catch anything: every implementor is async, and
 				// a rejection would surface as a process-level unhandled rejection in the host. It is a
 				// best-effort warm-up, so swallow the failure with a warning instead. Never awaited by the
@@ -1387,7 +1568,7 @@ export abstract class IntegrationBase<
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
 			);
-			this.resetRequestExceptionCount('searchMyIssues');
+			this.resetRequestExceptionCount('searchMyIssues', connectionId);
 			return { value: issues, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
@@ -1440,7 +1621,7 @@ export abstract class IntegrationBase<
 				options,
 			);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('searchMyIssues');
+			this.resetRequestExceptionCount('searchMyIssues', connectionId);
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
@@ -1536,7 +1717,7 @@ export abstract class IntegrationBase<
 				load: async () => {
 					try {
 						const issue = await getProviderIssue(session);
-						this.resetRequestExceptionCount('getIssue');
+						this.resetRequestExceptionCount('getIssue', connectionId);
 						return issue;
 					} catch (ex) {
 						if (!isCancellationError(ex)) {
@@ -1586,7 +1767,7 @@ export abstract class IntegrationBase<
 				value: (async () => {
 					try {
 						const account = await this.getProviderCurrentAccount?.(session, opts);
-						this.resetRequestExceptionCount('getCurrentAccount');
+						this.resetRequestExceptionCount('getCurrentAccount', connectionId);
 						return account;
 					} catch (ex) {
 						if (isCancellationError(ex) && !isProviderUnreachableError(ex)) {

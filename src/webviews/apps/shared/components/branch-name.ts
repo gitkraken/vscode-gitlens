@@ -37,16 +37,22 @@ export class GlBranchName extends LitElement {
 		}
 
 		:host([appearance='button']:hover) {
-			background: var(--vscode-toolbar-hoverBackground);
+			background: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		:host([appearance='button']:hover:not(:focus-visible)) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		:host([appearance='button']:focus-visible) {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 2px;
 		}
 
 		:host(:focus:not([appearance='button'])) {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 2px;
 		}
 

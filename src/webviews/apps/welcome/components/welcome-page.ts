@@ -137,6 +137,9 @@ const walkthroughSteps: WalkthroughStep[] = [
 				>
 			</div>
 			<p>
+				${localizedContent(l10n.t('Or {upgrade} to unlock all Pro features.'), { upgrade: html`<a href="command:gitlens.welcome.plus.upgrade">${l10n.t('upgrade to Pro')}</a>` })}
+			</p>
+			<p>
 				${l10n.t("With GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.")}
 			</p>
 		`,

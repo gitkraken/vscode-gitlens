@@ -41,6 +41,15 @@ export const packages = [
 		// deliberately narrower: external consumers get only the two entry points documented as semver-stable.
 		publicExports: ['./index.js', './lite.js'],
 	},
+	{
+		name: '@gitlens/notifications',
+		srcDir: 'packages/plus/notifications',
+		dest: 'plus/notifications',
+		// Like integrations, core re-exports only the semver-facing surface: the service, its host context, the
+		// models, the presentation helpers, and `errors.js` for `NotificationsApiError` (so consumers can classify
+		// the service's rejections). The raw API client and the parser stay internal to the package.
+		publicExports: ['./context.js', './errors.js', './models.js', './notificationsService.js', './presentation.js'],
+	},
 ];
 
 /**

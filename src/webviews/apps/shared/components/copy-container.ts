@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
+import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
@@ -28,7 +29,7 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		gl-tooltip:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 2px;
 		}
 
@@ -39,8 +40,8 @@ export class GlCopyContainer extends LitElement {
 
 		:host([appearance='toolbar']) {
 			--copy-background: transparent;
-			--copy-foreground: var(--vscode-foreground);
-			--copy-hover-background: var(--vscode-toolbar-hoverBackground);
+			--copy-foreground: var(--gl-color-action-quiet-fg);
+			--copy-hover-background: var(--gl-color-action-quiet-bg-hover);
 			--copy-border: transparent;
 			--copy-border-radius: var(--gl-radius-sm);
 			--copy-padding: 0 0.4rem;
@@ -55,8 +56,14 @@ export class GlCopyContainer extends LitElement {
 			background: var(--copy-hover-background);
 		}
 
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		:host([appearance='toolbar']:not([disabled], :focus-within):hover) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
+		}
+
 		:host([appearance='toolbar']:focus-within) {
-			outline: var(--gl-border-width) solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
 		}
 
@@ -72,6 +79,10 @@ export class GlCopyContainer extends LitElement {
 		:host([disabled]) {
 			pointer-events: none;
 			opacity: 0.5;
+		}
+
+		.sr-only {
+			${srOnlyStyles}
 		}
 	`;
 
@@ -95,6 +106,11 @@ export class GlCopyContainer extends LitElement {
 
 	@property({ type: Number })
 	timeout: number = 1000;
+
+	/** The copy control's accessible name, for when the copy label isn't one (it is cleared, or it reads
+	 *  differently than the action). Defaults to the copy label. */
+	@property({ type: String, attribute: 'aria-label' })
+	override ariaLabel: string | null = null;
 
 	private _resetTimer: ReturnType<typeof setTimeout> | undefined;
 	private _isMouseDown = false;
@@ -147,19 +163,33 @@ export class GlCopyContainer extends LitElement {
 	override render() {
 		if (!this.content && !this.disabled) return nothing;
 
+		// The tooltip is the focusable control, so it carries the button role and the name — an icon-only
+		// copy control is otherwise announced as nothing. The name stays the action's: what a copy did
+		// ("Copied!") is spoken from the status region, which a name changing under focus is not reliably.
 		return html`<gl-tooltip
-			tabindex="0"
-			.content="${this.label}"
-			placement="${ifDefined(this.placement)}"
-			@click=${this.onClick}
-			@keydown=${this.onKeydown}
-		>
-			<slot></slot>
-		</gl-tooltip>`;
+				tabindex="0"
+				role="button"
+				aria-label=${ifDefined(this.ariaLabel ?? (this.copyLabel || undefined))}
+				aria-disabled=${ifDefined(this.disabled ? 'true' : undefined)}
+				.content="${this.label}"
+				placement="${ifDefined(this.placement)}"
+				@click=${this.onClick}
+				@keydown=${this.onKeydown}
+			>
+				<slot></slot>
+			</gl-tooltip>
+			<span class="sr-only" role="status">${this._resetTimer != null ? this.label : nothing}</span>`;
 	}
 
 	private async onClick(_e: MouseEvent) {
+		// A copy made while the last one is still being said would leave the status text as it was, which
+		// nothing announces — empty the region first, so the same words are spoken again
+		const repeat = this._resetTimer != null;
 		this.cancelResetTimer();
+		if (repeat) {
+			this.requestUpdate();
+			await this.updateComplete;
+		}
 
 		if (this.content) {
 			try {
@@ -172,12 +202,17 @@ export class GlCopyContainer extends LitElement {
 			this.label = l10n.t('Nothing to Copy');
 		}
 		this.createResetTimer();
+		// The timer isn't reactive, and the label may read as before
+		this.requestUpdate();
 		await this.updateComplete;
 		await this.tooltip?.updateComplete;
 		void this.tooltip?.show();
 	}
 
 	private onKeydown(e: KeyboardEvent) {
+		// A disabled control stays focusable, so it can be found and read, but does nothing — as a click on it
+		if (this.disabled) return;
+
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			void this.onClick(e as unknown as MouseEvent);
@@ -192,6 +227,8 @@ export class GlCopyContainer extends LitElement {
 	}
 
 	private createResetTimer() {
+		// A second click can land while the first awaits the clipboard — one timer, or the label reverts early
+		this.cancelResetTimer();
 		this._resetTimer = setTimeout(() => {
 			this._resetTimer = undefined;
 			this.label = this.copyLabel;

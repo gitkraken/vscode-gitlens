@@ -165,6 +165,12 @@ export class WebviewController<
 		return this._onDidChangeVisibility.event;
 	}
 
+	/** A (re)loaded page's connect handshake completed — see {@link WebviewHost.onDidConnect}. */
+	private readonly _onDidConnect = new EventEmitter<void>();
+	get onDidConnect(): Event<void> {
+		return this._onDidConnect.event;
+	}
+
 	/** Webview focus pushes for the RPC `webview` service (`onWebviewFocusChanged`). */
 	private readonly _onDidChangeFocus = new EventEmitter<boolean>();
 	get onDidChangeFocus(): Event<boolean> {
@@ -344,6 +350,7 @@ export class WebviewController<
 
 			this.disposable = Disposable.from(
 				this._onDidDispose,
+				this._onDidConnect,
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				isInEditor
 					? parent.onDidChangeViewState(({ webviewPanel }) => {
@@ -556,6 +563,7 @@ export class WebviewController<
 		// otherwise push that reseed to a not-yet-released interloper's still-live registration.
 		this._tracker?.releaseAllExcept(callerSession);
 
+		this._onDidConnect.fire();
 		if (isReconnect) {
 			void this.provider.onReconnect?.();
 		} else {

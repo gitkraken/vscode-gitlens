@@ -28,13 +28,19 @@ export class GlSignerRow extends LitElement {
 			background: var(--vscode-list-hoverBackground);
 		}
 
+		/* High-contrast hover cue for actionable rows only; contrastActiveBorder is unset outside HC */
+		.row:not(.row--present):hover {
+			outline: var(--gl-border-width) dashed var(--vscode-contrastActiveBorder);
+			outline-offset: -1px;
+		}
+
 		.row--present {
 			cursor: default;
 			opacity: 0.6;
 		}
 
 		.in-file-icon {
-			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+			color: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.avatar {

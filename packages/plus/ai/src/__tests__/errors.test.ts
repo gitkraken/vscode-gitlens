@@ -1,6 +1,12 @@
 import * as assert from 'assert';
 import * as l10n from '@vscode/l10n';
-import { AIError, AIErrorReason, classifyNetworkError } from '../errors.js';
+import {
+	AIError,
+	AIErrorReason,
+	AuthenticationRequiredError,
+	classifyNetworkError,
+	isAIUnavailableError,
+} from '../errors.js';
 
 function withCause(message: string, cause: unknown, name = 'Error'): Error {
 	const err = new Error(message, { cause: cause });
@@ -16,15 +22,22 @@ function withCode(code: string): Error & { code: string } {
 
 suite('AIError diagnostics', () => {
 	test('keeps telemetry text canonical when the display message is translated', () => {
-		l10n.config({ contents: { 'Rate limit exceeded': 'Límite de solicitudes excedido' } });
+		l10n.config({ contents: { 'Rate limit exceeded.': 'Límite de solicitudes excedido.' } });
 		try {
 			const error = new AIError(AIErrorReason.RateLimitExceeded);
 
-			assert.strictEqual(error.message, 'Límite de solicitudes excedido');
+			assert.strictEqual(error.message, 'Límite de solicitudes excedido.');
 			assert.strictEqual(error.diagnosticString, 'Error: Rate limit exceeded');
 		} finally {
 			l10n.config({ contents: {} });
 		}
+	});
+
+	test('describes an exhausted quota as the plan’s weekly AI usage', () => {
+		const error = new AIError(AIErrorReason.UserQuotaExceeded);
+
+		assert.strictEqual(error.message, 'You’ve reached the weekly AI usage included in your plan.');
+		assert.strictEqual(error.diagnosticString, 'Error: You have exceeded your user token limit');
 	});
 });
 
@@ -118,5 +131,22 @@ suite('classifyNetworkError', () => {
 		const err = new Error('weird') as Error & { code: unknown };
 		(err as { code: unknown }).code = 42;
 		assert.strictEqual(classifyNetworkError(err), undefined);
+	});
+});
+
+suite('isAIUnavailableError', () => {
+	test('treats an expired GitKraken session as unavailable', () => {
+		assert.strictEqual(isAIUnavailableError(new AuthenticationRequiredError()), true);
+	});
+
+	test('keeps request-shaped failures and unrelated errors out', () => {
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.RequestTooLarge)), false);
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.NoRequestData)), false);
+		assert.strictEqual(isAIUnavailableError(new Error('boom')), false);
+		assert.strictEqual(isAIUnavailableError(undefined), false);
+	});
+
+	test('treats unauthorized as unavailable', () => {
+		assert.strictEqual(isAIUnavailableError(new AIError(AIErrorReason.Unauthorized)), true);
 	});
 });

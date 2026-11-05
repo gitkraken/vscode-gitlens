@@ -16,7 +16,8 @@
 			"@gitlens/git-github/*": ["../../../packages/plus/git-github/src/*"],
 			"@gitlens/integrations/*": ["../../../packages/plus/integrations/src/*"],
 			"@gitlens/ai/*": ["../../../packages/plus/ai/src/*"],
-			"@gitlens/agents/*": ["../../../packages/plus/agents/src/*"]
+			"@gitlens/agents/*": ["../../../packages/plus/agents/src/*"],
+			"@gitlens/notifications/*": ["../../../packages/plus/notifications/src/*"]
 		},
 		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},

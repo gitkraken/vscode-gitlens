@@ -113,6 +113,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			sanitizeKeys: new Set(['env']),
 		},
 		context.extensionMode === ExtensionMode.Development,
+		// Cached reads marked `quiet` log only when they ran git, failed, ran slow, or took 10ms+
+		{ quietCallsUnder: 10 },
 	);
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {

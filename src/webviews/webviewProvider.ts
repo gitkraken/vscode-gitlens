@@ -110,6 +110,11 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 
 	/** Fired when the containing editor/view/tab's visibility changes. */
 	readonly onDidChangeVisibility: Event<boolean>;
+	/**
+	 * Fired when a (re)loaded page completes its connect handshake — first boot or a reconnect — just before the
+	 * provider's `onReady`/`onReconnect`. For RPC services that hold per-page state the new page must re-report.
+	 */
+	readonly onDidConnect: Event<void>;
 	/** Fired when the webview's focus state changes — including echoes of the webview's own reports. */
 	readonly onDidChangeFocus: Event<boolean>;
 	/** Fired when the host window's focus state changes (only while the webview is visible). */

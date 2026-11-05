@@ -1,5 +1,6 @@
 @use 'sass:meta';
 @use '../shared/styles/theme';
+@use '../shared/styles/colors';
 @use '../shared/styles/tokens';
 @use '../shared/styles/scrollbars';
 
@@ -22,8 +23,6 @@ html {
 	text-size-adjust: 100%;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
-
-	--color-focus-border: var(--vscode-focusBorder);
 }
 
 body {
@@ -34,12 +33,12 @@ body {
 	font-size: var(--vscode-font-size);
 	line-height: 1.4;
 	color: var(--color-foreground);
-	background-color: var(--color-background);
+	background-color: var(--gl-color-surface-base);
 }
 
 :focus,
 :focus-within {
-	outline-color: var(--color-focus-border);
+	outline-color: var(--gl-color-border-focus);
 }
 
 @include scrollbars.scrollbarFix;
@@ -47,17 +46,8 @@ body {
 
 /* Ensure tooltip variables have fallbacks for hoisted tooltips */
 :root {
-	--wa-tooltip-background-color: var(
-		--color-hover-background,
-		var(--vscode-editorHoverWidget-background, var(--vscode-editor-background))
-	);
-	--wa-tooltip-color: var(
-		--color-hover-foreground,
-		var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground))
-	);
-	--gl-tooltip-border-color: var(
-		--color-hover-border,
-		var(--vscode-editorHoverWidget-border, var(--vscode-widget-border))
-	);
+	--wa-tooltip-background-color: var(--gl-color-surface-overlay);
+	--wa-tooltip-color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+	--gl-tooltip-border-color: var(--gl-color-border-overlay);
 	--gl-tooltip-shadow: var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
 }

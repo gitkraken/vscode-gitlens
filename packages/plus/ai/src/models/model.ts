@@ -30,6 +30,7 @@ export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, M
 export type AIActionType =
 	| 'explain-changes'
 	| 'review-changes'
+	| 'review-orient'
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'

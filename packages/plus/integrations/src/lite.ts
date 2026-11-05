@@ -21,6 +21,7 @@ import { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { TokenWithInfo } from './authentication/models.js';
 import { toTokenInfo } from './authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from './constants.js';
@@ -188,7 +189,7 @@ function createProviderStub(id: TokenScopedGitHostId, domain: string, ignoreSSLE
 
 /** Strips a leading `scheme://` and any trailing slashes; a subpath/collection (e.g. `host/tfs/Col`) is preserved. */
 function stripScheme(domain: string): string {
-	return domain.replace(/^[a-z][\w+.-]*:\/\//i, '').replace(/\/+$/, '');
+	return trimTrailingSlashes(domain.replace(/^[a-z][\w+.-]*:\/\//i, ''));
 }
 
 /**
@@ -229,6 +230,6 @@ function resolveApiBaseUrl(
 			return 'https://dev.azure.com';
 		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			// Mirror the session-managed getter, which honors the connection protocol; default to https.
-			return rawDomain.includes('://') ? rawDomain.replace(/\/+$/, '') : `https://${host}`;
+			return rawDomain.includes('://') ? trimTrailingSlashes(rawDomain) : `https://${host}`;
 	}
 }

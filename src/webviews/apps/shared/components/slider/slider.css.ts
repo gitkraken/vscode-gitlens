@@ -18,7 +18,7 @@ export const sliderStyles = css`
 
 	wa-slider::part(track) {
 		background-color: color-mix(in srgb, var(--color-foreground) 20%, transparent);
-		border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
+		border: var(--gl-border-width) solid var(--gl-color-border-contrast, transparent);
 	}
 
 	wa-slider::part(indicator) {
@@ -27,12 +27,12 @@ export const sliderStyles = css`
 
 	wa-slider::part(thumb) {
 		background-color: var(--vscode-button-background);
-		border: var(--gl-border-width) solid var(--vscode-contrastBorder, var(--vscode-button-background));
+		border: var(--gl-border-width) solid var(--gl-color-border-contrast, var(--vscode-button-background));
 		box-shadow: 0 1px 2px var(--vscode-widget-shadow);
 	}
 
 	wa-slider:focus-within::part(thumb) {
-		outline: var(--gl-border-width) solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 
@@ -46,7 +46,7 @@ export const sliderStyles = css`
 		min-width: 4.4rem;
 		font-family: var(--vscode-editor-font-family);
 		font-size: 1.2rem;
-		color: var(--color-foreground--85);
+		color: var(--vscode-foreground);
 	}
 
 	@media (prefers-reduced-motion: reduce) {

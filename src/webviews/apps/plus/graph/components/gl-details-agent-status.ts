@@ -21,6 +21,7 @@ import {
 	buildPastAgentSessionContext,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
+	createAgentSessionKeplerHref,
 	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -1416,6 +1417,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 			lastActive != null ? l10n.t('Last active {elapsed} ago', { elapsed: lastActive }) : undefined;
 		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
+		const keplerHref = createAgentSessionKeplerHref(session);
 		// Resolve actions surface only for an ask this window can actually route. An unresolvable
 		// one (elicitation, or discovered by the poll rather than the hook) still renders its
 		// detail block — the user needs to see what is being asked — but is answered in the
@@ -1468,6 +1470,17 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 								href=${action.href}
 							></gl-action-chip>`,
 						)}
+						${
+							keplerHref != null
+								? html`<gl-action-chip
+										class="card__open"
+										icon="gl-kepler"
+										label=${l10n.t('Open Session in Kepler')}
+										overlay="tooltip"
+										href=${keplerHref}
+									></gl-action-chip>`
+								: nothing
+						}
 						${
 							archiveHref != null
 								? html`<gl-action-chip

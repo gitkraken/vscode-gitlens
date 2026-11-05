@@ -46,7 +46,7 @@ export const selectStyles = css`
 	}
 
 	wa-select:focus-within::part(combobox) {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 

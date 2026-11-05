@@ -24,7 +24,7 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
+import { joinPaths, maybeUri, normalizePath, splitPath, trimTrailingSlashes } from '@gitlens/utils/path.js';
 import { cancellable } from '@gitlens/utils/promise.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -33,8 +33,10 @@ import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions, NamedRefs } from './exec/git.js';
-import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
+import { batchLiteralPathspecs, Git, gitConfigsStatus, GitError, GitErrors } from './exec/git.js';
 import { readCommonGitDir, readHeadState } from './exec/headState.js';
+import type { IndexRefresherOptions } from './exec/indexRefresh.js';
+import { IndexRefresher } from './exec/indexRefresh.js';
 import type { GitLocation } from './exec/locator.js';
 import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -87,6 +89,17 @@ export interface CliGitProviderOptions {
 	 * a literal path strictly inside the common git dir, or that lies under `worktrees`, is dropped.
 	 */
 	ignoredWorktreeFolders?: readonly string[];
+	/**
+	 * Refreshes a checkout's index in the background after core's own clone, worktree add, checkout, restore, merge, pull,
+	 * reset, cherry-pick, revert, rebase, stash apply, pop and push, and abort or continue of a paused operation rewrote
+	 * it, so later status and diff reads stop re-hashing the files written in the index's second. A write that stops on
+	 * conflicts refreshes too, since the files it rewrote first are read the most while the conflicts are resolved. Off
+	 * by default: each costs a status of the whole checkout, worth it only where that checkout will be read again.
+	 * `scheduleIndexRefresh` runs either way.
+	 */
+	refreshIndexAfterWrites?: boolean;
+	/** The clock and timer behind the background index refresh, for tests; the real ones by default */
+	indexRefresh?: Pick<IndexRefresherOptions, 'now' | 'setTimer'>;
 }
 
 /**
@@ -130,6 +143,7 @@ export class CliGitProvider implements GitProvider {
 	private readonly _ignoredWorktreeFolders: readonly string[];
 	/** By common git dir, the folders whose worktrees are ignored there: a common git dir never moves while it is open */
 	private readonly _ignoredWorktreeRoots = new Map<string, Promise<readonly string[]>>();
+	private readonly _indexRefresher: IndexRefresher;
 
 	constructor(options: CliGitProviderOptions) {
 		// Every typed write announces itself through `onReset`, so the provider clears its own state there
@@ -192,6 +206,12 @@ export class CliGitProvider implements GitProvider {
 			});
 		this._cacheOwned = !(options.cache instanceof Cache);
 		this._cache = options.cache instanceof Cache ? options.cache : new Cache();
+		this._indexRefresher = new IndexRefresher({
+			...options.indexRefresh,
+			afterWrites: options.refreshIndexAfterWrites,
+			git: this._git,
+			statIndexMtimeMs: checkoutPath => this.statIndexMtimeMs(checkoutPath),
+		});
 
 		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
 		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
@@ -206,6 +226,27 @@ export class CliGitProvider implements GitProvider {
 	/** The underlying cache instance (for repo path registration, etc.) */
 	get cache(): Cache {
 		return this._cache;
+	}
+
+	/** The per-checkout queue that refreshes an index a write left with untrusted entries */
+	get indexRefresher(): IndexRefresher {
+		return this._indexRefresher;
+	}
+
+	private async statIndexMtimeMs(checkoutPath: string): Promise<number | undefined> {
+		try {
+			let gitDir = this._cache.gitDir.get(checkoutPath);
+			if (gitDir == null) {
+				// A failed clone or worktree add leaves no checkout, and resolving one there anyway would cache, for its
+				// path, the git dir of whatever repository git falls back to
+				if (!(await fsExists(path.join(checkoutPath, '.git')))) return undefined;
+
+				gitDir = await this.config.getGitDir(checkoutPath);
+			}
+			return (await fs.stat(path.join(gitDir.uri.fsPath, 'index'))).mtimeMs;
+		} catch {
+			return undefined;
+		}
 	}
 
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
@@ -342,7 +383,9 @@ export class CliGitProvider implements GitProvider {
 		}
 
 		// `throw`: the default handler swallows `remoteConnectionError`, which would return a folder never cloned
-		await this._git.run({ cwd: parentPath, errors: 'throw', ...runOptions }, 'clone', url, folderPath);
+		await this._indexRefresher.refreshAfter(folderPath, () =>
+			this._git.run({ cwd: parentPath, errors: 'throw', ...runOptions }, 'clone', url, folderPath),
+		);
 
 		return folderPath;
 	}
@@ -667,6 +710,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -687,6 +731,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -737,6 +782,7 @@ export class CliGitProvider implements GitProvider {
 			this._git,
 			this._cache,
 			this as unknown as CliGitProviderInternal,
+			this._indexRefresher,
 		));
 	}
 
@@ -768,6 +814,7 @@ export class CliGitProvider implements GitProvider {
 			this._cache,
 			this as unknown as CliGitProviderInternal,
 			this._ignoredWorktreeFolders.length ? path => this.getIgnoredWorktreeRoots(path) : undefined,
+			this._indexRefresher,
 		));
 	}
 
@@ -923,7 +970,7 @@ export class CliGitProvider implements GitProvider {
 		// itself ignored is answered here, as one entry, and left out of the listing
 		const scopedEntries = new Set<string>();
 		if (paths != null) {
-			const scopes = [...new Set(paths.map(p => (p.length > 1 ? p.replace(/\/+$/, '') : p)))];
+			const scopes = [...new Set(paths.map(p => (p.length > 1 ? trimTrailingSlashes(p) : p)))];
 			const ignoredScopes = await this.getIgnoredScopes(
 				repoPath,
 				scopes.filter(p => p !== ''),
@@ -1042,9 +1089,9 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	/**
-	 * Which of `scopes` are ignored. `check-ignore` dies on a path inside a submodule or beyond a symlink, where this
-	 * repository ignores nothing, so a failed batch is bisected, one half at a time, and a scope that fails alone is
-	 * not ignored. That costs about 2·k·log2(N) runs for k bad scopes, rather than a burst of N at once.
+	 * Which of `scopes` are ignored. A scope git refuses (beyond a symlink, inside a submodule) is not ignored, as the
+	 * listing answers it with nothing. Any other failure answers none; when git itself is failing, the listing that
+	 * follows fails too.
 	 */
 	private async getIgnoredScopes(
 		repoPath: string,
@@ -1056,65 +1103,101 @@ export class CliGitProvider implements GitProvider {
 			return await this.getIgnoredPaths(repoPath, scopes, { priority: priority }, cancellation);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
-			if (scopes.length < 2) return new Set();
-		}
 
-		const middle = scopes.length >> 1;
-		const ignored = await this.getIgnoredScopes(repoPath, scopes.slice(0, middle), priority, cancellation);
-		for (const scope of await this.getIgnoredScopes(repoPath, scopes.slice(middle), priority, cancellation)) {
-			ignored.add(scope);
+			return new Set();
 		}
-		return ignored;
 	}
 
+	/**
+	 * `check-ignore` dies on the first path it can't answer (inside a submodule, beyond a symlink, outside the repository,
+	 * or empty), where this repository ignores nothing, having answered every path before it, so the paths after it are
+	 * asked again, less those in the folder of a path refused for a symlink or submodule, which share its fate. Each path
+	 * is answered once, in one run plus one for each refusal. Any other failure is thrown.
+	 */
 	async getIgnoredPaths(
 		repoPath: string,
 		paths: readonly string[],
 		options?: { priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<Set<string>> {
-		if (!paths.length) return new Set();
-
-		// check-ignore reads each line as a pathspec, so a leading `:` would be parsed as magic; `./` makes it a literal path
-		let prefixed: Map<string, string> | undefined;
-		const lines = paths.map(p => {
-			if (!p.startsWith(':')) return p;
-
-			const sent = `./${p}`;
-			(prefixed ??= new Map()).set(sent, p);
-			return sent;
-		});
-
-		// Exits 1 when nothing matches, which is an answer
-		const result = await this._git.run(
-			{
-				cwd: repoPath,
-				errors: 'throw',
-				cancellation: cancellation,
-				priority: options?.priority,
-				stdin: `${lines.join('\0')}\0`,
-				expectedExitCodes: [1],
-			},
-			'check-ignore',
-			'-z',
-			'--stdin',
-		);
-
 		const ignored = new Set<string>();
-		let given: Set<string> | undefined;
-		for (const entry of iterateByDelimiter(result.stdout, '\0')) {
-			if (!entry.length) continue;
+		let pending = paths;
+		while (pending.length) {
+			const refused = await this.checkIgnore(repoPath, pending, ignored, options, cancellation);
+			if (refused == null) break;
 
-			const original = prefixed?.get(entry);
-			if (original != null) {
-				ignored.add(original);
-				// The caller may have spelled the same file as `./:…` too, and gets that spelling back as well
-				if (!(given ??= new Set(paths)).has(entry)) continue;
+			const folder = refused.folderWide ? getRefusedFolder(pending[refused.index]) : undefined;
+			pending = pending.slice(refused.index + 1);
+			if (folder != null) {
+				pending = pending.filter(p => !p.startsWith(folder) || hasDotSegment(p));
 			}
-
-			ignored.add(entry);
 		}
 		return ignored;
+	}
+
+	/**
+	 * One `check-ignore` run over `paths`, adding the ignored ones to `ignored`. Returns the path git died on, which
+	 * every path before it was answered ahead of, or `undefined` when all were answered.
+	 */
+	private async checkIgnore(
+		repoPath: string,
+		paths: readonly string[],
+		ignored: Set<string>,
+		options: { priority?: GitCommandPriority } | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ index: number; folderWide: boolean } | undefined> {
+		// check-ignore reads each line as a pathspec, so a leading `:` would be parsed as magic; `./` makes it a literal path
+		const lines = paths.map(p => (p.startsWith(':') ? `./${p}` : p));
+
+		let stdout: string;
+		let refusal: GitError | undefined;
+		try {
+			// `-v -n` writes a record for every path answered, so the records line up with `paths` and end where git died
+			const result = await this._git.run(
+				{
+					cwd: repoPath,
+					errors: 'throw',
+					cancellation: cancellation,
+					priority: options?.priority,
+					stdin: `${lines.join('\0')}\0`,
+					expectedExitCodes: [1],
+				},
+				'check-ignore',
+				'-v',
+				'-n',
+				'-z',
+				'--stdin',
+			);
+			stdout = result.stdout;
+		} catch (ex) {
+			if (!(ex instanceof GitError) || ex.stderr == null || !GitErrors.pathspecRefused.test(ex.stderr)) throw ex;
+
+			refusal = ex;
+			stdout = ex.stdout ?? '';
+		}
+
+		// Each record is source, line number, pattern and path; the pattern is empty when none matched, and `!`-prefixed
+		// when it re-includes the path
+		let index = 0;
+		let field = 0;
+		let matched = false;
+		for (const value of iterateByDelimiter(stdout, '\0')) {
+			if (field === 2) {
+				matched = value.length > 0 && !value.startsWith('!');
+			} else if (field === 3) {
+				if (matched && index < paths.length) {
+					ignored.add(paths[index]);
+				}
+				index++;
+			}
+			field = (field + 1) % 4;
+		}
+
+		if (refusal == null) return undefined;
+		// Every path answered yet git still died, so the refusal can't be pinned to one of them
+		if (index >= paths.length) throw refusal;
+
+		return { index: index, folderWide: /is (?:beyond a symbolic link|in submodule)/i.test(refusal.stderr ?? '') };
 	}
 
 	/** Every `.gitignore` git reads in the working tree (tracked, or untracked and not itself ignored), root included */
@@ -1173,6 +1256,7 @@ export class CliGitProvider implements GitProvider {
 
 	dispose(): void {
 		this._onDidAnnounceChanges.dispose();
+		this._indexRefresher.dispose();
 		this._git.dispose();
 		if (this._cacheOwned) {
 			this._cache.dispose();
@@ -1216,6 +1300,22 @@ function getDefaultGlobalExcludesPath(): string | undefined {
 
 	const home = env.HOME || homedir();
 	return home ? path.join(home, '.config', 'git', 'ignore') : undefined;
+}
+
+/**
+ * The folder of a path git refused for a symlink or submodule in its leading folders, where every other path is refused
+ * too; none for a top-level path, or one with `.` or `..` segments, whose folder git would read otherwise
+ */
+function getRefusedFolder(refused: string): string | undefined {
+	const trimmed = trimTrailingSlashes(refused);
+	if (hasDotSegment(trimmed)) return undefined;
+
+	const index = trimmed.lastIndexOf('/');
+	return index > 0 ? trimmed.substring(0, index + 1) : undefined;
+}
+
+function hasDotSegment(p: string): boolean {
+	return /(?:^|\/)\.\.?(?:\/|$)/.test(p);
 }
 
 /** Whether a folder holds a file or symlink anywhere below it, as git lists no folder without one; an unreadable folder holds none */

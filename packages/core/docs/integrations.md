@@ -113,27 +113,28 @@ provider before calling the token backend; never reuse an id discovered under a 
 Every read returns `ProviderResult<T>` (`items` + `warnings` + `fetchFailed?`), and every paged read extends
 it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side failure** — see §6.
 
-| Method                       | Returns                   | Scope                                                                                        |
-| ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
-| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups / Bitbucket DC projects; issue-tracker resources (Jira sites, …). |
-| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                                  |
-| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.              |
-| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                        |
-| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.           |
-| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none where the provider can count. See §5.1.         |
-| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                                     |
-| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.            |
-| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                                  |
-| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N issues by coordinate or tracker identifier; an absence is proven.                 |
-| `getPullRequestsBatch`       | `PullRequestBatchResult`  | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.               |
-| `getPullRequestsForBranches` | `PullRequestBranchResult` | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
-| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).         |
-| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                            |
-| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                       |
-| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
-| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                 |
-| `getCurrentAccount`          | `CurrentAccountResult`    | Who a connection is signed in as; Jira Data Center refuses.                                  |
-| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                             |
+| Method                       | Returns                      | Scope                                                                                        |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `listOrgs`                   | `ProviderOrganization`       | Orgs / workspaces / groups / Bitbucket DC projects; issue-tracker resources (Jira sites, …). |
+| `listProjects`               | `ProviderOrganization`       | The project tier: Azure DevOps, and issue-tracker projects.                                  |
+| `listLinearProjects`         | `ProviderLinearProjectShape` | Linear's own Projects (not its teams), to narrow a Linear issue read with.                   |
+| `listRepos`                  | `ProviderRepositoryShape`    | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.              |
+| `listPullRequestsPage`       | `PullRequestShape`           | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                        |
+| `searchPullRequestsPage`     | `PullRequestShape`           | PRs involving the user that match structured criteria, optionally repo/org-scoped.           |
+| `countPullRequests`          | `PullRequestCountResult`     | How many PRs match each scope, fetching none where the provider can count. See §5.1.         |
+| `listIssuesPage`             | `IssueShape`                 | Same split, for a **git host**'s issues.                                                     |
+| `searchIssuesPage`           | `IssueShape`                 | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.            |
+| `countIssues`                | `IssueCountResult`           | How many match each scope, fetching none of them. See §5.1.                                  |
+| `getIssuesBatch`             | `IssueBatchResult`           | Resolves N issues by coordinate or tracker identifier; an absence is proven.                 |
+| `getPullRequestsBatch`       | `PullRequestBatchResult`     | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.               |
+| `getPullRequestsForBranches` | `PullRequestBranchResult`    | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
+| `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).         |
+| `sweepPullRequests`          | `ProviderSweepResult`        | Drains **every** page across providers (`maxPages`, default 100).                            |
+| `sweepClosedPullRequests`    | `ProviderSweepResult`        | Same, pinned to `['closed','merged']`.                                                       |
+| `broadenIssues`              | `ProviderBroadenResult`      | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
+| `resolveRepository`          | `ResolveRepositoryResult`    | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                 |
+| `getCurrentAccount`          | `CurrentAccountResult`       | Who a connection is signed in as; Jira Data Center refuses.                                  |
+| `getSupportedFilters`        | filter capability table      | Static, connection-free. See §7.                                                             |
 
 A provider that cannot serve a surface says so explicitly — a `kind: 'unsupported'` warning (§6) plus
 `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
@@ -228,7 +229,10 @@ The hosts with a cheap check select only the change state:
   the full read sends one request per issue. The query matches the team's current key, while the full read may also
   resolve an identifier the issue no longer carries (its team was renamed, or it moved), so an issue the query leaves
   out, or an identifier that isn't a team key and a number, falls through to its own full read, which decides whether
-  it is absent.
+  it is absent. The check also reads each issue's GitHub sync links (`syncedWith`) with their coordinates, so a link
+  added, removed or moved changes the etag even when Linear leaves the update time alone. A row without `syncedWith`
+  (held from before the field, or read while Linear failed to resolve its link list) never compares unchanged, so it is
+  read in full again.
 
 Every other host and tracker accepts the `etag`, reads the target in full, and etags the row. On a host with a cheap check, a call is up to three integration calls: the cheap check
 of the targets that sent an `etag`, a full read of the rest started alongside it, and a full read of the targets
@@ -247,7 +251,7 @@ never a false `unchanged`. A target the cheap check fails falls through to the f
 the warning if it fails too — except on an `auth`, `rate-limit` or `no-connection` failure, which the full read
 would only hit again: those targets are dropped with that warning and `fetchFailed`, exactly as a failed full read
 drops them. Each target is judged by its own failure, so one target's rate limit never drops another the check only
-failed to answer. The cheap check counts toward the integration's disconnect budget only when the credential is
+failed to answer. The cheap check counts toward its connection's failure budget only when the credential is
 refused; any other failure of it is left to the full reads, so a call counts at most twice, once per full read.
 
 `getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
@@ -258,8 +262,10 @@ repository is that base repository or that fork, so a `main` never claims every 
 head branch name in every state, so a merged pull request whose branch was deleted is still found, and a fork is
 matched by its owner, so a pull request whose fork was deleted still matches that `headOwner`. Each target returns up
 to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base repository included; `truncated` means a
-pull request that wasn't returned could still match. GitHub/GHE answer up to 25 targets per request, matching the
-branch name across every fork. A target whose name more forks share than that request returned (`main` or `patch-1`
+pull request that wasn't returned could still match. GitHub/GHE answer up to 25 distinct repository-and-branch pairs
+per request, matching the branch name across every fork; targets that differ only by `headOwner` share one query,
+filtered per owner, so a query that fails drops every target that shares it.
+A target whose name more forks share than that request returned (`main` or `patch-1`
 in a fork-heavy repository) costs one more REST request, which filters by head owner on the server; a match the first
 request missed is resolved through `getPullRequestsBatch`'s own read, the answer is the union of both requests'
 matches, and the target is `truncated` only when more than 10 truly match. The REST request can't see a pull request
@@ -590,9 +596,26 @@ Invariants worth relying on:
 - `page.itemsPerPage` describes the page that came back; don't infer totals or "last page" from it.
 - Composite fan-out cursors retain each scope's exact continuation or retry position. Round-trip the cursor
   even after a partial result: healthy scopes advance while a failed scope retries the page it missed.
+- A repo-scoped read on a host that reads repository by repository (GitLab, GitLab self-managed, Bitbucket Cloud,
+  Bitbucket Data Center and Azure DevOps; Azure DevOps issues per project) keeps at most 6 of those requests in
+  flight, whatever the repo count. `scopeConcurrency` on `listPullRequestsPage`, `listIssuesPage` and the pull
+  request sweeps lowers or raises it; a sweep runs up to 6 targets at once, each with this bound. GitHub/GHE send
+  one query regardless.
+- A repo-scoped Azure DevOps pull request read makes one extra request per repository (and fork source) per page to
+  fill each row's clone URLs (`refs.base.url`, `refs.head.url`, `cloneHttps`/`cloneSsh`), which `summary` does not
+  skip. `includeRemoteInfo: false` on `listPullRequestsPage` and the pull request sweeps drops that lookup and
+  those fields; leave it on for rows that will be checked out or matched to local remotes. Other providers ignore it.
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
+- A sweep's `targets` may hold several targets of one provider, one per connection (two GitHub Enterprise
+  installations, two Bitbucket Data Center servers, two github.com accounts), each with its own `repos` and
+  `filters` that override the sweep-level ones. Every target of such a provider must name a `connectionId` or,
+  on a self-managed host, a `domain` (a cloud provider's read ignores it), since an unnamed one reads the primary
+  connection and would read it twice; a repeat throws, matched by host however its `domain` is spelled.
+  Read failures per connection from `failedTargets`/`incompleteTargets` — each ref carries the `connectionId`
+  and resolved `domain` its `onTargetSettled` event does — and treat `failedProviderIds`/`incompleteProviderIds`
+  as the per-provider summary: a provider is failed only when all its targets failed.
 
 ### The filtered pull request search
 
@@ -854,6 +877,12 @@ Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two w
 
 ### `selector` — a selection that no longer exists
 
+A `linearProjects` id absent from a complete workspace Project list is reported with a `kind: 'not-found'`
+warning whose `selector` is `{ kind: 'linearProject', value: id }`, after a fresh list confirms the miss.
+The requested ids still reach the issue filter, so a missing Project does not suppress issues in the other
+selected Projects. The same filter is retained if the list cannot be read completely. Archived Projects are
+omitted by the upstream Project list, as in Linear's default paginated API responses.
+
 `listIssueTrackerIssuesPage` reports an `org` or `project` that matches nothing the connection discovered as one
 `kind: 'not-found'` warning carrying `selector: { kind: 'org' | 'project', value }` (`ProviderWarningSelector`),
 `value` being the selector exactly as passed. The page is empty, not `fetchFailed`, with `hasMore: false` and no
@@ -957,7 +986,7 @@ not, and need no confirmed credential:
 A page served instead of data keeps its own message, with no cause. `unexpected-response` is only named where the failed
 read goes through core's provider error handling. Two kinds of failure still carry the error's text and no cause: a
 scope that one of provider-apis' own fan-outs fails (GitLab issues or pull requests when core hands it several
-repositories at once, Bitbucket Data Center pull requests), and the current-user lookup a repository-scoped read makes
+repositories at once), and the current-user lookup a repository-scoped read makes
 to filter by the user.
 
 ### `omission` — succeeded, but withheld results
@@ -1036,6 +1065,8 @@ scope stay two warnings even if their messages ever converge.
 | `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                                           |
 | `failedProviderIds`     | Sweeps/broadens: providers whose requested scopes produced no usable result.                                                                  |
 | `incompleteProviderIds` | Sweeps/broadens: providers with a usable result plus a failed, partial, or truncated sibling scope.                                           |
+| `failedTargets`         | Sweeps only: the targets (provider, `connectionId`, `domain`) that produced no usable result. Authoritative when a provider has several.      |
+| `incompleteTargets`     | Sweeps only: the targets that returned a slice with a gap. Never also in `failedTargets`.                                                     |
 
 An omission pairs with `page.truncated: true` — results are missing — and typically with `fetchFailed: false`,
 since nothing failed. But the flags are **per result** and `omission` is **per warning**, so the two can differ
@@ -1050,6 +1081,11 @@ one.
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
 carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale.
+It also carries `isFork` and `parent` (the repository a fork was made from, on the same host; `project` only on Azure
+DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, when the
+`@gitkraken/provider-apis` repository returns `isFork` and `parent`, which it does not yet (a consumer can patch the
+SDK to return them). Only `isFork: false` means "not a fork": an identity with no `parent` and no `isFork` is a provider
+that didn't say.
 
 ## 7. Filters are all-or-nothing
 
@@ -1183,6 +1219,7 @@ footnote says otherwise.
 | ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: |
 | `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
 | `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |
+| `listLinearProjects`         |      —       |          —           |     —     |      —       |            —            |      —      |   ✓    |   —    |
 | `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
 | PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
@@ -1217,7 +1254,28 @@ every read below is scoped to that one connection; a paged read that omits it ge
 while `getIssuesBatch` refuses instead (see §4). `listOrgs` returns exactly one resource — the
 instance itself, synthesized from the configured host rather than fetched — and its projects carry the project key
 as `key` (the numeric id when the server reports none), which is what `listProjects` publishes as `name` and what
-`project` selects; reads address the project by id regardless. No autolinks are registered yet.
+`project` selects; reads address the project by id regardless. Project autolinks use the real key, skipping
+projects whose key fell back to the numeric id. Dashed commit references (`PROJ-12`) and underscored branch
+references (`PROJ_12`) both point to `<configured instance URL>/browse/PROJ-12`, retaining any context path.
+
+`getAutolinkReferences({ providerId, connectionId?, domain?, forceSync? })` supports Jira Cloud and Data Center.
+It returns a `RefSet` tuple containing provider metadata and references for that one connection, or `undefined`
+when the target cannot be resolved or discovery failed or was incomplete. Each call awaits uncached discovery
+with one resolved session; callers own coalescing and caching. `forceSync: true` refreshes the session and
+retires discovery started before or during that refresh. Refreshing a secondary connection does not change the
+primary session. Empty references mean complete discovery found no projects with links. Internal decoration
+readers retain their separate tolerant cache. Match references in the host with `getAutolinks` or `getBranchAutolinks` from
+`git/utils/autolink.utils.js`; references may hold compiled regexes and are not a wire format. Match separate
+references independently if distinct projects sharing an issue number must both be retained, since
+`getAutolinks` keys its result by the numeric suffix.
+
+`getAutolinks(message, refsets, { maxResults })` stops static-reference materialization when the result map
+reaches the requested number of distinct entries, including entries inserted by dynamic callbacks. Omit the
+option for existing unlimited behavior; zero returns no results. A limited call resets its cached regex so
+subsequent calls still start at the beginning. Dynamic parse callbacks run to completion and can exceed the
+requested count; this option cannot limit work inside them. Jira references from this facade are static. Consumers can request
+one result beyond their display budget to detect overflow, then yield between reference batches to bound
+work across large catalogs.
 
 ¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
 finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its
@@ -1252,7 +1310,10 @@ as "unset". The sort vocabulary is narrower than the issue search's on purpose: 
 by a field a normalized pull request carries, and GitHub PRs have neither a priority nor a relevance that ranks
 stably under the result ceiling.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
-Linear + Trello `Assignee` · Bitbucket family none.
+Linear + Trello `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
+assigned issues plus the GitHub-synced issues the viewer created (a GitHub issue attachment, and `syncedWith` not
+`[]`), since Linear's GitHub Issues sync gives the copy of a GitHub issue its author (when linked) as creator but no
+assignee; `Assignee` by name reads the assigned issues only.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
 `Assignee, Author` · everything else none.
 Issue **search** criteria (`getSupportedFilters().issueSearch`): GitHub/GHE express all of them —
@@ -1499,6 +1560,14 @@ Markdown by this package.
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
   return the same set; Linear's resource is the organization and its projects are teams.
+  Linear's own Projects (Linear's `Project` entity, which can span teams) are a separate read, `listLinearProjects`:
+  drained across Linear's pages up to 2,000, cached per connection for five minutes or until `forceSync`, and
+  reported `fetchFailed` with a warning when the drain could not finish. Pass their `id`s as
+  `listIssueTrackerIssuesPage`'s `linearProjects` to narrow a Linear read to issues in any of them, server-side.
+  It narrows each team's read rather than replacing the team window, so it combines with `org`/`project`,
+  `includeAllAssignees`, `state` and `sort`, and a team's backstop counts only the issues in those Projects. Every
+  other tracker refuses it (warning + `fetchFailed`), as it does an empty id. A cursor records the Projects it was
+  minted under and is refused under others, as it is under another `state`.
   Thread the returned cursor verbatim: it can combine the next untouched project window with discovery/project
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
@@ -1544,6 +1613,14 @@ as `#{id}`, used for branch names). `nodeId` is the stable provider-native id, b
 provider-specific (Azure work-item ids are organization-scoped). For cross-scope correlation, key by
 provider/domain plus repository or project identity and `nodeId`; `url` is also unique for the provider reads
 that require one.
+
+A Linear row also carries `syncedWith`: the GitHub issues Linear's two-way GitHub Issues sync keeps it in sync
+with, so a host reading both providers can show the pair once. Each link's `id` is the GitHub issue's database id
+(its REST `id`), which a GitHub row doesn't carry (its `nodeId` is the GraphQL node ID), so match a GitHub row on
+`owner`/`repo`/`number`, comparing `owner` and `repo` case-insensitively as GitHub does. A link carries no
+coordinates when Linear reports it without them or failed to resolve that link's details. Linear's link names no host
+and Linear also syncs with GitHub Enterprise Cloud, so the same coordinates on two hosts can't be told apart from the
+row alone. `[]` means synced with nothing; an absent field means unknown, not unsynced.
 
 ## 10. Token-scoped reads (`lite.js`)
 

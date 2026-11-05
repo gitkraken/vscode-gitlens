@@ -396,6 +396,19 @@ suite('Branch Utils Test Suite', () => {
 			);
 		});
 
+		test('getBranchTrackingWithoutRemote is undefined for a remote-tracking branch', () => {
+			// #4950: the Graph's remote refs carry the remote's own name in `upstream`
+			const ref = {
+				refType: 'branch',
+				name: 'upstream/main',
+				ref: 'upstream/main',
+				remote: true,
+				upstream: { name: 'upstream', missing: false },
+				repoPath: '/r',
+			} as const;
+			assert.strictEqual(getBranchTrackingWithoutRemote(ref), undefined);
+		});
+
 		test('getBranchTrackingWithoutRemote prefers upstream.remoteBranch over the local tracking name', () => {
 			const ref = {
 				refType: 'branch',

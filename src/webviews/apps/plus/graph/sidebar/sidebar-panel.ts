@@ -52,6 +52,7 @@ import {
 	describeAgentSession,
 	filterAgentSessionsForFamily,
 	getAgentSessionArchiveAction,
+	getAgentSessionKeplerAction,
 	getAgentSessionOpenActions,
 } from '../../../shared/agentUtils.js';
 import { shouldShowKeplerBanner } from '../../../shared/components/keplerBanner.utils.js';
@@ -1214,11 +1215,14 @@ would expose the graph through fade or at the gap left by the translate). */
 			);
 		}
 
-		// Connected and reachable, but the host has no repo-scoped pull request query GitLens can issue —
+		// Connected and reachable, but the remote doesn't name what the host's repo-scoped pull request query needs —
 		// so no Try Again, which would only land right back here.
 		if (emptyState.reason === 'unsupported') {
 			return html`<div class="empty">
-				GitLens can't list pull requests for ${emptyState.providerName} repositories yet.
+				${l10n.t(
+					"GitLens can't list pull requests for this {0} repository because its remote URL doesn't name a project.",
+					emptyState.providerName,
+				)}
 			</div>`;
 		}
 
@@ -2291,6 +2295,15 @@ would expose the graph through fade or at the gap left by the translate). */
 				label: openAction.label,
 				action: openAction.command,
 				arguments: openAction.args,
+			});
+		}
+		const keplerAction = getAgentSessionKeplerAction(session);
+		if (keplerAction != null) {
+			actions.push({
+				icon: keplerAction.icon,
+				label: keplerAction.label,
+				action: keplerAction.command,
+				arguments: keplerAction.args,
 			});
 		}
 		// Archive is offered only on terminal (ended) sessions — a live one would have to be
@@ -3413,9 +3426,11 @@ would expose the graph through fade or at the gap left by the translate). */
 			return;
 		}
 
-		let action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | undefined;
+		let action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | 'openInKepler' | undefined;
 		if (command === 'gitlens.agents.openSession') {
 			action = 'openSession';
+		} else if (command === 'gitlens.agents.openSessionInKepler') {
+			action = 'openInKepler';
 		} else if (command === 'gitlens.agents.resumeSession') {
 			action = 'resumeSession';
 		} else if (command === 'gitlens.agents.openPlanFile') {

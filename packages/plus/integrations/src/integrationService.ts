@@ -1,4 +1,5 @@
 import type { Account } from '@gitlens/git/models/author.js';
+import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequest,
@@ -28,6 +29,7 @@ import type {
 	ConfiguredIntegrationDescriptor,
 	ConnectionResource,
 	ProviderAuthenticationSession,
+	SessionPublication,
 } from './authentication/models.js';
 import {
 	getSupportedCloudIntegrationIds,
@@ -54,6 +56,8 @@ import type {
 import { toError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
+	GetAutolinkReferencesOptions,
+	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
@@ -83,6 +87,7 @@ import type {
 } from './providers/models.js';
 import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
+import { getAutolinkReferences } from './reads/autolinks.js';
 import { broadenIssues } from './reads/broaden.js';
 import type { RepositoryResolutionContext } from './reads/context.js';
 import type {
@@ -96,7 +101,7 @@ import type { CurrentAccountResult } from './reads/currentAccount.js';
 import { getCurrentAccount } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
-import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
+import { listLinearProjects, listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
@@ -114,6 +119,7 @@ import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
+	ProviderLinearProjectShape,
 	ProviderPagedResult,
 	ProviderResult,
 	ProviderSweepResult,
@@ -176,6 +182,9 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		private readonly ctx: IntegrationServiceContext,
 	) {
 		this._disposable = fromDisposables(
+			configuredIntegrationService.onWillChangeSession(({ integrationId, session, previousDomain }) => {
+				this.onSessionPublishing(integrationId, { session: session }, [session.domain, previousDomain]);
+			}),
 			ctx.config.onDidChange(e => {
 				if (e.remotes) {
 					this._ignoreSSLErrors.clear();
@@ -1069,18 +1078,19 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 * provider (the integration's primary-only sync path would never reach a secondary account), while a
 	 * primary read syncs via the integration's own cloud-connection machinery. Either way the integration's cached
 	 * discovery (a tracker's project list) is dropped, so the read sees projects created or deleted since.
-	 * Best-effort — a failed sync is swallowed so the read still proceeds (and surfaces its own warning).
+	 * Best-effort by default; strict discovery can require refresh success before trusting the resolved identity.
 	 */
 	async forceRefreshIfRequested(
 		integration: Integration,
 		forceSync: boolean | undefined,
 		connectionId: string | undefined,
+		options?: { throwOnFailure?: boolean },
 	): Promise<void> {
 		if (forceSync !== true) return;
 
 		// Up front and unconditionally: the per-connection branch below re-syncs through the auth provider, which
 		// never reaches the integration's own re-sync that drops them, and a failed sync still has the read go ahead.
-		integration.invalidateDiscoveryCaches();
+		integration.invalidateDiscoveryForConnection(connectionId);
 
 		try {
 			if (connectionId != null) {
@@ -1092,12 +1102,17 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				const descriptor = { ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true };
 				const session = await authProvider?.getSession(descriptor, { sync: true, refetch: true });
 				if (session == null) {
+					if (options?.throwOnFailure) throw new Error('No refreshed provider session');
+
 					await authProvider?.deleteSession(descriptor);
 				}
 			} else {
-				await integration.syncCloudConnection('connected', true);
+				const failure = await integration.syncCloudConnection('connected', true);
+				if (failure != null) throw failure;
 			}
-		} catch {}
+		} catch (ex) {
+			if (options?.throwOnFailure) throw ex;
+		}
 	}
 
 	/**
@@ -1118,6 +1133,19 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 */
 	async listProjects(options?: ListProjectsOptions): Promise<ProviderResult<ProviderOrganization>> {
 		return listProjects(this, options);
+	}
+
+	async getAutolinkReferences(options: GetAutolinkReferencesOptions): Promise<RefSet | undefined> {
+		return getAutolinkReferences(this, options);
+	}
+
+	/**
+	 * Lists the Linear workspace's Projects (Linear's `Project` entity), apart from the teams {@link listProjects}
+	 * returns for Linear. Narrow a Linear issue read to some of them with `listIssueTrackerIssuesPage`'s
+	 * `linearProjects`.
+	 */
+	async listLinearProjects(options?: ListLinearProjectsOptions): Promise<ProviderResult<ProviderLinearProjectShape>> {
+		return listLinearProjects(this, options);
 	}
 
 	/**
@@ -1181,6 +1209,10 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		summary?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		scopeConcurrency?: number;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		includeRemoteInfo?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
 	}
@@ -1232,6 +1264,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		cursor?: string;
 		itemsPerPage?: number;
 		forceSync?: boolean;
+		/** See {@link IntegrationManager.listIssuesPage}. */
+		scopeConcurrency?: number;
 		connectionId?: string;
 		/**
 		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
@@ -1385,6 +1419,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * `getSupportedFilters().issueStates` and are refused otherwise.
 		 */
 		state?: IssueStateFilter;
+		/** Linear only: narrows the read to issues in any of these Linear Projects, by id. */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
@@ -1732,6 +1768,24 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 	private getCachedForDomain<T extends IntegrationIds>(id: T, domain?: string): IntegrationById<T> | undefined {
 		return isSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
+	}
+
+	onSessionPublishing(
+		id: IntegrationIds,
+		publication: SessionPublication,
+		domains: readonly (string | undefined)[],
+	): void {
+		const notified = new Set<Integration>();
+		for (const domain of domains) {
+			const integration = this.getCachedForDomain(
+				id,
+				domain == null ? domain : (hostFromDomain(domain) ?? domain),
+			);
+			if (integration == null || notified.has(integration)) continue;
+
+			notified.add(integration);
+			integration.onSessionPublishing(publication);
+		}
 	}
 
 	private getConfiguredCloudConnection(id: IntegrationIds, connectionId: string): ConfiguredIntegrationDescriptor {

@@ -35,19 +35,19 @@ export class AIError extends Error {
 				break;
 			case AIErrorReason.UserQuotaExceeded:
 				diagnosticMessage = 'You have exceeded your user token limit';
-				message = l10n.t('You have exceeded your user token limit');
+				message = l10n.t('You’ve reached the weekly AI usage included in your plan.');
 				break;
 			case AIErrorReason.RateLimitExceeded:
 				diagnosticMessage = 'Rate limit exceeded';
-				message = l10n.t('Rate limit exceeded');
+				message = l10n.t('Rate limit exceeded.');
 				break;
 			case AIErrorReason.RateLimitOrFundsExceeded:
 				diagnosticMessage = 'Rate limit exceeded or your account is out of funds';
-				message = l10n.t('Rate limit exceeded or your account is out of funds');
+				message = l10n.t('Rate limit exceeded or your account is out of funds.');
 				break;
 			case AIErrorReason.ServiceCapacityExceeded:
 				diagnosticMessage = 'Service capacity exceeded';
-				message = l10n.t('Service capacity exceeded');
+				message = l10n.t('Service capacity exceeded.');
 				break;
 			case AIErrorReason.NoNetwork:
 				diagnosticMessage = 'Unable to reach the AI service. Please check your internet connection.';
@@ -152,8 +152,12 @@ export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIE
  *
  * `RequestTooLarge` and `NoRequestData` are therefore deliberately excluded — they're properties of
  * the one request that failed.
+ *
+ * An `AuthenticationRequiredError` (expired GitKraken session) counts too: it isn't an `AIError`, but
+ * every remaining request will fail identically until the user signs in again.
  */
-export function isAIUnavailableError(ex: unknown): ex is AIError {
+export function isAIUnavailableError(ex: unknown): ex is AIError | AuthenticationRequiredError {
+	if (ex instanceof AuthenticationRequiredError) return true;
 	if (!(ex instanceof AIError)) return false;
 
 	switch (ex.reason) {

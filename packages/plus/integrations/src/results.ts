@@ -108,10 +108,11 @@ export interface ProviderWarningScope {
 
 /**
  * The selector of an issue-tracker project read that matched nothing: see {@link ProviderWarning.selector}. `kind`
- * names which one missed, and `value` is that selector exactly as the caller passed it.
+ * names which one missed, and `value` is that selector exactly as the caller passed it. `linearProject` is one of a
+ * Linear read's `linearProjects`, an id the workspace's Projects no longer list.
  */
 export interface ProviderWarningSelector {
-	kind: 'org' | 'project';
+	kind: 'org' | 'project' | 'linearProject';
 	value: string;
 }
 
@@ -276,6 +277,8 @@ export interface ProviderWarning {
 	 * Present when an issue-tracker project read's `org` or `project` selector matched nothing the connection
 	 * discovered: the selection was removed, renamed, or is no longer visible to this connection. `kind` is
 	 * `'not-found'`, the page is empty and not `fetchFailed`, and it carries no cursor, since a retry finds the same.
+	 * A `linearProject` miss is diagnostic: the requested Project ids still filter the read, preserving issues in
+	 * other selected Projects. It therefore does not force an empty page or remove its continuation.
 	 *
 	 * Set only when discovery was complete. A read whose discovery failed or was truncated cannot tell a missing
 	 * selection from one it did not reach, so it keeps reporting that failure instead, without this field. A miss is
@@ -394,22 +397,43 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 	cursor?: string;
 }
 
+/**
+ * One sweep target, named the way {@link ProviderSweepTargetEvent} names it, so a consumer can join the two.
+ * `domain` is the resolved self-managed host (always `undefined` for a cloud provider).
+ */
+export interface ProviderSweepTargetRef {
+	providerId: IntegrationIds;
+	connectionId: string | undefined;
+	domain: string | undefined;
+}
+
+/**
+ * A sweep may carry several targets of one provider (one per connection), so the provider arrays below can't say
+ * which connection failed: `failedTargets` and `incompleteTargets` are the authoritative attribution, and
+ * `failedProviderIds`/`incompleteProviderIds` summarize them. With one target per provider the two agree exactly.
+ */
 export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	page: ProviderPageInfo;
 	hasMore: boolean;
 	/**
-	 * Providers whose top-level read failed before returning any usable page. Partial per-scope failures stay
-	 * represented by `warnings` + `fetchFailed` and are intentionally excluded.
+	 * Providers whose top-level read failed before returning any usable page, for EVERY attributed target of the
+	 * provider. A provider with a failed target and a surviving sibling is in `incompleteProviderIds` instead.
+	 * Partial per-scope failures stay represented by `warnings` + `fetchFailed` and are intentionally excluded.
 	 */
 	failedProviderIds: IntegrationIds[];
 	/**
 	 * Providers whose read started successfully but could not produce an authoritative complete slice (for
-	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit).
+	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit),
+	 * or that have a failed target beside one that returned something.
 	 * Kept separate from
 	 * `failedProviderIds` so consumers can accept healthy sibling providers while preserving an older snapshot
 	 * for a provider whose returned slice has a gap.
 	 */
 	incompleteProviderIds: IntegrationIds[];
+	/** Targets whose top-level read failed before returning any usable page. A skipped target is in neither list. */
+	failedTargets: ProviderSweepTargetRef[];
+	/** Targets that returned a slice with a gap: a later page failed, or pages remain unread. Never also in `failedTargets`. */
+	incompleteTargets: ProviderSweepTargetRef[];
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
@@ -446,6 +470,22 @@ export interface RepositoryIdentity {
 	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged.
 	 */
 	renamed: boolean;
+	/**
+	 * Whether the provider says this repository is a fork: `true` for a fork (including one it reports only by naming
+	 * its {@link parent}), `false` for a repository it reports as not one, `undefined` when it didn't say. Only
+	 * `false` is proof of "not a fork" — a missing {@link parent} is not.
+	 */
+	isFork?: boolean;
+	/**
+	 * The repository this one was forked from, named as the provider names it and living on the same host
+	 * ({@link providerId} and {@link domain}). `project` is set only on Azure DevOps, where a repository lives in a
+	 * project of its organization. Present only when the provider reports a fork and names its parent; absent means
+	 * "not a fork" or "the provider didn't say", which {@link isFork} tells apart. This is the immediate parent, not the
+	 * root of the fork network: a pull request from a branch of this repository usually targets this repository or
+	 * its parent, but GitHub and Azure DevOps let it target any repository in the network, so a fork of a fork can
+	 * open one against the root.
+	 */
+	parent?: { owner: string; name: string; project?: string };
 }
 
 export interface RepositoryResolution {
@@ -500,6 +540,20 @@ export interface ProviderOrganization {
 	name: string;
 	org?: string;
 	orgId?: string;
+	url: string;
+}
+
+/**
+ * A Linear Project (Linear's own `Project` entity, which can span several teams), as `listLinearProjects` lists it.
+ * Distinct from the teams `listProjects` publishes for Linear: pass its `id` to `listIssueTrackerIssuesPage`'s
+ * `linearProjects` to narrow an issue read to it.
+ */
+export interface ProviderLinearProjectShape {
+	id: string;
+	providerId: IntegrationIds;
+	name: string;
+	/** Linear's project state, as Linear names it (e.g. `planned`, `started`, `paused`, `completed`, `canceled`). */
+	state: string;
 	url: string;
 }
 

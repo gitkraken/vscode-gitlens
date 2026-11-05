@@ -96,9 +96,14 @@ export const graphScopePopoverStyles = css`
 		opacity: 1;
 	}
 
+	/* Set via --max-width so gl-popover still caps it to the available width; the minimum yields to it too,
+	   or a narrow side bar pushes the menu past the view's edge */
+	.mode-popover {
+		--max-width: 70vw;
+	}
+
 	.mode-popover::part(body) {
-		min-width: 30rem;
-		max-width: 70vw;
+		min-width: min(30rem, var(--auto-size-available-width, 30rem));
 	}
 
 	.mode-popover__content {

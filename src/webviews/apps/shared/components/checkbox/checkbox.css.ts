@@ -63,7 +63,7 @@ export const checkboxBaseStyles = css`
 		height: var(--checkbox-size);
 		color: var(--checkbox-foreground);
 		background: var(--checkbox-background);
-		border: var(--checkbox-border-width, 1px) solid var(--vscode-checkbox-border);
+		border: var(--checkbox-border-width, 1px) solid var(--checkbox-border);
 		border-radius: var(--checkbox-radius);
 	}
 
@@ -73,7 +73,7 @@ export const checkboxBaseStyles = css`
 
 	.input:focus-visible + .control,
 	.input:focus + .control {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 

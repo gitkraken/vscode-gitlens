@@ -1,5 +1,5 @@
-import type { ExecFileException, ExecFileOptions } from 'child_process';
-import { exec, execFile, spawn } from 'child_process';
+import type { ChildProcess, ExecFileException, ExecFileOptions } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import type { Stats } from 'fs';
 import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
@@ -8,7 +8,6 @@ import * as process from 'process';
 import type { Readable, Writable } from 'stream';
 import type { CancellationReason } from '../../cancellation.js';
 import { getScopedLogger, maybeStartScopedLogger } from '../../logger.scoped.js';
-import { normalizePath } from '../../path.js';
 import { isWindows } from './platform.js';
 
 // -- Error types --
@@ -175,19 +174,6 @@ export async function findExecutable(exe: string, args: string[]): Promise<{ cmd
 	return { cmd: exe, args: args };
 }
 
-export async function getWindowsShortPath(path: string): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
-		exec(`for %I in ("${path}") do @echo %~sI`, (error, stdout, _stderr) => {
-			if (error != null) {
-				reject(error);
-				return;
-			}
-
-			resolve(normalizePath(stdout.trim()));
-		});
-	});
-}
-
 /** What core uses of a spawned process; Node's `ChildProcess` satisfies it */
 export interface SpawnedProcess {
 	readonly stdin: Writable | null;
@@ -226,6 +212,52 @@ export interface ProcessSpawnOptions {
  */
 export type ProcessSpawner = (command: string, args: readonly string[], options: ProcessSpawnOptions) => SpawnedProcess;
 
+/**
+ * The default {@link ProcessSpawner}: Node's `spawn`, but with its `timeout` handled here. Node clears its timeout
+ * timer only on `'exit'`, which a failed launch (e.g. a missing `cwd`) never emits, so the timer outlives the
+ * process and keeps Node alive for the full timeout. This mirrors Node's timeout handling but also clears on
+ * `'close'`, as https://github.com/nodejs/node/pull/65506 does; remove it once the minimum supported Node/Electron
+ * includes that fix.
+ */
+export function spawnProcess(command: string, args: readonly string[], options: ProcessSpawnOptions): ChildProcess {
+	const { timeout, ...spawnOptions } = options;
+	// Node's own validation, thrown before anything spawns
+	if (timeout != null && !(Number.isInteger(timeout) && timeout >= 0)) {
+		const ex = new RangeError(
+			`The value of "timeout" is out of range. It must be an unsigned integer. Received ${String(timeout)}`,
+		);
+		(ex as RangeError & { code: string }).code = 'ERR_OUT_OF_RANGE';
+		throw ex;
+	}
+
+	const child = spawn(command, args, spawnOptions);
+
+	if (timeout != null && timeout > 0) {
+		let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+			if (timeoutId != null) {
+				try {
+					child.kill();
+				} catch (ex) {
+					child.emit('error', ex);
+				}
+				timeoutId = undefined;
+			}
+		}, timeout);
+
+		const clear = () => {
+			if (timeoutId != null) {
+				clearTimeout(timeoutId);
+				timeoutId = undefined;
+			}
+		};
+		// `'exit'` keeps Node's timing; `'close'` covers a launch that fails and never exits
+		child.once('exit', clear);
+		child.once('close', clear);
+	}
+
+	return child;
+}
+
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	cwd?: string;
 	readonly env?: Record<string, string | undefined>;
@@ -262,7 +294,7 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	 * Use for commands whose failure is expected (e.g. paired with `errors: 'ignore'`).
 	 */
 	readonly quiet?: boolean;
-	/** Launches the process; defaults to Node's `spawn`. Only used by `runSpawn` */
+	/** Launches the process; defaults to {@link spawnProcess}. Only used by `runSpawn` */
 	readonly spawn?: ProcessSpawner;
 }
 
@@ -443,7 +475,7 @@ export function runSpawn<T extends string | Buffer>(
 	const { stdin, stdinEncoding, cancellation, decode, spawn: spawner, ...opts }: RunOptions = options;
 
 	const promise = new Promise<RunExitResult | RunResult<T>>((resolve, reject) => {
-		const proc = (spawner ?? spawn)(command, args, {
+		const proc = (spawner ?? spawnProcess)(command, args, {
 			cwd: opts.cwd,
 			env: opts.env,
 			// 0 disables it, which the spawner contract spells as absent

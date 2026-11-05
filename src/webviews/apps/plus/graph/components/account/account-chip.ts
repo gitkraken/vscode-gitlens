@@ -347,6 +347,11 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin-bottom: 1.3rem;
 			}
 
+			.account-status > .account-status__alternative {
+				margin-block-start: calc(-1 * var(--gl-space-6));
+				text-align: center;
+			}
+
 			button-container .button-suffix {
 				display: inline-flex;
 				gap: 0.2em;
@@ -529,7 +534,7 @@ background-color: var(--gl-rollup-raised); */
 			return html`<div class="content">${this.renderPanelContent()}</div>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click">
+		return html`<gl-popover placement="bottom" trigger="hover focus click" interactive label=${l10n.t('Account')}>
 				<button id="chip" type="button" slot="anchor" class="chip" aria-label="Account — ${this.planTier}">
 					${
 						this.accountAvatar
@@ -915,6 +920,22 @@ background-color: var(--gl-rollup-raised); */
 							>${l10n.t('Reactivate GitLens Pro Trial')}</gl-button
 						>
 					</button-container>
+					<p class="account-status__alternative">
+						${localizedContent(l10n.t('or {upgrade}'), {
+							upgrade: html`<a
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									source: 'account',
+									detail: {
+										location: 'upgrade-button',
+										organization: sub?.activeOrganization?.id,
+										plan: 'pro',
+									},
+								})}"
+								>${l10n.t('upgrade to Pro')}</a
+							>`,
+						})}
+					</p>
 				</div>`;
 			}
 

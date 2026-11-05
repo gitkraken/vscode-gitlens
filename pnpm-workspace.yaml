@@ -26,7 +26,7 @@ catalog:
     '@arethetypeswrong/cli': 0.18.5
     '@awesome.me/webawesome': 3.12.0
     '@lit-labs/virtualizer': 2.1.1
-    '@gitkraken/provider-apis': 0.65.5
+    '@gitkraken/provider-apis': 0.65.7
     # The @octokit/* packages depend on each other; version them as a family so a lone bump can't
     # split them. @octokit/graphql wants `@octokit/request: ^10.0.6` — see the overrides entry.
     '@octokit/graphql': 9.0.4
@@ -177,9 +177,10 @@ overrides:
     # GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g, both parse-side. Neither path reaches parse:
     # @modelcontextprotocol/sdk keeps express in its HTTP/auth transports and
     # scripts/mcp-vscode-server.mjs uses stdio, and typed-rest-client only calls qs.stringify.
-    # Fixed for hygiene.
-    'qs@<6.16.0': ^6.16.0
-    'serialize-javascript@<7.0.5': '^7.0.5'
+    # Fixed for hygiene. 6.16.1 adds GHSA-6pq8-jhm2-2vcw, a stringify-side DoS limited to
+    # `arrayFormat: 'comma'`.
+    'qs@<6.16.1': ^6.16.1
+    'serialize-javascript@<7.1.3': '^7.1.3'
 
 patchedDependencies:
     '@vscode/l10n-dev@0.0.35': patches/@vscode__l10n-dev@0.0.35.patch

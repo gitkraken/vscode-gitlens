@@ -91,74 +91,6 @@ export const panelActionInputStyles = css`
 	}
 `;
 
-/* Resume bar — full-width clickable surface that replaces the older "Resume Last …" chip.
-   Mirrors the visual language of `.compose-plan__header` so the bar
-   reads as a preview of the destination. Shared by review + compose panels. */
-export const resumeBarStyles = css`
-	.resume-bar {
-		display: flex;
-		flex: none;
-		gap: var(--gl-space-4);
-		align-items: center;
-		padding: var(--gl-space-4) var(--gl-space-8);
-		margin: var(--gl-space-6) var(--gl-space-6) 0;
-		font: inherit;
-		color: var(--vscode-foreground);
-		text-align: left;
-		cursor: pointer;
-		background: transparent;
-		border: var(--gl-border-width) solid var(--vscode-button-border);
-		border-radius: var(--gl-radius-sm);
-	}
-
-	.resume-bar:hover {
-		background: var(--vscode-list-hoverBackground);
-	}
-
-	.resume-bar:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-		outline-offset: -0.1rem;
-	}
-
-	.resume-bar__title {
-		font-size: var(--gl-font-base);
-		font-weight: 500;
-	}
-
-	.resume-bar__count {
-		display: inline-flex;
-		gap: var(--gl-space-6);
-		align-items: center;
-		margin-left: auto;
-		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground);
-	}
-
-	.resume-bar__count-item {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
-	}
-
-	.resume-bar__count-item > code-icon {
-		font-size: var(--gl-font-md);
-		opacity: 0.85;
-	}
-
-	.resume-bar__arrow {
-		flex-shrink: 0;
-		margin-left: var(--gl-space-4);
-		font-size: var(--gl-font-lg);
-		opacity: 0.85;
-	}
-
-	/* When no preview data is available, the arrow follows the title directly — push it
-	   to the far right so the bar's right edge still reads as the resume affordance. */
-	.resume-bar > .resume-bar__title:first-child + .resume-bar__arrow {
-		margin-left: auto;
-	}
-`;
-
 export const panelLoadingStyles = css`
 	.review-loading {
 		display: flex;
@@ -325,6 +257,7 @@ export const panelErrorStyles = css`
 
 	.panel-error__actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--gl-space-6);
 		justify-content: flex-end;
 	}

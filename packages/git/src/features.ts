@@ -17,7 +17,7 @@ export type GitFeatures =
 	| 'git:maintenance:start'
 	| 'git:maintenance:start:systemd'
 	| 'git:manyFiles'
-	| 'git:merge-tree:merge-base'
+	| 'git:merge-tree:trees'
 	| 'git:merge-tree:write-tree'
 	| 'git:patch-id:binary-oids'
 	| 'git:patch-id:verbatim'
@@ -91,7 +91,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:maintenance:start:systemd', '2.34'],
 	// `feature.manyFiles` umbrella (index v4 + untracked cache + skipHash where available).
 	['git:manyFiles', '2.24'],
-	['git:merge-tree:merge-base', '2.40'],
+	// `merge-tree --write-tree --merge-base=<base> <tree> <commit>`: `--merge-base` arrived in 2.40, but plain trees as merge
+	// inputs only in 2.45 — older git rejects a tree with "expected commit type"
+	['git:merge-tree:trees', '2.45'],
 	// `merge-tree --write-tree` mode with `-z`/`--name-only`/`--no-messages`; the older trivial mode can't check conflicts
 	['git:merge-tree:write-tree', '2.38'],
 	// `patch-id` hashes a binary change through its blob ids; older ones hash the diff's text, so need `--binary` data

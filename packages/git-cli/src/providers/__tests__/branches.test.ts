@@ -6,7 +6,9 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
+import { RunError } from '../../exec/exec.errors.js';
 import type { Git } from '../../exec/git.js';
+import { GitError } from '../../exec/git.js';
 import { BranchesGitSubProvider } from '../branches.js';
 
 suite('BranchesGitSubProvider Test Suite', () => {
@@ -73,7 +75,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const target = 'main';
 		const commits = ['commit1', 'commit2'];
 
-		gitStub.supports.withArgs('git:merge-tree:merge-base').resolves(true);
+		gitStub.supports.withArgs('git:merge-tree:trees').resolves(true);
 
 		// rev-parse to resolve all parent refs in a single call
 		gitStub.run
@@ -130,7 +132,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const target = 'main';
 		const commits = ['commit1', 'commit2', 'commit3'];
 
-		gitStub.supports.withArgs('git:merge-tree:merge-base').resolves(true);
+		gitStub.supports.withArgs('git:merge-tree:trees').resolves(true);
 
 		// rev-parse to resolve all parent refs in a single call
 		gitStub.run
@@ -222,6 +224,52 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		assert.strictEqual(result.status, 'error');
 		if (result.status === 'error') {
 			assert.strictEqual(result.reason, 'noParent');
+		}
+	});
+
+	test('getPotentialApplyConflicts should return error, not clean, when merge-tree fails without output', async () => {
+		const repoPath = '/repo';
+		const target = 'main';
+		const commits = ['commit1'];
+
+		gitStub.supports.withArgs('git:merge-tree:trees').resolves(true);
+
+		gitStub.run
+			.withArgs(sinon.match.has('cwd', repoPath), 'rev-parse', 'commit1^')
+			.resolves(createGitResult('parent1'));
+		gitStub.run
+			.withArgs(sinon.match.has('cwd', repoPath), 'rev-parse', `${target}^{tree}`)
+			.resolves(createGitResult('tree_0'));
+
+		// Git < 2.45 rejects a tree as a merge input — exit 1 (the same code as a conflict) with nothing on stdout
+		const stderr =
+			'error: tree_0: expected commit type, but the object dereferences to tree type\nmerge-tree: tree_0 - not something we can merge';
+		gitStub.run
+			.withArgs(sinon.match.has('cwd', repoPath), 'merge-tree')
+			.rejects(new GitError(new RunError({ message: stderr, cmd: 'git', code: 1 }, '', stderr)));
+
+		const result = await branchesProvider.getPotentialApplyConflicts(repoPath, target, commits);
+		assert.strictEqual(result.status, 'error');
+		if (result.status === 'error') {
+			assert.strictEqual(result.reason, 'other');
+		}
+	});
+
+	test('getPotentialApplyConflicts should return error when git cannot merge trees', async () => {
+		const repoPath = '/repo';
+		const target = 'main';
+		const commits = ['commit1'];
+
+		gitStub.supports.withArgs('git:merge-tree:trees').resolves(false);
+
+		gitStub.run
+			.withArgs(sinon.match.has('cwd', repoPath), 'rev-parse', 'commit1^')
+			.resolves(createGitResult('parent1'));
+
+		const result = await branchesProvider.getPotentialApplyConflicts(repoPath, target, commits);
+		assert.strictEqual(result.status, 'error');
+		if (result.status === 'error') {
+			assert.strictEqual(result.reason, 'unsupported');
 		}
 	});
 

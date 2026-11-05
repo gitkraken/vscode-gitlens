@@ -6,6 +6,9 @@ import type { ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { runCaptured } from './drains.js';
 import { selectorMatches } from './hierarchy.utils.js';
 
+/** The selectors a tracker's own discovery lists, which the lists confirm; not a Linear Project, read on its own. */
+export type TrackerSelectorKind = Exclude<ProviderWarningSelector['kind'], 'linearProject'>;
+
 /**
  * What the provider lists now for a selection the cached discovery matched nothing for:
  * - `missing`: the lists, complete, match nothing. `missed` is the selector they miss, the org when it is gone
@@ -15,7 +18,7 @@ import { selectorMatches } from './hierarchy.utils.js';
  *   `auth` or `rate-limit` refusal stays one).
  */
 export type SelectionConfirmation =
-	| { verdict: 'missing'; missed: ProviderWarningSelector['kind']; resource: ResourceDescriptor | undefined }
+	| { verdict: 'missing'; missed: TrackerSelectorKind; resource: ResourceDescriptor | undefined }
 	| { verdict: 'stale' }
 	| { verdict: 'unknown'; warnings: ProviderWarning[] };
 
@@ -24,7 +27,7 @@ export type SelectionConfirmation =
  * lists, or report that the selection could not be confirmed, with a retry cursor.
  */
 export type SelectionAction =
-	| { action: 'report-missing'; missed: ProviderWarningSelector['kind']; resource: ResourceDescriptor | undefined }
+	| { action: 'report-missing'; missed: TrackerSelectorKind; resource: ResourceDescriptor | undefined }
 	| { action: 'unconfirmed'; warnings: ProviderWarning[] }
 	| { action: 'refresh' };
 
@@ -58,7 +61,7 @@ export interface SelectionTarget {
  */
 export async function confirmSelection(
 	target: SelectionTarget,
-	missed: ProviderWarningSelector['kind'],
+	missed: TrackerSelectorKind,
 ): Promise<SelectionConfirmation> {
 	const { integration, providerId, domain, connectionId, org, project } = target;
 	const { value: discovery, warning } = await runCaptured(providerId, domain, connectionId, () =>

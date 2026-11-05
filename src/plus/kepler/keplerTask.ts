@@ -1,4 +1,4 @@
-import { l10n, window } from 'vscode';
+import { env, l10n, window, workspace } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -6,6 +6,7 @@ import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { getKeplerHost } from './keplerHost.js';
 import type { KeplerTaskLinkOptions } from './keplerLink.js';
 import { createKeplerTaskLink } from './keplerLink.js';
 import type { KeplerProviderId } from './keplerProviders.js';
@@ -82,6 +83,15 @@ export function resolveKeplerTaskRequest(request: KeplerTaskRequest): KeplerTask
 	};
 }
 
+/** Tells the user Kepler isn't installed and offers to open its product page. Shared by every Kepler deep-link entry point. */
+export async function promptKeplerNotInstalled(source?: Source): Promise<void> {
+	const getKeplerItem = l10n.t('Get Kepler');
+	const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
+	if (chosen === getKeplerItem) {
+		void executeCommand('gitlens.kepler.openProductPage', source);
+	}
+}
+
 /**
  * Deep links into an installed Kepler's Task Composer. Shared by every entry point (tree/Graph
  * commands, and the Start Work/Review wizard route), so the gate, link and telemetry stay in one
@@ -118,12 +128,7 @@ export async function startKeplerTask(
 			source,
 		);
 
-		const getKeplerItem = l10n.t('Get Kepler');
-		const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
-		if (chosen === getKeplerItem) {
-			void executeCommand('gitlens.kepler.openProductPage', source);
-		}
-
+		await promptKeplerNotInstalled(source);
 		return false;
 	}
 
@@ -145,7 +150,8 @@ export async function startKeplerTask(
 
 	let opened: boolean;
 	try {
-		opened = await openUrl(createKeplerTaskLink(container.kepler.scheme, resolution.options));
+		const host = getKeplerHost(env.remoteName, workspace.workspaceFolders?.map(f => f.uri) ?? []);
+		opened = await openUrl(createKeplerTaskLink(container.kepler.scheme, { ...resolution.options, host: host }));
 	} catch {
 		opened = false;
 	}

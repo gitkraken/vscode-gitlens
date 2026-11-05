@@ -15,6 +15,7 @@ import { createIntegrationService } from '@gitlens/integrations/integrationServi
 import type { IntegrationService } from '@gitlens/integrations/integrationService.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { once } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { AgentService } from './agents/agentService.js';
 import { AgentStatusService } from './agents/agentStatusService.js';
@@ -61,6 +62,7 @@ import { KeplerService } from './plus/kepler/keplerService.js';
 import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator.js';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider.js';
+import { NotificationsController } from './plus/notifications/notificationsController.js';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService.js';
 import type { SharedGkStorageLocationProvider } from './plus/repos/sharedGkStorageLocationProvider.js';
 import { WorkspacesApi } from './plus/workspaces/workspacesApi.js';
@@ -344,6 +346,13 @@ export class Container {
 		if (configuration.get('launchpad.indicator.enabled')) {
 			this._disposables.push((this._launchpadIndicator = new LaunchpadIndicator(this, this._launchpadProvider)));
 		}
+
+		// Notifications poll in the background (when enabled), so start them without waiting on a webview to ask
+		this._disposables.push(
+			once(this.onReady)(() => {
+				this.ensureNotifications();
+			}),
+		);
 
 		this._disposables.push(this._onDidChangeAgentStatus, {
 			dispose: () => this._agentStatusService?.dispose(),
@@ -720,6 +729,18 @@ export class Container {
 	get mode(): Mode | undefined {
 		this._mode ??= configuration.get('modes')?.[configuration.get('mode.active')];
 		return this._mode;
+	}
+
+	private _notifications: NotificationsController | undefined;
+	get notifications(): NotificationsController {
+		return this.ensureNotifications();
+	}
+
+	private ensureNotifications(): NotificationsController {
+		if (this._notifications == null) {
+			this._disposables.push((this._notifications = new NotificationsController(this, this._connection)));
+		}
+		return this._notifications;
 	}
 
 	private _organizations: OrganizationService;

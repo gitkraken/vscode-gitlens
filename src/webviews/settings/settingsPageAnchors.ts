@@ -32,4 +32,5 @@ export const settingsPageAnchorCommands: GlCommands[] = [
 	'gitlens.showSettingsPage!ai',
 	'gitlens.showSettingsPage!agents',
 	'gitlens.showSettingsPage!integrations',
+	'gitlens.showSettingsPage!notifications',
 ];

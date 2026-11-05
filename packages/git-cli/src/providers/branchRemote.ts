@@ -56,13 +56,11 @@ export async function resolveBranchRemote(
 			}
 		}
 
-		if (ref.upstream != null) {
+		// A remote-tracking branch has no upstream (see `getBranchTrackingWithoutRemote`)
+		if (!ref.remote && ref.upstream != null) {
 			const split = splitRemoteBranchName(ref.upstream.name, remoteNames);
 			if (split != null) {
-				if (!ref.remote) {
-					remote = split[0];
-				}
-				upstream = split[1];
+				[remote, upstream] = split;
 			}
 		}
 	}

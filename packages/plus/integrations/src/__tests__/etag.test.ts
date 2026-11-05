@@ -325,6 +325,32 @@ suite('issueEtag', () => {
 		assert.equal(issueEtag({ ...issueBase, thumbsUpCount: 3 }, []), 'is1:["opened",1767225600000]');
 	});
 
+	test("a Linear row's etag lists its sync links, or marks them unknown; no other provider's changes", () => {
+		const shapeOf = (providerId: string, syncedWith?: unknown[]) =>
+			({ ...issueBase, provider: { id: providerId }, syncedWith: syncedWith }) as unknown as IssueShape;
+
+		assert.equal(
+			issueEtag(
+				issueEtagFieldsFromShape(
+					shapeOf(IssuesCloudHostIntegrationId.Linear, [
+						{ provider: 'github', id: '6063246475' },
+						{ provider: 'github', id: '6063246474', owner: 'acme', repo: 'web', number: 1 },
+					]),
+				),
+				[],
+			),
+			'is1:["opened",1767225600000,["synced-with","6063246474:acme/web#1","6063246475:"]]',
+		);
+		assert.equal(
+			issueEtag(issueEtagFieldsFromShape(shapeOf(IssuesCloudHostIntegrationId.Linear)), []),
+			'is1:["opened",1767225600000,"synced-with:unknown"]',
+		);
+		assert.equal(
+			issueEtag(issueEtagFieldsFromShape(shapeOf(IssuesCloudHostIntegrationId.Jira, [])), []),
+			'is1:["opened",1767225600000]',
+		);
+	});
+
 	test("an Azure DevOps row's etag adds the rule its body is read by, so one held from before the rule misses; no other provider's changes", () => {
 		const shapeOf = (providerId: string) =>
 			({ ...issueBase, provider: { id: providerId } }) as unknown as IssueShape;

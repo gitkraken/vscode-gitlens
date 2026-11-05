@@ -47,8 +47,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 			:host(:not([compact])) .indicator {
 				padding: var(--gl-space-4) var(--gl-space-8);
 				font-size: var(--gl-font-md);
-				background-color: var(--vscode-button-secondaryBackground);
-				border: var(--gl-border-width) solid var(--vscode-button-secondaryBorder, transparent);
+				background-color: var(--gl-color-action-secondary-bg);
+				border: var(--gl-border-width) solid var(--gl-color-action-secondary-border, transparent);
 				border-radius: var(--gl-radius-sm);
 			}
 
@@ -66,30 +66,24 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Clean state - green */
 			.indicator--clean {
-				color: var(--vscode-foreground);
-				background-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 18%, transparent) !important;
-				border: var(--gl-border-width) solid
-					color-mix(in srgb, var(--vscode-testing-iconPassed) 50%, transparent) !important;
+				color: var(--gl-color-feedback-success-fg);
+				background-color: var(--gl-color-feedback-success-bg) !important;
+				border: var(--gl-border-width) solid var(--gl-color-feedback-success-border) !important;
 			}
 
 			.indicator--clean .indicator__icon {
-				color: var(--vscode-testing-iconPassed);
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			/* Conflict state - warning/orange */
 			.indicator--conflict {
-				color: var(--vscode-foreground);
-				background-color: color-mix(
-					in srgb,
-					var(--vscode-editorWarning-foreground) 18%,
-					transparent
-				) !important;
-				border: var(--gl-border-width) solid
-					color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent) !important;
+				color: var(--gl-color-feedback-warning-fg);
+				background-color: var(--gl-color-feedback-warning-bg) !important;
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border) !important;
 			}
 
 			.indicator--conflict .indicator__icon {
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.indicator--upgrade .indicator__icon {
@@ -103,19 +97,14 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Error state - muted warning */
 			.indicator--error {
-				color: var(--vscode-foreground);
-				background-color: color-mix(
-					in srgb,
-					var(--vscode-editorWarning-foreground) 12%,
-					transparent
-				) !important;
-				border: var(--gl-border-width) solid
-					color-mix(in srgb, var(--vscode-editorWarning-foreground) 30%, transparent) !important;
+				color: var(--gl-color-feedback-warning-fg);
+				background-color: var(--gl-color-feedback-warning-bg) !important;
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border) !important;
 				opacity: 0.8;
 			}
 
 			.indicator--error .indicator__icon {
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 				opacity: 0.7;
 			}
 
@@ -138,7 +127,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			.popover__message--warning {
 				font-weight: 500;
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.popover__files {
@@ -147,7 +136,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 				margin: 0;
 				overflow-y: auto;
 				list-style: none;
-				background: var(--vscode-sideBar-background);
+				background: var(--gl-color-surface-aside);
 			}
 
 			.popover__file {

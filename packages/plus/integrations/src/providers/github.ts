@@ -1006,9 +1006,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
-	 * Finds each branch's pull requests by aliasing a head-ref-name query per target — see
-	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted exactly as
-	 * {@link getProviderPullRequestsBatch} is, with the same per-target and per-chunk failure isolation.
+	 * Finds each branch's pull requests by aliasing a head-ref-name query per distinct repository and branch — see
+	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted as {@link getProviderPullRequestsBatch} is.
+	 * Failures are isolated per query rather than per target: a chunk that throws rejects only its own targets, and a
+	 * query that fails, or whose rows can't be converted, rejects every target that shares it, and only those.
 	 *
 	 * That query matches the branch NAME across every fork and filters by head repository afterwards, so a name
 	 * many forks share (`main`, `patch-1`) comes back `truncated` whether or not anything it left out could match.
@@ -1033,24 +1034,59 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const baseUrl = this.apiBaseUrlFor(session);
 		const currentAccount = options.currentAccount;
-		const slots = await readChunked(
-			targets,
+		// Targets that differ only by `headOwner` send the same query, since the owner filter runs on the
+		// returned rows, so each distinct query is chunked and sent once and answers every target in its group.
+		const groups = new Map<string, { owner: string; repo: string; branch: string; indices: number[] }>();
+		targets.forEach((t, i) => {
+			// GitHub resolves an owner and repository case-insensitively, but matches the head ref name exactly.
+			const key = `${t.owner.toLowerCase()}/${t.repo.toLowerCase()}\0${t.branch}`;
+			const group = groups.get(key);
+			if (group != null) {
+				group.indices.push(i);
+			} else {
+				groups.set(key, { owner: t.owner, repo: t.repo, branch: t.branch, indices: [i] });
+			}
+		});
+
+		const queries = [...groups.values()];
+		const groupSlots = await readChunked(
+			queries,
 			pullRequestsBatchChunkSize,
-			chunkTargets =>
+			chunkGroups =>
 				github.getPullRequestsForBranches(
 					this,
 					tokenWithInfo,
-					chunkTargets.map(t => ({ owner: t.owner, repo: t.repo, branch: t.branch, headOwner: t.headOwner })),
+					chunkGroups.map(g => ({
+						owner: g.owner,
+						repo: g.repo,
+						branch: g.branch,
+						headOwners: g.indices.map(i => targets[i].headOwner),
+					})),
 					{ baseUrl: baseUrl, limit: options.limit },
 					cancellation,
 				),
-			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
-				pullRequests: found.pullRequests.map(pr =>
-					stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' }),
+			(found): { pullRequests: PullRequestShape[][]; truncated: boolean } => ({
+				pullRequests: found.pullRequests.map(prs =>
+					prs.map(pr => stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' })),
 				),
 				truncated: found.truncated,
 			}),
 		);
+
+		// Back to one slot per target. A rejected group rejects each of its targets, and only those.
+		const slots: PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] = [];
+		queries.forEach((g, gi) => {
+			const slot = groupSlots[gi];
+			g.indices.forEach((targetIndex, j) => {
+				slots[targetIndex] =
+					slot.status === 'rejected'
+						? slot
+						: {
+								status: 'fulfilled',
+								value: { pullRequests: slot.value.pullRequests[j], truncated: slot.value.truncated },
+							};
+			});
+		});
 
 		const ambiguous = slots.flatMap((slot, i) =>
 			slot.status === 'fulfilled' && slot.value.truncated ? [{ index: i, found: slot.value.pullRequests }] : [],

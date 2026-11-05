@@ -43,12 +43,12 @@ export class GlFeatureBadge extends LitElement {
 				/* position: relative; */
 				display: inline-block;
 				--gl-feature-badge-color: currentcolor;
-				--gl-feature-badge-border-color: var(--color-foreground--50);
+				--gl-feature-badge-border-color: var(--vscode-descriptionForeground);
 				--max-width: 40rem;
 			}
 
 			a {
-				color: var(--color-link);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: underline;
 			}
 
@@ -61,7 +61,7 @@ export class GlFeatureBadge extends LitElement {
 				color: var(--gl-feature-badge-color, currentColor);
 				white-space: nowrap;
 				cursor: help;
-				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
+				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color);
 				border-radius: 1rem;
 			}
 
@@ -102,7 +102,7 @@ export class GlFeatureBadge extends LitElement {
 				display: flex;
 				flex-direction: column;
 				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.popup-content p {
@@ -292,12 +292,22 @@ export class GlFeatureBadge extends LitElement {
 						${l10n.t('Reactivate your Pro trial and experience all the new Pro features — free for another {0} days!', getNumericFormat()(proTrialLengthInDays))}
 					</p>
 					<div class="actions center">
-						<gl-button
-							density="tight"
-							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
-							tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', getNumericFormat()(proTrialLengthInDays))}
-							>${l10n.t('Reactivate Pro Trial')}</gl-button
-						>
+						${localizedContent(l10n.t('{reactivate} or {upgrade}'), {
+							reactivate: html`<gl-button
+								density="tight"
+								href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
+								tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', getNumericFormat()(proTrialLengthInDays))}
+								>${l10n.t('Reactivate Pro Trial')}</gl-button
+							>`,
+							upgrade: html`<a
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									...(this.source ?? { source: 'feature-badge' }),
+								})}"
+								title=${l10n.t('Upgrade to Pro')}
+								>${l10n.t('upgrade to Pro')}</a
+							>`,
+						})}
 					</div>`;
 				break;
 

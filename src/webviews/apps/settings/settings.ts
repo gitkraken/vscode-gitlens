@@ -162,12 +162,13 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			// see the equivalent note in commitDetails.ts.
 			this._eventsSubscription?.unsubscribe();
 			this._eventsSubscription = subscribe<SettingsServices>(this._rpc.connection!, async remoteServices => {
-				const [settings, integrations, ai, agents, walkthrough] = await Promise.all([
+				const [settings, integrations, ai, agents, walkthrough, notifications] = await Promise.all([
 					remoteServices.settings,
 					remoteServices.integrations,
 					remoteServices.ai,
 					remoteServices.agents,
 					remoteServices.walkthrough,
+					remoteServices.notifications,
 				]);
 
 				return subscribeAll([
@@ -205,6 +206,11 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 					() =>
 						agents.onAgentsChanged(list => {
 							s.agents.set(list);
+						}),
+					// The Notifications category (its visibility, the nav's unread count, and the inbox)
+					() =>
+						notifications.onNotificationsChanged(state => {
+							s.notifications.set(state);
 						}),
 				]);
 			});

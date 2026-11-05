@@ -12,4 +12,6 @@ export interface GitHubTokenInfo {
 	readonly type: string | undefined;
 	readonly scopes?: readonly string[];
 	readonly expiresAt?: Date;
+	/** The token's connection, which a failed request's strike counts against (the primary when absent). */
+	readonly connectionId?: string;
 }

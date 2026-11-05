@@ -197,8 +197,8 @@ export const titlebarStyles = css`
 		display: flex;
 		gap: var(--gl-space-6);
 		align-items: flex-start;
-		margin: calc(-1 * var(--wa-spacing-2x-small)) calc(-1 * var(--wa-spacing-x-small)) var(--gl-space-8);
 		padding: var(--gl-space-6) var(--wa-spacing-x-small);
+		margin: calc(-1 * var(--wa-spacing-2x-small)) calc(-1 * var(--wa-spacing-x-small)) var(--gl-space-8);
 		color: var(--color-background);
 		background: var(--gl-chip-scoped-color);
 		border-radius: var(--wa-tooltip-border-radius) var(--wa-tooltip-border-radius) 0 0;
@@ -218,8 +218,8 @@ export const titlebarStyles = css`
 	.scope-banner__label {
 		font-size: 1.1rem;
 		font-weight: var(--gl-font-weight-semibold);
-		letter-spacing: 0.04em;
 		text-transform: uppercase;
+		letter-spacing: 0.04em;
 		opacity: 0.85;
 	}
 
@@ -236,14 +236,14 @@ export const titlebarStyles = css`
 		font-family: var(--vscode-editor-font-family);
 		font-size: 1.05rem;
 		line-height: 1.4;
-		opacity: 0.7;
 		overflow-wrap: anywhere;
+		opacity: 0.7;
 	}
 
 	.scope-path code-icon {
 		flex: none;
-		font-size: 1.2rem;
 		margin-block-start: 0.1rem;
+		font-size: 1.2rem;
 	}
 
 	.ref-button-group__clear-tooltip {

@@ -1,4 +1,3 @@
-import { spawn } from 'child_process';
 import { resolve as resolvePath } from 'path';
 import * as process from 'process';
 import type {
@@ -34,6 +33,7 @@ import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitRunCancellation } from '@gitlens/git/run.types.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { spawnProcess } from '@gitlens/utils/env/node/exec.js';
 import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
 import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
@@ -172,6 +172,9 @@ export const GitErrors = {
 	nothingToCommit: /nothing(?: added)? to commit|no changes added to commit/i,
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
+	// A path git dies on rather than answers: beyond a symlink, inside a submodule, outside the repository, or empty
+	pathspecRefused:
+		/pathspec '.*' is (?:beyond a symbolic link|in submodule)|' is outside repository|empty string is not a valid pathspec/is,
 	permissionDenied: /Permission.*denied/i,
 	previousOperationEmpty: /The previous (?:cherry-pick|revert) is now empty/i,
 	problemWithEditor: /there was a problem with the editor/i,
@@ -653,7 +656,7 @@ export interface GitOptions {
 	hooks?: GitHooks;
 	/** Optional dedicated logger for git command logging */
 	logger?: LogChannel;
-	/** Launches the git process of every run and stream (not the locator's); defaults to Node's `spawn`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
+	/** Launches the git process of every run and stream (not the locator's); defaults to `spawnProcess`. Set it to start git from a helper process when the host's own is too large to fork cheaply. */
 	spawn?: ProcessSpawner;
 }
 
@@ -871,6 +874,11 @@ export class Git {
 		this._lastDynamicEnv = dynamicEnv;
 		this._fullEnv = dynamicEnv != null ? { ...this.getBaseEnv(), ...dynamicEnv } : this.getBaseEnv();
 		return this._fullEnv;
+	}
+
+	/** The environment git runs with, before a run's own `env` */
+	getRunEnvironment(): Readonly<Record<string, string | undefined>> {
+		return this.getFullEnv();
 	}
 
 	/**
@@ -1588,7 +1596,7 @@ export class Git {
 		}
 
 		const command = await this.path();
-		const proc = (this.options.spawn ?? spawn)(command, runArgs, spawnOpts);
+		const proc = (this.options.spawn ?? spawnProcess)(command, runArgs, spawnOpts);
 
 		if (stdin) {
 			endStdin(proc.stdin, stdin, stdinEncoding);
@@ -1835,7 +1843,10 @@ export class Git {
 				if (result.stdout.trim() === 'true') {
 					const result = await this.rev_parse__git_dir(cwd).catch(() => undefined);
 					const repoPath = result?.commonPath ?? result?.path;
-					if (repoPath?.length) return [true, repoPath];
+					if (repoPath?.length) {
+						const workTree = await this.rev_parse__work_tree_of_git_dir(repoPath);
+						return [true, workTree ?? repoPath];
+					}
 				}
 			}
 
@@ -1856,6 +1867,26 @@ export class Git {
 			}
 			return emptyArray as [];
 		}
+	}
+
+	/**
+	 * Returns the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, if any.
+	 * Inside the git dir of a non-bare repo whose config lacks `core.bare`, git guesses the repo is bare
+	 */
+	async rev_parse__work_tree_of_git_dir(gitDir: string): Promise<string | undefined> {
+		const parent = dirname(gitDir);
+		if (parent === gitDir) return undefined;
+
+		// A bare repo's parent fails `--show-toplevel`, or belongs to some other repo's git dir
+		const result = await this.run({ cwd: parent, errors: 'ignore' }, 'rev-parse', '--show-toplevel', '--git-dir');
+		const [toplevel, parentGitDir] = result.stdout.split('\n').map(r => r.trimStart());
+		if (!toplevel || !parentGitDir) return undefined;
+
+		if (!arePathsEqual(isAbsolute(parentGitDir) ? parentGitDir : joinPaths(parent, parentGitDir), gitDir)) {
+			return undefined;
+		}
+
+		return normalizePath(toplevel);
 	}
 
 	private logGitCommandStart(command: string, id: number): void {

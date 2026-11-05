@@ -79,6 +79,7 @@ import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
 import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
+import './components/gl-graph-notifications-indicator.js';
 import './components/gl-graph-account-indicator.js';
 import './components/gl-graph-header-promo.js';
 import './components/gl-graph-coachmark.js';
@@ -1416,6 +1417,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			<div class="titlebar__group">
 				${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
+				<gl-graph-notifications-indicator></gl-graph-notifications-indicator>
 				<gl-graph-account-indicator></gl-graph-account-indicator>
 			</div>
 		</div>`;

@@ -306,6 +306,214 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('carries the fork flag and parent the provider reports', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () =>
+			Promise.resolve({
+				id: 'r1',
+				namespace: 'contributor',
+				name: 'hello',
+				isFork: true,
+				parent: { namespace: 'octocat', name: 'hello' },
+			} as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/contributor/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.isFork, true);
+		assert.deepEqual(result.resolution.identity?.parent, { owner: 'octocat', name: 'hello' });
+
+		manager.dispose();
+	});
+
+	test('reports a repository the provider says is not a fork with no parent', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () =>
+			Promise.resolve({
+				id: 'r1',
+				namespace: 'octocat',
+				name: 'hello',
+				isFork: false,
+			} as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.isFork, false);
+		assert.equal(result.resolution.identity?.parent, undefined);
+
+		manager.dispose();
+	});
+
+	test('leaves fork and parent unset when the provider does not say', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () =>
+			Promise.resolve({ id: 'r1', namespace: 'octocat', name: 'hello' } as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.isFork, undefined, 'unknown is not "not a fork"');
+		assert.equal(result.resolution.identity?.parent, undefined);
+
+		manager.dispose();
+	});
+
+	test('a renamed fork keeps its parent', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () =>
+			Promise.resolve({
+				id: 'r1',
+				namespace: 'contributor',
+				name: 'hello-renamed',
+				isFork: true,
+				parent: { namespace: 'octocat', name: 'hello' },
+			} as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/contributor/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.renamed, true);
+		assert.equal(result.resolution.identity?.name, 'hello-renamed');
+		assert.equal(result.resolution.identity?.isFork, true);
+		assert.deepEqual(result.resolution.identity?.parent, { owner: 'octocat', name: 'hello' });
+
+		manager.dispose();
+	});
+
+	test('maps the fork fields the SDK repository carries for each provider family', async () => {
+		const cases: {
+			label: string;
+			connect: (manager: ReturnType<typeof createIntegrationManager>) => Promise<GitHostIntegration>;
+			options: { providerId?: GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId; domain?: string };
+			remoteUrl: string;
+			repo: Record<string, unknown>;
+			parent: { owner: string; name: string; project?: string };
+		}[] = [
+			{
+				label: 'GitHub',
+				connect: m => connect(m, GitCloudHostIntegrationId.GitHub, 'github.com'),
+				options: {},
+				remoteUrl: 'https://github.com/contributor/hello.git',
+				repo: { namespace: 'contributor', name: 'hello' },
+				parent: { owner: 'octocat', name: 'hello' },
+			},
+			{
+				label: 'Bitbucket Cloud',
+				connect: m => connect(m, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org'),
+				options: {},
+				remoteUrl: 'https://bitbucket.org/contributor/hello.git',
+				repo: { namespace: 'contributor', name: 'hello' },
+				parent: { owner: 'octocat', name: 'hello' },
+			},
+			{
+				label: 'Bitbucket Data Center',
+				connect: m =>
+					connectSelfManaged(m, GitSelfManagedHostIntegrationId.BitbucketServer, 'bitbucket.example.com'),
+				options: {
+					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					domain: 'bitbucket.example.com',
+				},
+				remoteUrl: 'https://bitbucket.example.com/scm/~contributor/hello.git',
+				repo: { namespace: '~contributor', name: 'hello' },
+				parent: { owner: 'TEAM', name: 'hello' },
+			},
+			{
+				label: 'Azure DevOps',
+				connect: m => connect(m, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com'),
+				options: {},
+				remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+				repo: { namespace: 'myorg', name: 'myrepo', project: 'myproject' },
+				parent: { owner: 'myorg', name: 'upstream', project: 'coreproject' },
+			},
+		];
+
+		for (const { label, connect: connectProvider, options, remoteUrl, repo, parent } of cases) {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const integration = await connectProvider(manager);
+			const resolve = async (response: Record<string, unknown>) => {
+				stubGetRepo(integration, () =>
+					Promise.resolve({ id: 'r1', ...response } as unknown as ProviderRepository),
+				);
+				return (await manager.resolveRepository({ ...options, remoteUrl: remoteUrl })).resolution;
+			};
+
+			let resolution = await resolve({
+				...repo,
+				isFork: true,
+				parent: { namespace: parent.owner, name: parent.name, project: parent.project },
+			});
+			assert.equal(resolution.status, 'resolved', label);
+			assert.equal(resolution.identity?.isFork, true, label);
+			assert.deepEqual(resolution.identity?.parent, parent, label);
+
+			resolution = await resolve({ ...repo, isFork: false });
+			assert.equal(resolution.identity?.isFork, false, label);
+			assert.equal(resolution.identity?.parent, undefined, label);
+
+			// An SDK that doesn't carry the fields says nothing, which is not "not a fork".
+			resolution = await resolve({ ...repo });
+			assert.equal(resolution.identity?.isFork, undefined, label);
+			assert.equal(resolution.identity?.parent, undefined, label);
+
+			manager.dispose();
+		}
+	});
+
+	test('drops a malformed fork parent instead of half-trusting it', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		for (const parent of [null, 'octocat/hello', { namespace: 'octocat' }, { namespace: '', name: 'hello' }]) {
+			stubGetRepo(gh, () =>
+				Promise.resolve({
+					id: 'r1',
+					namespace: 'contributor',
+					name: 'hello',
+					isFork: true,
+					parent: parent,
+				} as unknown as ProviderRepository),
+			);
+
+			const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/contributor/hello.git' });
+			assert.equal(result.resolution.identity?.isFork, true);
+			assert.equal(result.resolution.identity?.parent, undefined, JSON.stringify(parent));
+		}
+
+		manager.dispose();
+	});
+
+	test('a named parent reports a fork, and one the provider contradicts with isFork false is dropped', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		const resolve = async (isFork: Record<string, unknown>) => {
+			stubGetRepo(gh, () =>
+				Promise.resolve({
+					id: 'r1',
+					namespace: 'contributor',
+					name: 'hello',
+					...isFork,
+					parent: { namespace: 'octocat', name: 'hello' },
+				} as unknown as ProviderRepository),
+			);
+			return (await manager.resolveRepository({ remoteUrl: 'https://github.com/contributor/hello.git' }))
+				.resolution.identity;
+		};
+
+		let identity = await resolve({});
+		assert.equal(identity?.isFork, true, 'a parent is a report of a fork');
+		assert.deepEqual(identity?.parent, { owner: 'octocat', name: 'hello' });
+
+		identity = await resolve({ isFork: false });
+		assert.equal(identity?.isFork, false);
+		assert.equal(identity?.parent, undefined, 'a parent beside isFork false is never half-trusted');
+
+		manager.dispose();
+	});
+
 	test('falls back to the parsed remote when the response omits owner/name (not renamed)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');

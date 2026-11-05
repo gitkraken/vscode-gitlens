@@ -18,6 +18,7 @@ import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { getPresentableErrorMessage } from '../errors.js';
 import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
+import { getKeplerAgentId, openSessionInKepler } from '../plus/kepler/keplerSession.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { executeCommand, registerCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
@@ -628,7 +629,12 @@ export class AgentStatusService implements Disposable {
 			candidate.sessions.some(candidateSession => candidateSession.id === session.id),
 		);
 		const actions = session.status === 'ended' ? this.getEndedSessionActions(session, provider) : undefined;
-		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session), actions);
+		const state = serializeAgentSession(
+			session,
+			this.getWorktreeMetadataForSession(session),
+			actions,
+			this.container.kepler.installed === true ? getKeplerAgentId(session.providerId) : undefined,
+		);
 		const entry = {
 			state: state,
 			key: JSON.stringify(state, coarsenVolatileTimestamps),
@@ -1267,6 +1273,10 @@ export class AgentStatusService implements Disposable {
 				const session = resolveAgentSessionArg(arg);
 				return this.openSession(session?.sessionId, session?.providerId);
 			}),
+			registerCommand('gitlens.agents.openSessionInKepler', (arg?: unknown) => {
+				const resolved = resolveAgentSessionArg(arg);
+				return this.openSessionInKepler(resolved?.sessionId, resolved?.providerId, resolved?.cwd);
+			}),
 			registerCommand('gitlens.agents.resumeSession', (arg?: unknown) => {
 				const resolved = resolveAgentSessionArg(arg);
 				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
@@ -1435,6 +1445,28 @@ export class AgentStatusService implements Disposable {
 			void window.showErrorMessage(l10n.t('Failed to archive session: {0}', getPresentableErrorMessage(ex)));
 			return false;
 		}
+	}
+
+	/** Hands a tracked session to Kepler. The session is looked up host-side (the webview context's
+	 *  `cwd` is only the resume dir, and a past row has no tracked session): `initialCwd ?? cwd` is the
+	 *  directory the agent was launched in, which is where its transcript is keyed. A session that is
+	 *  no longer tracked falls back to the caller's provider id and `cwd` rather than failing. */
+	private async openSessionInKepler(sessionId?: string, providerId?: string, fallbackCwd?: string): Promise<void> {
+		if (sessionId == null) return;
+
+		const session = this.getTrackedSession(providerId, sessionId);
+		const resolvedProviderId = session?.providerId ?? providerId;
+		if (resolvedProviderId == null) return;
+
+		await openSessionInKepler(
+			this.container,
+			{
+				providerId: resolvedProviderId,
+				sessionId: sessionId,
+				cwd: session?.initialCwd ?? session?.cwd ?? fallbackCwd,
+			},
+			{ source: 'agents' },
+		);
 	}
 
 	private async openSession(sessionId?: string, providerId?: string): Promise<void> {

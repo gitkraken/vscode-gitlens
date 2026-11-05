@@ -47,9 +47,6 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-12);
-
-				/* Semantic success token so custom/high-contrast themes keep contrast */
-				--status-color--connected: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
 			}
 
 			.note {
@@ -58,9 +55,9 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				color: var(--gl-color-feedback-info-fg);
+				background-color: var(--gl-color-feedback-info-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -83,7 +80,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-10);
 				align-items: center;
 				padding: 0.9rem 1.1rem;
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -93,7 +90,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			}
 
 			.row--disconnected .row__icon {
-				color: var(--color-foreground--25);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row__content {
@@ -110,7 +107,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			.row__details {
 				display: block;
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row--sub {
@@ -119,12 +116,11 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 
 			.row--sub .row__title {
 				font-size: 1.15rem;
-				color: var(--color-foreground--85);
 			}
 
 			.row--disconnected .row__title,
 			.row--disconnected .row__details {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row__actions {
@@ -139,7 +135,6 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				gap: 0.5rem;
 				align-items: center;
 				font-size: 1.15rem;
-				color: var(--status-color--connected);
 			}
 
 			.error {
@@ -149,9 +144,9 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 				border-radius: var(--gl-radius-md);
 			}
 

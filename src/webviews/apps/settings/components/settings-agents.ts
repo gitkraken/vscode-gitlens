@@ -78,7 +78,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				--status-color--connected: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+				--status-color--connected: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.rows {
@@ -96,10 +96,10 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				padding-block-end: var(--gl-space-4);
 				font-size: 1.1rem;
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				border-block-end: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-end: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.header__col,
@@ -117,7 +117,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				padding-block: var(--gl-space-8) var(--gl-space-2);
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
 			}
@@ -135,15 +135,15 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 			.row__agent code-icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row--dimmed .row__agent {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row--dimmed .row__agent code-icon {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.row__not-detected {
@@ -160,11 +160,11 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			}
 
 			.cell__dash {
-				color: var(--color-foreground--50);
+				color: var(--vscode-disabledForeground);
 			}
 
 			.cell__status-icon--warning {
-				color: var(--vscode-editorWarning-foreground, #cca700);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 				cursor: help;
 			}
 
@@ -188,9 +188,9 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				color: var(--gl-color-feedback-info-fg);
+				background-color: var(--gl-color-feedback-info-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -205,9 +205,9 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 				border-radius: var(--gl-radius-md);
 			}
 

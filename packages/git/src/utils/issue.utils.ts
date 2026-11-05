@@ -200,6 +200,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 					})),
 		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
 		viewerUnresolved: value.viewerUnresolved,
+		syncedWith: value.syncedWith?.map(synced => ({ ...synced })),
 	};
 	return serialized;
 }
