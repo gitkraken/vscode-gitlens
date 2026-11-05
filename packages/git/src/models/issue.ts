@@ -1,6 +1,6 @@
 import { loggable } from '@gitlens/utils/decorators/log.js';
 import type { RequireSome, RequireSomeWithProps } from '@gitlens/utils/types.js';
-import type { IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullRequest.js';
+import type { IssueMilestone, IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullRequest.js';
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
@@ -282,6 +282,7 @@ export class Issue implements IssueShape {
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
 		public readonly syncedWith?: IssueSyncedWith[],
+		public readonly milestone?: IssueMilestone | null,
 	) {}
 
 	static is(issue: unknown): issue is Issue {

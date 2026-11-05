@@ -3,7 +3,11 @@ import { loggable } from '@gitlens/utils/decorators/log.js';
 import { serializable } from '@gitlens/utils/decorators/serializable.js';
 import type { RequireSome, RequireSomeWithProps } from '@gitlens/utils/types.js';
 import type { IssueProject, IssueRepository } from './issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest.js';
+import type {
+	IssueMilestone,
+	IssueOrPullRequest,
+	IssueOrPullRequestState as PullRequestState,
+} from './issueOrPullRequest.js';
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
@@ -134,6 +138,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly projection?: PullRequestProjection,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
+		public readonly milestone?: IssueMilestone | null,
 	) {}
 
 	get closed(): boolean {

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `milestone` to `IssueOrPullRequest` (so to issues and pull requests) and a trailing `milestone` constructor parameter to `Issue` and `PullRequest`: an `IssueMilestone` with `id`, `title`, `state` (`open`/`closed`), `dueDate` and `url`, `null` when the read asked and the item has none, `undefined` when it didn't ask. GitLens' own GitHub/GHE issue and pull request fragments select it, and the provider-apis rows map the one GitHub, GitLab and Linear (a project milestone) already normalize. `id` is the GitHub node id or GitLab global id, unique on the host, never the per-repository number. Adds a `milestone` field presence group for issues and pull requests: `fetched` on every GitHub/GHE read, on GitLab's provider-apis reads and on Linear, `not-requested` on GitLens' own GitLab merge request reads and GitLab's account-wide issue read (its REST normalizer drops it), `unavailable` elsewhere. `serializeIssue` and `serializePullRequest` copy it (git, plus/git-github, plus/integrations)
+
 ### Changed
 
 - **Breaking (plus/integrations)** — `refs.head.repo` and `refs.base.repo` on GitLab's `getPullRequest` and `searchPullRequests` rows hold the repository's name rather than its whole path, on flat paths too: `r`, was `group/r`. The whole path sat beside an owner that was already the namespace, so `getRepositoryIdentityForPullRequest` named `group/group/r`; it now names `group/r`, and these rows match the provider-apis rows. A consumer using either field as the whole path should join `owner` and `repo`
