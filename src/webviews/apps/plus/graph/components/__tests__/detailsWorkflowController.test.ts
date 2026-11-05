@@ -486,6 +486,7 @@ suite('DetailsWorkflowController.toggleMode — stale-on-re-entry', () => {
 				},
 				getCommitPatchIds: async () => undefined,
 			});
+			Object.assign(services, { ai: { getModel: async () => undefined } });
 			const actions = new DetailsActions(state, services, createResources());
 			const controller = new DetailsWorkflowController(host, actions);
 			host.connectAll();
