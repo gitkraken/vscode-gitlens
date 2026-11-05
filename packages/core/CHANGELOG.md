@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes `getGitLabPullRequestIdentityFromMaybeUrl` keeping only the last two segments of a merge request URL's project path, so a nested group's `acme/platform/kepler` came back as `platform/kepler`: the whole path before `/-/merge_requests/<n>` is now the project, less a host. Adds `splitOwnerAndRepo`, which splits a GitLab project path at its last slash (plus/integrations)
 - Fixes the GitLab remote provider's autolinks, file links and cross-fork merge requests for repositories in nested groups: `acme/platform/kepler#12` linked as `platform/kepler`, `parseRemoteFileUri` returned `undefined` for a nested group's file URL, and a merge request from a fork into `acme/platform/kepler` looked up project `acme/platform` for its target. Each now takes everything before the last slash as the owner (git)
 - Fixes `Git` remembering a failed git lookup for the rest of the process: once the locator rejected (git not installed yet, a transient spawn failure), every `path()`, `version()` and `run()` rejected with that error until restart. Callers in flight together still share one lookup, and the next call looks again (git-cli)
+- Fixes `RepositoryWatchService` dropping the working-tree changes it held while a repository's gitignore filter loaded, when that load failed. They're now replayed through the filter as after a successful load; a filter that failed to load keeps the rules it had and errs toward "not ignored" (git)
 
 ## [0.32.0] - 2026-11-05
 
