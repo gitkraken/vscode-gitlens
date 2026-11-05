@@ -221,8 +221,51 @@ Two side effects to know about:
 - On any test error Playwright writes `error-context.md` with an ARIA snapshot — of a failed `expect` matcher's
   target, else of the page — and no option turns it off; `trace` / `screenshot` don't affect it. The fixture waits
   with `locator.waitFor` instead of `expect` so a failed sign-in doesn't snapshot the Account page, but an assertion
-  in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
-  artifacts unless it is scanned first.
+  in a spec can still put the account's name or e-mail into test results, and a snapshot of account UI shows its
+  other items: keep signed-in output out of shared artifacts — the secret scan clears credentials and e-mail
+  addresses, not other account data.
+
+In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the regular e2e legs run with
+`--grep-invert @signed-in` and hold no credentials. The job:
+
+- starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true` (a
+  repository variable, not an Environment one: the job's `if` is evaluated before the Environment is attached);
+- takes its secrets from the `e2e-staging` Environment, whose deployments are limited to `main`:
+  `GK_E2E_ACCESS_TOKEN_COOKIE` (the staging test account's `stagingAccessToken`), a Cloudflare Access service token
+  (`GK_E2E_CF_ACCESS_CLIENT_ID` / `GK_E2E_CF_ACCESS_CLIENT_SECRET`) and `GK_E2E_GITHUB_TOKEN`, read-only on the
+  private test-data repository. Repository secrets would reach any workflow run from a branch of this repository
+  (forks and their pull requests get none) — a branch that edits `ci.yml` could read them whatever the job's `if`
+  says — while an Environment's secrets reach only a job that deploys to it, from a run whose ref is `main`. That
+  makes the guarantee "only workflow code reviewed into `main`": runs triggered by `schedule`, `issue_comment`,
+  `workflow_run` or `pull_request_target` carry `main` as their ref too, so never reference `e2e-staging` from a job
+  that runs pull-request code. Don't add the secrets back at repository level. Keep the values narrow and
+  replaceable all the same — the session ends when the test account signs out of the staging site, the GitHub token
+  is scoped to the one repository, and the service token can be reissued;
+- reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
+  GitHub URL fails the run instead of skipping it (`E2E_REQUIRE_SIGNIN`), while an unset `E2E_REQUIRED_INTEGRATIONS`
+  falls back to its default list;
+- runs with `--retries=0` whatever the config's CI default — a retry starts a new worker, and every worker sign-in
+  mints a token the backend never expires;
+- builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging;
+- uploads no artifacts: a failed test's `error-context.md` snapshots account UI (other pull requests' titles and
+  authors in Launchpad), which no scan can tell from fixture data. It still runs `scripts/e2eScanForSecrets.mjs` over
+  its output, so a credential that reaches it fails the job: any output file holding a secret value (verbatim, base64,
+  base64url or URL-encoded, inside trace zips too) or in its path, or one it can't read or mask, is deleted; e-mail
+  addresses and JWT-shaped strings in text files are masked. Don't add an upload of the test results back; any other
+  upload added to the job must also require the scan's complete pass. The scan is best-effort: it can't recognize
+  values it wasn't given, such as the tokens a sign-in mints.
+
+The repository is public, so the job's log is too. The log itself is not scanned: a failed assertion on account UI
+prints the received text there, and so do the diagnostics a spec prints on failure (tool results, GitLens log lines).
+Keep signed-in assertions and diagnostics off account data beyond the test repository's: the account's name and
+e-mail, and other repositories' pull requests and issues.
+
+The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
+to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`
+value in the `e2e-staging` Environment — `gh secret set --env e2e-staging GK_E2E_ACCESS_TOKEN_COOKIE` (admin access
+needed), reading the value from the prompt or a file, never as an argument. Without `--env` it lands in a repository
+secret instead: that puts the cookie back within reach of every branch, and the Environment's older copy still takes
+precedence, so the job keeps failing.
 
 ### Login-walled forks (Cursor, Kiro)
 
