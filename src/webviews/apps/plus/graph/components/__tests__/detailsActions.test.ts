@@ -1387,6 +1387,108 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		});
 	});
 
+	[
+		{
+			name: "a branch's first commit joins the working changes it came from",
+			scope: [] as string[],
+			staged: true,
+			prev: ['m0', 'm1'],
+			prevMergeBase: undefined as string | undefined,
+			tips: ['m0', 'c1'],
+			next: { commits: ['c1'], mergeBase: 'm0' as string | undefined },
+			expected: ['c1'],
+		},
+		{
+			name: "an undo of a branch's only commit keeps its scope off the base branch's history",
+			scope: ['c1'],
+			staged: false,
+			prev: ['c1'],
+			prevMergeBase: 'm0',
+			tips: ['c1', 'm0'],
+			next: { commits: ['m0', 'm1'], mergeBase: undefined },
+			expected: ['c1'],
+		},
+	].forEach(c => {
+		test(c.name, async () => {
+			const state = createDetailsState();
+			state.activeMode.set('review');
+			state.activeModeContext.set('wip');
+			state.activeModeRepoPath.set('/repo');
+			state.scope.set({ type: 'wip', includeStaged: c.staged, includeUnstaged: false, includeShas: c.scope });
+
+			const services = {
+				...createServices(),
+				graphInspect: {
+					getBranchCommits: async () => ({
+						commits: c.next.commits.map(commit),
+						mergeBase: c.next.mergeBase != null ? { sha: c.next.mergeBase, message: '' } : undefined,
+						hasMore: false,
+					}),
+					getCommitPatchIds: async () => undefined,
+				},
+			} as unknown as ResolvedServices;
+			const actions = new DetailsActions(state, services, createResources());
+			actions['_branchCommitsFetchedRepoPath'] = '/repo';
+			state.branchCommits.set(c.prev.map(commit));
+			state.branchMergeBase.set(c.prevMergeBase != null ? { sha: c.prevMergeBase, message: '' } : undefined);
+
+			actions.applyPushedWip(wipAt(1, c.tips[0]));
+			actions.applyPushedWip(wipAt(2, c.tips[1]));
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+			assert.deepStrictEqual(state.scope.get(), {
+				type: 'wip',
+				includeStaged: c.staged,
+				includeUnstaged: false,
+				includeShas: c.expected,
+			});
+		});
+	});
+
+	test('a refetch that replaces an aborted one still starts from the scope pinned at the tip move', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: true, includeUnstaged: false, includeShas: [] });
+
+		const pending: (() => void)[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						pending.push(() =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false }),
+						);
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// The staged changes are committed as w: the tip push pins the scope and starts a refetch…
+		actions.applyPushedWip(wipAt(2, 'w'));
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+		// …and the branch-state change that follows (ahead/behind moved) starts another, aborting it
+		const second = actions.fetchBranchCommits('/repo');
+		pending[0]();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		pending[1]();
+		await second;
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		});
+		assert.strictEqual(actions['_scopeBeforeTipMove'], undefined, 'the pin is consumed');
+	});
+
 	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');

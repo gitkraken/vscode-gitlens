@@ -465,37 +465,43 @@ suite('DetailsWorkflowController.toggleMode — stale-on-re-entry', () => {
 	});
 
 	[
-		{ tip: "c'", refetches: true },
-		{ tip: 'c', refetches: false },
-	].forEach(({ tip, refetches }) => {
-		test(`review: re-entering WIP ${refetches ? 'refetches' : 'keeps'} branch commits ${refetches ? 'behind' : 'at'} the branch tip`, () => {
+		{ tip: "c'", refetches: true, expected: ["c'", 'b'] },
+		{ tip: 'c', refetches: false, expected: ['c', 'b'] },
+	].forEach(({ tip, refetches, expected }) => {
+		test(`review: re-entering WIP ${refetches ? 'refetches' : 'keeps'} branch commits ${refetches ? 'behind' : 'at'} the branch tip`, async () => {
 			const host = new FakeHost({
 				repoPath: '/A',
 				graphRepoPath: '/parent',
 				selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
 			});
 			const state = createDetailsState();
-			const actions = new DetailsActions(state, createServices(), createResources());
+			const commit = (sha: string) =>
+				({ sha: sha, message: sha.replace("'", ''), pushed: false }) as unknown as BranchCommitEntry;
+			let fetches = 0;
+			const services = createServices();
+			Object.assign(services.graphInspect, {
+				getBranchCommits: async () => {
+					fetches++;
+					return { commits: [commit("c'"), commit('b')], hasMore: false };
+				},
+				getCommitPatchIds: async () => undefined,
+			});
+			const actions = new DetailsActions(state, services, createResources());
 			const controller = new DetailsWorkflowController(host, actions);
 			host.connectAll();
 			host.tickHostUpdate();
 
-			// Listed before the mode was left; the branch was amended while it was off
-			state.branchCommits.set([
-				{ sha: 'c', message: 'c', pushed: false },
-				{ sha: 'b', message: 'b', pushed: false },
-			] as unknown as BranchCommitEntry[]);
+			// Listed before the mode was left; the branch may have been amended while it was off
+			state.branchCommits.set([commit('c'), commit('b')]);
 			actions['_branchCommitsFetchedRepoPath'] = '/A';
 			state.wip.set({ repo: { path: '/A' }, branch: { reference: { sha: tip } } } as unknown as Wip);
-			let fetches = 0;
-			actions.fetchBranchCommits = () => {
-				fetches++;
-				return Promise.resolve();
-			};
 
 			controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
 
 			assert.strictEqual(fetches, refetches ? 1 : 0);
+			const scope = state.scope.get();
+			assert.deepStrictEqual(scope?.type === 'wip' ? scope.includeShas : undefined, expected);
 		});
 	});
 
