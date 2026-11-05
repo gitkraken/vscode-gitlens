@@ -248,7 +248,7 @@ export function remapScopeRange(
 	if (top == null || bottom == null) return undefined;
 
 	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...unloaded];
-	return areEqual(remapped, shas) ? undefined : remapped;
+	return !remapped.length || areEqual(remapped, shas) ? undefined : remapped;
 }
 
 function getCommitSubject(message: string): string {

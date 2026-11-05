@@ -1214,6 +1214,14 @@ suite('remapScopeRange', () => {
 			expected: undefined,
 		},
 		{
+			name: 'a scope commit that became the merge base',
+			shas: ['b'],
+			prev: ['c', 'b', 'a'],
+			next: ['c'],
+			mergeBases: { next: 'b' },
+			expected: undefined,
+		},
+		{
 			name: 'a squash with a new message',
 			shas: ['c', 'b'],
 			prev: ['c', 'b', 'a'],
