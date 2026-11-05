@@ -620,9 +620,10 @@ export abstract class IntegrationBase<
 			}
 
 			this._onDidChange.fire();
-			if (!options?.currentSessionOnly) {
-				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
-			}
+			// Fired even for a session-only disconnect: the integration IS disconnected until it reconnects, and the
+			// service's connected-key cache only forgets the key on this event — skipped, listeners kept showing it
+			// connected and the cache swallowed the eventual reconnect as a duplicate
+			this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
 		}
 
 		await this.providerOnDisconnect?.();
