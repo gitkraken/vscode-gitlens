@@ -8,6 +8,7 @@ import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -88,6 +89,30 @@ suite('WorktreeSummaryService against real git', () => {
 	teardown(() => {
 		service.dispose();
 		repo.cleanup();
+	});
+
+	test('reads again for the next reader after git ran past its time limit on the first read', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+		const options = (service.getProvider(repo.path)!.provider as CliGitProvider).git.options as {
+			gitTimeout?: number;
+		};
+		const { gitTimeout } = options;
+		options.gitTimeout = 1;
+
+		const sub = summaries.subscribe(repo.path);
+		await assert.rejects(
+			summaries.getSummary(repo.path),
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'timeout',
+		);
+		assert.strictEqual(sub.current, undefined);
+
+		options.gitTimeout = gitTimeout;
+
+		const summary = await summaries.getSummary(repo.path);
+		assert.strictEqual(summary.branch, 'main');
+		assert.strictEqual(summary.stale, false);
+		assert.deepStrictEqual(sub.current, summary);
 	});
 
 	test('reads the worktree and follows edits and a branch switch through the cache', async () => {
