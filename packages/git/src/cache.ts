@@ -433,6 +433,7 @@ export class Cache implements Disposable {
 		usage['cache.statusGenerations.entries.count'] = this._statusGenerations.size;
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
 		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
+		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
 		return usage;
 	}
 
@@ -1114,6 +1115,9 @@ export class Cache implements Disposable {
 			}
 			this._caches.gitResults?.delete(normalizedPath);
 		}
+		if (previousCommonPath == null && normalizedPath !== commonPath) {
+			this.evictReadsBeforeRegistration(normalizedPath);
+		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
 
 		let worktrees = this._worktreesByCommonPath.get(commonPath);
@@ -1122,6 +1126,31 @@ export class Cache implements Disposable {
 			this._worktreesByCommonPath.set(commonPath, worktrees);
 		}
 		worktrees.add(normalizedPath);
+	}
+
+	/**
+	 * A checkout read before it was registered was its own common path, so it holds its own copy of what its
+	 * repository's checkouts share, and reads from here on go by the common path. Config stays: it is kept by checkout.
+	 * Its gk config baseline and merge target tracking go too, or a read after it is unregistered would reconcile
+	 * against a baseline from before it was registered.
+	 */
+	private evictReadsBeforeRegistration(repoPath: string): void {
+		this._gkConfigSnapshots.delete(repoPath);
+		this._mergeTargetsEvictedOnCheckout.delete(repoPath);
+
+		for (const key of sharedCacheKeys) {
+			if (key === 'configKeys' || key === 'configPatterns') continue;
+
+			const cache = this._caches[key];
+			if (cache == null) continue;
+
+			const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+			if (typeof invalidate === 'function') {
+				invalidate.call(cache, repoPath);
+			} else {
+				cache.delete(repoPath);
+			}
+		}
 	}
 
 	/**
@@ -1594,17 +1623,23 @@ export class Cache implements Disposable {
 		factory: (cacheable: CacheController) => PromiseOrValue<Map<string, string>>,
 	): Promise<Map<string, string>> {
 		return this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
+			const closeGeneration = this.getCloseGeneration(commonPath);
 			const map = await factory(cacheable);
 			// Seed the reconcile baseline on first observation only. Refreshes belong to
 			// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
 			// an incidental read that happens to land between an external write and the watcher event
 			// would otherwise advance the baseline to the post-change value, so the reconcile would diff
 			// that value against itself and silently drop the change.
-			if (!this._gkConfigSnapshots.has(commonPath)) {
+			if (!this._gkConfigSnapshots.has(commonPath) && this.isReadPathCurrent(commonPath, closeGeneration)) {
 				this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
 			}
 			return map;
 		});
+	}
+
+	/** Whether a read that started under the common path `path` may still seed state for it: not registered or closed since */
+	private isReadPathCurrent(path: string, closeGeneration: number): boolean {
+		return this.getCommonPath(path) === path && this.getCloseGeneration(path) === closeGeneration;
 	}
 
 	/** Extracts the subset of a gk config map that the reconcile baseline tracks (see {@link _gkConfigSnapshots}). */
@@ -2188,10 +2223,14 @@ export class Cache implements Disposable {
 			cacheKey,
 			async (commonPath, cacheable, signal) => {
 				const generation = this._mergeTargetCheckoutGeneration;
+				const closeGeneration = this.getCloseGeneration(commonPath);
 				const entry = await factory(commonPath, cacheable, signal);
 				if (entry.evictOnCheckout) {
 					// A checkout while the reflog was read may have written the entry it found missing
-					if (this._mergeTargetCheckoutGeneration !== generation) {
+					if (
+						this._mergeTargetCheckoutGeneration !== generation ||
+						!this.isReadPathCurrent(commonPath, closeGeneration)
+					) {
 						cacheable.invalidate();
 						return entry;
 					}
