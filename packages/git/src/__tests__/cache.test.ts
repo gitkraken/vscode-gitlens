@@ -5,7 +5,7 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { defer } from '@gitlens/utils/promise.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import type { BranchMetadataChange, CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
+import type { BranchMetadataChange, CachedGitTypes, CachedMergeTarget, MergeTargetsChangeEvent } from '../cache.js';
 import { Cache, resetDropsPendingRuns, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
@@ -2425,6 +2425,208 @@ suite('GitWorktree.name', () => {
 		);
 
 		assert.strictEqual(worktree.name, 'feature/x');
+	});
+});
+
+suite('Cache.registerRepoPath', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const worktreeGitDir = {
+		uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+		commonUri: fileUri(`${repoPath}/.git`),
+	};
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function count(cache: Cache, name: string): number | undefined {
+		return cache.getResourceUsage()[`cache.${name}.entries.count`];
+	}
+
+	function list(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', false, undefined, undefined, 'abc123')] };
+	}
+
+	test("a worktree read before it was registered gives up its copy of the repository's list", async () => {
+		using cache = new Cache();
+		await cache.getBranches(worktree, list, identity);
+		await cache.getRefs(worktree, () => []);
+		await cache.getRemotes(worktree, () => []);
+		assert.strictEqual(count(cache, 'sharedBranches'), 1);
+		assert.strictEqual(count(cache, 'branches'), 1);
+		assert.strictEqual(count(cache, 'refs'), 1);
+		assert.strictEqual(count(cache, 'remotes'), 1);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.strictEqual(count(cache, 'sharedBranches'), 0);
+		assert.strictEqual(count(cache, 'branches'), 0);
+		assert.strictEqual(count(cache, 'refs'), 0);
+		assert.strictEqual(count(cache, 'remotes'), 0);
+
+		let readAt: string | undefined;
+		await cache.getBranches(
+			worktree,
+			path => {
+				readAt = path;
+				return list(path);
+			},
+			identity,
+		);
+		assert.strictEqual(readAt, repoPath, 'the next read goes by the common path');
+	});
+
+	test('a read in flight across registration still answers, and is not kept', async () => {
+		using cache = new Cache();
+		let resolve!: (value: PagedResult<GitBranch>) => void;
+		const inFlight = cache.getSharedBranches(
+			worktree,
+			() =>
+				new Promise<PagedResult<GitBranch>>(r => {
+					resolve = r;
+				}),
+		);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		const values = list(worktree);
+		resolve(values);
+
+		assert.strictEqual(await inFlight, values);
+		await Promise.resolve();
+		assert.strictEqual(count(cache, 'sharedBranches'), 0);
+	});
+
+	test('keeps what a checkout reads for itself, and what the common path holds', async () => {
+		using cache = new Cache();
+		await cache.getConfig(worktree, 'core.foo', () => 'bar');
+		await cache.getBranches(repoPath, list, identity);
+
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		let factoryCount = 0;
+		assert.strictEqual(
+			await cache.getConfig(worktree, 'core.foo', () => {
+				factoryCount++;
+				return 'baz';
+			}),
+			'bar',
+		);
+		assert.strictEqual(factoryCount, 0);
+		assert.strictEqual(count(cache, 'sharedBranches'), 1, "the main checkout's list stays");
+		assert.ok(cache.branches.has(repoPath));
+	});
+
+	test('registering a worktree again keeps what it has read since', async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		await cache.getBranches(worktree, list, identity);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.ok(cache.branches.has(worktree), 'the mapped list stays');
+		assert.strictEqual(count(cache, 'sharedBranches'), 1);
+	});
+
+	test('a worktree read before it was registered gives up its gk config baseline and merge target tracking', async () => {
+		using cache = new Cache();
+		const key = 'branch.feature.gk-merge-target';
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'a']]));
+		await cache.getMergeTarget(worktree, 'refs/heads/feature', () => ({
+			result: undefined,
+			selfAtTip: false,
+			tips: [],
+			replaced: '',
+			shallow: null,
+			configKey: undefined,
+			stored: undefined,
+			evictOnCheckout: true,
+		}));
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 1);
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 1);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 0);
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 0);
+
+		cache.unregisterRepoPath(worktree);
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'b']]));
+		assert.strictEqual(cache.getGkConfigSnapshot(worktree)?.get(key), 'b', 'the next read seeds a fresh baseline');
+	});
+
+	const key = 'branch.feature.gk-merge-target';
+
+	function mergeTarget(): CachedMergeTarget {
+		return {
+			result: undefined,
+			selfAtTip: false,
+			tips: [],
+			replaced: '',
+			shallow: null,
+			configKey: undefined,
+			stored: undefined,
+			evictOnCheckout: true,
+		};
+	}
+
+	test('a gk config read still running when its worktree is registered does not seed a baseline under the worktree', async () => {
+		using cache = new Cache();
+		const gate = defer<void>();
+		const read = cache.getGkConfigMap(worktree, async () => {
+			await gate.promise;
+			return new Map([[key, 'a']]);
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await read;
+
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 0);
+		cache.unregisterRepoPath(worktree);
+		assert.strictEqual(cache.getGkConfigSnapshot(worktree), undefined);
+	});
+
+	test('a merge target read still running when its worktree is registered does not track the worktree', async () => {
+		using cache = new Cache();
+		const gate = defer<void>();
+		const read = cache.getMergeTarget(worktree, 'refs/heads/feature', async () => {
+			await gate.promise;
+			return mergeTarget();
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await read;
+
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 0);
+	});
+
+	test('reads that started after registration, or for the main checkout, still seed', async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		const gate = defer<void>();
+		const mainRead = cache.getGkConfigMap(repoPath, async () => {
+			await gate.promise;
+			return new Map([[key, 'a']]);
+		});
+		const mainTarget = cache.getMergeTarget(repoPath, 'refs/heads/feature', async () => {
+			await gate.promise;
+			return mergeTarget();
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await Promise.all([mainRead, mainTarget]);
+
+		assert.strictEqual(cache.getGkConfigSnapshot(repoPath)?.get(key), 'a');
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 1);
+
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'b']]));
+		assert.strictEqual(
+			cache.getGkConfigSnapshot(worktree)?.get(key),
+			'a',
+			'the worktree shares the main checkout baseline',
+		);
 	});
 });
 
