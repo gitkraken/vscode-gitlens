@@ -5,9 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitDir } from '@gitlens/git/models/repository.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
+import { readGitDirs } from '../../../exec/gitDirResolver.js';
 import { createProvider } from './helpers.js';
 
 function git(cwd: string, ...args: string[]): string {
@@ -171,6 +173,91 @@ suite('getGitDir without running git (real git)', () => {
 		git(main, 'add', 'nested');
 		const { gitDir } = await getGitDir(join(main, 'nested'));
 		assert.strictEqual(gitDir.parentUri?.toString(true), fileUri(main).toString(true));
+	});
+
+	test('asks git about every sibling nested in a repository that could track them', async () => {
+		const parent = join(main, 'worktrees');
+		git(main, 'worktree', 'add', '-q', '-b', 'nested-a', join(parent, 'a'));
+		git(main, 'worktree', 'add', '-q', '-b', 'nested-b', join(parent, 'b'));
+
+		await assertAsksGit(join(parent, 'a'));
+		await assertAsksGit(join(parent, 'b'));
+
+		const provider = newProvider();
+		revParses.length = 0;
+		await provider.config.getGitDir(join(parent, 'a'));
+		await provider.config.getGitDir(join(parent, 'b'));
+		assert.strictEqual(revParses.length, 2, 'the shared answer still sends each sibling to git');
+	});
+
+	test("walks the folders above a repository's worktrees once per parent folder", async () => {
+		const parent = join(root, 'siblings');
+		const other = join(root, 'elsewhere');
+		for (const path of [join(parent, 'a'), join(parent, 'b'), join(parent, 'c'), join(other, 'd')]) {
+			git(main, 'worktree', 'add', '-q', '--detach', path);
+		}
+
+		let walks = 0;
+		class CountingCache extends PromiseCache<string, boolean> {
+			override getOrCreate(...[key, factory, options]: Parameters<PromiseCache<string, boolean>['getOrCreate']>) {
+				return super.getOrCreate(
+					key,
+					(...args) => {
+						walks++;
+						return factory(...args);
+					},
+					options,
+				);
+			}
+		}
+		const superprojects = new CountingCache({ createTTL: 60_000 });
+
+		for (const name of ['a', 'b', 'c']) {
+			assert.ok((await readGitDirs(join(parent, name), superprojects)) != null);
+		}
+		assert.strictEqual(walks, 1, 'siblings share the walk');
+
+		assert.ok((await readGitDirs(join(other, 'd'), superprojects)) != null);
+		assert.strictEqual(walks, 2, 'another folder walks its own');
+
+		// The answer is about the folders above, so it never stands in for a sibling's own files
+		const siblings = await Promise.all(['a', 'b'].map(name => readGitDirs(join(parent, name), superprojects)));
+		assert.notStrictEqual(siblings[0]?.gitDir, siblings[1]?.gitDir);
+		assert.strictEqual(siblings[0]?.commonGitDir, siblings[1]?.commonGitDir);
+	});
+
+	test('sees a repository created above once the shared answer expires', async () => {
+		const parent = join(root, 'later', 'wts');
+		mkdirSync(parent, { recursive: true });
+		git(main, 'worktree', 'add', '-q', '--detach', join(parent, 'a'));
+		git(main, 'worktree', 'add', '-q', '--detach', join(parent, 'b'));
+
+		const ttlMs = 20;
+		const superprojects = new PromiseCache<string, boolean>({ createTTL: ttlMs });
+		assert.ok((await readGitDirs(join(parent, 'a'), superprojects)) != null);
+
+		initRepo(join(root, 'later'));
+		await new Promise(resolve => setTimeout(resolve, ttlMs * 2));
+
+		assert.strictEqual(await readGitDirs(join(parent, 'b'), superprojects), undefined);
+	});
+
+	test('sees a repository created above once the caches are reset', async () => {
+		const parent = join(root, 'reset', 'wts');
+		mkdirSync(parent, { recursive: true });
+		git(main, 'worktree', 'add', '-q', '--detach', join(parent, 'a'));
+		git(main, 'worktree', 'add', '-q', '--detach', join(parent, 'b'));
+
+		const provider = newProvider();
+		revParses.length = 0;
+		await provider.config.getGitDir(join(parent, 'a'));
+		assert.strictEqual(revParses.length, 0);
+
+		initRepo(join(root, 'reset'));
+		provider.cache.reset();
+
+		await provider.config.getGitDir(join(parent, 'b'));
+		assert.strictEqual(revParses.length, 1, 'the reset drops the shared answer');
 	});
 
 	test('asks git about a submodule', async () => {
