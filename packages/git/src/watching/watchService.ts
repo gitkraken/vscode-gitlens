@@ -626,23 +626,26 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		// Ahead of `ready()`, so the replay below waits for rules that may have changed while nothing watched them
 		const revalidated = filter?.revalidate();
 		if (filter != null) {
+			const replay = (): void => {
+				const pending = buffered;
+				const incomplete = bufferIncomplete;
+				filterReady = true;
+				buffered = undefined;
+				bufferIncomplete = false;
+
+				if (!pending?.length) return;
+
+				const paths = filterWorkingTreePaths(pending, repoPath, filter);
+				if (paths.length > 0 || incomplete) {
+					session.pushWorkingTreeChanges(paths, incomplete);
+				}
+			};
+			// A failed load still replays: the filter keeps the rules it had (none before its first load) and errs
+			// toward "not ignored", so an extra refresh is the worst case, where dropping the buffer loses real changes
 			void filter
 				.ready()
-				.then(() => {
-					filterReady = true;
-					if (buffered?.length) {
-						const paths = filterWorkingTreePaths(buffered, repoPath, filter);
-						if (paths.length > 0 || bufferIncomplete) {
-							session.pushWorkingTreeChanges(paths, bufferIncomplete);
-						}
-					}
-					buffered = undefined;
-					bufferIncomplete = false;
-				})
-				.catch(() => {
-					filterReady = true;
-					buffered = undefined;
-				});
+				.then(replay, replay)
+				.catch(() => {});
 		}
 
 		// An ignore rule changed (or may have): refresh the filter (unless it already reloaded) and the pruned set, and

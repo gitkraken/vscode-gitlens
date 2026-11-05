@@ -1023,6 +1023,43 @@ describe('RepositoryWatchService', () => {
 			service.dispose();
 		});
 
+		it('replays the paths buffered while the gitignore filter loaded when the load fails', async () => {
+			const { factory, watchers } = createMockFactory();
+			let failLoad!: (reason: Error) => void;
+			const filter = {
+				ready: () =>
+					new Promise<void>((_, reject) => {
+						failLoad = reject;
+					}),
+				isIgnored: () => false,
+				refresh: () => Promise.resolve(),
+				revalidate: () => Promise.resolve(false),
+			} as unknown as GitIgnoreFilter;
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: string[][] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push([...e.paths]));
+
+			watchers.find(w => w.basePath === '/repo')!.fire({ path: '/repo/src/a.ts', reason: 'change' });
+			await delay(60);
+			assert.deepStrictEqual(received, [], 'held back until the filter settles');
+
+			failLoad(new Error('load failed'));
+			await delay(60);
+
+			assert.deepStrictEqual(received, [['/repo/src/a.ts']]);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
 		it('reloads the ignore rules, since a lost .gitignore edit would leave them stale', async () => {
 			const { factory, watchers } = createMockFactory();
 			let refreshes = 0;
