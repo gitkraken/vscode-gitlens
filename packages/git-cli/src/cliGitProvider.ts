@@ -851,7 +851,7 @@ export class CliGitProvider implements GitProvider {
 
 	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
 		return this._cache.getLastFetchedTimestamp(repoPath, async (commonPath): Promise<number | undefined> => {
-			const gitDir = await this.config.getGitDir?.(commonPath);
+			const gitDir = await this.config.getGitDir?.(commonPath).catch(() => undefined);
 			if (gitDir == null) return undefined;
 
 			const gitDirUri = gitDir.commonUri ?? gitDir.uri;

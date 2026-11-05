@@ -602,7 +602,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	/**
 	 * Returns a worktree's summary. For a subscribed worktree, the cached value — after waiting for any run in flight
 	 * or pending; it rejects with the read's error when there is still no value, after one more read when git ran out
-	 * of time. Otherwise the last read of it, re-reading what moved since (see {@link getSummarySnapshot}).
+	 * of time or the start failed. Otherwise the last read of it, re-reading what moved since (see {@link getSummarySnapshot}).
 	 */
 	async getSummary(repoPath: string, cancellation?: AbortSignal): Promise<WorktreeSummary> {
 		const key = getRepositoryKey(repoPath);
@@ -652,7 +652,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	 * A first read cut short (git ran past its time limit, or was killed) says nothing about the worktree, and no git
 	 * event may come to read it again, so each reader reads once more, joining a read in flight, before getting its
 	 * error, and so does each new subscriber. Only they cause this: reads of a worktree run one at a time, each bounded
-	 * by the time limit and holding a read slot.
+	 * by the time limit and holding a read slot. A start that failed has no watch for an event to come from, however it
+	 * failed, so it gets the same.
 	 */
 	private async getSubscribedSummary(
 		entry: SummaryEntry,
@@ -661,7 +662,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		let summary = await this.waitForValue(entry, cancellation);
 		if (summary != null) return summary;
 
-		if (isCancellationError(entry.error)) {
+		if (isCancellationError(entry.error) || entry.handle == null) {
 			if (cancellation?.aborted) throw new CancellationError();
 
 			if (entry.running == null) {
