@@ -2769,7 +2769,7 @@ export class DetailsActions {
 				prevCommits,
 				result.commits,
 				{
-					prev: prevCommits != null ? this.state.branchMergeBase.get()?.sha : undefined,
+					prev: this.state.branchMergeBase.get()?.sha,
 					next: result.mergeBase?.sha,
 				},
 				controller.signal,
