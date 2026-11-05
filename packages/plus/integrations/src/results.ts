@@ -457,7 +457,10 @@ export type RepositoryResolutionStatus =
 export interface RepositoryIdentity {
 	providerId: IntegrationIds;
 	domain: string;
-	/** The provider's canonical owner/namespace (follows renames), falling back to where it was read when omitted. */
+	/**
+	 * The provider's canonical owner/namespace (follows renames), falling back to where it was read when omitted. On
+	 * GitLab it is the whole group path (`group/subgroup`), not the remote path's first segment.
+	 */
 	owner: string;
 	/** The provider's canonical repo name (follows renames), falling back to where it was read when omitted. */
 	name: string;
@@ -466,11 +469,13 @@ export interface RepositoryIdentity {
 	remoteUrl: string;
 	/**
 	 * True when the provider's canonical owner/name differ from what the input remote URL carried — i.e. the
-	 * repo was renamed/moved host-side and the local remote is stale. Case-insensitive, mirroring gkcli's
+	 * repo was renamed/moved host-side and the local remote is stale. Owner and name are compared as one path, because
+	 * the remote and the provider split a GitLab nested group differently. Case-insensitive, mirroring gkcli's
 	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged. On Azure
 	 * DevOps it compares the repository name and its {@link project} too, against the collection and project the
 	 * repository was read at: an Azure DevOps Server remote's path may be read as another collection and project than
-	 * the remote parser read, which is no rename.
+	 * the remote parser read, which is no rename. GitLab's lookup doesn't follow a renamed or moved path, so a stale
+	 * GitLab remote resolves as `not-found` rather than as `renamed`.
 	 */
 	renamed: boolean;
 	/**
