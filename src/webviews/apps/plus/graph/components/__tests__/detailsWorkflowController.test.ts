@@ -4,6 +4,7 @@ import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
+	BranchCommitEntry,
 	BranchComparisonOptions,
 	ComposeResult,
 	ReviewResult,
@@ -461,6 +462,41 @@ suite('DetailsWorkflowController.toggleMode — stale-on-re-entry', () => {
 			'review resource should reset when re-entering for a WIP row in a different worktree',
 		);
 		assert.strictEqual(controller['_reviewFetchedForSelection'], undefined);
+	});
+
+	[
+		{ tip: "c'", refetches: true },
+		{ tip: 'c', refetches: false },
+	].forEach(({ tip, refetches }) => {
+		test(`review: re-entering WIP ${refetches ? 'refetches' : 'keeps'} branch commits ${refetches ? 'behind' : 'at'} the branch tip`, () => {
+			const host = new FakeHost({
+				repoPath: '/A',
+				graphRepoPath: '/parent',
+				selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+			});
+			const state = createDetailsState();
+			const actions = new DetailsActions(state, createServices(), createResources());
+			const controller = new DetailsWorkflowController(host, actions);
+			host.connectAll();
+			host.tickHostUpdate();
+
+			// Listed before the mode was left; the branch was amended while it was off
+			state.branchCommits.set([
+				{ sha: 'c', message: 'c', pushed: false },
+				{ sha: 'b', message: 'b', pushed: false },
+			] as unknown as BranchCommitEntry[]);
+			actions['_branchCommitsFetchedRepoPath'] = '/A';
+			state.wip.set({ repo: { path: '/A' }, branch: { reference: { sha: tip } } } as unknown as Wip);
+			let fetches = 0;
+			actions.fetchBranchCommits = () => {
+				fetches++;
+				return Promise.resolve();
+			};
+
+			controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+			assert.strictEqual(fetches, refetches ? 1 : 0);
+		});
 	});
 
 	test('compose: re-entering for the same WIP selection projects a saved registry result back into the resource', () => {
