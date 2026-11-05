@@ -1429,6 +1429,7 @@
 	"config.defaultGravatarsStyle.enumDescriptions.4": "不同顏色、面孔等的機器人",
 	"config.defaultGravatarsStyle.enumDescriptions.5": "具有不同特徵和背景的人臉",
 	"config.defaultGravatarsStyle.markdownDescription": "指定 Gravatar 預設（後備）影像的樣式",
+	"config.avatars.markdownDescription": "將提交作者的電子郵件地址對應到本機影像檔案，用作其頭像，例如 `{ \"jane@company.com\": \"/Users/jane/photos/jane.png\" }`。值必須是本機檔案路徑或指向 PNG、JPEG、GIF 或 WebP 影像（最大 512 KB）的 `file:` URI。使用者提供的頭像優先於 Gravatar 和託管服務頭像。",
 	"config.defaultTimeFormat.markdownDescription": "指定預設的時間格式。有關支援的格式，請參閱 [Moment.js 文件](https://momentjs.com/docs/#/displaying/format/)",
 	"config.detectNestedRepositories.markdownDescription": "指定開啟檔案時是否嘗試偵測巢狀儲存庫",
 	"config.fileAnnotations.command.enumDescriptions.0": "顯示一個選單，用於選擇要切換的檔案標註",

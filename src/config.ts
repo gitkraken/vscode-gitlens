@@ -8,6 +8,7 @@ export interface Config {
 	readonly agents: AgentsConfig;
 	readonly ai: AIConfig;
 	readonly autolinks: AutolinkConfig[] | null;
+	readonly avatars: Record<string, string>;
 	readonly blame: BlameConfig;
 	readonly changes: ChangesConfig;
 	readonly cloudPatches: CloudPatchesConfig;

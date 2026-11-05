@@ -25,6 +25,9 @@ import type { ContactPresenceStatus } from './vsls/vsls.js';
 let avatarCache: Map<string, Avatar> | undefined;
 const avatarQueue = new Map<string, Promise<Uri>>();
 
+const maxAvatarProxyBytes = 512 * 1024; // 512 KB
+const rasterImageTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
+
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
 _onDidFetchAvatar.event(
 	debounce(() => {
@@ -49,6 +52,104 @@ _onDidFetchAvatar.event(
 );
 
 export const onDidFetchAvatar = _onDidFetchAvatar.event;
+
+/** User-supplied avatars from the `gitlens.avatars` setting, resolved to data Uris.
+ * Kept separate from `avatarCache` so they are never persisted to storage —
+ * a file's contents can change, and a stored base64 blob would go stale. */
+const userAvatarCache = new Map<string, Uri>();
+const userAvatarQueue = new Map<string, Promise<Uri | undefined>>();
+
+const userAvatarMimeTypes = new Map<string, string>([
+	['gif', 'image/gif'],
+	['jpg', 'image/jpeg'],
+	['jpeg', 'image/jpeg'],
+	['png', 'image/png'],
+	['webp', 'image/webp'],
+]);
+
+/** Finds the file mapped to an author email in the `gitlens.avatars` setting,
+ * matching setting keys case-insensitively. */
+export function findUserAvatarValue(
+	email: string,
+	avatars: Record<string, string> | null | undefined,
+): string | undefined {
+	if (avatars == null) return undefined;
+
+	const normalizedEmail = email.trim().toLowerCase();
+	for (const [key, value] of Object.entries(avatars)) {
+		if (key.trim().toLowerCase() === normalizedEmail) return value;
+	}
+
+	return undefined;
+}
+
+/** Resolves a `gitlens.avatars` value to a file Uri. Plain paths become file Uris;
+ * values that already carry a `file:` scheme are used as-is. Anything else is unsupported. */
+export function getUserAvatarFileUri(value: string): Uri | undefined {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) return undefined;
+
+	// Windows drive paths (e.g. `C:\avatars\jane.png`) are file paths, not URI schemes
+	if (/^[a-zA-Z]:[\\/]/.test(trimmed)) return Uri.file(trimmed);
+
+	if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+		const uri = Uri.parse(trimmed);
+		return uri.scheme === 'file' ? uri : undefined;
+	}
+
+	return Uri.file(trimmed);
+}
+
+/** Maps an avatar file path to its image media type. Only raster formats are supported,
+ * matching the avatar proxy's allow-list. */
+export function getUserAvatarMimeType(filePath: string): string | undefined {
+	const index = filePath.lastIndexOf('.');
+	if (index === -1) return undefined;
+
+	return userAvatarMimeTypes.get(filePath.slice(index + 1).toLowerCase());
+}
+
+/** Reads a user-supplied avatar file and returns it as a data Uri, which renders in
+ * webviews, hovers, and tree views alike. Returns `undefined` when the file can't be
+ * used, so callers fall back to the normal avatar chain. */
+export async function loadUserAvatarAsDataUri(value: string): Promise<Uri | undefined> {
+	const fileUri = getUserAvatarFileUri(value);
+	if (fileUri == null) return undefined;
+
+	const mimeType = getUserAvatarMimeType(fileUri.fsPath);
+	if (mimeType == null) return undefined;
+
+	let bytes: Uint8Array;
+	try {
+		bytes = await workspace.fs.readFile(fileUri);
+	} catch {
+		return undefined;
+	}
+
+	if (bytes.byteLength === 0 || bytes.byteLength > maxAvatarProxyBytes) return undefined;
+
+	return Uri.parse(`data:${mimeType};base64,${base64(bytes)}`);
+}
+
+function queueUserAvatar(userKey: string, value: string, email: string): Promise<Uri | undefined> {
+	let query = userAvatarQueue.get(userKey);
+	if (query == null) {
+		query = loadUserAvatarAsDataUri(value).then(uri => {
+			if (uri != null) {
+				userAvatarCache.set(userKey, uri);
+				_onDidFetchAvatar.fire({ email: email });
+			}
+
+			return uri;
+		});
+		userAvatarQueue.set(
+			userKey,
+			query.finally(() => userAvatarQueue.delete(userKey)),
+		);
+	}
+
+	return query;
+}
 
 interface Avatar {
 	uri?: Uri;
@@ -140,6 +241,24 @@ function getAvatarUriCore(
 	const key = `${hash}:${size}`;
 
 	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
+
+	// User-supplied avatars from the `gitlens.avatars` setting take priority over every
+	// other source — they exist precisely for authors whose hosting avatars don't resolve.
+	const userAvatarValue = findUserAvatarValue(email, configuration.get('avatars'));
+	if (userAvatarValue != null) {
+		const userKey = `${email.trim().toLowerCase()}:${userAvatarValue}`;
+		const userAvatar = userAvatarCache.get(userKey);
+		if (userAvatar != null) return userAvatar;
+
+		if (!options?.cached) {
+			return queueUserAvatar(userKey, userAvatarValue, email).then(uri => uri ?? avatar.uri ?? avatar.fallback!);
+		}
+
+		// Cached-only callers can't wait for a file read — kick off the load so the
+		// next render hits, and fall through to the normal chain for this render.
+		void queueUserAvatar(userKey, userAvatarValue, email);
+	}
+
 	if (avatar.uri != null) return avatar.uri;
 
 	if (
@@ -308,9 +427,6 @@ async function getAvatarUriFromRemoteProvider(
 	}
 }
 
-const maxAvatarProxyBytes = 512 * 1024; // 512 KB
-const rasterImageTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
-
 export async function fetchAvatarImageAsDataUri(url: string): Promise<Uri | undefined> {
 	try {
 		if (!url.startsWith('https://')) return undefined;
@@ -448,6 +564,8 @@ export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {
 			void Container.instance.storage.delete('avatars');
 			avatarCache?.clear();
 			avatarQueue.clear();
+			userAvatarCache.clear();
+			userAvatarQueue.clear();
 			break;
 
 		case 'failed':
