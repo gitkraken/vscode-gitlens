@@ -57,7 +57,10 @@ export async function resolveRepository(
 		resolution: { status: status },
 	});
 
-	const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
+	const [scheme, parsedDomain, parsedPath] = parseGitRemoteUrl(options.remoteUrl);
+	// Git accepts a trailing slash but no provider's path carries one: GitLab wouldn't find it, and a host that does
+	// would report the slashless name as a rename.
+	const path = trimTrailingSlashes(parsedPath);
 	// An SSH remote's port belongs to its SSH daemon, not to the web authority a connection is keyed by.
 	const hostsMatch = getRemoteHostMatcher(scheme);
 	const parsedHost = hostFromDomain(parsedDomain);
@@ -235,7 +238,8 @@ export async function resolveRepository(
 		// canonical, mirroring gkcli's `EqualFold`, so hosts that merely echo the input casing (e.g.
 		// Bitbucket Server/Azure) don't get spuriously flagged. An Azure DevOps Server remote's path may be read as
 		// another collection and project than the parser read (see `AzureDevOpsServerIntegration.getRepositoryTarget`),
-		// which is no rename, so the compare is against where it was read.
+		// which is no rename, so the compare is against where it was read. Owner and name are compared joined, because
+		// the sides split a GitLab nested group differently: the remote at its first slash, the SDK at its last.
 		const readAt = repo.readAt ?? { owner: owner, name: repositoryName, project: project };
 		const canonicalOwner = repo.namespace || readAt.owner;
 		const canonicalName = repo.name || readAt.name;
@@ -243,8 +247,7 @@ export async function resolveRepository(
 		const canonicalProject = readAtProject != null ? repo.project || readAtProject : undefined;
 		const differs = (a: string | undefined, b: string | undefined) => a?.toLowerCase() !== b?.toLowerCase();
 		const renamed =
-			differs(canonicalOwner, readAt.owner) ||
-			differs(canonicalName, readAt.name) ||
+			differs(`${canonicalOwner}/${canonicalName}`, `${readAt.owner}/${readAt.name}`) ||
 			differs(canonicalProject, readAtProject);
 
 		const identity: RepositoryIdentity = {
