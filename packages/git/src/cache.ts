@@ -225,6 +225,7 @@ interface Caches {
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	resolvedRevisions: RepoPromiseCacheMap<string, ResolvedRevision> | undefined;
+	superprojects: PromiseCache<string, boolean> | undefined;
 	trackedPaths: RepoPromiseCacheMap<string, [string, string] | false> | undefined;
 }
 
@@ -352,6 +353,7 @@ function createEmptyCaches(): AllCaches {
 		remotes: undefined,
 		sharedBranches: undefined,
 		stashes: undefined,
+		superprojects: undefined,
 		tags: undefined,
 		trackedPaths: undefined,
 		worktrees: undefined,
@@ -718,6 +720,19 @@ export class Cache implements Disposable {
 		}));
 	}
 
+	/**
+	 * Keyed by a checkout's parent folder, not a repository path: whether a repository above it could track checkouts
+	 * there as submodules. Short-lived, so a checkout resolved within a few seconds of a sibling reuses its walk, and one
+	 * resolved later walks again. It only bounds how old a reused answer can be: `gitDir` keeps each checkout's answer
+	 * until it is unregistered. Cleared whole wherever `gitDir` is, since a per-path clear can't find its keys.
+	 */
+	get superprojects(): PromiseCache<string, boolean> {
+		return (this._caches.superprojects ??= new PromiseCache<string, boolean>({
+			createTTL: 1000 * 5, // 5 seconds
+			capacity: 64,
+		}));
+	}
+
 	get trackedPaths(): RepoPromiseCacheMap<string, [string, string] | false> {
 		return (this._caches.trackedPaths ??= new RepoPromiseCacheMap<string, [string, string] | false>({
 			createTTL: 1000 * 60, // 60 seconds
@@ -941,7 +956,7 @@ export class Cache implements Disposable {
 			const cache = this._caches[key];
 			if (cache == null) continue;
 
-			if (repoPath == null) {
+			if (repoPath == null || key === 'superprojects') {
 				cache.clear();
 			} else if (key === 'aheadOfBaseConfigKey' && !worktreeOnly && (!types.length || types.includes('config'))) {
 				// Config reports don't distinguish a common config write from a checkout-specific one.
@@ -1194,6 +1209,10 @@ export class Cache implements Disposable {
 			const cache = this._caches[key];
 			if (cache == null) continue;
 
+			if (key === 'superprojects') {
+				cache.clear();
+				continue;
+			}
 			if (key === 'aheadOfBaseConfigKey' || key === 'gitResults') {
 				cache.delete(repoPath);
 				if (key === 'gitResults' && isLastWorktree && repoPath !== commonPath) {
