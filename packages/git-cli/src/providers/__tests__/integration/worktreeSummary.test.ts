@@ -1,6 +1,15 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -8,12 +17,14 @@ import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
+import { RunError } from '../../../exec/exec.errors.js';
+import { GitError } from '../../../exec/git.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
 import {
@@ -114,6 +125,43 @@ suite('WorktreeSummaryService against real git', () => {
 		assert.strictEqual(summary.stale, false);
 		assert.deepStrictEqual(sub.current, summary);
 	});
+
+	async function assertWatchesOwnGitDirOnceGitAnswers(error: Error): Promise<void> {
+		// A worktree inside its main checkout's working tree: a layout `getGitDir` asks git about
+		const worktree = join(repo.path, 'nested');
+		execFileSync('git', ['worktree', 'add', '-q', '--detach', worktree], { cwd: repo.path, stdio: 'pipe' });
+
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+		const { git } = service.getProvider(worktree)!.provider as CliGitProvider;
+		const run = git.run;
+		git.run = (...args: Parameters<typeof run>) =>
+			args.includes('--show-superproject-working-tree') ? Promise.reject(error) : run.apply(git, args);
+
+		const sub = summaries.subscribe(worktree);
+		await assert.rejects(summaries.getSummary(worktree), (ex: unknown) => ex === error);
+		assert.strictEqual(sub.current, undefined);
+
+		git.run = run;
+
+		const summary = await summaries.getSummary(worktree);
+		assert.strictEqual(summary.stale, false);
+
+		const gitDir = normalizePath(join(realpathSync(repo.path), '.git', 'worktrees', 'nested'));
+		assert.ok(
+			watchers.some(w => normalizePath(w.basePath) === gitDir),
+			`no watcher on ${gitDir}: ${watchers.map(w => w.basePath).join(', ')}`,
+		);
+		sub.dispose();
+	}
+
+	test("watches a worktree's own git dir once git answers, after it ran past its time limit finding it", () =>
+		assertWatchesOwnGitDirOnceGitAnswers(new CancellationError(undefined, 'timeout')));
+
+	test("watches a worktree's own git dir once git answers, after it was killed finding it", () =>
+		assertWatchesOwnGitDirOnceGitAnswers(
+			new GitError(new RunError({ message: 'killed', cmd: 'git', signal: 'SIGKILL' }, '', '')),
+		));
 
 	test('reads the worktree and follows edits and a branch switch through the cache', async () => {
 		const summaries = service.summaries;

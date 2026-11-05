@@ -8,7 +8,7 @@ import { isLinux, isWindows } from '@env/platform.js';
 import type { CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
 import { CliGitProvider } from '@gitlens/git-cli/cliGitProvider.js';
 import type { Git } from '@gitlens/git-cli/exec/git.js';
-import { slowCallWarningThreshold } from '@gitlens/git-cli/exec/git.js';
+import { isGitUnanswered, slowCallWarningThreshold } from '@gitlens/git-cli/exec/git.js';
 import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from '@gitlens/git-cli/exec/locator.js';
 import type { Cache } from '@gitlens/git/cache.js';
@@ -768,7 +768,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			repositories.push(...(await this.addDiscoveredRepository(uri, folder, root, silent, repositories, scope)));
 		};
 
-		const uri = await this.findRepositoryUri(rootUri, true);
+		const uri = await this.findDiscoverableRepositoryUri(rootUri, scope);
 		if (uri != null) {
 			rootPath = normalizePath(uri.fsPath);
 
@@ -830,13 +830,26 @@ export class GlCliGitProvider implements GlGitProvider {
 				`normalizedRepoPath=${normalized}, rootPath=${rootPath}, canonicalRootPath=${canonicalRootPath}`,
 			);
 
-			const rp = await this.findRepositoryUri(Uri.file(p), true);
+			const rp = await this.findDiscoverableRepositoryUri(Uri.file(p), scope);
 			if (rp == null) continue;
 
 			await maybeAddRepo(rp, folder, false);
 		}
 
 		return repositories;
+	}
+
+	/** A git that gave no answer skips only this folder, rather than failing the whole search */
+	private async findDiscoverableRepositoryUri(
+		uri: Uri,
+		scope: ReturnType<typeof getScopedLogger>,
+	): Promise<Uri | undefined> {
+		try {
+			return await this.findRepositoryUri(uri, true);
+		} catch (ex) {
+			scope?.warn(`Unable to find a repository in '${uri.fsPath}': ${String(ex)}`);
+			return undefined;
+		}
 	}
 
 	/** Shared repository-from-uri add logic for both filesystem ({@link repositorySearch}) and SCM ({@link scmRepositorySearch}) discovery */
@@ -879,11 +892,12 @@ export class GlCliGitProvider implements GlGitProvider {
 		}
 
 		scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
-		const gitDir = await this.provider.config.getGitDir?.(uri.fsPath);
-		if (gitDir == null) {
-			scope?.warn(`Unable to get gitDir for '${uri.toString(true)}'`);
-			return [];
-		}
+		// A git that gave no answer skips only this repository; a later read or discovery finds it again
+		const gitDir = await this.provider.config.getGitDir?.(uri.fsPath).catch((ex: unknown) => {
+			scope?.warn(`Unable to get gitDir for '${uri.toString(true)}': ${String(ex)}`);
+			return undefined;
+		});
+		if (gitDir == null) return [];
 
 		return this.addRepository(folder, uri, gitDir, root, !silent);
 	}
@@ -1466,6 +1480,9 @@ export class GlCliGitProvider implements GlGitProvider {
 
 			return resultUri;
 		} catch (ex) {
+			// No answer isn't "no repository": the caller decides, and shouldn't remember it as one
+			if (isGitUnanswered(ex)) throw ex;
+
 			scope?.error(ex);
 			return undefined;
 		}

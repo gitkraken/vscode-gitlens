@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (git, git-cli)** — `config.getRepositoryInfo`, `config.getGitDir` and `GitService.validateRepo` reject when git gives no answer: it ran past its time limit (a `CancellationError` with reason `timeout`), was killed, or couldn't start in a folder that exists (a `GitError` whose `exitCode` isn't 128, which is what git exits with when it refuses). They resolved as if git had said the path wasn't a repository, so a caller that treats `{ valid: false }` or `[]` as that answer now also needs to handle a rejection. What git itself refuses still answers as before, with `[]`, `{ valid: false }` and a kept `<path>/.git`: not a repository, an invalid `.git` file, a linked worktree whose git dir is gone, an unreadable config. So does a path that isn't a folder, and an unsafe repository still answers `[false]`. `Git.rev_parse__show_toplevel` and `Git.rev_parse__work_tree_of_git_dir` reject for the same reasons (git, git-cli)
+
+### Fixed
+
+- Fixes a git timeout, a killed git or a failed spawn while resolving a git dir leaving a checkout on the wrong one for good: `getGitDir` kept `<path>/.git`, which is a file in a linked worktree, with no common git dir, until the checkout was unregistered or the cache was reset, so a watch on it followed the wrong path and `.git/gk/config` reads and writes went to the wrong place. This reached only the layouts `getGitDir` asks git about, such as a worktree inside another repository's working tree, a submodule or a bare repository. It now keeps nothing, so the next call reads again, and `onGitDirResolveFailed` no longer fires for it. Reads and writes of `.git/gk/config` report this as they do any other failed read or write, rather than rejecting: a read answers empty without being kept and a write is skipped, or rejects with `throwOnError`, and the legacy config migration waits for a later read (git-cli)
+- Fixes `getRepositoryInfo` and `Git.rev_parse__show_toplevel` answering for the wrong repository when a read after their first got no answer: a bare repository could resolve to the repository around it, and a `.git` folder could resolve as a bare repository, either of which a host could register. They now reject. So does the bare clone check in an untrusted workspace, which went ahead without it when git gave no answer (only a `Git` given to `CliGitProvider` without a trust check can reach it) (git-cli)
+- Fixes a run hanging for good once git couldn't be located: a failed run left its entry behind, and an identical run after it waited on that entry rather than rejecting (git-cli)
+- Fixes `WorktreeSummaryService` leaving a worktree with no summary until its last subscriber left when finding its git dir failed in a way other than a timeout, since with no watch placed no event could read it again: a reader now tries the start once more, however it failed (git)
+
 ## [0.31.0] - 2026-11-06
 
 ### Added

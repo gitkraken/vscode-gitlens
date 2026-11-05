@@ -32,6 +32,7 @@ import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { GitDir } from '@gitlens/git/models/repository.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type {
@@ -2318,7 +2319,22 @@ export class GitProviderService implements UnifiedDisposable {
 			if (promise == null) {
 				async function findRepository(this: GitProviderService): Promise<GlRepository | undefined> {
 					const { provider } = this.getProvider(uri);
-					const repoUri = await provider.findRepositoryUri(uri, isDirectory);
+
+					// Read before the search is recorded: when git gives no answer the repository isn't added, and with
+					// the path recorded the next call would skip the search. A repository added without a git dir would
+					// be unwatched for good
+					let repoUri: Uri | undefined;
+					let gitDir: GitDir | undefined;
+					try {
+						repoUri = await provider.findRepositoryUri(uri, isDirectory);
+						if (repoUri != null && this._repositories.get(repoUri) == null) {
+							gitDir = await this._gitService.forRepo(repoUri.fsPath)?.config.getGitDir?.();
+						}
+					} catch (ex) {
+						scope?.warn(`Unable to find a repository for '${uri.toString(true)}': ${String(ex)}`);
+						this._pendingRepositories.delete(key);
+						return undefined;
+					}
 
 					this._searchedRepositoryPaths.set(path, repoUri != null ? getBestPath(repoUri) : undefined);
 
@@ -2353,7 +2369,6 @@ export class GitProviderService implements UnifiedDisposable {
 					}
 
 					scope?.info(`Repository found in '${repoUri.toString(true)}'`);
-					const gitDir = await this._gitService.forRepo(repoUri.fsPath)?.config.getGitDir?.();
 					if (gitDir == null) {
 						scope?.warn(`Unable to get gitDir for '${repoUri.toString(true)}'`);
 					}

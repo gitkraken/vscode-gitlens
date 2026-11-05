@@ -139,7 +139,15 @@ export interface GitConfigSubProvider {
 
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
+	/**
+	 * Rejects, keeping nothing, when git gives no answer (it ran past its time limit, was killed or couldn't start), so
+	 * a later call reads again. Git saying `repoPath` isn't a repository it can use still answers `<repoPath>/.git`.
+	 */
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
+	/**
+	 * `[]` when git says `cwd` isn't a repository it can use, or `cwd` isn't a folder. Rejects when git gives no answer
+	 * (it ran past its time limit, was killed or couldn't start), which says nothing about `cwd`.
+	 */
 	getRepositoryInfo?(
 		cwd: string,
 	): Promise<

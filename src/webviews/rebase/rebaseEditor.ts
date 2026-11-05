@@ -311,7 +311,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 async function getActionableRebaseState(
 	svc: ReturnType<Container['git']['getRepositoryService']>,
 ): Promise<{ actionable: boolean; hasConflicts: boolean }> {
-	const gitDir = await svc.config.getGitDir?.();
+	// A git that gave no answer means nothing to open for now: this runs off a watcher event, with nobody to tell
+	const gitDir = await svc.config.getGitDir?.().catch(() => undefined);
 	if (gitDir == null) return { actionable: false, hasConflicts: false };
 
 	const todoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
