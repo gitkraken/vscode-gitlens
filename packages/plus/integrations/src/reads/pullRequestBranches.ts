@@ -45,7 +45,8 @@ export interface PullRequestBranchTarget {
 	/**
 	 * Owner (GitHub user or org, GitLab namespace, Bitbucket workspace) of the repository the branch lives in, when
 	 * it's a fork. Omitted, or equal to `owner` (ignoring case), means the branch lives in the base repository itself,
-	 * so a caller can pass the owner of whichever remote the branch was pushed to.
+	 * so a caller can pass the owner of whichever remote the branch was pushed to. On GitLab this is the whole
+	 * namespace path, as `owner` is, so a remote's first-slash split can't be passed for either.
 	 *
 	 * A different owner is refused on Bitbucket Data Center and Azure DevOps, where a fork can't be found by its
 	 * owner.

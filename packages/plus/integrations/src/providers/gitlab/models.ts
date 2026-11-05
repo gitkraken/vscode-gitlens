@@ -248,7 +248,6 @@ export function fromGitLabMergeRequest(
 			avatarUrl = undefined;
 		}
 	}
-	const [owner, repo] = pr.project.fullPath.split('/');
 
 	return new PullRequest(
 		provider,
@@ -266,8 +265,8 @@ export function fromGitLabMergeRequest(
 		pr.webUrl || '',
 		{
 			// IssueRepository
-			owner: owner,
-			repo: repo,
+			owner: getRepoNamespace(pr.project.fullPath),
+			repo: getRepoName(pr.project.fullPath),
 			url: pr.project.webUrl,
 		},
 		fromGitLabMergeRequestState(pr.state), // PullRequestState
@@ -312,7 +311,7 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 			branch: pr.sourceBranch,
 			exists: true,
 			url: pr.sourceProject.webUrl,
-			repo: pr.sourceProject.fullPath,
+			repo: getRepoName(pr.sourceProject.fullPath),
 			sha: pr.diffRefs?.headSha || '',
 		},
 		base: {
@@ -320,7 +319,7 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 			branch: pr.targetBranch,
 			exists: true,
 			url: pr.project.webUrl,
-			repo: pr.project.fullPath,
+			repo: getRepoName(pr.project.fullPath),
 			sha: pr.diffRefs?.baseSha || '',
 		},
 		isCrossRepository: pr.sourceProject.id !== pr.project.id,
@@ -329,6 +328,10 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 
 export function getRepoNamespace(projectFullPath: string): string {
 	return projectFullPath.split('/').slice(0, -1).join('/');
+}
+
+export function getRepoName(projectFullPath: string): string {
+	return projectFullPath.split('/').at(-1) ?? '';
 }
 
 /** The most iids one etag read asks for: GitLab's GraphQL page size limit, so every iid's answer fits one page. */
