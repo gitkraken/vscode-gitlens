@@ -379,4 +379,54 @@ suite('per-connection failure budget', () => {
 
 		manager.dispose();
 	});
+
+	test('a disconnect after too many failures is announced, and a later reconnect is announced again', async () => {
+		const { manager, gh, failing } = await connect(['gh-primary']);
+		const reasons: string[] = [];
+		const waiters: { count: number; resolve: () => void }[] = [];
+		manager.onDidChangeConnectionState(e => {
+			reasons.push(e.reason);
+			for (const waiter of waiters) {
+				if (reasons.length >= waiter.count) {
+					waiter.resolve();
+				}
+			}
+		});
+		// The service announces on a timer, so wait for the event itself rather than a fixed delay
+		const untilAnnounced = (count: number): Promise<void> =>
+			reasons.length >= count
+				? Promise.resolve()
+				: new Promise(resolve => waiters.push({ count: count, resolve: resolve }));
+		const runtime = (gh as unknown as { ctx: ReturnType<typeof createFakeRuntime> }).ctx;
+		const storeWorkspace = runtime.storage.storeWorkspace.bind(runtime.storage);
+		const storedWorkspace: [string, unknown][] = [];
+		runtime.storage.storeWorkspace = (key, value) => {
+			storedWorkspace.push([key, value]);
+			return storeWorkspace(key, value);
+		};
+		await untilAnnounced(1);
+		assert.deepEqual(reasons, ['connected']);
+
+		failing.add('token-gh-primary');
+		for (let i = 0; i < 5; i++) {
+			await readPage(manager);
+		}
+		await untilAnnounced(2);
+
+		assert.equal(await gh.isConnected(), false);
+		assert.deepEqual(reasons, ['connected', 'disconnected']);
+		assert.deepEqual(
+			storedWorkspace.filter(([, value]) => value === false),
+			[],
+			'a session-only disconnect does not persist the disconnected flag',
+		);
+
+		failing.delete('token-gh-primary');
+		assert.equal(await gh.connect('settings'), true);
+		await untilAnnounced(3);
+
+		assert.deepEqual(reasons, ['connected', 'disconnected', 'connected']);
+
+		manager.dispose();
+	});
 });
