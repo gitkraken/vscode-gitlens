@@ -854,7 +854,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		const [current, refs, gitDir] = await Promise.all([
 			repo.branches.getBranch(undefined, undefined, signal),
 			probeRefs(repo, remotes, signal),
-			stat != null ? getGitDir(repo) : undefined,
+			stat != null ? getGitDir(repo, signal) : undefined,
 		]);
 
 		let index: string | undefined;
@@ -1537,7 +1537,7 @@ async function readSummary(
 		}
 	}
 	if (fields & baseKeysField && !(fields & baseField) && baseReadable) {
-		baseKeys = await readBaseKeys(repo, branch);
+		baseKeys = await readBaseKeys(repo, branch, signal);
 		baseKeysRead = true;
 		if (baseKeys == null || previousBaseKeys == null || !baseKeysEqual(baseKeys, previousBaseKeys)) {
 			fields |= baseField;
@@ -1553,7 +1553,7 @@ async function readSummary(
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
-				baseKeys = await readBaseKeys(repo, branch);
+				baseKeys = await readBaseKeys(repo, branch, signal);
 			}
 			if (!baseConfigRead && (previous != null || (fields & baseConfigField) !== 0)) {
 				baseConfig = await readBaseConfig(repo, signal);
@@ -1659,11 +1659,11 @@ function isReadAborted(ex: unknown, signal: AbortSignal | undefined): boolean {
 	return isCancellationError(ex) && (signal?.aborted ?? true);
 }
 
-async function getGitDir(repo: RepositoryService): Promise<GitDir | undefined> {
+async function getGitDir(repo: RepositoryService, signal: AbortSignal): Promise<GitDir | undefined> {
 	try {
 		return await repo.config.getGitDir?.();
 	} catch (ex) {
-		if (isCancellationError(ex)) throw ex;
+		if (isReadAborted(ex, signal)) throw ex;
 
 		return undefined;
 	}
@@ -1982,7 +1982,11 @@ function getBaseConfigKey(config: BaseConfig | undefined, value: WorktreeSummary
  * failed — an unknown snapshot, so the next `gk` config change reads the base rather than trusting it. A detached
  * HEAD (`branch` undefined) has no stored values to read.
  */
-async function readBaseKeys(repo: RepositoryService, branch: string | undefined): Promise<BaseKeys | undefined> {
+async function readBaseKeys(
+	repo: RepositoryService,
+	branch: string | undefined,
+	signal: AbortSignal | undefined,
+): Promise<BaseKeys | undefined> {
 	if (branch == null) return noBaseKeys;
 
 	try {
@@ -1993,7 +1997,7 @@ async function readBaseKeys(repo: RepositoryService, branch: string | undefined)
 		]);
 		return [user?.trim() || undefined, detected?.trim() || undefined, recorded?.trim() || undefined];
 	} catch (ex) {
-		if (isCancellationError(ex)) throw ex;
+		if (isReadAborted(ex, signal)) throw ex;
 
 		return undefined;
 	}
