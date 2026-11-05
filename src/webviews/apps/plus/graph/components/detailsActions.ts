@@ -2731,6 +2731,9 @@ export class DetailsActions {
 		return this._branchCommitsFetchedRepoPath;
 	}
 
+	/** The scope as it was when the tip moved, before the picker's fallback for vanished working-change rows replaced it */
+	private _scopeBeforeTipMove: ScopeSelection | undefined;
+
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
@@ -2749,7 +2752,8 @@ export class DetailsActions {
 				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
 					? this.state.branchCommits.get()
 					: undefined;
-			const scope = this.state.scope.get();
+			const scopeBeforeTipMove = this._scopeBeforeTipMove;
+			const scope = scopeBeforeTipMove ?? this.state.scope.get();
 			const remapped = await this.remapScope(repoPath, scope, prevCommits, result.commits, controller.signal);
 			if (controller.signal.aborted) return;
 
@@ -2757,11 +2761,14 @@ export class DetailsActions {
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
-			if (remapped != null && this.state.scope.get() === scope) {
+			if (remapped != null && (scopeBeforeTipMove != null || this.state.scope.get() === scope)) {
 				this.state.scope.set(remapped);
 				void this.resources.scopeFiles.fetch(repoPath, remapped);
 			}
 		} finally {
+			if (!controller.signal.aborted) {
+				this._scopeBeforeTipMove = undefined;
+			}
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
 				this.state.branchCommitsFetching.set(false);
@@ -3658,6 +3665,7 @@ export class DetailsActions {
 				wip.changes?.pausedOpStatus == null &&
 				repoPath === this.state.activeModeRepoPath.get()
 			) {
+				this._scopeBeforeTipMove ??= this.state.scope.get();
 				void this.fetchBranchCommits(repoPath);
 			}
 		}

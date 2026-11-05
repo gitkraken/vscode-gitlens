@@ -1312,6 +1312,45 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		});
 	});
 
+	test("committed working changes join the scope even after the picker's fallback replaced it", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: true, includeUnstaged: false, includeShas: [] });
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// The staged changes are committed as w
+		actions.applyPushedWip(wipAt(2, 'w'));
+		// The staged row is gone before the new commit is listed, so the picker falls back to its default
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		});
+	});
+
 	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');
