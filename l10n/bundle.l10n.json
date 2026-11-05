@@ -6032,6 +6032,7 @@
 	"Your {plan} plan is active.": "Your {plan} plan is active.",
 	"Your {plan} plan provides access to all Pro features.": "Your {plan} plan provides access to all Pro features.",
 	"You’re all caught up": "You’re all caught up",
+	"You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.": "You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.",
 	"You’ve reached the weekly AI usage included in your plan.": "You’ve reached the weekly AI usage included in your plan.",
 	"You’ve reached the weekly AI usage included in your plan. Contact your organization admin or owner to request more AI credits.": "You’ve reached the weekly AI usage included in your plan. Contact your organization admin or owner to request more AI credits.",
 	"You’ve reached the weekly AI usage included in your plan. Purchase more AI credits to keep using GitKraken AI.": "You’ve reached the weekly AI usage included in your plan. Purchase more AI credits to keep using GitKraken AI.",

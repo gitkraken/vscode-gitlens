@@ -5829,6 +5829,7 @@
 	"Your {plan} plan is active.": "Su plan {plan} está activo.",
 	"Your {plan} plan provides access to all Pro features.": "Su plan {plan} proporciona acceso a todas las funciones de Pro.",
 	"You’re all caught up": "Está al día",
+	"You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.": "Alcanzó el límite de uso de IA de {0}. Revise su plan y uso con {0}, o cambie a otro proveedor.",
 	"You’ve reached the weekly AI usage included in your plan.": "Alcanzó el uso semanal de IA incluido en su plan.",
 	"You’ve reached the weekly AI usage included in your plan. Contact your organization admin or owner to request more AI credits.": "Alcanzó el uso semanal de IA incluido en su plan. Contacte al administrador o propietario de su organización para solicitar más créditos de IA.",
 	"You’ve reached the weekly AI usage included in your plan. Purchase more AI credits to keep using GitKraken AI.": "Alcanzó el uso semanal de IA incluido en su plan. Compre más créditos de IA para seguir usando GitKraken AI.",

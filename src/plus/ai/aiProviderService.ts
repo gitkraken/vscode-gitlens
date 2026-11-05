@@ -1829,6 +1829,27 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.UserQuotaExceeded: {
+									// An external provider's own limit (e.g. Copilot's) has nothing to do with GitKraken
+									// credits, so don't read the subscription or offer to buy any.
+									if (error.provider != null && error.provider.id !== 'gitkraken') {
+										void (async () => {
+											const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+											const result = await window.showErrorMessage(
+												getPresentableErrorMessage(error),
+												switchModel,
+											);
+											if (result === switchModel) {
+												void this.switchModel(source);
+											}
+										})().catch((ex: unknown) =>
+											scope?.error(ex, 'Failed to show AI error notification'),
+										);
+
+										if (options?.throwAIErrors) throw error;
+
+										return undefined;
+									}
+
 									void (async () => {
 										const sub = await this.container.subscription.getSubscription();
 										// Kept for telemetry — the purchase gate itself is the shared predicate the

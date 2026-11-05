@@ -1,4 +1,5 @@
 import { l10n } from 'vscode';
+import { gitKrakenProviderDescriptor } from '@gitlens/ai/constants.js';
 import { AIError, AIErrorReason, isAIUnavailableError } from '@gitlens/ai/errors.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
@@ -9,9 +10,14 @@ export function findAIUnavailableError(errors: readonly { error: Error }[]): Err
 	return errors.find(e => isAIUnavailableError(e.error))?.error;
 }
 
-/** Whether AI is unavailable because the weekly usage included in the user's plan ran out. */
+/** Whether AI is unavailable because the weekly usage included in the user's GitKraken plan ran out. An
+ *  external provider's own quota (e.g. Copilot's) isn't something GitKraken credits can fix. */
 export function isAIQuotaExceededError(ex: unknown): boolean {
-	return ex instanceof AIError && ex.reason === AIErrorReason.UserQuotaExceeded;
+	return (
+		ex instanceof AIError &&
+		ex.reason === AIErrorReason.UserQuotaExceeded &&
+		(ex.provider == null || ex.provider.id === gitKrakenProviderDescriptor.id)
+	);
 }
 
 /** How a resolve run's errors reach the panel: a single run-level `error` when AI was unavailable and

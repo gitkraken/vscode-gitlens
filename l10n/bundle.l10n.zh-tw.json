@@ -5829,6 +5829,7 @@
 	"Your {plan} plan is active.": "你的 {plan} 計劃已啟用。",
 	"Your {plan} plan provides access to all Pro features.": "你的 {plan} 計劃可存取所有 Pro 功能。",
 	"You’re all caught up": "你已查看全部通知",
+	"You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.": "你已達到 {0} 的 AI 使用上限。請透過 {0} 查看你的套餐與用量，或切換到其他提供者。",
 	"You’ve reached the weekly AI usage included in your plan.": "你已達到套餐內包含的每週 AI 用量上限。",
 	"You’ve reached the weekly AI usage included in your plan. Contact your organization admin or owner to request more AI credits.": "你已達到套餐內包含的每週 AI 用量上限。請聯絡組織管理員或所有者以申請更多 AI 額度。",
 	"You’ve reached the weekly AI usage included in your plan. Purchase more AI credits to keep using GitKraken AI.": "你已達到套餐內包含的每週 AI 用量上限。購買更多 AI 額度以繼續使用 GitKraken AI。",

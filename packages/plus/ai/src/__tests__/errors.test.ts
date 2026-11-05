@@ -39,6 +39,34 @@ suite('AIError diagnostics', () => {
 		assert.strictEqual(error.message, 'You’ve reached the weekly AI usage included in your plan.');
 		assert.strictEqual(error.diagnosticString, 'Error: You have exceeded your user token limit');
 	});
+
+	test('does not send an exhausted quota on an external provider to GitKraken plans or credits', () => {
+		const original = new Error('synthetic provider quota failure');
+		const error = new AIError(AIErrorReason.UserQuotaExceeded, original, { id: 'vscode', name: 'Copilot' });
+
+		assert.strictEqual(
+			error.message,
+			'You’ve reached the AI usage limit for Copilot. Check your plan and usage with Copilot, or switch to a different provider.',
+		);
+		assert.strictEqual(error.original, original);
+		assert.deepStrictEqual(error.provider, { id: 'vscode', name: 'Copilot' });
+		assert.strictEqual(error.diagnosticString, 'Error: You have exceeded your user token limit');
+	});
+
+	test('keeps the weekly plan message for an explicit GitKraken provider', () => {
+		const error = new AIError(AIErrorReason.UserQuotaExceeded, undefined, {
+			id: 'gitkraken',
+			name: 'GitKraken AI',
+		});
+
+		assert.strictEqual(error.message, 'You’ve reached the weekly AI usage included in your plan.');
+	});
+
+	test('a provider does not change the message of other reasons', () => {
+		const error = new AIError(AIErrorReason.RateLimitExceeded, undefined, { id: 'vscode', name: 'Copilot' });
+
+		assert.strictEqual(error.message, 'Rate limit exceeded.');
+	});
 });
 
 suite('classifyNetworkError', () => {

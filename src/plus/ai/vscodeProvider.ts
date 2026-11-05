@@ -211,13 +211,39 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						throw ex;
 					}
 
-					debugger;
-
 					let message = getPresentableErrorMessage(ex);
 
 					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
 						scope?.error(ex, `User denied access to ${model.provider.name}`);
 						throw new AIError(AIErrorReason.DeniedByUser, ex);
+					}
+
+					// Copilot names its quota and legacy rate-limit errors (`ChatQuotaExceeded`, `ChatRateLimited`) rather than
+					// giving them a `code`. The immediate `cause` is checked too, because the Language Model API documents
+					// failures it can't classify as an `Unknown` error wrapping the real one.
+					const errorNames =
+						ex instanceof Error ? [ex.name, ex.cause instanceof Error ? ex.cause.name : undefined] : [];
+					const errorCode = ex instanceof Error && 'code' in ex ? ex.code : undefined;
+
+					if (errorNames.includes('ChatQuotaExceeded')) {
+						scope?.error(ex, `Usage limit reached for ${model.provider.name}`);
+						throw new AIError(AIErrorReason.UserQuotaExceeded, ex, model.provider);
+					}
+
+					// `Blocked` is Copilot temporarily throttling the extension for making too many requests, not a
+					// denial of access, so it is a rate limit.
+					if (
+						errorCode === 'RateLimited' ||
+						errorCode === 'Blocked' ||
+						errorNames.includes('ChatRateLimited')
+					) {
+						scope?.error(ex, `Rate limited by ${model.provider.name}`);
+						throw new AIError(AIErrorReason.RateLimitExceeded, ex);
+					}
+
+					if (ex instanceof Error && 'code' in ex && ex.code === 'NotFound') {
+						scope?.error(ex, `Model not found in ${model.provider.name}`);
+						throw new AIError(AIErrorReason.ModelNotSupported, ex);
 					}
 
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {

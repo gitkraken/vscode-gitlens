@@ -1,4 +1,6 @@
 import * as l10n from '@vscode/l10n';
+import { gitKrakenProviderDescriptor } from './constants.js';
+import type { AIModel } from './models/model.js';
 
 export const enum AIErrorReason {
 	DeniedByOrganization,
@@ -20,8 +22,11 @@ export class AIError extends Error {
 	readonly diagnosticMessage: string;
 	readonly original?: Error;
 	readonly reason: AIErrorReason | undefined;
+	/** Optional provider context. Omitted preserves the legacy GitKraken quota message and credit offers, so a
+	 *  non-GitKraken provider must pass its own to get provider-neutral text (and no credit offers). */
+	readonly provider?: AIModel['provider'];
 
-	constructor(reason: AIErrorReason, original?: Error) {
+	constructor(reason: AIErrorReason, original?: Error, provider?: AIModel['provider']) {
 		let message: string;
 		let diagnosticMessage: string;
 		switch (reason) {
@@ -35,7 +40,13 @@ export class AIError extends Error {
 				break;
 			case AIErrorReason.UserQuotaExceeded:
 				diagnosticMessage = 'You have exceeded your user token limit';
-				message = l10n.t('You’ve reached the weekly AI usage included in your plan.');
+				message =
+					provider != null && provider.id !== gitKrakenProviderDescriptor.id
+						? l10n.t(
+								'You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.',
+								provider.name,
+							)
+						: l10n.t('You’ve reached the weekly AI usage included in your plan.');
 				break;
 			case AIErrorReason.RateLimitExceeded:
 				diagnosticMessage = 'Rate limit exceeded';
@@ -88,6 +99,7 @@ export class AIError extends Error {
 		this.diagnosticMessage = diagnosticMessage;
 		this.original = original;
 		this.reason = reason;
+		this.provider = provider;
 		Error.captureStackTrace?.(this, new.target);
 	}
 
