@@ -177,7 +177,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.title__link:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 0.2rem;
 				border-radius: var(--gl-radius-xs);
 			}
@@ -186,7 +186,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				flex: none;
 				font-weight: var(--gl-font-weight-regular);
 				font-variant-numeric: tabular-nums;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* The glance-level stacked/unstacked discriminator; the stack rail below carries the detail. */
@@ -201,7 +201,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				font-weight: var(--gl-font-weight-regular);
 				font-variant-numeric: tabular-nums;
 				line-height: 1;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				border-radius: var(--gl-radius-sm);
 				--code-icon-size: 1.1rem;
@@ -244,7 +244,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.muted {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.body {
@@ -328,7 +328,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				margin-bottom: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -405,7 +405,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.meta-card__ellipsis {
 				font-family: var(--vscode-editor-font-family);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				letter-spacing: 0.2rem;
 			}
 
@@ -417,7 +417,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			.meta-card__stats {
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.meta-card__stats > * {
@@ -498,7 +498,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				margin-left: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
-				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				background: color-mix(in srgb, transparent 78%, var(--gl-color-action-primary-fg));
 				border-radius: 1rem;
 			}
 
@@ -507,12 +507,12 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				flex-wrap: wrap;
 				gap: var(--gl-space-4) var(--gl-space-10);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.verdict__blast {
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* The fine print's load-bearing facts — which pull requests, which branch. */
@@ -557,7 +557,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				top: 0;
 				height: 2.4rem;
 				margin-bottom: -2.4rem;
-				background: linear-gradient(to bottom, var(--vscode-sideBar-background) 25%, transparent);
+				background: linear-gradient(to bottom, var(--gl-color-surface-aside) 25%, transparent);
 				animation-name: description-fade-in;
 			}
 
@@ -565,7 +565,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				bottom: 0;
 				height: 3.6rem;
 				margin-top: -3.6rem;
-				background: linear-gradient(to top, var(--vscode-sideBar-background) 25%, transparent);
+				background: linear-gradient(to top, var(--gl-color-surface-aside) 25%, transparent);
 				animation-name: description-fade-out;
 			}
 
@@ -598,7 +598,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			.description__empty {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* The strip beneath the box, where the Commit Details divider sits — the same hairline, with the
@@ -616,14 +616,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				position: absolute;
 				inset: 50% 0 auto;
 				content: '';
-				border-top: var(--gl-border-width) solid
-					color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.description__toggle-wrap {
 				position: relative;
 				padding-inline: var(--gl-space-4);
-				background: var(--vscode-sideBar-background);
+				background: var(--gl-color-surface-aside);
 			}
 
 			/* Sized like the agents section's "Show More" (gl-details-agent-status). */
@@ -683,7 +682,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				left: 50%;
 				width: var(--gl-border-width);
 				content: '';
-				background: var(--color-foreground--25);
+				background: var(--vscode-disabledForeground);
 				transform: translateX(-50%);
 			}
 
@@ -699,8 +698,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				position: relative;
 				width: 0.8rem;
 				height: 0.8rem;
-				background: var(--vscode-sideBar-background);
-				border: var(--gl-border-width) solid var(--color-foreground--25);
+				background: var(--gl-color-surface-aside);
+				border: var(--gl-border-width) solid var(--vscode-disabledForeground);
 				border-radius: 50%;
 			}
 
@@ -730,7 +729,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				font-family: var(--vscode-editor-font-family);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.stack-rail__position--current {

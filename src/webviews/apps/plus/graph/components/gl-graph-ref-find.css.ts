@@ -30,7 +30,7 @@ export const graphRefFindStyles = css`
 		/* editorWidget, not quickInput: this floats ON the graph the way the editor's and the tree's
 		   find widgets float on their content, where quickInput is the palette's higher tier — themes
 		   that separate the two would otherwise render this a surface too high. */
-		--gl-elevation-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		--gl-elevation-border-color: var(--vscode-editorWidget-border);
 
 		display: flex;
 		flex-direction: column;
@@ -61,7 +61,7 @@ export const graphRefFindStyles = css`
 	}
 
 	.find__field:focus-within {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: 1px solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 
@@ -78,7 +78,7 @@ export const graphRefFindStyles = css`
 		--code-icon-size: 1.3rem;
 
 		flex: none;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Match the glyph's footprint so the row reads as evenly weighted at both ends. */
@@ -160,7 +160,7 @@ export const graphRefFindStyles = css`
 		margin-inline-start: auto;
 		font-size: var(--gl-font-sm);
 		line-height: 1.6rem;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -175,7 +175,7 @@ export const graphRefFindStyles = css`
 		font-family: var(--vscode-editor-font-family);
 		font-size: var(--gl-font-sm);
 		line-height: 1.6rem;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -185,7 +185,7 @@ export const graphRefFindStyles = css`
 		display: inline-flex;
 		gap: var(--gl-space-4);
 		align-items: center;
-		color: var(--color-foreground--50);
+		color: var(--vscode-disabledForeground);
 	}
 
 	.find__hit-icon {

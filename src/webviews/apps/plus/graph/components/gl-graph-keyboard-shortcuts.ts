@@ -121,7 +121,7 @@ dialog:not([open]) { display: none } and paint the closed sheet inline under the
 				align-items: center;
 				justify-content: space-between;
 				padding: 1.3rem 2rem;
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.titlebar h2 {
@@ -139,7 +139,7 @@ dialog:not([open]) { display: none } and paint the closed sheet inline under the
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: none;
 				border: none;
@@ -147,8 +147,14 @@ dialog:not([open]) { display: none } and paint the closed sheet inline under the
 			}
 
 			.close:hover {
-				color: var(--vscode-foreground);
-				background: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.close:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			/* Caps how tall the sheet gets before it scrolls internally; flex + min-height let it give
@@ -187,7 +193,7 @@ back below that cap when the dialog itself is height-capped by a short viewport.
 				margin: 0 0 0.7rem;
 				font-size: 1rem;
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.08em;
 			}
@@ -218,7 +224,7 @@ qualifiers only. */
 				display: block;
 				margin-top: 0.15rem;
 				font-size: 1.02rem;
-				color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.subline kbd {
@@ -249,12 +255,12 @@ qualifiers only. */
 			.sep {
 				margin: 0 0.12rem;
 				font-size: 1rem;
-				color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.text {
 				font-size: 1.05rem;
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.footrow {
@@ -265,9 +271,9 @@ qualifiers only. */
 				padding: 1.2rem 0 1.4rem;
 				margin: 0 2rem;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.footrow kbd {
@@ -284,11 +290,11 @@ qualifiers only. */
 			}
 
 			.footrow .customize:hover {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 			}
 
 			.footrow .customize:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 0.2rem;
 			}
 		`,
