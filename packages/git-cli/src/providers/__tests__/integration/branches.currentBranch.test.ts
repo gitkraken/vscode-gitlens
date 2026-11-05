@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import type { TestRepo } from './helpers.js';
@@ -54,7 +55,7 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 	const cleanups: (() => void)[] = [];
 	const providers: CliGitProvider[] = [];
 
-	/** The argv of each git process finished since the last {@link resetSpawns} */
+	/** The argv of each git process finished (completed or failed) since the last {@link resetSpawns} */
 	const spawns: string[] = [];
 	const spawnLogger: LogChannel = {
 		name: 'spawn-counter',
@@ -68,7 +69,11 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			}
 		},
 		warn: () => {},
-		error: () => {},
+		error: (msg: string) => {
+			if (msg.includes('• FAILED')) {
+				spawns.push(msg);
+			}
+		},
 	};
 
 	function resetSpawns(): void {
@@ -440,6 +445,22 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			assert.strictEqual(spawnCount('rev-parse'), 0);
 		});
 
+		test('a sweep of the worktrees runs no rev-parse when the refs listing is copied', async () => {
+			const repo = track(createTestRepo());
+			const worktrees = createWorktrees(repo, 5);
+			reverseRefs = true;
+			const provider = await newProvider([repo.path, ...worktrees]);
+			resetSpawns();
+
+			for (let i = 0; i < worktrees.length; i++) {
+				const branch = await provider.branches.getBranch(worktrees[i]);
+				assert.strictEqual(branch?.name, `task-${i}`);
+				assert.strictEqual(branch?.current, true);
+			}
+
+			assert.strictEqual(spawnCount('rev-parse'), 0);
+		});
+
 		test('a sweep of named reads reads the refs once and runs no rev-parse', async () => {
 			const repo = track(createTestRepo());
 			const worktrees = createWorktrees(repo, 5);
@@ -513,6 +534,58 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 				'sibling',
 				"the sibling's own branch",
 			);
+		});
+
+		test('a list read across a checkout leaves the new branch to be read', async () => {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			createBranch(repo.path, 'sibling');
+			// With an upstream, rev-parse exits cleanly and so is counted
+			setUpstream(repo.path, 'other', 'main');
+			setUpstream(repo.path, 'sibling', 'main');
+			const wt = worktreeOf(repo, 'feature');
+			const sibling = worktreeOf(repo, 'sibling');
+			const provider = await newProvider([repo.path, wt, sibling]);
+			resetSpawns();
+
+			// Holds the list read after `for-each-ref` has run, so the checkout lands between the read and its seeding
+			const refs = provider.refs;
+			const getRefs = refs.getRefs;
+			const read = defer<void>();
+			const released = defer<void>();
+			refs.getRefs = async function (this: typeof refs, ...args) {
+				const records = await getRefs.apply(this, args);
+				read.fulfill();
+				await released.promise;
+				return records;
+			};
+
+			const during = provider.branches.getBranch(wt);
+			await read.promise;
+			checkout(wt, 'other');
+			provider.cache.evictCaches(wt, 'branch');
+			released.fulfill();
+			await during;
+
+			assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'other');
+			assert.strictEqual((await provider.branches.getBranch(sibling))?.name, 'sibling');
+			assert.strictEqual(spawnCount('for-each-ref'), 1);
+			assert.strictEqual(spawnCount('rev-parse'), 1, 'only the checkout that changed reads its HEAD');
+		});
+
+		test('refs read before a checkout leave the new branch to be read', async () => {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			const wt = worktreeOf(repo, 'feature');
+			const provider = await newProvider([repo.path, wt]);
+			await provider.refs.getRefs(repo.path);
+
+			checkout(wt, 'other');
+			provider.cache.evictCaches(wt, 'branch');
+
+			assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'other');
 		});
 
 		test('a commit is seen after a branches eviction', async () => {

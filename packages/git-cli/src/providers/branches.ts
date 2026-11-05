@@ -638,6 +638,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
 			const branches: GitBranch[] = [];
+			/** Each branch checked out in a worktree, with that worktree's path and the record the branch was read from */
+			const checkedOut: [path: string, branch: GitBranch, record: RefRecord][] = [];
 
 			// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
 			// told from the upstream's short name alone, so read the remote names once, only if needed
@@ -685,50 +687,49 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				const metadata = metadataMap.get(parseRefName(fullName).name);
 				const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
 
-				branches.push(
-					new GitBranch(
-						commonPath,
-						fullName,
-						false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
-						record.committerDate ? new Date(record.committerDate) : undefined,
-						metadata,
-						record.objectname,
-						upstream,
-						worktreePathSupported
-							? worktreePath
-								? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
-								: false
-							: undefined,
-					),
+				const branch = new GitBranch(
+					commonPath,
+					fullName,
+					false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
+					record.committerDate ? new Date(record.committerDate) : undefined,
+					metadata,
+					record.objectname,
+					upstream,
+					worktreePathSupported
+						? worktreePath
+							? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
+							: false
+						: undefined,
 				);
+				branches.push(branch);
+				if (worktreePathSupported && worktreePath) {
+					checkedOut.push([worktreePath, branch, record]);
+				}
 			}
 
 			sw?.stop({ suffix: ` parsed ${branches.length} branches` });
 
 			// Pre-populate current branch cache for worktrees based on worktreePath info
 			// This eliminates the need for rev-parse calls during branch reconstruction
-			for (const branch of branches) {
-				// oxlint-disable-next-line typescript/prefer-optional-chain
-				if (branch.worktree && branch.worktree.path) {
-					const { name } = parseRefName(branch.refName);
-					const reference = createReference(name, branch.worktree.path, {
-						refType: 'branch',
-						name: name,
-						id: getBranchId(branch.worktree.path, false, name),
-						remote: false,
-						upstream: branch.upstream?.name
-							? {
-									name: branch.upstream.name,
-									missing: branch.upstream.missing,
-									remote: branch.upstream.remote,
-									remoteBranch: branch.upstream.remoteBranch,
-									local: branch.upstream.local,
-								}
-							: undefined,
-						sha: branch.sha,
-					});
-					this.cache.setCurrentBranchReferenceIfAbsent(branch.worktree.path, reference);
-				}
+			for (const [path, branch, record] of checkedOut) {
+				const { name } = parseRefName(branch.refName);
+				const reference = createReference(name, path, {
+					refType: 'branch',
+					name: name,
+					id: getBranchId(path, false, name),
+					remote: false,
+					upstream: branch.upstream?.name
+						? {
+								name: branch.upstream.name,
+								missing: branch.upstream.missing,
+								remote: branch.upstream.remote,
+								remoteBranch: branch.upstream.remoteBranch,
+								local: branch.upstream.local,
+							}
+						: undefined,
+					sha: branch.sha,
+				});
+				this.cache.setCurrentBranchReferenceIfAbsent(path, reference, record);
 			}
 
 			return branches.length ? { values: branches } : emptyPagedResult;
