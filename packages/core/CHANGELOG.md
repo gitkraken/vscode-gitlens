@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (plus/integrations)** — `refs.head.repo` and `refs.base.repo` on GitLab's `getPullRequest` and `searchPullRequests` rows hold the repository's name rather than its whole path, on flat paths too: `r`, was `group/r`. The whole path sat beside an owner that was already the namespace, so `getRepositoryIdentityForPullRequest` named `group/group/r`; it now names `group/r`, and these rows match the provider-apis rows. A consumer using either field as the whole path should join `owner` and `repo`
+
+### Fixed
+
+- Fixes GitLab's `getPullRequest` and `searchPullRequests` naming the wrong repository for a merge request in a nested group: `acme/platform/kepler` read as owner `acme` and repo `platform`, dropping `kepler`. `repository` now carries owner `acme/platform` and repo `kepler`, as `resolveRepository` and the provider-apis reads do. `getPullRequestForBranch` and `getPullRequestForCommit` named `repository` however the caller split the path, which for a remote's descriptor is owner `acme` and repo `platform/kepler`; they now name the same owner and repo as the other reads (plus/integrations)
+
 ## [0.30.0] - 2026-11-05
 
 ### Changed

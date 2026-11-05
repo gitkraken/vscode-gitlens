@@ -257,7 +257,8 @@ refused; any other failure of it is left to the full reads, so a call counts at 
 `getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
 relationship to them, so unlike the sweeps it finds a teammate's pull request from the user's branch. A target names
 the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
-`headOwner`; one equal to the target's owner means the base repository. A pull request matches only when its head
+`headOwner`; one equal to the target's owner means the base repository. On GitLab both are the whole namespace path
+(`group/subgroup`). A pull request matches only when its head
 repository is that base repository or that fork, so a `main` never claims every fork's `main`. The match is on the
 head branch name in every state, so a merged pull request whose branch was deleted is still found, and a fork is
 matched by its owner, so a pull request whose fork was deleted still matches that `headOwner`. Each target returns up

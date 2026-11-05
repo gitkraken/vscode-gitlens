@@ -345,7 +345,10 @@ export interface PullRequestRef {
 	 * provider-apis' converters fill `''` instead, so test for a value rather than for `undefined`.
 	 */
 	owner: string | undefined;
-	/** `undefined` (or `''`) when the ref's repository was deleted, as {@link owner}. */
+	/**
+	 * The repository's name, never a path: a GitLab nested group is all {@link owner}. `undefined` (or `''`) when the
+	 * ref's repository was deleted, as {@link owner}.
+	 */
 	repo: string | undefined;
 	branch: string;
 	sha: string;

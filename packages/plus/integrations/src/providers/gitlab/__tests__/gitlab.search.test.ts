@@ -1,22 +1,9 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import type { Provider } from '@gitlens/git/models/remoteProvider.js';
-import type { TokenWithInfo } from '../../../authentication/models.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { GitLabApi } from '../gitlab.js';
 import type { GitLabMergeRequestREST, GitLabMergeRequestState } from '../models.js';
-
-const provider = {
-	id: 'gitlab',
-	name: 'GitLab',
-	domain: 'gitlab.com',
-	icon: 'gitlab',
-	getIgnoreSSLErrors: () => false,
-	reauthenticate: () => Promise.resolve(),
-	trackRequestException: () => {},
-} as unknown as Provider;
-
-const token = { accessToken: 'token', microHash: 'hash' } as unknown as TokenWithInfo;
+import { gitLabProvider, gitLabToken } from './fixtures.js';
 
 function restMR(iid: number, state: GitLabMergeRequestState): GitLabMergeRequestREST {
 	return {
@@ -79,7 +66,10 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch([page1, page2, []], requestedPages));
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(
 			results.map(pr => pr.id),
@@ -94,7 +84,7 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch([page1, page1, []], requestedPages));
 
-		await api.searchPullRequests(provider, token, { search: 'fix' });
+		await api.searchPullRequests(gitLabProvider, gitLabToken, { search: 'fix' });
 
 		assert.deepEqual(requestedPages, [1], 'fetches only the first search page without a state filter');
 	});
@@ -120,7 +110,10 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 			),
 		);
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(
 			results.map(pr => pr.id),
@@ -140,7 +133,10 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch(pages, requestedPages));
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(results, []);
 		assert.deepEqual(

@@ -233,9 +233,11 @@ function gitLabMergeRequest(
 		updatedAt?: string;
 		forkNamespace?: string;
 		branch?: string;
+		fullPath?: string;
 	},
 ): Record<string, unknown> {
-	const project = { id: 'gid://gitlab/Project/1', fullPath: 'group/r', webUrl: 'https://gitlab.com/group/r' };
+	const fullPath = options?.fullPath ?? 'group/r';
+	const project = { id: 'gid://gitlab/Project/1', fullPath: fullPath, webUrl: `https://gitlab.com/${fullPath}` };
 	const sourceProject =
 		options?.forkNamespace != null
 			? {
@@ -253,7 +255,7 @@ function gitLabMergeRequest(
 		diffRefs: { baseSha: 'base', headSha: 'head' },
 		title: `MR ${iid}`,
 		description: null,
-		webUrl: `https://gitlab.com/group/r/-/merge_requests/${iid}`,
+		webUrl: `https://gitlab.com/${fullPath}/-/merge_requests/${iid}`,
 		createdAt: '2026-01-01T00:00:00Z',
 		updatedAt: updatedAt,
 		mergedAt: options?.state === 'merged' ? updatedAt : null,
@@ -1501,6 +1503,42 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			});
 
 			assert.deepEqual(ids(result.items[0]), ['gid-1']);
+
+			manager.dispose();
+		});
+
+		test('in a nested group, a headOwner equal to the whole namespace means the base repository', async () => {
+			const runtime = createFakeRuntime();
+			const fullPath = 'acme/platform/r';
+			const requests = branchQuery(runtime, () =>
+				json(
+					200,
+					gitLabConnection([
+						gitLabMergeRequest(1, { fullPath: fullPath }),
+						gitLabMergeRequest(3, { fullPath: fullPath, forkNamespace: 'contrib/team' }),
+					]),
+				),
+			);
+			const { manager, gl } = await connectedGitLab(runtime);
+			stubCurrentAccount(gl, 'me');
+			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.GitLab, input =>
+				Promise.resolve(sdkPullRequest(input.number)),
+			);
+
+			const target = { owner: 'acme/platform', repo: 'r', branch: 'feature' };
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: [
+					{ key: 'base', ...target, headOwner: 'ACME/Platform' },
+					{ key: 'fork', ...target, headOwner: 'contrib/team' },
+				],
+			});
+
+			assert.deepEqual(ids(result.items[0]), ['gid-1']);
+			assert.deepEqual(ids(result.items[1]), ['gid-3']);
+
+			const request = JSON.parse(requests.bodies[0]) as { variables: Record<string, unknown> };
+			assert.equal(request.variables.fullPath, fullPath);
 
 			manager.dispose();
 		});
