@@ -763,6 +763,11 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 	): Promise<BranchCommitsResult>;
 	getCommit(repoPath: string, sha: string, signal?: AbortSignal): Promise<CommitDetails | undefined>;
+	getCommitPatchIds(
+		repoPath: string,
+		shas: readonly string[],
+		signal?: AbortSignal,
+	): Promise<Record<string, string> | undefined>;
 	getCompareDiff(repoPath: string, from: string, to: string, signal?: AbortSignal): Promise<CompareDiff | undefined>;
 	/**
 	 * Returns the active graph search context for the given commit (or `undefined` when no

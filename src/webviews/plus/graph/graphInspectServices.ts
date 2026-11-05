@@ -487,6 +487,12 @@ export class GraphInspectServices {
 				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
 					getScopeFiles(this.container, repoPath, scope, signal),
 				getBranchCommits: (repoPath, options, signal) => this.getBranchCommits(repoPath, options, signal),
+				getCommitPatchIds: async (repoPath, shas, signal) => {
+					const ids = await this.container.git
+						.getRepositoryService(repoPath)
+						.commits.getCommitPatchIds?.(shas, undefined, signal);
+					return ids != null ? Object.fromEntries(ids) : undefined;
+				},
 				getCommit: async (
 					repoPath: string,
 					sha: string,

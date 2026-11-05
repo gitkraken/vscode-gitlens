@@ -152,50 +152,94 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 	return false;
 }
 
-/** Carries a scope's commits across a history rewrite: a rewritten commit maps to the one with its subject, or — when
- *  the count is unchanged, as after a reword — to the one in its place. `undefined` when nothing needs or can map. */
-export function remapRewrittenShas(
+function findRewrite(
+	prev: readonly BranchCommitEntry[],
+	next: readonly BranchCommitEntry[],
+): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly BranchCommitEntry[] } {
+	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
+	const prevForkIndex = prev.findIndex(c => nextIndexes.has(c.sha));
+	return prevForkIndex < 0
+		? { nextIndexes: nextIndexes, prevForkIndex: prev.length, rewritten: next }
+		: {
+				nextIndexes: nextIndexes,
+				prevForkIndex: prevForkIndex,
+				rewritten: next.slice(0, nextIndexes.get(prev[prevForkIndex].sha)),
+			};
+}
+
+/** The scope's commits a rewrite replaced, plus the rewritten ones they may map to — the ones worth a patch id */
+export function getRewrittenScopeShas(
 	shas: readonly string[],
 	prev: readonly BranchCommitEntry[] | undefined,
 	next: readonly BranchCommitEntry[],
-): string[] | undefined {
-	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
-	if (shas.every(sha => nextIndexes.has(sha))) return undefined;
-	if (!prev?.length) return undefined;
+): string[] {
+	if (!prev?.length) return [];
 
-	let prevForkIndex = prev.findIndex(c => nextIndexes.has(c.sha));
-	const nextForkIndex = prevForkIndex < 0 ? next.length : nextIndexes.get(prev[prevForkIndex].sha)!;
-	if (prevForkIndex < 0) {
-		prevForkIndex = prev.length;
-	}
-	const rewritten = next.slice(0, nextForkIndex);
-
-	const remapped = new Set<string>();
-	for (const sha of shas) {
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next);
+	const replaced = shas.filter(sha => {
 		const prevIndex = prev.findIndex(c => c.sha === sha);
-		// Still there, or below the rewrite and just not loaded now
-		if (nextIndexes.has(sha) || prevIndex < 0 || prevIndex >= prevForkIndex) {
-			remapped.add(sha);
-			continue;
-		}
+		return !nextIndexes.has(sha) && prevIndex >= 0 && prevIndex < prevForkIndex;
+	});
+	return replaced.length && rewritten.length ? [...replaced, ...rewritten.map(c => c.sha)] : [];
+}
 
+/** Carries a scope's commit range, whole, across a history change: a rewritten commit maps by patch id, subject, or —
+ *  at an unchanged count — place; a range holding the tip (or working changes) takes in commits added on top. */
+export function remapScopeRange(
+	scope: { includeShas: readonly string[]; includesWip: boolean },
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	patchIds?: Readonly<Record<string, string>>,
+): string[] | undefined {
+	const shas = scope.includeShas;
+	if (!prev?.length || !next.length) return undefined;
+
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next);
+	const mapOne = (sha: string): number | 'kept' | undefined => {
+		const index = nextIndexes.get(sha);
+		if (index != null) return index;
+
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		// Below the rewrite and just not loaded now
+		if (prevIndex < 0 || prevIndex >= prevForkIndex) return 'kept';
+
+		const patchId = patchIds?.[sha];
 		const subject = getCommitSubject(prev[prevIndex].message);
+		const samePatch = patchId != null ? rewritten.filter(c => patchIds?.[c.sha] === patchId) : [];
 		const sameSubject = rewritten.filter(c => getCommitSubject(c.message) === subject);
 		const match =
-			sameSubject.length === 1
-				? sameSubject[0]
-				: rewritten.length === prevForkIndex
-					? rewritten[prevIndex]
-					: undefined;
-		if (match != null) {
-			remapped.add(match.sha);
-		}
-	}
-	if (remapped.size === 0) return undefined;
+			samePatch.length === 1
+				? samePatch[0]
+				: sameSubject.length === 1
+					? sameSubject[0]
+					: rewritten.length === prevForkIndex
+						? rewritten[prevIndex]
+						: undefined;
+		return match != null ? nextIndexes.get(match.sha) : undefined;
+	};
 
-	// Newest first, as the scope keeps them: a reorder can change which commit is the range's tip
-	const order = (sha: string) => nextIndexes.get(sha) ?? next.length;
-	return [...remapped].sort((a, b) => order(a) - order(b));
+	if (!shas.length) {
+		if (!scope.includesWip) return undefined;
+
+		const tip = mapOne(prev[0].sha);
+		return typeof tip === 'number' && tip > 0 ? next.slice(0, tip).map(c => c.sha) : undefined;
+	}
+
+	const mapped = shas.map(sha => ({ sha: sha, index: mapOne(sha) }));
+	const indexes = mapped.map(m => m.index).filter(i => typeof i === 'number');
+	const kept = mapped.filter(m => m.index === 'kept').map(m => m.sha);
+
+	const holdsTip = scope.includesWip || shas[0] === prev[0].sha;
+	const top = holdsTip ? 0 : indexes.length ? Math.min(...indexes) : undefined;
+	let bottom = kept.length ? next.length - 1 : indexes.length ? Math.max(...indexes) : undefined;
+	// An oldest commit that no longer maps widens the range to the rewritten ones rather than silently shrinking it
+	if (mapped.at(-1)!.index == null && rewritten.length) {
+		bottom = Math.max(bottom ?? 0, rewritten.length - 1);
+	}
+	if (top == null || bottom == null) return undefined;
+
+	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...kept];
+	return areEqual(remapped, shas) ? undefined : remapped;
 }
 
 function getCommitSubject(message: string): string {
@@ -2705,11 +2749,18 @@ export class DetailsActions {
 				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
 					? this.state.branchCommits.get()
 					: undefined;
+			const scope = this.state.scope.get();
+			const remapped = await this.remapScope(repoPath, scope, prevCommits, result.commits, controller.signal);
+			if (controller.signal.aborted) return;
+
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
-			this.followRewrittenScopeCommits(repoPath, prevCommits, result.commits);
+			if (remapped != null && this.state.scope.get() === scope) {
+				this.state.scope.set(remapped);
+				void this.resources.scopeFiles.fetch(repoPath, remapped);
+			}
 		} finally {
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
@@ -2775,20 +2826,26 @@ export class DetailsActions {
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
 	}
 
-	private followRewrittenScopeCommits(
+	private async remapScope(
 		repoPath: string,
+		scope: ScopeSelection | undefined,
 		prevCommits: readonly BranchCommitEntry[] | undefined,
 		nextCommits: readonly BranchCommitEntry[],
-	): void {
-		const scope = this.state.scope.get();
-		if (scope?.type !== 'wip' || scope.includeShas.length === 0) return;
+		signal: AbortSignal,
+	): Promise<ScopeSelection | undefined> {
+		if (scope?.type !== 'wip') return undefined;
 
-		const includeShas = remapRewrittenShas(scope.includeShas, prevCommits, nextCommits);
-		if (includeShas == null) return;
-
-		const remapped: ScopeSelection = { ...scope, includeShas: includeShas };
-		this.state.scope.set(remapped);
-		void this.resources.scopeFiles.fetch(repoPath, remapped);
+		const rewrittenShas = getRewrittenScopeShas(scope.includeShas, prevCommits, nextCommits);
+		const patchIds = rewrittenShas.length
+			? await this.services.graphInspect.getCommitPatchIds(repoPath, rewrittenShas, signal).catch(() => undefined)
+			: undefined;
+		const includeShas = remapScopeRange(
+			{ includeShas: scope.includeShas, includesWip: scope.includeStaged || scope.includeUnstaged },
+			prevCommits,
+			nextCommits,
+			patchIds,
+		);
+		return includeShas != null ? { ...scope, includeShas: includeShas } : undefined;
 	}
 
 	/** A refetch lists the first page again: pages back while the scope holds commits that were listed before it */

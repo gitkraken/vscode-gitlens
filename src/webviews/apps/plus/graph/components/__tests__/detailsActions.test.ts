@@ -15,7 +15,7 @@ import type {
 import { createResource } from '../../../../shared/state/resource.js';
 import type { AppState } from '../../context.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
-import { DetailsActions, remapRewrittenShas, scopeSelectionEqual } from '../detailsActions.js';
+import { DetailsActions, getRewrittenScopeShas, remapScopeRange, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
 
 function createResources(overrides: Partial<DetailsResources> = {}): DetailsResources {
@@ -1031,22 +1031,30 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 	});
 });
 
-suite('remapRewrittenShas', () => {
+suite('remapScopeRange', () => {
 	/** `sha` or `sha:subject`; a rewritten commit keeps its subject unless it was reworded. */
 	const commits = (...entries: string[]): BranchCommitEntry[] =>
 		entries.map(entry => {
 			const [sha, subject] = entry.split(':');
-			const message = `${subject ?? sha.replace("'", '')}\n\nbody`;
+			const message = `${subject ?? sha.replaceAll("'", '')}\n\nbody`;
 			return { sha: sha, message: message, pushed: false } as unknown as BranchCommitEntry;
 		});
 
 	// Lists are newest first, as the branch commits and the scope keep them
-	const cases: { name: string; shas: string[]; prev?: string[]; next: string[]; expected: string[] | undefined }[] = [
+	const cases: {
+		name: string;
+		shas: string[];
+		wip?: boolean;
+		prev?: string[];
+		next: string[];
+		patchIds?: Record<string, string>;
+		expected: string[] | undefined;
+	}[] = [
 		{
-			name: 'nothing rewritten',
+			name: 'nothing changed',
 			shas: ['c', 'b'],
 			prev: ['c', 'b', 'a'],
-			next: ['d', 'c', 'b', 'a'],
+			next: ['c', 'b', 'a'],
 			expected: undefined,
 		},
 		{ name: 'no earlier list', shas: ['b'], next: ["b'"], expected: undefined },
@@ -1072,6 +1080,22 @@ suite('remapRewrittenShas', () => {
 			expected: ["c'", "b'"],
 		},
 		{ name: 'reword', shas: ['b'], prev: ['c', 'b', 'a'], next: ["c'", "b':reworded", 'a'], expected: ["b'"] },
+		{
+			name: 'reword while another commit is dropped, matched by patch id',
+			shas: ['b'],
+			prev: ['d', 'c', 'b', 'a'],
+			next: ["c'", "b':reworded", 'a'],
+			patchIds: { b: 'pb', c: 'pc', "c'": 'pc', "b'": 'pb' },
+			expected: ["b'"],
+		},
+		{
+			name: 'a patch id tells apart commits with the same subject',
+			shas: ['b:wip'],
+			prev: ['c:wip', 'b:wip', 'a'],
+			next: ["b':wip", "c':wip", 'a'],
+			patchIds: { b: 'pb', c: 'pc', "b'": 'pb', "c'": 'pc' },
+			expected: ["b'"],
+		},
 		{ name: 'reorder', shas: ['b'], prev: ['c', 'b', 'a'], next: ["b'", "c'", 'a'], expected: ["b'"] },
 		{
 			name: 'reorder of the whole range',
@@ -1090,34 +1114,113 @@ suite('remapRewrittenShas', () => {
 			expected: ["b'", "a'"],
 		},
 		{
-			name: 'a commit below the rewrite that the new page no longer loads',
+			name: 'commits below the rewrite that the new page no longer loads',
 			shas: ['u', 'mb'],
-			prev: ['t', 'u', 'mb', 'p1', 'p2'],
+			prev: ['t', 'u', 'mb', 'p1'],
 			next: ["t'", 'u'],
-			expected: ['u', 'mb'],
+			expected: undefined,
 		},
 		{
-			name: 'a rewritten commit with one below it that is no longer loaded',
-			shas: ['t', 'p1'],
+			name: 'a rewritten tip with older commits no longer loaded',
+			shas: ['t', 'u', 'mb'],
 			prev: ['t', 'u', 'mb', 'p1'],
-			next: ['n', "t'", 'u'],
-			expected: ["t'", 'p1'],
+			next: ["t'", 'u'],
+			expected: ["t'", 'u', 'mb'],
+		},
+		{
+			name: 'a commit on top of a range holding the tip joins it',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['d', 'c', 'b', 'a'],
+			expected: ['d', 'c', 'b'],
+		},
+		{
+			name: 'a commit on top of a range without the tip does not join it',
+			shas: ['b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ['d', 'c', 'b', 'a'],
+			expected: undefined,
+		},
+		{
+			name: 'working changes committed on top join the range',
+			shas: [],
+			wip: true,
+			prev: ['c', 'b'],
+			next: ['d', 'c', 'b'],
+			expected: ['d'],
+		},
+		{
+			name: 'working changes and the tip, committed on top',
+			shas: ['c', 'b'],
+			wip: true,
+			prev: ['c', 'b'],
+			next: ['d', 'c', 'b'],
+			expected: ['d', 'c', 'b'],
+		},
+		{
+			name: 'a commit inserted inside the range joins it',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a', 'base'],
+			next: ["c'", 'x', "b'", 'a', 'base'],
+			expected: ["c'", 'x', "b'", 'a'],
+		},
+		{
+			name: 'a rebase onto the base branch',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", "b'", "a'"],
+			expected: ["c'", "b'", "a'"],
+		},
+		{ name: 'an undo of the tip', shas: ['c', 'b'], prev: ['c', 'b', 'a'], next: ['b', 'a'], expected: ['b'] },
+		{
+			name: 'an undo of the only commit in the range',
+			shas: ['c'],
+			prev: ['c', 'b'],
+			next: ['b'],
+			expected: undefined,
+		},
+		{
+			name: 'an oldest commit that no longer maps widens the range to the rewritten ones',
+			shas: ['c', 'b'],
+			prev: ['d', 'c', 'b', 'a'],
+			next: ["c'", "b':reworded", 'a'],
+			expected: ["c'", "b'"],
+		},
+		{
+			name: 'a squash with a new message',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['s:squashed', 'a'],
+			expected: ['s'],
 		},
 	];
 
+	const shaOf = (entry: string) => entry.split(':')[0];
 	for (const c of cases) {
 		test(c.name, () => {
-			const shaOf = (entry: string) => entry.split(':')[0];
 			assert.deepStrictEqual(
-				remapRewrittenShas(
-					c.shas.map(shaOf),
+				remapScopeRange(
+					{ includeShas: c.shas.map(shaOf), includesWip: c.wip ?? false },
 					c.prev != null ? commits(...c.prev) : undefined,
 					commits(...c.next),
+					c.patchIds,
 				),
 				c.expected,
 			);
 		});
 	}
+
+	test('patch ids are asked only for replaced scope commits and the rewritten ones', () => {
+		assert.deepStrictEqual(getRewrittenScopeShas(['c', 'b'], commits('c', 'b', 'a'), commits("c'", 'b', 'a')), [
+			'c',
+			"c'",
+		]);
+		assert.deepStrictEqual(
+			getRewrittenScopeShas(['c', 'b'], commits('c', 'b', 'a'), commits('d', 'c', 'b', 'a')),
+			[],
+			'nothing replaced',
+		);
+	});
 });
 
 suite('DetailsActions — scope follows a history rewrite', () => {
@@ -1145,7 +1248,7 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		let branchCommits: BranchCommitsResult = { commits: [commit('c'), commit('b'), commit('a')], hasMore: false };
 		const services = {
 			...createServices(),
-			graphInspect: { getBranchCommits: async () => branchCommits },
+			graphInspect: { getBranchCommits: async () => branchCommits, getCommitPatchIds: async () => undefined },
 		} as unknown as ResolvedServices;
 		const fetchedScopes: ScopeSelection[] = [];
 		const resources = createResources({
@@ -1172,6 +1275,41 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		};
 		assert.deepStrictEqual(state.scope.get(), expected);
 		assert.deepStrictEqual(fetchedScopes.at(-1), expected, 'the files are reloaded for the rewritten commits');
+	});
+
+	test("the host's patch ids map commits whose subjects are the same", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] });
+
+		const wip = (sha: string) => ({ sha: sha, message: 'wip', pushed: false }) as unknown as BranchCommitEntry;
+		const asked: string[][] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				// A rebase swapped the two "wip" commits
+				getBranchCommits: async () => ({ commits: [wip("b'"), wip("c'"), commit('a')], hasMore: false }),
+				getCommitPatchIds: async (_repoPath: string, shas: string[]) => {
+					asked.push(shas);
+					return { b: 'pb', c: 'pc', "b'": 'pb', "c'": 'pc' };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([wip('c'), wip('b'), commit('a')]);
+
+		await actions.fetchBranchCommits('/repo');
+
+		assert.deepStrictEqual(asked, [['b', "b'", "c'"]]);
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["b'"],
+		});
 	});
 
 	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
@@ -1251,6 +1389,7 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 					calls++;
 					return { commits: [commit("c'"), commit("b'"), commit('a')], hasMore: false };
 				},
+				getCommitPatchIds: async () => undefined,
 			},
 		} as unknown as ResolvedServices;
 		const actions = new DetailsActions(state, services, createResources());
