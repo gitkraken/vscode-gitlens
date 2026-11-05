@@ -117,6 +117,9 @@ const baseBranchNameTTL = 5 * 60 * 1000; // 5 minutes
  */
 const maxCachedBlameLines = 5000;
 
+/** Worktree paths whose last current branch drop is tracked; the oldest beyond this folds into the all-paths floor */
+const currentBranchDropsTracked = 128;
+
 export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlame | undefined): Promise<boolean> {
 	if (progressive == null) return false;
 
@@ -375,6 +378,14 @@ export class Cache implements Disposable {
 	private _mergeTargetCheckoutGeneration = 0;
 	/** Each merge target answer's entry as `mergeTargets` stored it, so dropping a stale answer can't drop its successor */
 	private _mergeTargetStored = new WeakMap<CachedMergeTarget, Promise<CachedMergeTarget>>();
+	/** Advanced each time current branch references are dropped (see {@link setCurrentBranchReferenceIfAbsent}) */
+	private _currentBranchDrops = 0;
+	/** Per worktree path, the value of {@link _currentBranchDrops} when its current branch reference was last dropped */
+	private _currentBranchDroppedAt = new Map<RepoPath, number>();
+	/** The value of {@link _currentBranchDrops} when every current branch reference was last dropped */
+	private _allCurrentBranchesDroppedAt = 0;
+	/** Each ref listing's records checked out in a worktree, by the value of {@link _currentBranchDrops} when it started */
+	private _refsReadAt = new WeakMap<RefRecord, number>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -436,6 +447,7 @@ export class Cache implements Disposable {
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
 		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
 		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
+		usage['cache.currentBranchDroppedAt.entries.count'] = this._currentBranchDroppedAt.size;
 		return usage;
 	}
 
@@ -537,9 +549,45 @@ export class Cache implements Disposable {
 		return (this._caches.currentBranchReference ??= new PromiseCache<RepoPath, GitBranchReference | undefined>());
 	}
 
-	setCurrentBranchReferenceIfAbsent(worktreePath: string, reference: GitBranchReference | undefined): void {
+	/**
+	 * Seeds `worktreePath`'s current branch reference from a ref listing's `%(worktreepath)`, unless the reference was
+	 * dropped after the listing started: the listing may predate the checkout that dropped it, so the seed would bring
+	 * the old branch back until the next HEAD change. `record` must be the record of a listing {@link getRefs} returned
+	 * that `reference` was read from; any other seeds nothing
+	 */
+	setCurrentBranchReferenceIfAbsent(
+		worktreePath: string,
+		reference: GitBranchReference | undefined,
+		record: RefRecord,
+	): void {
+		const readAt = this._refsReadAt.get(record);
+		if (
+			readAt == null ||
+			readAt < this._allCurrentBranchesDroppedAt ||
+			readAt < (this._currentBranchDroppedAt.get(worktreePath) ?? 0)
+		) {
+			return;
+		}
+
 		if (this.currentBranchReference.get(worktreePath) == null) {
 			this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
+		}
+	}
+
+	private onCurrentBranchReferencesDropped(repoPath: string | undefined): void {
+		this._currentBranchDrops++;
+		if (repoPath == null) {
+			this._allCurrentBranchesDroppedAt = this._currentBranchDrops;
+			this._currentBranchDroppedAt.clear();
+		} else {
+			// Re-inserted so the map stays ordered oldest drop first
+			this._currentBranchDroppedAt.delete(repoPath);
+			this._currentBranchDroppedAt.set(repoPath, this._currentBranchDrops);
+			if (this._currentBranchDroppedAt.size > currentBranchDropsTracked) {
+				const [oldestPath, oldestAt] = this._currentBranchDroppedAt.entries().next().value!;
+				this._currentBranchDroppedAt.delete(oldestPath);
+				this._allCurrentBranchesDroppedAt = Math.max(this._allCurrentBranchesDroppedAt, oldestAt);
+			}
 		}
 	}
 
@@ -952,6 +1000,10 @@ export class Cache implements Disposable {
 			}
 		}
 
+		if (keysToClear.has('currentBranchReference')) {
+			this.onCurrentBranchReferencesDropped(repoPath);
+		}
+
 		for (const key of keysToClear) {
 			const cache = this._caches[key];
 			if (cache == null) continue;
@@ -1195,6 +1247,7 @@ export class Cache implements Disposable {
 		// Advance the close clock so an async step that captured it before its read (see `getCloseGeneration`)
 		// can tell its target went away mid-flight.
 		this._closeGenerations.set(repoPath, this.getCloseGeneration(repoPath) + 1);
+		this.onCurrentBranchReferencesDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
@@ -1282,6 +1335,7 @@ export class Cache implements Disposable {
 		this._mergeTargetsEvictedOnCheckout.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
+		this.onCurrentBranchReferencesDropped(undefined);
 	}
 
 	/** Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}). */
@@ -2342,7 +2396,16 @@ export class Cache implements Disposable {
 		const commonPath = this.getCommonPath(repoPath);
 		return this.refs.getOrCreate(
 			commonPath,
-			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+			async (cacheable, signal) => {
+				const readAt = this._currentBranchDrops;
+				const records = await factory(commonPath, cacheable, signal);
+				for (const record of records) {
+					if (record.worktreePath) {
+						this._refsReadAt.set(record, readAt);
+					}
+				}
+				return records;
+			},
 			cancellation,
 		);
 	}
