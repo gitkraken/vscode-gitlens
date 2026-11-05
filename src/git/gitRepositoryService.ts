@@ -110,7 +110,8 @@ export class GitRepositoryService {
 		  })
 		| undefined
 	> {
-		const gitDir = await this.config.getGitDir?.();
+		// A git that gave no answer means no watch for now, which callers treat as nothing to follow
+		const gitDir = await this.config.getGitDir?.().catch(() => undefined);
 		if (gitDir == null) return undefined;
 
 		const handle = this._svc.watchService.watch(this.path, gitDir);

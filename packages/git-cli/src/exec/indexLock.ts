@@ -45,7 +45,7 @@ export function toExitCode(code: number | string | undefined): number | undefine
 }
 
 /** Git's exit code when it `die()`s, as it does on a held `index.lock`. */
-const gitFatalExitCode = 128;
+export const gitFatalExitCode = 128;
 
 /** How long to wait before each retry of a run that found `index.lock` held; its length is the retry count. */
 export const indexLockRetryDelays: readonly number[] = [100, 200, 400];
