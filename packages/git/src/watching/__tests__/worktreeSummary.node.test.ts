@@ -1338,6 +1338,18 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(summary, first);
 		});
 
+		it('re-reads the dirty flag when finding the index to stat timed out', async () => {
+			const { h } = setup();
+			const first = await h.service.getSummary(repoPath);
+			const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+			config.getGitDir = () => Promise.reject(new CancellationError(undefined, 'timeout'));
+
+			let summary: WorktreeSummary | undefined;
+			const counts = await readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(counts, { ...probeOnly, dirty: 1 }, 'an unknown index, so the dirty flag is read');
+			assert.strictEqual(summary, first);
+		});
+
 		it('shares one read between concurrent callers', async () => {
 			const { h } = setup();
 			h.repo.hold();
@@ -3453,6 +3465,22 @@ describe('WorktreeSummaryService', () => {
 				h.repo.state.configKeyFail = timedOut();
 				const reads = await readsAfter(h, () => h.push(['config']));
 				assert.strictEqual(reads.base, 1, 'unknown inputs, so the base is read');
+				assert.deepStrictEqual(fired, []);
+			});
+
+			it('reads the base when reading its stored values timed out', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				const branches = h.repo.service.branches as unknown as {
+					getStoredUserMergeTargetBranchName: (branch: string) => Promise<string | undefined>;
+				};
+				branches.getStoredUserMergeTargetBranchName = () => Promise.reject(timedOut());
+				const reads = await readsAfter(h, () => h.push(['gkConfig']));
+				assert.strictEqual(reads.base, 1, 'unknown stored values, so the base is read');
 				assert.deepStrictEqual(fired, []);
 			});
 
