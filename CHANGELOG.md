@@ -56,6 +56,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes links in the Pro feature badge's popup showing as plain text instead of in the link color
 - Fixes buttons across the _Commit Graph_ (e.g. the side bar, header actions, overview, details pane, review mode and sheets) showing no hover feedback in high contrast themes
 - Fixes error banners in the _Commit Graph_ (e.g. _Git Health_, compare and the rebase summary) showing red text on a red background
+- Fixes the _Commit Graph_'s pull banner (e.g. when a pull is blocked or would conflict) showing hard-to-read white text in high contrast dark themes and with a light conflict color &mdash; the text now switches to black when the banner's color is light
 - Fixes the _Commit Graph_'s details pane showing bands of the graph's background color when the Graph is open in an editor, and agent markers showing the side bar color behind them when the Graph is in the side bar or panel
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes Jira issues losing their project and silently failing to associate with a branch through _Associate Issue with Branch_ or _Start Work_; unsuccessful associations now show a warning ([#5964](https://github.com/gitkraken/vscode-gitlens/issues/5964))
