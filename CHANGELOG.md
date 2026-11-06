@@ -64,6 +64,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the interactive rebase editor reporting _No Conflicts Detected_ for a rebase that conflicts on Git versions before 2.45 &mdash; when it can't check, it now says so (conflict detection requires Git 2.45 or later)
 - Fixes the interactive rebase editor cutting off the last commits when the conflict panel is open in a short pane
 - Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
+- Fixes the merge target status reporting a branch whose work was fast-forward merged as behind its merge target, with _Rebase_ and _Merge_ actions &mdash; it is shown as merged again, with an option to delete it, while a newly created branch with no commits of its own still shows as up to date or behind
 - Fixes a branch's commits disappearing from its details and ahead counts after its base branch was reset off them (e.g. a fast-forwarded pull request undone on `main`)
 - Fixes a repository's `.git` folder showing up as a second repository named `.git` (e.g. during a rebase) when `core.bare` is unset
 - Fixes every Git command failing until the window is reloaded after Git once couldn't be found or started

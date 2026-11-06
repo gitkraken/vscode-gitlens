@@ -10,19 +10,22 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
-import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
+import type { BranchContributionsOverview, GitBranchMergedStatus } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
+import { getBranchReflogWork } from '@gitlens/git/utils/branch.utils.js';
 import {
 	getPullRequestNumberFromUrl,
 	isPullRequestInMergeQueue,
 	isPullRequestMergeQueueRemovalCurrent,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import type { Container } from '../../container.js';
 import { isContinuingPausedOperation } from '../../git/actions/pausedOperation.js';
+import type { GitRepositoryService } from '../../git/gitRepositoryService.js';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import {
 	getBranchAssociatedPullRequest,
@@ -178,13 +181,12 @@ export async function getBranchMergeTargetStatusInfo(
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
 	const rawMergedStatus = getSettledValue(mergedStatusResult);
-	// A branch with zero unique commits vs. its target isn't merged — it's just at (or behind) a
-	// point on the target's history. `getBranchMergedStatusCore` returns `merged: true` here because
-	// `git merge-base --is-ancestor` succeeds (every commit is an ancestor of its descendants),
-	// but no merge has actually occurred. Demote it so the indicator reports "Up to Date" / "X
-	// Commits Behind" instead of "Branch Merged".
+	// Zero unique commits vs. the target reads as "merged" to `git merge-base --is-ancestor`, but that is
+	// also true of a brand-new branch, so the branch's reflog decides whether it was really merged.
 	const mergedStatus =
-		rawMergedStatus?.merged && status?.ahead === 0 ? ({ merged: false } as const) : rawMergedStatus;
+		rawMergedStatus?.merged && status?.ahead === 0
+			? await getZeroAheadMergedStatus(svc, branch, rawMergedStatus, cancellation)
+			: rawMergedStatus;
 
 	return {
 		repoPath: branch.repoPath,
@@ -198,6 +200,41 @@ export async function getBranchMergeTargetStatusInfo(
 		baseBranch: info.baseBranch,
 		defaultBranch: info.defaultBranch,
 	};
+}
+
+async function getZeroAheadMergedStatus(
+	svc: GitRepositoryService,
+	branch: GitBranch,
+	rawMergedStatus: Extract<GitBranchMergedStatus, { merged: true }>,
+	cancellation?: AbortSignal,
+): Promise<GitBranchMergedStatus> {
+	// TODO(#3896): a merged pull request whose head matches the branch tip should decide here, before the reflog
+
+	// The upstream was deleted after the merge, which is a strong signal it really was merged
+	if (branch.upstream?.missing) return rawMergedStatus;
+
+	let work: ReturnType<typeof getBranchReflogWork> = 'unknown';
+	// Only a local branch has its own reflog
+	if (!branch.remote) {
+		try {
+			const entries = await svc.refs.getReflogEntries?.(`refs/heads/${branch.name}`, undefined, cancellation);
+			if (entries != null) {
+				work = getBranchReflogWork(entries, branch.name);
+			}
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+	}
+
+	switch (work) {
+		case 'work':
+			return rawMergedStatus;
+		case 'none':
+			return { merged: false };
+		default:
+			// Can't tell, so show it as "Likely Merged" (confidence below 'highest')
+			return { ...rawMergedStatus, confidence: 'high' };
+	}
 }
 
 export async function getLaunchpadItemInfo(
