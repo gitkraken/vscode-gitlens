@@ -2096,6 +2096,19 @@ suite('Cache.getCloseGeneration', () => {
 		cache.unregisterRepoPath('/test/repo-feature');
 		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
 	});
+
+	test('advances on reset for a path never registered', () => {
+		const generation = cache.getCloseGeneration(repoPath);
+		cache.reset();
+		assert.notStrictEqual(cache.getCloseGeneration(repoPath), generation);
+	});
+
+	test('an unregister after a reset still advances it', () => {
+		cache.reset();
+		const generation = cache.getCloseGeneration(repoPath);
+		cache.unregisterRepoPath(repoPath);
+		assert.notStrictEqual(cache.getCloseGeneration(repoPath), generation);
+	});
 });
 
 suite('Cache.setCurrentBranchReferenceIfAbsent', () => {
