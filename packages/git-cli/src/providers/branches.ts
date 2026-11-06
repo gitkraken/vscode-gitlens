@@ -278,30 +278,37 @@ const storedMergeKeys = ['gk-merge-target-user', 'gk-merge-target', 'gk-target-b
  * `branch`, from the list shared by a repository's worktrees, as `repoPath` sees it. The copy holds the same metadata
  * object, which `Cache.patchBranchMetadata` updates in place.
  *
- * A list read before a checkout gives the branch now current `worktree: false`. `keepUnlisted` keeps that, so a reader
- * of the whole list (`findStaleBranches`) can tell the list is stale; otherwise the current branch names `repoPath`.
+ * A list read before a checkout gives the branch now current `worktree: false`, or the worktree it was checked out in
+ * then. `keepUnlisted` keeps those placements, so a reader of the whole list (`findStaleBranches`) can tell the list
+ * is stale. Otherwise the current branch names `repoPath`, and a branch that isn't current but that the list places at
+ * `repoPath` was left by the checkout, so it gets `worktree: false`. `isCurrent` is `undefined` when `repoPath`'s
+ * current branch couldn't be read, so the list's placement stands.
  */
 function mapSharedBranch(
 	branch: GitBranch,
 	repoPath: string,
 	commonPath: string,
-	isCurrent: boolean,
+	isCurrent: boolean | undefined,
 	defaultWorktreePath: string | undefined,
 	keepUnlisted: boolean,
 ): GitBranch {
-	// Only create new object if something changed
-	if (!isCurrent && repoPath === commonPath) return branch;
-
 	// For current branch, ensure worktree is set (fallback when git doesn't support worktreePath)
 	let worktree = branch.worktree;
-	if (isCurrent && (worktree == null || (worktree === false && !keepUnlisted))) {
-		worktree = { path: repoPath, isDefault: repoPath === defaultWorktreePath };
+	if (isCurrent) {
+		if (worktree == null || (!keepUnlisted && (worktree === false || worktree.path !== repoPath))) {
+			worktree = { path: repoPath, isDefault: repoPath === defaultWorktreePath };
+		}
+	} else if (!keepUnlisted && isCurrent === false && worktree !== false && worktree?.path === repoPath) {
+		worktree = false;
 	}
+
+	// Only create new object if something changed
+	if (!isCurrent && repoPath === commonPath && worktree === branch.worktree) return branch;
 
 	return new GitBranch(
 		repoPath, // Use target worktree path
 		branch.refName,
-		isCurrent,
+		isCurrent ?? false,
 		branch.date,
 		branch.metadata,
 		branch.sha,
@@ -503,7 +510,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const branch = values[index];
 		return {
-			branch: mapSharedBranch(branch, repoPath, commonPath, isCurrent(branch), defaultWorktreePath, false),
+			branch: mapSharedBranch(
+				branch,
+				repoPath,
+				commonPath,
+				currentRef != null ? isCurrent(branch) : undefined,
+				defaultWorktreePath,
+				false,
+			),
 			kept: kept,
 		};
 	}
@@ -780,7 +794,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Clone branches with correct repoPath and current flag
 			const branches: GitBranch[] = shared.values.map(b => {
 				// Check if this branch is current in the target worktree
-				const isCurrent = !b.remote && b.name === currentRef?.name && !isDetached;
+				const isCurrent =
+					currentRef != null ? !b.remote && b.name === currentRef.name && !isDetached : undefined;
 				return mapSharedBranch(b, targetRepoPath, commonPath, isCurrent, defaultWorktreePath, true);
 			});
 

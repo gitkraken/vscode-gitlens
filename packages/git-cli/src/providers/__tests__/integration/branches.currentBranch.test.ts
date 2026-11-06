@@ -752,6 +752,123 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			assert.deepStrictEqual((await provider.branches.getBranch(repo.path))?.worktree, worktree);
 		});
 
+		test('after a branch eviction getBranch no longer names the branch a linked worktree left, while the list keeps its placement, without reading the refs again', async function () {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			const wt = worktreeOf(repo, 'feature');
+			const provider = await newProvider([repo.path, wt]);
+			const before = await provider.branches.getBranches(wt);
+			if (before.values.find(b => b.name === 'other')?.worktree !== false) {
+				// git < 2.23 lists no `%(worktreepath)`
+				this.skip();
+			}
+			await provider.branches.getBranch(wt, 'feature');
+
+			checkout(wt, 'other');
+			provider.cache.evictCaches(wt, 'branch');
+			resetSpawns();
+
+			const left = await provider.branches.getBranch(wt, 'feature');
+			assert.strictEqual(left?.worktree, false);
+			const current = await provider.branches.getBranch(wt);
+			assert.strictEqual(current?.name, 'other');
+			assert.deepStrictEqual(current?.worktree, { path: wt, isDefault: false });
+			const { values } = await provider.branches.getBranches(wt);
+			assert.deepStrictEqual(
+				values.find(b => b.name === 'feature')?.worktree,
+				{ path: wt, isDefault: false },
+				'the list keeps its placement so a stale list stays recognizable as one',
+			);
+			assert.strictEqual(spawnCount('for-each-ref'), 0);
+		});
+
+		test('after a branch eviction getBranch no longer names the branch the main checkout left, while the list keeps its placement, without reading the refs again', async function () {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			const wt = worktreeOf(repo, 'feature');
+			const provider = await newProvider([repo.path, wt]);
+			const before = await provider.branches.getBranches(repo.path);
+			if (before.values.find(b => b.name === 'other')?.worktree !== false) {
+				// git < 2.23 lists no `%(worktreepath)`
+				this.skip();
+			}
+			await provider.branches.getBranch(repo.path, 'main');
+
+			checkout(repo.path, 'other');
+			provider.cache.evictCaches(repo.path, 'branch');
+			resetSpawns();
+
+			const left = await provider.branches.getBranch(repo.path, 'main');
+			assert.strictEqual(left?.worktree, false);
+			const current = await provider.branches.getBranch(repo.path);
+			assert.strictEqual(current?.name, 'other');
+			assert.deepStrictEqual(current?.worktree, { path: repo.path, isDefault: true });
+			const { values } = await provider.branches.getBranches(repo.path);
+			assert.deepStrictEqual(
+				values.find(b => b.name === 'main')?.worktree,
+				{ path: repo.path, isDefault: true },
+				'the list keeps its placement so a stale list stays recognizable as one',
+			);
+			assert.strictEqual(spawnCount('for-each-ref'), 0);
+		});
+
+		test('after a branch eviction getBranch names the worktree for a current branch the list places in another', async function () {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			const wt = worktreeOf(repo, 'feature');
+			const provider = await newProvider([repo.path, wt]);
+			const before = await provider.branches.getBranches(repo.path);
+			if (before.values.find(b => b.name === 'other')?.worktree !== false) {
+				// git < 2.23 lists no `%(worktreepath)`
+				this.skip();
+			}
+
+			checkout(wt, 'other');
+			checkout(repo.path, 'feature');
+			provider.cache.evictCaches(wt, 'branch');
+			provider.cache.evictCaches(repo.path, 'branch');
+			resetSpawns();
+
+			const worktree = { path: repo.path, isDefault: true };
+			const current = await provider.branches.getBranch(repo.path);
+			assert.strictEqual(current?.name, 'feature');
+			assert.deepStrictEqual(current?.worktree, worktree);
+			assert.deepStrictEqual((await provider.branches.getBranch(repo.path, 'feature'))?.worktree, worktree);
+			assert.strictEqual((await provider.branches.getBranch(repo.path, 'main'))?.worktree, false);
+			const listed = (await provider.branches.getBranches(repo.path)).values.find(b => b.current);
+			assert.strictEqual(listed?.name, 'feature');
+			assert.deepStrictEqual(
+				listed?.worktree,
+				{ path: wt, isDefault: false },
+				'a stale list stays recognizable as one',
+			);
+			assert.strictEqual(spawnCount('for-each-ref'), 0);
+		});
+
+		test("a branch the list places at a worktree whose current branch couldn't be read keeps that worktree", async function () {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			const wt = worktreeOf(repo, 'feature');
+			const provider = await newProvider([repo.path, wt]);
+			const before = await provider.branches.getBranches(repo.path);
+			if (before.values.find(b => b.name === 'feature')?.worktree == null) {
+				// git < 2.23 lists no `%(worktreepath)`
+				this.skip();
+			}
+
+			// As a failed read of the worktree's HEAD leaves it
+			provider.cache.evictCaches(wt, 'branch');
+			provider.cache.currentBranchReference.set(wt, Promise.resolve(undefined));
+
+			const worktree = { path: wt, isDefault: false };
+			assert.deepStrictEqual((await provider.branches.getBranch(wt, 'feature'))?.worktree, worktree);
+			const { values } = await provider.branches.getBranches(wt);
+			assert.deepStrictEqual(values.find(b => b.name === 'feature')?.worktree, worktree);
+		});
+
 		test('a caller aborted after the list is read rejects, rather than answering with no current branch', async () => {
 			const repo = track(createTestRepo());
 			createBranch(repo.path, 'feature');
