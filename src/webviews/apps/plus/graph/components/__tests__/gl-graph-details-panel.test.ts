@@ -261,6 +261,7 @@ suite('GlGraphDetailsPanel review files', () => {
 			{ path: 'd.ts', contentId: '4' },
 		] as ScopeFile[];
 		const session = (viewed: ReviewSession['viewed']): ReviewSession => ({ ...emptyReviewSession, viewed: viewed });
+		const scope: ScopeSelection = { type: 'wip', includeStaged: false, includeUnstaged: true, includeShas: [] };
 		const sent: (ReviewFilesArgs | undefined)[] = [];
 		const panel: SyncHarness = {
 			_actions: {
@@ -269,7 +270,7 @@ suite('GlGraphDetailsPanel review files', () => {
 			},
 			_state: {
 				activeMode: { get: () => 'review' },
-				scope: { get: () => ({ type: 'wip', includeStaged: false, includeUnstaged: true, includeShas: [] }) },
+				scope: { get: () => scope },
 			},
 			engagedRunningOperation: {
 				kind: 'review',
