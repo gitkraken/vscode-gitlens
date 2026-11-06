@@ -5793,6 +5793,7 @@
 	"You, on “{title}”": "你，关于“{title}”",
 	"Your '{0}' credentials are either invalid or expired": "你的 “{0}” 凭据无效或已过期",
 	"Your '{0}' credentials do not have the required access": "你的 “{0}” 凭据没有所需的访问权限",
+	"Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.": "你的 “{0}” 凭据被拒绝：令牌无效或已过期，或者它仅限于某个无法找到的集合。请使用适用于所有可访问的组织的令牌，或打开该令牌所属集合中的仓库。",
 	"Your Agents, on a Board": "你的代理，尽在看板中",
 	"Your Draft Commits Are Ready": "你的草稿提交已就绪",
 	"Your Git version doesn't support stashing individual files. Stash all changes instead?": "你的 Git 版本不支持贮藏单个文件。改为贮藏所有更改？",
