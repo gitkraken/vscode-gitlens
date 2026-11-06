@@ -1415,3 +1415,66 @@ suite('Git options.spawn', () => {
 		);
 	});
 });
+
+suite('Git locator failure', () => {
+	function flakyLocator(): { locator: () => Promise<{ path: string; version: string }>; calls: () => number } {
+		let calls = 0;
+		return {
+			locator: async () => {
+				calls++;
+				await new Promise(resolve => setImmediate(resolve));
+				if (calls === 1) throw new Error('git not found');
+				return { path: 'git', version: '2.40.0' };
+			},
+			calls: () => calls,
+		};
+	}
+
+	async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+		let timer: NodeJS.Timeout | undefined;
+		try {
+			return await Promise.race([
+				promise,
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(() => reject(new Error(message)), 5000);
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	test('retries the locator after a failure instead of memoizing the rejection', async () => {
+		const { locator, calls } = flakyLocator();
+		const git = new Git(locator);
+
+		await assert.rejects(git.path(), /git not found/);
+		assert.strictEqual(await git.path(), 'git');
+		assert.strictEqual(calls(), 2);
+	});
+
+	test('shares one locator call between concurrent callers during a failure', async () => {
+		const { locator, calls } = flakyLocator();
+		const git = new Git(locator);
+
+		const results = await Promise.allSettled([git.path(), git.path()]);
+		assert.deepStrictEqual(
+			results.map(r => r.status),
+			['rejected', 'rejected'],
+		);
+		assert.strictEqual(calls(), 1);
+	});
+
+	test('does not leave a pending run that a later identical run hangs on', async () => {
+		const { locator } = flakyLocator();
+		const git = new Git(locator);
+
+		await assert.rejects(git.run({ cwd: tmpdir() }, '--version'));
+
+		const result = await withTimeout(
+			git.run({ cwd: tmpdir() }, '--version'),
+			'identical run hung on an abandoned pending command',
+		);
+		assert.ok(result.stdout.startsWith('git version'));
+	});
+});
