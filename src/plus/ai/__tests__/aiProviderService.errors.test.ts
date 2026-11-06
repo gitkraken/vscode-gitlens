@@ -126,6 +126,17 @@ suite('AIProviderService — a quota error notification', () => {
 		assert.strictEqual(subscriptionReads.length, 0, 'a Copilot limit has nothing to do with the GK subscription');
 	});
 
+	test('a model that is no longer available shows its own message with only Switch Model', async () => {
+		const error = new AIError(AIErrorReason.ModelUnavailable, undefined, copilot);
+
+		const { thrown, shown, subscriptionReads } = await run(error, makeModel(copilot));
+
+		assert.strictEqual(thrown, error, 'the reason still reaches a driven caller');
+		assert.deepStrictEqual(shown, [{ message: error.message, buttons: ['Switch Model'] }]);
+		assert.match(shown[0].message, /no longer available from Copilot/);
+		assert.strictEqual(subscriptionReads.length, 0);
+	});
+
 	test('keeps offering GitKraken credits to a GitKraken quota error', async () => {
 		const error = new AIError(AIErrorReason.UserQuotaExceeded);
 

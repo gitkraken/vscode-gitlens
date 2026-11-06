@@ -16,6 +16,7 @@ export const enum AIErrorReason {
 	UserQuotaExceeded,
 	NoNetwork,
 	Unreachable,
+	ModelUnavailable,
 }
 
 export class AIError extends Error {
@@ -23,7 +24,8 @@ export class AIError extends Error {
 	readonly original?: Error;
 	readonly reason: AIErrorReason | undefined;
 	/** Optional provider context. Omitted preserves the legacy GitKraken quota message and credit offers, so a
-	 *  non-GitKraken provider must pass its own to get provider-neutral text (and no credit offers). */
+	 *  non-GitKraken provider must pass its own to get provider-neutral text (and no credit offers). Also names
+	 *  the provider in the model-unavailable message. */
 	readonly provider?: AIModel['provider'];
 
 	constructor(reason: AIErrorReason, original?: Error, provider?: AIModel['provider']) {
@@ -75,6 +77,18 @@ export class AIError extends Error {
 			case AIErrorReason.ModelNotSupported:
 				diagnosticMessage = 'Model not supported for this request';
 				message = l10n.t('Model not supported for this request');
+				break;
+			case AIErrorReason.ModelUnavailable:
+				diagnosticMessage = 'Model is no longer available';
+				message =
+					provider != null
+						? l10n.t(
+								'The selected model is no longer available from {0}. Switch to a different model and try again.',
+								provider.name,
+							)
+						: l10n.t(
+								'The selected model is no longer available. Switch to a different model and try again.',
+							);
 				break;
 			case AIErrorReason.Unauthorized:
 				diagnosticMessage = 'You are not authorized to use the specified provider or model';
@@ -184,6 +198,7 @@ export function isAIUnavailableError(ex: unknown): ex is AIError | Authenticatio
 		case AIErrorReason.NoNetwork:
 		case AIErrorReason.Unreachable:
 		case AIErrorReason.ModelNotSupported:
+		case AIErrorReason.ModelUnavailable:
 			return true;
 		default:
 			return false;

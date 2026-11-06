@@ -62,6 +62,21 @@ suite('AIError diagnostics', () => {
 		assert.strictEqual(error.message, 'You’ve reached the weekly AI usage included in your plan.');
 	});
 
+	test('names the provider in the model-unavailable message when one is given', () => {
+		const withProvider = new AIError(AIErrorReason.ModelUnavailable, undefined, { id: 'vscode', name: 'Copilot' });
+		const without = new AIError(AIErrorReason.ModelUnavailable);
+
+		assert.strictEqual(
+			withProvider.message,
+			'The selected model is no longer available from Copilot. Switch to a different model and try again.',
+		);
+		assert.strictEqual(
+			without.message,
+			'The selected model is no longer available. Switch to a different model and try again.',
+		);
+		assert.strictEqual(withProvider.diagnosticString, 'Error: Model is no longer available');
+	});
+
 	test('a provider does not change the message of other reasons', () => {
 		const error = new AIError(AIErrorReason.RateLimitExceeded, undefined, { id: 'vscode', name: 'Copilot' });
 

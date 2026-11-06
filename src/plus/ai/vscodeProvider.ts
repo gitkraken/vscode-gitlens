@@ -246,6 +246,18 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						throw new AIError(AIErrorReason.ModelNotSupported, ex);
 					}
 
+					// Copilot throws this as a plain Error with no code when the selected model is no longer in its
+					// model list, so its wording is the only signal. The cause is checked too, because the Language
+					// Model API may wrap provider failures.
+					if (
+						ex instanceof Error &&
+						(ex.message.startsWith('Endpoint not found for model') ||
+							(ex.cause instanceof Error && ex.cause.message.startsWith('Endpoint not found for model')))
+					) {
+						scope?.error(ex, `Model no longer available in ${model.provider.name}`);
+						throw new AIError(AIErrorReason.ModelUnavailable, ex, model.provider);
+					}
+
 					if (ex instanceof Error && 'cause' in ex && ex.cause instanceof Error) {
 						message += `\n${ex.cause.message}`;
 					}

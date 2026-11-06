@@ -4638,6 +4638,8 @@
 	"The selected commits are reachable from multiple branches. Please select commits unique to a single branch.": "The selected commits are reachable from multiple branches. Please select commits unique to a single branch.",
 	"The selected files are no longer conflicted.": "The selected files are no longer conflicted.",
 	"The selected migrations will run again once the window is reloaded.": "The selected migrations will run again once the window is reloaded.",
+	"The selected model is no longer available from {0}. Switch to a different model and try again.": "The selected model is no longer available from {0}. Switch to a different model and try again.",
+	"The selected model is no longer available. Switch to a different model and try again.": "The selected model is no longer available. Switch to a different model and try again.",
 	"The selected model is not supported for this request. Please select a different model and try again.": "The selected model is not supported for this request. Please select a different model and try again.",
 	"The stored AI key has been reset. The configured key was copied to your clipboard.": "The stored AI key has been reset. The configured key was copied to your clipboard.",
 	"The target commit has already been pushed. Squashing the fixup rewrites history and will require a force push.": "The target commit has already been pushed. Squashing the fixup rewrites history and will require a force push.",

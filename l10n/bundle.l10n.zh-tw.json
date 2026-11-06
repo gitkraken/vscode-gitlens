@@ -4468,6 +4468,8 @@
 	"The selected commits are reachable from multiple branches. Please select commits unique to a single branch.": "所選認可可從多個分支到達。請選擇單個分支獨有的認可。",
 	"The selected files are no longer conflicted.": "所選檔案不再衝突。",
 	"The selected migrations will run again once the window is reloaded.": "重新載入視窗後，所選遷移將再次執行。",
+	"The selected model is no longer available from {0}. Switch to a different model and try again.": "所選模型在 {0} 中已不可用。請選擇其他模型並重試。",
+	"The selected model is no longer available. Switch to a different model and try again.": "所選模型已不可用。請選擇其他模型並重試。",
 	"The selected model is not supported for this request. Please select a different model and try again.": "此請求不支援所選模型。請選擇其他模型並重試。",
 	"The stored AI key has been reset. The configured key was copied to your clipboard.": "儲存的 AI 金鑰已重置。已設定的金鑰已複製到你的剪貼簿。",
 	"The target commit has already been pushed. Squashing the fixup rewrites history and will require a force push.": "目標認可已被推送。壓縮修補將重寫歷史，需要進行強制推送。",
