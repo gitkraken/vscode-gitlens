@@ -277,7 +277,7 @@ export const resolveDisplayStyles = css`
 	}
 
 	.resolve-file__conf--low {
-		color: var(--vscode-descriptionForeground);
+		color: var(--gl-color-feedback-warning-quiet-fg);
 	}
 
 	/* AI reasoning block + its "see more" expander. The clamp is deliberately its own class rather than
