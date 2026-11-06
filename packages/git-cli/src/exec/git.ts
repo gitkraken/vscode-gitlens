@@ -984,8 +984,17 @@ export class Git {
 
 	private async getLocation(): Promise<GitLocation> {
 		if (this._gitLocation == null) {
-			this._gitLocationPromise ??= this._locator();
-			this._gitLocation = await this._gitLocationPromise;
+			const promise = (this._gitLocationPromise ??= this._locator());
+			try {
+				this._gitLocation = await promise;
+			} catch (ex) {
+				// Concurrent callers share the failure, but the next call looks again — a locator that failed once
+				// (git not installed yet, a transient spawn error) must not fail every call for the process lifetime
+				if (this._gitLocationPromise === promise) {
+					this._gitLocationPromise = undefined;
+				}
+				throw ex;
+			}
 		}
 		return this._gitLocation;
 	}
