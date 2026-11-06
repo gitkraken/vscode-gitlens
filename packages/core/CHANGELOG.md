@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-06
+
 ### Added
 
 - Adds `milestone` to `IssueOrPullRequest` (so to issues and pull requests) and a trailing `milestone` constructor parameter to `Issue` and `PullRequest`: an `IssueMilestone` with `id`, `title`, `state` (`open`/`closed`), `dueDate` and `url`, `null` when the read asked and the item has none, `undefined` when it didn't ask. GitLens' own GitHub/GHE issue and pull request fragments select it, and the provider-apis rows map the one GitHub, GitLab and Linear (a project milestone) already normalize. `id` is the GitHub node id or GitLab global id, unique on the host, never the per-repository number. Adds a `milestone` field presence group for issues and pull requests: `fetched` on every GitHub/GHE read, on GitLab's provider-apis reads and on Linear, `not-requested` on GitLens' own GitLab merge request reads and GitLab's account-wide issue read (its REST normalizer drops it), `unavailable` elsewhere. `serializeIssue` and `serializePullRequest` copy it (git, plus/git-github, plus/integrations)
@@ -1133,7 +1135,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.31.0...HEAD
+[0.31.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...gitkraken:releases/core/v0.31.0
 [0.30.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...gitkraken:releases/core/v0.30.0
 [0.29.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...gitkraken:releases/core/v0.29.0
 [0.28.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.27.0...gitkraken:releases/core/v0.28.0
