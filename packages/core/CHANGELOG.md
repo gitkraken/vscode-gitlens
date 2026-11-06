@@ -6,10 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `Cache.getDropStamp` and `Cache.isDroppedSince`, with the `DropStampedCacheKey` type, so a read can tell that a `'currentBranchReference'` or `'currentUser'` entry it would cache was dropped while it ran; `getDropStamp(key, repoPath)` gives the stamp of that entry's last drop, to key a read shared by calls with no drop of it between them (git)
+
 ### Fixed
 
 - Fixes `getGitDir` answering a checkout's old git dirs after it was unregistered while they were being read: the read put its answer back, so a path re-created as another repository's checkout, or one that vanished mid-read and fell back to `<path>/.git`, kept the old answer until it was unregistered again. A read in flight across `unregisterRepoPath` or `Cache.reset()` now answers only its own caller, and a call made after either reads again rather than joining it. `Cache.getCloseGeneration` now advances on `reset()` for every path, one never registered included (git, git-cli)
 - Fixes `getBranch(path, name)` placing a branch at `path` after `path` switched away from it, when only a `'branch'` eviction followed the checkout (a paused rebase, merge or revert, or a caller's own `evictCaches(path, 'branch')`), so the shared branch list wasn't read again. A branch that isn't current at `path` but that the list places there now has `worktree: false` (unless `path`'s current branch couldn't be read), so from the main checkout that branch is a new object rather than the shared list's own, and `getBranch` names `path` for its current branch even when the list places that branch in another worktree. No refs are read again. `getBranches` keeps the list's placements, as it already did for the current branch, since they are how a stale list is noticed against `git worktree list`, so for such a branch `getBranch` no longer answers exactly as `getBranches` does; until a `'branches'` eviction, `getBranches` and another worktree's view keep the worktree the last list read gave a branch (git-cli)
+- Fixes `getCurrentUser` keeping the old user after a config change that landed while the user was being read: the read put its answer back after the `'config'` eviction had dropped it, so the old user (or "no user") stayed cached until the next config change. A read in flight across a `'config'` or full eviction, `unregisterRepoPath` or `Cache.reset()` now answers only its own caller, and a call made after the drop reads again rather than joining it (git-cli)
 
 ## [0.32.0] - 2026-11-05
 

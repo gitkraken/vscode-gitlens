@@ -664,6 +664,7 @@ All in `remotes/`:
 | `Cache`                                             | `cache.js`                  | Repository-level cache                                 |
 | `CachedGitTypes`                                    | `cache.js`                  | Cacheable type names                                   |
 | `UriScopedCachedGitTypes`                           | `cache.js`                  | URI-scoped cache type names                            |
+| `DropStampedCacheKey`                               | `cache.js`                  | Caches whose drops `Cache.isDroppedSince` can report   |
 | `GitDir`                                            | `models/repository.js`      | Git directory info (`path`, `commonPath`)              |
 | `GitCommitReachability`                             | `providers/commits.js`      | Commit reachability info                               |
 | `GitContributorsResult`                             | `providers/contributors.js` | Contributors query result                              |

@@ -491,7 +491,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 	}
 
-	@gate()
 	@debug({ quiet: true })
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
@@ -502,6 +501,24 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (cached != null) return cached;
 		// If we found null, user data was not found - don't bother trying again
 		if (cached === null) return undefined;
+
+		// A config change, close or reset mid-read drops what this read would cache, so it mustn't put its answer back.
+		// The path's own stamp keys the shared read, so a call made after a drop of its user reads again rather than
+		// joining it, and a drop of anything else splits no shared read
+		return this.readCurrentUser(repoPath, this.cache.getDropStamp('currentUser', repoPath), scope);
+	}
+
+	@gate((repoPath: string, dropStamp: number) => `${repoPath}|${dropStamp}`)
+	private async readCurrentUser(
+		repoPath: string,
+		dropStamp: number,
+		scope: ScopedLogger | undefined,
+	): Promise<GitUser | undefined> {
+		const setCachedUser = (value: GitUser | null): void => {
+			if (!this.cache.isDroppedSince('currentUser', repoPath, dropStamp)) {
+				this.cache.currentUser.set(repoPath, value);
+			}
+		};
 
 		const user: GitUser = { name: undefined, email: undefined };
 
@@ -517,7 +534,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
-					this.cache.currentUser.set(repoPath, null);
+					setCachedUser(null);
 					return undefined;
 				}
 
@@ -539,13 +556,13 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				}
 			}
 
-			this.cache.currentUser.set(repoPath, user);
+			setCachedUser(user);
 			return user;
 		} catch (ex) {
 			scope?.error(ex);
 
 			// Mark it so we won't bother trying again
-			this.cache.currentUser.set(repoPath, null);
+			setCachedUser(null);
 			return undefined;
 		}
 	}
