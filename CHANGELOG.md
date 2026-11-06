@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Paid plans can opt out of marketing notifications
 - Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through rather than a one-off AI report: a checklist of the changed files tracks what you've viewed and brings back a file that changes after, reading controls step through the files in order from the diff editor, and findings and your own comments live as comment threads in the diff, where you can reply to them, dismiss them or hand them to your agent
 - Adds _Orient_ and _Review in Repo_ beside _Review Diff_ &mdash; AI becomes one lens on the review rather than a requirement for it: _Orient_ plans the order to read the files in, _Review Diff_ finds issues in the diff, and _Review in Repo_ hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review
+- Adds Asana as an issue integration &mdash; connect your Asana account from _GitLens Home_, and Asana tasks associated with your branches are shown on the _Commit Graph_
 - Adds installing Kepler right from GitLens, with no admin rights needed &mdash; _Install Kepler_ downloads and verifies the latest Kepler and installs it for you, showing its progress
   - Adds _Install Kepler_ and _Learn More_ to the _Try Kepler_ banners in _GitLens Settings_ and the _Commit Graph_'s _Agents_ sidebar, and to the Kepler step of the _Welcome_ view walkthrough; adds a _GitLens: Install Kepler_ command
   - Replaces the "Kepler isn't installed" warning with a picker that offers to install Kepler and then carries on with what you started &mdash; or, for a pull request review, to continue without Kepler; in _Start Work_ and _Start PR Review_ it's the next step, so you can go back
@@ -28,7 +29,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#4772](https://github.com/gitkraken/vscode-gitlens/issues/4772) - _Copy Link to Repository_ and other deep link commands fail with "Buffer is not defined" in github.dev and vscode.dev
+- Fixes [#6146](https://github.com/gitkraken/vscode-gitlens/issues/6146) - Orphaned `claude.exe agents --json` processes pile up on Windows when Claude Code is installed via npm &mdash; a timed-out check now ends the whole process tree
+- Fixes [#4772](https://github.com/gitkraken/vscode-gitlens/issues/4772) - _Copy Link to Repository_ and other deep link commands fail with "Buffer is not defined" in github.dev and vscode.dev &mdash; the same error also broke opening or archiving a cloud patch with provider access, and left a pull request's _Code Suggestions_ empty
 - Fixes [#4950](https://github.com/gitkraken/vscode-gitlens/issues/4950) - _Fetch_ on a remote branch in the _Commit Graph_ runs `git fetch <remote> <remote>` and fails &mdash; it now fetches the branch itself
 - Fixes _Generate Commit Message_ appearing twice in the _Source Control_ title bar &mdash; it now appears only in the GitLens AI (sparkle) menu ([#4396](https://github.com/gitkraken/vscode-gitlens/issues/4396))
 - Fixes _Compose Commits_ appearing in both the _Source Control_ title bar's GitLens AI (sparkle) menu and its overflow menu &mdash; it now appears only in the GitLens AI menu
@@ -36,6 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Commit Graph_'s _Pull Requests_ panel saying it can't list pull requests for Azure DevOps and Azure DevOps Server repositories &mdash; it now lists the repository's open pull requests
 - Fixes AI conflict resolution sending a request for every remaining file after AI becomes unavailable (e.g. the weekly AI allowance runs out mid-run) &mdash; it now stops starting new files and also stops when an AI provider rejects its API key, the _Commit Graph_'s _Resolve_ mode now chooses the AI model once per run instead of once per request, and it shows one message explaining why AI is unavailable (with a way to get more AI credits when the allowance runs out) instead of repeating the error on every file
 - Fixes [#6118](https://github.com/gitkraken/vscode-gitlens/issues/6118) - AI conflict resolution with Copilot kept sending a request for every remaining file after Copilot's usage limit or rate limit was reached &mdash; it now stops and says why, naming Copilot's own limit instead of pointing to GitKraken AI credits, and it also stops when Copilot throttles requests or the selected model is unavailable
+- Fixes [#6145](https://github.com/gitkraken/vscode-gitlens/issues/6145) - AI conflict resolution with Copilot kept starting every file when the selected model was no longer available from Copilot, repeating an "Endpoint not found" error on each &mdash; it now stops and says the model is no longer available, with a way to switch models
 - Fixes natural language commit search sending a second AI request when the first one fails
 - Fixes AI errors saying "You have exceeded your user token limit" when the weekly AI allowance runs out &mdash; they now say you've reached the weekly AI usage included in your plan
 - Fixes the interactive rebase editor reporting _No Conflicts Detected_ for a rebase that conflicts on Git versions before 2.45 &mdash; conflict detection now needs Git 2.45 or later, and when it can't run it says so instead of reporting no conflicts
@@ -57,6 +60,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
 - Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
 - Fixes _Review Changes_ losing the line numbers of the rest of a hunk after a removed line that starts with `-- ` (such as a SQL or Lua comment) or an added line that starts with `++ `, which left the review's comments on those lines pointing at the wrong place
+- Fixes checking out a pull request from a fork in a GitLab subgroup adding a remote named after the subgroup's path (e.g. `contrib/team`), whose branches GitLens then read as belonging to the wrong remote &mdash; the remote is now named `contrib-team`
+- Fixes searching _Launchpad_ by a pasted GitLab merge request URL finding nothing when the repository is in a subgroup
+- Fixes _Cloud Workspaces_ matching or adding the wrong GitLab repository when two subgroups hold a repository with the same name
 
 ## [19.5.0] - 2026-10-27
 

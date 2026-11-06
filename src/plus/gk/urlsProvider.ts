@@ -20,7 +20,7 @@ export class UrlsProvider {
 	}
 
 	@memoize()
-	private get baseGkDevUri(): Uri {
+	get baseGkDevUri(): Uri {
 		if (this.env === 'staging') {
 			return Uri.parse('https://staging.gitkraken.dev');
 		}

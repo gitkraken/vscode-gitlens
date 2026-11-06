@@ -1,3 +1,4 @@
+import { stat } from 'fs/promises';
 import { resolve as resolvePath } from 'path';
 import * as process from 'process';
 import type {
@@ -57,6 +58,7 @@ import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQu
 import type { HeadState } from './headState.js';
 import { getMovedHead } from './headState.js';
 import {
+	gitFatalExitCode,
 	isConfigCommand,
 	isIndexWriteCommand,
 	KeyedSequencer,
@@ -258,6 +260,44 @@ export class GitError extends Error {
 		this.exitCode = exitCode;
 
 		Error.captureStackTrace?.(this, new.target);
+	}
+}
+
+/**
+ * Whether a failed `rev-parse` is git's own answer, where one killed, cut short or never started says nothing. Only
+ * for `rev-parse`, which fails only by dying: any other code came from around git, a wrapper reporting a kill (137), or
+ * Windows, where a killed process reports 1. Other commands exit 1 as an answer (`config --get`, `diff --quiet`).
+ */
+export function isGitAnswer(ex: unknown): boolean {
+	return ex instanceof GitError && ex.exitCode === gitFatalExitCode;
+}
+
+/** Whether a `rev-parse` failed without an answer from git (see {@link isGitAnswer}), so says nothing about its path */
+export function isGitUnanswered(ex: unknown): boolean {
+	return isCancellationError(ex) || (ex instanceof GitError && !isGitAnswer(ex));
+}
+
+/** Rejects an `errors: 'ignore'` `rev-parse` that gave no answer (see {@link isGitAnswer}), whose empty output would read as one */
+export function throwIfUnanswered(result: GitResult): void {
+	const { completion } = result;
+	if (completion.status === 'cancelled') throw new CancellationError(completion.error, completion.reason);
+	if (completion.status === 'failed') throw new GitError(completion.error);
+	if (completion.status === 'exited' && completion.code !== 0 && completion.code !== gitFatalExitCode) {
+		throw new GitError(
+			new RunError(
+				{ message: `Command exited with code ${completion.code}`, code: completion.code },
+				'',
+				result.stderr ?? '',
+			),
+		);
+	}
+}
+
+export async function isFolder(path: string): Promise<boolean> {
+	try {
+		return (await stat(path)).isDirectory();
+	} catch {
+		return false;
 	}
 }
 
@@ -944,8 +984,17 @@ export class Git {
 
 	private async getLocation(): Promise<GitLocation> {
 		if (this._gitLocation == null) {
-			this._gitLocationPromise ??= this._locator();
-			this._gitLocation = await this._gitLocationPromise;
+			const promise = (this._gitLocationPromise ??= this._locator());
+			try {
+				this._gitLocation = await promise;
+			} catch (ex) {
+				// Concurrent callers share the failure, but the next call looks again — a locator that failed once
+				// (git not installed yet, a transient spawn error) must not fail every call for the process lifetime
+				if (this._gitLocationPromise === promise) {
+					this._gitLocationPromise = undefined;
+				}
+				throw ex;
+			}
 		}
 		return this._gitLocation;
 	}
@@ -1270,6 +1319,8 @@ export class Git {
 		let hookFailure: { error: unknown } | undefined;
 		let waiting;
 		let promise: Promise<RunResult<string | Buffer>>;
+		// Before the run is registered: with git not located nothing would ever settle it for an identical call after this
+		const gitPath = await this.path();
 		const pending = this.pendingCommands.get(cacheKey);
 		if (pending == null) {
 			waiting = false;
@@ -1314,7 +1365,6 @@ export class Git {
 			const priority = options.priority ?? inferGitCommandPriority(args);
 
 			// Execute through the queue (interactive/normal run immediately, background is throttled)
-			const gitPath = await this.path();
 			const spawnQueued = () =>
 				this._queue.run(
 					priority,
@@ -1793,6 +1843,10 @@ export class Git {
 		return { path: dotGitPath };
 	}
 
+	/**
+	 * `[]` when git says `cwd` isn't a repository it can use, or `cwd` is a file; a missing `cwd` answers for the nearest
+	 * folder above it. Rejects when git gives no answer (see {@link isGitAnswer}), which says nothing about `cwd`.
+	 */
 	async rev_parse__show_toplevel(cwd: string): Promise<[safe: true, repoPath: string] | [safe: false] | []> {
 		let result;
 
@@ -1825,6 +1879,8 @@ export class Git {
 		} catch (ex) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
 			if (!(ex instanceof GitError)) throw ex;
+			// A `cwd` that's missing or not a folder fails the spawn itself, before git can say anything about it
+			if (!isGitAnswer(ex) && (await isFolder(cwd))) throw ex;
 
 			const unsafeMatch = GitErrors.unsafeRepository.exec(ex.stderr ?? '');
 			if (unsafeMatch != null) {
@@ -1840,8 +1896,14 @@ export class Git {
 			// Check if we are in a bare clone
 			if (inDotGit && this.options.isTrusted?.() !== false) {
 				result = await this.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
+				throwIfUnanswered(result);
+
 				if (result.stdout.trim() === 'true') {
-					const result = await this.rev_parse__git_dir(cwd).catch(() => undefined);
+					const result = await this.rev_parse__git_dir(cwd).catch((ex: unknown) => {
+						if (isGitAnswer(ex)) return undefined;
+
+						throw ex;
+					});
 					const repoPath = result?.commonPath ?? result?.path;
 					if (repoPath?.length) {
 						const workTree = await this.rev_parse__work_tree_of_git_dir(repoPath);
@@ -1870,7 +1932,8 @@ export class Git {
 	}
 
 	/**
-	 * Returns the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, if any.
+	 * Returns the working tree in `gitDir`'s parent folder that uses `gitDir` as its git dir, if any. Rejects when git
+	 * gives no answer (see {@link isGitAnswer}), rather than calling `gitDir` a bare repository.
 	 * Inside the git dir of a non-bare repo whose config lacks `core.bare`, git guesses the repo is bare
 	 */
 	async rev_parse__work_tree_of_git_dir(gitDir: string): Promise<string | undefined> {
@@ -1879,6 +1942,8 @@ export class Git {
 
 		// A bare repo's parent fails `--show-toplevel`, or belongs to some other repo's git dir
 		const result = await this.run({ cwd: parent, errors: 'ignore' }, 'rev-parse', '--show-toplevel', '--git-dir');
+		throwIfUnanswered(result);
+
 		const [toplevel, parentGitDir] = result.stdout.split('\n').map(r => r.trimStart());
 		if (!toplevel || !parentGitDir) return undefined;
 

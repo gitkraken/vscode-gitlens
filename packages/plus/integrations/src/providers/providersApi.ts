@@ -1,4 +1,4 @@
-import { GitIssueState } from '@gitkraken/provider-apis';
+import { AzureDevOps, GitIssueState, makeProviderAPIs } from '@gitkraken/provider-apis';
 import type {
 	AzureDevOpsRestResource,
 	AzureDevOpsRestResourceInfo,
@@ -76,6 +76,8 @@ import type {
 	ProviderAccount,
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
+	ProviderAsanaProject,
+	ProviderAsanaWorkspace,
 	ProviderAzureProject,
 	ProviderAzureResource,
 	ProviderBitbucketResource,
@@ -100,7 +102,7 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
-import { createProviderApiRequest, createProviderApis } from './providerApiClient.js';
+import { createProviderApiRequest } from './providerApiClient.js';
 import { isAzureProviderId, isProviderIssueNotFoundError, throwProviderError } from './providerErrors.js';
 import {
 	collectProviderPagedResult,
@@ -109,55 +111,44 @@ import {
 	toPageCursor,
 } from './utils/providerPaging.js';
 
-// Both GitHub and GitLab `getRepo` throw a missing-repo error whose message is exactly
-// `Repository <x> not found`. Anchoring to that shape (rather than a loose `not found` substring) keeps
-// the message fallbacks from misclassifying unrelated GraphQL/transport failures as a confident negative.
+// GitHub and GitLab `getRepo` report a missing repository with exactly this message, and append any errors the reply
+// carried. Anchoring to that shape (rather than a loose `not found` substring) keeps the message checks from
+// misclassifying unrelated GraphQL/transport failures as a confident negative.
 const repoNotFoundMessage = /^Repository .+ not found$/i;
-// Duck-typed rather than `ex instanceof GraphQLErrors`, because importing the class as a value makes this
-// module unloadable from plain Node ESM consumers: `@gitkraken/provider-apis` is CommonJS and declares its
-// exports through getters, which Node's `cjs-module-lexer` cannot see, so the only named exports it can
-// synthesize are `default` and `module.exports`. Bundled hosts (webpack/esbuild) bind the named export
-// fine, but the published package keeps third-party deps external, so the named import survives into
-// consumers and breaks linking there. The SDK's constructor always assigns `graphQLErrors` (defaulting to
-// `[]`) and it is the only SDK error carrying that field, so the shape check is unambiguous.
+// By `name` rather than `instanceof`: each SDK entry point is a self-contained bundle in each of its formats, so the
+// class this module could import need not be the one that threw.
 function isGraphQLErrors(ex: unknown): ex is GraphQLErrors {
-	return ex instanceof Error && Array.isArray((ex as Partial<GraphQLErrors>).graphQLErrors);
+	return ex instanceof Error && ex.name === 'GraphQLErrors';
 }
 
 // `handleProviderError` classifies not-found by HTTP status (404/410/422), which only works for the
 // REST `getRepo` clients (Bitbucket, Bitbucket Server, Azure DevOps). GitHub and GitLab `getRepo` are
-// GraphQL: a missing repo comes back as HTTP 200 with a null node, and the SDK throws an unclassified
-// error with no `response.status`, so it would otherwise fall through to the generic error bucket. This
-// detects the SDK's not-found shapes so `getRepo` can rethrow them as `RequestNotFoundError`, keeping the
+// GraphQL: a missing repo comes back as HTTP 200 with a null node, and the SDK throws a `GraphQLErrors`
+// with no `response.status`, so it would otherwise fall through to the generic error bucket. This
+// detects the SDK's not-found shape so `getRepo` can rethrow it as `RequestNotFoundError`, keeping the
 // facade's by-type mapping intact.
 function isGraphQLRepoNotFoundError(ex: unknown): boolean {
-	// GitHub throws `GraphQLErrors`. The SDK reports the null repository node with the same
-	// `Repository <x> not found` message regardless of the underlying cause, so a `FORBIDDEN` or
-	// `RATE_LIMITED` GraphQL error would also surface with that message. Trust the structured error type
-	// when entries are present (only `NOT_FOUND` is a real not-found), and fall back to the repo-specific
-	// message only when there are no entries to disambiguate (a bare null node).
-	if (isGraphQLErrors(ex)) {
-		const errors = ex.graphQLErrors;
-		// Scope NOT_FOUND to the `repository` field: `getRepo`'s query only selects that node today, but
-		// were it to grow other selections that can emit NOT_FOUND, an unscoped check would misclassify
-		// them. Tolerate a missing `path` so we degrade to the current behavior if the SDK stops populating
-		// it, rather than silently regressing to `error`.
-		if (errors?.length) {
-			return errors.some(
-				(e: GraphQLError) => e.type === 'NOT_FOUND' && (e.path == null || e.path.includes('repository')),
-			);
-		}
-		return repoNotFoundMessage.test(ex.message);
-	}
+	if (!isGraphQLErrors(ex)) return false;
 
-	// GitLab's `getRepo` throws a plain Error; match its not-found message specifically so unrelated
-	// bare Errors (network/parse failures) still reach the generic error bucket.
-	return ex instanceof Error && repoNotFoundMessage.test(ex.message);
+	// The SDK reports a null node the same way whatever the cause, so a `FORBIDDEN` or `RATE_LIMITED` error, or a
+	// query GitLab rejected, also surfaces as a miss. Trust the structured error type when entries are present (only
+	// GitHub's `NOT_FOUND` is a real not-found; GitLab's errors carry no type, so they never are), and fall back to the
+	// repo-specific message only when there are no entries to disambiguate (a bare null node).
+	const errors = ex.graphQLErrors;
+	// Scope NOT_FOUND to the `repository` field itself: `getRepo`'s query also selects `repository.parent`, and a
+	// NOT_FOUND there says nothing about the repository. Tolerate a missing `path` so we degrade to the current
+	// behavior if the SDK stops populating it, rather than silently regressing to `error`.
+	if (errors?.length) {
+		return errors.some(
+			(e: GraphQLError) => e.type === 'NOT_FOUND' && (e.path == null || e.path.at(-1) === 'repository'),
+		);
+	}
+	return repoNotFoundMessage.test(ex.message);
 }
 
 // provider-apis' GitLab `getIssue` throws a plain Error with exactly this message for a null issue (and
-// `repoNotFoundMessage`'s for a null project). Its GraphQL helper ignores `errors`, so a reply carrying only errors
-// throws the same messages; neither proves a miss on its own.
+// `repoNotFoundMessage`'s for a null project). Unlike `getRepo`, it ignores the reply's `errors`, so a reply carrying
+// only errors throws the same messages; neither proves a miss on its own.
 const gitLabIssueNotFoundMessage = /^Issue .+ not found$/i;
 
 // The `typeKey`s Azure DevOps itself uses for "this pull request/repository/project does not exist". A 404 can
@@ -307,7 +298,7 @@ function toJiraIssuePage(
 
 function createAzureProviderInfo(
 	id: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-	azure: ReturnType<typeof createProviderApis>['azureDevOps'],
+	azure: AzureDevOps,
 ): ProviderInfo {
 	return {
 		...providersMetadata[id],
@@ -345,10 +336,19 @@ type AzureWorkItemStatesSnapshot = {
 	types: ReadonlyMap<string, Awaited<ReturnType<AzureWorkItemStatesCache['getStates']>> | undefined>;
 };
 
+/** One page of an Asana task read, by project or by the current user's workspace. */
+export interface AsanaTaskPageOptions {
+	cursor?: string;
+	/** Omitted reads incomplete tasks. */
+	states?: GitIssueState[];
+	/** See {@link GetIssuesOptions.sort}. Asana can order by nothing, so any sort is refused by the SDK. */
+	sort?: IssueSorting;
+}
+
 export class ProvidersApi implements Disposable {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
-	private azureRestApi: ReturnType<typeof createProviderApis>['azureDevOps'];
+	private azureRestApi: AzureDevOps;
 	private readonly disposable: Disposable | undefined;
 	constructor(
 		private readonly authenticationService: IntegrationAuthenticationService,
@@ -357,7 +357,7 @@ export class ProvidersApi implements Disposable {
 	) {
 		const http = authenticationService.ctx.http;
 		this.request = createProviderApiRequest((input, init) => http.fetch(input, init), http.userAgent);
-		const providerApis = createProviderApis({ request: this.request });
+		const providerApis = makeProviderAPIs({ request: this.request });
 		this.azureRestApi = providerApis.azureDevOps;
 		this.providers = {
 			[GitCloudHostIntegrationId.GitHub]: {
@@ -541,13 +541,25 @@ export class ProvidersApi implements Disposable {
 				getTrelloIssuesForBoardFn: providerApis.trello.getIssuesForBoard.bind(providerApis.trello),
 				getTrelloLabelsForBoardFn: providerApis.trello.getLabelsForBoard.bind(providerApis.trello),
 			},
+			[IssuesCloudHostIntegrationId.Asana]: {
+				...providersMetadata[IssuesCloudHostIntegrationId.Asana],
+				provider: providerApis.asana,
+				getAsanaCurrentUserFn: providerApis.asana.getCurrentUser.bind(providerApis.asana),
+				getAsanaWorkspacesForCurrentUserFn: providerApis.asana.getWorkspacesForCurrentUser.bind(
+					providerApis.asana,
+				),
+				getAsanaProjectsForWorkspaceFn: providerApis.asana.getProjectsForWorkspace.bind(providerApis.asana),
+				getAsanaIssueFn: providerApis.asana.getIssue.bind(providerApis.asana),
+				getAsanaIssuesForProjectFn: providerApis.asana.getIssuesForProject.bind(providerApis.asana),
+				getAsanaIssuesForCurrentUserFn: providerApis.asana.getIssuesForCurrentUser.bind(providerApis.asana),
+			},
 		};
 		this.disposable = authenticationService.ctx.config?.onDidChange(e => {
 			if (!e.httpProxy) return;
 
 			this.azureWorkItemTypeStates.clear();
 			this.azureWorkItemDescriptions.clear();
-			this.azureRestApi = createProviderApis({ request: this.request }).azureDevOps;
+			this.azureRestApi = new AzureDevOps({ request: this.request });
 			this.providers[GitCloudHostIntegrationId.AzureDevOps] = createAzureProviderInfo(
 				GitCloudHostIntegrationId.AzureDevOps,
 				this.azureRestApi,
@@ -806,7 +818,6 @@ export class ProvidersApi implements Disposable {
 				);
 				return result?.data;
 			} catch (e) {
-				if (isGraphQLRepoNotFoundError(e)) throw new RequestNotFoundError(toError(e));
 				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
 		} else {
@@ -2837,5 +2848,105 @@ export class ProvidersApi implements Disposable {
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	// Asana reads. Every list read is cursor-paged (Asana's `offset` token) and returns one page per call: follow
+	// `paging.cursor`. A task list needs a project or a workspace, so neither read is account-wide on its own.
+	async getAsanaCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+	): Promise<ProviderAccount | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaCurrentUserFn',
+		);
+		try {
+			return (await provider.getAsanaCurrentUserFn?.({ token: tokenWithInfo.accessToken }))?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getAsanaWorkspacesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderAsanaWorkspace>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaWorkspacesForCurrentUserFn',
+		);
+		return this.getPagedResult<ProviderAsanaWorkspace>(
+			{},
+			provider.getAsanaWorkspacesForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** The workspace's unarchived projects. */
+	async getAsanaProjectsForWorkspace(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		workspaceId: string,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderAsanaProject>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaProjectsForWorkspaceFn',
+		);
+		return this.getPagedResult<ProviderAsanaProject>(
+			{ workspaceId: workspaceId },
+			provider.getAsanaProjectsForWorkspaceFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** One task by its gid, or `undefined` when Asana has no such task. */
+	async getAsanaIssue(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		taskId: string,
+	): Promise<ProviderIssue | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getAsanaIssueFn');
+		try {
+			return (await provider.getAsanaIssueFn?.({ number: taskId }, { token: tokenWithInfo.accessToken }))?.data;
+		} catch (e) {
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	async getAsanaIssuesForProject(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		projectId: string,
+		options?: AsanaTaskPageOptions,
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaIssuesForProjectFn',
+		);
+		return this.getPagedResult<ProviderIssue>(
+			{ projectId: projectId, states: options?.states, sort: options?.sort },
+			provider.getAsanaIssuesForProjectFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
+	/** The tasks assigned to the current user in one workspace; Asana requires the workspace. */
+	async getAsanaIssuesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Asana>,
+		workspaceId: string,
+		options?: AsanaTaskPageOptions,
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getAsanaIssuesForCurrentUserFn',
+		);
+		return this.getPagedResult<ProviderIssue>(
+			{ workspaceId: workspaceId, states: options?.states, sort: options?.sort },
+			provider.getAsanaIssuesForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
 	}
 }

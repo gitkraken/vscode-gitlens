@@ -96,7 +96,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	supports(providerId: string): boolean {
-		// Linear and Trello are cloud-backed issue integrations (same as Jira): `ensureProvider` registers a
+		// Linear, Trello and Asana are cloud-backed issue integrations (same as Jira): `ensureProvider` registers a
 		// cloud auth provider for them, so a disconnect must offer to sign out of the cloud token too —
 		// otherwise the backend token and configured connection survive the disable.
 		switch (providerId) {
@@ -108,6 +108,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
+			case IssuesCloudHostIntegrationId.Asana:
 			case GitCloudHostIntegrationId.GitHub:
 				return true;
 			default:
@@ -150,6 +151,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
+			case IssuesCloudHostIntegrationId.Asana:
 				provider = new CloudIntegrationAuthenticationProvider(
 					this,
 					this.configuredIntegrationService,

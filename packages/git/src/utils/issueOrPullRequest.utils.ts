@@ -1,4 +1,4 @@
-import type { IssueOrPullRequest } from '../models/issueOrPullRequest.js';
+import type { IssueMilestone, IssueOrPullRequest } from '../models/issueOrPullRequest.js';
 
 export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrPullRequest {
 	const serialized: IssueOrPullRequest = {
@@ -20,4 +20,17 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 		state: value.state,
 	};
 	return serialized;
+}
+
+/** Keeps `null` (none) apart from `undefined` (not read). */
+export function serializeMilestone(value: IssueMilestone | null | undefined): IssueMilestone | null | undefined {
+	if (value == null) return value;
+
+	return {
+		id: value.id,
+		title: value.title,
+		state: value.state,
+		...(value.dueDate != null ? { dueDate: value.dueDate } : {}),
+		...(value.url != null ? { url: value.url } : {}),
+	};
 }

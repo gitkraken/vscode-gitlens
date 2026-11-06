@@ -2,6 +2,7 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel, IssueProjection } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestMember,
 	PullRequestProjection,
@@ -135,6 +136,15 @@ export type GitHubIssueState = 'OPEN' | 'CLOSED';
 export type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
 export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequestState;
 
+/** GitHub's `Milestone`, as `gqlMilestoneFragment` selects it. */
+export interface GitHubMilestone {
+	id: string;
+	title: string;
+	state: 'OPEN' | 'CLOSED';
+	dueOn: string | null;
+	url: string;
+}
+
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
 	author: GitHubMember | null;
@@ -158,6 +168,8 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	isCrossRepository: boolean;
 	isDraft: boolean;
 	mergedAt: string | null;
+	/** `null` when the pull request has none. */
+	milestone: GitHubMilestone | null;
 	permalink: string;
 
 	repository: {
@@ -194,6 +206,8 @@ export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'
 		totalCount: number;
 	};
 	labels?: { nodes: IssueLabel[] };
+	/** `null` when the issue has none. */
+	milestone: GitHubMilestone | null;
 	reactions?: {
 		totalCount: number;
 	};
@@ -390,7 +404,23 @@ export function fromGitHubPullRequestLite(
 		pr.number,
 		undefined, // authoredByMe
 		projection,
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		fromGitHubMilestone(pr.milestone),
 	);
+}
+
+/** `undefined` only for a node from a selection that left the milestone out, which no fragment does today. */
+function fromGitHubMilestone(milestone: GitHubMilestone | null | undefined): IssueMilestone | null | undefined {
+	if (milestone == null) return milestone;
+
+	return {
+		id: milestone.id,
+		title: milestone.title,
+		state: milestone.state === 'CLOSED' ? 'closed' : 'open',
+		...(milestone.dueOn != null ? { dueDate: new Date(milestone.dueOn) } : {}),
+		...(milestone.url ? { url: milestone.url } : {}),
+	};
 }
 
 /** Both fields are absent on GitHub Enterprise Server (never selected) and `null` when unstacked. */
@@ -610,6 +640,9 @@ export function fromGitHubPullRequest(
 		pr.number,
 		undefined, // authoredByMe
 		projection,
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		fromGitHubMilestone(pr.milestone),
 	);
 }
 
@@ -668,6 +701,11 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projecti
 		undefined, // bodyFormat
 		undefined, // iterations
 		projection,
+		undefined, // bodyField
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		undefined, // syncedWith
+		fromGitHubMilestone(value.milestone),
 	);
 }
 

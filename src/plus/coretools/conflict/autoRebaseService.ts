@@ -1130,7 +1130,8 @@ export class AutoRebaseService implements Disposable {
 	 * conflict stop).
 	 */
 	private async getStepTodoEntry(svc: GitRepositoryService): Promise<RebaseTodoEntry | undefined> {
-		const gitDir = await svc.config.getGitDir?.();
+		// A git that gave no answer says nothing about the stop, as any failed read here: judged on the next poll
+		const gitDir = await svc.config.getGitDir?.().catch(() => undefined);
 		if (gitDir == null) return undefined;
 
 		const todoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');

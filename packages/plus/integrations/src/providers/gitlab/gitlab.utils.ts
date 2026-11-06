@@ -22,23 +22,31 @@ export function getGitLabPullRequestIdentityFromMaybeUrl(
 	search: string,
 	id?: GitLabIntegrationIds,
 ): (PullRequestUrlIdentity & { provider: GitLabIntegrationIds | undefined }) | undefined {
-	let ownerAndRepo: string | undefined = undefined;
-	let prNumber: string | undefined = undefined;
+	const match = search.match(/(?:\/|^)-\/merge_requests\/(\d+)/);
+	if (match == null) return undefined;
 
-	let match = search.match(/([^/]+\/[^/]+)\/(?:-\/merge_requests)\/(\d+)/); // with org and rep name
-	if (match != null) {
-		ownerAndRepo = match[1];
-		prNumber = match[2];
+	return {
+		ownerAndRepo: getNamespacePathBeforeMergeRequest(search.slice(0, match.index)),
+		prNumber: match[1],
+		provider: id,
+	};
+}
+
+/**
+ * The project path (the whole namespace, then the repo) from the text before `/-/merge_requests`. A
+ * scheme-less path's first segment is a host only when it has a dot or port and a namespace and repo follow
+ * it, so `gitlab.com/acme/repo` drops the host, while `acme/platform/repo` is all namespace.
+ */
+function getNamespacePathBeforeMergeRequest(path: string): string | undefined {
+	const withoutScheme = path.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+	const hasScheme = withoutScheme.length !== path.length;
+	const segments = withoutScheme.replace(/^\//, '').split('/');
+	if (segments.some(s => !s)) return undefined;
+
+	if (segments.length > 1 && (hasScheme || (segments.length > 2 && /[.:]/.test(segments[0])))) {
+		segments.shift();
 	}
-
-	if (prNumber == null) {
-		match = search.match(/(?:\/|^)(?:-\/merge_requests)\/(\d+)/); // without repo name
-		if (match != null) {
-			prNumber = match[1];
-		}
-	}
-
-	return prNumber != null ? { ownerAndRepo: ownerAndRepo, prNumber: prNumber, provider: id } : undefined;
+	return segments.length > 1 ? segments.join('/') : undefined;
 }
 
 /**
@@ -77,4 +85,15 @@ export function selectGitLabUserForCommit(
  */
 export function matchesGitLabOrgNamespace(namespace: string, org: string): boolean {
 	return namespace === org || namespace.startsWith(`${org}/`);
+}
+
+/**
+ * Splits a GitLab project path at its last slash, so the owner is the whole namespace (`acme/platform`) and the
+ * name is the repo, as `resolveRepository` does. Providers whose identity is always `owner/repo` split the same.
+ */
+export function splitOwnerAndRepo(ownerAndRepo: string): { owner: string; name: string } | undefined {
+	const index = ownerAndRepo.lastIndexOf('/');
+	if (index <= 0 || index === ownerAndRepo.length - 1) return undefined;
+
+	return { owner: ownerAndRepo.slice(0, index), name: ownerAndRepo.slice(index + 1) };
 }

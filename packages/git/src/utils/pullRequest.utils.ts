@@ -8,6 +8,7 @@ import type {
 	PullRequestSorting,
 	PullRequestStackInfo,
 } from '../models/pullRequest.js';
+import { serializeMilestone } from './issueOrPullRequest.utils.js';
 import { shortenRevision } from './revision.utils.js';
 
 /** How many pull requests a merge action affects — unstacked is always 1; a stacked merge lands either
@@ -228,6 +229,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		authoredByMe: value.authoredByMe,
 		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
 		viewerUnresolved: value.viewerUnresolved,
+		milestone: serializeMilestone(value.milestone),
 		project: value.project
 			? {
 					id: value.project.id,

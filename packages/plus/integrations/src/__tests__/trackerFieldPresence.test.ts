@@ -12,8 +12,8 @@ import { createFakeRuntime } from './fakeRuntime.js';
 import { assertIssuePresence } from './fieldPresenceHelpers.js';
 
 /**
- * Field presence must never call a group `fetched` that a row doesn't actually carry. So every issue read of the four
- * trackers (Jira Cloud, Jira Data Center, Linear, Trello) runs for real, through the integration, GitLens' own
+ * Field presence must never call a group `fetched` that a row doesn't actually carry. So every issue read of the five
+ * trackers (Jira Cloud, Jira Data Center, Linear, Trello, Asana) runs for real, through the integration, GitLens' own
  * conversions and provider-apis' own normalizers, against a server that answers each request with a fully populated
  * issue (and, for Linear's GraphQL, only the fields the query selected). A `fetched` group that comes back undefined
  * or empty is then a table claiming more than the read delivers; and each known placeholder is pinned to the value
@@ -499,7 +499,14 @@ suite('Linear field presence', () => {
 			project: null,
 			team: { id: 'team-1', name: 'Team', key: 'ENG', icon: null },
 			state: { id: 'state-1', name: 'In Progress', color: '#000', type: 'started' },
-			projectMilestone: null,
+			projectMilestone: {
+				id: 'milestone-1',
+				sortOrder: 1,
+				name: 'Beta',
+				description: null,
+				status: 'done',
+				targetDate: '2026-12-01',
+			},
 			labels: { nodes: [{ id: 'label-1', name: 'bug' }] },
 			comments: { nodes: [{ id: 'comment-1' }] },
 		};
@@ -568,6 +575,12 @@ suite('Linear field presence', () => {
 		assert.equal(presence.reactions, 'not-requested', `${label}: reactions`);
 		assert.equal(row.repository, undefined, `${label}: a tracker issue has no repository`);
 		assert.equal(presence.access, 'unavailable', `${label}: the viewer's access is unavailable`);
+		// The project milestone: done is closed, and it has no page of its own.
+		assert.deepEqual(
+			row.milestone,
+			{ id: 'milestone-1', title: 'Beta', state: 'closed', dueDate: new Date('2026-12-01') },
+			`${label}: the project milestone`,
+		);
 	}
 
 	function assertNoLabelsOrCommentsSelected(issueQueries: readonly string[]): void {
@@ -770,6 +783,152 @@ suite('Trello field presence', () => {
 	});
 });
 
+suite('Asana field presence', () => {
+	const workspace = { key: 'w1', id: 'w1', name: 'Workspace' };
+	const project = { key: 'p1', id: 'p1', name: 'Project', resourceId: 'w1', resourceName: 'Workspace' };
+	const taskId = '1201';
+	const likes = 3;
+
+	const user = {
+		gid: 'u1',
+		name: 'Asana User',
+		email: 'asana@example.com',
+		photo: { image_60x60: 'https://avatars.example/asana' },
+	};
+
+	/** Every field of a task the SDK asks for, in Asana's own shape. */
+	function task(): Json {
+		return {
+			gid: taskId,
+			name: 'Task',
+			notes: 'Task description',
+			permalink_url: `https://app.asana.com/0/p1/${taskId}`,
+			resource_subtype: 'default_task',
+			created_at: '2026-01-01T00:00:00.000Z',
+			modified_at: '2026-01-02T00:00:00.000Z',
+			completed: false,
+			completed_at: null,
+			num_likes: likes,
+			assignee: user,
+			created_by: user,
+			tags: [{ gid: 'tag-1', name: 'bug', color: 'light-red', notes: '' }],
+			memberships: [{ project: { gid: 'p1', name: 'Project' }, section: { gid: 's1', name: 'To Do' } }],
+			workspace: { gid: 'w1' },
+		};
+	}
+
+	function serve(runtime: FakeRuntime): URL[] {
+		const requests: URL[] = [];
+		runtime.http.fetch = input => {
+			const url = new URL(input.toString());
+			requests.push(url);
+
+			switch (url.pathname) {
+				case '/api/1.0/users/me':
+					return Promise.resolve(jsonResponse({ data: user }));
+				case '/api/1.0/workspaces':
+					return Promise.resolve(
+						jsonResponse({
+							data: [{ gid: 'w1', name: 'Workspace', is_organization: true }],
+							next_page: null,
+						}),
+					);
+				case '/api/1.0/projects':
+					return Promise.resolve(
+						jsonResponse({
+							data: [{ gid: 'p1', name: 'Project', archived: false, workspace: { gid: 'w1' } }],
+							next_page: null,
+						}),
+					);
+				case '/api/1.0/tasks':
+					return Promise.resolve(jsonResponse({ data: [task()], next_page: null }));
+				case `/api/1.0/tasks/${taskId}`:
+					return Promise.resolve(jsonResponse({ data: task() }));
+				default:
+					return Promise.resolve(notFound(url));
+			}
+		};
+		return requests;
+	}
+
+	async function connected() {
+		const runtime = createRuntime();
+		const requests = serve(runtime);
+		const manager = createIntegrationManager(runtime);
+		const asana = await manager.get(IssuesCloudHostIntegrationId.Asana);
+		connect(asana, session('app.asana.com'));
+		return { manager: manager, asana: asana, requests: requests };
+	}
+
+	/** A task's likes are its reactions; its comments are stories, which are never counted. */
+	function assertPlaceholders(row: IssueShape | undefined, presence: Presence, label: string): void {
+		assert.ok(row != null, label);
+		assert.equal(row.thumbsUpCount, likes, `${label}: the likes ride in thumbsUpCount`);
+		assert.equal(presence.reactions, 'fetched', `${label}: likes are reactions`);
+		assert.equal(row.commentsCount, undefined, `${label}: no comment count`);
+		assert.equal(presence.comments, 'not-requested', `${label}: comments`);
+		assert.equal(row.repository, undefined, `${label}: a tracker issue has no repository`);
+		assert.equal(presence.access, 'unavailable', `${label}: the viewer's access is unavailable`);
+	}
+
+	test('the point read', async () => {
+		const { manager, asana } = await connected();
+
+		const read = await asana.getIssue(workspace, taskId);
+		assertPlaceholders(read, check(read, asana.id, 'point', 'getIssue'), 'getIssue');
+
+		// A linked issue or pull request is never resolved for Asana.
+		assert.equal(await asana.getLinkedIssueOrPullRequest(workspace, { id: taskId, key: taskId }), undefined);
+
+		manager.dispose();
+	});
+
+	test('the project reads, through the facade and directly', async () => {
+		const { manager, asana, requests } = await connected();
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: asana.id });
+		assert.equal(result.fetchFailed, undefined);
+		assert.deepEqual(result.warnings, []);
+		const presence = checkAll(result.items, asana.id, 'project', 'listIssueTrackerIssuesPage');
+		assertPlaceholders(result.items[0], presence, 'listIssueTrackerIssuesPage');
+		assert.ok(
+			requests.some(r => r.pathname === '/api/1.0/tasks' && r.searchParams.get('assignee') === 'me'),
+			"a resolved user reads the viewer's tasks of the workspace",
+		);
+
+		const direct = await asana.getIssuesForProject(project);
+		assertPlaceholders(
+			direct?.[0],
+			checkAll(direct ?? [], asana.id, 'project', 'getIssuesForProject'),
+			'getIssuesForProject',
+		);
+
+		manager.dispose();
+	});
+
+	test('the account read', async () => {
+		const { manager, asana } = await connected();
+
+		const rows = await asana.searchMyIssues();
+		assertPlaceholders(rows?.[0], checkAll(rows ?? [], asana.id, 'account', 'searchMyIssues'), 'searchMyIssues');
+
+		manager.dispose();
+	});
+
+	test('has no batch read', async () => {
+		const { manager, asana } = await connected();
+
+		const result = await manager.getIssuesBatch({
+			providerId: asana.id,
+			targets: [{ key: taskId, resourceId: 'w1', identifier: taskId }],
+		});
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+
+		manager.dispose();
+	});
+});
+
 suite('Tracker field presence coverage', () => {
 	test('every projection each tracker has a table entry for was exercised above', () => {
 		for (const providerId of [
@@ -777,6 +936,7 @@ suite('Tracker field presence coverage', () => {
 			IssuesSelfManagedHostIntegrationId.JiraServer,
 			IssuesCloudHostIntegrationId.Linear,
 			IssuesCloudHostIntegrationId.Trello,
+			IssuesCloudHostIntegrationId.Asana,
 		]) {
 			const tabled = allIssueProjections.filter(
 				projection =>

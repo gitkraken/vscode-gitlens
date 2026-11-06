@@ -1958,6 +1958,24 @@ export class AIProviderService implements AIService, Disposable {
 
 									return undefined;
 								}
+								case AIErrorReason.ModelUnavailable: {
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											getPresentableErrorMessage(error),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
+									);
+
+									if (options?.throwAIErrors) throw error;
+
+									return undefined;
+								}
 								case AIErrorReason.ModelNotSupported: {
 									void (async () => {
 										const switchModel: MessageItem = { title: l10n.t('Switch Model') };

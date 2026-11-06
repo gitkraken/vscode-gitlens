@@ -4504,6 +4504,8 @@
 	"The selected commits are reachable from multiple branches. Please select commits unique to a single branch.": "Los commits seleccionados son alcanzables desde varias ramas. Seleccione commits únicos de una sola rama.",
 	"The selected files are no longer conflicted.": "Los archivos seleccionados ya no están en conflicto.",
 	"The selected migrations will run again once the window is reloaded.": "Las migraciones seleccionadas se ejecutarán de nuevo una vez que se recargue la ventana.",
+	"The selected model is no longer available from {0}. Switch to a different model and try again.": "El modelo seleccionado ya no está disponible en {0}. Seleccione un modelo diferente e inténtelo de nuevo.",
+	"The selected model is no longer available. Switch to a different model and try again.": "El modelo seleccionado ya no está disponible. Seleccione un modelo diferente e inténtelo de nuevo.",
 	"The selected model is not supported for this request. Please select a different model and try again.": "El modelo seleccionado no es compatible con esta solicitud. Seleccione un modelo diferente e inténtelo de nuevo.",
 	"The stored AI key has been reset. The configured key was copied to your clipboard.": "La clave de IA almacenada se ha restablecido. La clave configurada se copió a su portapapeles.",
 	"The target commit has already been pushed. Squashing the fixup rewrites history and will require a force push.": "El commit de destino ya se ha subido (push). Hacer squash del fixup reescribe el historial y requerirá un force push.",

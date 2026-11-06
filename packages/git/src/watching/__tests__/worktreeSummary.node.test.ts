@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -1320,6 +1320,34 @@ describe('WorktreeSummaryService', () => {
 				branch: 2,
 				remotes: 2,
 			});
+		});
+
+		it('rejects with the timeout when git ran out of time, and keeps the last read', async () => {
+			const { h } = setup();
+			const first = await h.service.getSummary(repoPath);
+			h.repo.state.fail = new CancellationError(undefined, 'timeout');
+			await assert.rejects(
+				h.service.getSummarySnapshot(repoPath, { probeDirty: true }),
+				(ex: unknown) => isCancellationError(ex) && ex.reason === 'timeout',
+			);
+			h.repo.state.fail = undefined;
+
+			let summary: WorktreeSummary | undefined;
+			const counts = await readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(counts, probeOnly);
+			assert.strictEqual(summary, first);
+		});
+
+		it('re-reads the dirty flag when finding the index to stat timed out', async () => {
+			const { h } = setup();
+			const first = await h.service.getSummary(repoPath);
+			const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+			config.getGitDir = () => Promise.reject(new CancellationError(undefined, 'timeout'));
+
+			let summary: WorktreeSummary | undefined;
+			const counts = await readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(counts, { ...probeOnly, dirty: 1 }, 'an unknown index, so the dirty flag is read');
+			assert.strictEqual(summary, first);
 		});
 
 		it('shares one read between concurrent callers', async () => {
@@ -3325,6 +3353,302 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
 			assert.strictEqual(fired.length, 1);
 		});
+
+		it('leaves a failed first read for a git event to retry, unless git ran out of time', async () => {
+			const h = createHarness();
+			h.repo.state.fail = new Error('not a git repository');
+			h.service.subscribe(repoPath);
+
+			await assert.rejects(h.service.getSummary(repoPath), h.repo.state.fail);
+			const before = h.repo.snapshot();
+			await assert.rejects(h.service.getSummary(repoPath), h.repo.state.fail);
+			assert.deepStrictEqual(h.repo.snapshot(), before);
+		});
+
+		describe('cut short by a timeout', () => {
+			const timedOut = (): CancellationError => new CancellationError(undefined, 'timeout');
+			const isTimeout = (ex: unknown): boolean => isCancellationError(ex) && ex.reason === 'timeout';
+			const isReaderCancellation = (ex: unknown): boolean => isCancellationError(ex) && ex.reason !== 'timeout';
+
+			/** Subscribes with the first read cut short, and waits for it to end with no reader on it */
+			async function subscribeTimedOut(
+				h: Harness,
+				fail: Error = timedOut(),
+			): Promise<WorktreeSummarySubscription> {
+				h.repo.state.fail = fail;
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+				await delay(10);
+				return sub;
+			}
+
+			it('reads again for the next reader after the first read timed out', async () => {
+				const h = createHarness();
+				const sub = await subscribeTimedOut(h);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				assert.strictEqual(sub.current, undefined);
+
+				h.repo.state.fail = undefined;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(fired.length, 1);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('reads again after git was killed from outside, which is no reader cancelling either', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h, new CancellationError(undefined, 'unknown'));
+
+				h.repo.state.fail = undefined;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+			});
+
+			it('reads again for a new subscriber after the first read timed out', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				h.repo.state.fail = undefined;
+
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => sub.current != null);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('answers a first read whose base read timed out with the other fields and no base, marked stale', async () => {
+				const h = createHarness();
+				h.repo.state.baseFail = timedOut();
+				const sub = h.service.subscribe(repoPath);
+
+				const expected = { ...expectedInitial, base: undefined, baseDependsOn: [], stale: true };
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expected);
+				assert.deepStrictEqual(sub.current, expected);
+				assert.strictEqual(h.repo.counts.base, 1);
+			});
+
+			it('keeps the other fields and the last base, marked stale, when a refresh timed out reading the base', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.baseFail = timedOut();
+				h.repo.state.configKey = 'config-v2';
+				h.repo.state.upstream = { name: 'origin/main', missing: false, ahead: 1, behind: 5 };
+				await readsAfter(h, () => h.push(['config']));
+				assert.deepStrictEqual(fired, [{ ...expectedInitial, behind: 5, stale: true }]);
+			});
+
+			it('answers an unwatched read whose base read timed out with the other fields', async () => {
+				const h = createHarness();
+				h.repo.state.baseFail = timedOut();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), {
+					...expectedInitial,
+					base: undefined,
+					baseDependsOn: [],
+					stale: true,
+				});
+			});
+
+			it('reads the base when reading its config inputs timed out', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.configKeyFail = timedOut();
+				const reads = await readsAfter(h, () => h.push(['config']));
+				assert.strictEqual(reads.base, 1, 'unknown inputs, so the base is read');
+				assert.deepStrictEqual(fired, []);
+			});
+
+			it('reads the base when reading its stored values timed out', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				const branches = h.repo.service.branches as unknown as {
+					getStoredUserMergeTargetBranchName: (branch: string) => Promise<string | undefined>;
+				};
+				branches.getStoredUserMergeTargetBranchName = () => Promise.reject(timedOut());
+				const reads = await readsAfter(h, () => h.push(['gkConfig']));
+				assert.strictEqual(reads.base, 1, 'unknown stored values, so the base is read');
+				assert.deepStrictEqual(fired, []);
+			});
+
+			it('takes a remote HEAD symref whose read timed out as moved', async () => {
+				const h = createHarness();
+				h.repo.state.baseDependsOn = ['refs/remotes/origin/HEAD'];
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				const branches = h.repo.service.branches as unknown as {
+					getDefaultBranchName: () => Promise<string | undefined>;
+				};
+				branches.getDefaultBranchName = () => Promise.reject(timedOut());
+				const reads = await readsAfter(h, () => h.push(['heads']));
+				assert.strictEqual(reads.base, 1, 'unknown, so the base is read');
+				assert.strictEqual((await h.service.getSummary(repoPath)).stale, false);
+			});
+
+			it('rejects with the timeout when the read again times out too, reading once per reader', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 2);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 3);
+			});
+
+			it('gives readers waiting on the timed-out read one more read, which they share', async () => {
+				const h = createHarness();
+				h.repo.state.fail = timedOut();
+				h.service.subscribe(repoPath);
+
+				const reads = [h.service.getSummary(repoPath), h.service.getSummary(repoPath)];
+
+				await assert.rejects(reads[0], isTimeout);
+				await assert.rejects(reads[1], isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('answers a reader waiting on the timed-out read once the read again succeeds', async () => {
+				const h = createHarness();
+				const branches = h.repo.service.branches as unknown as {
+					getBranch: (...args: unknown[]) => Promise<unknown>;
+				};
+				const getBranch = branches.getBranch;
+				let reads = 0;
+				branches.getBranch = (...args) => (++reads === 1 ? Promise.reject(timedOut()) : getBranch(...args));
+				h.service.subscribe(repoPath);
+
+				assert.deepStrictEqual(
+					await Promise.all([h.service.getSummary(repoPath), h.service.getSummary(repoPath)]),
+					[expectedInitial, expectedInitial],
+				);
+				assert.strictEqual(reads, 2);
+			});
+
+			it('starts the watch again for the next reader when finding the git directory timed out', async () => {
+				const h = createHarness();
+				const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+				const getGitDir = config.getGitDir;
+				let finds = 0;
+				config.getGitDir = () => {
+					finds++;
+					return Promise.reject(timedOut());
+				};
+				const sub = h.service.subscribe(repoPath);
+				await delay(10);
+				assert.strictEqual(finds, 1);
+				assert.strictEqual(h.watchService.getSession(key), undefined);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(finds, 2);
+
+				config.getGitDir = getGitDir;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.ok(h.watchService.getSession(key) != null);
+			});
+
+			it('marks the value stale once when a refresh times out, and reads everything on the next event', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.fail = timedOut();
+				await readsAfter(h, () => h.push(['index']));
+				assert.deepStrictEqual(fired, [{ ...expectedInitial, stale: true }]);
+
+				const reads = await readsAfter(h, () => {});
+				assert.deepStrictEqual(reads, none, 'a reader is answered with the stale value, reading nothing');
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), { ...expectedInitial, stale: true });
+
+				await readsAfter(h, () => h.push(['index']));
+				assert.strictEqual(fired.length, 1, 'no refire while it keeps timing out');
+
+				h.repo.state.fail = undefined;
+				h.repo.state.dirty = true;
+				const recovery = await readsAfter(h, () => h.push(['index']));
+				assert.ok(recovery.branch === 1 && recovery.base === 1 && recovery.dirty === 1);
+				assert.deepStrictEqual(fired[1], { ...expectedInitial, dirty: true });
+			});
+
+			it("rejects a reader's own cancellation as a cancellation, without recording it", async () => {
+				const h = createHarness();
+				h.repo.hold();
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+
+				const controller = new AbortController();
+				const read = h.service.getSummary(repoPath, controller.signal);
+				controller.abort();
+				await assert.rejects(read, isReaderCancellation);
+				assert.strictEqual(h.repo.signals.at(-1)?.aborted, false, "a reader's cancellation aborts no read");
+
+				h.repo.release();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 1);
+			});
+
+			it('starts no read for a reader already cancelled, which rejects as a cancellation', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				await assert.rejects(h.service.getSummary(repoPath, AbortSignal.abort()), isReaderCancellation);
+				assert.strictEqual(h.repo.counts.branch, 1);
+			});
+
+			it('leaves the read again running for later readers when its reader gives up', async () => {
+				const h = createHarness();
+				const sub = await subscribeTimedOut(h);
+				h.repo.state.fail = undefined;
+				h.repo.hold();
+
+				const controller = new AbortController();
+				const read = h.service.getSummary(repoPath, controller.signal);
+				await waitFor(() => h.repo.counts.branch === 2);
+				controller.abort();
+				await assert.rejects(read, isReaderCancellation);
+
+				h.repo.release();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('drops a read that was aborted because the last subscriber left', async () => {
+				const h = createHarness();
+				h.repo.hold();
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+				const read = h.service.getSummary(repoPath);
+
+				sub.dispose();
+				h.repo.state.fail = new CancellationError(undefined, 'aborted');
+				h.repo.release();
+
+				await assert.rejects(read, isCancellationError);
+				assert.strictEqual(h.repo.counts.branch, 1, 'nothing reads again for an entry that is gone');
+			});
+		});
 	});
 
 	describe('polled repository', () => {
@@ -3487,6 +3811,24 @@ describe('WorktreeSummaryService', () => {
 				],
 			]);
 			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, movedBase);
+		});
+
+		it('hands the verifier no full read when that timed out, and keeps the re-measure', async () => {
+			const checked: unknown[] = [];
+			const h = createHarness({ verifyBaseRemeasure: (remeasured, full) => checked.push([remeasured, full]) });
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = dependsOn;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.baseMove = movedBase;
+			h.repo.state.baseFail = new CancellationError(undefined, 'timeout');
+
+			await readsAfter(h, () => fetched(h));
+			assert.deepStrictEqual(checked, [[{ base: movedBase, dependsOn: dependsOn }, undefined]]);
+			const summary = await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(summary.base, movedBase);
+			assert.strictEqual(summary.stale, false);
 		});
 
 		it('does not verify a base read in full', async () => {

@@ -112,6 +112,29 @@ suite('VSCodeAIProvider.sendRequest — Language Model errors', () => {
 				assertAIError(await send(provider, getMessages), AIErrorReason.ModelNotSupported, notFound);
 			});
 
+			// Copilot throws this as a plain Error (no code, no special name) when the selected model has left its list.
+			test('Copilot’s "Endpoint not found for model" error is classified as model unavailable, once', async () => {
+				const gone = new Error('Endpoint not found for model copilot:gpt-4o');
+				const { provider, getMessages, requests } = makeProvider([failWith(gone)]);
+
+				const result = await send(provider, getMessages);
+
+				assertAIError(result, AIErrorReason.ModelUnavailable, gone);
+				assert.deepStrictEqual((result as AIError).provider, { id: 'vscode', name: 'Copilot' });
+				assert.ok(isAIUnavailableError(result));
+				assert.match((result as AIError).message, /no longer available from Copilot/);
+				assert.strictEqual(requests.length, 1, 'a missing model is not retried');
+			});
+
+			test('the same error wrapped as the cause of another error is still model unavailable', async () => {
+				const gone = new Error('Endpoint not found for model copilot:gpt-4o');
+				const wrapper = Object.assign(new Error('Unknown', { cause: gone }), { code: 'Unknown' });
+				const { provider, getMessages, requests } = makeProvider([failWith(wrapper)]);
+
+				assertAIError(await send(provider, getMessages), AIErrorReason.ModelUnavailable, wrapper);
+				assert.strictEqual(requests.length, 1);
+			});
+
 			test('NoPermissions is still classified as denied by the user', async () => {
 				const denied = LanguageModelError.NoPermissions('Permission denied');
 				const { provider, getMessages } = makeProvider([failWith(denied)]);

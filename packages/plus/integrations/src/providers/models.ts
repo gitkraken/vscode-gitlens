@@ -2,6 +2,9 @@ import type {
 	Account,
 	ActionablePullRequest,
 	AnyEntityIdentifierInput,
+	Asana,
+	AsanaProject,
+	AsanaWorkspace,
 	AzureDevOps,
 	AzureOrganization,
 	AzureProject,
@@ -21,6 +24,7 @@ import type {
 	GitLab,
 	GitLabGroup,
 	GitMergeStrategy,
+	GitMilestone,
 	GitPullRequest,
 	GitPullRequestMergeableState as GitPullRequestMergeableStateType,
 	GitPullRequestReviewState as GitPullRequestReviewStateType,
@@ -60,6 +64,7 @@ import type {
 	IssueSyncedWith,
 } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestProjection,
 	PullRequestRef,
@@ -119,6 +124,7 @@ import {
 	azureWorkItemSearchSorts,
 } from './azure/search.js';
 import {
+	asanaIssueSorts,
 	azureAccountWideIssueSorts,
 	azureIssueSorts,
 	githubAccountWideIssueSorts,
@@ -146,10 +152,9 @@ type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
 
-// Local runtime copies of the `@gitkraken/provider-apis` string enums. Duplicated (not imported as
-// values) because the SDK ships as CJS whose named enum exports can't be statically imported as ESM
-// values from the bundled `dist`. Exported so the enum-parity test can deep-equal them against the
-// real SDK enums and turn any upstream drift into a test failure instead of a silent mismatch.
+// Local runtime copies of the `@gitkraken/provider-apis` string enums. Exported so the enum-parity test
+// can deep-equal them against the real SDK enums and turn any upstream drift into a test failure instead
+// of a silent mismatch.
 export const GitBuildStatusState = {
 	ActionRequired: 'ACTION_REQUIRED' as GitBuildStatusState,
 	Cancelled: 'CANCELLED' as GitBuildStatusState,
@@ -244,6 +249,8 @@ export type ProviderLinearTeam = LinearTeam;
 export type ProviderLinearOrganization = LinearOrganization;
 // Linear's own `Project` entity, which can span several teams; not the teams core lists as a tracker's projects.
 export type ProviderLinearProject = LinearProject;
+export type ProviderAsanaWorkspace = AsanaWorkspace;
+export type ProviderAsanaProject = AsanaProject;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
@@ -767,8 +774,17 @@ export type GetTrelloAccountForIdFn = Trello['getAccountForId'];
 export type GetTrelloIssuesForBoardFn = Trello['getIssuesForBoard'];
 export type GetTrelloLabelsForBoardFn = Trello['getLabelsForBoard'];
 
+// Asana reads. Asana's client takes its options first on the current-user read and a workspace or project scope on
+// the list reads, so these mirror the client method shapes rather than the generic `Get*Fn` contracts.
+export type GetAsanaCurrentUserFn = Asana['getCurrentUser'];
+export type GetAsanaWorkspacesForCurrentUserFn = Asana['getWorkspacesForCurrentUser'];
+export type GetAsanaProjectsForWorkspaceFn = Asana['getProjectsForWorkspace'];
+export type GetAsanaIssueFn = Asana['getIssue'];
+export type GetAsanaIssuesForProjectFn = Asana['getIssuesForProject'];
+export type GetAsanaIssuesForCurrentUserFn = Asana['getIssuesForCurrentUser'];
+
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | JiraServer | Linear | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | JiraServer | Linear | Trello | Asana | AzureDevOps;
 	getRepoFn?: GetRepoFn;
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
@@ -821,6 +837,12 @@ export interface ProviderInfo extends ProviderMetadata {
 	getTrelloAccountForIdFn?: GetTrelloAccountForIdFn;
 	getTrelloIssuesForBoardFn?: GetTrelloIssuesForBoardFn;
 	getTrelloLabelsForBoardFn?: GetTrelloLabelsForBoardFn;
+	getAsanaCurrentUserFn?: GetAsanaCurrentUserFn;
+	getAsanaWorkspacesForCurrentUserFn?: GetAsanaWorkspacesForCurrentUserFn;
+	getAsanaProjectsForWorkspaceFn?: GetAsanaProjectsForWorkspaceFn;
+	getAsanaIssueFn?: GetAsanaIssueFn;
+	getAsanaIssuesForProjectFn?: GetAsanaIssuesForProjectFn;
+	getAsanaIssuesForCurrentUserFn?: GetAsanaIssuesForCurrentUserFn;
 }
 
 export interface ProviderMetadata {
@@ -938,7 +960,7 @@ export interface ProviderMetadata {
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
-export type ProvidersMetadata = Record<IntegrationIds, ProviderMetadata>;
+export type ProvidersMetadata = { [Id in IntegrationIds]: ProviderMetadata & { id: Id } };
 
 /**
  * GitHub and GitHub Enterprise express every criterion as a search qualifier on the same GraphQL `search` field,
@@ -1390,6 +1412,22 @@ export const providersMetadata: ProvidersMetadata = {
 		// No `supportsIssueStates`: a card has no state beyond being archived, and the board read always sends
 		// `-is:archived`, so `'closed'`/`'all'` are refused rather than answered with the open cards.
 	},
+	[IssuesCloudHostIntegrationId.Asana]: {
+		domain: 'app.asana.com',
+		id: IssuesCloudHostIntegrationId.Asana,
+		name: 'Asana',
+		type: 'issues',
+		iconKey: IssuesCloudHostIntegrationId.Asana,
+		scopes: [],
+		// A task has a single assignee and no author/mention query; the project read is narrowed to the viewer by
+		// assignee id after the drain, since Asana's task list can't scope a project to an assignee.
+		supportedIssueFilters: [IssueFilter.Assignee],
+		// Empty: Asana's task list has no ordering parameter, so a read carrying `sort` is refused rather than served in
+		// whatever order Asana returns.
+		supportedIssueSorts: asanaIssueSorts,
+		// Completion is the only state Asana has: open reads incomplete tasks, closed the completed ones.
+		supportsIssueStates: true,
+	},
 };
 
 export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string): string[] {
@@ -1520,6 +1558,26 @@ export function toIssueShape(
 		...toIssueViewer(issue, options?.viewer),
 		// Only when the provider reports it, so a row from any other provider keeps exactly the keys it always had.
 		...(issue.syncedWith != null ? { syncedWith: toIssueSyncedWith(issue.syncedWith) } : {}),
+		// Only when the provider reports it (GitHub, GitLab, Linear), so `undefined` keeps meaning "not read" rather than
+		// "none", and a row from any other provider keeps exactly the keys it always had.
+		...(issue.milestone !== undefined ? { milestone: toIssueMilestone(issue.milestone) } : {}),
+	};
+}
+
+/**
+ * provider-apis' `id` is a GitHub milestone's per-repository number and a GitLab milestone's bare database id, so the
+ * GraphQL id, which is unique on the host, wins where there is one. A Linear project milestone has only its UUID.
+ */
+function toIssueMilestone(milestone: GitMilestone | null): IssueMilestone | null {
+	if (milestone == null) return null;
+
+	return {
+		id: milestone.graphQLId || milestone.id,
+		title: milestone.title,
+		state: milestone.isOpen ? 'open' : 'closed',
+		...(milestone.dueDate != null ? { dueDate: milestone.dueDate } : {}),
+		// Linear sends `''`: a project milestone has no page of its own.
+		...(milestone.url ? { url: milestone.url } : {}),
 	};
 }
 
@@ -1979,6 +2037,8 @@ export function fromProviderPullRequest(
 		options?.projection,
 		options?.currentAccount ?? undefined,
 		options?.currentAccount === null && pullRequestNamesPeople(pr) ? true : undefined,
+		// Only GitHub and GitLab report it; `undefined` stays "not read" rather than "none".
+		pr.milestone !== undefined ? toIssueMilestone(pr.milestone) : undefined,
 	);
 }
 
@@ -2138,6 +2198,8 @@ export function fromProviderIssue(
 		viewer?.viewer,
 		viewer?.viewerUnresolved,
 		issue.syncedWith != null ? toIssueSyncedWith(issue.syncedWith) : undefined,
+		// As in `toIssueShape`.
+		issue.milestone !== undefined ? toIssueMilestone(issue.milestone) : undefined,
 	);
 }
 

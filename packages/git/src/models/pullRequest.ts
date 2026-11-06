@@ -3,7 +3,11 @@ import { loggable } from '@gitlens/utils/decorators/log.js';
 import { serializable } from '@gitlens/utils/decorators/serializable.js';
 import type { RequireSome, RequireSomeWithProps } from '@gitlens/utils/types.js';
 import type { IssueProject, IssueRepository } from './issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest.js';
+import type {
+	IssueMilestone,
+	IssueOrPullRequest,
+	IssueOrPullRequestState as PullRequestState,
+} from './issueOrPullRequest.js';
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
@@ -134,6 +138,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly projection?: PullRequestProjection,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
+		public readonly milestone?: IssueMilestone | null,
 	) {}
 
 	get closed(): boolean {
@@ -345,7 +350,10 @@ export interface PullRequestRef {
 	 * provider-apis' converters fill `''` instead, so test for a value rather than for `undefined`.
 	 */
 	owner: string | undefined;
-	/** `undefined` (or `''`) when the ref's repository was deleted, as {@link owner}. */
+	/**
+	 * The repository's name, never a path: a GitLab nested group is all {@link owner}. `undefined` (or `''`) when the
+	 * ref's repository was deleted, as {@link owner}.
+	 */
 	repo: string | undefined;
 	branch: string;
 	sha: string;

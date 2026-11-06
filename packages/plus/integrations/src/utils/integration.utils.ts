@@ -9,6 +9,7 @@ import type {
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
+	integrationIds,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
@@ -33,16 +34,7 @@ const selfHostedIssuesIntegrationIds: IssuesSelfManagedHostIntegrationId[] = [
 	IssuesSelfManagedHostIntegrationId.JiraServer,
 ] as const;
 
-export const supportedIntegrationIds: IntegrationIds[] = [
-	GitCloudHostIntegrationId.GitHub,
-	GitCloudHostIntegrationId.GitLab,
-	GitCloudHostIntegrationId.Bitbucket,
-	GitCloudHostIntegrationId.AzureDevOps,
-	IssuesCloudHostIntegrationId.Jira,
-	IssuesCloudHostIntegrationId.Trello,
-	...selfHostedIntegrationIds,
-	...selfHostedIssuesIntegrationIds,
-] as const;
+export const supportedIntegrationIds: IntegrationIds[] = integrationIds;
 
 export function convertRemoteProviderIdToIntegrationId(
 	remoteProviderId: RemoteProviderId,
@@ -171,11 +163,11 @@ export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudH
 }
 
 export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
-	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
+	return selfHostedIntegrationIds.some(integrationId => integrationId === id);
 }
 
 export function isIssuesSelfManagedHostIntegrationId(id: IntegrationIds): id is IssuesSelfManagedHostIntegrationId {
-	return selfHostedIssuesIntegrationIds.includes(id as IssuesSelfManagedHostIntegrationId);
+	return selfHostedIssuesIntegrationIds.some(integrationId => integrationId === id);
 }
 
 /**
@@ -214,6 +206,7 @@ export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesHostI
 		case IssuesCloudHostIntegrationId.Jira:
 		case IssuesCloudHostIntegrationId.Linear:
 		case IssuesCloudHostIntegrationId.Trello:
+		case IssuesCloudHostIntegrationId.Asana:
 		case IssuesSelfManagedHostIntegrationId.JiraServer:
 			return true;
 		default:

@@ -1,4 +1,3 @@
-import ProviderApis from '@gitkraken/provider-apis';
 import { getAuthenticatedUser } from '../errors.js';
 import type { ProviderRequestFunction, ProviderRequestOptions, ProviderRequestResponse } from './models.js';
 import {
@@ -7,14 +6,6 @@ import {
 	markRequestError,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
-
-// `@gitkraken/provider-apis` is published as CommonJS with its factory on the `default` export.
-// How that surfaces depends on the consuming bundler's CJS->ESM interop: esbuild yields the
-// callable factory directly, while webpack and Node surface the module namespace (with the
-// factory under `.default`). Normalize to the callable factory so every consumer resolves it.
-type ProviderApisFactory = typeof ProviderApis;
-export const createProviderApis: ProviderApisFactory =
-	(ProviderApis as ProviderApisFactory & { default?: ProviderApisFactory }).default ?? ProviderApis;
 
 export function createProviderApiRequest(
 	fetch: (input: string | URL, init?: RequestInit) => Promise<Response>,

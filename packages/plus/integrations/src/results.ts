@@ -457,17 +457,25 @@ export type RepositoryResolutionStatus =
 export interface RepositoryIdentity {
 	providerId: IntegrationIds;
 	domain: string;
-	/** The provider's canonical owner/namespace (follows renames), falling back to the parsed remote when omitted. */
+	/**
+	 * The provider's canonical owner/namespace (follows renames), falling back to where it was read when omitted. On
+	 * GitLab it is the whole group path (`group/subgroup`), not the remote path's first segment.
+	 */
 	owner: string;
-	/** The provider's canonical repo name (follows renames), falling back to the parsed remote when omitted. */
+	/** The provider's canonical repo name (follows renames), falling back to where it was read when omitted. */
 	name: string;
 	project?: string;
 	/** The original input remote URL, so the caller can key the resolution back to the remote it asked about. */
 	remoteUrl: string;
 	/**
 	 * True when the provider's canonical owner/name differ from what the input remote URL carried — i.e. the
-	 * repo was renamed/moved host-side and the local remote is stale. Case-insensitive, mirroring gkcli's
-	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged.
+	 * repo was renamed/moved host-side and the local remote is stale. Owner and name are compared as one path, because
+	 * the remote and the provider split a GitLab nested group differently. Case-insensitive, mirroring gkcli's
+	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged. On Azure
+	 * DevOps it compares the repository name and its {@link project} too, against the collection and project the
+	 * repository was read at: an Azure DevOps Server remote's path may be read as another collection and project than
+	 * the remote parser read, which is no rename. GitLab's lookup doesn't follow a renamed or moved path, so a stale
+	 * GitLab remote resolves as `not-found` rather than as `renamed`.
 	 */
 	renamed: boolean;
 	/**
@@ -478,12 +486,12 @@ export interface RepositoryIdentity {
 	isFork?: boolean;
 	/**
 	 * The repository this one was forked from, named as the provider names it and living on the same host
-	 * ({@link providerId} and {@link domain}). `project` is set only on Azure DevOps, where a repository lives in a
-	 * project of its organization. Present only when the provider reports a fork and names its parent; absent means
-	 * "not a fork" or "the provider didn't say", which {@link isFork} tells apart. This is the immediate parent, not the
-	 * root of the fork network: a pull request from a branch of this repository usually targets this repository or
-	 * its parent, but GitHub and Azure DevOps let it target any repository in the network, so a fork of a fork can
-	 * open one against the root.
+	 * ({@link providerId} and {@link domain}), so on GitLab `owner` is the whole group path (`group/subgroup`).
+	 * `project` is set only on Azure DevOps, where a repository lives in a project of its organization. Present only
+	 * when the provider reports a fork and names its parent; absent means "not a fork" or "the provider didn't say",
+	 * which {@link isFork} tells apart. This is the immediate parent, not the root of the fork network: a pull request
+	 * from a branch of this repository usually targets this repository or its parent, but GitHub and Azure DevOps let
+	 * it target any repository in the network, so a fork of a fork can open one against the root.
 	 */
 	parent?: { owner: string; name: string; project?: string };
 }

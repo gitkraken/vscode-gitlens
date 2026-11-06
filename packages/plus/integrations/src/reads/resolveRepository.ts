@@ -11,6 +11,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { getAzureRepositoryIdentity } from '../providers/azure/azure.utils.js';
+import type { ProviderRepository } from '../providers/models.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 import type { ProviderWarning, RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';
@@ -56,7 +57,10 @@ export async function resolveRepository(
 		resolution: { status: status },
 	});
 
-	const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
+	const [scheme, parsedDomain, parsedPath] = parseGitRemoteUrl(options.remoteUrl);
+	// Git accepts a trailing slash but no provider's path carries one: GitLab wouldn't find it, and a host that does
+	// would report the slashless name as a rename.
+	const path = trimTrailingSlashes(parsedPath);
 	// An SSH remote's port belongs to its SSH daemon, not to the web authority a connection is keyed by.
 	const hostsMatch = getRemoteHostMatcher(scheme);
 	const parsedHost = hostFromDomain(parsedDomain);
@@ -202,6 +206,10 @@ export async function resolveRepository(
 	// project simply can't address an Azure repo.
 	if (provider.id === 'azure-devops' && project == null) return result('invalid-remote-url');
 
+	// Azure names the repository bare and its project apart, where the remote names `{project}/_git/{repo}`.
+	const repositoryName =
+		project != null ? getAzureRepositoryIdentity({ owner: owner, name: name }).repositoryName : name;
+
 	try {
 		const repo = await integration.getRepoInfo({
 			...providerRepo,
@@ -225,23 +233,29 @@ export async function resolveRepository(
 		}
 
 		// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301
-		// rename redirect, so a stale old name resolves to the new canonical identity), falling back to the
-		// parsed remote when the response omits them. `renamed` is a case-insensitive compare of input vs
+		// rename redirect, so a stale old name resolves to the new canonical identity), falling back to where the
+		// repository was read when the response omits them. `renamed` is a case-insensitive compare of that against
 		// canonical, mirroring gkcli's `EqualFold`, so hosts that merely echo the input casing (e.g.
-		// Bitbucket Server/Azure) don't get spuriously flagged.
-		const canonicalOwner = repo.namespace || owner;
-		const canonicalName = repo.name || name;
+		// Bitbucket Server/Azure) don't get spuriously flagged. An Azure DevOps Server remote's path may be read as
+		// another collection and project than the parser read (see `AzureDevOpsServerIntegration.getRepositoryTarget`),
+		// which is no rename, so the compare is against where it was read. Owner and name are compared joined, because
+		// the sides split a GitLab nested group differently: the remote at its first slash, the SDK at its last.
+		const readAt = repo.readAt ?? { owner: owner, name: repositoryName, project: project };
+		const canonicalOwner = repo.namespace || readAt.owner;
+		const canonicalName = repo.name || readAt.name;
+		const readAtProject = project != null ? readAt.project || project : undefined;
+		const canonicalProject = readAtProject != null ? repo.project || readAtProject : undefined;
+		const differs = (a: string | undefined, b: string | undefined) => a?.toLowerCase() !== b?.toLowerCase();
 		const renamed =
-			canonicalOwner.toLowerCase() !== owner.toLowerCase() || canonicalName.toLowerCase() !== name.toLowerCase();
+			differs(`${canonicalOwner}/${canonicalName}`, `${readAt.owner}/${readAt.name}`) ||
+			differs(canonicalProject, readAtProject);
 
 		const identity: RepositoryIdentity = {
 			providerId: id,
 			domain: domain,
 			owner: canonicalOwner,
 			name: canonicalName,
-			// Azure's own project for the repository: an Azure DevOps Server remote's path may name the collection where
-			// the parser read the project (see `AzureDevOpsServerIntegration.getRepositoryTarget`).
-			project: project != null ? repo.project || project : undefined,
+			project: canonicalProject,
 			remoteUrl: options.remoteUrl,
 			renamed: renamed,
 			...getForkInfo(repo),
@@ -261,10 +275,7 @@ export async function resolveRepository(
 				const failure = await integration.settleRepositoryRefusal(
 					{
 						owner: owner,
-						name:
-							project != null
-								? getAzureRepositoryIdentity({ owner: owner, name: name }).repositoryName
-								: name,
+						name: repositoryName,
 						project: project,
 						connectionId: connectionId,
 					},
@@ -295,36 +306,23 @@ export async function resolveRepository(
 }
 
 /**
- * The fork fields of a provider repository, read defensively: `@gitkraken/provider-apis` does not declare `isFork`
- * or `parent` on its repository type, so a build of the SDK that carries them is read without the type knowing,
- * and one that doesn't reads as "unknown" (no `isFork`, no `parent`). `namespace` is the owner, workspace, project key
- * or Azure organization, as the SDK uses it elsewhere. A malformed value is dropped rather than half-trusted. A named
- * parent is itself a report of a fork, so it settles an unreported `isFork` to `true`; one beside `isFork: false`
- * contradicts the flag and is dropped.
+ * The fork fields of a provider repository. `namespace` is the owner, workspace, project key, Azure organization or
+ * GitLab group path (`group/subgroup`), as the SDK uses it elsewhere. A named parent is itself a report of a fork, so
+ * it settles an unreported `isFork` to `true`; one beside `isFork: false` contradicts the flag and is dropped. So is
+ * one with an empty namespace or name: the type allows it, and GitLab's is split from a path the server sends, which
+ * leaves no namespace when it has no `/`. It can't address a repository, but the fork is still reported.
  */
-function getForkInfo(repo: object): Pick<RepositoryIdentity, 'isFork' | 'parent'> {
-	const fork = 'isFork' in repo && typeof repo.isFork === 'boolean' ? repo.isFork : undefined;
+function getForkInfo(repo: ProviderRepository): Pick<RepositoryIdentity, 'isFork' | 'parent'> {
+	const { isFork, parent } = repo;
+	if (isFork === false || !parent?.namespace || !parent.name) return { isFork: isFork };
 
-	const parent = 'parent' in repo ? repo.parent : undefined;
-	if (
-		fork === false ||
-		parent == null ||
-		typeof parent !== 'object' ||
-		!('namespace' in parent) ||
-		!('name' in parent) ||
-		typeof parent.namespace !== 'string' ||
-		typeof parent.name !== 'string' ||
-		!parent.namespace ||
-		!parent.name
-	) {
-		return { isFork: fork };
-	}
-
-	const project =
-		'project' in parent && typeof parent.project === 'string' && parent.project ? parent.project : undefined;
 	return {
 		isFork: true,
-		parent: { owner: parent.namespace, name: parent.name, ...(project != null ? { project: project } : {}) },
+		parent: {
+			owner: parent.namespace,
+			name: parent.name,
+			...(parent.project ? { project: parent.project } : {}),
+		},
 	};
 }
 

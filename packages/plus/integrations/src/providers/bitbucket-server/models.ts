@@ -7,9 +7,8 @@ import type { ProviderAccount, ProviderPullRequest } from '../models.js';
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
 
-// Local runtime copies of the `@gitkraken/provider-apis` PR string enums, duplicated for the same
-// CJS-from-ESM reason as the enums in `../models.ts`. Exported so the enum-parity test can guard them
-// against upstream drift.
+// Local runtime copies of the `@gitkraken/provider-apis` PR string enums. Exported so the enum-parity
+// test can guard them against upstream drift.
 export const GitPullRequestState = {
 	Open: 'OPEN' as GitPullRequestState,
 	Closed: 'CLOSED' as GitPullRequestState,

@@ -128,7 +128,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `getIssuesBatch`             | `IssueBatchResult`           | Resolves N issues by coordinate or tracker identifier; an absence is proven.                 |
 | `getPullRequestsBatch`       | `PullRequestBatchResult`     | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.               |
 | `getPullRequestsForBranches` | `PullRequestBranchResult`    | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
-| `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).         |
+| `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello / Asana (issues live under resource → project). |
 | `sweepPullRequests`          | `ProviderSweepResult`        | Drains **every** page across providers (`maxPages`, default 100).                            |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`        | Same, pinned to `['closed','merged']`.                                                       |
 | `broadenIssues`              | `ProviderBroadenResult`      | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
@@ -198,7 +198,9 @@ before any target was read.
 
 The hosts with a cheap check select only the change state:
 
-- **GitHub/GHE:** one aliased document per 25 targets, like the full read.
+- **GitHub/GHE:** one aliased document per 25 targets, like the full read. Assigning or clearing a milestone moves
+  the update time, so the etag sees it; editing the milestone itself (its title, due date or state) doesn't, and a row
+  that compares unchanged keeps the milestone as it was read.
 - **GitLab and GitLab self-managed:** one query per project per 100 iids. That drops to 10 iids when `etagIncludes`
   has `'checks'`, because GitLab resolves every job of each head pipeline for that input. GitLab resets a merge
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
@@ -257,7 +259,8 @@ refused; any other failure of it is left to the full reads, so a call counts at 
 `getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
 relationship to them, so unlike the sweeps it finds a teammate's pull request from the user's branch. A target names
 the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
-`headOwner`; one equal to the target's owner means the base repository. A pull request matches only when its head
+`headOwner`; one equal to the target's owner means the base repository. On GitLab both are the whole namespace path
+(`group/subgroup`). A pull request matches only when its head
 repository is that base repository or that fork, so a `main` never claims every fork's `main`. The match is on the
 head branch name in every state, so a merged pull request whose branch was deleted is still found, and a fork is
 matched by its owner, so a pull request whose fork was deleted still matches that `headOwner`. Each target returns up
@@ -338,10 +341,11 @@ A group is `fetched` only if every field in it is. Pull request groups: `descrip
 reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`statusCheckRollupState`), `mergeable`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
-the identity it was matched against) and `stack`. `statusCheckRollupState`, `commitCount` and `viewerCanUpdate` live on
-the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`, and
-`bodyField` where the provider sets it, so take both from the same row), `assignees`, `labels`, `comments`
-(`commentsCount`), `reactions` (`thumbsUpCount`) and `access` (`repository.accessLevel`).
+the identity it was matched against), `stack` and `milestone`. `statusCheckRollupState`, `commitCount` and
+`viewerCanUpdate` live on the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups:
+`description` (`body`, and `bodyField` where the provider sets it, so take both from the same row), `assignees`,
+`labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`), `access` (`repository.accessLevel`) and
+`milestone` (on Linear, the issue's project milestone).
 
 Each table below covers a cloud host and its self-managed variant: where a cell reads `cloud / self-managed` the two
 differ, and `—` means that host never produces the tag.
@@ -366,6 +370,7 @@ differ, and `—` means that host never produces the tag.
 | access         | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
 | authoredByMe   | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested           | not-requested | not-requested         |
 | stack          | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
+| milestone      | fetched               | fetched               | fetched               | fetched               | fetched               | fetched               | fetched                 | fetched       | fetched               |
 
 <!-- field-presence: issues -->
 
@@ -377,6 +382,7 @@ differ, and `—` means that host never produces the tag.
 | comments    | fetched | fetched | fetched | fetched       | fetched |
 | reactions   | fetched | fetched | fetched | fetched       | fetched |
 | access      | fetched | fetched | fetched | not-requested | fetched |
+| milestone   | fetched | fetched | fetched | fetched       | fetched |
 
 The cells that aren't obvious from the projection names:
 
@@ -405,7 +411,8 @@ What holds for all of them:
 - **Substitutions.** Azure DevOps has no pull request assignees: both of its converters fill `assignees` with the
   reviewers, which `reviews` and `reviewRequests` already hold, so `assignees` is `unavailable` there. Votes are not
   reactions: a Jira issue's or Trello card's votes, and a Bitbucket issue's, land in `thumbsUpCount` (and read 0
-  where voting is off), so `reactions` is `unavailable` for them. A GitLab upvote is a thumbs-up award, so it counts.
+  where voting is off), so `reactions` is `unavailable` for them. A GitLab upvote is a thumbs-up award, so it counts,
+  and so does an Asana like, which is a thumbs-up on the task.
 - **Placeholders.** GitLens' own reads leave a field they didn't fetch `undefined`, but provider-apis' converters,
   which GitLens doesn't own, still fill some: Bitbucket's and Bitbucket Data Center's `mergeableState` is a literal
   Mergeable, GitLab turns a null count into 0, Linear's `labels` is an empty list, and an Azure DevOps work item's
@@ -430,6 +437,7 @@ What holds for all of them:
 | access         | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
 | authoredByMe   | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
 | stack          | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
+| milestone      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
 
 <!-- field-presence: gitlab-issues -->
 
@@ -441,6 +449,7 @@ What holds for all of them:
 | comments    | fetched / not-requested | fetched       | fetched / not-requested | fetched / not-requested |
 | reactions   | fetched                 | fetched       | fetched                 | fetched                 |
 | access      | not-requested           | not-requested | not-requested           | not-requested           |
+| milestone   | fetched                 | not-requested | fetched                 | fetched                 |
 
 - The point reads and the free-text search are GitLens' own, and leave everything but the merge request's identity,
   refs and dates off the row, including the description they select. Every other read is provider-apis'.
@@ -448,6 +457,9 @@ What holds for all of them:
   count nullable, so diff stats and commit counts are never `fetched`. GitLab.com's comment count resolver answers 0
   rather than null, so its comment count is; a self-managed version's isn't known to. The account-wide issue read is
   REST, whose comment count is always a number.
+- The account-wide issue read's REST normalizer drops the milestone the response carries, so `milestone` is
+  `not-requested` on `account`, though the host's "my issues" read, which shares the tag, reads it over GraphQL. It is
+  also `not-requested` on GitLens' own merge request reads.
 
 <!-- field-presence: azure-pull-requests -->
 
@@ -467,6 +479,7 @@ What holds for all of them:
 | access         | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
 | authoredByMe   | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
 | stack          | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| milestone      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 
 <!-- field-presence: azure-issues -->
 
@@ -478,6 +491,7 @@ What holds for all of them:
 | comments    | fetched       | — / fetched       | fetched     | fetched     | fetched     |
 | reactions   | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
 | access      | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
+| milestone   | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
 
 - Azure truncates the description of a pull request it lists (to 400 characters), so only the batch reads, which
   fetch each pull request by id, have it. GitLens' own point reads leave it off the row.
@@ -502,6 +516,7 @@ What holds for all of them:
 | access         | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
 | authoredByMe   | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
 | stack          | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| milestone      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: bitbucket-issues -->
 
@@ -513,6 +528,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested |
 | reactions   | unavailable   | unavailable   |
 | access      | not-requested | not-requested |
+| milestone   | unavailable   | unavailable   |
 
 - Bitbucket Cloud's point and batch reads are GitLens' own, which drop the comment count. The point read for a commit
   selects `+values.*`, which isn't known to bring the participants the reviews come from as the other point reads'
@@ -532,6 +548,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested | not-requested | fetched / not-requested |
 | reactions   | unavailable   | unavailable   | unavailable   | unavailable             |
 | access      | unavailable   | unavailable   | unavailable   | unavailable             |
+| milestone   | unavailable   | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: linear-issues -->
 
@@ -543,6 +560,7 @@ What holds for all of them:
 | comments    | not-requested | not-requested | not-requested | not-requested |
 | reactions   | not-requested | not-requested | not-requested | not-requested |
 | access      | unavailable   | unavailable   | unavailable   | unavailable   |
+| milestone   | fetched       | fetched       | fetched       | fetched       |
 
 <!-- field-presence: trello-issues -->
 
@@ -554,6 +572,19 @@ What holds for all of them:
 | comments    | fetched       | fetched       |
 | reactions   | unavailable   | unavailable   |
 | access      | unavailable   | unavailable   |
+| milestone   | unavailable   | unavailable   |
+
+<!-- field-presence: asana-issues -->
+
+| Group       | point         | account       | project       |
+| ----------- | ------------- | ------------- | ------------- |
+| description | fetched       | fetched       | fetched       |
+| assignees   | fetched       | fetched       | fetched       |
+| labels      | fetched       | fetched       | fetched       |
+| comments    | not-requested | not-requested | not-requested |
+| reactions   | fetched       | fetched       | fetched       |
+| access      | unavailable   | unavailable   | unavailable   |
+| milestone   | unavailable   | unavailable   | unavailable   |
 
 - Tracker issues belong to no repository, so `access` is `unavailable`.
 - provider-apis' Jira converter counts the comments embedded in the issue rather than reading their total, so only
@@ -561,6 +592,8 @@ What holds for all of them:
   through provider-apis.
 - provider-apis' Linear fragment selects no labels (it fills an empty list), comments or reactions.
 - A Trello card's description is never read. Trello has no batch or account-wide read.
+- An Asana task's tags are its labels and its likes, a thumbs-up on the task, its reactions. Its comments are stories, which a task doesn't
+  count, so reading them would cost a request per task. Asana has no batch read.
 
 ## 5. Paging
 
@@ -1080,12 +1113,16 @@ one.
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
-carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale.
+carries the provider's **canonical** owner/name plus `renamed: true` when the local remote is stale (on Azure DevOps,
+when the repository or its project is named differently from where it was read). Owner and name are compared as one
+path, because the remote and the provider split a GitLab nested group differently. GitLab's lookup doesn't follow a
+renamed or moved path, so a stale GitLab remote is `not-found` rather than `renamed`.
 It also carries `isFork` and `parent` (the repository a fork was made from, on the same host; `project` only on Azure
-DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps, when the
-`@gitkraken/provider-apis` repository returns `isFork` and `parent`, which it does not yet (a consumer can patch the
-SDK to return them). Only `isFork: false` means "not a fork": an identity with no `parent` and no `isFork` is a provider
-that didn't say.
+DevOps) for GitHub, GitHub Enterprise, Bitbucket Cloud, Bitbucket Data Center, Azure DevOps and gitlab.com, where a
+nested group is part of the owner (`group/subgroup`). Self-managed GitLab reports neither, because the field that names
+the parent needs GitLab 17.10 and an older server rejects the whole query. Only `isFork: false` means "not a fork": an
+identity with no `parent` and no `isFork` is a provider that didn't say, and `isFork: true` with no `parent` is a fork
+whose parent the provider didn't name (for example, one the token can't see).
 
 ## 7. Filters are all-or-nothing
 
@@ -1124,7 +1161,9 @@ const filters = wanted.filter(f => capability.includes(f));
   filtered issue search reports empty `relationships` and all-false flags, which is the signal to hide the
   surface rather than individual chips.
 - `issueStates` — whether the issue-tracker reads take a `state` other than open (`'closed'`, `'all'`). True for
-  Jira, Jira Data Center and Linear, which narrow server-side on every page of their drains; false for Trello,
+  Jira, Jira Data Center and Linear, which narrow server-side on every page of their drains, and for Asana, whose
+  only state is completion (an open read leaves completed tasks out server-side; a closed one is filtered from every
+  task, so its pages can come back short); false for Trello,
   which can only read open cards and refuses the other two (warning + `fetchFailed`). An omitted `state` reads
   open issues on every tracker.
 
@@ -1215,30 +1254,30 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 (warning + `fetchFailed`) · — not applicable. Self-managed variants inherit their cloud family's hooks unless a
 footnote says otherwise.
 
-| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello |
-| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: |
-| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listLinearProjects`         |      —       |          —           |     —     |      —       |            —            |      —      |   ✓    |   —    |
-| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
-| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |
-| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |
-| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |
-| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |
-| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |
-| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
+| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello | Asana |
+| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: | :---: |
+| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listLinearProjects`         |      —       |          —           |     —     |      —       |            —            |      —      |   ✓    |   —    |   —   |
+| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |   —   |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |   —   |
+| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |   —   |
+| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |   ✗   |
+| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |   ✗   |
+| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |   ✓   |
+| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
 
 Bitbucket Data Center exposes its projects through `listOrgs`: both `id` and `name` are the project key.
 Pass that key as `org` to `listRepos` to select a project, or omit `org` to enumerate all accessible repositories,
@@ -1310,7 +1349,7 @@ as "unset". The sort vocabulary is narrower than the issue search's on purpose: 
 by a field a normalized pull request carries, and GitHub PRs have neither a priority nor a relevance that ranks
 stably under the result ceiling.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
-Linear + Trello `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
+Linear + Trello + Asana `Assignee` · Bitbucket family none. With no filter, Linear's user-scoped tracker read is the viewer's
 assigned issues plus the GitHub-synced issues the viewer created (a GitHub issue attachment, and `syncedWith` not
 `[]`), since Linear's GitHub Issues sync gives the copy of a GitHub issue its author (when linked) as creator but no
 assignee; `Assignee` by name reads the assigned issues only.
@@ -1348,6 +1387,7 @@ present where the provider supplies it:
 | Jira DC      | Status name         | Yes     | Yes, from the stable status-category key |
 | Linear       | Workflow state name | Yes     | Yes, mapped from the Linear state type   |
 | Trello       | Card list name      | No      | No                                       |
+| Asana        | Section name        | No      | `DONE` once the task is completed        |
 | Azure DevOps | Work-item state     | No      | Yes, from the work item type's states    |
 | GitHub       | `open` / `closed`   | No      | No                                       |
 | GitLab       | `opened` / `closed` | No      | No                                       |
@@ -1548,18 +1588,26 @@ Markdown by this package.
     Azure's close date (or creation date while open), since Azure reports no last-activity date. `itemsPerPage`
     is per page here, not per facet. A repository name of `.` or `..` is refused rather than resolved as a path.
 
-- **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
+- **Jira (Cloud + Data Center) / Linear / Trello / Asana** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`. On Jira it gets a
   warning of its own, naming it in its message and its `omission.scope`, published even when another project failed
   (when a request of the read failed, the omission is retracted as on every read, and only the message names it);
-  Linear and Trello report one warning for the page, only when nothing failed.
+  Linear, Trello and Asana report one warning for the page, only when nothing failed.
   A Jira issue `@gitkraken/provider-apis` can't read is dropped from its page and reported instead: its siblings are
   served, with `fetchFailed`, an `unreadable-items` warning scoped to its project and naming its key, and
   `page.truncated` (never `narrow-scope`); a project that dropped one is not retried.
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
-  return the same set; Linear's resource is the organization and its projects are teams.
+  return the same set; Linear's resource is the organization and its projects are teams. Asana's resources are the
+  workspaces and its projects their unarchived projects; an Asana task's `id` is its gid, unique across Asana.
+  Asana's task list takes a project or an assignee but not both, so a user-scoped Asana read reads the viewer's tasks
+  once per workspace and splits them into its projects: a task in no project, or only in a project outside the read,
+  is not in it. provider-apis reports only the first project Asana lists for a task, so a task in several projects is
+  listed under that one alone, and is missing from the read when that project isn't in it (archived, beyond
+  discovery, or not selected), even if another of its projects is. When that read can't finish, each project is
+  drained and filtered to the viewer instead, which lists such a task under every requested project it is in, and a
+  project busy enough to reach its backstop is `page.truncated` with no narrower scope to retry.
   Linear's own Projects (Linear's `Project` entity, which can span teams) are a separate read, `listLinearProjects`:
   drained across Linear's pages up to 2,000, cached per connection for five minutes or until `forceSync`, and
   reported `fetchFailed` with a warning when the drain could not finish. Pass their `id`s as
@@ -1577,13 +1625,13 @@ Markdown by this package.
   error is incomplete, not an empty account: the page is `page.truncated` with a retry cursor and a "completeness
   could not be confirmed" warning, and `listOrgs` / `listProjects` report the provider `fetchFailed`. A discovery
   answering `[]` means no resources, and an unconnected tracker reads as empty.
-  `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or
-  key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
-  selects nothing instead of resolving to another one that carries the old value as a name or id. A selector that
-  matches nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's
-  id (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
-  `listProjects`' `name` for Jira. `listProjects({ org })` itself still matches any identifier, since it only lists
-  what a caller can then select.
+  `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or key.
+  Jira (Cloud and Data Center) matches only the canonical key, and Asana only the gid, so a removed selection matches
+  nothing instead of resolving to another resource that carries the old value as a name or id. A selector that matches
+  nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's id
+  (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
+  `listProjects`' `name` for Jira. For Asana, pass the workspace or project gid, never its display name.
+  `listProjects({ org })` itself still matches any identifier, since it only lists what a caller can then select.
 
 Self-managed descriptors keep `domain` as the normalized host and expose the configured installation address
 in `baseUrl`. Provider requests use the selected connection's address, including during account discovery.

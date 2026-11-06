@@ -1,22 +1,9 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import type { Provider } from '@gitlens/git/models/remoteProvider.js';
-import type { TokenWithInfo } from '../../../authentication/models.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { GitLabApi } from '../gitlab.js';
 import type { GitLabMergeRequestREST, GitLabMergeRequestState } from '../models.js';
-
-const provider = {
-	id: 'gitlab',
-	name: 'GitLab',
-	domain: 'gitlab.com',
-	icon: 'gitlab',
-	getIgnoreSSLErrors: () => false,
-	reauthenticate: () => Promise.resolve(),
-	trackRequestException: () => {},
-} as unknown as Provider;
-
-const token = { accessToken: 'token', microHash: 'hash' } as unknown as TokenWithInfo;
+import { gitLabProvider, gitLabToken } from './fixtures.js';
 
 function restMR(iid: number, state: GitLabMergeRequestState): GitLabMergeRequestREST {
 	return {
@@ -79,7 +66,10 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch([page1, page2, []], requestedPages));
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(
 			results.map(pr => pr.id),
@@ -94,7 +84,7 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch([page1, page1, []], requestedPages));
 
-		await api.searchPullRequests(provider, token, { search: 'fix' });
+		await api.searchPullRequests(gitLabProvider, gitLabToken, { search: 'fix' });
 
 		assert.deepEqual(requestedPages, [1], 'fetches only the first search page without a state filter');
 	});
@@ -120,7 +110,10 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 			),
 		);
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(
 			results.map(pr => pr.id),
@@ -140,12 +133,221 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		const requestedPages: number[] = [];
 		const api = new GitLabApi(createFakeFetch(pages, requestedPages));
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			include: ['merged'],
+		});
 
 		assert.deepEqual(results, []);
 		assert.deepEqual(
 			requestedPages,
 			Array.from({ length: 20 }, (_, i) => i + 1),
+		);
+	});
+});
+
+function errorResponse(status: number): Response {
+	return { ok: false, status: status, statusText: 'Error', text: () => Promise.resolve('') } as unknown as Response;
+}
+
+/** Serves each project's search from `byProject` (keyed by decoded full path), recording every REST request. */
+function createProjectScopedFetch(
+	byProject: Record<string, GitLabMergeRequestREST[] | 'not-found' | 'bad-request'>,
+	requests: { pathname: string; search: URLSearchParams }[],
+): ProviderApiConfig {
+	return {
+		fetch: (input: string | URL) => {
+			const url = new URL(input.toString());
+			if (url.pathname.endsWith('/graphql')) {
+				return Promise.resolve(
+					jsonResponse({
+						data: Object.fromEntries(
+							Array.from({ length: 40 }, (_, i) => [
+								`mergeRequest_${i}`,
+								{ project: { id: '1', fullPath: 'octo/repo', webUrl: '' } },
+							]),
+						),
+					}),
+				);
+			}
+
+			requests.push({ pathname: url.pathname, search: url.searchParams });
+			const match = /\/v4\/projects\/([^/]+)\/search$/.exec(url.pathname);
+			if (match == null) return Promise.resolve(jsonResponse([]));
+
+			const result = byProject[decodeURIComponent(match[1])];
+			if (result === 'not-found') return Promise.resolve(errorResponse(404));
+			if (result === 'bad-request') return Promise.resolve(errorResponse(400));
+
+			const page = Number(url.searchParams.get('page') ?? '1');
+			return Promise.resolve(jsonResponse(page === 1 ? (result ?? []) : []));
+		},
+		wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+	};
+}
+
+suite('GitLabApi.searchPullRequests repository scope', () => {
+	test('searches only the requested project instead of the whole instance', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(createProjectScopedFetch({ 'octo/repo': [restMR(1, 'opened')] }, requests));
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/repo'],
+		});
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['1'],
+		);
+		assert.deepEqual(
+			requests.map(r => r.pathname),
+			['/api/v4/projects/octo%2Frepo/search'],
+		);
+		assert.equal(requests[0].search.get('scope'), 'merge_requests');
+		assert.equal(requests[0].search.get('search'), 'fix');
+	});
+
+	test('addresses a nested-namespace project by its whole URL-encoded full path', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch({ 'group/sub/deeper/repo': [restMR(1, 'opened')] }, requests),
+		);
+
+		await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['group/sub/deeper/repo'],
+		});
+
+		assert.deepEqual(
+			requests.map(r => r.pathname),
+			['/api/v4/projects/group%2Fsub%2Fdeeper%2Frepo/search'],
+		);
+	});
+
+	test('searches each project once, interleaving results by relevance and dropping duplicates', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch(
+				{
+					'octo/a': [restMR(1, 'opened'), restMR(2, 'opened'), restMR(3, 'opened')],
+					'octo/b': [restMR(10, 'opened'), restMR(2, 'opened')],
+				},
+				requests,
+			),
+		);
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/a', 'octo/b', 'octo/a'],
+		});
+
+		assert.deepEqual(requests.map(r => r.pathname).sort(), [
+			'/api/v4/projects/octo%2Fa/search',
+			'/api/v4/projects/octo%2Fb/search',
+		]);
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['1', '10', '2', '3'],
+		);
+	});
+
+	test('keeps the combined result within the single-search cap', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const full = (base: number) => Array.from({ length: 20 }, (_, i) => restMR(base + i, 'opened'));
+		const api = new GitLabApi(createProjectScopedFetch({ 'octo/a': full(100), 'octo/b': full(200) }, requests));
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/a', 'octo/b'],
+		});
+
+		assert.equal(results.length, 20);
+		assert.deepEqual(
+			results.slice(0, 4).map(pr => pr.id),
+			['100', '200', '101', '201'],
+		);
+	});
+
+	test('applies the state filter within each project', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch(
+				{
+					'octo/a': [restMR(1, 'opened'), restMR(2, 'merged')],
+					'octo/b': [restMR(3, 'merged'), restMR(4, 'closed')],
+				},
+				requests,
+			),
+		);
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/a', 'octo/b'],
+			include: ['merged'],
+		});
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['2', '3'],
+		);
+		assert.ok(requests.every(r => r.search.get('state') === 'merged'));
+	});
+
+	test('skips a project that is gone and still returns the others', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch({ 'octo/gone': 'not-found', 'octo/b': [restMR(3, 'opened')] }, requests),
+		);
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/gone', 'octo/b'],
+		});
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['3'],
+		);
+	});
+
+	test("keeps the other projects' matches when one project fails", async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch({ 'octo/a': 'bad-request', 'octo/b': [restMR(3, 'opened')] }, requests),
+		);
+
+		const results = await api.searchPullRequests(gitLabProvider, gitLabToken, {
+			search: 'fix',
+			repos: ['octo/a', 'octo/b'],
+		});
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['3'],
+		);
+	});
+
+	test('rejects when every project fails rather than reporting no matches', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(
+			createProjectScopedFetch({ 'octo/a': 'bad-request', 'octo/b': 'bad-request' }, requests),
+		);
+
+		await assert.rejects(
+			api.searchPullRequests(gitLabProvider, gitLabToken, { search: 'fix', repos: ['octo/a', 'octo/b'] }),
+		);
+	});
+
+	test('searches the whole instance when no repositories are given', async () => {
+		const requests: { pathname: string; search: URLSearchParams }[] = [];
+		const api = new GitLabApi(createProjectScopedFetch({}, requests));
+
+		await api.searchPullRequests(gitLabProvider, gitLabToken, { search: 'fix', repos: [] });
+
+		assert.deepEqual(
+			requests.map(r => r.pathname),
+			['/api/v4/search/'],
 		);
 	});
 });

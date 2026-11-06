@@ -76,9 +76,9 @@ export interface WorktreeSummary {
 	 */
 	readonly baseDependsOn: readonly string[];
 	/**
-	 * The latest recompute failed (worktree gone, lock contention); the other fields hold the last values read. Also set
-	 * when only the base read failed: the other fields are fresh, and `base` and `baseDependsOn` are their last values,
-	 * or `undefined` and empty if the branch changed.
+	 * The latest recompute failed (worktree gone, lock contention, git past its time limit); the other fields hold the
+	 * last values read. Also set when only the base read failed: the other fields are fresh, and `base` and
+	 * `baseDependsOn` are their last values, or `undefined` and empty if the branch changed.
 	 */
 	readonly stale: boolean;
 }
@@ -587,6 +587,10 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			}
 		} else if (target.handle != null) {
 			subscription.attach(target.handle.session);
+			// A first read cut short: no git event may come to read it again (see `getSubscribedSummary`)
+			if (target.running == null && target.value == null && isCancellationError(target.error)) {
+				this.queue(target, allFields);
+			}
 		} else if (target.running == null && !target.disposed) {
 			// The start failed (no repository or git directory yet); a new subscriber retries it
 			target.running = this.start(target);
@@ -597,8 +601,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 	/**
 	 * Returns a worktree's summary. For a subscribed worktree, the cached value — after waiting for any run in flight
-	 * or pending; it rejects with the read's error when there is still no value. Otherwise the last read of it,
-	 * re-reading what moved since (see {@link getSummarySnapshot}).
+	 * or pending; it rejects with the read's error when there is still no value, after one more read when git ran out
+	 * of time or the start failed. Otherwise the last read of it, re-reading what moved since (see {@link getSummarySnapshot}).
 	 */
 	async getSummary(repoPath: string, cancellation?: AbortSignal): Promise<WorktreeSummary> {
 		const key = getRepositoryKey(repoPath);
@@ -614,8 +618,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	 * the saved read's (see {@link WorktreeSummarySubscription.dirtyReadAt}), which `probeDirty` reads again. Any other
 	 * answers from its last read, re-reading only the groups whose inputs moved since (no git when none did), and in
 	 * full the first time, or after a failed or stale read. Its working tree is unwatched, so the dirty flag is re-read
-	 * only when the index file moved, or with `probeDirty`; a rejection drops the last read. Its inputs are core's
-	 * cached answers, which only a `.git` watch of the worktree (or core's own writes) keeps current.
+	 * only when the index file moved, or with `probeDirty`; a rejection drops the last read, unless the read was cut
+	 * short, which says nothing against it. Its inputs are core's cached answers, which only a `.git` watch of the
+	 * worktree (or core's own writes) keeps current.
 	 */
 	async getSummarySnapshot(
 		repoPath: string,
@@ -643,17 +648,48 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		return { summary: summary, dirtyReadAt: entry.dirtyReadAt };
 	}
 
+	/**
+	 * A first read cut short (git ran past its time limit, or was killed) says nothing about the worktree, and no git
+	 * event may come to read it again, so each reader reads once more, joining a read in flight, before getting its
+	 * error, and so does each new subscriber. Only they cause this: reads of a worktree run one at a time, each bounded
+	 * by the time limit and holding a read slot. A start that failed has no watch for an event to come from, however it
+	 * failed, so it gets the same.
+	 */
 	private async getSubscribedSummary(
 		entry: SummaryEntry,
 		cancellation: AbortSignal | undefined,
 	): Promise<WorktreeSummary> {
+		let summary = await this.waitForValue(entry, cancellation);
+		if (summary != null) return summary;
+
+		if (isCancellationError(entry.error) || entry.handle == null) {
+			if (cancellation?.aborted) throw new CancellationError();
+
+			if (entry.running == null) {
+				if (entry.handle == null) {
+					entry.running = this.start(entry);
+				} else {
+					this.queue(entry, allFields);
+				}
+			}
+			summary = await this.waitForValue(entry, cancellation);
+			if (summary != null) return summary;
+		}
+
+		throw entry.error ?? new Error(`No summary available for '${entry.key}'`);
+	}
+
+	/** The value once any run in flight or pending is done, `undefined` when it has none */
+	private async waitForValue(
+		entry: SummaryEntry,
+		cancellation: AbortSignal | undefined,
+	): Promise<WorktreeSummary | undefined> {
 		if (entry.running != null) {
 			await (cancellation != null ? raceWithSignal(entry.running, cancellation) : entry.running);
 		}
 		if (entry.disposed) throw new CancellationError();
-		if (entry.value != null) return entry.value;
 
-		throw entry.error ?? new Error(`No summary available for '${entry.key}'`);
+		return entry.value;
 	}
 
 	/** Joins the read in flight for `key`, or starts one; the read is aborted only once no caller waits for it */
@@ -818,7 +854,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		const [current, refs, gitDir] = await Promise.all([
 			repo.branches.getBranch(undefined, undefined, signal),
 			probeRefs(repo, remotes, signal),
-			stat != null ? getGitDir(repo) : undefined,
+			stat != null ? getGitDir(repo, signal) : undefined,
 		]);
 
 		let index: string | undefined;
@@ -889,6 +925,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			}
 			return { fields: fields | moved.fields, baseMoves: moved.baseMoves ?? baseMoves, head: head };
 		} catch (ex) {
+			// Cut short as well: a run reading the same things right after would only run past the limit again
 			if (isCancellationError(ex)) throw ex;
 
 			probed.refs = undefined;
@@ -908,9 +945,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			if (entry.disposed) return;
 
 			entry.running = undefined;
-			if (!isCancellationError(ex)) {
-				this.fail(entry, ex);
-			}
+			this.fail(entry, ex);
 			return;
 		}
 		if (entry.disposed) return;
@@ -1248,7 +1283,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				(due, moves) => this.probeRead(repo, previous, tips, due, moves, probed, signal),
 			);
 		} catch (ex) {
-			if (entry.disposed || isCancellationError(ex)) return;
+			// Its signal aborts only as the entry is disposed, so any other cancellation is a failed read: a timeout, or
+			// git killed from outside
+			if (entry.disposed) return;
 
 			this.fail(entry, ex);
 			return;
@@ -1500,7 +1537,7 @@ async function readSummary(
 		}
 	}
 	if (fields & baseKeysField && !(fields & baseField) && baseReadable) {
-		baseKeys = await readBaseKeys(repo, branch);
+		baseKeys = await readBaseKeys(repo, branch, signal);
 		baseKeysRead = true;
 		if (baseKeys == null || previousBaseKeys == null || !baseKeysEqual(baseKeys, previousBaseKeys)) {
 			fields |= baseField;
@@ -1516,7 +1553,7 @@ async function readSummary(
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
-				baseKeys = await readBaseKeys(repo, branch);
+				baseKeys = await readBaseKeys(repo, branch, signal);
 			}
 			if (!baseConfigRead && (previous != null || (fields & baseConfigField) !== 0)) {
 				baseConfig = await readBaseConfig(repo, signal);
@@ -1557,7 +1594,7 @@ async function readSummary(
 						try {
 							full = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
 						} catch (ex) {
-							if (isCancellationError(ex)) throw ex;
+							if (isReadAborted(ex, signal)) throw ex;
 						}
 						verifyBaseRemeasure(aheadOfBase, full);
 					}
@@ -1567,7 +1604,7 @@ async function readSummary(
 				dependsOn = aheadOfBase?.dependsOn ?? emptyRefs;
 				baseDefaultBranch = aheadOfBase?.defaultBranch;
 			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
+				if (isReadAborted(ex, signal)) throw ex;
 
 				baseFailed = true;
 				baseError = ex;
@@ -1614,11 +1651,19 @@ async function readSummary(
 	};
 }
 
-async function getGitDir(repo: RepositoryService): Promise<GitDir | undefined> {
+/**
+ * Whether `ex` is the read giving up on `signal`, rather than failing: one cut short (git ran past its time limit, or
+ * was killed) rejects as a cancellation too, with `signal` not aborted
+ */
+function isReadAborted(ex: unknown, signal: AbortSignal | undefined): boolean {
+	return isCancellationError(ex) && (signal?.aborted ?? true);
+}
+
+async function getGitDir(repo: RepositoryService, signal: AbortSignal): Promise<GitDir | undefined> {
 	try {
 		return await repo.config.getGitDir?.();
 	} catch (ex) {
-		if (isCancellationError(ex)) throw ex;
+		if (isReadAborted(ex, signal)) throw ex;
 
 		return undefined;
 	}
@@ -1816,7 +1861,7 @@ async function readRemoteHeads(
 			try {
 				target = await repo.branches.getDefaultBranchName(name, { local: true }, signal);
 			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
+				if (isReadAborted(ex, signal)) throw ex;
 
 				target = null;
 			}
@@ -1893,7 +1938,7 @@ async function readBaseConfig(
 		}
 		return await repo.branches.getAheadOfBaseConfigKey?.(signal);
 	} catch (ex) {
-		if (isCancellationError(ex)) throw ex;
+		if (isReadAborted(ex, signal)) throw ex;
 
 		return undefined;
 	}
@@ -1937,7 +1982,11 @@ function getBaseConfigKey(config: BaseConfig | undefined, value: WorktreeSummary
  * failed — an unknown snapshot, so the next `gk` config change reads the base rather than trusting it. A detached
  * HEAD (`branch` undefined) has no stored values to read.
  */
-async function readBaseKeys(repo: RepositoryService, branch: string | undefined): Promise<BaseKeys | undefined> {
+async function readBaseKeys(
+	repo: RepositoryService,
+	branch: string | undefined,
+	signal: AbortSignal | undefined,
+): Promise<BaseKeys | undefined> {
 	if (branch == null) return noBaseKeys;
 
 	try {
@@ -1948,7 +1997,7 @@ async function readBaseKeys(repo: RepositoryService, branch: string | undefined)
 		]);
 		return [user?.trim() || undefined, detected?.trim() || undefined, recorded?.trim() || undefined];
 	} catch (ex) {
-		if (isCancellationError(ex)) throw ex;
+		if (isReadAborted(ex, signal)) throw ex;
 
 		return undefined;
 	}

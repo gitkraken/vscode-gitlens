@@ -168,28 +168,11 @@ export class CliGitProvider implements GitProvider {
 				},
 				repository: {
 					...hostHooks?.repository,
-					onChanged: (repoPath, changes, refs, options) => {
-						// Everything the watcher would have cleared for the write, since its own file events are
-						// dropped once it is announced (the typed write's `onReset` names only what it must evict)
-						this.resetForChanges(repoPath, changes, undefined);
-						// Worktrees share refs, tags, stash, remotes and config, so a typed write in one changes what
-						// its siblings show; the host hears the shared part of it for each, and they read fresh.
-						// Every path is reset before any is announced, so a read the host starts on hearing one path
-						// isn't evicted by the next path's reset
-						const siblings = this.getSiblingChanges(repoPath, changes);
-						for (const [path, shared] of siblings) {
-							this.resetForChanges(path, shared, undefined, true);
-						}
-
-						this.announceChanged(repoPath, changes, refs, options);
-						if (siblings.size === 0) return;
-
-						// Siblings share the one `.git/config`, so the write's config is as confined for them
-						const sharedRefs = refs?.length ? getSharedRefs(changes, refs) : undefined;
-						for (const [path, shared] of siblings) {
-							this.announceChanged(path, shared, sharedRefs, options);
-						}
-					},
+					onChanged: (repoPath, changes, refs, options) =>
+						this.announceWrite(repoPath, changes, refs, {
+							configConfinedToRefs: options?.configConfinedToRefs,
+							movedWorktrees: this.getMovedWorktrees([repoPath], changes),
+						}),
 				},
 			},
 		};
@@ -461,7 +444,12 @@ export class CliGitProvider implements GitProvider {
 		const resets: { repoPath: string; types: CachedGitTypes[] }[] = [];
 		const pendingPaths = new Set<string>();
 		for (const [repoPath, announced] of announcements) {
-			const types = this.resetForChanges(repoPath, announced, options?.cache);
+			const types = this.resetForChanges(
+				repoPath,
+				announced,
+				options?.cache,
+				repoPaths.includes(repoPath) ? 'all' : 'shared',
+			);
 			if (types == null) {
 				// A gk config change is reconciled outside the cache types, but its re-read must not join a pre-write run
 				if (options?.cache == null && announced.includes('gkConfig')) {
@@ -487,7 +475,7 @@ export class CliGitProvider implements GitProvider {
 				if (announcements.has(path)) continue;
 
 				announcements.set(path, siblingChanges);
-				this.resetForChanges(path, siblingChanges, options?.cache, true);
+				this.resetForChanges(path, siblingChanges, options?.cache, 'sibling');
 			}
 		}
 
@@ -500,9 +488,68 @@ export class CliGitProvider implements GitProvider {
 		// The host's own hook: `context.hooks.repository.onChanged` also fans out to siblings, which would
 		// announce a path a second time
 		const sharedRefs = names?.refs.length ? getSharedRefs(changes, names.refs) : undefined;
+		const movedWorktrees = this.getMovedWorktrees(repoPaths, changes);
 		for (const [path, announced] of announcements) {
-			this.announceChanged(path, [...announced], repoPaths.includes(path) ? names?.refs : sharedRefs, names);
+			this.announceChanged(path, [...announced], repoPaths.includes(path) ? names?.refs : sharedRefs, {
+				configConfinedToRefs: names?.configConfinedToRefs,
+				movedWorktrees: movedWorktrees,
+			});
 		}
+	}
+
+	/**
+	 * Announces a typed write that ran in `repoPath`, as `context.hooks.repository.onChanged` does, for a write that
+	 * knows which linked worktrees' HEADs it moved (see `AnnouncedRepositoryChanges.movedWorktrees`) where `repoPath`
+	 * doesn't say: a worktree added or removed from it. `options.configConfinedToRefs` is as for the hook.
+	 *
+	 * @internal not intended to be used outside of the sub-providers
+	 */
+	announceWrite(
+		repoPath: string,
+		changes: RepositoryChange[],
+		refs?: readonly string[],
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
+	): void {
+		// Everything the watcher would have cleared for the write, since its own file events are dropped once it is
+		// announced (the typed write's `onReset` names only what it must evict)
+		this.resetForChanges(repoPath, changes, undefined);
+		// Worktrees share refs, tags, stash, remotes and config, so a typed write in one changes what its siblings show;
+		// the host hears the shared part of it for each, and they read fresh. Every path is reset before any is
+		// announced, so a read the host starts on hearing one path isn't evicted by the next path's reset
+		const siblings = this.getSiblingChanges(repoPath, changes);
+		for (const [path, shared] of siblings) {
+			this.resetForChanges(path, shared, undefined, 'sibling');
+		}
+
+		this.announceChanged(repoPath, changes, refs, options);
+		if (siblings.size === 0) return;
+
+		// Siblings share the one `.git/config`, so the write's config is as confined for them, and they hear the same
+		// worktrees moved
+		const sharedRefs = refs?.length ? getSharedRefs(changes, refs) : undefined;
+		for (const [path, shared] of siblings) {
+			this.announceChanged(path, shared, sharedRefs, options);
+		}
+	}
+
+	/**
+	 * The linked worktrees whose HEAD a write that ran in `paths` moved, for a `worktreeHead` among `changes` (see
+	 * `AnnouncedRepositoryChanges.movedWorktrees`): those of `paths` when it rewrote their HEAD, which it announces as
+	 * `head`, and otherwise none, as the worktree it added or removed is unknown here; `undefined` without
+	 * `worktreeHead`
+	 */
+	private getMovedWorktrees(paths: readonly string[], changes: readonly RepositoryChange[]): string[] | undefined {
+		if (!changes.includes('worktreeHead')) return undefined;
+		if (!changes.includes('head')) return [];
+
+		const ids: string[] = [];
+		for (const path of paths) {
+			const id = this._cache.getLinkedWorktreeId(normalizePath(path));
+			if (id != null) {
+				ids.push(id);
+			}
+		}
+		return ids;
 	}
 
 	/**
@@ -519,13 +566,18 @@ export class CliGitProvider implements GitProvider {
 	 * `refs` are the full ref names the write moved, when it knows them, and `options.configConfinedToRefs` confines
 	 * its `config` change to the sections of the local branches among them (see `GitServiceHooks.repository.onChanged`);
 	 * the confinement is passed on only with `config` among `changes` and a branch in `refs` to confine it to.
+	 * `options.movedWorktrees` reaches the watch layer alone, and only with `worktreeHead` among `changes`.
 	 */
 	private announceChanged(
 		repoPath: string,
 		changes: RepositoryChange[],
 		refs?: readonly string[],
-		options?: { readonly configConfinedToRefs?: boolean },
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
 	): void {
+		const moved =
+			options?.movedWorktrees != null && changes.includes('worktreeHead')
+				? { movedWorktrees: options.movedWorktrees }
+				: undefined;
 		if (refs?.length) {
 			if (
 				options?.configConfinedToRefs === true &&
@@ -537,17 +589,18 @@ export class CliGitProvider implements GitProvider {
 					changes: changes,
 					refs: refs,
 					configConfinedToRefs: true,
+					...moved,
 				});
 				this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs, { configConfinedToRefs: true });
 				return;
 			}
 
-			this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes, refs: refs });
+			this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes, refs: refs, ...moved });
 			this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs);
 			return;
 		}
 
-		this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes });
+		this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes, ...moved });
 		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
 	}
 
@@ -583,14 +636,21 @@ export class CliGitProvider implements GitProvider {
 
 	/**
 	 * Evicts what a notified change reset for `repoPath`: the types reset (`[]` = all), or `undefined` for none.
-	 * A `sibling` shares its repository with a path already reset for the same change, which evicted the shared
-	 * entries for every worktree, so the changes evict only its own entries and advance its status clock.
+	 * `heard` is how `repoPath` heard the write:
+	 * - `'all'`: all of it, as the path it ran in or one it was announced whole for, so the changes are announced for it
+	 *   (see `Cache.applyRepositoryChanges`)
+	 * - `'shared'`: the shared part, as the caller's `cwd` of a `-C` write elsewhere, so a `'worktreeHead'` among them is
+	 *   another worktree's, which `-C` may have named by a folder inside it, and every other linked worktree loses its
+	 *   current branch
+	 * - `'sibling'`: the shared part, as a path sharing its repository with one already reset for the same change, which
+	 *   evicted the shared entries for every worktree, so the changes evict only its own entries and advance its
+	 *   status clock
 	 */
 	private resetForChanges(
 		repoPath: string,
 		changes: readonly RepositoryChange[],
 		cache: readonly CachedGitTypes[] | 'all' | undefined,
-		sibling: boolean = false,
+		heard: 'all' | 'shared' | 'sibling' = 'all',
 	): CachedGitTypes[] | undefined {
 		if (cache != null && cache !== 'all') {
 			if (!cache.length) return undefined;
@@ -608,7 +668,7 @@ export class CliGitProvider implements GitProvider {
 			repoPath,
 			changes,
 			'evict',
-			sibling ? { worktreeOnly: true } : undefined,
+			heard === 'sibling' ? { worktreeOnly: true } : { announced: heard === 'all' },
 		);
 		return types.length ? types : undefined;
 	}
@@ -851,7 +911,7 @@ export class CliGitProvider implements GitProvider {
 
 	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
 		return this._cache.getLastFetchedTimestamp(repoPath, async (commonPath): Promise<number | undefined> => {
-			const gitDir = await this.config.getGitDir?.(commonPath);
+			const gitDir = await this.config.getGitDir?.(commonPath).catch(() => undefined);
 			if (gitDir == null) return undefined;
 
 			const gitDirUri = gitDir.commonUri ?? gitDir.uri;

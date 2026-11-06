@@ -303,7 +303,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	): Promise<GitHostIntegration | undefined>;
 	get(id: GitSelfManagedHostIntegrationId, domain: string): Promise<GitHostIntegration | undefined>;
 	get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined>;
-	async get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined> {
+	async get(id: IntegrationIds, domain?: string): Promise<Integration | undefined> {
 		// Normalize to a bare host before anything keys off it. Callers pass a self-managed domain in both shapes
 		// — a full URL from a stored session/descriptor, a bare host from `hostFromDomain` — and the cache key is
 		// `${id}:${domain}`, so the same host arriving in two shapes would build two instances (and two
@@ -323,7 +323,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
@@ -345,7 +345,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							) as GitHostIntegration as IntegrationById<T>;
+							);
 
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
@@ -363,7 +363,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 						domain,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitCloudHostIntegrationId.GitLab:
@@ -374,7 +374,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
@@ -396,7 +396,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							) as GitHostIntegration as IntegrationById<T>;
+							);
 
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
@@ -414,7 +414,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 						domain,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitCloudHostIntegrationId.Bitbucket:
@@ -425,7 +425,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitSelfManagedHostIntegrationId.BitbucketServer:
@@ -447,7 +447,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							) as GitHostIntegration as IntegrationById<T>;
+							);
 
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
@@ -465,7 +465,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 						domain,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitCloudHostIntegrationId.AzureDevOps:
@@ -476,7 +476,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
@@ -498,7 +498,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							) as GitHostIntegration as IntegrationById<T>;
+							);
 
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
@@ -516,7 +516,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 						domain,
-					) as GitHostIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case IssuesCloudHostIntegrationId.Jira:
@@ -527,7 +527,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as IssuesIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case IssuesSelfManagedHostIntegrationId.JiraServer:
@@ -549,7 +549,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
 								configuredDomain,
-							) as IssuesIntegration as IntegrationById<T>;
+							);
 
 							// assign domain because it's part of caching key:
 							domain = configuredDomain;
@@ -567,7 +567,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 						domain,
-					) as IssuesIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case IssuesCloudHostIntegrationId.Linear:
@@ -578,7 +578,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as IssuesIntegration as IntegrationById<T>;
+					);
 					break;
 
 				case IssuesCloudHostIntegrationId.Trello:
@@ -589,10 +589,21 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
-					) as IssuesIntegration as IntegrationById<T>;
+					);
+					break;
+
+				case IssuesCloudHostIntegrationId.Asana:
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/asana.js')
+					).AsanaIntegration(
+						this.ctx,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+					);
 					break;
 				default:
-					throw new Error(`Integration with '${id}' is not supported`);
+					throw new Error(`Integration with '${String(id)}' is not supported`);
 			}
 
 			this._integrations.set(this.getCacheKey(id, domain), integration);
@@ -1381,7 +1392,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	/**
-	 * Reads the user's issues from an issue-tracker provider (Jira/Linear/Trello), whose issues live under
+	 * Reads the user's issues from an issue-tracker provider (Jira/Linear/Trello/Asana), whose issues live under
 	 * resource → project (not repos), so they can't go through {@link listIssuesPage} (git-host, repo-scoped).
 	 * Returns the normalized {@link IssueShape} these providers produce, aggregated across the projects of the
 	 * given `org` (or every visible resource/project when omitted). `includeAllAssignees` drops the

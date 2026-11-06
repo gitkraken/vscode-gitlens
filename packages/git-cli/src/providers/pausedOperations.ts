@@ -130,11 +130,15 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			this.cache.pausedOperationStatus.delete(repoPath);
 		}
 
-		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async _cancellable => {
-			const gitDir = await this.provider.config.getGitDir(repoPath);
-
-			// An unreadable git dir reads as "nothing paused" here — the status is best-effort and self-heals
-			const operations = await this.scanGitDir(gitDir).catch(() => new Set<Operation>());
+		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async cacheable => {
+			// An unresolved or unreadable git dir reads as "nothing paused" here — the status is best-effort and self-heals.
+			// Neither is kept, since this cache has no expiry and a paused operation would read as none until cleared
+			const gitDir = await this.provider.config.getGitDir(repoPath).catch(() => undefined);
+			const operations = gitDir != null ? await this.scanGitDir(gitDir).catch(() => undefined) : undefined;
+			if (gitDir == null || operations == null) {
+				cacheable.invalidate();
+				return undefined;
+			}
 
 			if (!operations.size) return undefined;
 			if (cancellation?.aborted) throw new CancellationError();

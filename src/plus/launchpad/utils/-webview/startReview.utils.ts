@@ -16,7 +16,10 @@ import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
 import { getPresentableErrorMessage } from '../../../../errors.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
-import { getOrOpenPullRequestRepository } from '../../../../git/utils/-webview/pullRequest.utils.js';
+import {
+	getOrOpenPullRequestRepository,
+	getRemoteNameForPullRequestOwner,
+} from '../../../../git/utils/-webview/pullRequest.utils.js';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
 import { promptToLocateOrCloneRepository } from '../../../../git/utils/-webview/repository.utils.js';
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
@@ -83,7 +86,7 @@ export async function startReviewFromLaunchpadItem(
 		const existingWorktree = await getWorktreeForBranch(
 			item.openRepository.repo,
 			item.openRepository.localBranch.name,
-			`${pr.refs?.head?.owner}/${pr.refs?.head?.branch}`,
+			`${getRemoteNameForPullRequestOwner(pr.refs?.head?.owner ?? '')}/${pr.refs?.head?.branch}`,
 		);
 		return {
 			worktree: existingWorktree,
@@ -265,7 +268,7 @@ export async function setupPullRequestBranch(
 		await repo.git.ops?.fetch({ remote: remoteName });
 	} else {
 		// Add remote for fork
-		remoteName = remoteOwner;
+		remoteName = getRemoteNameForPullRequestOwner(remoteOwner);
 		addRemote = { name: remoteName, url: remoteUrl };
 	}
 

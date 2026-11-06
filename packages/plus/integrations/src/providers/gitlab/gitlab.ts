@@ -7,16 +7,18 @@ import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import { joinUriPath, parseUri } from '@gitlens/utils/uri.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
+import { providerFanOutConcurrency } from '../../constants.js';
 import type { IntegrationServiceContext } from '../../context.js';
 import {
 	AuthenticationError,
@@ -49,6 +51,7 @@ import {
 	fromGitLabMergeRequest,
 	fromGitLabMergeRequestREST,
 	fromGitLabMergeRequestState,
+	getRepoName,
 	getRepoNamespace,
 	gitLabEtagFieldsMaxIids,
 	toGitLabMergeRequestState,
@@ -62,6 +65,34 @@ function buildGitLabUserId(id: string | number | undefined): string | undefined 
 	return typeof id === 'string' && id?.startsWith(gitlabUserIdPrefix)
 		? id.substring(gitlabUserIdPrefix.length)
 		: String(id);
+}
+
+/** Merge requests one search returns; a bigger amount exceeds the max GraphQL complexity of the detail query. */
+const searchPageSize = 20;
+
+/**
+ * Merge requests taken best-ranked first across `lists` (each already in rank order), skipping a repeated id,
+ * up to `limit`.
+ */
+function interleaveByRank(
+	lists: readonly (readonly GitLabMergeRequestREST[])[],
+	limit: number,
+): GitLabMergeRequestREST[] {
+	const seen = new Set<number>();
+	const merged: GitLabMergeRequestREST[] = [];
+	const longest = Math.max(0, ...lists.map(l => l.length));
+	for (let rank = 0; rank < longest; rank++) {
+		for (const list of lists) {
+			const mr = list[rank];
+			if (mr == null || seen.has(mr.id)) continue;
+
+			if (merged.length >= limit) return merged;
+
+			seen.add(mr.id);
+			merged.push(mr);
+		}
+	}
+	return merged;
 }
 
 export class GitLabApi implements Disposable {
@@ -620,6 +651,8 @@ export class GitLabApi implements Disposable {
 
 			if (pr == null) return undefined;
 
+			// A caller holding a remote's descriptor split a nested group at its first slash.
+			const fullPath = `${owner}/${repo}`;
 			return new PullRequest(
 				provider,
 				{
@@ -636,7 +669,7 @@ export class GitLabApi implements Disposable {
 				undefined,
 				pr.title,
 				pr.webUrl,
-				{ owner: owner, repo: repo },
+				{ owner: getRepoNamespace(fullPath), repo: getRepoName(fullPath) },
 				fromGitLabMergeRequestState(pr.state),
 				new Date(pr.createdAt),
 				new Date(pr.updatedAt),
@@ -722,7 +755,14 @@ export class GitLabApi implements Disposable {
 				);
 			}
 
-			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo }, 'point');
+			// A caller holding a remote's descriptor split a nested group at its first slash.
+			const fullPath = `${owner}/${repo}`;
+			return fromGitLabMergeRequestREST(
+				mrs[0],
+				provider,
+				{ owner: getRepoNamespace(fullPath), repo: getRepoName(fullPath) },
+				'point',
+			);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1235,57 +1275,65 @@ export class GitLabApi implements Disposable {
 		}
 
 		try {
-			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
 			const include = options?.include?.length ? options.include : undefined;
-			// GitLab's search API takes a single `state` value, so push it server-side when exactly one state is
-			// requested; that keeps the requested state from being crowded out of the `perPageLimit` slice. For
-			// multiple states there's no single-value qualifier, so those are filtered client-side below.
-			let searchPath = `v4/search/?scope=merge_requests&search=${encodeURIComponent(search)}&per_page=${perPageLimit}`;
-			if (include?.length === 1) {
-				searchPath += `&state=${encodeURIComponent(toGitLabMergeRequestState(include[0]))}`;
-			}
+			const searchQuery = `scope=merge_requests&search=${encodeURIComponent(search)}&per_page=${searchPageSize}`;
+			// A repository-scoped search reads only those projects (by URL-encoded full path, which covers nested
+			// namespaces) rather than the whole instance, so it never reads more than the caller asked for.
+			const repos = options?.repos?.length
+				? [...new Map(options.repos.map(r => [r.toLowerCase(), r])).values()]
+				: undefined;
 
 			let restPRs: GitLabMergeRequestREST[];
-			if (include == null) {
-				// Unfiltered search returns the first page as-is (as it did before state filtering existed).
-				restPRs = await this.request<GitLabMergeRequestREST[]>(
+			if (repos == null) {
+				restPRs = await this.searchMergeRequests(
 					provider,
 					token,
 					options?.baseUrl,
-					searchPath,
-					{ method: 'GET' },
+					`v4/search/?${searchQuery}`,
+					include,
 					cancellation,
 					scope,
 				);
 			} else {
-				// The search API returns MRs of all states in relevance order, so the requested state(s) may not
-				// appear on the first page. Server-side `&state=` narrows the single-state case when honored, but it
-				// can't express multiple states, so page through the results and accumulate matches until we fill the
-				// detail-query cap (`perPageLimit`) or exhaust the search results. This keeps correctness whether
-				// or not `&state=` takes effect. Bounded by `maxSearchPages` like the other paged provider drains in
-				// this package so a large, low-match result set can't fan out into an unbounded request loop.
-				const maxSearchPages = 20;
-				const matches: GitLabMergeRequestREST[] = [];
-				for (let page = 1; page <= maxSearchPages; page++) {
-					const pagePRs = await this.request<GitLabMergeRequestREST[]>(
+				const settled = await mapSettledBounded(repos, providerFanOutConcurrency, repo =>
+					this.searchMergeRequests(
 						provider,
 						token,
 						options?.baseUrl,
-						`${searchPath}&page=${page}`,
-						{ method: 'GET' },
+						`v4/projects/${encodeURIComponent(repo)}/search?${searchQuery}`,
+						include,
 						cancellation,
 						scope,
-					);
-					for (const pr of pagePRs) {
-						if (include.includes(fromGitLabMergeRequestState(pr.state))) {
-							matches.push(pr);
-							if (matches.length >= perPageLimit) break;
-						}
+					).catch((ex: unknown) => {
+						// A project that is gone or not visible has nothing to find, as the instance-wide search would
+						// not have listed it either.
+						if (ex instanceof RequestNotFoundError) return [];
+						throw ex;
+					}),
+				);
+
+				const perProject: GitLabMergeRequestREST[][] = [];
+				let failure: { reason: unknown } | undefined;
+				for (const result of settled) {
+					if (result.status === 'fulfilled') {
+						perProject.push(result.value);
+					} else if (isCancellationError(result.reason)) {
+						throw result.reason;
+					} else {
+						failure ??= { reason: result.reason };
 					}
-					// Stop once we've filled the cap or hit the last (partial or empty) page.
-					if (matches.length >= perPageLimit || pagePRs.length < perPageLimit) break;
 				}
-				restPRs = matches;
+				// One failing project doesn't discard what the others found, but a search that found nothing anywhere
+				// must not read as "no matches".
+				if (failure != null) {
+					if (perProject.length === 0) throw failure.reason;
+
+					scope?.error(failure.reason, "Failed to search a project; returning the other projects' matches");
+				}
+
+				// Relevance only orders results within a single search, so interleave the projects' results (each still
+				// in its own relevance order) to give every project a fair share of the one search's cap.
+				restPRs = interleaveByRank(perProject, searchPageSize);
 			}
 			if (restPRs.length === 0) {
 				return [];
@@ -1376,6 +1424,65 @@ export class GitLabApi implements Disposable {
 
 			throw this.handleException(ex, provider, scope);
 		}
+	}
+
+	/**
+	 * One search's merge requests, filtered to `include`. The search API returns MRs of all states in relevance
+	 * order, so a requested state may not appear on the first page. A single state is pushed server-side
+	 * (`&state=`); several states have no single-value qualifier, so those are filtered client-side. Either way,
+	 * paging accumulates matches until the detail-query cap (`searchPageSize`) is filled or the results run out,
+	 * which stays correct whether or not `&state=` takes effect. Bounded by `maxSearchPages` like the other paged
+	 * provider drains in this package so a large, low-match result set can't fan out into an unbounded request
+	 * loop.
+	 */
+	private async searchMergeRequests(
+		provider: Provider,
+		token: TokenWithInfo,
+		baseUrl: string | undefined,
+		searchPath: string,
+		include: PullRequestState[] | undefined,
+		cancellation: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<GitLabMergeRequestREST[]> {
+		if (include == null) {
+			// Unfiltered search returns the first page as-is (as it did before state filtering existed).
+			return this.request<GitLabMergeRequestREST[]>(
+				provider,
+				token,
+				baseUrl,
+				searchPath,
+				{ method: 'GET' },
+				cancellation,
+				scope,
+			);
+		}
+
+		if (include.length === 1) {
+			searchPath += `&state=${encodeURIComponent(toGitLabMergeRequestState(include[0]))}`;
+		}
+
+		const maxSearchPages = 20;
+		const matches: GitLabMergeRequestREST[] = [];
+		for (let page = 1; page <= maxSearchPages; page++) {
+			const pagePRs = await this.request<GitLabMergeRequestREST[]>(
+				provider,
+				token,
+				baseUrl,
+				`${searchPath}&page=${page}`,
+				{ method: 'GET' },
+				cancellation,
+				scope,
+			);
+			for (const pr of pagePRs) {
+				if (include.includes(fromGitLabMergeRequestState(pr.state))) {
+					matches.push(pr);
+					if (matches.length >= searchPageSize) break;
+				}
+			}
+			// Stop once we've filled the cap or hit the last (partial or empty) page.
+			if (matches.length >= searchPageSize || pagePRs.length < searchPageSize) break;
+		}
+		return matches;
 	}
 
 	private async findUser(
