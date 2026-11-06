@@ -9729,7 +9729,7 @@
 				"command": "gitlens.review.walkNextInListOrder",
 				"title": "%command.gitlens.review.walkNextInListOrder.title%",
 				"category": "%command.category%",
-				"icon": "$(arrow-right)",
+				"icon": "$(arrow-small-right)",
 				"enablement": "gitlens:review:reading"
 			},
 			{
@@ -9755,7 +9755,7 @@
 				"command": "gitlens.review.walkPreviousInListOrder",
 				"title": "%command.gitlens.review.walkPreviousInListOrder.title%",
 				"category": "%command.category%",
-				"icon": "$(arrow-left)",
+				"icon": "$(arrow-small-left)",
 				"enablement": "gitlens:review:reading"
 			},
 			{

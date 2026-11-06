@@ -7556,7 +7556,7 @@
 		},
 		"gitlens.review.walkNextInListOrder": {
 			"label": "Next File in List Order",
-			"icon": "$(arrow-right)",
+			"icon": "$(arrow-small-right)",
 			"enablement": "gitlens:review:reading",
 			"commandPalette": "gitlens:review:reading"
 		},
@@ -7599,7 +7599,7 @@
 		},
 		"gitlens.review.walkPreviousInListOrder": {
 			"label": "Previous File in List Order",
-			"icon": "$(arrow-left)",
+			"icon": "$(arrow-small-left)",
 			"enablement": "gitlens:review:reading",
 			"commandPalette": "gitlens:review:reading"
 		},
