@@ -2272,6 +2272,112 @@ suite('Cache.setCurrentBranchReferenceIfAbsent', () => {
 	});
 });
 
+suite('Cache.isDroppedSince', () => {
+	const repoPath = '/test/repo';
+	const sibling = '/test/repo-sibling';
+	/** How many paths the cache tracks the drop of, per stamped cache, before folding the oldest into the floor */
+	const dropsTracked = 128;
+
+	test('nothing is dropped since a stamp taken before any drop', () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+		assert.strictEqual(cache.isDroppedSince('currentBranchReference', repoPath, stamp), false);
+	});
+
+	test("a config clear drops the path's current user only", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.clearCaches(repoPath, 'config');
+
+		assert.ok(cache.isDroppedSince('currentUser', repoPath, stamp));
+		assert.strictEqual(cache.isDroppedSince('currentUser', sibling, stamp), false);
+	});
+
+	test('a stamp taken after a drop sees nothing dropped', () => {
+		using cache = new Cache();
+		cache.clearCaches(repoPath, 'config');
+		const stamp = cache.getDropStamp();
+
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+	});
+
+	test("an entry's own stamp advances only with a drop of it, and still tells of one", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp('currentUser', repoPath);
+		cache.clearCaches(sibling, 'config');
+		cache.evictCaches(repoPath, 'branch');
+
+		assert.strictEqual(cache.getDropStamp('currentUser', repoPath), stamp);
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+
+		cache.clearCaches(repoPath, 'config');
+
+		assert.notStrictEqual(cache.getDropStamp('currentUser', repoPath), stamp);
+		assert.ok(cache.isDroppedSince('currentUser', repoPath, stamp));
+	});
+
+	test("a branch eviction doesn't drop the current user", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.evictCaches(repoPath, 'branch');
+
+		assert.ok(cache.isDroppedSince('currentBranchReference', repoPath, stamp));
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+	});
+
+	test("unregistering a path drops the path's stamped caches only", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.unregisterRepoPath(repoPath);
+
+		for (const key of ['currentUser', 'currentBranchReference'] as const) {
+			assert.ok(cache.isDroppedSince(key, repoPath, stamp), key);
+			assert.strictEqual(cache.isDroppedSince(key, sibling, stamp), false, key);
+		}
+	});
+
+	for (const [name, drop] of [
+		['a full clear', (cache: Cache) => cache.clearCaches(undefined)],
+		['a reset', (cache: Cache) => cache.reset()],
+	] as const) {
+		test(`${name} drops every path's stamped caches`, () => {
+			using cache = new Cache();
+			const stamp = cache.getDropStamp();
+			drop(cache);
+
+			for (const key of ['currentUser', 'currentBranchReference'] as const) {
+				assert.ok(cache.isDroppedSince(key, repoPath, stamp), key);
+				assert.ok(cache.isDroppedSince(key, sibling, stamp), key);
+			}
+		});
+	}
+
+	suite('with more dropped paths than are tracked', () => {
+		const paths = Array.from({ length: dropsTracked + 3 }, (_, i) => `/test/repo-wt-${i}`);
+
+		test('only as many current user drops are kept as are tracked', () => {
+			using cache = new Cache();
+			for (const path of paths) {
+				cache.clearCaches(path, 'config');
+			}
+
+			assert.strictEqual(cache.getResourceUsage()['cache.currentUserDroppedAt.entries.count'], dropsTracked);
+		});
+
+		test('a stamp taken before the oldest drop still sees it dropped', () => {
+			using cache = new Cache();
+			const stamp = cache.getDropStamp();
+			for (const path of paths) {
+				cache.clearCaches(path, 'config');
+			}
+
+			assert.ok(cache.isDroppedSince('currentUser', paths[0], stamp));
+		});
+	});
+});
+
 suite('Cache.applyRepositoryChanges', () => {
 	const repoPath = '/test/repo';
 	let cache: Cache;
