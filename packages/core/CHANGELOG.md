@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Cache.getDropStamp` and `Cache.isDroppedSince`, with the `DropStampedCacheKey` type, so a read can tell that a `'currentBranchReference'` or `'currentUser'` entry it would cache was dropped while it ran; `getDropStamp(key, repoPath)` gives the stamp of that entry's last drop, to key a read shared by calls with no drop of it between them (git)
 - Adds `WatcherRepoChangeEvent.movedWorktrees`: for a `'worktreeHead'` change, the admin ids (the `<id>` of `.git/worktrees/<id>`) of the linked worktrees whose `HEAD` moved outside core's own writes, `undefined` when any linked worktree's may have. `Cache.onRepositoryChanged` and `Cache.applyRepositoryChanges` take it as `options.movedWorktrees` (`applyRepositoryChanges` also takes `options.announced` for core's announcement of its own write), `WatcherRepoChangeEvent.with` takes it as a third argument, `AnnouncedRepositoryChanges.movedWorktrees` and `noteSelfWrite`'s `options.movedWorktrees` name the linked worktrees a write moved, `Cache.getLinkedWorktreeId` gives a registered linked worktree's admin id, and `utils/repository.utils.js` exports `parseWorktreeAdminPath` and `getWorktreeAdminId` (git)
 
+### Removed
+
+- **Breaking (git)** — Removes `getPathFromProviderIdentity` from `models/repositoryIdentities.js`: nothing called it, and it doubled the path for the identities the pull request and issue builders make, which set `repoOwnerDomain` to `repoDomain`
+
 ### Fixed
 
 - Fixes `getGitDir` answering a checkout's old git dirs after it was unregistered while they were being read: the read put its answer back, so a path re-created as another repository's checkout, or one that vanished mid-read and fell back to `<path>/.git`, kept the old answer until it was unregistered again. A read in flight across `unregisterRepoPath` or `Cache.reset()` now answers only its own caller, and a call made after either reads again rather than joining it. `Cache.getCloseGeneration` now advances on `reset()` for every path, one never registered included (git, git-cli)
