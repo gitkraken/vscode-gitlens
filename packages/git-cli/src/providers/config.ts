@@ -567,7 +567,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 	}
 
-	@gate()
 	@trace({ quiet: true, exit: r => `returned ${r}` })
 	async getDefaultWorktreePath(repoPath: string): Promise<string | undefined> {
 		// `undefined` when git gives no answer: every caller can go on without knowing which worktree is the default
