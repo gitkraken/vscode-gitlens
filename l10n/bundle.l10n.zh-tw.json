@@ -5888,6 +5888,7 @@
 	"You, on “{title}”": "你，關於「{title}」",
 	"Your '{0}' credentials are either invalid or expired": "你的 '{0}' 憑據無效或已過期",
 	"Your '{0}' credentials do not have the required access": "你的 '{0}' 憑據沒有所需的存取權限",
+	"Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.": "你的 '{0}' 憑據被拒絕：權杖無效或已過期，或者它僅限於某個無法找到的集合。請使用適用於所有可存取的組織的權杖，或開啟該權杖所屬集合中的儲存庫。",
 	"Your Agents, on a Board": "你的代理，盡在看板中",
 	"Your Draft Commits Are Ready": "你的草稿認可已就緒",
 	"Your Git version doesn't support stashing individual files. Stash all changes instead?": "你的 Git 版本不支援擱置單個檔案。改為擱置所有變更？",
