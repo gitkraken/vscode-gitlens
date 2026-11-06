@@ -391,10 +391,14 @@ export abstract class AzureDevOpsIntegrationBase<
 		return result;
 	}
 
-	/** Reads the organizations (Azure DevOps Server: the collections) the account can see. */
+	/**
+	 * Reads the organizations (Azure DevOps Server: the collections) the account can see. `_organization` is the one the
+	 * read names, if any, which the server override can use to place a token limited to one collection.
+	 */
 	protected async requestResourcesForUser(
 		session: ProviderAuthenticationSession,
 		userId: string,
+		_organization?: string,
 	): Promise<ProviderAzureResource[] | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo, options } = this.getApiOptions(session);
@@ -636,22 +640,31 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	private _accounts: Map<string, Account | undefined> | undefined;
+	/** `organization` is the one the read names, if any; see {@link _requestForCurrentUser}. */
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
+		options?: { avatarSize?: number; organization?: string },
 	): Promise<Account | undefined> {
 		const key = this.discoveryKey(session);
 		this._accounts ??= new Map<string, Account | undefined>();
 
 		const cachedAccount = this._accounts.get(key);
 		if (cachedAccount == null) {
-			const user = await this._requestForCurrentUser(session);
+			const user = await this._requestForCurrentUser(session, options?.organization);
 			this._accounts.set(key, user);
 		}
 
 		return this._accounts.get(key);
 	}
 
-	protected async _requestForCurrentUser(session: ProviderAuthenticationSession): Promise<Account | undefined> {
+	/**
+	 * `_organization` is the one the read names, if any: Azure DevOps Services ignores it, the server override tries it
+	 * first when the server level refuses a token limited to one collection.
+	 */
+	protected async _requestForCurrentUser(
+		session: ProviderAuthenticationSession,
+		_organization?: string,
+	): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo, options } = this.getApiOptions(session, true);
 		const user = await api.getCurrentUser(tokenWithInfo, options);
@@ -726,20 +739,25 @@ export abstract class AzureDevOpsIntegrationBase<
 		};
 	}
 
-	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;
+	protected _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;
+	/**
+	 * The organizations (collections) the account can see. `organization` is the one the read names, if any: it never
+	 * narrows the result, it only helps the server override place a token limited to one collection.
+	 */
 	protected async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
+		organization?: string,
 	): Promise<AzureOrganizationDescriptor[] | undefined> {
 		this._organizations ??= new Map<string, AzureOrganizationDescriptor[] | undefined>();
 		const key = this.discoveryKey(session);
 		const cachedResources = this._organizations.get(key);
 
 		if (cachedResources == null || force) {
-			const account = await this.getProviderCurrentAccount(session);
+			const account = await this.getProviderCurrentAccount(session, { organization: organization });
 			if (account?.id == null) return undefined;
 
-			const resources = await this.requestResourcesForUser(session, account.id);
+			const resources = await this.requestResourcesForUser(session, account.id, organization);
 			this._organizations.set(key, resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined);
 		}
 
@@ -951,7 +969,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		// Azure is the one git host with a project tier: repos live under org (resource) → project. Enumerate
 		// the user's orgs (optionally scoped to `org`), read their projects, and surface each as an org-shaped
 		// entry so the ProviderBackend facade can list them uniformly.
-		const orgs = await this.getProviderResourcesForUser(session);
+		const orgs = await this.getProviderResourcesForUser(session, false, org);
 		if (orgs == null) return undefined;
 		if (orgs.length === 0) {
 			return { values: [], paging: { cursor: '{}', more: false } };
@@ -998,7 +1016,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			});
 		}
 
-		const orgDescriptor = (await this.getProviderResourcesForUser(session))?.find(o => o.name === org);
+		const orgDescriptor = (await this.getProviderResourcesForUser(session, false, org))?.find(o => o.name === org);
 		if (orgDescriptor == null) return undefined;
 
 		const discoveryFailures: CollectionScopeFailure[] = [];
@@ -1985,10 +2003,10 @@ export abstract class AzureDevOpsIntegrationBase<
 	): Promise<AccountWideIssuesResult | undefined> {
 		const api = await this.getProvidersApi();
 
-		const user = await this.getProviderCurrentAccount(session);
+		const user = await this.getProviderCurrentAccount(session, { organization: searchOptions?.org });
 		if (user?.username == null) return undefined;
 
-		const allOrgs = await this.getProviderResourcesForUser(session);
+		const allOrgs = await this.getProviderResourcesForUser(session, false, searchOptions?.org);
 		if (allOrgs == null) return undefined;
 		if (allOrgs.length === 0) return { values: [], truncated: false };
 
