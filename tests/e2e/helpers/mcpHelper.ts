@@ -277,7 +277,11 @@ function safeRealPath(target: string): string | undefined {
  * that budget exists to prevent.
  */
 function execRefusedBy(gkPath: string, timeoutMs: number): 'ETXTBSY' | 'EACCES' | undefined {
-	const probe = spawnSync(gkPath, ['--version'], { stdio: 'ignore', timeout: timeoutMs });
+	const probe = spawnSync(gkPath, ['--version'], {
+		stdio: 'ignore',
+		timeout: timeoutMs,
+		env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
+	});
 	if (probe.error == null || !('code' in probe.error)) return undefined;
 
 	return probe.error.code === 'ETXTBSY' || probe.error.code === 'EACCES' ? probe.error.code : undefined;
@@ -512,7 +516,10 @@ export class McpClient {
 	// ── Private helpers ──────────────────────────────────────────────────────
 
 	private buildEnv(): NodeJS.ProcessEnv {
-		const env: NodeJS.ProcessEnv = { ...process.env };
+		// The sign-in credentials (`GK_E2E_*`) stay in the Playwright process, as they do for the editor (baseTest.ts)
+		const env: NodeJS.ProcessEnv = Object.fromEntries(
+			Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_')),
+		);
 		if (this.ipcFilePath != null) {
 			env['GK_GL_PATH'] = this.ipcFilePath;
 		}

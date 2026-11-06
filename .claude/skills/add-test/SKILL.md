@@ -154,6 +154,13 @@ using _ = await vscode.gitlens.startSubscriptionSimulation({
 // Pro features now accessible — auto-reverts when scope exits
 ```
 
+### E2E Signed-in Specs
+
+Only when a scenario needs a real GitKraken account or connected cloud integrations: opt the worker in with
+`signIn` in `vscodeOptions`, tag the describe `@signed-in`, skip with `test.skip(!canSignIn(), …)`, and turn off
+traces/retries. A signed-in worker needs the account secret and runs only in its own CI job, so prefer
+`startSubscriptionSimulation` when a plan is all the test needs. Details: `docs/testing.md` → "Opt-in specs: signed-in workers".
+
 ## GitFixture Methods
 
 ```typescript
