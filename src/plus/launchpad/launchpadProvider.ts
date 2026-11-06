@@ -26,7 +26,7 @@ import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js'
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
 import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
-import { isMaybeGitLabPullRequestUrl } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
+import { isMaybeGitLabPullRequestUrl, splitOwnerAndRepo } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
 import type {
 	EnrichablePullRequest,
 	ProviderAccount,
@@ -438,12 +438,12 @@ export class LaunchpadProvider implements Disposable {
 		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
 			const providerMatch = provider == null || provider === integration.id;
-			if (providerMatch && prNumber != null && ownerAndRepo != null) {
-				const [owner, repo] = ownerAndRepo.split('/', 2);
+			const ownerAndName = ownerAndRepo != null ? splitOwnerAndRepo(ownerAndRepo) : undefined;
+			if (providerMatch && prNumber != null && ownerAndRepo != null && ownerAndName != null) {
 				const descriptor: RepositoryDescriptor = {
 					key: ownerAndRepo,
-					owner: owner,
-					name: repo,
+					owner: ownerAndName.owner,
+					name: ownerAndName.name,
 				};
 				const pr = await withDurationAndSlowEventOnTimeout(
 					integration?.getPullRequest(descriptor, prNumber),
