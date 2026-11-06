@@ -609,7 +609,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	}
 
 	private renderAIActions() {
-		if (this.orgSettings?.ai === false) return nothing;
+		if (!this.preferences?.aiEnabled || this.orgSettings?.ai === false) return nothing;
 
 		return html`<gl-compare-ai-actions
 			.explainBusy=${this.explainBusy}

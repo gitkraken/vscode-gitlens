@@ -857,7 +857,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	}
 
 	private renderEmbeddedExplainInput() {
-		if (this.orgSettings?.ai === false) return nothing;
+		if (!this.aiEnabled || this.orgSettings?.ai === false) return nothing;
 
 		return html`<gl-ai-input
 			multiline
