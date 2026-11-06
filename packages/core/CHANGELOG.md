@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-06
+
 ### Added
 
 - Adds `Cache.getDropStamp` and `Cache.isDroppedSince`, with the `DropStampedCacheKey` type, so a read can tell that a `'currentBranchReference'` or `'currentUser'` entry it would cache was dropped while it ran; `getDropStamp(key, repoPath)` gives the stamp of that entry's last drop, to key a read shared by calls with no drop of it between them (git)
@@ -1171,7 +1173,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...HEAD
+[0.33.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...gitkraken:releases/core/v0.33.0
 [0.32.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.31.0...gitkraken:releases/core/v0.32.0
 [0.31.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...gitkraken:releases/core/v0.31.0
 [0.30.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...gitkraken:releases/core/v0.30.0
