@@ -52,6 +52,7 @@ import type {
 	OverviewBranch,
 	OverviewRecentThreshold,
 	SerializedPullRequestMergeQueueEntry,
+	SerializedPullRequestMergeQueueRemoval,
 } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
 import type { TreemapMode } from '../treemap/protocol.js';
@@ -999,6 +1000,8 @@ export interface MergePullRequestParams {
 	mergeMethod?: 'merge' | 'squash' | 'rebase';
 	/** The webview already confirmed the blast radius in place — the host skips its own confirmation. */
 	confirmed?: boolean;
+	/** What the webview confirmed in place was adding the pull request to its merge queue, not merging it. */
+	queue?: boolean;
 }
 export interface MergePullRequestResult {
 	merged: boolean;
@@ -1249,6 +1252,12 @@ export interface GraphSidebarPullRequest {
 	reviewDecision?: PullRequestReviewDecision;
 	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
 	mergeQueue?: SerializedPullRequestMergeQueueEntry;
+	/** Whether its base branch accepts it only through a merge queue, so merging it means adding it to the queue.
+	 *  `undefined` is unknown: provider-native reads (the sheet's by-number lookup) carry it, but the panel's
+	 *  repository-scoped list never does — so a Merge action there can still route to the queue host-side. */
+	mergeQueueRequired?: boolean;
+	/** Its removal from its merge queue, set only while that removal still describes it. Provider-native reads only. */
+	mergeQueueRemoval?: SerializedPullRequestMergeQueueRemoval;
 	/** Whether the PR's head branch is what's checked out — matched by short name, so it's set for a fork
 	 *  head with no local branch too. Mirrors the deep link's own `nameWithoutRemote` test, which skips the
 	 *  switch on a match, so the row's switch affordances stand down rather than promise a no-op. */

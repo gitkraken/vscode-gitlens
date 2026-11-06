@@ -4,6 +4,7 @@ import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
+import { formatMergeQueueRemoval } from '../../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import type {
 	GraphSidebarBranch,
 	GraphSidebarPullRequest,
@@ -95,6 +96,8 @@ export function pullRequestTooltip(pr: GraphSidebarPullRequest, dateFormat?: str
 
 	if (pr.state === 'opened' && pr.mergeQueue != null) {
 		tooltip += `\\\n${formatPullRequestMergeQueueStatus(pr.mergeQueue)}`;
+	} else if (pr.mergeQueueRemoval != null) {
+		tooltip += `\\\n${formatMergeQueueRemoval(pr.mergeQueueRemoval)}`;
 	}
 
 	return tooltip;

@@ -5,7 +5,7 @@ import { isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.
 import { formatPlural } from '@gitlens/utils/plural.js';
 
 /** The merge-queue fields the webviews read — satisfied by both the model's entry and the serialized one. */
-export interface MergeQueueEntryLike extends Pick<PullRequestMergeQueueEntry, 'state' | 'url'> {
+export interface MergeQueueEntryLike extends Pick<PullRequestMergeQueueEntry, 'state' | 'url' | 'position'> {
 	/** A date on the model's entry, a timestamp (ms) on the serialized one. */
 	readonly estimatedMergeAt?: Date | number;
 }

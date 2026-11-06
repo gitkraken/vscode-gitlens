@@ -56,6 +56,7 @@ import {
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import {
 	getLaunchpadActionCategory,
+	getMergeQueueActionCategory,
 	launchpadCategoryToGroupMap,
 	launchpadPriorityGroups,
 } from '../../../plus/launchpad/models/launchpad.js';
@@ -74,6 +75,7 @@ import {
 	getOverviewEnrichment,
 	getOverviewWip,
 	serializePullRequestMergeQueue,
+	serializePullRequestMergeQueueRemoval,
 } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphServices } from './graphService.js';
@@ -122,6 +124,9 @@ export type GraphPanelsServiceContext = {
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
 	getLastWorktreeChange: (path: string) => SidebarWorktreeChange | undefined;
 	fireSidebarInvalidated: () => void;
+	/** Hands over a pull request just read past the cache, so surfaces outside the panels (the header's PR pill)
+	 *  can catch up with it. */
+	didReadFreshPullRequest: (pr: PullRequest) => void;
 };
 
 /** Page size for the Overview panel's "Load More" older-branches paging — how many additional
@@ -169,6 +174,22 @@ function getAzureProjectName(remote: GitRemote<RemoteProvider>): string | undefi
 	if (owner == null || name == null) return undefined;
 
 	return getAzureRepositoryIdentity({ owner: owner, name: name }).projectName;
+}
+
+/** Whether a pull request's url names the repository this remote's provider points at (same host, and its path
+ *  under the repository's). An unparseable url is a mismatch — nothing safe to read by number from it. */
+function isPullRequestUrlInRemote(url: string, provider: RemoteProvider): boolean {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+
+	return (
+		parsed.host.toLowerCase() === provider.domain.toLowerCase() &&
+		`${parsed.pathname.toLowerCase()}/`.startsWith(`/${provider.path.toLowerCase()}/`)
+	);
 }
 
 /** The checked-out branch's name, for deciding whether a pull request's head is already here. Matched by
@@ -1022,8 +1043,9 @@ export class GraphPanelsService {
 				const queueable = joinPullRequestMergeQueue(pr, mergeQueueByNumber);
 				let category = getLaunchpadActionCategory(item.suggestedActionCategory, queueable);
 				// A queued pull request skips every demotion: the queue's own verdict is objective, and a queued pull
-				// request isn't one you can act on as "Ready to Merge" or "Blocked" outside the queue.
-				if (!isPullRequestInMergeQueue(queueable)) {
+				// request isn't one you can act on as "Ready to Merge" or "Blocked" outside the queue. Likewise one its
+				// queue run just failed out of: that failure is the verdict.
+				if (getMergeQueueActionCategory(queueable) == null) {
 					if (mergeableUnverifiable && category === 'mergeable') {
 						category = 'other';
 					}
@@ -1113,13 +1135,20 @@ export class GraphPanelsService {
 	 * pane's search, which wants the single pull request and none of the stack work.
 	 */
 	async onResolvePullRequestSheet(
-		params: { number: string } | { stackNumber: number },
+		params: { number: string; url?: string } | { stackNumber: number },
+		options?: { fresh?: boolean },
 	): Promise<GraphPullRequestSheetData | undefined> {
 		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
 		if (graph == null) return undefined;
 
 		const remote = await getBestRemoteWithIntegration(graph.repoPath);
 		if (remote == null) return undefined;
+
+		// A caller holding the pull request's url (the header pill's recheck) pins it to its own repository: the best
+		// remote can be another one (a fork's upstream), and reading this number there is a different pull request.
+		if ('number' in params && params.url != null && !isPullRequestUrlInRemote(params.url, remote.provider)) {
+			return undefined;
+		}
 
 		const integration = await getRemoteIntegration(remote);
 		if (integration == null) return undefined;
@@ -1153,9 +1182,18 @@ export class GraphPanelsService {
 		if ('stackNumber' in params) {
 			stackNumber = params.stackNumber;
 		} else {
-			// Cached by id in `src/cache.ts`, so re-opening the same sheet doesn't re-hit the API.
-			const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
+			// Cached by id in `src/cache.ts`, so re-opening the same sheet doesn't re-hit the API — unless the caller
+			// asked for a fresh read, which replaces the cached copy.
+			const pr = await integration.getPullRequest(
+				remote.provider.repoDesc,
+				params.number,
+				options?.fresh ? { expiryOverride: true } : undefined,
+			);
 			if (pr == null) return undefined;
+
+			if (options?.fresh) {
+				this.context.didReadFreshPullRequest(pr);
+			}
 
 			requestedPr = pr;
 			// Built without `behind` — only to learn whether it's stacked; rebuilt with it below.
@@ -1414,6 +1452,7 @@ export class GraphPanelsService {
 		// Prefer what the model already carries (the native reads select it) and fall back to the
 		// per-repository join, which is the only source on the paged read this panel uses.
 		const stack = pr.stack ?? stacksByNumber?.get(Number(number));
+		const queueable = joinPullRequestMergeQueue(pr, mergeQueueByNumber);
 
 		return {
 			number: number,
@@ -1447,7 +1486,9 @@ export class GraphPanelsService {
 			statusCheckRollup: pr.statusCheckRollupState,
 			mergeableState: pr.mergeableState,
 			reviewDecision: pr.reviewDecision,
-			mergeQueue: serializePullRequestMergeQueue(joinPullRequestMergeQueue(pr, mergeQueueByNumber)),
+			mergeQueue: serializePullRequestMergeQueue(queueable),
+			mergeQueueRequired: pr.mergeQueueRequired,
+			mergeQueueRemoval: serializePullRequestMergeQueueRemoval(queueable),
 			launchpad: launchpad,
 			stack:
 				stack != null

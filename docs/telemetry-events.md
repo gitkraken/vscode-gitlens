@@ -5904,7 +5904,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'merge' | 'open' | 'open-changes' | 'open-in-graph' | 'open-worktree' | 'pin' | 'rebase-stack' | 'show-overview' | 'snooze' | 'soft-open' | 'start-review' | 'switch' | 'unpin' | 'unsnooze',
+  'action': 'dequeue' | 'merge' | 'open' | 'open-changes' | 'open-in-graph' | 'open-worktree' | 'pin' | 'rebase-stack' | 'show-overview' | 'snooze' | 'soft-open' | 'start-review' | 'switch' | 'unpin' | 'unsnooze',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,

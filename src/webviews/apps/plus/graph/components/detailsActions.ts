@@ -111,7 +111,11 @@ import type { AppState } from '../context.js';
 import { compareSides } from './detailsState.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
-import { getQueuedPullRequestRefreshOutcome, PausableRecheckTimer } from './queuedPullRequestRecheck.js';
+import {
+	getQueuedPullRequestRefreshOutcome,
+	PausableRecheckTimer,
+	queuedPullRequestRecheckMs,
+} from './queuedPullRequestRecheck.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
 /** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
@@ -243,10 +247,6 @@ const commitFetchSettleMs = 100;
  *  against a payload that missed everything in between. The revalidate doesn't block paint and lands on
  *  the host's short-lived status cache, so the ceiling on being wrong is this bound rather than forever. */
 const wipCacheRevalidateAfterMs = 60_000;
-/** How long after a queued pull request lands before the WIP enrichment asks again. The host caches a queued pull
- *  request for 5 minutes (`src/cache.ts`), from before this side received it — so a little past that guarantees the
- *  re-ask reaches the provider instead of the same cached answer. */
-const queuedPullRequestRecheckMs = 5 * 60 * 1000 + 15_000;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
@@ -1569,7 +1569,7 @@ export class DetailsActions {
 			}
 		};
 
-		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal).then(
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(
 			pr => settle({ status: 'fulfilled', value: pr }),
 			(e: unknown) => {
 				noopUnlessReal(e);

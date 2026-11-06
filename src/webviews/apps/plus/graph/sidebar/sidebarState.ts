@@ -88,9 +88,11 @@ export interface SidebarActions {
 	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;
 	/** Everything the pull request sheet needs for `target`, resolved host-side in one round trip —
 	 *  the pull request (or the whole stack, by stack number) with its layers alongside. Resolves
-	 *  `undefined` when the service isn't wired yet or the pull request can't be resolved. */
+	 *  `undefined` when the service isn't wired yet or the pull request can't be resolved. `fresh` reads the
+	 *  pull request past the host's cache. */
 	resolvePullRequestSheet(
-		target: { number: string } | { stackNumber: number },
+		target: { number: string; url?: string } | { stackNumber: number },
+		options?: { fresh?: boolean },
 	): Promise<GraphPullRequestSheetData | undefined>;
 	applyWorktreeChanges(changes: Record<string, SidebarWorktreeChange | undefined>): void;
 	dispose(): void;
@@ -376,8 +378,11 @@ export function createSidebarActions(): SidebarActions {
 		findPullRequest: async function (number: string) {
 			return service?.findPullRequest(number);
 		},
-		resolvePullRequestSheet: async function (target: { number: string } | { stackNumber: number }) {
-			return service?.resolvePullRequestSheet(target);
+		resolvePullRequestSheet: async function (
+			target: { number: string; url?: string } | { stackNumber: number },
+			options?: { fresh?: boolean },
+		) {
+			return service?.resolvePullRequestSheet(target, options);
 		},
 		toggleLayout: function (panel: GraphSidebarPanel) {
 			if (panel === 'agents') {

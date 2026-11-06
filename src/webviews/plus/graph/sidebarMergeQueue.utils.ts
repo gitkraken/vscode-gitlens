@@ -27,10 +27,12 @@ export function getMergeQueueBaseBranches(prs: readonly PullRequest[]): string[]
 export function joinPullRequestMergeQueue(
 	pr: PullRequest,
 	mergeQueueByNumber: ReadonlyMap<number, PullRequestMergeQueueEntry> | undefined,
-): Pick<PullRequestShape, 'state' | 'mergeQueue'> {
+): Pick<PullRequestShape, 'state' | 'updatedDate' | 'mergeQueue' | 'mergeQueueRemoval'> {
 	if (pr.mergeQueue != null || mergeQueueByNumber == null) return pr;
 
 	// `PullRequest.id` is the number only on the provider-native path; the URL carries it on both.
 	const entry = mergeQueueByNumber.get(Number(getPullRequestNumberFromUrl(pr.url) ?? pr.id));
-	return entry != null ? { state: pr.state, mergeQueue: entry } : pr;
+	return entry != null
+		? { state: pr.state, updatedDate: pr.updatedDate, mergeQueue: entry, mergeQueueRemoval: pr.mergeQueueRemoval }
+		: pr;
 }

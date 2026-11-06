@@ -3,7 +3,7 @@ import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { IssueOrPullRequestState, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
-import type { PullRequestMergeQueueEntry } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestMergeQueueEntry, PullRequestMergeQueueRemoval } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { RemoteProviderSupportedFeatures } from '@gitlens/git/models/remoteProvider.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -178,14 +178,29 @@ export interface OverviewBranchPullRequest {
 	stack?: { number: number; position: number; size: number };
 	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
 	mergeQueue?: SerializedPullRequestMergeQueueEntry;
+	/** Whether its base branch accepts it only through a merge queue, so merging it means adding it to the queue.
+	 *  `undefined` is unknown (not read). GitHub.com only. */
+	mergeQueueRequired?: boolean;
+	/** Its removal from its merge queue, set only while that removal still describes it. GitHub.com only. */
+	mergeQueueRemoval?: SerializedPullRequestMergeQueueRemoval;
 	launchpad?: Promise<OverviewBranchLaunchpadItem | undefined>;
 }
 
 /** A pull request's merge-queue entry as the webviews receive it, with its dates as timestamps (ms) like the shapes'
  *  other dates. */
-export interface SerializedPullRequestMergeQueueEntry extends Pick<PullRequestMergeQueueEntry, 'state' | 'url'> {
+export interface SerializedPullRequestMergeQueueEntry extends Pick<
+	PullRequestMergeQueueEntry,
+	'state' | 'url' | 'position'
+> {
 	enqueuedAt: number;
 	estimatedMergeAt?: number;
+}
+
+/** A pull request's merge-queue removal as the webviews receive it, with its date as a timestamp (ms). Serialized only
+ *  while `isPullRequestMergeQueueRemovalCurrent` holds, so its presence alone means it still describes the pull
+ *  request. */
+export interface SerializedPullRequestMergeQueueRemoval extends Pick<PullRequestMergeQueueRemoval, 'reason'> {
+	removedAt: number;
 }
 
 export interface OverviewBranchLaunchpadItem {

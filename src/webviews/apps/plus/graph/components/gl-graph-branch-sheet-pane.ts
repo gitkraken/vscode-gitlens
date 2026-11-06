@@ -14,6 +14,11 @@ import {
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
+import {
+	formatMergeQueueRemoval,
+	getPullRequestMergeRoute,
+	isMergeQueueRemovalFailed,
+} from '../../../../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { State } from '../../../../plus/graph/detailsProtocol.js';
@@ -782,7 +787,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				queueEntry != null
 					? this.renderMergeQueueStatus(queueEntry)
 					: status === 'opened' && !pr.draft
-						? this.renderMergePullRequest(pr)
+						? html`${this.renderMergeQueueRemoval(pr)}${this.renderMergePullRequest(pr)}`
 						: nothing
 			}`;
 	}
@@ -808,12 +813,29 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		></gl-action-chip>`;
 	}
 
+	/** The pull request's removal from its merge queue, while that still describes it — a warning when its queue run
+	 *  failed. A status, not an action: what to do next is on the provider. */
+	private renderMergeQueueRemoval(pr: OverviewBranchPullRequest): TemplateResult | typeof nothing {
+		const removal = pr.mergeQueueRemoval;
+		if (removal == null) return nothing;
+
+		const status = formatMergeQueueRemoval(removal);
+		return html`<gl-tooltip content=${status}
+			><span class="merge-queue-status" aria-label=${status} role="img"
+				><code-icon icon=${isMergeQueueRemovalFailed(removal) ? 'warning' : 'info'}></code-icon></span
+		></gl-tooltip>`;
+	}
+
 	private renderMergePullRequest(pr: OverviewBranchPullRequest): TemplateResult {
-		const count = getStackedMergeCount(pr.stack);
-		const label = formatPlural(
-			l10n.t('{count, plural, one{Merge Pull Request...} other{Merge {count} Pull Requests...}}'),
-			{ count: count },
-		);
+		// Where its base branch merges only through a merge queue, Merge adds it to the queue (the host decides from
+		// a fresh read either way, and confirms which it's doing)
+		const label =
+			getPullRequestMergeRoute(pr) === 'enqueue'
+				? l10n.t('Add to Merge Queue...')
+				: formatPlural(
+						l10n.t('{count, plural, one{Merge Pull Request...} other{Merge {count} Pull Requests...}}'),
+						{ count: getStackedMergeCount(pr.stack) },
+					);
 
 		return html`<gl-action-chip
 			icon="git-merge"

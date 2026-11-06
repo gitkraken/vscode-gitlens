@@ -1,13 +1,22 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestMergeQueueEntry, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeQueueEntry,
+	PullRequestMergeQueueRemoval,
+	PullRequestShape,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
-import { getPullRequestNumberFromUrl, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	getPullRequestNumberFromUrl,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -36,6 +45,7 @@ import type {
 	OverviewBranchMergeTarget,
 	OverviewBranchPullRequest,
 	SerializedPullRequestMergeQueueEntry,
+	SerializedPullRequestMergeQueueRemoval,
 } from './overviewBranches.js';
 
 /** A pull request's merge-queue entry for the webviews, or `undefined` while it isn't queued. */
@@ -51,7 +61,21 @@ export function serializePullRequestMergeQueue(pr: {
 		enqueuedAt: entry.enqueuedAt.getTime(),
 		estimatedMergeAt: entry.estimatedMergeAt?.getTime(),
 		url: entry.url,
+		position: entry.position,
 	};
+}
+
+/** A pull request's merge-queue removal for the webviews, or `undefined` once it no longer describes the pull request
+ *  (see `isPullRequestMergeQueueRemovalCurrent`) — decided here, so the webviews need only its presence. */
+export function serializePullRequestMergeQueueRemoval(pr: {
+	readonly state?: string;
+	readonly updatedDate: Date;
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+	readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval;
+}): SerializedPullRequestMergeQueueRemoval | undefined {
+	if (!isPullRequestMergeQueueRemovalCurrent(pr)) return undefined;
+
+	return { reason: pr.mergeQueueRemoval.reason, removedAt: pr.mergeQueueRemoval.removedAt.getTime() };
 }
 
 export async function getAutolinkIssuesInfo(
@@ -247,6 +271,8 @@ export async function getPullRequestInfo(
 				? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
 				: undefined,
 		mergeQueue: serializePullRequestMergeQueue(pr),
+		mergeQueueRequired: pr.mergeQueueRequired,
+		mergeQueueRemoval: serializePullRequestMergeQueueRemoval(pr),
 		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
 }

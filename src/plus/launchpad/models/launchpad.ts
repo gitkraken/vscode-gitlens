@@ -1,8 +1,16 @@
 import * as l10n from '@vscode/l10n';
-import type { PullRequestMergeQueueEntry, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
-import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	formatPullRequestMergeQueueStatus,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { exhaustiveArray } from '@gitlens/utils/array.js';
+import {
+	formatMergeQueueRemoval,
+	isMergeQueueRemovalFailed,
+} from '../../integrations/utils/pullRequest.mergeQueue.utils.js';
 
 export const launchpadActionCategories = [
 	'mergeable',
@@ -99,34 +107,53 @@ const sharedCategoryToLaunchpadActionCategoryMap = new Map<string, LaunchpadActi
 	['other', 'other'],
 ]);
 
-/**
- * The category a pull request waiting in a merge queue takes instead of the one `getActionablePullRequests` gave it,
- * or `undefined` when it isn't queued. The shared categorizer knows nothing about merge queues, so a queued, approved,
- * green pull request comes back "Ready to Merge" — every site that maps a shared category applies this after it so
- * none of them can disagree.
- */
-export function getMergeQueueActionCategory(
-	pr: Pick<PullRequestShape, 'state' | 'mergeQueue'>,
-): LaunchpadActionCategory | undefined {
-	if (!isPullRequestInMergeQueue(pr)) return undefined;
+/** The pull request fields the merge-queue category and detail read. */
+export type LaunchpadMergeQueuePullRequest = Pick<
+	PullRequestShape,
+	'state' | 'updatedDate' | 'mergeQueue' | 'mergeQueueRemoval'
+>;
 
-	return pr.mergeQueue.state === PullRequestMergeQueueState.Unmergeable ? 'queue-failing' : 'queued';
+/**
+ * The category a pull request waiting in a merge queue — or just removed from one by a failed queue run — takes instead
+ * of the one `getActionablePullRequests` gave it, or `undefined` otherwise. The shared categorizer knows nothing about
+ * merge queues, so a queued, approved, green pull request comes back "Ready to Merge", and so does one whose queue run
+ * just failed (it looks healthy again once removed) — every site that maps a shared category applies this after it so
+ * none of them can disagree. A removal by hand isn't a failure, so it keeps the shared category.
+ */
+export function getMergeQueueActionCategory(pr: LaunchpadMergeQueuePullRequest): LaunchpadActionCategory | undefined {
+	if (isPullRequestInMergeQueue(pr)) {
+		return pr.mergeQueue.state === PullRequestMergeQueueState.Unmergeable ? 'queue-failing' : 'queued';
+	}
+
+	return isPullRequestMergeQueueRemovalCurrent(pr) && isMergeQueueRemovalFailed(pr.mergeQueueRemoval)
+		? 'queue-failing'
+		: undefined;
+}
+
+/** The merge-queue status a Launchpad item's detail shows: where it stands in its queue, or its removal from one while
+ *  that still describes it. `undefined` when neither applies. */
+export function getLaunchpadMergeQueueStatus(pr: LaunchpadMergeQueuePullRequest): string | undefined {
+	if (isPullRequestInMergeQueue(pr)) return formatPullRequestMergeQueueStatus(pr.mergeQueue);
+	if (isPullRequestMergeQueueRemovalCurrent(pr)) return formatMergeQueueRemoval(pr.mergeQueueRemoval);
+
+	return undefined;
 }
 
 /**
  * The Launchpad category for a pull request the shared categorizer gave `sharedCategory`: the merge-queue category
- * while it's queued (see {@link getMergeQueueActionCategory}), otherwise the shared category's mapping. A shared
+ * while it's queued or failed out of its queue (see {@link getMergeQueueActionCategory}), otherwise the shared category's mapping. A shared
  * category this map doesn't know yet (provider-apis can add some) is `other` rather than nothing.
  */
 export function getLaunchpadActionCategory(
 	sharedCategory: string,
-	pr: Pick<PullRequestShape, 'state' | 'mergeQueue'>,
+	pr: LaunchpadMergeQueuePullRequest,
 ): LaunchpadActionCategory {
 	return getMergeQueueActionCategory(pr) ?? sharedCategoryToLaunchpadActionCategoryMap.get(sharedCategory) ?? 'other';
 }
 
 export type LaunchpadAction =
 	| 'merge'
+	| 'dequeue'
 	| 'rebase-stack'
 	| 'open'
 	| 'soft-open'
@@ -147,7 +174,7 @@ export const prActionsMap = new Map<LaunchpadActionCategory, LaunchpadAction[]>(
 	['changes-requested', ['open']],
 	['reviewer-commented', ['open']],
 	['waiting-for-review', ['open']],
-	['queued', ['open']],
+	['queued', ['open', 'dequeue']],
 	['draft', ['open']],
 	['other', []],
 ]);
@@ -159,7 +186,7 @@ export const actionGroupMap = new Map<
 		detail: (
 			author: string | null,
 			createdDateRelative: string | null,
-			mergeQueue: PullRequestMergeQueueEntry | undefined,
+			pr: LaunchpadMergeQueuePullRequest,
 		) => string,
 	]
 >([
@@ -169,7 +196,13 @@ export const actionGroupMap = new Map<
 	['conflicts', [l10n.t('Resolve Conflicts'), () => l10n.t('You need to resolve merge conflicts')]],
 	[
 		'queue-failing',
-		[l10n.t('Failing in Merge Queue'), () => l10n.t('The merge queue will remove this pull request')],
+		[
+			l10n.t('Failing in Merge Queue'),
+			(_author, _createdDateRelative, pr) =>
+				isPullRequestInMergeQueue(pr)
+					? l10n.t('The merge queue will remove this pull request')
+					: (getLaunchpadMergeQueueStatus(pr) ?? l10n.t('The merge queue will remove this pull request')),
+		],
 	],
 	[
 		'needs-my-review',
@@ -197,8 +230,7 @@ export const actionGroupMap = new Map<
 		'queued',
 		[
 			l10n.t('In Merge Queue'),
-			(_author, _createdDateRelative, mergeQueue) =>
-				mergeQueue != null ? formatPullRequestMergeQueueStatus(mergeQueue) : l10n.t('Queued to merge'),
+			(_author, _createdDateRelative, pr) => getLaunchpadMergeQueueStatus(pr) ?? l10n.t('Queued to merge'),
 		],
 	],
 	['draft', [l10n.t('Draft'), () => l10n.t('Continue working on your draft')]],

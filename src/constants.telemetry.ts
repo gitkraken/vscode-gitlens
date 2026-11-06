@@ -2867,6 +2867,7 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 	action:
 		| 'open'
 		| 'merge'
+		| 'dequeue'
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'

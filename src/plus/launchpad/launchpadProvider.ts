@@ -14,6 +14,7 @@ import {
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
 	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
@@ -60,8 +61,8 @@ import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 import {
-	confirmPullRequestMerge,
-	mergePullRequestWithProgress,
+	mergeOrEnqueuePullRequest,
+	removePullRequestFromMergeQueue,
 } from '../integrations/utils/-webview/pullRequest.merge.utils.js';
 import {
 	convertIntegrationIdToEnrichProvider,
@@ -71,7 +72,12 @@ import {
 } from './enrichmentService.js';
 import { getLaunchpadItemKey, getViewerAccountKey } from './launchpadIdentity.js';
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem.js';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
+import type {
+	LaunchpadAction,
+	LaunchpadActionCategory,
+	LaunchpadGroup,
+	LaunchpadMergeQueuePullRequest,
+} from './models/launchpad.js';
 import {
 	getLaunchpadActionCategory,
 	launchpadActionCategories,
@@ -80,12 +86,38 @@ import {
 	prActionsMap,
 } from './models/launchpad.js';
 
+/**
+ * Whether a pull request has gone stale. One still in a merge queue is moving, so never stale. One its queue run
+ * removed it from (the removal doesn't move its update date) is judged by the removal when that's the latest activity.
+ */
+export function isLaunchpadItemStale(
+	pr: LaunchpadMergeQueuePullRequest,
+	updatedDate: Date,
+	staleDate: Date | undefined,
+): boolean {
+	if (staleDate == null || isPullRequestInMergeQueue(pr)) return false;
+
+	let lastActivity = updatedDate.getTime();
+	if (isPullRequestMergeQueueRemovalCurrent(pr)) {
+		lastActivity = Math.max(lastActivity, new Date(pr.mergeQueueRemoval.removedAt).getTime());
+	}
+
+	return lastActivity < staleDate.getTime();
+}
+
 export function getSuggestedActions(
 	category: LaunchpadActionCategory,
 	isCurrentBranch: boolean,
 	stack: PullRequestStackInfo | undefined,
+	isInMergeQueue: boolean,
 ): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
+
+	// `queue-failing` covers both a pull request still in the queue with a failing entry (which can be removed, like
+	// the Graph sheet offers) and one the queue just removed after a failed run (nothing left to remove)
+	if (category === 'queue-failing' && isInMergeQueue) {
+		actions.splice(actions.indexOf('open') + 1, 0, 'dequeue');
+	}
 
 	// Offer an agent-driven PR review on every item, gated on AI being enabled (org + user setting).
 	if (getContext('gitlens:ai:allowed', true)) {
@@ -602,20 +634,50 @@ export class LaunchpadProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
+	/** Merges the item's pull request, or adds it to its merge queue where its base branch requires one. */
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
 	async merge(item: LaunchpadItem): Promise<void> {
 		if (item.headRef?.oid == null) return;
 
+		const resolved = await this.getPullRequestForAction(item, 'merge');
+		if (resolved == null) return;
+
+		const outcome = await mergeOrEnqueuePullRequest(resolved.integration, resolved.pr);
+		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
+		if (outcome !== 'declined') {
+			this.refresh();
+		}
+	}
+
+	/** Removes the item's pull request from its merge queue, after confirming (it loses its place there). */
+	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
+	async dequeue(item: LaunchpadItem): Promise<void> {
+		const resolved = await this.getPullRequestForAction(item, 'dequeue');
+		if (resolved == null) return;
+
+		const outcome = await removePullRequestFromMergeQueue(resolved.integration, resolved.pr);
+		if (outcome !== 'declined') {
+			this.refresh();
+		}
+	}
+
+	/**
+	 * The item's integration and a fresh read of its pull request, for an action that must act on its current state —
+	 * the item can be up to 30 minutes old, and its merge-queue and mergeability state may have moved. Falls back to
+	 * the cached pull request if the read fails.
+	 */
+	private async getPullRequestForAction(
+		item: LaunchpadItem,
+		action: string,
+	): Promise<{ integration: GitHostIntegration; pr: PullRequest } | undefined> {
 		const integrationId = item.provider.id;
-		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
+		if (!isSupportedLaunchpadIntegrationId(integrationId)) return undefined;
 
 		// By the pull request's own host: a self-managed id spans several, and `get(id)` alone answers with
-		// whichever was cached first, which would send this merge to a different server.
+		// whichever was cached first, which would send this action to a different server.
 		const integration = await this.container.integrations.get(integrationId, item.provider.domain);
-		if (integration == null) return;
+		if (integration == null) return undefined;
 
-		// The item can be up to 30 minutes old, so confirm and merge against a fresh read of the pull request
-		// (its merge-queue and mergeability state may have moved), falling back to the cached one if the read fails
 		let pr = item.underlyingPullRequest;
 		try {
 			const { number, repository } = pr;
@@ -630,14 +692,10 @@ export class LaunchpadProvider implements Disposable {
 				}
 			}
 		} catch (ex) {
-			Logger.warn(`Unable to re-read pull request before merging; using the cached one: ${ex}`, 'merge');
+			Logger.warn(`Unable to re-read pull request before acting on it; using the cached one: ${ex}`, action);
 		}
 
-		if (!(await confirmPullRequestMerge(pr))) return;
-
-		await mergePullRequestWithProgress(integration, pr);
-		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
-		this.refresh();
+		return { integration: integration, pr: pr };
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
@@ -991,12 +1049,11 @@ export class LaunchpadProvider implements Disposable {
 						item.suggestedActionCategory,
 						item.underlyingPullRequest,
 					);
-					// category overrides — a queued pull request is moving whether or not it's stale, so the queue wins
+					// category override — a pull request still in a merge queue is moving whether or not it's stale, and
+					// one removed from its queue is judged by the removal (it doesn't move its update date)
 					if (
-						!isPullRequestInMergeQueue(item.underlyingPullRequest) &&
 						!options?.search &&
-						staleDate != null &&
-						item.updatedDate.getTime() < staleDate.getTime()
+						isLaunchpadItemStale(item.underlyingPullRequest, item.updatedDate, staleDate)
 					) {
 						actionableCategory = 'other';
 					}
@@ -1007,6 +1064,7 @@ export class LaunchpadProvider implements Disposable {
 						actionableCategory,
 						openRepository?.localBranch?.current ?? false,
 						item.underlyingPullRequest.stack,
+						isPullRequestInMergeQueue(item.underlyingPullRequest),
 					);
 
 					return {
