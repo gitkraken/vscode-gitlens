@@ -236,6 +236,7 @@ export class GitService implements UnifiedDisposable {
 					? provider.onDidAnnounceChanges?.(e =>
 							watchService.noteSelfWrite(e.repoPath, e.changes, e.refs, {
 								configConfinedToRefs: e.configConfinedToRefs,
+								movedWorktrees: e.movedWorktrees,
 							}),
 						)
 					: undefined,

@@ -38,6 +38,13 @@ export interface AnnouncedRepositoryChanges {
 	 * see `GitServiceHooks.repository.onChanged`
 	 */
 	readonly configConfinedToRefs?: boolean;
+	/**
+	 * With `worktreeHead` among {@link changes}, the admin ids (the `<id>` of `.git/worktrees/<id>`) of the linked
+	 * worktrees whose HEAD the write rewrote, or whose admin entry it added or removed; none for a write that moved only
+	 * the main checkout's HEAD. A watcher's report of a linked worktree it doesn't name is taken for an outside move.
+	 * Absent, the write may have moved any linked worktree's HEAD.
+	 */
+	readonly movedWorktrees?: readonly string[];
 }
 
 /**
