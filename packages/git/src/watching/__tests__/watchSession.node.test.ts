@@ -816,6 +816,235 @@ describe('WatchSession', () => {
 		});
 	});
 
+	describe('naming the linked worktrees whose HEAD moved', () => {
+		const moved = ['worktrees', 'worktreeHead'] as const;
+
+		function createSession(): { session: RepositoryWatchSession; received: WatcherRepoChangeEvent[] } {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const received: WatcherRepoChangeEvent[] = [];
+			session.subscribe().onDidChange(e => received.push(e));
+			return { session: session, received: received };
+		}
+
+		it('names every worktree the reports coalesced into one event named, and none in the next', async () => {
+			const { session, received } = createSession();
+
+			session.pushRepoChanges([...moved], undefined, undefined, 'A');
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			session.pushRepoChanges([...moved], undefined, undefined, 'B');
+			session.pushRepoChanges([...moved], undefined, undefined, 'A');
+			await delay(50);
+			session.pushRepoChanges([...moved], undefined, undefined, 'C');
+			await delay(50);
+
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[0].movedWorktrees!].sort(), ['A', 'B']);
+			assert.deepStrictEqual([...received[1].movedWorktrees!], ['C']);
+			session.dispose();
+		});
+
+		for (const [label, push] of [
+			['a raw report naming none', (s: RepositoryWatchSession) => s.pushRepoChanges([...moved])],
+			['an unfenced push', (s: RepositoryWatchSession) => s.pushUnfencedRepoChanges([...moved])],
+			['an injected change', (s: RepositoryWatchSession) => s.fireChange('worktreeHead')],
+		] as const) {
+			for (const first of [true, false]) {
+				it(`names none once ${label} joins the window, ${first ? 'before' : 'after'} one naming a worktree`, async () => {
+					const { session, received } = createSession();
+
+					if (first) {
+						push(session);
+					}
+					session.pushRepoChanges([...moved], undefined, undefined, 'A');
+					if (!first) {
+						push(session);
+					}
+					await delay(50);
+
+					assert.strictEqual(received.length, 1);
+					assert.ok(received[0].changed('worktreeHead'));
+					assert.strictEqual(received[0].movedWorktrees, undefined);
+					session.dispose();
+				});
+			}
+		}
+
+		it('names none for an announcement that replaced the pending report, nor once an outside report joins it', async () => {
+			const { session, received } = createSession();
+
+			session.pushRepoChanges([...moved], undefined, undefined, 'A');
+			session.noteSelfWrite([...moved]);
+			await delay(50);
+			// Held past the repo debounce delay, so the next report is an outside one
+			session.suspend();
+			session.pushRepoChanges([...moved], undefined, undefined, 'B');
+			session.noteSelfWrite([...moved]);
+			await delay(30);
+			session.pushRepoChanges([...moved], undefined, undefined, 'C');
+			session.resume();
+			await delay(50);
+
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[0].announced].sort(), [...moved].sort());
+			assert.strictEqual(received[0].movedWorktrees, undefined);
+			assert.deepStrictEqual([...received[1].announced], []);
+			assert.strictEqual(received[1].movedWorktrees, undefined);
+			session.dispose();
+		});
+
+		describe('beside an announcement naming the worktrees its write moved', () => {
+			const announceW1 = (s: RepositoryWatchSession) =>
+				s.noteSelfWrite([...moved], undefined, { movedWorktrees: ['W1'] });
+
+			function assertOutsideMove(e: WatcherRepoChangeEvent, ids: string[]): void {
+				assert.ok(e.getUnannouncedChanges().includes('worktreeHead'), 'the outside move is unannounced');
+				assert.deepStrictEqual([...e.movedWorktrees!].sort(), ids);
+			}
+
+			it('takes a report of another worktree arriving after it for an outside move, named', async () => {
+				const { session, received } = createSession();
+
+				announceW1(session);
+				session.pushRepoChanges([...moved], undefined, undefined, 'W3');
+				await delay(50);
+
+				assert.strictEqual(received.length, 1);
+				assertOutsideMove(received[0], ['W3']);
+				session.dispose();
+			});
+
+			it('keeps a pending report of another worktree it would replace, as an outside move, named', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges([...moved], undefined, undefined, 'W1');
+				session.pushRepoChanges([...moved], undefined, undefined, 'W3');
+				announceW1(session);
+				await delay(50);
+
+				assert.strictEqual(received.length, 1);
+				assertOutsideMove(received[0], ['W3']);
+				assert.ok(received[0].announced.has('worktrees'), 'the list change is still its own');
+				session.dispose();
+			});
+
+			it("takes a report of a worktree it named for the write's own, pending or arriving after it", async () => {
+				for (const pending of [true, false]) {
+					const { session, received } = createSession();
+
+					if (pending) {
+						session.pushRepoChanges([...moved], undefined, undefined, 'W1');
+					}
+					announceW1(session);
+					if (!pending) {
+						session.pushRepoChanges([...moved], undefined, undefined, 'W1');
+					}
+					// An outside report after the echo leaves the echo out of what it names
+					session.pushRepoChanges([...moved], undefined, undefined, 'W3');
+					await delay(50);
+
+					assert.strictEqual(received.length, 1);
+					assertOutsideMove(received[0], ['W3']);
+					session.dispose();
+				}
+			});
+
+			it("takes a report naming no worktree for the write's own, pending or arriving after it", async () => {
+				for (const pending of [true, false]) {
+					const { session, received } = createSession();
+
+					if (pending) {
+						session.pushRepoChanges([...moved]);
+					}
+					announceW1(session);
+					if (!pending) {
+						session.pushRepoChanges([...moved]);
+					}
+					await delay(50);
+
+					assert.strictEqual(received.length, 1);
+					assert.deepStrictEqual(received[0].getUnannouncedChanges(), [], `pending: ${pending}`);
+					session.dispose();
+				}
+			});
+
+			it('names no worktree, so a report of any is an outside move', async () => {
+				const { session, received } = createSession();
+
+				session.noteSelfWrite([...moved], undefined, { movedWorktrees: [] });
+				session.pushRepoChanges([...moved], undefined, undefined, 'W1');
+				await delay(50);
+
+				assert.strictEqual(received.length, 1);
+				assertOutsideMove(received[0], ['W1']);
+				session.dispose();
+			});
+
+			it('names the worktrees of two writes in one window', async () => {
+				const { session, received } = createSession();
+
+				announceW1(session);
+				session.noteSelfWrite([...moved], undefined, { movedWorktrees: ['W2'] });
+				session.pushRepoChanges([...moved], undefined, undefined, 'W2');
+				session.pushRepoChanges([...moved], undefined, undefined, 'W1');
+				await delay(50);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				session.dispose();
+			});
+
+			it('takes any report for its own when the write leaves the worktrees it moved unsaid', async () => {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges([...moved], undefined, undefined, 'W3');
+				session.noteSelfWrite([...moved]);
+				await delay(50);
+
+				assert.strictEqual(received.length, 1);
+				assert.deepStrictEqual(received[0].getUnannouncedChanges(), []);
+				session.dispose();
+			});
+		});
+
+		it('keeps the worktrees named through an announcement of other kinds', async () => {
+			const { session, received } = createSession();
+
+			session.pushRepoChanges([...moved], undefined, undefined, 'A');
+			session.noteSelfWrite(['heads']);
+			await delay(50);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].movedWorktrees!], ['A']);
+			session.dispose();
+		});
+
+		it('keeps the worktrees named for a subscriber the event is narrowed for', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const filtered: WatcherRepoChangeEvent[] = [];
+			session.subscribe({ relevantRefs: () => ['refs/heads/a'] }).onDidChange(e => filtered.push(e));
+
+			session.pushRepoChanges(['heads'], 'refs/heads/b');
+			session.pushRepoChanges([...moved], undefined, undefined, 'A');
+			await delay(50);
+
+			assert.strictEqual(filtered.length, 1);
+			assert.ok(!filtered[0].changed('heads'), 'narrowed');
+			assert.deepStrictEqual([...filtered[0].movedWorktrees!], ['A']);
+			session.dispose();
+		});
+
+		it('names none for an immediate change', () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+			const received: WatcherRepoChangeEvent[] = [];
+			session.subscribe().onDidChange(e => received.push(e));
+
+			session.fireChangeImmediate(...moved);
+
+			assert.strictEqual(received[0].movedWorktrees, undefined);
+			session.dispose();
+		});
+	});
+
 	describe('getRelevantRefs', () => {
 		it("unions every repo subscriber's current relevant refs, and drops a subscriber's as it leaves", () => {
 			const session = new RepositoryWatchSession({ repoPath: '/repo' });

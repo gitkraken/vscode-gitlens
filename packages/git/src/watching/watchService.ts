@@ -408,13 +408,15 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	 * Core announced one of its own writes for `repoPath`; the session watching it fires the announcement in place of
 	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}); `refs` are the full ref names it
 	 * moved, when it knows them, and `options.configConfinedToRefs` confines its `config` change to the sections of the
-	 * local branches among them (see `GitServiceHooks.repository.onChanged`). A path no session watches is ignored.
+	 * local branches among them (see `GitServiceHooks.repository.onChanged`); `options.movedWorktrees` confines its
+	 * `worktreeHead` change to those linked worktrees (see `AnnouncedRepositoryChanges.movedWorktrees`). A path no session
+	 * watches is ignored.
 	 */
 	noteSelfWrite(
 		repoPath: string,
 		changes: readonly RepositoryChange[],
 		refs?: readonly string[],
-		options?: { readonly configConfinedToRefs?: boolean },
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
 	): void {
 		if (this._disposed) return;
 
@@ -520,11 +522,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				ref?: string | false,
 				overflow?: boolean,
 				configBranches?: ReadonlySet<string>,
+				movedWorktree?: string,
 			): void => {
 				if (overflow) {
 					session.pushUnfencedRepoChanges(changes);
 				} else {
-					session.pushRepoChanges(changes, ref, configBranches);
+					session.pushRepoChanges(changes, ref, configBranches, movedWorktree);
 				}
 
 				// A working tree nothing watches is read again whenever the index or HEAD says it may have moved
