@@ -573,10 +573,14 @@ describe('WatchGroup', () => {
 			common.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
 			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
+			// Naming the worktree that moved
 			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), [
 				'/worktrees/B',
 				['worktrees', 'worktreeHead'],
 				undefined,
+				undefined,
+				undefined,
+				'A',
 			]);
 		});
 
@@ -616,26 +620,43 @@ describe('WatchGroup', () => {
 			// A watcher may coalesce the removal's subtree into this one report, so none of the HEAD comes
 			common.fire({ path: '/repo/.git/worktrees/A', reason: 'delete' });
 
+			// Naming the worktree the entry was
 			const removed = ['worktrees', 'worktreeHead'];
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', removed, undefined]);
-			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', removed, undefined]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), [
+				'/worktrees/A',
+				removed,
+				undefined,
+				undefined,
+				undefined,
+				'A',
+			]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), [
+				'/worktrees/B',
+				removed,
+				undefined,
+				undefined,
+				undefined,
+				'A',
+			]);
 			assert.strictEqual(callCount(cbA.onRepoChanged), 1);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
 		});
 
-		it("tells of a worktree's HEAD with every report that can stand for its entry created or removed", () => {
-			for (const [path, reason] of [
-				['/repo/.git/worktrees', 'delete'],
-				['/repo/.git/worktrees', 'change'],
-				['/repo/.git/worktrees/C', 'create'],
-				['/repo/.git/worktrees/C/gitdir', 'delete'],
+		it("tells of a worktree's HEAD with every report that can stand for its entry created or removed, naming the entry's", () => {
+			for (const [path, reason, id] of [
+				['/repo/.git/worktrees', 'delete', undefined],
+				['/repo/.git/worktrees', 'change', undefined],
+				['/repo/.git/worktrees/C', 'create', 'C'],
+				['/repo/.git/worktrees/C/gitdir', 'delete', 'C'],
 			] as const) {
 				const { common, cbB } = setup();
 
 				common.fire({ path: path, reason: reason });
 				assert.deepStrictEqual(
 					callArgs(cbB.onRepoChanged, 0),
-					['/worktrees/B', ['worktrees', 'worktreeHead'], undefined],
+					id != null
+						? ['/worktrees/B', ['worktrees', 'worktreeHead'], undefined, undefined, undefined, id]
+						: ['/worktrees/B', ['worktrees', 'worktreeHead'], undefined],
 					`${path} ${reason}`,
 				);
 			}
@@ -835,12 +856,18 @@ describe('WatchGroup', () => {
 				'/repo',
 				['worktrees', 'worktreeHead'],
 				undefined,
+				undefined,
+				undefined,
+				'A',
 			]);
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 0, 1]);
 			assert.deepStrictEqual(callArgs(linkedB.onRepoChanged, 0), [
 				'/worktrees/B',
 				['worktrees', 'worktreeHead'],
 				undefined,
+				undefined,
+				undefined,
+				'A',
 			]);
 			assert.strictEqual(reads.length, baselineReads);
 			group.dispose();
@@ -911,6 +938,9 @@ describe('WatchGroup', () => {
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'delete');
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'create');
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 0, 2]);
+			for (const i of [0, 1]) {
+				assert.strictEqual(callArgs(linkedB.onRepoChanged, i)[5], 'A');
+			}
 
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'change');
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [3, 0, 3]);
@@ -941,6 +971,9 @@ describe('WatchGroup', () => {
 				'/repo',
 				['worktrees', 'worktreeHead'],
 				undefined,
+				undefined,
+				undefined,
+				'mine',
 			]);
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			group.dispose();
@@ -971,6 +1004,9 @@ describe('WatchGroup', () => {
 				'/repo',
 				['worktrees', 'worktreeHead'],
 				undefined,
+				undefined,
+				undefined,
+				'gone',
 			]);
 			assert.deepStrictEqual(heard(main, linkedA), [1, 1]);
 			group.dispose();
@@ -1327,6 +1363,12 @@ describe('WatchGroup', () => {
 
 			// Every list lost it, the owner's included; the other watcher's report finds it told
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
+			// As a list change, which names no worktree whose HEAD moved
+			assert.deepStrictEqual(callArgs(linkedA.onRepoChanged, 0), [
+				'/worktrees/A',
+				['worktrees', 'worktreeHead'],
+				undefined,
+			]);
 
 			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/HEAD', 'change');
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
@@ -1781,7 +1823,15 @@ describe('WatchGroup', () => {
 			}
 
 			assert.strictEqual(callCount(mainChanged), 1);
-			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees', 'worktreeHead'], undefined]);
+			// Its combined root watcher names the worktree that moved too
+			assert.deepStrictEqual(callArgs(mainChanged, 0), [
+				'/repo',
+				['worktrees', 'worktreeHead'],
+				undefined,
+				undefined,
+				undefined,
+				'B',
+			]);
 		});
 	});
 

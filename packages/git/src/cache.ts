@@ -35,7 +35,7 @@ import type { ResolvedRevision } from './providers/revision.js';
 import type { GitResult } from './run.types.js';
 import { parseBranchMetadataGkConfigKey, setBranchMetadataValue } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
-import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from './utils/repository.utils.js';
+import { getCommonRepositoryPath, getRepositoryOrWorktreePath, getWorktreeAdminId } from './utils/repository.utils.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
 
 type RepoPath = string;
@@ -397,8 +397,23 @@ export class Cache implements Disposable {
 		currentBranchReference: { byPath: new Map(), all: 0 },
 		currentUser: { byPath: new Map(), all: 0 },
 	};
-	/** Each ref listing's records checked out in a worktree, by the value of {@link _drops} when it started */
-	private _refsReadAt = new WeakMap<RefRecord, number>();
+	/**
+	 * Each ref listing's records checked out in a worktree, with the value of {@link _drops} when the listing started
+	 * and the common path it listed
+	 */
+	private _refsRead = new WeakMap<RefRecord, { readonly at: number; readonly commonPath: string }>();
+	/**
+	 * Unregistered linked worktrees a ref listing reported, whether or not it seeded their current branch, with the
+	 * common path of the listing (see {@link dropLinkedCurrentBranches})
+	 */
+	private _seededWorktrees = new Map<RepoPath, string>();
+	/** {@link _seededWorktrees} by common path */
+	private _seededWorktreesByCommonPath = new Map<RepoPath, Set<RepoPath>>();
+	/**
+	 * Registered linked worktrees' admin ids (the `<id>` of `.git/worktrees/<id>`), which name the worktree a
+	 * `'worktreeHead'` report says moved (see {@link applyRepositoryChanges})
+	 */
+	private _worktreeAdminIds = new Map<RepoPath, string>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -462,6 +477,7 @@ export class Cache implements Disposable {
 		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
 		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
 		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
+		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
 		return usage;
 	}
 
@@ -574,12 +590,120 @@ export class Cache implements Disposable {
 		reference: GitBranchReference | undefined,
 		record: RefRecord,
 	): void {
-		const readAt = this._refsReadAt.get(record);
-		if (readAt == null || this.isDroppedSince('currentBranchReference', worktreePath, readAt)) return;
+		const read = this._refsRead.get(record);
+		if (read == null || this.isDroppedSince('currentBranchReference', worktreePath, read.at)) return;
 
-		if (this.currentBranchReference.get(worktreePath) == null) {
-			this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
+		// Tracked even when the seed isn't taken: a reference a direct read cached goes as stale with a checkout there
+		if (worktreePath !== read.commonPath && !this._commonPathRegistry.has(worktreePath)) {
+			this.trackSeededWorktree(worktreePath, read.commonPath);
 		}
+		if (this.currentBranchReference.get(worktreePath) != null) return;
+
+		this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
+	}
+
+	private trackSeededWorktree(worktreePath: string, commonPath: string): void {
+		const previous = this._seededWorktrees.get(worktreePath);
+		if (previous === commonPath) return;
+
+		if (previous != null) {
+			this.untrackSeededWorktree(worktreePath);
+		}
+
+		this._seededWorktrees.set(worktreePath, commonPath);
+		let paths = this._seededWorktreesByCommonPath.get(commonPath);
+		if (paths == null) {
+			paths = new Set();
+			this._seededWorktreesByCommonPath.set(commonPath, paths);
+		}
+		paths.add(worktreePath);
+	}
+
+	private untrackSeededWorktree(worktreePath: string): void {
+		const commonPath = this._seededWorktrees.get(worktreePath);
+		if (commonPath == null) return;
+
+		this._seededWorktrees.delete(worktreePath);
+		const paths = this._seededWorktreesByCommonPath.get(commonPath);
+		paths?.delete(worktreePath);
+		if (paths?.size === 0) {
+			this._seededWorktreesByCommonPath.delete(commonPath);
+		}
+	}
+
+	/**
+	 * Tracks exactly `reported` for `commonPath`. A path the listing no longer reports isn't tracked any more, so a
+	 * HEAD change could no longer find it to drop its current branch: it goes with it
+	 */
+	private replaceSeededWorktrees(commonPath: string, reported: ReadonlySet<string>): void {
+		for (const path of [...(this._seededWorktreesByCommonPath.get(commonPath) ?? [])]) {
+			if (reported.has(path)) continue;
+
+			this.untrackSeededWorktree(path);
+			this.dropCurrentBranch(path);
+		}
+		for (const path of reported) {
+			this.trackSeededWorktree(path, commonPath);
+		}
+	}
+
+	/**
+	 * A `'worktreeHead'` report that doesn't say which linked worktree's HEAD moved, so each one but `repoPath` loses its
+	 * current branch: those registered, and those its repository's ref listings seeded. Never the main checkout: its
+	 * HEAD is the common `HEAD`, which is reported as `'head'`. With `unidentifiedOnly`, the report named a worktree that
+	 * isn't registered, so a registered one with an admin id of its own keeps its current branch
+	 */
+	private dropLinkedCurrentBranches(repoPath: string, unidentifiedOnly: boolean = false): void {
+		const commonPath = this.getCommonPath(repoPath);
+		const paths = new Set(
+			unidentifiedOnly
+				? this.getWorktreePaths(commonPath).filter(p => !this._worktreeAdminIds.has(p))
+				: this.getWorktreePaths(commonPath),
+		);
+		for (const path of this._seededWorktreesByCommonPath.get(commonPath) ?? []) {
+			paths.add(path);
+		}
+		paths.delete(repoPath);
+		paths.delete(commonPath);
+
+		for (const path of paths) {
+			this.dropCurrentBranch(path);
+		}
+	}
+
+	/**
+	 * A `'worktreeHead'` report naming, by admin id, the linked worktrees whose HEAD moved: each registered one but
+	 * `repoPath` is cleared as for its own `'head'` change, and an id no registered worktree has is an unregistered
+	 * worktree's (see {@link dropLinkedCurrentBranches})
+	 */
+	private applyLinkedHeadsMoved(repoPath: string, ids: ReadonlySet<string>, inFlight: 'share' | 'evict'): void {
+		const found = new Set<string>();
+		for (const path of this.getWorktreePaths(this.getCommonPath(repoPath))) {
+			const id = this._worktreeAdminIds.get(path);
+			if (id == null || !ids.has(id)) continue;
+
+			found.add(id);
+			if (path === repoPath) continue;
+
+			// Its own entries and status clock; the shared ones are for `repoPath`'s `'worktreeHead'` to clear
+			this.applyRepositoryChanges(path, ['head'], inFlight, { worktreeOnly: true });
+			// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current,
+			// and its git results may have read the HEAD it left
+			this._caches.branches?.delete(path);
+			this._caches.gitResults?.delete(path);
+		}
+
+		if (found.size < ids.size) {
+			this.dropLinkedCurrentBranches(repoPath, true);
+		}
+	}
+
+	/** Drops what a `'branch'` eviction of `worktreePath` drops of its current branch, and nothing shared */
+	private dropCurrentBranch(worktreePath: string): void {
+		this.onDropped(worktreePath, ['currentBranchReference']);
+		this._caches.currentBranchReference?.delete(worktreePath);
+		this._caches.branch?.delete(worktreePath);
+		this._caches.branches?.delete(worktreePath);
 	}
 
 	/**
@@ -1177,6 +1301,14 @@ export class Cache implements Disposable {
 	}
 
 	/**
+	 * The admin id (the `<id>` of `.git/worktrees/<id>`) of the registered linked worktree at `repoPath`; `undefined`
+	 * for the main checkout, or a path not registered
+	 */
+	getLinkedWorktreeId(repoPath: string): string | undefined {
+		return this._worktreeAdminIds.get(repoPath);
+	}
+
+	/**
 	 * Monotonic per-path counter advanced whenever `repoPath` is unregistered (repo closed, worktree
 	 * removed) or the cache is {@link reset}. Lets an async post-read step — e.g. the gk-config reconcile —
 	 * detect that its target was closed (and possibly reopened) mid-flight and bail. Unlike an `isRegistered`
@@ -1220,6 +1352,17 @@ export class Cache implements Disposable {
 			this.evictReadsBeforeRegistration(normalizedPath);
 		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
+		// Found as registered from here on
+		this.untrackSeededWorktree(normalizedPath);
+		const adminId =
+			gitDir.commonUri != null && normalizedPath !== commonPath
+				? getWorktreeAdminId(gitDir.uri.path, gitDir.commonUri.path)
+				: undefined;
+		if (adminId != null) {
+			this._worktreeAdminIds.set(normalizedPath, adminId);
+		} else {
+			this._worktreeAdminIds.delete(normalizedPath);
+		}
 
 		let worktrees = this._worktreesByCommonPath.get(commonPath);
 		if (worktrees == null) {
@@ -1339,7 +1482,14 @@ export class Cache implements Disposable {
 		if (isLastWorktree) {
 			this._gkConfigSnapshots.delete(commonPath);
 			this._mergeTargetsEvictedOnCheckout.delete(commonPath);
+			// Dropped as well as forgotten: once kept untracked, a reopen's listing wouldn't seed it, so it couldn't be found
+			for (const path of [...(this._seededWorktreesByCommonPath.get(commonPath) ?? [])]) {
+				this.untrackSeededWorktree(path);
+				this.dropCurrentBranch(path);
+			}
 		}
+		this.untrackSeededWorktree(repoPath);
+		this._worktreeAdminIds.delete(repoPath);
 
 		this._commonPathRegistry.delete(repoPath);
 
@@ -1363,21 +1513,31 @@ export class Cache implements Disposable {
 		this._statusGenerations.clear();
 		this._gkConfigSnapshots.clear();
 		this._mergeTargetsEvictedOnCheckout.clear();
+		this._seededWorktrees.clear();
+		this._seededWorktreesByCommonPath.clear();
+		this._worktreeAdminIds.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
 		this.onDropped(undefined);
 	}
 
-	/** Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}). */
+	/**
+	 * Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}).
+	 * `options.movedWorktrees` is the event's `movedWorktrees`.
+	 */
 	@debug({ onlyExit: true })
-	onRepositoryChanged(repoPath: string, changes: Iterable<RepositoryChange>): void {
+	onRepositoryChanged(
+		repoPath: string,
+		changes: Iterable<RepositoryChange>,
+		options?: { movedWorktrees?: ReadonlySet<string> },
+	): void {
 		const changesSet = new Set(changes);
 		if (changesSet.has('unknown') || changesSet.has('closed')) {
 			this.unregisterRepoPath(repoPath);
 			return;
 		}
 
-		this.applyRepositoryChanges(repoPath, changesSet, 'share');
+		this.applyRepositoryChanges(repoPath, changesSet, 'share', { movedWorktrees: options?.movedWorktrees });
 	}
 
 	/**
@@ -1389,13 +1549,22 @@ export class Cache implements Disposable {
 	 * `options.worktreeOnly` clears only `repoPath`'s own entries and status clock, leaving the shared
 	 * (commonPath-keyed) ones alone — for a sibling worktree once the change was applied to the worktree it ran in,
 	 * which already cleared them for every worktree of the repository.
+	 *
+	 * `options.announced` says `changes` are core's announcement of its own write for `repoPath`, whose `'worktreeHead'`
+	 * is that write's own: its rewrite of `repoPath`'s HEAD, which its `'head'` clears, or a worktree it added or
+	 * removed. Other worktrees' watchers report it, so no other worktree loses its current branch for it.
+	 *
+	 * `options.movedWorktrees` names, by admin id (the `<id>` of `.git/worktrees/<id>`), the linked worktrees whose HEAD
+	 * moved, which are all that a `'worktreeHead'` among `changes` reports: each registered one is cleared as for its
+	 * own `'head'` change, and no other registered worktree with an admin id of its own is touched. Without it, any
+	 * linked worktree's HEAD may have moved, so each one but `repoPath` loses its current branch.
 	 */
 	@debug({ onlyExit: true })
 	applyRepositoryChanges(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
 		inFlight: 'share' | 'evict',
-		options?: { worktreeOnly?: boolean },
+		options?: { announced?: boolean; worktreeOnly?: boolean; movedWorktrees?: ReadonlySet<string> },
 	): CachedGitTypes[] {
 		const worktreeOnly = options?.worktreeOnly ?? false;
 		const changesSet = new Set(changes);
@@ -1485,6 +1654,13 @@ export class Cache implements Disposable {
 		// added, removed, locked, unlocked or moved changes only the list
 		if (hasAny('worktreeHead')) {
 			types.add('worktrees');
+			if (!worktreeOnly && !options?.announced) {
+				if (options?.movedWorktrees != null) {
+					this.applyLinkedHeadsMoved(repoPath, options.movedWorktrees, inFlight);
+				} else {
+					this.dropLinkedCurrentBranches(repoPath);
+				}
+			}
 		} else if (hasAny('worktrees')) {
 			types.add('worktreeList');
 		}
@@ -2427,12 +2603,29 @@ export class Cache implements Disposable {
 		return this.refs.getOrCreate(
 			commonPath,
 			async (cacheable, signal) => {
-				const readAt = this.getDropStamp();
+				const read = { at: this.getDropStamp(), commonPath: commonPath };
+				const closeGeneration = this.getCloseGeneration(commonPath);
 				const records = await factory(commonPath, cacheable, signal);
+
+				const unregistered = new Set<string>();
 				for (const record of records) {
-					if (record.worktreePath) {
-						this._refsReadAt.set(record, readAt);
+					if (!record.worktreePath) continue;
+
+					this._refsRead.set(record, read);
+					// Spelled as the seeds and the registry spell it
+					const worktreePath = normalizePath(record.worktreePath);
+					if (worktreePath !== commonPath && !this._commonPathRegistry.has(worktreePath)) {
+						unregistered.add(worktreePath);
 					}
+				}
+				// A failed or cancelled listing answers empty, which says nothing about the worktrees; a close or reset
+				// since it started tore down what it would track
+				if (
+					!cacheable.invalidated &&
+					!signal?.aborted &&
+					this.getCloseGeneration(commonPath) === closeGeneration
+				) {
+					this.replaceSeededWorktrees(commonPath, unregistered);
 				}
 				return records;
 			},

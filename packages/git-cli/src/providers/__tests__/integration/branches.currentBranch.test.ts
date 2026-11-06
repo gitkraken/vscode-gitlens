@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
@@ -867,6 +867,126 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			assert.deepStrictEqual((await provider.branches.getBranch(wt, 'feature'))?.worktree, worktree);
 			const { values } = await provider.branches.getBranches(wt);
 			assert.deepStrictEqual(values.find(b => b.name === 'feature')?.worktree, worktree);
+		});
+
+		for (const registered of [true, false]) {
+			test(`a checkout in ${registered ? 'a registered' : 'an unregistered'} linked worktree that the main checkout reports is seen, without reading the refs again`, async () => {
+				const repo = track(createTestRepo());
+				createBranch(repo.path, 'feature');
+				createBranch(repo.path, 'other');
+				// With an upstream, rev-parse exits cleanly and so is counted
+				setUpstream(repo.path, 'main', 'feature');
+				setUpstream(repo.path, 'other', 'main');
+				const wt = worktreeOf(repo, 'feature');
+				const provider = await newProvider(registered ? [repo.path, wt] : [repo.path]);
+				// The main checkout's list seeds the worktree's current branch
+				await provider.branches.getBranches(repo.path);
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+				assert.strictEqual((await provider.branches.getBranch(repo.path))?.name, 'main');
+
+				checkout(wt, 'other');
+				resetSpawns();
+				// As the main checkout's watcher reports `worktrees/<id>/HEAD`
+				provider.cache.onRepositoryChanged(repo.path, ['worktrees', 'worktreeHead']);
+
+				const branch = await provider.branches.getBranch(wt);
+				assert.strictEqual(branch?.name, 'other');
+				assert.deepStrictEqual(branch?.worktree, { path: wt, isDefault: false });
+				assert.strictEqual((await provider.branches.getBranch(repo.path))?.name, 'main');
+				assert.strictEqual(spawnCount('rev-parse'), 1, 'only the linked worktree reads its HEAD');
+				assert.strictEqual(spawnCount('for-each-ref'), 0);
+			});
+
+			test(`a worktree the main checkout removes leaves ${registered ? 'a registered' : 'an unregistered'} linked worktree's current branch`, async () => {
+				const repo = track(createTestRepo());
+				createBranch(repo.path, 'feature');
+				createBranch(repo.path, 'removed');
+				// With an upstream, rev-parse exits cleanly and so is counted
+				setUpstream(repo.path, 'feature', 'main');
+				const wt = worktreeOf(repo, 'feature');
+				const removed = worktreeOf(repo, 'removed');
+				const provider = await newProvider(registered ? [repo.path, wt] : [repo.path]);
+				await provider.branches.getBranches(repo.path);
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+
+				await provider.worktrees.deleteWorktree(repo.path, removed);
+				resetSpawns();
+
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+				assert.strictEqual(spawnCount('rev-parse'), 0);
+				assert.strictEqual(spawnCount('for-each-ref'), 0);
+			});
+
+			test(`a raw detached checkout in the main checkout leaves ${registered ? 'a registered' : 'an unregistered'} linked worktree's current branch`, async () => {
+				const repo = track(createTestRepo());
+				createBranch(repo.path, 'feature');
+				setUpstream(repo.path, 'feature', 'main');
+				const wt = worktreeOf(repo, 'feature');
+				const provider = await newProvider(registered ? [repo.path, wt] : [repo.path]);
+				await provider.branches.getBranches(repo.path);
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+
+				await provider.git.run({ cwd: repo.path, notify: 'infer' }, 'checkout', '-q', '--detach');
+				resetSpawns();
+
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+				assert.strictEqual(spawnCount('rev-parse'), 0);
+				assert.strictEqual(spawnCount('for-each-ref'), 0);
+				assert.strictEqual((await provider.branches.getBranch(repo.path))?.detached, true);
+			});
+
+			test(`a raw checkout the main checkout runs with -C in a folder of ${registered ? 'a registered' : 'an unregistered'} linked worktree is seen there`, async () => {
+				const repo = track(createTestRepo());
+				createBranch(repo.path, 'feature');
+				const wt = worktreeOf(repo, 'feature');
+				mkdirSync(join(wt, 'folder'));
+				const provider = await newProvider(registered ? [repo.path, wt] : [repo.path]);
+				await provider.branches.getBranches(repo.path);
+				assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+
+				await provider.git.run(
+					{ cwd: repo.path, notify: 'infer' },
+					'-C',
+					join(wt, 'folder'),
+					'checkout',
+					'-q',
+					'--detach',
+				);
+
+				const branch = await provider.branches.getBranch(wt);
+				assert.strictEqual(branch?.detached, true);
+				assert.strictEqual(branch?.sha, getHeadSha(wt));
+			});
+		}
+
+		test('a checkout in a linked worktree the report names is seen there, and another linked worktree reads nothing', async () => {
+			const repo = track(createTestRepo());
+			createBranch(repo.path, 'feature');
+			createBranch(repo.path, 'other');
+			createBranch(repo.path, 'second');
+			// With an upstream, rev-parse exits cleanly and so is counted
+			setUpstream(repo.path, 'other', 'main');
+			setUpstream(repo.path, 'second', 'main');
+			const wt = worktreeOf(repo, 'feature');
+			const wt2 = worktreeOf(repo, 'second');
+			const provider = await newProvider([repo.path, wt, wt2]);
+			await provider.branches.getBranches(repo.path);
+			assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'feature');
+			assert.strictEqual((await provider.branches.getBranch(wt2))?.name, 'second');
+
+			checkout(wt, 'other');
+			resetSpawns();
+			// As the main checkout's watcher reports `worktrees/<id>/HEAD`, naming the worktree by its id
+			provider.cache.onRepositoryChanged(repo.path, ['worktrees', 'worktreeHead'], {
+				movedWorktrees: new Set([basename(git(wt, 'rev-parse', '--absolute-git-dir'))]),
+			});
+
+			assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'other');
+			assert.strictEqual(spawnCount('rev-parse'), 1, 'only the worktree that moved reads its HEAD');
+			assert.strictEqual((await provider.branches.getBranch(wt2))?.name, 'second');
+			assert.strictEqual((await provider.branches.getBranch(repo.path))?.name, 'main');
+			assert.strictEqual(spawnCount('rev-parse'), 1, 'the others read nothing');
+			assert.strictEqual(spawnCount('for-each-ref'), 0);
 		});
 
 		test('a caller aborted after the list is read rejects, rather than answering with no current branch', async () => {
