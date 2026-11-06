@@ -449,7 +449,7 @@ function serveGitLab(runtime: FakeRuntime, origin: string, options?: { nullCount
 			operations.push('commit merge requests');
 			return Promise.resolve(json([restMergeRequest]));
 		}
-		if (path === 'search/' || path === 'search') {
+		if (path === 'search/' || path === 'search' || /^projects\/[^/]+\/search$/.test(path)) {
 			operations.push('search merge requests');
 			return Promise.resolve(json([restMergeRequest]));
 		}
