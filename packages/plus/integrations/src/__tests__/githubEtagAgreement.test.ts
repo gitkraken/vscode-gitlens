@@ -66,6 +66,8 @@ function cheapPrNode(
 			node.mergeQueueEntry != null
 				? { state: node.mergeQueueEntry.state, enqueuedAt: node.mergeQueueEntry.enqueuedAt }
 				: null;
+		// The same selection as the full read's, so it is served as is.
+		picked.mergeQueueEvents = node.mergeQueueEvents ?? null;
 	}
 	if (includes.includes('mergeable')) {
 		picked.mergeable = node.mergeable;
@@ -143,6 +145,37 @@ const prCases: [string, GitHubPullRequestFixtureOverrides][] = [
 	['rollup null', { commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: null } }] } }],
 	['no commits', { commits: { totalCount: 0, nodes: [] } }],
 	['not queued', { mergeQueueEntry: null }],
+	[
+		'removed from the queue, checks failed',
+		{
+			mergeQueueEntry: null,
+			mergeQueueEvents: {
+				nodes: [
+					{
+						__typename: 'RemovedFromMergeQueueEvent',
+						createdAt: '2026-01-02T05:00:00Z',
+						reason: 'failed_checks',
+					},
+				],
+			},
+		},
+	],
+	[
+		'removed from the queue by merging',
+		{
+			mergeQueueEntry: null,
+			mergeQueueEvents: {
+				nodes: [
+					{
+						__typename: 'RemovedFromMergeQueueEvent',
+						createdAt: '2026-01-02T05:00:00Z',
+						reason: 'merged',
+					},
+				],
+			},
+		},
+	],
+	['rejoined the queue', { mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] } }],
 	...(['QUEUED', 'AWAITING_CHECKS', 'MERGEABLE', 'UNMERGEABLE', 'LOCKED'] as const).map(
 		(state): [string, GitHubPullRequestFixtureOverrides] => [
 			`queued ${state}`,
@@ -152,6 +185,7 @@ const prCases: [string, GitHubPullRequestFixtureOverrides][] = [
 					enqueuedAt: '2026-01-02T04:00:00Z',
 					estimatedTimeToMerge: 600,
 					mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+					position: 1,
 				},
 			},
 		],
@@ -284,13 +318,24 @@ suite('GitHub etag agreement: the cheap check and the full read compute the same
 		});
 	}
 
-	test('joining, moving through or leaving the merge queue is never answered unchanged, with no include', async () => {
+	test('joining, moving through, leaving or being removed from the merge queue is never answered unchanged, with no include', async () => {
 		// None of these moves `updatedAt`, so without the queue in the default etag a held row would keep a stale queue.
 		const entry = (state: 'AWAITING_CHECKS' | 'MERGEABLE', enqueuedAt = '2026-01-02T04:00:00Z') => ({
 			state: state,
 			enqueuedAt: enqueuedAt,
 			estimatedTimeToMerge: 600,
 			mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+			position: 1,
+		});
+		// Removal moves neither `updatedAt` nor, when it happens between two checks, the queue entry either check saw.
+		const removal = (createdAt: string) => ({
+			nodes: [
+				{
+					__typename: 'RemovedFromMergeQueueEvent' as const,
+					createdAt: createdAt,
+					reason: 'failed_checks',
+				},
+			],
 		});
 		const steps: [string, GitHubPullRequestFixtureOverrides, GitHubPullRequestFixtureOverrides][] = [
 			['joins', { mergeQueueEntry: null }, { mergeQueueEntry: entry('AWAITING_CHECKS') }],
@@ -301,6 +346,25 @@ suite('GitHub etag agreement: the cheap check and the full read compute the same
 				{ mergeQueueEntry: entry('AWAITING_CHECKS', '2026-01-02T05:00:00Z') },
 			],
 			['leaves', { mergeQueueEntry: entry('MERGEABLE') }, { mergeQueueEntry: null }],
+			[
+				'joins and is removed between checks',
+				{ mergeQueueEntry: null, mergeQueueEvents: { nodes: [] } },
+				{
+					mergeQueueEntry: null,
+					mergeQueueEvents: removal('2026-01-02T05:00:00Z'),
+				},
+			],
+			[
+				'is removed again',
+				{
+					mergeQueueEntry: null,
+					mergeQueueEvents: removal('2026-01-02T05:00:00Z'),
+				},
+				{
+					mergeQueueEntry: null,
+					mergeQueueEvents: removal('2026-01-02T06:00:00Z'),
+				},
+			],
 		];
 		const runtime = createFakeRuntime();
 		const byNumber = new Map<number, object>(steps.map(([, before], i) => [i + 1, prNode(i + 1, before)]));

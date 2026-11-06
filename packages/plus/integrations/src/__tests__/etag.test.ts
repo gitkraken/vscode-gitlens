@@ -276,6 +276,53 @@ suite('pullRequestEtag', () => {
 		assert.deepEqual(fields.mergeQueue, { state: PullRequestMergeQueueState.Mergeable, enqueuedAt: enqueuedAt });
 	});
 
+	test('a merge-queue removal is read off the row and is part of the etag, whatever the includes', () => {
+		const removedAt = new Date('2026-01-02T00:00:00Z');
+		const fields = pullRequestEtagFieldsFromShape(
+			gitHubPullRequestShape({
+				mergeQueueRemoval: { reason: 'failed_checks', removedAt: removedAt },
+			}),
+		);
+		assert.equal(fields.mergeQueueRemovedAt, removedAt);
+
+		for (const includes of includeSets) {
+			const etag = pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, includes);
+			assert.notEqual(etag, pullRequestEtag(base, includes), 'removed between two checks');
+			assert.notEqual(
+				etag,
+				pullRequestEtag({ ...base, mergeQueueRemovedAt: new Date('2026-01-03T00:00:00Z') }, includes),
+				'removed again',
+			);
+		}
+		assert.equal(
+			pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue-removed",1767312000000]]',
+		);
+	});
+
+	test('neither whether the queue is required nor the queue position is an etag input', () => {
+		const plain = pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()), []);
+		assert.equal(
+			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: true })), []),
+			plain,
+		);
+
+		const entry = {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+		};
+		assert.equal(
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 1 } })),
+				[],
+			),
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 4 } })),
+				[],
+			),
+		);
+	});
+
 	test('an Azure DevOps or Azure DevOps Server row carries the revision of its own fields; no other host does', () => {
 		for (const providerId of [
 			GitCloudHostIntegrationId.AzureDevOps,
@@ -596,7 +643,7 @@ suite('issueEtag', () => {
 });
 
 function gitHubPullRequestShape(
-	overrides?: Partial<Pick<PullRequestShape, 'provider' | 'mergeQueue'>>,
+	overrides?: Partial<Pick<PullRequestShape, 'provider' | 'mergeQueue' | 'mergeQueueRequired' | 'mergeQueueRemoval'>>,
 ): PullRequestShape {
 	const pr = new PullRequest(
 		{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },

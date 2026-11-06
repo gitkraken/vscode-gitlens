@@ -523,6 +523,16 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 			facets.length,
 			'every facet selects the merge queue entry, or queued PRs silently read as not queued on that facet',
 		);
+		assert.equal((query.match(/\bisMergeQueueEnabled\b/g) ?? []).length, facets.length);
+		assert.equal(
+			(
+				query.match(
+					/mergeQueueEvents: timelineItems\(last: 1, itemTypes: \[ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT\]\)/g,
+				) ?? []
+			).length,
+			facets.length,
+			'every facet selects the latest merge-queue event, and only the latest',
+		);
 	});
 
 	test('maps the selected merge queue entry onto the returned pull request', async () => {
@@ -533,11 +543,26 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				enqueuedAt: '2024-01-02T00:00:00Z',
 				estimatedTimeToMerge: null,
 				mergeQueue: { url: 'https://github.com/octo/repo/queue/main' },
+				position: 2,
+			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
+		};
+		const removed = {
+			...(prNode(2, '2024-01-01T00:00:00Z') as Record<string, unknown>),
+			mergeQueueEntry: null,
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: {
+				nodes: [
+					{
+						__typename: 'RemovedFromMergeQueueEvent',
+						createdAt: '2024-01-01T01:00:00Z',
+						reason: 'failed_checks',
+					},
+				],
 			},
 		};
-		const { config } = capture([
-			{ authorOpen: { issueCount: 2, nodes: [queued, prNode(2, '2024-01-01T00:00:00Z')] } },
-		]);
+		const { config } = capture([{ authorOpen: { issueCount: 2, nodes: [queued, removed] } }]);
 
 		const result = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
 			repos: ['o/a'],
@@ -549,8 +574,15 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 			enqueuedAt: new Date('2024-01-02T00:00:00Z'),
 			estimatedMergeAt: undefined,
 			url: 'https://github.com/octo/repo/queue/main',
+			position: 2,
 		});
+		assert.equal(result?.values[0].mergeQueueRequired, true);
+		assert.equal(result?.values[0].mergeQueueRemoval, undefined, 'it rejoined since any removal');
 		assert.equal(result?.values[1].mergeQueue, undefined, 'a pull request not in the queue reports no entry');
+		assert.deepEqual(result?.values[1].mergeQueueRemoval, {
+			reason: 'failed_checks',
+			removedAt: new Date('2024-01-01T01:00:00Z'),
+		});
 	});
 
 	// GitHub Enterprise Server's schema isn't verified to have `mergeQueueEntry`, and an unknown field fails the
@@ -563,7 +595,7 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
 		});
 
-		assert.doesNotMatch(getCalls()[0].query, /mergeQueueEntry/);
+		assert.doesNotMatch(getCalls()[0].query, /mergeQueueEntry|isMergeQueueEnabled|MERGE_QUEUE_EVENT/);
 	});
 });
 

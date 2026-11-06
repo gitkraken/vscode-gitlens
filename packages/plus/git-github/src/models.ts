@@ -6,6 +6,7 @@ import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestMember,
 	PullRequestMergeQueueEntry,
+	PullRequestMergeQueueRemoval,
 	PullRequestProjection,
 	PullRequestStackInfo,
 	PullRequestState,
@@ -191,7 +192,27 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	stackEntry?: { position: number } | null;
 	/** Only selected against github.com — see `stack`. `null` when the pull request isn't queued. */
 	mergeQueueEntry?: GitHubMergeQueueEntry | null;
+	/** Only selected against github.com — see `stack`. True whenever the base branch requires a merge queue, whatever
+	 *  the pull request's state. */
+	isMergeQueueEnabled?: boolean;
+	/** Only selected against github.com — see `stack`. The latest merge-queue event only (`timelineItems(last: 1)`). */
+	mergeQueueEvents?: GitHubMergeQueueEvents | null;
 }
+
+/** The `timelineItems` of a pull request filtered to its merge-queue events, as GitLens selects them. */
+export interface GitHubMergeQueueEvents {
+	nodes: (GitHubMergeQueueEvent | null)[] | null;
+}
+
+/** A merge-queue timeline event. Only a removal's fields are selected: the latest event being an addition is all an
+ *  addition says. */
+export type GitHubMergeQueueEvent =
+	| { __typename: 'AddedToMergeQueueEvent' }
+	| {
+			__typename: 'RemovedFromMergeQueueEvent';
+			createdAt: string;
+			reason: string | null;
+	  };
 
 export type GitHubMergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED';
 
@@ -202,6 +223,8 @@ export interface GitHubMergeQueueEntry {
 	/** Seconds from when it was read. */
 	estimatedTimeToMerge: number | null;
 	mergeQueue: { url: string } | null;
+	/** 1-based, in enqueue order. */
+	position: number | null;
 }
 
 /** GitHub's stacked-pull-request object. Read-only; all stack mutations are REST-only. */
@@ -314,6 +337,8 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	};
 	/** Always selected, but only against github.com, like the full read's. `null` when the pull request isn't queued. */
 	mergeQueueEntry?: Pick<GitHubMergeQueueEntry, 'state' | 'enqueuedAt'> | null;
+	/** Always selected, but only against github.com, exactly as the full read selects it. */
+	mergeQueueEvents?: GitHubMergeQueueEvents | null;
 }
 
 /**
@@ -425,6 +450,8 @@ export function fromGitHubPullRequestLite(
 		undefined, // viewerUnresolved
 		fromGitHubMilestone(pr.milestone),
 		fromGitHubPullRequestMergeQueueEntry(pr),
+		pr.isMergeQueueEnabled,
+		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
 }
 
@@ -471,7 +498,26 @@ export function fromGitHubMergeQueueEntry(entry: GitHubMergeQueueEntry): PullReq
 		estimatedMergeAt:
 			entry.estimatedTimeToMerge != null ? new Date(Date.now() + entry.estimatedTimeToMerge * 1000) : undefined,
 		url: entry.mergeQueue?.url,
+		position: entry.position ?? undefined,
 	};
+}
+
+/**
+ * The pull request's latest removal from its merge queue, from its latest merge-queue event: set only when that
+ * event is a removal (so it hasn't rejoined since) whose reason isn't `merged` (GitHub removes every merged entry
+ * with that reason). Absent on GitHub Enterprise Server (never selected). Shared by the full read and the etag's
+ * cheap check, so both derive the same removal.
+ */
+export function fromGitHubMergeQueueRemoval(
+	events: GitHubMergeQueueEvents | null | undefined,
+): PullRequestMergeQueueRemoval | undefined {
+	const latest = events?.nodes?.at(-1);
+	if (latest?.__typename !== 'RemovedFromMergeQueueEvent') return undefined;
+
+	const reason = latest.reason ?? '';
+	if (reason.toLowerCase() === 'merged') return undefined;
+
+	return { reason: reason, removedAt: new Date(latest.createdAt) };
 }
 
 /** A state GitHub adds later still means the pull request is in the queue, so it reads as Queued rather than
@@ -699,6 +745,8 @@ export function fromGitHubPullRequest(
 		undefined, // viewerUnresolved
 		fromGitHubMilestone(pr.milestone),
 		fromGitHubPullRequestMergeQueueEntry(pr),
+		pr.isMergeQueueEnabled,
+		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
 }
 

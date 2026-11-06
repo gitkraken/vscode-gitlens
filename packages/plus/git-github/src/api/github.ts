@@ -24,6 +24,8 @@ import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestMergeQueueActionFailureReason,
+	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
@@ -326,6 +328,26 @@ estimatedTimeToMerge
 mergeQueue {
 	url
 }
+position
+`;
+
+/**
+ * The pull request's latest merge-queue event, which `fromGitHubMergeQueueRemoval` reads for a removal that hasn't
+ * been followed by a rejoin. Shared by the full read and the etag's cheap check so both derive the same removal.
+ * Aliased so it can never collide with another `timelineItems` selection. One extra connection per pull request:
+ * against GitHub's rate-limit formula (a request per connection per parent node, summed, divided by 100) that adds
+ * a point per 100 pull requests a document reads — see the `mergeQueue` cost note in core's integrations docs.
+ */
+const gqlPullRequestMergeQueueEventsFragment = `
+mergeQueueEvents: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+	nodes {
+		__typename
+		... on RemovedFromMergeQueueEvent {
+			createdAt
+			reason
+		}
+	}
+}
 `;
 
 /**
@@ -337,6 +359,8 @@ const gqlPullRequestMergeQueueFragment = `
 mergeQueueEntry {
 	${gqlMergeQueueEntryFields}
 }
+isMergeQueueEnabled
+${gqlPullRequestMergeQueueEventsFragment}
 `;
 
 function gqlPullRequestMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
@@ -580,14 +604,18 @@ headRefOid
 
 /**
  * The slice of {@link gqlPullRequestMergeQueueFragment} a pull request's etag reads: whether it's queued, in which
- * state, and since when (so leaving and rejoining the queue between checks still reads as a change). Not the
- * estimate, which GitHub recomputes as the queue moves and would fail every check of a queued pull request.
+ * state, and since when (so leaving and rejoining the queue between checks still reads as a change), and its latest
+ * merge-queue event, so a pull request that joined and was removed between two checks (neither of which moves the
+ * update time) still reads as a change. Not the estimate, which GitHub recomputes as the queue moves and would fail
+ * every check of a queued pull request, nor the position, which moves as the entries ahead of it merge, nor
+ * `isMergeQueueEnabled`, which only a change to the base branch's rules moves.
  */
 const gqlPullRequestEtagMergeQueueFragment = `
 mergeQueueEntry {
 	state
 	enqueuedAt
 }
+${gqlPullRequestMergeQueueEventsFragment}
 `;
 
 function gqlPullRequestEtagMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
@@ -6335,6 +6363,180 @@ export class GitHubApi {
 			throw this.handleException(ex, provider, scope);
 		}
 	}
+
+	/**
+	 * Adds a pull request to its base branch's merge queue, at the back (no `jump`). GitHub takes no merge method here:
+	 * the base branch's ruleset decides it. `expectedHeadSha` makes GitHub refuse a head that moved since it was read.
+	 *
+	 * GitHub's refusals come back as a `failed` result saying why (see {@link toGitHubMergeQueueActionFailure}),
+	 * without prompting to re-authenticate on a FORBIDDEN, which here means the account may not queue, not that the
+	 * token is bad. A failure to reach GitHub, a refused credential or a rate limit is thrown as from any other request,
+	 * and cancellation throws `CancellationError`. Like every mutation it is never retried. github.com only, like the
+	 * merge-queue reads: `unsupported` on GitHub Enterprise Server, whose schema isn't verified to have it.
+	 */
+	@trace({
+		args: (provider, token, nodeId, expectedHeadSha) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			nodeId: nodeId,
+			expectedHeadSha: expectedHeadSha,
+		}),
+	})
+	async enqueuePullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		nodeId: string,
+		expectedHeadSha: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return { status: 'failed', reason: 'unsupported' };
+
+		interface QueryResult {
+			enqueuePullRequest: { mergeQueueEntry: GitHubMergeQueueEntry | null } | null;
+		}
+
+		try {
+			const query = `mutation enqueuePullRequest(
+	$id: ID!
+	$expectedHeadOid: GitObjectID!
+) {
+	enqueuePullRequest(input: { pullRequestId: $id, expectedHeadOid: $expectedHeadOid }) {
+		mergeQueueEntry {
+			${gqlMergeQueueEntryFields}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{ id: nodeId, expectedHeadOid: expectedHeadSha, baseUrl: options?.baseUrl },
+				scope,
+				cancellation,
+			);
+
+			const entry = rsp?.enqueuePullRequest?.mergeQueueEntry;
+			return { status: 'queued', entry: entry != null ? fromGitHubMergeQueueEntry(entry) : undefined };
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const failure = toGitHubMergeQueueActionFailure(ex);
+			if (failure != null) {
+				scope?.warn(`GitHub refused to enqueue: ${failure.reason} (${failure.message})`);
+				return { status: 'failed', ...failure };
+			}
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Removes a pull request from its base branch's merge queue, losing its place there. Fails and throws as
+	 * {@link enqueuePullRequest} does, and is github.com only like it.
+	 */
+	@trace({
+		args: (provider, token, nodeId) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			nodeId: nodeId,
+		}),
+	})
+	async dequeuePullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		nodeId: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return { status: 'failed', reason: 'unsupported' };
+
+		interface QueryResult {
+			dequeuePullRequest: { mergeQueueEntry: { id: string } | null } | null;
+		}
+
+		try {
+			// `id` is the pull request's node id (DequeuePullRequestInput: "The ID of the pull request to be dequeued").
+			const query = `mutation dequeuePullRequest($id: ID!) {
+	dequeuePullRequest(input: { id: $id }) {
+		mergeQueueEntry {
+			id
+		}
+	}
+}`;
+
+			await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{ id: nodeId, baseUrl: options?.baseUrl },
+				scope,
+				cancellation,
+			);
+
+			return { status: 'dequeued' };
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const failure = toGitHubMergeQueueActionFailure(ex);
+			if (failure != null) {
+				scope?.warn(`GitHub refused to dequeue: ${failure.reason} (${failure.message})`);
+				return { status: 'failed', ...failure };
+			}
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+}
+
+/**
+ * The wordings {@link toGitHubMergeQueueActionFailure} recognizes, tried in order against the lowercased message.
+ * Each was observed live (2026-11-06) as a GraphQL `UNPROCESSABLE` error, and is matched tightly to GitHub's fixed
+ * phrasing: "Pull request is already in the queue" (enqueue of a queued pull request), "Failed to add PR #N: expected
+ * head oid does not match the current head oid" (enqueue at a stale head), "Pull request is closed" (enqueue of a
+ * merged or closed pull request) and "Pull request is in draft" (enqueue of a draft). Dequeue of a pull request that isn't queued is refused with only the generic
+ * `Failed to remove PR #N "<title>"`, which embeds the pull request's title, so it matches nothing here (a title like
+ * "Fix merge conflict" must not read as a conflict) and falls through to `unknown`.
+ */
+const mergeQueueActionFailurePatterns: readonly (readonly [PullRequestMergeQueueActionFailureReason, RegExp])[] = [
+	['already-queued', /\bis already in the queue\b/],
+	['head-changed', /\bexpected head oid does not match\b/],
+	['not-allowed', /^pull request is (?:closed|in draft)\b/],
+];
+
+/**
+ * Why GitHub refused to add a pull request to its merge queue or remove it, from the error its GraphQL answer carried
+ * (`errors[]`, which `graphql` throws as a `GraphqlResponseError`, or wraps in an `AuthenticationError` for FORBIDDEN
+ * and a `RequestNotFoundError` for NOT_FOUND). `undefined` for anything that isn't GitHub's answer about the action
+ * — a failure to reach it, a refused credential (HTTP 401/403), a rate limit — which the caller handles like any
+ * other request's failure.
+ *
+ * Only the wordings observed live (2026-11-06; see {@link mergeQueueActionFailurePatterns}) are recognized. Dequeue's
+ * refusal is generic and embeds the pull request's title, so it is never matched by wording and maps to `unknown`.
+ * When no message matches, the error's `type` decides (FORBIDDEN is `permission`), and anything else is `unknown`.
+ * The message is GitHub's own, for logs, never for display.
+ */
+export function toGitHubMergeQueueActionFailure(
+	ex: unknown,
+): { reason: PullRequestMergeQueueActionFailureReason; message: string } | undefined {
+	const original = ex instanceof AuthenticationError || ex instanceof RequestNotFoundError ? ex.original : ex;
+	if (!(original instanceof GraphqlResponseError)) return undefined;
+
+	const error = original.errors?.[0];
+	if (error == null) return undefined;
+
+	const message = error.message ?? '';
+	const text = message.toLowerCase();
+
+	const matched = mergeQueueActionFailurePatterns.find(([, pattern]) => pattern.test(text));
+	if (matched != null) return { reason: matched[0], message: message };
+
+	// A NOT_FOUND names the pull request's node id, which the caller just read, so it says nothing about the queue:
+	// most likely a repository the account can no longer see. `unknown`, like any other unrecognized refusal.
+	return { reason: error.type === 'FORBIDDEN' ? 'permission' : 'unknown', message: message };
 }
 
 /**

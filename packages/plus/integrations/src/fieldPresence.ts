@@ -56,7 +56,10 @@ export type PullRequestFieldGroup =
 	| 'stack'
 	/** `milestone`. */
 	| 'milestone'
-	/** `mergeQueue`. Only GitHub.com's is read. */
+	/**
+	 * `mergeQueue`, `mergeQueueRequired` and `mergeQueueRemoval`: the merge-queue data was read, so an absent entry
+	 * means not queued and an absent removal means none since the pull request last joined. Only GitHub.com's is read.
+	 */
 	| 'mergeQueue';
 
 /** A group is `fetched` only when every field in it is. */

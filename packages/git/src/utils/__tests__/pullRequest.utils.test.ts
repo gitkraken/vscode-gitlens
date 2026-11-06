@@ -7,8 +7,10 @@ import {
 	getPullRequestComparator,
 	getPullRequestDisplayState,
 	getPullRequestDisplayStatus,
+	getPullRequestMergeQueueRemovalKind,
 	getStackedMergeCount,
 	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
 } from '../pullRequest.utils.js';
 
 suite('pullRequest.utils', () => {
@@ -35,6 +37,106 @@ suite('pullRequest.utils', () => {
 		};
 	}
 
+	suite('getPullRequestMergeQueueRemovalKind', () => {
+		test("classifies GitHub's failed and manual removals, whatever the case", () => {
+			assert.strictEqual(getPullRequestMergeQueueRemovalKind('failed_checks'), 'failed');
+			assert.strictEqual(getPullRequestMergeQueueRemovalKind('FAILED_CHECKS'), 'failed');
+			assert.strictEqual(getPullRequestMergeQueueRemovalKind('manual'), 'manual');
+		});
+
+		test('reads any other reason as other rather than guessing', () => {
+			assert.strictEqual(getPullRequestMergeQueueRemovalKind('something_new'), 'other');
+			assert.strictEqual(getPullRequestMergeQueueRemovalKind(''), 'other');
+		});
+	});
+
+	suite('isPullRequestMergeQueueRemovalCurrent', () => {
+		const removedAt = new Date('2026-11-06T10:00:00Z');
+		const removal = { reason: 'failed_checks', removedAt: removedAt };
+
+		test('a removal nothing has touched the pull request since is current', () => {
+			// The removal doesn't move the update time, so it is the earlier of the two.
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: new Date('2026-11-06T09:00:00Z'),
+					mergeQueueRemoval: removal,
+				}),
+				true,
+			);
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: removedAt,
+					mergeQueueRemoval: removal,
+				}),
+				true,
+				'an update at the same instant is not a later one',
+			);
+		});
+
+		test('any later update clears it — a push, but also a comment or label', () => {
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: new Date('2026-11-06T10:00:01Z'),
+					mergeQueueRemoval: removal,
+				}),
+				false,
+			);
+		});
+
+		test('a queued, closed or merged pull request, or one without a removal, has no current removal', () => {
+			const updatedDate = new Date('2026-11-06T09:00:00Z');
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: updatedDate,
+					mergeQueue: queueEntry(),
+					mergeQueueRemoval: removal,
+				}),
+				false,
+			);
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'closed',
+					updatedDate: updatedDate,
+					mergeQueueRemoval: removal,
+				}),
+				false,
+			);
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'merged',
+					updatedDate: updatedDate,
+					mergeQueueRemoval: removal,
+				}),
+				false,
+			);
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: updatedDate,
+				}),
+				false,
+			);
+		});
+
+		test('takes serialized timestamps as webview shapes carry them', () => {
+			assert.strictEqual(
+				isPullRequestMergeQueueRemovalCurrent({
+					state: 'opened',
+					updatedDate: new Date('2026-11-06T09:00:00Z').getTime(),
+					mergeQueueRemoval: {
+						reason: 'manual',
+						removedAt: removedAt.getTime(),
+					},
+				}),
+				true,
+			);
+		});
+	});
+
 	suite('getPullRequestDisplayState', () => {
 		test('an open pull request with a merge queue entry is queued', () => {
 			const pr = { state: 'opened', mergeQueue: queueEntry() } as const;
@@ -59,6 +161,18 @@ suite('pullRequest.utils', () => {
 				status: 'queued',
 				queueStatus: formatPullRequestMergeQueueStatus(entry),
 			});
+		});
+
+		test('a queued pull request chip carries its place in the queue', () => {
+			assert.deepStrictEqual(
+				getPullRequestDisplayStatus({ state: 'opened', mergeQueue: queueEntry({ position: 4 }) }),
+				{ status: 'queued', queueStatus: '#4 in the merge queue' },
+			);
+			// A merged pull request's stale entry doesn't make it queued
+			assert.deepStrictEqual(
+				getPullRequestDisplayStatus({ state: 'merged', mergeQueue: queueEntry({ position: 4 }) }),
+				{ status: 'merged', queueStatus: undefined },
+			);
 		});
 
 		test('a pull request that is not queued keeps its state and has no queue status', () => {
@@ -94,7 +208,42 @@ suite('pullRequest.utils', () => {
 			assert.strictEqual(status(PullRequestMergeQueueState.Unmergeable), 'Failing in the merge queue');
 		});
 
+		test('names the place in the queue when the provider gave one', () => {
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({ state: PullRequestMergeQueueState.Queued, position: 2 }),
+				'#2 in the merge queue',
+			);
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({ state: PullRequestMergeQueueState.AwaitingChecks, position: 2 }),
+				'#2 in the merge queue, checks running',
+			);
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({ state: PullRequestMergeQueueState.Mergeable, position: 1 }),
+				'#1 in the merge queue, next up',
+			);
+		});
+
+		test('a merging or failing entry ignores its place in the queue', () => {
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({ state: PullRequestMergeQueueState.Locked, position: 1 }),
+				'Merging',
+			);
+			assert.strictEqual(
+				formatPullRequestMergeQueueStatus({ state: PullRequestMergeQueueState.Unmergeable, position: 1 }),
+				'Failing in the merge queue',
+			);
+		});
+
 		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000);
+
+		test('keeps a future estimate after the place in the queue', () => {
+			const text = formatPullRequestMergeQueueStatus({
+				state: PullRequestMergeQueueState.AwaitingChecks,
+				position: 3,
+				estimatedMergeAt: inMinutes(60),
+			});
+			assert.ok(text.startsWith('#3 in the merge queue, checks running, estimated to merge '), text);
+		});
 
 		test('appends a future estimate for states that are still waiting', () => {
 			const text = formatPullRequestMergeQueueStatus(

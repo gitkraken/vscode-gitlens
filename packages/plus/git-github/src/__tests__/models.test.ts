@@ -5,8 +5,19 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../api/config.js';
 import { GitHubApi } from '../api/github.js';
 import type { GitHubTokenInfo } from '../api/token.js';
-import type { GitHubIssue, GitHubMergeQueueEntryState, GitHubPullRequest, GitHubPullRequestLite } from '../models.js';
-import { fromGitHubIssue, fromGitHubPullRequest, fromGitHubPullRequestLite } from '../models.js';
+import type {
+	GitHubIssue,
+	GitHubMergeQueueEntryState,
+	GitHubMergeQueueEvent,
+	GitHubPullRequest,
+	GitHubPullRequestLite,
+} from '../models.js';
+import {
+	fromGitHubIssue,
+	fromGitHubMergeQueueRemoval,
+	fromGitHubPullRequest,
+	fromGitHubPullRequestLite,
+} from '../models.js';
 
 /**
  * GitHub's GraphQL `Issue.author` is an `Actor` and is nullable — it comes back `null` once the
@@ -89,7 +100,10 @@ suite('fromGitHubIssue', () => {
  * populated. Only the last case may produce stack info.
  */
 function createPullRequestLite(
-	stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry' | 'mergeQueueEntry'>,
+	stack?: Pick<
+		GitHubPullRequestLite,
+		'stack' | 'stackEntry' | 'mergeQueueEntry' | 'isMergeQueueEnabled' | 'mergeQueueEvents'
+	>,
 	milestone: GitHubPullRequestLite['milestone'] = null,
 ): GitHubPullRequestLite {
 	return {
@@ -246,6 +260,7 @@ suite('fromGitHubPullRequestLite merge queue mapping', () => {
 		enqueuedAt: '2026-07-30T02:00:00Z',
 		estimatedTimeToMerge: 900,
 		mergeQueue: { url: 'https://github.com/gitkraken/vscode-gitlens/queue/main' },
+		position: 2,
 	};
 
 	test('maps a queued pull request to its entry', () => {
@@ -264,6 +279,7 @@ suite('fromGitHubPullRequestLite merge queue mapping', () => {
 			enqueuedAt: new Date('2026-07-30T02:00:00Z'),
 			estimatedMergeAt: new Date(estimatedMergeAt),
 			url: 'https://github.com/gitkraken/vscode-gitlens/queue/main',
+			position: 2,
 		});
 		// Queue membership is extra data, never a state of its own.
 		assert.equal(pr.state, 'opened');
@@ -300,6 +316,98 @@ suite('fromGitHubPullRequestLite merge queue mapping', () => {
 		);
 
 		assert.equal(pr.mergeQueue?.state, PullRequestMergeQueueState.Queued);
+	});
+
+	test('reports no position when GitHub gives none', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({ mergeQueueEntry: { ...queued, position: null } }),
+			provider,
+		);
+
+		assert.notEqual(pr.mergeQueue, undefined);
+		assert.equal(pr.mergeQueue?.position, undefined);
+	});
+
+	test('maps whether the base branch requires a merge queue, and leaves it unread when never selected', () => {
+		const required = fromGitHubPullRequestLite(createPullRequestLite({ isMergeQueueEnabled: true }), provider);
+		const notRequired = fromGitHubPullRequestLite(createPullRequestLite({ isMergeQueueEnabled: false }), provider);
+		const enterprise = fromGitHubPullRequestLite(createPullRequestLite(), provider);
+
+		assert.equal(required.mergeQueueRequired, true);
+		// `false` is a read answer, not a missing one.
+		assert.equal(notRequired.mergeQueueRequired, false);
+		assert.equal(enterprise.mergeQueueRequired, undefined);
+	});
+});
+
+/**
+ * The latest merge-queue event decides the removal: only a removal that is the latest event (no rejoin since) and
+ * didn't merge the pull request is one.
+ */
+suite('fromGitHubMergeQueueRemoval', () => {
+	function removed(reason: string | null, createdAt = '2026-07-30T03:00:00Z'): GitHubMergeQueueEvent {
+		return {
+			__typename: 'RemovedFromMergeQueueEvent',
+			createdAt: createdAt,
+			reason: reason,
+		};
+	}
+
+	test("maps a latest removal, keeping GitHub's raw reason", () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({
+				mergeQueueEntry: null,
+				mergeQueueEvents: { nodes: [removed('failed_checks')] },
+			}),
+			provider,
+		);
+
+		assert.deepEqual(pr.mergeQueueRemoval, {
+			reason: 'failed_checks',
+			removedAt: new Date('2026-07-30T03:00:00Z'),
+		});
+	});
+
+	test('passes an unrecognized reason through, and a missing one as empty', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('something_new')] })?.reason, 'something_new');
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed(null)] })?.reason, '');
+	});
+
+	test('a removal that merged the pull request is no removal', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('merged')] }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('MERGED')] }), undefined);
+	});
+
+	test('a later rejoin clears the removal', () => {
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [{ __typename: 'AddedToMergeQueueEvent' }],
+			}),
+			undefined,
+		);
+	});
+
+	test('only the latest event counts', () => {
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [removed('failed_checks'), { __typename: 'AddedToMergeQueueEvent' }],
+			}),
+			undefined,
+		);
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [{ __typename: 'AddedToMergeQueueEvent' }, removed('manual')],
+			})?.reason,
+			'manual',
+		);
+	});
+
+	test('no events, or none selected (Enterprise), is no removal', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [] }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: null }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval(null), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval(undefined), undefined);
+		assert.equal(fromGitHubPullRequestLite(createPullRequestLite(), provider).mergeQueueRemoval, undefined);
 	});
 });
 

@@ -162,6 +162,12 @@ export interface PullRequestEtagFields {
 	 * (github.com).
 	 */
 	mergeQueue?: Pick<PullRequestMergeQueueEntry, 'state' | 'enqueuedAt'>;
+	/**
+	 * When the pull request's `mergeQueueRemoval` happened, set only while it has one. Like `mergeQueue`, part of the
+	 * etag whenever it is set, not an include: a pull request that joins its queue and is removed between two checks
+	 * moves neither its update time nor, at either check, `mergeQueue`.
+	 */
+	mergeQueueRemovedAt?: Date;
 }
 
 /**
@@ -317,6 +323,8 @@ type SyncReqUsecase = Exclude<
 	| 'getSshSigningKeysForEmails'
 	| 'countIssues'
 	| 'countPullRequests'
+	| 'dequeuePullRequest'
+	| 'enqueuePullRequest'
 	| 'mergePullRequest'
 	| 'searchIssuesPage'
 	| 'searchPullRequestsPage'

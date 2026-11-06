@@ -105,7 +105,10 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 				enqueuedAt: '2026-01-01T00:00:00Z',
 				estimatedTimeToMerge: 600,
 				mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+				position: 1,
 			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
 			additions: 3,
 			assignees: { nodes: [member] },
 			changedFiles: 2,
@@ -145,7 +148,7 @@ function selectNativePullRequest(query: string): Node {
 	const unselected = [
 		...(query.includes('totalCommentsCount') ? [] : fullOnlyPullRequestFields),
 		...(query.includes('stackEntry') ? [] : ['stack', 'stackEntry']),
-		...(query.includes('mergeQueueEntry') ? [] : ['mergeQueueEntry']),
+		...(query.includes('mergeQueueEntry') ? [] : ['mergeQueueEntry', 'isMergeQueueEnabled', 'mergeQueueEvents']),
 	];
 	return Object.fromEntries(Object.entries(nativePullRequestNode()).filter(([field]) => !unselected.includes(field)));
 }
@@ -595,6 +598,10 @@ function assertFullRow(
 	assert.equal(presence.stack, 'fetched');
 	assert.equal(row.mergeQueue?.state, PullRequestMergeQueueState.AwaitingChecks);
 	assert.equal(row.mergeQueue?.url, 'https://github.com/o/r/queue/main');
+	assert.equal(row.mergeQueue?.position, 1);
+	// The same group covers whether the queue is required and the latest removal (none: it rejoined since).
+	assert.equal(row.mergeQueueRequired, true);
+	assert.equal(row.mergeQueueRemoval, undefined);
 	assert.equal(presence.mergeQueue, 'fetched');
 	assert.equal(row.reviewRequests?.length, 1);
 	assert.equal(row.reviewRequests?.[0]?.isCodeOwner, true);

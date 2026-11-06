@@ -73,6 +73,18 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	 * Only GitHub.com reports one.
 	 */
 	readonly mergeQueue?: PullRequestMergeQueueEntry;
+	/**
+	 * Whether the base branch accepts this pull request only through a merge queue, so merging it means adding it to
+	 * the queue. `undefined` means not read; read wherever `mergeQueue` is (the same `mergeQueue` field group).
+	 */
+	readonly mergeQueueRequired?: boolean;
+	/**
+	 * The pull request's latest removal from its merge queue, set only while that removal is its latest merge-queue
+	 * event (it hasn't rejoined since) and the removal didn't merge it. It stays set however much later the pull
+	 * request changes, so ask `isPullRequestMergeQueueRemovalCurrent` whether it still describes the pull request.
+	 * Read wherever `mergeQueue` is (the same `mergeQueue` field group); absent there means no such removal.
+	 */
+	readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval;
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
 	/**
@@ -146,6 +158,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly viewerUnresolved?: true,
 		public readonly milestone?: IssueMilestone | null,
 		public readonly mergeQueue?: PullRequestMergeQueueEntry,
+		public readonly mergeQueueRequired?: boolean,
+		public readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval,
 	) {}
 
 	get closed(): boolean {
@@ -466,7 +480,56 @@ export interface PullRequestMergeQueueEntry {
 	estimatedMergeAt?: Date;
 	/** The merge queue's web URL. */
 	url?: string;
+	/**
+	 * The entry's 1-based place in the queue, in enqueue order. Absent when the provider gives none. It moves as the
+	 * entries ahead of it merge or leave, so it is never an etag input: an `unchanged` row's position can be stale.
+	 */
+	position?: number;
 }
+
+/** A pull request's removal from its base branch's merge queue, other than by merging. */
+export interface PullRequestMergeQueueRemoval {
+	/**
+	 * The provider's own reason, passed through as given — GitHub's include `failed_checks` and `manual`, and others
+	 * are undocumented. Empty when the provider gives none. Classify it with `getPullRequestMergeQueueRemovalKind`.
+	 */
+	reason: string;
+	/** When the pull request was removed. */
+	removedAt: Date;
+}
+
+/** Why adding a pull request to its merge queue, or removing it, failed. */
+export type PullRequestMergeQueueActionFailureReason =
+	/** Adding a pull request that is already queued. */
+	| 'already-queued'
+	/** The pull request's head moved since it was read, so the head it was asked to queue is stale. */
+	| 'head-changed'
+	/** The host refused the action for the pull request's own state: its base branch has no merge queue, it is a
+	 *  draft or closed, or it doesn't meet the queue's requirements. */
+	| 'not-allowed'
+	/** The account may not add to or remove from this queue. */
+	| 'permission'
+	/** The host (or this integration) has no merge queue to act on. */
+	| 'unsupported'
+	/** Anything else, including a failure to reach the host. */
+	| 'unknown';
+
+/**
+ * What adding a pull request to its merge queue, or removing it, did. A failure says why, with the host's own message
+ * when it gave one — for logs and diagnostics, not for display.
+ */
+export type PullRequestMergeQueueActionResult =
+	| {
+			readonly status: 'queued';
+			/** The new entry, when the host returned one. */
+			readonly entry?: PullRequestMergeQueueEntry;
+	  }
+	| { readonly status: 'dequeued' }
+	| {
+			readonly status: 'failed';
+			readonly reason: PullRequestMergeQueueActionFailureReason;
+			readonly message?: string;
+	  };
 
 export interface PullRequestReviewer {
 	isCodeOwner?: boolean;

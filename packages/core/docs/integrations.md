@@ -206,7 +206,11 @@ The hosts with a cheap check select only the change state:
   move the update time. Only a queued pull request's etag carries it, with no `etagIncludes` needed, so a pull request
   that isn't queued keeps exactly the etag it had before the queue was read, under any include set. The estimate
   (`estimatedMergeAt`) isn't an input: GitHub recomputes it as the queue moves, so an `unchanged` queued pull request's
-  estimate can be stale, though as a date it keeps counting down.
+  estimate can be stale, though as a date it keeps counting down. Nor is the `position`, which moves as the entries
+  ahead merge, or `mergeQueueRequired`, which only a change to the base branch's rules moves, so an `unchanged` row's
+  can be stale. The check also selects each pull request's latest merge-queue event, so a pull request that joined the
+  queue and was removed between two checks reads as changed: only a row with a `mergeQueueRemoval` carries it in its
+  etag, so every other pull request's etag is unchanged by it.
 - **GitLab and GitLab self-managed:** one query per project per 100 iids. That drops to 10 iids when `etagIncludes`
   has `'checks'`, because GitLab resolves every job of each head pipeline for that input. GitLab resets a merge
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
@@ -404,7 +408,22 @@ The cells that aren't obvious from the projection names:
 - `stack` and `mergeQueue` are selected only against github.com. A row without `mergeQueue` where the group is
   `fetched` is not queued; `isPullRequestInMergeQueue(pr)` answers that for an open pull request. Its
   `estimatedMergeAt` is GitHub's estimate of the time remaining, fixed to a date when the row was read, so it may be
-  in the past on a row held a while.
+  in the past on a row held a while, and its `position` is 1-based in enqueue order.
+- The `mergeQueue` group also covers `mergeQueueRequired` (the base branch accepts the pull request only through a
+  merge queue; `false` is an answer, `undefined` not read) and `mergeQueueRemoval` (`{ reason, removedAt }`: the
+  latest removal from the queue, set only while it is the pull request's latest merge-queue event and didn't merge it).
+  `reason` is GitHub's own string, passed through (`failed_checks`, `manual`, others undocumented); classify it with
+  `getPullRequestMergeQueueRemovalKind` (`failed`, `manual`, `other`). A removal stays on the row however much later
+  the pull request changes, so ask `isPullRequestMergeQueueRemovalCurrent(pr)` whether it still describes it: open,
+  not queued, and not updated since. Any later update clears it — a comment or a label as well as a push — because
+  GitHub's timeline orders commits by commit date, not push time, so it can't say whether a push followed the
+  removal; GitHub's removal itself doesn't move the update time.
+- Cost: the merge-queue selection adds one connection per pull request (`timelineItems(last: 1)`). By GitHub's
+  rate-limit formula (a request per connection per parent node, summed, divided by 100 and rounded, minimum 1) that
+  is one more request per pull request read: a 30-row full search page goes from 121 requests (1 point) to 151 (2
+  points), a 100-row lite page from 1 to 101 (1 point either way), a 25-target batch read from 100 to 125 (1 point),
+  and the cheap check's 25 targets from 0 or 25 (with `'checks'`) to 25 or 50 (1 point either way). The filtered
+  search's worst case, 15 facets of 30 rows, goes from 1,815 requests (18 points) to 2,265 (23).
 
 #### Every other provider
 

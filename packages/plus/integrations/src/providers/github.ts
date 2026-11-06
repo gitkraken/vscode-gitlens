@@ -3,6 +3,7 @@ import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/gi
 import {
 	fromGitHubIssueOrPullRequestState,
 	fromGitHubMergeQueueEntryState,
+	fromGitHubMergeQueueRemoval,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
@@ -14,6 +15,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
@@ -191,6 +193,11 @@ function toPullRequestEtagFields(
 			state: fromGitHubMergeQueueEntryState(node.mergeQueueEntry.state),
 			enqueuedAt: new Date(node.mergeQueueEntry.enqueuedAt),
 		};
+	}
+
+	const mergeQueueRemoval = fromGitHubMergeQueueRemoval(node.mergeQueueEvents);
+	if (mergeQueueRemoval != null) {
+		fields.mergeQueueRemovedAt = mergeQueueRemoval.removedAt;
 	}
 
 	if (etagIncludes.includes('mergeable')) {
@@ -1398,6 +1405,54 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				},
 				cancellation,
 			) ?? false
+		);
+	}
+
+	/**
+	 * Adds the pull request to its merge queue, expecting the head it was read with. A pull request without a node id
+	 * or head (a row from a read that didn't select them) can't be queued safely, so it fails as `unknown`.
+	 */
+	protected override async enqueueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		const headRefSha = pr.refs?.head?.sha;
+		if (id == null || headRefSha == null) {
+			return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id or head' };
+		}
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.enqueuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			headRefSha,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
+	}
+
+	protected override async dequeueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		if (id == null) return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id' };
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.dequeuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
 		);
 	}
 

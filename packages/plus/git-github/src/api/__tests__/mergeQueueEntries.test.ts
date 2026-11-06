@@ -55,6 +55,7 @@ suite('GitHubApi.getMergeQueueEntriesForBranches', () => {
 			enqueuedAt: '2026-10-27T10:00:00Z',
 			estimatedTimeToMerge: estimatedTimeToMerge,
 			mergeQueue: { url: 'https://github.com/o/a/queue/main' },
+			position: number,
 			pullRequest: { number: number },
 		};
 	}
@@ -81,8 +82,8 @@ suite('GitHubApi.getMergeQueueEntriesForBranches', () => {
 		assert.match(query, /entries\(first: 100\)/);
 		// The same entry selection the per-pull-request fragment uses, so one mapper serves both.
 		assert.match(query, /estimatedTimeToMerge/);
-		// Never shown, so never asked for.
-		assert.doesNotMatch(query, /\bposition\b/);
+		// Shown in the queue status ("#2 in the merge queue").
+		assert.match(query, /\bposition\b/);
 		assert.match(query, /pullRequest \{\s*number\s*\}/);
 		assert.equal(variables.b0, 'main');
 		assert.equal(variables.b1, 'release');
@@ -104,6 +105,7 @@ suite('GitHubApi.getMergeQueueEntriesForBranches', () => {
 						enqueuedAt: new Date('2026-10-27T10:00:00Z'),
 						estimatedMergeAt: new Date(estimatedMergeAt),
 						url: 'https://github.com/o/a/queue/main',
+						position: 1,
 					},
 				],
 				[
@@ -113,6 +115,7 @@ suite('GitHubApi.getMergeQueueEntriesForBranches', () => {
 						enqueuedAt: new Date('2026-10-27T10:00:00Z'),
 						estimatedMergeAt: undefined,
 						url: 'https://github.com/o/a/queue/main',
+						position: 2,
 					},
 				],
 			],

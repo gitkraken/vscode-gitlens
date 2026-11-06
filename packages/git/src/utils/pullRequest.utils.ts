@@ -10,7 +10,6 @@ import type {
 	PullRequestSortField,
 	PullRequestSorting,
 	PullRequestStackInfo,
-	PullRequestState,
 } from '../models/pullRequest.js';
 import { PullRequestMergeQueueState } from '../models/pullRequest.js';
 import { serializeMilestone } from './issueOrPullRequest.utils.js';
@@ -42,8 +41,6 @@ export function isPullRequestInMergeQueue<T extends { readonly state?: string; r
 }
 
 /** A pull request's state as shown to users: its provider state, except an open pull request waiting in a merge queue is `queued`. */
-export type PullRequestDisplayState = PullRequestState | 'queued';
-
 export function getPullRequestDisplayState<S extends string | undefined>(pr: {
 	readonly state: S;
 	readonly mergeQueue?: unknown;
@@ -51,8 +48,9 @@ export function getPullRequestDisplayState<S extends string | undefined>(pr: {
 	return isPullRequestInMergeQueue(pr) ? 'queued' : pr.state;
 }
 
-/** A pull request's {@link getPullRequestDisplayState display state} paired with its merge-queue status, which is
- *  set only while it's queued — the pair a pull request chip renders. */
+/** A pull request's {@link getPullRequestDisplayState display state} paired with its
+ *  {@link formatPullRequestMergeQueueStatus merge-queue status}, place in line included, which is set only while it's
+ *  queued — the pair a pull request chip renders. */
 export function getPullRequestDisplayStatus<S extends string | undefined>(pr: {
 	readonly state: S;
 	readonly mergeQueue?: Parameters<typeof formatPullRequestMergeQueueStatus>[0];
@@ -62,19 +60,32 @@ export function getPullRequestDisplayStatus<S extends string | undefined>(pr: {
 		: { status: pr.state, queueStatus: undefined };
 }
 
-/** Describes where a queued pull request stands in its merge queue. Takes only the fields it reads, and the estimate
- *  as a date or a timestamp (ms), since webview shapes carry a serialized entry. */
+/**
+ * Describes where a queued pull request stands in its merge queue, with its place in line when the provider gave one
+ * ("#2 in the merge queue, checks running"). Merging and failing entries read the same with or without a place, since
+ * the place no longer says anything there. Takes only the fields it reads, and the estimate as a date or a timestamp
+ * (ms), since webview shapes carry a serialized entry.
+ */
 export function formatPullRequestMergeQueueStatus(entry: {
 	readonly state: PullRequestMergeQueueState;
 	readonly estimatedMergeAt?: Date | number;
+	readonly position?: number;
 }): string {
+	const position = entry.position;
+
 	let status: string;
 	switch (entry.state) {
 		case PullRequestMergeQueueState.AwaitingChecks:
-			status = l10n.t('Queued to merge, checks running');
+			status =
+				position != null
+					? l10n.t('#{position} in the merge queue, checks running', { position: position })
+					: l10n.t('Queued to merge, checks running');
 			break;
 		case PullRequestMergeQueueState.Mergeable:
-			status = l10n.t('Queued to merge, next up');
+			status =
+				position != null
+					? l10n.t('#{position} in the merge queue, next up', { position: position })
+					: l10n.t('Queued to merge, next up');
 			break;
 		case PullRequestMergeQueueState.Locked:
 			// The merge is already in flight, so an estimate adds nothing
@@ -82,7 +93,10 @@ export function formatPullRequestMergeQueueStatus(entry: {
 		case PullRequestMergeQueueState.Unmergeable:
 			return l10n.t('Failing in the merge queue');
 		default:
-			status = l10n.t('Queued to merge');
+			status =
+				position != null
+					? l10n.t('#{position} in the merge queue', { position: position })
+					: l10n.t('Queued to merge');
 			break;
 	}
 
@@ -100,6 +114,53 @@ export function formatPullRequestMergeQueueStatus(entry: {
  *  doesn't run straight into a bare date. */
 export function formatPullRequestMergeQueueEnqueuedFromNow(entry: { readonly enqueuedAt: Date | number }): string {
 	return l10n.t('queued {0}', fromNow(entry.enqueuedAt));
+}
+
+/** What a `PullRequestMergeQueueRemoval`'s reason says about the pull request: its queue run `failed`, someone
+ *  removed it (`manual`), or a reason this doesn't recognize (`other`), which the removal's raw reason still names. */
+export type PullRequestMergeQueueRemovalKind = 'failed' | 'manual' | 'other';
+
+/**
+ * Classifies a merge-queue removal's provider reason. Only the reasons seen from GitHub are recognized —
+ * `failed_checks` (its queue run failed) and `manual` — matched without regard to case; every other reason is
+ * `other` rather than guessed at, so a caller that shows one can fall back to the raw reason.
+ */
+export function getPullRequestMergeQueueRemovalKind(reason: string): PullRequestMergeQueueRemovalKind {
+	switch (reason.toLowerCase()) {
+		case 'failed_checks':
+			return 'failed';
+		case 'manual':
+			return 'manual';
+		default:
+			return 'other';
+	}
+}
+
+/**
+ * Whether a pull request's merge-queue removal (`mergeQueueRemoval`) still describes it: it is set,
+ * the pull request is open and not queued, and nothing has touched the pull request since — its update time is no
+ * later than the removal, which GitHub's removal doesn't move. Narrows `mergeQueueRemoval` to set.
+ *
+ * The trade-off: any later update clears it, not only a push that may have fixed the failure, so a comment or a
+ * label added after a failed queue run also stops it reading as failing. A provider's timeline can't say whether a
+ * push followed the removal (GitHub orders commits by commit date, not push time), and a stale "failing" is worse
+ * than a missed one. Takes dates or timestamps (ms), since webview shapes carry serialized ones.
+ */
+export function isPullRequestMergeQueueRemovalCurrent<
+	T extends {
+		readonly state?: string;
+		readonly updatedDate: Date | number;
+		readonly mergeQueue?: unknown;
+		readonly mergeQueueRemoval?: { readonly removedAt: Date | number };
+	},
+>(pr: T): pr is T & { readonly mergeQueueRemoval: NonNullable<T['mergeQueueRemoval']> } {
+	if (pr.mergeQueueRemoval == null || pr.state !== 'opened' || pr.mergeQueue != null) return false;
+
+	const removedAt = new Date(pr.mergeQueueRemoval.removedAt).getTime();
+	const updatedAt = new Date(pr.updatedDate).getTime();
+	if (Number.isNaN(removedAt) || Number.isNaN(updatedAt)) return false;
+
+	return removedAt >= updatedAt;
 }
 
 /**
@@ -331,7 +392,12 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 					enqueuedAt: value.mergeQueue.enqueuedAt,
 					estimatedMergeAt: value.mergeQueue.estimatedMergeAt,
 					url: value.mergeQueue.url,
+					position: value.mergeQueue.position,
 				}
+			: undefined,
+		mergeQueueRequired: value.mergeQueueRequired,
+		mergeQueueRemoval: value.mergeQueueRemoval
+			? { reason: value.mergeQueueRemoval.reason, removedAt: value.mergeQueueRemoval.removedAt }
 			: undefined,
 	};
 	return serialized;
