@@ -7419,7 +7419,7 @@
 					{
 						"when": "resource in gitlens:review:files",
 						"group": "navigation",
-						"order": -97
+						"order": -103
 					}
 				]
 			}
@@ -7532,7 +7532,7 @@
 					{
 						"when": "resource in gitlens:review:files",
 						"group": "navigation",
-						"order": -96,
+						"order": -102,
 						"alt": "gitlens.review.walkNextInListOrder"
 					}
 				]
@@ -7575,7 +7575,7 @@
 					{
 						"when": "resource in gitlens:review:files",
 						"group": "navigation",
-						"order": -98,
+						"order": -104,
 						"alt": "gitlens.review.walkPreviousInListOrder"
 					}
 				]

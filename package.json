@@ -18517,18 +18517,18 @@
 				{
 					"command": "gitlens.review.walkPrevious:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-98",
+					"group": "navigation@-104",
 					"alt": "gitlens.review.walkPreviousInListOrder"
 				},
 				{
 					"command": "gitlens.review.markViewedAndNext:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-97"
+					"group": "navigation@-103"
 				},
 				{
 					"command": "gitlens.review.walkNext:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-96",
+					"group": "navigation@-102",
 					"alt": "gitlens.review.walkNextInListOrder"
 				},
 				{
