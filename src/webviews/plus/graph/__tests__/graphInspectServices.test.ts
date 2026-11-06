@@ -3075,4 +3075,15 @@ suite('graphInspectServices — reading steps pass viewed files by', () => {
 		await fake.reviewStep('previous', 'c.ts');
 		assert.strictEqual(opened(), 'b.ts', 'what the panel no longer counts as viewed is stepped onto again');
 	});
+
+	test("the host's own re-apply of the panel's files keeps the editor's marks made since", async () => {
+		const args = reviewFiles(['a.ts', 'b.ts', 'c.ts']);
+		await fake.setReviewFiles(args);
+		await fake.reviewStep('markViewed', 'a.ts');
+
+		// A learned diff side re-applies the panel's last files, sent before the mark — as when the graph is hidden
+		await fake.setReviewFiles(args);
+		await fake.reviewStep('next', 'c.ts');
+		assert.strictEqual(opened(), 'b.ts', 'past a, which the editor marked');
+	});
 });

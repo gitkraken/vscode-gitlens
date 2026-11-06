@@ -1928,6 +1928,7 @@ export class GraphInspectServices {
 
 	@debug()
 	async setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void> {
+		const reappliedByHost = args != null && args === this._reviewFilesArgs;
 		this._reviewFilesArgs = args;
 		if (args != null) {
 			this.followReview(args.anchor);
@@ -1986,7 +1987,7 @@ export class GraphInspectServices {
 			commentable: commentable,
 			marked: marked,
 			markedBefore: markedBefore,
-			marksSynced: marked.length,
+			marksSynced: same && reappliedByHost ? prior.marksSynced : marked.length,
 			tracking: tracking,
 		};
 		this._reviewFiles.active = this.findActiveReviewFile();
