@@ -21,8 +21,14 @@ export interface GitLabRepositoryDescriptor extends ResourceDescriptor {
 	name: string;
 }
 
-const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
-const autolinkFullMergeRequestsRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?!([0-9]+)\b(?!]\()/g;
+const autolinkFullIssuesRegex = /\b((?:[^/\s]+\/)+[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
+const autolinkFullMergeRequestsRegex = /\b((?:[^/\s]+\/)+[^/\s]+?)(?:\\)?!([0-9]+)\b(?!]\()/g;
+
+/** Splits at the last slash: the owner is the whole namespace (`group/subgroup`) and the name is the project */
+function splitNamespaceAndName(path: string): [owner: string, name: string] {
+	const index = path.lastIndexOf('/');
+	return [path.substring(0, index), path.substring(index + 1)];
+}
 
 export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescriptor> {
 	get apiBaseUrl(): string {
@@ -89,7 +95,7 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 
 						[, ownerAndRepo, num] = match;
 
-						const [owner, repo] = ownerAndRepo.split('/', 2);
+						const [owner, repo] = splitNamespaceAndName(ownerAndRepo);
 						autolinks.set(num, {
 							provider: this,
 							id: num,
@@ -148,7 +154,7 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 
 						[, ownerAndRepo, num] = match;
 
-						const [owner, repo] = ownerAndRepo.split('/', 2);
+						const [owner, repo] = splitNamespaceAndName(ownerAndRepo);
 						autolinks.set(num, {
 							provider: this,
 							id: num,
@@ -213,7 +219,7 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 		};
 	}
 
-	private static readonly fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
+	private static readonly fileRegex = /^\/-\/blob(.+)$/i;
 	private static readonly rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
 	override parseRemoteFileUri(uri: Uri): ParsedRemoteFileUri | undefined {
@@ -235,10 +241,10 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 			}
 		}
 
-		const match = GitLabRemoteProvider.fileRegex.exec(uri.path);
+		const match = GitLabRemoteProvider.fileRegex.exec(uri.path.substring(this.path.length + 1));
 		if (match == null) return undefined;
 
-		const [, , , path] = match;
+		const [, path] = match;
 
 		return parseRefCandidates(path, startLine, endLine);
 	}
@@ -271,10 +277,8 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 		});
 
 		if (base.remote.url !== head.remote.url) {
-			const repoInfo = await this.context?.getRepositoryInfo?.(this.id, {
-				owner: base.remote.path.split('/')[0],
-				name: base.remote.path.split('/')[1],
-			});
+			const [owner, name] = splitNamespaceAndName(base.remote.path);
+			const repoInfo = await this.context?.getRepositoryInfo?.(this.id, { owner: owner, name: name });
 			if (!repoInfo) return undefined;
 
 			query.set('merge_request[target_project_id]', repoInfo.id);
