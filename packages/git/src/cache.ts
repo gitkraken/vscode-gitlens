@@ -372,6 +372,8 @@ export class Cache implements Disposable {
 	private _statusGenerations = new Map<RepoPath, number>();
 	/** Monotonic per-path "close clock" — see {@link getCloseGeneration}. */
 	private _closeGenerations = new Map<RepoPath, number>();
+	/** Advanced by {@link reset}, which moves every path's close clock, those it never saw included */
+	private _resetGeneration = 0;
 	/** Per commonPath, the `mergeTargets` keys a checkout evicts (see {@link CachedMergeTarget.evictOnCheckout}) */
 	private _mergeTargetsEvictedOnCheckout = new Map<string, Set<string>>();
 	/** Bumped on each checkout eviction, so a merge target resolved across one isn't kept for the next */
@@ -1144,13 +1146,13 @@ export class Cache implements Disposable {
 
 	/**
 	 * Monotonic per-path counter advanced whenever `repoPath` is unregistered (repo closed, worktree
-	 * removed). Lets an async post-read step — e.g. the gk-config reconcile — detect that its target was
-	 * closed (and possibly reopened) mid-flight and bail. Unlike an `isRegistered` check it doesn't
-	 * require the caller to have registered in the first place, so it stays correct for consumers of
-	 * this package that don't wire up the host's repo lifecycle.
+	 * removed) or the cache is {@link reset}. Lets an async post-read step — e.g. the gk-config reconcile —
+	 * detect that its target was closed (and possibly reopened) mid-flight and bail. Unlike an `isRegistered`
+	 * check it doesn't require the caller to have registered in the first place, so it stays correct for
+	 * consumers of this package that don't wire up the host's repo lifecycle.
 	 */
 	getCloseGeneration(repoPath: string): number {
-		return this._closeGenerations.get(repoPath) ?? 0;
+		return (this._closeGenerations.get(repoPath) ?? 0) + this._resetGeneration;
 	}
 
 	/** Clears file-scoped caches (blame, diff, fileLog) for a specific path within a repo */
@@ -1246,7 +1248,7 @@ export class Cache implements Disposable {
 		this.incrementStatusGeneration(repoPath);
 		// Advance the close clock so an async step that captured it before its read (see `getCloseGeneration`)
 		// can tell its target went away mid-flight.
-		this._closeGenerations.set(repoPath, this.getCloseGeneration(repoPath) + 1);
+		this._closeGenerations.set(repoPath, (this._closeGenerations.get(repoPath) ?? 0) + 1);
 		this.onCurrentBranchReferencesDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
@@ -1319,14 +1321,10 @@ export class Cache implements Disposable {
 
 	@debug({ onlyExit: true })
 	reset(): void {
-		// Advance the close clock BEFORE dropping the registry it reads from. Advancing rather than
-		// clearing is the point: an async step that captured a generation must see a mismatch and bail,
-		// where a cleared map would hand it a fresh `0` that matches and let it repopulate what was just
-		// torn down. Union of registered paths and any already carrying a generation, mirroring
-		// `incrementStatusGenerations`.
-		for (const path of new Set([...this._commonPathRegistry.keys(), ...this._closeGenerations.keys()])) {
-			this._closeGenerations.set(path, this.getCloseGeneration(path) + 1);
-		}
+		// Advancing rather than clearing is the point: an async step that captured a generation must see a mismatch
+		// and bail, where a cleared map would hand it a fresh `0` that matches and let it repopulate what was just torn
+		// down. Every path's clock, since a step may have captured one for a path never registered
+		this._resetGeneration++;
 
 		this._commonPathRegistry.clear();
 		this._worktreesByCommonPath.clear();
