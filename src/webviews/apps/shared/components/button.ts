@@ -162,8 +162,10 @@ export class GlButton extends LitElement {
 				--button-border: transparent;
 			}
 
-			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
-			:host(:is([appearance='toolbar'], [appearance='input']):not([disabled], :focus-within):hover) {
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Every appearance but alert and link
+			   (which keep their own hover cues) needs it, since HC leaves the button hover fills unset too.
+			   Not while focused, so the focus ring wins */
+			:host(:not([appearance='alert'], [appearance='link'], [disabled], :focus-within):hover) {
 				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
 				outline-offset: -1px;
 			}

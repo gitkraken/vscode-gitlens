@@ -50,7 +50,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the green success text and checkmarks in _SSH Allowed Signers_ being hard to read in light themes
 - Fixes the text on warning and danger buttons (e.g. _Abort_ in the interactive rebase editor) being hard to read in light themes
 - Fixes secondary buttons in GitLens webviews showing a blue outline in the 2026 themes
-- Fixes toolbar buttons, action icons, chips, breadcrumbs and the _Commit Graph_ search's result navigation in GitLens webviews showing no hover feedback in high contrast themes
+- Fixes buttons, action icons, chips, breadcrumbs and the _Commit Graph_ search's result navigation in GitLens webviews showing no hover feedback in high contrast themes
 - Fixes the selected suggestion in GitLens autocomplete dropdowns (e.g. the _Commit Graph_ search) being invisible in high contrast themes
 - Fixes the error banner in _Visual File History_, _GitLens Settings_ and _Inspect_ having no visible edge in high contrast themes
 - Fixes links in the Pro feature badge's popup showing as plain text instead of in the link color
