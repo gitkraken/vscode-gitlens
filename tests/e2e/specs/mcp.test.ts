@@ -12,6 +12,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import * as process from 'node:process';
+import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 import { expect, readIpcDiscoveryFile, mcpTest as test } from '../fixtures/mcp.js';
 import { McpClient } from '../helpers/mcpHelper.js';
 
@@ -210,7 +211,10 @@ test.describe('MCP — CLI Installation', () => {
 	});
 
 	test('should report CLI version via gk version', ({ mcpClient }) => {
-		const output = execSync(`"${mcpClient.gkPath}" version`, { encoding: 'utf8' }).trim();
+		const output = execSync(`"${mcpClient.gkPath}" version`, {
+			encoding: 'utf8',
+			env: withoutSignInSecrets(),
+		}).trim();
 
 		// Proxy binary returns "CLI Core: X.Y.Z\nCLI Installer: X.Y.Z"
 		expect(output).toContain('CLI Core:');
