@@ -6086,6 +6086,7 @@
 	"You, on “{title}”": "You, on “{title}”",
 	"Your '{0}' credentials are either invalid or expired": "Your '{0}' credentials are either invalid or expired",
 	"Your '{0}' credentials do not have the required access": "Your '{0}' credentials do not have the required access",
+	"Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.": "Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.",
 	"Your Agents, on a Board": "Your Agents, on a Board",
 	"Your Draft Commits Are Ready": "Your Draft Commits Are Ready",
 	"Your Git version doesn't support stashing individual files. Stash all changes instead?": "Your Git version doesn't support stashing individual files. Stash all changes instead?",

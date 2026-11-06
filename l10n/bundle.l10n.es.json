@@ -5888,6 +5888,7 @@
 	"You, on “{title}”": "Tú, sobre “{title}”",
 	"Your '{0}' credentials are either invalid or expired": "Sus credenciales de '{0}' no son válidas o han expirado",
 	"Your '{0}' credentials do not have the required access": "Sus credenciales de '{0}' no tienen el acceso necesario",
+	"Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.": "Sus credenciales de '{0}' fueron rechazadas: el token no es válido o ha expirado, o está limitado a una colección que no se pudo encontrar. Use un token para todas las organizaciones accesibles o abra un repositorio de la colección del token.",
 	"Your Agents, on a Board": "Sus agentes, en un tablero",
 	"Your Draft Commits Are Ready": "Sus commits borradores están listos",
 	"Your Git version doesn't support stashing individual files. Stash all changes instead?": "Su versión de Git no admite hacer stash de archivos individuales. ¿Desea hacer stash de todos los cambios en su lugar?",
