@@ -143,6 +143,21 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			assert.strictEqual(readGitDirs.callCount, 2);
 		});
 
+		test('getDefaultWorktreePath after an unregister mid-read answers the new repository rather than joining the call', async () => {
+			const read = holdRead<GitDirs | undefined>();
+			readGitDirs.onFirstCall().callsFake(read.start);
+			readGitDirs.resolves(gitDirsB);
+
+			const beforeClose = provider.getDefaultWorktreePath(worktreePath);
+			await read.started;
+			cache.unregisterRepoPath(worktreePath);
+			const afterClose = provider.getDefaultWorktreePath(worktreePath);
+			read.settle(gitDirsA);
+
+			assert.strictEqual(await beforeClose, '/repos/a');
+			assert.strictEqual(await afterClose, '/repos/b');
+		});
+
 		test('calls with no unregister between them share one read', async () => {
 			const read = holdRead<GitDirs | undefined>();
 			readGitDirs.onFirstCall().callsFake(read.start);
