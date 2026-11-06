@@ -20,6 +20,7 @@ import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { first, some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { dirname, getBestPath, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -560,7 +561,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return getBestPath(normalizePath(joinPaths(basePath, '..')));
 	}
 
-	@gate()
 	@trace({
 		quiet: true,
 		exit: r =>
@@ -571,7 +571,17 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (cached != null) return cached;
 
 		const scope = getScopedLogger();
+		// Neither cached nor joined once unregistered mid-read: the path may come back as another repository's checkout.
+		// The generation keys the shared read, so a call made after an unregister reads again
+		return this.readGitDir(repoPath, this.cache.getCloseGeneration(repoPath), scope);
+	}
 
+	@gate((repoPath: string, closeGeneration: number) => `${repoPath}|${closeGeneration}`)
+	private async readGitDir(
+		repoPath: string,
+		closeGeneration: number,
+		scope: ScopedLogger | undefined,
+	): Promise<GitDir> {
 		let gitDir: GitDir;
 		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath);
 		if (fsGitDirs != null) {
@@ -582,7 +592,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
 				parentUri: undefined,
 			};
-			this.cache.gitDir.set(repoPath, gitDir);
+			if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
+				this.cache.gitDir.set(repoPath, gitDir);
+			}
 			return gitDir;
 		}
 
@@ -606,7 +618,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				`rev_parse returned ${JSON.stringify(repoInfo)}`,
 			);
 		}
-		this.cache.gitDir.set(repoPath, gitDir);
+		if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
+			this.cache.gitDir.set(repoPath, gitDir);
+		}
 
 		return gitDir;
 	}

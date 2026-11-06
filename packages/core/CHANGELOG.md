@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes `getGitDir` answering a checkout's old git dirs after it was unregistered while they were being read: the read put its answer back, so a path re-created as another repository's checkout, or one that vanished mid-read and fell back to `<path>/.git`, kept the old answer until it was unregistered again. A read in flight across `unregisterRepoPath` or `Cache.reset()` now answers only its own caller, and a call made after either reads again rather than joining it. `Cache.getCloseGeneration` now advances on `reset()` for every path, one never registered included (git, git-cli)
+
 ## [0.32.0] - 2026-11-05
 
 ### Changed
