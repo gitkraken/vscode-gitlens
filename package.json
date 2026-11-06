@@ -6186,6 +6186,16 @@
 						"scope": "window",
 						"order": 40
 					},
+					"gitlens.avatars": {
+						"type": "object",
+						"default": {},
+						"additionalProperties": {
+							"type": "string"
+						},
+						"markdownDescription": "%config.avatars.markdownDescription%",
+						"scope": "window",
+						"order": 45
+					},
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,

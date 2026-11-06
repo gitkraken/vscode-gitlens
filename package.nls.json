@@ -1337,6 +1337,7 @@
 	"config.autolinks.items.title.description": "Specifies an optional title for the generated autolink. Use `<num>` as the variable for the reference number",
 	"config.autolinks.items.url.description": "Specifies the URL of the external resource you want to link to. Use `<num>` as the variable for the reference number",
 	"config.autolinks.markdownDescription": "Specifies autolinks to external resources in commit messages. Use `<num>` as the variable for the reference number",
+	"config.avatars.markdownDescription": "Specifies a map of commit-author email addresses to local image files to use as their avatars, for example `{ \"jane@company.com\": \"/Users/jane/photos/jane.png\" }`. Values must be local file paths or `file:` URIs pointing to PNG, JPEG, GIF, or WebP images (max 512 KB). User-supplied avatars take priority over Gravatar and hosting avatars.",
 	"config.blame.avatars.markdownDescription": "Specifies whether to show avatar images in the file blame annotations",
 	"config.blame.compact.markdownDescription": "Specifies whether to compact (deduplicate) matching adjacent file blame annotations",
 	"config.blame.dateFormat.markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in file blame annotations, when not specified `#gitlens.defaultDateFormat#` is used. Use `full`, `long`, `medium`, `short`, or a custom format, e.g. `MMMM Do, YYYY h:mma`, similar to [Moment.js formats](https://momentjs.com/docs/#/displaying/format/)",

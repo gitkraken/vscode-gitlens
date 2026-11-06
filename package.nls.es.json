@@ -1429,6 +1429,7 @@
 	"config.defaultGravatarsStyle.enumDescriptions.4": "Un robot con colores y formas diferentes",
 	"config.defaultGravatarsStyle.enumDescriptions.5": "Una cara con rasgos y fondos variados",
 	"config.defaultGravatarsStyle.markdownDescription": "Especifica el estilo de las imágenes predeterminadas (de reserva) de gravatar",
+	"config.avatars.markdownDescription": "Asigna direcciones de correo de autores de commits a archivos de imagen locales para usarlos como sus avatares, por ejemplo `{ \"jane@company.com\": \"/Users/jane/photos/jane.png\" }`. Los valores deben ser rutas de archivos locales o URIs `file:` que apunten a imágenes PNG, JPEG, GIF o WebP (máx. 512 KB). Los avatares proporcionados por el usuario tienen prioridad sobre los de Gravatar y los de los servicios de alojamiento.",
 	"config.defaultTimeFormat.markdownDescription": "Especifica cómo se dará formato a las horas de forma predeterminada. Vea la [documentación de Moment.js](https://momentjs.com/docs/#/displaying/format/) para conocer los formatos compatibles",
 	"config.detectNestedRepositories.markdownDescription": "Especifica si se intenta detectar repositorios anidados al abrir archivos",
 	"config.fileAnnotations.command.enumDescriptions.0": "Muestra un menú para elegir qué anotaciones de archivo alternar",
