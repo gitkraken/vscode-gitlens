@@ -376,7 +376,11 @@ suite('GlDetailsReviewModePanel icon-only buttons', () => {
 
 	test('have a name: the reading steps and the Review in Repo strip', () => {
 		const templates = [
-			...render('renderReadingActions', { withReadingShortcut: (label: string) => label }, 'src/service.ts'),
+			...render(
+				'renderReadingActions',
+				{ withReadingShortcut: (label: string) => label, withListOrderClick: (tooltip: string) => tooltip },
+				'src/service.ts',
+			),
 			...render('renderDeepReviewStrip', { deepReview: { active: true, done: false, count: 1 } }),
 		];
 

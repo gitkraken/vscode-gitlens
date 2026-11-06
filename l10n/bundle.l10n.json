@@ -7190,6 +7190,7 @@
 	"{label} could not be enabled. Review its updated status for details.": "{label} could not be enabled. Review its updated status for details.",
 	"{label} enabled.": "{label} enabled.",
 	"{label} restored to its previous setting.": "{label} restored to its previous setting.",
+	"{label} · [{key}] Click to Go in List Order": "{label} · [{key}] Click to Go in List Order",
 	"{label} · {count}": "{label} · {count}",
 	"{lead} — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching": "{lead} — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching",
 	"{letAITakeTheFirstPass} — {resolveConflicts} proposes a fix for every file at once; you approve each one./{letAITakeTheFirstPass} is the styled label “Let AI take the first pass”.{resolveConflicts} is the styled label “Resolve Conflicts”.": {

@@ -6878,6 +6878,7 @@
 	"{label} could not be enabled. Review its updated status for details.": "無法啟用 {label}。請檢視其更新後的狀態以了解詳細資料。",
 	"{label} enabled.": "已啟用 {label}。",
 	"{label} restored to its previous setting.": "{label} 已恢復為其先前的設定。",
+	"{label} · [{key}] Click to Go in List Order": "{label} · [{key}] 點選依清單順序前往",
 	"{label} · {count}": "{label} · {count}",
 	"{lead} — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching": "{lead} — 管理多個活動工作樹、編排併發代理，並無需切換上下文即可執行完整的 Git 生命週期",
 	"{letAITakeTheFirstPass} — {resolveConflicts} proposes a fix for every file at once; you approve each one./{letAITakeTheFirstPass} is the styled label “Let AI take the first pass”.{resolveConflicts} is the styled label “Resolve Conflicts”.": "{letAITakeTheFirstPass} — {resolveConflicts} 一次性為每個檔案提出修復建議；由你逐個批准。",
