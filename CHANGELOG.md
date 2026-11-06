@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when its findings are deleted or the review is cancelled, and opening a finding's file without its line range
 - Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
 - Fixes _Review Changes_ losing the line numbers of the rest of a hunk after a removed line that starts with `-- ` (such as a SQL or Lua comment) or an added line that starts with `++ `, which left the review's comments on those lines pointing at the wrong place
+- Fixes checking out a pull request from a fork in a GitLab subgroup adding a remote named after the subgroup's path (e.g. `contrib/team`), whose branches GitLens then read as belonging to the wrong remote &mdash; the remote is now named `contrib-team`
 
 ## [19.5.0] - 2026-10-27
 

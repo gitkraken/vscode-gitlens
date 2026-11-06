@@ -55,6 +55,7 @@ import {
 	ensurePullRequestRefs,
 	getOpenedPullRequestRepo,
 	getOrOpenPullRequestRepository,
+	getRemoteNameForPullRequestOwner,
 } from '../git/utils/-webview/pullRequest.utils.js';
 import { openRebaseEditor } from '../git/utils/-webview/rebase.utils.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
@@ -311,7 +312,11 @@ export class ViewCommands implements Disposable {
 		const identity = getRepositoryIdentityForPullRequest(pr);
 		if (identity.remote?.url == null) return;
 
-		await repo.git.remotes.addRemote?.(identity.provider.repoDomain, identity.remote.url, { fetch: true });
+		await repo.git.remotes.addRemote?.(
+			getRemoteNameForPullRequestOwner(identity.provider.repoDomain),
+			identity.remote.url,
+			{ fetch: true },
+		);
 		return node.triggerChange(true);
 	}
 
