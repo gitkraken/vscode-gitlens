@@ -134,6 +134,7 @@ import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } fro
 import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
 import {
 	countReviewFindingStates,
+	getReviewFileProgress,
 	getReviewPanelStatus,
 	getReviewProgress,
 	getReviewReadingOrder,
@@ -2491,6 +2492,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		files: unknown;
 		order: unknown;
 		excluded: unknown;
+		viewed: unknown;
 		scope: unknown;
 		repoPath: unknown;
 		anchor: AnchorKey;
@@ -2508,6 +2510,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const files = inReview ? this._actions.resources.scopeFiles.value.get() : undefined;
 		const order = inReview ? this._reviewReadingOrder : undefined;
 		const excluded = entry?.session?.excluded;
+		const viewed = entry?.session?.viewed;
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
 		const anchor = this.engagedAnchorKey;
@@ -2517,6 +2520,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced.files === files &&
 			synced.order === order &&
 			synced.excluded === excluded &&
+			synced.viewed === viewed &&
 			synced.scope === scope &&
 			synced.repoPath === repoPath &&
 			synced.anchor === anchor
@@ -2527,7 +2531,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const endpoints = getReviewDiffEndpoints(scope);
 		// The panel announces its order once rendered; until then the plan-then-path order stands in
 		const paths = inReview && files != null ? (order ?? getReviewReadingOrder(entry?.session, files)) : [];
-		if (paths.length === 0 || repoPath == null || endpoints == null) {
+		if (files == null || paths.length === 0 || repoPath == null || endpoints == null) {
 			if (synced != null) {
 				this._reviewFilesSynced = undefined;
 				this._actions.setReviewFiles(undefined);
@@ -2539,6 +2543,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			files: files,
 			order: order,
 			excluded: excluded,
+			viewed: viewed,
 			scope: scope,
 			repoPath: repoPath,
 			anchor: anchor,
@@ -2550,6 +2555,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			lhs: endpoints.lhs,
 			rhs: endpoints.rhs,
 			paths: [...paths],
+			viewed: files.filter(f => getReviewFileProgress(entry?.session, f) === 'viewed').map(f => f.path),
 		});
 	}
 
@@ -4210,7 +4216,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				)}
 			@review-deep-review-hide=${() => this._workflow.review.hideDeepReview()}
 			@review-reading-step=${(e: CustomEvent<ReviewReadingStepDetail>) =>
-				this._actions.stepReviewReading(e.detail.action, e.detail.path)}
+				this._actions.stepReviewReading(e.detail.action, e.detail.path, e.detail.inListOrder)}
 			@review-reading-order=${(e: CustomEvent<{ paths: string[] }>) => {
 				this._reviewReadingOrder = e.detail.paths;
 				this.requestUpdate();

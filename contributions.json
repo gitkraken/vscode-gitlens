@@ -7532,7 +7532,8 @@
 					{
 						"when": "resource in gitlens:review:files",
 						"group": "navigation",
-						"order": -96
+						"order": -96,
+						"alt": "gitlens.review.walkNextInListOrder"
 					}
 				]
 			}
@@ -7553,6 +7554,12 @@
 				}
 			]
 		},
+		"gitlens.review.walkNextInListOrder": {
+			"label": "Next File in List Order",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:reading",
+			"commandPalette": "gitlens:review:reading"
+		},
 		"gitlens.review.walkPrevious": {
 			"label": "Previous File in Review",
 			"icon": "$(arrow-left)",
@@ -7568,7 +7575,8 @@
 					{
 						"when": "resource in gitlens:review:files",
 						"group": "navigation",
-						"order": -98
+						"order": -98,
+						"alt": "gitlens.review.walkPreviousInListOrder"
 					}
 				]
 			}
@@ -7588,6 +7596,12 @@
 					"mac": "cmd+alt+g ["
 				}
 			]
+		},
+		"gitlens.review.walkPreviousInListOrder": {
+			"label": "Previous File in List Order",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:reading",
+			"commandPalette": "gitlens:review:reading"
 		},
 		"gitlens.reviewChanges:graph": {
 			"label": "Review Changes...",

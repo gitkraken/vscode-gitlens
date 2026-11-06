@@ -111,6 +111,7 @@ import './gl-commits-scope-pane.js';
 export interface ReviewReadingStepDetail {
 	action: ReviewReadingAction;
 	path: string;
+	inListOrder?: boolean;
 }
 
 export interface ReviewOpenFileDetail {
@@ -1274,7 +1275,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				density="compact"
 				tooltip=${this.withReadingShortcut(l10n.t('Previous File in Review'), 'previous')}
 				aria-label=${l10n.t('Previous File in Review')}
-				@click=${() => this.handleReadingStep('previous', active)}
+				@click=${(e: MouseEvent) => this.handleReadingStep('previous', active, e)}
 			>
 				<code-icon icon="arrow-left"></code-icon>
 			</gl-button>
@@ -1291,7 +1292,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				density="compact"
 				tooltip=${this.withReadingShortcut(l10n.t('Next File in Review'), 'next')}
 				aria-label=${l10n.t('Next File in Review')}
-				@click=${() => this.handleReadingStep('next', active)}
+				@click=${(e: MouseEvent) => this.handleReadingStep('next', active, e)}
 			>
 				<code-icon icon="arrow-right"></code-icon>
 			</gl-button>
@@ -1359,10 +1360,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private handleReadingStep(action: ReviewReadingAction, path: string): void {
+	private handleReadingStep(action: ReviewReadingAction, path: string, e?: MouseEvent): void {
 		this.dispatchEvent(
 			new CustomEvent<ReviewReadingStepDetail>('review-reading-step', {
-				detail: { action: action, path: path },
+				detail: { action: action, path: path, inListOrder: e?.altKey },
 				bubbles: true,
 				composed: true,
 			}),

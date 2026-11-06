@@ -282,6 +282,10 @@ export function registerGraphWebviewCommands<T>(
 		registerCommand('gitlens.review.walkPrevious', () => stepReviewReading('previous')),
 		registerCommand('gitlens.review.walkPrevious:editor/title', (uri?: Uri) => stepReviewReading('previous', uri)),
 		registerCommand('gitlens.review.walkPrevious:key', () => stepReviewReading('previous')),
+		registerCommand('gitlens.review.walkNextInListOrder', (uri?: Uri) => stepReviewReading('next', uri, true)),
+		registerCommand('gitlens.review.walkPreviousInListOrder', (uri?: Uri) =>
+			stepReviewReading('previous', uri, true),
+		),
 		registerCommand('gitlens.review.markViewedAndNext', () => stepReviewReading('markViewed')),
 		registerCommand('gitlens.review.markViewedAndNext:editor/title', (uri?: Uri) =>
 			stepReviewReading('markViewed', uri),

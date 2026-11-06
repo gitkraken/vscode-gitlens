@@ -1891,7 +1891,7 @@ suite('reviewReading — one graph drives the editor', () => {
 // working-file URIs and fires the reading event; the rest of the instance is left out.
 type ReviewOwnerFake = {
 	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
-	reviewStep(action: ReviewReadingAction, from?: string): Promise<void>;
+	reviewStep(action: ReviewReadingAction, from?: string, inListOrder?: boolean): Promise<void>;
 	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void;
 	clearReviewFiles(): void;
 	_reviewFiles?: { paths: string[]; marked: string[] };
@@ -1921,7 +1921,7 @@ function createReviewOwnerFake(): ReviewOwnerFake {
 
 // The host doesn't read the anchor — a commit's key over the working tree's diff is enough to tell reviews apart
 function reviewFiles(paths: string[], anchor = 'wip|/repo'): ReviewFilesArgs {
-	return { anchor: anchor, repoPath: '/repo', lhs: 'HEAD', rhs: uncommitted, paths: paths };
+	return { anchor: anchor, repoPath: '/repo', lhs: 'HEAD', rhs: uncommitted, paths: paths, viewed: [] };
 }
 
 suite('graphInspectServices — two graphs, one editor', () => {
@@ -2019,6 +2019,7 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 			lhs: `${tip}^`,
 			rhs: tip,
 			paths: ['a.ts'],
+			viewed: [],
 		};
 		await fake.setReviewFiles(args);
 		const ownSide = fake.reviewSideUri('/repo', tip, 'a.ts').toString();
@@ -2045,6 +2046,7 @@ suite('graphInspectServices — a review diff opens on the commit that last chan
 			lhs: `${tip}^`,
 			rhs: tip,
 			paths: ['gone.ts'],
+			viewed: [],
 		};
 		await fake.setReviewFiles(args);
 
@@ -2075,6 +2077,7 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		lhs: 'base',
 		rhs: rhs,
 		paths: paths,
+		viewed: [],
 	});
 
 	let group: FakeGroup;
@@ -3040,5 +3043,36 @@ suite('graphInspectServices — an Orient too large for the model goes to the ag
 		Object.assign(o.fakeThis, { getDeepReviewAvailability: () => Promise.resolve({ available: false }) });
 		assert.strictEqual(await o.orient(), undefined);
 		assert.strictEqual(executeCommand.callCount, 0);
+	});
+});
+
+suite('graphInspectServices — reading steps pass viewed files by', () => {
+	let fake: ReviewOwnerFake & { openReviewFile: sinon.SinonStub };
+	const opened = () => (fake.openReviewFile.lastCall.args[0] as { path: string }).path;
+
+	setup(() => {
+		fake = Object.assign(createReviewOwnerFake(), { openReviewFile: sinon.stub().resolves() });
+	});
+
+	teardown(() => {
+		fake.clearReviewFiles();
+	});
+
+	test('the steps skip what the panel has viewed and what the editor marked since', async () => {
+		await fake.setReviewFiles({ ...reviewFiles(['a.ts', 'b.ts', 'c.ts', 'd.ts']), viewed: ['b.ts'] });
+
+		await fake.reviewStep('markViewed', 'a.ts');
+		assert.strictEqual(opened(), 'c.ts', 'past the viewed b');
+
+		await fake.reviewStep('next', 'd.ts');
+		assert.strictEqual(opened(), 'c.ts', 'around the end, past a just marked and the viewed b');
+
+		await fake.reviewStep('next', 'a.ts', true);
+		assert.strictEqual(opened(), 'b.ts', 'in list order when asked');
+
+		// The panel took the mark in, then the reader un-checked everything
+		await fake.setReviewFiles(reviewFiles(['a.ts', 'b.ts', 'c.ts', 'd.ts']));
+		await fake.reviewStep('previous', 'c.ts');
+		assert.strictEqual(opened(), 'b.ts', 'what the panel no longer counts as viewed is stepped onto again');
 	});
 });
