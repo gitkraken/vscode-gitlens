@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-05
+
 ### Changed
 
 - **Breaking (git, git-cli)** — `config.getRepositoryInfo`, `config.getGitDir` and `GitService.validateRepo` reject when git gives no answer: it ran past its time limit (a `CancellationError` with reason `timeout`), was killed, or couldn't start in a folder that exists (a `GitError` whose `exitCode` isn't 128, which is what git exits with when it refuses). They resolved as if git had said the path wasn't a repository, so a caller that treats `{ valid: false }` or `[]` as that answer now also needs to handle a rejection. What git itself refuses still answers as before, with `[]`, `{ valid: false }` and a kept `<path>/.git`: not a repository, an invalid `.git` file, a linked worktree whose git dir is gone, an unreadable config. So does a path that isn't a folder, and an unsafe repository still answers `[false]`. `Git.rev_parse__show_toplevel` and `Git.rev_parse__work_tree_of_git_dir` reject for the same reasons (git, git-cli)
@@ -1146,7 +1148,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.31.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...HEAD
+[0.32.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.31.0...gitkraken:releases/core/v0.32.0
 [0.31.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...gitkraken:releases/core/v0.31.0
 [0.30.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.29.0...gitkraken:releases/core/v0.30.0
 [0.29.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.28.0...gitkraken:releases/core/v0.29.0
