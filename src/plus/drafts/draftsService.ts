@@ -74,7 +74,6 @@ export class DraftService implements Disposable {
 
 		try {
 			const results = await Promise.allSettled(changes.map(c => this.getCreateDraftPatchRequestFromChange(c)));
-			if (!results.length) throw new Error(l10n.t('No changes found'));
 
 			const patchRequests: CreateDraftPatchRequestFromChange[] = [];
 			const failed: Error[] = [];
@@ -96,6 +95,8 @@ export class DraftService implements Disposable {
 				debugger;
 				throw new AggregateError(failed, l10n.t('Unable to create draft'));
 			}
+
+			if (!patchRequests.length) throw new Error(l10n.t('No changes found'));
 
 			type DraftResult = { data: CreateDraftResponse };
 
