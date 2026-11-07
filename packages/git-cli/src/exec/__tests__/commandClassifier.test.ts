@@ -64,10 +64,27 @@ suite('commandClassifier', () => {
 			assert.strictEqual(leadingCommand(['-C', 'a', '-C', '/abs', 'commit']).pathOverride, '/abs');
 		});
 
+		test('a -C, --git-dir or --work-tree after the verb is not a global option', () => {
+			const command = leadingCommand(['grep', '-C', '3', '--git-dir=x', '--work-tree', 'y', 'needle']);
+			assert.strictEqual(command.verb, 'grep');
+			assert.strictEqual(command.pathOverride, undefined);
+			assert.strictEqual(command.gitDir, undefined);
+			assert.strictEqual(command.workTree, undefined);
+		});
+
 		test("'--git-dir X log' is read-only — the value is skipped, not mistaken for the verb", () => {
 			const command = leadingCommand(['--git-dir', 'X', 'log']);
 			assert.strictEqual(command.verb, 'log');
 			assert.strictEqual(command.readOnly, true);
+		});
+
+		test('--attr-source and --shallow-file take a separate value, so a -C after one is still found', () => {
+			for (const option of ['--attr-source', '--shallow-file']) {
+				const command = leadingCommand([option, 'X', '-C', '/abs', 'log']);
+				assert.strictEqual(command.verb, 'log', option);
+				assert.strictEqual(command.readOnly, true, option);
+				assert.strictEqual(command.pathOverride, '/abs', option);
+			}
 		});
 
 		test("'symbolic-ref HEAD' (bare read) is read-only", () => {

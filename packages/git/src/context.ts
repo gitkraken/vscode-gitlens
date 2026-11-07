@@ -312,7 +312,9 @@ export interface SearchQueryProvider {
  * Used by sub-providers for workspace folder lookup and to gate operations
  * in untrusted workspaces.
  *
- * When `isTrusted` is absent, the workspace is assumed trusted.
+ * When `isTrusted` is absent, the workspace is assumed trusted. A host serving several repositories that
+ * needs a verdict per repository leaves it absent and supplies the git executor's per-path
+ * `gitOptions.isTrusted` instead; a set `isTrusted` here wins and answers for every path.
  */
 export interface WorkspaceProvider {
 	/** Fires when the workspace trust state changes (e.g., user grants trust) */
