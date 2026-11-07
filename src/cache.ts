@@ -3,9 +3,10 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeQueueEntry } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
 import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
@@ -444,6 +445,19 @@ export class CacheProvider implements Disposable {
 	}
 }
 
+/**
+ * The expiry for an open item. Merge queues move in minutes, so a queued pull request goes stale far faster than an
+ * idle open one. The autolink caches hold the full `PullRequest` behind the `IssueOrPullRequest` type, so
+ * `mergeQueue` is read structurally.
+ */
+function getOpenPullRequestExpiresAt(
+	item: { readonly state?: string; readonly mergeQueue?: PullRequestMergeQueueEntry },
+	now: number,
+	defaultExpiresAt: number,
+): number {
+	return isPullRequestInMergeQueue(item) ? now + 5 * 60 * 1000 : defaultExpiresAt;
+}
+
 function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefined): number {
 	const now = Date.now();
 	const defaultExpiresAt = now + 60 * 60 * 1000; // 1 hour
@@ -472,7 +486,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			// Open issues expire after 1 hour, but closed issues expire after 12 hours unless recently updated and then expire in 1 hour
 
 			const issueOrPr = value as CacheValue<'issuesOrPrsById'>;
-			if (!issueOrPr.closed) return defaultExpiresAt;
+			if (!issueOrPr.closed) return getOpenPullRequestExpiresAt(issueOrPr, now, defaultExpiresAt);
 
 			const updatedAgo = now - (issueOrPr.closedDate ?? issueOrPr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;
@@ -485,7 +499,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			// Open prs expire after 1 hour, but closed/merge prs expire after 12 hours unless recently updated and then expire in 1 hour
 
 			const pr = value as CacheValue<'prByBranch' | 'prsById' | 'prsBySha'>;
-			if (pr.state === 'opened') return defaultExpiresAt;
+			if (pr.state === 'opened') return getOpenPullRequestExpiresAt(pr, now, defaultExpiresAt);
 
 			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;

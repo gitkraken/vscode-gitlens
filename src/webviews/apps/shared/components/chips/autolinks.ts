@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestDisplayStatus, getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import './autolink-chip.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -68,32 +68,30 @@ export function renderAutolinkChips(
 			: nothing
 	}${
 		enriched.length
-			? enriched.map(
-					item =>
-						html`<gl-autolink-chip
-							type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
-							name=${item.title}
-							url=${item.url}
-							identifier="#${
-								item.type === 'pullrequest'
-									? (getPullRequestNumberFromUrl(item.url) ?? item.id)
-									: item.id
-							}"
-							.status=${item.state}
-							.date=${item.closed ? item.closedDate : item.createdDate}
-							.dateFormat=${preferences?.dateFormat}
-							.dateStyle=${preferences?.dateStyle}
-							.itemId=${
-								item.type === 'pullrequest'
-									? (getPullRequestNumberFromUrl(item.url) ?? item.id)
-									: item.id
-							}
-							.providerId=${item.provider?.id}
-							?details=${item.type === 'pullrequest'}
-							?details-on-click=${item.type === 'pullrequest' && detailsOnClick === true}
-							openOnRemote
-						></gl-autolink-chip>`,
-				)
+			? enriched.map(item => {
+					// Only a pull request carries a merge-queue entry; the host rides it on the serialized item.
+					const { status, queueStatus } = getPullRequestDisplayStatus(item);
+					return html`<gl-autolink-chip
+						type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
+						name=${item.title}
+						url=${item.url}
+						identifier="#${
+							item.type === 'pullrequest' ? (getPullRequestNumberFromUrl(item.url) ?? item.id) : item.id
+						}"
+						.status=${status}
+						.queueStatus=${queueStatus}
+						.date=${item.closed ? item.closedDate : item.createdDate}
+						.dateFormat=${preferences?.dateFormat}
+						.dateStyle=${preferences?.dateStyle}
+						.itemId=${
+							item.type === 'pullrequest' ? (getPullRequestNumberFromUrl(item.url) ?? item.id) : item.id
+						}
+						.providerId=${item.provider?.id}
+						?details=${item.type === 'pullrequest'}
+						?details-on-click=${item.type === 'pullrequest' && detailsOnClick === true}
+						openOnRemote
+					></gl-autolink-chip>`;
+				})
 			: nothing
 	}`;
 }

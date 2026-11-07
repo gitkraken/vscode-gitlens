@@ -30,7 +30,7 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
-import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import { isPullRequestInMergeQueue, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
@@ -128,8 +128,8 @@ import {
 	isSubscriptionTrialOrPaidFromState,
 } from '../../../plus/gk/utils/subscription.utils.js';
 import {
-	confirmPullRequestMerge,
-	mergePullRequestWithProgress,
+	mergeOrEnqueuePullRequest,
+	removePullRequestFromMergeQueue,
 } from '../../../plus/integrations/utils/-webview/pullRequest.merge.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
@@ -943,6 +943,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			computeWorktreeChanges: worktrees => this._wip.computeWorktreeChanges(worktrees),
 			getLastWorktreeChange: path => this._wip.getLastWorktreeChange(path),
 			fireSidebarInvalidated: () => this._sidebarInvalidatedEvent.fire(undefined),
+			didReadFreshPullRequest: pr => this.updateBranchStatePullRequest(pr),
 		};
 	}
 
@@ -1124,6 +1125,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
+	// `save-last`: the webview re-reads the pull request named, and a hidden one only needs the newest
+	private readonly _pullRequestChangedEvent = createRpcEvent<{ number: string }>('pullRequestChanged', 'save-last');
 	// `signal` (not `save-last`): the view re-fetches on receipt, so coalescing a burst of
 	// probe/apply/revert changes for the same repo into one wake-up is exactly the desired behavior.
 	private readonly _gitHealthChangedEvent = createRpcEvent<{ repoPath: string }>('gitHealthChanged', 'signal');
@@ -1289,7 +1292,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getWorktreeWipStats: async (path, signal) =>
 					(await this._wip.getStatusFromCache(normalizePath(path), signal))?.diffStatus ?? null,
 				findPullRequest: number => this._panels.onFindPullRequest({ number: number }),
-				resolvePullRequestSheet: target => this._panels.onResolvePullRequestSheet(target),
+				resolvePullRequestSheet: (target, options) => this._panels.onResolvePullRequestSheet(target, options),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
 				toggleShowRemoteBranches: () => this.onSidebarToggleShowRemoteBranches(),
 				refresh: panel => this.onSidebarRefresh({ panel: panel }),
@@ -1420,7 +1423,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			pullRequest: {
 				merge: (number, options) => this.mergePullRequest(number, options),
+				dequeue: (number, options) => this.dequeuePullRequest(number, options),
 				rebaseStack: (number, options) => this.rebaseStack(number, options),
+				onPullRequestChanged: this._pullRequestChangedEvent.subscribe(buffer, tracker),
 			},
 			rowActions: {
 				executeRowAction: params => this.executeRowAction(params),
@@ -3296,7 +3301,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async mergePullRequest(
 		number: string,
-		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
+		options?: { confirmed?: boolean; queue?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
 	): Promise<MergePullRequestResult> {
 		const resolved = await this._panels.resolvePullRequestForMerge(number);
 		if (resolved == null) {
@@ -3305,35 +3310,54 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const { integration, pr } = resolved;
-		// A sheet-side confirmation already named the blast radius in place; only unconfirmed callers
-		// (e.g. the branch sheet's chip) get the quick pick.
-		if (!options?.confirmed && !(await confirmPullRequestMerge(pr))) return { merged: false };
-
-		const mergeMethod = options?.mergeMethod != null ? mergeMethodsByName[options.mergeMethod] : undefined;
-
-		const result = await mergePullRequestWithProgress(
-			integration,
-			pr,
-			mergeMethod != null ? { mergeMethod: mergeMethod } : undefined,
-		);
-		if (result !== 'merged') {
-			if (result === 'cancelled') {
-				// The merge can still land after we stop waiting for it, so refresh the same PR-affected
-				// state a successful merge does.
-				this._panels.resetPullRequests();
-				this.container.launchpad.refresh();
-				this.refreshAfterPullRequestMerge();
-			}
-
-			return { merged: false };
+		// Already queued: whatever offered this merge showed a stale pull request. The notice that follows waits on the
+		// user, so catch the views up now rather than once it's answered. The cached copies are what went stale.
+		if (isPullRequestInMergeQueue(pr)) {
+			this.container.cache.deletePullRequests();
+			this._panels.resetPullRequests();
+			this.container.launchpad.refresh();
+			this.refreshAfterPullRequestMerge();
+			this._pullRequestChangedEvent.fire({ number: number });
 		}
 
+		// A sheet-side confirmation already named the blast radius in place; only unconfirmed callers (e.g. the
+		// branch sheet's chip) get the quick pick. Routing is decided from the fresh read here, which may have
+		// overtaken what the sheet confirmed: a merge queue that's now required, or a pull request already queued.
+		const mergeMethod = options?.mergeMethod != null ? mergeMethodsByName[options.mergeMethod] : undefined;
+		const outcome = await mergeOrEnqueuePullRequest(integration, pr, {
+			confirmed: options?.confirmed ? (options.queue ? 'enqueue' : 'merge') : undefined,
+			mergeMethod: mergeMethod,
+		});
+		if (outcome === 'declined') return { merged: false };
+
+		// Whatever happened — merged, queued, removed from the queue, stopped waiting on a merge that can still land,
+		// or failed part-way (a stacked merge can land lower layers first) — the pull request's state may have moved.
 		this._panels.resetPullRequests();
 		// Launchpad holds its own 30-minute PR cache; a merge from the graph must not leave it serving the merged PR.
 		this.container.launchpad.refresh();
 		this.refreshAfterPullRequestMerge();
 
-		return { merged: true };
+		return { merged: outcome === 'merged' };
+	}
+
+	private async dequeuePullRequest(number: string, options?: { confirmed?: boolean }): Promise<void> {
+		const resolved = await this._panels.resolvePullRequestForMerge(number);
+		if (resolved == null) {
+			void window.showErrorMessage(l10n.t('Unable to resolve pull request #{0}', number));
+			return;
+		}
+
+		const outcome = await removePullRequestFromMergeQueue(resolved.integration, resolved.pr, options);
+		if (outcome === 'declined' && options?.confirmed !== true) return;
+
+		// Also after finding it no longer queued (`declined` once confirmed in place): the caller's view was stale, and
+		// so are the cached copies it came from
+		if (outcome === 'declined') {
+			this.container.cache.deletePullRequests();
+		}
+		this._panels.resetPullRequests();
+		this.container.launchpad.refresh();
+		this.refreshAfterPullRequestMerge();
 	}
 
 	/** Rebases every branch of the pull request's stack, bottom to top — delegates entirely to the
@@ -3347,6 +3371,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			{ pullRequestNumber: Number(number), source: 'graph' },
 		);
 		return Promise.resolve();
+	}
+
+	/** Swaps a freshly read pull request into the header's branch state when it's the one the PR pill shows, so the pill
+	 *  catches up with a recheck without waiting on a full rebuild. A no-op when nothing about it changed. */
+	private updateBranchStatePullRequest(pr: PullRequest): void {
+		const last = this._producers.lastSentBranchState;
+		if (last?.pr == null || last.pr.url !== pr.url) return;
+
+		// The fresh read only refreshed the by-id cache; the header's branch state is rebuilt from the by-branch
+		// copy, which would put "queued" back on a full rebuild within its TTL. Only on the transition out of the
+		// queue — an ordinary fresh read leaves the cache alone.
+		if (isPullRequestInMergeQueue(last.pr) && !isPullRequestInMergeQueue(pr)) {
+			this.container.cache.deletePullRequests();
+		}
+
+		void this._producers.notifyDidChangeBranchState(
+			{ ...last, pr: serializePullRequest(pr) },
+			this._producers.nextBranchStateRevision(),
+		);
 	}
 
 	/** Re-pulls PR-affected state after a merge (attempted or confirmed) without tearing down the

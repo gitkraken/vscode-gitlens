@@ -6,10 +6,19 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
-import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	formatPullRequestMergeQueueStatus,
+	getPullRequestDisplayStatus,
+	getStackedMergeCount,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
+import {
+	formatMergeQueueRemoval,
+	getPullRequestMergeRoute,
+	isMergeQueueRemovalFailed,
+} from '../../../../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { State } from '../../../../plus/graph/detailsProtocol.js';
@@ -35,6 +44,14 @@ import {
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
+import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
+import {
+	formatQueueHandledBehind,
+	getMergeQueueNote,
+	getMergeTargetQueueTreatment,
+	getQueuedPullRequestEntry,
+	isMergeQueueEntryFailing,
+} from '../../shared/mergeQueue.utils.js';
 import { graphStateContext } from '../context.js';
 import type { ResolvedServices } from './detailsActions.js';
 import type {
@@ -44,7 +61,7 @@ import type {
 } from './gl-details-agent-status.js';
 import { graphBranchSheetPaneStyles } from './gl-graph-branch-sheet-pane.css.js';
 import type { NextStep } from './nextStep.js';
-import { nextStepStyles, renderNextStep } from './nextStep.js';
+import { createMergeQueueNextStep, nextStepStyles, renderNextStep } from './nextStep.js';
 import './gl-compare-ai-actions.js';
 import './gl-details-agent-status.js';
 import '../../../shared/components/button.js';
@@ -739,7 +756,12 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			return nothing;
 		}
 
-		const status = pr.state === 'merged' || pr.state === 'closed' ? pr.state : 'opened';
+		const queueEntry = getQueuedPullRequestEntry(pr);
+		const { status: displayStatus, queueStatus } = getPullRequestDisplayStatus(pr);
+		const status =
+			displayStatus === 'merged' || displayStatus === 'closed' || displayStatus === 'queued'
+				? displayStatus
+				: 'opened';
 		return html`<gl-autolink-chip
 				class="pull-request"
 				type="pr"
@@ -747,6 +769,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				url=${pr.url}
 				identifier="#${pr.number}"
 				status=${status}
+				.queueStatus=${queueStatus}
 				.date=${pr.updatedDate}
 				.dateFormat=${this.dateFormat}
 				.dateStyle=${this.dateStyle}
@@ -760,15 +783,59 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				details-on-click
 				openOnRemote
 			></gl-autolink-chip>
-			${status === 'opened' && !pr.draft ? this.renderMergePullRequest(pr) : nothing}`;
+			${
+				queueEntry != null
+					? this.renderMergeQueueStatus(queueEntry)
+					: status === 'opened' && !pr.draft
+						? html`${this.renderMergeQueueRemoval(pr)}${this.renderMergePullRequest(pr)}`
+						: nothing
+			}`;
+	}
+
+	/** Stands in for the Merge Pull Request chip while the pull request is queued — merging is the queue's job, so
+	 *  it reports where it stands, as a chip that opens the queue when the provider gave its URL. */
+	private renderMergeQueueStatus(entry: MergeQueueEntryLike): TemplateResult {
+		const status = formatPullRequestMergeQueueStatus(entry);
+		const icon = isMergeQueueEntryFailing(entry) ? 'warning' : 'history';
+		if (entry.url == null) {
+			// Nothing to open, so a status — a chip without an href is still a focusable button that does nothing
+			return html`<gl-tooltip content=${status}
+				><span class="merge-queue-status" aria-label=${status} role="img"
+					><code-icon icon=${icon}></code-icon></span
+			></gl-tooltip>`;
+		}
+
+		return html`<gl-action-chip
+			icon=${icon}
+			label=${l10n.t('{text} — {action}', { text: status, action: l10n.t('View Merge Queue') })}
+			overlay="tooltip"
+			href=${entry.url}
+		></gl-action-chip>`;
+	}
+
+	/** The pull request's removal from its merge queue, while that still describes it — a warning when its queue run
+	 *  failed. A status, not an action: what to do next is on the provider. */
+	private renderMergeQueueRemoval(pr: OverviewBranchPullRequest): TemplateResult | typeof nothing {
+		const removal = pr.mergeQueueRemoval;
+		if (removal == null) return nothing;
+
+		const status = formatMergeQueueRemoval(removal);
+		return html`<gl-tooltip content=${status}
+			><span class="merge-queue-status" aria-label=${status} role="img"
+				><code-icon icon=${isMergeQueueRemovalFailed(removal) ? 'warning' : 'info'}></code-icon></span
+		></gl-tooltip>`;
 	}
 
 	private renderMergePullRequest(pr: OverviewBranchPullRequest): TemplateResult {
-		const count = getStackedMergeCount(pr.stack);
-		const label = formatPlural(
-			l10n.t('{count, plural, one{Merge Pull Request...} other{Merge {count} Pull Requests...}}'),
-			{ count: count },
-		);
+		// Where its base branch merges only through a merge queue, Merge adds it to the queue (the host decides from
+		// a fresh read either way, and confirms which it's doing)
+		const label =
+			getPullRequestMergeRoute(pr) === 'enqueue'
+				? l10n.t('Add to Merge Queue...')
+				: formatPlural(
+						l10n.t('{count, plural, one{Merge Pull Request...} other{Merge {count} Pull Requests...}}'),
+						{ count: getStackedMergeCount(pr.stack) },
+					);
 
 		return html`<gl-action-chip
 			icon="git-merge"
@@ -974,6 +1041,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const branchRef = this.toBranchRef(branch);
 		const checkoutPath = this.checkoutPath(branch);
 		const publish = this.publishAction(branch, branchRef);
+		// While queued, the merge queue owns the branch — Pull and Fetch stay, Push and Force Push aren't suggested.
+		const queued = getQueuedPullRequestEntry(this._pullRequest) != null;
 		// Starts as `cloud` and swaps in place once the remote leg settles — never a shimmer.
 		const kindIcon = this.renderKindIcon(providerIconName(this._remote?.provider?.icon), l10n.t('Upstream'));
 
@@ -1023,9 +1092,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					checkoutPath != null
 						? html`<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}
 									>${l10n.t('Pull')}</gl-button
-								><gl-button appearance="secondary" @click=${() => this.forcePush(checkoutPath)}
-									>${l10n.t('Force Push')}</gl-button
-								>${fetch}`
+								>${
+									queued
+										? nothing
+										: html`<gl-button
+												appearance="secondary"
+												@click=${() => this.forcePush(checkoutPath)}
+												>${l10n.t('Force Push')}</gl-button
+											>`
+								}${fetch}`
 						: fetch;
 			} else if (behind > 0) {
 				status = l10n.t('{count} to pull', { count: behind });
@@ -1037,11 +1112,13 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 						: fetch;
 			} else if (ahead > 0) {
 				status = l10n.t('{count} to push', { count: ahead });
-				actions = html`<gl-button
-						appearance="secondary"
-						href=${this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', branchRef)}
-						>${l10n.t('Push')}</gl-button
-					>${fetch}`;
+				actions = queued
+					? fetch
+					: html`<gl-button
+								appearance="secondary"
+								href=${this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', branchRef)}
+								>${l10n.t('Push')}</gl-button
+							>${fetch}`;
 			} else {
 				status = l10n.t('Up to date');
 				actions = fetch;
@@ -1192,6 +1269,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const inOtherWorktree = this.isOtherWorktree(worktree);
 
 		const upstreamMissing = branch.upstream == null || branch.upstream.missing;
+		// While queued, the merge queue owns the branch — see the note pushed at the end.
+		const queueEntry = getQueuedPullRequestEntry(this._pullRequest);
 
 		// Switch — a local branch not checked out anywhere. A branch on a (even closed) worktree
 		// can't be switched to; its Worktree row below is the way "onto" it.
@@ -1240,7 +1319,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		if (!upstreamMissing) {
 			// A merged/closed PR stays in the header chip as context, but isn't a next step
 			const pr = this._pullRequest?.state === 'opened' ? this._pullRequest : undefined;
-			if (pr != null) {
+			if (pr != null && queueEntry != null) {
+				steps.push(createMergeQueueNextStep(pr.url, queueEntry));
+			} else if (pr != null) {
 				steps.push({
 					icon: 'git-pull-request',
 					label: l10n.t('Pull Request #{id}: {title}', { id: pr.id, title: pr.title }),
@@ -1273,12 +1354,21 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				actionLabel: l10n.t('Review'),
 				href: this._webview.createCommandLink<GraphItemContext>('gitlens.reviewChanges:', context),
 			});
-			steps.push({
-				icon: 'wand',
-				label: l10n.t('Recompose Branch'),
-				actionLabel: l10n.t('Recompose'),
-				href: this._webview.createCommandLink<GraphItemContext>('gitlens.ai.recomposeBranch:', context),
-			});
+			// Recompose rewrites the branch, which the merge queue owns while the pull request is queued.
+			if (queueEntry == null) {
+				steps.push({
+					icon: 'wand',
+					label: l10n.t('Recompose Branch'),
+					actionLabel: l10n.t('Recompose'),
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.ai.recomposeBranch:', context),
+				});
+			}
+		}
+
+		// One note in place of every branch-changing suggestion the queue withholds — Push/Force Push on the
+		// Upstream card, Merge/Rebase on the Merge Target card, and Recompose above.
+		if (queueEntry != null) {
+			steps.push({ icon: 'info', label: getMergeQueueNote() });
 		}
 
 		return steps;
@@ -1491,6 +1581,14 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			}
 			default: {
 				const behind = mergeTarget.status?.behind ?? 0;
+				// Conflicts keep the plain gap: the chip beside it carries the warning, and the queue can't settle it.
+				if (
+					verdict !== 'conflicts' &&
+					getMergeTargetQueueTreatment(this._pullRequest, 'behind') === 'queue-handled'
+				) {
+					return formatQueueHandledBehind(behind, mergeTarget.name);
+				}
+
 				return formatPlural(
 					l10n.t(
 						'{count, plural, one{Behind {target} by {count} commit} other{Behind {target} by {count} commits}}',
@@ -1578,6 +1676,13 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		}
 
 		if (!this.isBehindVerdict(verdict)) return nothing;
+		// While queued, conflicts stay a warning (the chip) and behind is the queue's job — no Merge/Rebase either way.
+		if (
+			getMergeTargetQueueTreatment(this._pullRequest, verdict === 'conflicts' ? 'conflicts' : 'behind') !==
+			'default'
+		) {
+			return nothing;
+		}
 
 		// Gated: keep both buttons so the card's shape doesn't change, disabled, with the reason in the
 		// tooltip rather than appended to the sentence.

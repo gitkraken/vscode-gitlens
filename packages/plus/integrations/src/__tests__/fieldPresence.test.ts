@@ -5,6 +5,7 @@ import { suite, test } from 'mocha';
 import type { IssueProjection, IssueShape } from '@gitlens/git/models/issue.js';
 import { RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestProjection, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
 import { serializeIssue } from '@gitlens/git/utils/issue.utils.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
@@ -84,7 +85,7 @@ const mappedMilestone = {
 };
 
 /**
- * Every field GitLens' own full and stack fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
+ * Every field GitLens' own full, stack and merge-queue fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
  * values a hardcoded or rebuilt viewer would lose, and the code-owner request is one a lossy conversion would flatten.
  */
 function nativePullRequestNode(): GitHubPullRequestFixture {
@@ -99,6 +100,15 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 			repository: { ...repository, viewerPermission: 'READ' },
 			stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
 			stackEntry: { position: 1 },
+			mergeQueueEntry: {
+				state: 'AWAITING_CHECKS',
+				enqueuedAt: '2026-01-01T00:00:00Z',
+				estimatedTimeToMerge: 600,
+				mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+				position: 1,
+			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
 			additions: 3,
 			assignees: { nodes: [member] },
 			changedFiles: 2,
@@ -138,6 +148,7 @@ function selectNativePullRequest(query: string): Node {
 	const unselected = [
 		...(query.includes('totalCommentsCount') ? [] : fullOnlyPullRequestFields),
 		...(query.includes('stackEntry') ? [] : ['stack', 'stackEntry']),
+		...(query.includes('mergeQueueEntry') ? [] : ['mergeQueueEntry', 'isMergeQueueEnabled', 'mergeQueueEvents']),
 	];
 	return Object.fromEntries(Object.entries(nativePullRequestNode()).filter(([field]) => !unselected.includes(field)));
 }
@@ -585,6 +596,13 @@ function assertFullRow(
 	assert.equal(presence.diffStats, 'fetched');
 	assert.deepEqual(row.stack, { id: 'S_1', number: 7, size: 2, position: 1, baseRef: 'main' });
 	assert.equal(presence.stack, 'fetched');
+	assert.equal(row.mergeQueue?.state, PullRequestMergeQueueState.AwaitingChecks);
+	assert.equal(row.mergeQueue?.url, 'https://github.com/o/r/queue/main');
+	assert.equal(row.mergeQueue?.position, 1);
+	// The same group covers whether the queue is required and the latest removal (none: it rejoined since).
+	assert.equal(row.mergeQueueRequired, true);
+	assert.equal(row.mergeQueueRemoval, undefined);
+	assert.equal(presence.mergeQueue, 'fetched');
 	assert.equal(row.reviewRequests?.length, 1);
 	assert.equal(row.reviewRequests?.[0]?.isCodeOwner, true);
 	// A submitted review says nothing about code ownership.
@@ -655,7 +673,7 @@ suite('Field presence lookup', () => {
 		manager.dispose();
 	});
 
-	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks', () => {
+	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks or merge queues', () => {
 		for (const projection of pullRequestProjections) {
 			const dotCom = getPullRequestFieldPresence(pullRequestRow(GitCloudHostIntegrationId.GitHub, projection));
 			const enterprise = getPullRequestFieldPresence(
@@ -669,6 +687,12 @@ suite('Field presence lookup', () => {
 			}
 			assert.notEqual(enterprise.stack, 'fetched', projection);
 			assert.equal(enterprise.stack, dotCom.stack === 'fetched' ? 'unavailable' : dotCom.stack, projection);
+			assert.notEqual(enterprise.mergeQueue, 'fetched', projection);
+			assert.equal(
+				enterprise.mergeQueue,
+				dotCom.mergeQueue === 'fetched' ? 'unavailable' : dotCom.mergeQueue,
+				projection,
+			);
 		}
 		for (const projection of issueProjections) {
 			assert.deepEqual(

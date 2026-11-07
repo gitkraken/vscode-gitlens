@@ -5,6 +5,7 @@ import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -383,7 +384,7 @@ export class GraphProducersService {
 					title: pr.title,
 					author: pr.author.name,
 					date: (pr.mergedDate ?? pr.closedDate ?? pr.updatedDate)?.getTime(),
-					state: pr.state,
+					state: getPullRequestDisplayState(pr),
 					isDraft: pr.isDraft,
 					url: pr.url,
 					stack:

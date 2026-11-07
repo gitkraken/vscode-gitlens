@@ -2874,6 +2874,7 @@ type LaunchpadGroups =
 	| 'follow-up'
 	| 'needs-review'
 	| 'waiting-for-review'
+	| 'merge-queue'
 	| 'draft'
 	| 'other'
 	| 'snoozed';
@@ -2899,6 +2900,7 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 	action:
 		| 'open'
 		| 'merge'
+		| 'dequeue'
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'

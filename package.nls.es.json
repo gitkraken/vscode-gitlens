@@ -68,6 +68,7 @@
 	"color.gitlens.mergedPullRequestIconColor.description": "Especifica el color del icono de las solicitudes de incorporación de cambios fusionadas en las vistas de GitLens",
 	"color.gitlens.openAutolinkedIssueIconColor.description": "Especifica el color del icono de los problemas abiertos en las vistas de GitLens",
 	"color.gitlens.openPullRequestIconColor.description": "Especifica el color del icono de las solicitudes de incorporación de cambios abiertas en las vistas de GitLens",
+	"color.gitlens.queuedPullRequestIconColor.description": "Especifica el color del icono de las solicitudes de incorporación de cambios en una cola de fusión en las vistas de GitLens",
 	"color.gitlens.timelineAdditionsColor.description": "Especifica el color de las líneas añadidas en la franja de volumen y en la información sobre herramientas del _Historial visual_",
 	"color.gitlens.timelineDeletionsColor.description": "Especifica el color de las líneas eliminadas en la franja de volumen y en la información sobre herramientas del _Historial visual_",
 	"color.gitlens.trailingLineBackgroundColor.description": "Especifica el color de fondo de la anotación de blame en línea de la línea actual",

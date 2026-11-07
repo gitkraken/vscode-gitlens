@@ -131,6 +131,7 @@ import type {
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
+import { getQueuedPullRequestSheetNumbers } from './queuedPullRequestRecheck.js';
 import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
 import {
 	countReviewFindingStates,
@@ -289,6 +290,9 @@ declare global {
 		/** The sheet stack's kind composition changed — e.g. the app sizes the details pane for a
 		 *  rebase summary sheet opening or closing. */
 		'gl-graph-sheet-stack-change': CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>;
+		/** The queued pull requests the open pull request sheets show changed — the app rechecks them until
+		 *  each leaves its merge queue. */
+		'gl-graph-queued-pr-sheets-change': CustomEvent<{ numbers: string[] }>;
 		/** {@link GlGraphDetailsPanel.minContentHeight} changed — the app re-clamps the bottom-docked
 		 *  details split so the pane can't sit below what fits the commit box and file-list floor. */
 		'gl-graph-details-min-height-changed': CustomEvent<void>;
@@ -1362,6 +1366,39 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** Swaps a re-read pull request into every open pull request sheet that shows it — as the sheet's own pull
+	 *  request or one of its stack layers — after an action changed it (e.g. joining or leaving its merge queue). */
+	updatePullRequest(updated: GraphSidebarPullRequest): void {
+		let changed = false;
+
+		const next = this._sheetStack.map((d): SheetDescriptor => {
+			if (d.kind !== 'pullRequest' || d.pr == null) return d;
+
+			const isPr = d.pr.number === updated.number;
+			const inLayers = d.layers?.some(l => l.number === updated.number) === true;
+			if (!isPr && !inLayers) return d;
+
+			// The by-number read carries no Launchpad categorization; keep what the sheet had rather than lose it
+			const merge = (current: GraphSidebarPullRequest): GraphSidebarPullRequest =>
+				current.number === updated.number
+					? { ...updated, launchpad: updated.launchpad ?? current.launchpad }
+					: current;
+
+			changed = true;
+			return {
+				kind: 'pullRequest',
+				target: d.target,
+				pr: merge(d.pr),
+				layers: inLayers ? d.layers!.map(merge) : d.layers,
+				stackRoot: d.stackRoot,
+			};
+		});
+
+		if (changed) {
+			this._sheetStack = next;
+		}
+	}
+
 	private handleClosePrSheet = (): void => {
 		this.popSheet();
 	};
@@ -1958,6 +1995,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Tracks the previous stack's kind composition so {@link updated} can report a
 	 *  `gl-graph-sheet-stack-change` exactly once per composition change, not once per render. */
 	private _prevSheetKinds: SheetKind[] = [];
+
+	/** The queued pull requests the open sheets showed at the last report, so {@link updated} reports a
+	 *  `gl-graph-queued-pr-sheets-change` only when the set changes. */
+	private _prevQueuedPullRequestSheetsKey = '';
 
 	/** Disposes the currently-registered overlay entry for the top-of-stack sheet — see
 	 *  {@link _sheetCoordinator}. */
@@ -2606,6 +2647,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this.dispatchEvent(
 					new CustomEvent('gl-graph-sheet-stack-change', {
 						detail: { kinds: kinds, prevKinds: prevKinds },
+						bubbles: true,
+						composed: true,
+					}),
+				);
+			}
+
+			// The app rechecks a queued pull request on screen until it leaves its queue (merged, failed, removed),
+			// which nothing local would notice. Resolving, re-reading, and closing a sheet all land here.
+			const queued = getQueuedPullRequestSheetNumbers(this._sheetStack);
+			const queuedKey = queued.join(',');
+			if (queuedKey !== this._prevQueuedPullRequestSheetsKey) {
+				this._prevQueuedPullRequestSheetsKey = queuedKey;
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-queued-pr-sheets-change', {
+						detail: { numbers: queued },
 						bubbles: true,
 						composed: true,
 					}),

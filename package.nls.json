@@ -68,6 +68,7 @@
 	"color.gitlens.mergedPullRequestIconColor.description": "Specifies the icon color of merged pull requests in the GitLens views",
 	"color.gitlens.openAutolinkedIssueIconColor.description": "Specifies the icon color of open issues in the GitLens views",
 	"color.gitlens.openPullRequestIconColor.description": "Specifies the icon color of open pull requests in the GitLens views",
+	"color.gitlens.queuedPullRequestIconColor.description": "Specifies the icon color of pull requests in a merge queue in the GitLens views",
 	"color.gitlens.timelineAdditionsColor.description": "Specifies the color of additions in the _Visual History_ volume strip and tooltip",
 	"color.gitlens.timelineDeletionsColor.description": "Specifies the color of deletions in the _Visual History_ volume strip and tooltip",
 	"color.gitlens.trailingLineBackgroundColor.description": "Specifies the background color of the inline blame annotation for the current line",

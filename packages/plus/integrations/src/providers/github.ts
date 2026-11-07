@@ -2,6 +2,8 @@ import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api
 import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
 	fromGitHubIssueOrPullRequestState,
+	fromGitHubMergeQueueEntryState,
+	fromGitHubMergeQueueRemoval,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
@@ -13,6 +15,8 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueActionResult,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -183,6 +187,18 @@ function toPullRequestEtagFields(
 		updatedDate: new Date(node.updatedAt),
 		headSha: node.headRefOid,
 	};
+
+	if (node.mergeQueueEntry != null) {
+		fields.mergeQueue = {
+			state: fromGitHubMergeQueueEntryState(node.mergeQueueEntry.state),
+			enqueuedAt: new Date(node.mergeQueueEntry.enqueuedAt),
+		};
+	}
+
+	const mergeQueueRemoval = fromGitHubMergeQueueRemoval(node.mergeQueueEvents);
+	if (mergeQueueRemoval != null) {
+		fields.mergeQueueRemovedAt = mergeQueueRemoval.removedAt;
+	}
 
 	if (etagIncludes.includes('mergeable')) {
 		fields.mergeableState =
@@ -1246,6 +1262,34 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
+	 * Merge-queue entries for the given base branches, keyed by pull request number — the same gap as
+	 * {@link getStacksByPullRequestNumber}: the repository-scoped list read comes from provider-apis, which selects no
+	 * merge queue. One request for every branch. `undefined` means unavailable (GitHub Enterprise Server, a repository
+	 * not found, or not connected); an empty map means nothing is queued.
+	 *
+	 * INTERIM: remove once provider-apis carries the merge-queue entry on its pull requests (goals S6).
+	 */
+	override async getMergeQueueEntriesByPullRequestNumber(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
+		if (session == null) return undefined;
+
+		return (await this.authenticationService.apis.github)?.getMergeQueueEntriesForBranches(
+			this,
+			toTokenWithInfo(this.id, session),
+			owner,
+			repo,
+			branches,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
+	}
+
+	/**
 	 * The ordered layers of the stack the given pull request belongs to, bottom to top.
 	 *
 	 * There is no per-pull-request stacks endpoint, so this reuses the same repository-wide stacks read
@@ -1361,6 +1405,54 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				},
 				cancellation,
 			) ?? false
+		);
+	}
+
+	/**
+	 * Adds the pull request to its merge queue, expecting the head it was read with. A pull request without a node id
+	 * or head (a row from a read that didn't select them) can't be queued safely, so it fails as `unknown`.
+	 */
+	protected override async enqueueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		const headRefSha = pr.refs?.head?.sha;
+		if (id == null || headRefSha == null) {
+			return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id or head' };
+		}
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.enqueuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			headRefSha,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
+	}
+
+	protected override async dequeueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		if (id == null) return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id' };
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.dequeuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
 		);
 	}
 

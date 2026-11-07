@@ -179,7 +179,8 @@ host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the
 Both batch reads detect change with **etags**. Every fully read row carries an opaque `etag`, whether or not the
 caller sent one; send it back as the target's `etag` on the next call. Compare etags for equality only and never
 parse one: core computes it from the item's change state — a pull request's state, draft flag, update time and head
-commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time; see below); an issue's
+commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time, and on github.com a
+queued pull request's merge-queue state; see below); an issue's
 state and update time — and it is not the provider's HTTP ETag. A field the host changes without moving the update
 time is not an input unless `etagIncludes` names it. Reactions are such a field: GitHub adds a reaction without
 touching the update time, so an `unchanged` issue's `thumbsUpCount` can be stale unless the call listed `'reactions'`,
@@ -200,7 +201,16 @@ The hosts with a cheap check select only the change state:
 
 - **GitHub/GHE:** one aliased document per 25 targets, like the full read. Assigning or clearing a milestone moves
   the update time, so the etag sees it; editing the milestone itself (its title, due date or state) doesn't, and a row
-  that compares unchanged keeps the milestone as it was read.
+  that compares unchanged keeps the milestone as it was read. Against github.com it also selects each pull request's
+  merge-queue entry (its `state` and `enqueuedAt` only), because joining, moving through and leaving the queue don't
+  move the update time. Only a queued pull request's etag carries it, with no `etagIncludes` needed, so a pull request
+  that isn't queued keeps exactly the etag it had before the queue was read, under any include set. The estimate
+  (`estimatedMergeAt`) isn't an input: GitHub recomputes it as the queue moves, so an `unchanged` queued pull request's
+  estimate can be stale, though as a date it keeps counting down. Nor is the `position`, which moves as the entries
+  ahead merge, or `mergeQueueRequired`, which only a change to the base branch's rules moves, so an `unchanged` row's
+  can be stale. The check also selects each pull request's latest merge-queue event, so a pull request that joined the
+  queue and was removed between two checks reads as changed: only a row with a `mergeQueueRemoval` carries it in its
+  etag, so every other pull request's etag is unchanged by it.
 - **GitLab and GitLab self-managed:** one query per project per 100 iids. That drops to 10 iids when `etagIncludes`
   has `'checks'`, because GitLab resolves every job of each head pipeline for that input. GitLab resets a merge
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
@@ -341,8 +351,8 @@ A group is `fetched` only if every field in it is. Pull request groups: `descrip
 reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`statusCheckRollupState`), `mergeable`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
-the identity it was matched against), `stack` and `milestone`. `statusCheckRollupState`, `commitCount` and
-`viewerCanUpdate` live on the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups:
+the identity it was matched against), `stack`, `milestone` and `mergeQueue`. `statusCheckRollupState`, `commitCount`
+and `viewerCanUpdate` live on the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups:
 `description` (`body`, and `bodyField` where the provider sets it, so take both from the same row), `assignees`,
 `labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`), `access` (`repository.accessLevel`) and
 `milestone` (on Linear, the issue's project milestone).
@@ -371,6 +381,7 @@ differ, and `—` means that host never produces the tag.
 | authoredByMe   | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested           | not-requested | not-requested         |
 | stack          | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
 | milestone      | fetched               | fetched               | fetched               | fetched               | fetched               | fetched               | fetched                 | fetched       | fetched               |
+| mergeQueue     | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
 
 <!-- field-presence: issues -->
 
@@ -394,7 +405,25 @@ The cells that aren't obvious from the projection names:
   GitLens' own reads don't. Its comment count is issue comments only, where `search` counts review
   comments too. On GitHub Enterprise it reads check runs only from server 3.0 on, which the table can't see.
 - `authoredByMe` needs the current account, which a read may fail to resolve, so it is never `fetched`.
-- `stack` is selected only against github.com.
+- `stack` and `mergeQueue` are selected only against github.com. A row without `mergeQueue` where the group is
+  `fetched` is not queued; `isPullRequestInMergeQueue(pr)` answers that for an open pull request. Its
+  `estimatedMergeAt` is GitHub's estimate of the time remaining, fixed to a date when the row was read, so it may be
+  in the past on a row held a while, and its `position` is 1-based in enqueue order.
+- The `mergeQueue` group also covers `mergeQueueRequired` (the base branch accepts the pull request only through a
+  merge queue; `false` is an answer, `undefined` not read) and `mergeQueueRemoval` (`{ reason, removedAt }`: the
+  latest removal from the queue, set only while it is the pull request's latest merge-queue event and didn't merge it).
+  `reason` is GitHub's own string, passed through (`failed_checks`, `manual`, others undocumented); classify it with
+  `getPullRequestMergeQueueRemovalKind` (`failed`, `manual`, `other`). A removal stays on the row however much later
+  the pull request changes, so ask `isPullRequestMergeQueueRemovalCurrent(pr)` whether it still describes it: open,
+  not queued, and not updated since. Any later update clears it — a comment or a label as well as a push — because
+  GitHub's timeline orders commits by commit date, not push time, so it can't say whether a push followed the
+  removal; GitHub's removal itself doesn't move the update time.
+- Cost: the merge-queue selection adds one connection per pull request (`timelineItems(last: 1)`). By GitHub's
+  rate-limit formula (a request per connection per parent node, summed, divided by 100 and rounded, minimum 1) that
+  is one more request per pull request read: a 30-row full search page goes from 121 requests (1 point) to 151 (2
+  points), a 100-row lite page from 1 to 101 (1 point either way), a 25-target batch read from 100 to 125 (1 point),
+  and the cheap check's 25 targets from 0 or 25 (with `'checks'`) to 25 or 50 (1 point either way). The filtered
+  search's worst case, 15 facets of 30 rows, goes from 1,815 requests (18 points) to 2,265 (23).
 
 #### Every other provider
 
@@ -407,7 +436,8 @@ What holds for all of them:
   derived from its reviewers' states, which ignores the host's own approval rules (GitLab's approval rules, Azure
   DevOps' branch policies, Bitbucket's merge checks), so derive one from `reviews` and `reviewRequests` instead.
 - **`access` and `authoredByMe` are never `fetched`**: no other host's read sets `repository.accessLevel`, and the
-  current account may not resolve. No other host has stacks.
+  current account may not resolve. No other host has stacks, and no other host's merge queue (GitLab's merge trains
+  included) is read yet, so `mergeQueue` is `unavailable` everywhere else.
 - **Substitutions.** Azure DevOps has no pull request assignees: both of its converters fill `assignees` with the
   reviewers, which `reviews` and `reviewRequests` already hold, so `assignees` is `unavailable` there. Votes are not
   reactions: a Jira issue's or Trello card's votes, and a Bitbucket issue's, land in `thumbsUpCount` (and read 0
@@ -438,6 +468,7 @@ What holds for all of them:
 | authoredByMe   | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
 | stack          | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
 | milestone      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| mergeQueue     | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
 
 <!-- field-presence: gitlab-issues -->
 
@@ -480,6 +511,7 @@ What holds for all of them:
 | authoredByMe   | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
 | stack          | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 | milestone      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| mergeQueue     | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 
 <!-- field-presence: azure-issues -->
 
@@ -517,6 +549,7 @@ What holds for all of them:
 | authoredByMe   | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
 | stack          | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 | milestone      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| mergeQueue     | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: bitbucket-issues -->
 

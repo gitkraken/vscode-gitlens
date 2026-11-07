@@ -1069,9 +1069,12 @@ export interface GraphSidebarService {
 	/** Everything the pull request sheet renders, in one round trip — one pull request by number, or a
 	 *  whole stack by stack number. Deliberately NOT served off the pull requests panel's list: the sheet
 	 *  needs one pull request and its layers, not the repository's every open pull request, and waiting on
-	 *  that list is what used to make a stacked sheet take seconds or time out. */
+	 *  that list is what used to make a stacked sheet take seconds or time out. `fresh` reads the requested pull
+	 *  request past the host's cache (a recheck of one the sheet shows queued, which the cache would answer
+	 *  unchanged); it applies to the by-number target only. */
 	resolvePullRequestSheet(
-		target: { number: string } | { stackNumber: number },
+		target: { number: string; url?: string } | { stackNumber: number },
+		options?: { fresh?: boolean },
 	): Promise<GraphPullRequestSheetData | undefined>;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	toggleShowRemoteBranches(): void;
@@ -1590,13 +1593,22 @@ export interface GraphPickersService {
 
 export interface GraphPullRequestService {
 	/** `number` is the user-facing PR number (not a provider-internal id). `confirmed` skips the
-	 *  host's own merge-blast-radius quickpick — set when the caller already confirmed in place. */
+	 *  host's own merge-blast-radius quickpick — set when the caller already confirmed in place; `queue` says
+	 *  that confirmation was for adding it to its merge queue. The host routes from a fresh read of the pull
+	 *  request — merging it, adding it to its merge queue where its base branch requires one, or offering the
+	 *  queue when it's already queued — and confirms again when that route isn't the one confirmed in place. */
 	merge(
 		number: string,
-		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
+		options?: { confirmed?: boolean; queue?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
 	): Promise<MergePullRequestResult>;
+	/** Removes a queued pull request from its merge queue. `confirmed` skips the host's own confirmation — set when
+	 *  the caller already confirmed in place. Outcome and refreshes surface through the host. */
+	dequeue(number: string, options?: { confirmed?: boolean }): Promise<void>;
 	/** Rebases every branch of the pull request's stack, bottom to top. `ai` opts into AI conflict resolution. */
 	rebaseStack(number: string, options?: { ai?: boolean }): Promise<void>;
+	/** Fires with a pull request's number when the host learns its state moved under what the webview may show —
+	 *  a merge action's fresh read found it already queued, while the notice saying so still waits on the user. */
+	readonly onPullRequestChanged: RpcEventSubscription<{ number: string }>;
 }
 
 /** Row-level graph actions: the row-button menu (open changes, push-to-commit, stash, undo-commit),

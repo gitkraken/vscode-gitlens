@@ -106,10 +106,16 @@ import {
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { Resource } from '../../../shared/state/resource.js';
+import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import type { AppState } from '../context.js';
 import { compareSides } from './detailsState.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
+import {
+	getQueuedPullRequestRefreshOutcome,
+	PausableRecheckTimer,
+	queuedPullRequestRecheckMs,
+} from './queuedPullRequestRecheck.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
 /** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
@@ -268,6 +274,7 @@ export class DetailsActions {
 	private _branchCommitsController?: AbortController;
 	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
+	private readonly _queuedPullRequestRecheck = new PausableRecheckTimer(queuedPullRequestRecheckMs);
 	private _branchCompareEnrichmentControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	private _branchCompareContributorsControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	/** Per-(tab,sha) abort controllers for lazy commit-file fetches in branch-compare. New selection
@@ -385,6 +392,7 @@ export class DetailsActions {
 
 	dispose(): void {
 		this._disposed = true;
+		this._queuedPullRequestRecheck.dispose();
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 		this._enrichmentController?.abort();
@@ -1409,6 +1417,7 @@ export class DetailsActions {
 					clearTimeout(maxWaitTimer);
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 					return;
 				}
 
@@ -1470,8 +1479,12 @@ export class DetailsActions {
 								hasPullRequest: true,
 							});
 							this.state.wipPullRequest.set(pr);
+							this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
 						}),
-						noopUnlessReal,
+						(e: unknown) => {
+							this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
+							noopUnlessReal(e);
+						},
 					)
 					.finally(() => {
 						if (signal.aborted) return;
@@ -1484,8 +1497,83 @@ export class DetailsActions {
 				if (!signal.aborted) {
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 				}
 				noopUnlessReal(e);
+			},
+		);
+	}
+
+	/**
+	 * A pull request leaves its merge queue (merged, or removed) on the provider, with nothing local to notice it —
+	 * and the enrichment above only re-runs on a selection or branch change. Left alone, a WIP pane open on a queued
+	 * pull request would keep withholding branch actions indefinitely. So while it's queued, ask again once the
+	 * host's cached copy has expired, for as long as this selection's enrichment stays current (`signal`). The wait
+	 * only counts while the Graph is visible (see {@link PausableRecheckTimer}).
+	 */
+	private scheduleQueuedPullRequestRecheck(
+		repoPath: string,
+		branchName: string,
+		pr: OverviewBranchPullRequest | undefined,
+		signal: AbortSignal,
+	): void {
+		if (signal.aborted || this._disposed || !isPullRequestQueued(pr)) {
+			this._queuedPullRequestRecheck.cancel();
+			return;
+		}
+
+		this._queuedPullRequestRecheck.schedule(
+			() => this.refreshQueuedPullRequest(repoPath, branchName, signal),
+			signal,
+		);
+	}
+
+	/** After a failed or empty fetch, keep the recheck going if what's on screen (e.g. hydrated from cache) is still
+	 *  a queued pull request — otherwise it would stay on screen, holding branch actions, with nothing to clear it. */
+	private keepCheckingShownQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted) return;
+
+		this.scheduleQueuedPullRequestRecheck(repoPath, branchName, this.state.wipPullRequest.get(), signal);
+	}
+
+	/** Re-asks for just the branch's pull request — not the whole enrichment, whose merge-target leg (ahead/behind,
+	 *  merged status, conflict simulation), autolinks and issues don't change while the queue holds the branch. */
+	private refreshQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted || this._disposed) return;
+
+		const cacheKey = `${branchName}:${repoPath}`;
+		const settle = (refreshed: PromiseSettledResult<OverviewBranchPullRequest | undefined>): void => {
+			if (signal.aborted || this._disposed) return;
+
+			const shown = this.state.wipPullRequest.get();
+			const pr = refreshed.status === 'fulfilled' ? refreshed.value : undefined;
+			switch (getQueuedPullRequestRefreshOutcome(shown, refreshed)) {
+				case 'still-queued':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
+					break;
+				case 'left-queue':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					// Leaving the queue usually means the branch merged, so the merge-target status (and the actions
+					// it drives) is stale too — run the full enrichment once to catch it up. It hydrates from the
+					// cache entry just updated, so nothing flashes back to loading.
+					this.fetchWipBranchEnrichment(repoPath, branchName, signal);
+					break;
+				case 'retry':
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, shown, signal);
+					break;
+				case 'stop':
+					break;
+			}
+		};
+
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(
+			pr => settle({ status: 'fulfilled', value: pr }),
+			(e: unknown) => {
+				noopUnlessReal(e);
+				settle({ status: 'rejected', reason: e });
 			},
 		);
 	}

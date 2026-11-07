@@ -6,6 +6,8 @@ import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/m
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueActionResult,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -21,6 +23,7 @@ import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
@@ -500,6 +503,16 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<Map<number, PullRequestStackInfo> | undefined>;
 
+	/** Merge-queue entries for the given base branches of the repository, keyed by pull request number, for rows from a
+	 *  read that selects no merge queue. Only hosts with a readable merge queue implement this (currently GitHub.com);
+	 *  `undefined` means unavailable. INTERIM: remove once provider-apis carries the entry on its rows (goals S6). */
+	getMergeQueueEntriesByPullRequestNumber?(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined>;
+
 	/** The ordered layers of the stack the given pull request belongs to, bottom to top. `undefined`
 	 *  when the host has no stacks concept, the repository isn't enrolled, or the pull request isn't
 	 *  stacked. */
@@ -830,6 +843,99 @@ export abstract class GitHostIntegration<
 		options?: { mergeMethod?: PullRequestMergeMethod },
 		cancellation?: AbortSignal,
 	): Promise<boolean>;
+
+	/**
+	 * Adds a pull request to its base branch's merge queue (where `mergeQueueRequired` says merging means queueing).
+	 * The result says why on failure: the host's refusal (`already-queued`, `head-changed`, `permission`, …),
+	 * `unsupported` where this host has no merge queue to act on (only GitHub.com's is), or `unknown` for anything
+	 * else, including no connection or a failure to reach the host — the provider's message rides along for logs, not
+	 * for display. Cancellation throws `CancellationError`. Evicts cached pull requests whatever the outcome, as
+	 * {@link mergePullRequest} does.
+	 */
+	@trace()
+	async enqueuePullRequest(pr: PullRequest, cancellation?: AbortSignal): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		return this.runMergeQueueAction(
+			'enqueuePullRequest',
+			this.enqueueProviderPullRequest?.bind(this),
+			pr,
+			cancellation,
+			scope,
+		);
+	}
+
+	/**
+	 * Removes a queued pull request from its base branch's merge queue, losing its place there. Results, failures and
+	 * cancellation as {@link enqueuePullRequest}.
+	 */
+	@trace()
+	async dequeuePullRequest(pr: PullRequest, cancellation?: AbortSignal): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		return this.runMergeQueueAction(
+			'dequeuePullRequest',
+			this.dequeueProviderPullRequest?.bind(this),
+			pr,
+			cancellation,
+			scope,
+		);
+	}
+
+	/** {@link mergePullRequest}'s session and failure handling, for the merge-queue actions. */
+	private async runMergeQueueAction(
+		syncReqUsecase: 'enqueuePullRequest' | 'dequeuePullRequest',
+		action:
+			| ((
+					session: ProviderAuthenticationSession,
+					pr: PullRequest,
+					cancellation?: AbortSignal,
+			  ) => Promise<PullRequestMergeQueueActionResult>)
+			| undefined,
+		pr: PullRequest,
+		cancellation: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<PullRequestMergeQueueActionResult> {
+		if (action == null) return { status: 'failed', reason: 'unsupported' };
+
+		const sessionFailure = await this.prepareSessionLookup();
+		if (sessionFailure != null) {
+			return {
+				status: 'failed',
+				reason: 'unknown',
+				message: sessionFailure === 'unconnected' ? 'Not connected' : sessionFailure.message,
+			};
+		}
+
+		try {
+			const result = await action(this._session!, pr, cancellation);
+			this.resetRequestExceptionCount(syncReqUsecase);
+			return result;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const error = toError(ex);
+			this.handleProviderException(syncReqUsecase, error, { scope: scope });
+			return { status: 'failed', reason: 'unknown', message: error.message };
+		} finally {
+			// Joining or leaving a queue changes the pull request's queue state on the server, and a refusal may have
+			// raced a change made elsewhere, so cached pull requests can't be trusted either way.
+			this.ctx.cache.deletePullRequests();
+		}
+	}
+
+	/** Implemented only by hosts whose merge queue this integration can act on (currently GitHub.com); the base
+	 *  reports `unsupported` without one. */
+	protected enqueueProviderPullRequest?(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult>;
+
+	/** See {@link enqueueProviderPullRequest}. */
+	protected dequeueProviderPullRequest?(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult>;
 
 	@trace()
 	async getPullRequestForBranch(

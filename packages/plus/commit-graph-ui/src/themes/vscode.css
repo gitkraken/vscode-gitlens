@@ -46,6 +46,7 @@ gl-commit-graph {
 	--gl-graph-range-highlight-border: var(--vscode-editor-rangeHighlightBorder, transparent);
 	--gl-graph-pr-open-color: var(--vscode-gitlens-openPullRequestIconColor, #3fb950);
 	--gl-graph-pr-merged-color: var(--vscode-gitlens-mergedPullRequestIconColor, #a371f7);
+	--gl-graph-pr-queued-color: var(--vscode-gitlens-queuedPullRequestIconColor, #d29922);
 	--gl-graph-pr-closed-color: var(--vscode-gitlens-closedPullRequestIconColor, #f85149);
 	--gl-graph-operation-active-color: var(
 		--vscode-gitlens-decorations\.statusMergingOrRebasingForegroundColor,

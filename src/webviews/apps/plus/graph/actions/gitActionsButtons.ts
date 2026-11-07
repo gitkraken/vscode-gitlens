@@ -713,11 +713,21 @@ export class PushPullButton extends SignalWatcher(LitElement) {
   discards, and baseline-aligning an inline-block box against text rides the glyph too high.
   Matches how gl-merge-target-status renders the same kind of conflict line. */
 			.banner {
+				--banner-fill: color-mix(in srgb, var(--banner-color) 82%, #000);
+
 				padding: var(--gl-space-8) var(--gl-space-10);
 				margin-block: 0;
 				font-weight: 500;
-				color: #fff;
-				background-color: color-mix(in srgb, var(--banner-color) 82%, #000);
+				/* Black or white from the fill's own lightness (the on-fill derivation in colors.scss), so a
+				   light user-set conflict color still gets readable text */
+				color: oklab(from var(--banner-fill) clamp(0, (0.57 - l) * 1000, 1) 0 0);
+				background-color: var(--banner-fill);
+			}
+
+			@supports (color: contrast-color(red)) {
+				.banner {
+					color: contrast-color(var(--banner-fill));
+				}
 			}
 
 			.banner code-icon {

@@ -68,6 +68,7 @@
 	"color.gitlens.mergedPullRequestIconColor.description": "指定 GitLens 檢視中已合併提取要求的圖示顏色",
 	"color.gitlens.openAutolinkedIssueIconColor.description": "指定 GitLens 檢視中開啟的問題的圖示顏色",
 	"color.gitlens.openPullRequestIconColor.description": "指定 GitLens 檢視中開啟的提取要求的圖示顏色",
+	"color.gitlens.queuedPullRequestIconColor.description": "指定 GitLens 檢視中合併佇列中的提取要求的圖示顏色",
 	"color.gitlens.timelineAdditionsColor.description": "指定 _視覺化歷史_ 數量條和工具提示中新增內容的顏色",
 	"color.gitlens.timelineDeletionsColor.description": "指定 _視覺化歷史_ 數量條和工具提示中刪除內容的顏色",
 	"color.gitlens.trailingLineBackgroundColor.description": "指定目前行的行內追溯註釋的背景色",

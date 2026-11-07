@@ -7,12 +7,28 @@ import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
-import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
+import {
+	formatPullRequestMergeQueueStatus,
+	getPullRequestDisplayState,
+	getPullRequestDisplayStatus,
+	getStackedMergeCount,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
+import {
+	formatMergeQueueRemoval,
+	getPullRequestMergeRoute,
+	isMergeQueueRemovalFailed,
+} from '../../../../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
 import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
+import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
+import {
+	getQueuedPullRequestEntry,
+	isMergeQueueEntryFailing,
+	isPullRequestQueued,
+} from '../../shared/mergeQueue.utils.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
 import type { PullRequestSheetTarget } from './sheetStack.js';
@@ -43,7 +59,12 @@ declare global {
 			mergeMethod?: 'merge' | 'squash' | 'rebase';
 			/** The dispatcher already confirmed the blast radius in place (the sheet's popover). */
 			confirmed?: boolean;
+			/** What was confirmed in place was adding it to its merge queue, which its base branch requires. */
+			queue?: boolean;
 		}>;
+		/** Removes the queued pull request from its merge queue — the sheet's Remove from Merge Queue, confirmed in
+		 *  place (it loses its place in the queue). */
+		'gl-graph-dequeue-pull-request': CustomEvent<{ number: string }>;
 		/** Rebases every branch of the pull request's stack, bottom to top — the Rebase Stack split
 		 *  button. `ai` opts into AI conflict resolution (Auto-Rebase Stack). Unlike merge, the host
 		 *  command always confirms via its own quick pick, so there's no `confirmed` flag here. */
@@ -134,6 +155,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.state--closed {
 				color: var(--vscode-gitlens-closedPullRequestIconColor);
+			}
+
+			.state--queued {
+				color: var(--vscode-gitlens-queuedPullRequestIconColor);
 			}
 
 			.state--draft {
@@ -468,6 +493,14 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				--verdict-accent: var(--vscode-gitlens-mergedPullRequestIconColor);
 			}
 
+			.verdict--queued {
+				--verdict-accent: var(--vscode-gitlens-queuedPullRequestIconColor);
+			}
+
+			.verdict--queue-failing {
+				--verdict-accent: var(--vscode-editorWarning-foreground);
+			}
+
 			.verdict__head {
 				display: flex;
 				gap: var(--gl-space-8);
@@ -707,6 +740,11 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				border-color: var(--vscode-gitlens-openPullRequestIconColor);
 			}
 
+			.stack-rail__dot--queued {
+				background: var(--vscode-gitlens-queuedPullRequestIconColor);
+				border-color: var(--vscode-gitlens-queuedPullRequestIconColor);
+			}
+
 			.stack-rail__dot--merged {
 				background: var(--vscode-gitlens-mergedPullRequestIconColor);
 				border-color: var(--vscode-gitlens-mergedPullRequestIconColor);
@@ -784,7 +822,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	private get glyph(): { icon: string; modifier: string } {
 		const pr = this.pullRequest;
-		return getAutolinkIcon('pr', pr?.state, pr?.isDraft);
+		return getAutolinkIcon('pr', pr != null ? getPullRequestDisplayState(pr) : undefined, pr?.isDraft);
 	}
 
 	/** The state token shared by the tinted icon and the subtitle's state word. */
@@ -1041,11 +1079,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		const stateLabel =
 			state === 'opened'
 				? l10n.t('Open')
-				: state === 'draft'
-					? l10n.t('Draft')
-					: state === 'merged'
-						? l10n.t('Merged')
-						: l10n.t('Closed');
+				: state === 'queued'
+					? l10n.t('In Merge Queue')
+					: state === 'draft'
+						? l10n.t('Draft')
+						: state === 'merged'
+							? l10n.t('Merged')
+							: l10n.t('Closed');
 
 		return html`<span slot="subtitle" class="subtitle">
 			<span class="subtitle__state state--${state}">${stateLabel}</span>
@@ -1469,11 +1509,20 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		if (pr.state === 'merged') return this.renderVerdictMerged(pr);
 		if (pr.state !== 'opened') return nothing;
 
+		// Ahead of every other read: while queued, merging is the queue's job and the queue owns the branch.
+		const queueEntry = getQueuedPullRequestEntry(pr);
+		if (queueEntry != null) return this.renderVerdictQueued(pr, queueEntry);
+
 		const conflicting = pr.mergeableState === 'Conflicting' || pr.launchpad?.hasConflicts === true;
 		// Rebase is worth offering when the stack has drifted from what it targets — behind its trunk, or
 		// already conflicting with it. An up-to-date stack would replay to identical tips, so advertising
 		// the cascade there invites a run that does nothing. `undefined` is unknown, not zero: fail open.
-		const offerRebase = pr.stack != null && (pr.stack.behind == null || pr.stack.behind > 0 || conflicting);
+		// Never while any loaded layer is queued — rebasing the stack rewrites that layer's branch, which its
+		// merge queue owns. (Unloaded layers can't be checked; `layers` is the only membership the sheet has.)
+		const offerRebase =
+			pr.stack != null &&
+			(pr.stack.behind == null || pr.stack.behind > 0 || conflicting) &&
+			!this.layers?.some(l => isPullRequestQueued(l));
 
 		if (pr.isDraft) {
 			return html`<div class="verdict verdict--draft">
@@ -1504,6 +1553,67 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			: this.renderVerdictReady(pr, stack, impact, offerRebase);
 	}
 
+	/** The verdict while the pull request is queued — where it stands in the queue, with the queue one click away.
+	 *  No Merge (the queue merges it) and no Rebase Stack (the queue owns the branch). Failing reads as a warning. */
+	private renderVerdictQueued(pr: GraphSidebarPullRequest, entry: MergeQueueEntryLike) {
+		const failing = isMergeQueueEntryFailing(entry);
+		return html`<div class="verdict ${failing ? 'verdict--queue-failing' : 'verdict--queued'}">
+			<div class="verdict__head">
+				<span class="verdict__title">${l10n.t('In merge queue')}</span>
+				<span class="verdict__actions">
+					${
+						entry.url != null
+							? html`<gl-button appearance="secondary" href=${entry.url}
+									>${l10n.t('View Merge Queue')}</gl-button
+								>`
+							: nothing
+					}
+					<gl-popover-confirm
+						heading=${l10n.t('Remove from Merge Queue')}
+						message=${l10n.t(
+							'Removing #{number} from the merge queue loses its place — adding it back puts it at the end of the queue.',
+							{ number: pr.number },
+						)}
+						confirm=${l10n.t('Remove from Merge Queue')}
+						placement="top-end"
+						@gl-confirm=${this.onDequeueConfirmed}
+					>
+						<gl-button appearance="secondary" slot="anchor"
+							>${l10n.t('Remove from Merge Queue...')}</gl-button
+						>
+					</gl-popover-confirm>
+				</span>
+			</div>
+			<div class="verdict__reasons">
+				<span
+					><code-icon icon=${failing ? 'warning' : 'history'}></code-icon>
+					${formatPullRequestMergeQueueStatus(entry)}</span
+				>
+			</div>
+		</div>`;
+	}
+
+	/** The reason line for a pull request its merge queue just removed — a warning when its queue run failed. */
+	private renderMergeQueueRemovalReason(pr: GraphSidebarPullRequest) {
+		const removal = pr.mergeQueueRemoval;
+		if (removal == null) return nothing;
+
+		return html`<span
+			><code-icon icon=${isMergeQueueRemovalFailed(removal) ? 'warning' : 'info'}></code-icon>
+			${formatMergeQueueRemoval(removal)}</span
+		>`;
+	}
+
+	/** A pull request its merge queue just removed for failing is failing in the queue, not ready — Launchpad files it
+	 *  under Blocked (`queue-failing`) — so the ready verdict takes the failing queued verdict's tone and says so. Its
+	 *  merge actions stay: adding it back to the queue after a fix is the next step. `mergeQueueRemoval` only rides
+	 *  along while the removal still describes the pull request. A removal by hand reads as ready. */
+	private getReadyVerdictHead(pr: GraphSidebarPullRequest): { className: string; title: string } {
+		return pr.mergeQueueRemoval != null && isMergeQueueRemovalFailed(pr.mergeQueueRemoval)
+			? { className: 'verdict--queue-failing', title: l10n.t('Failed in the merge queue') }
+			: { className: 'verdict--ready', title: l10n.t('Ready to merge') };
+	}
+
 	private renderVerdictReady(
 		pr: GraphSidebarPullRequest,
 		stack: PrStack | undefined,
@@ -1511,6 +1621,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		offerRebase: boolean,
 	) {
 		const count = getStackedMergeCount(stack, { wholeStack: this.stackRoot });
+		if (getPullRequestMergeRoute(pr, { wholeStack: this.stackRoot }) === 'enqueue') {
+			return this.renderVerdictReadyToQueue(pr, stack, impact, offerRebase);
+		}
+
 		// GitHub's own stacked button reads "Merge stack" with the count as a badge, not prose.
 		const label =
 			count > 1
@@ -1519,12 +1633,14 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					})
 				: l10n.t('Merge Pull Request...');
 
-		return html`<div class="verdict verdict--ready">
+		const head = this.getReadyVerdictHead(pr);
+		return html`<div class="verdict ${head.className}">
 			<div class="verdict__head">
-				<span class="verdict__title">${l10n.t('Ready to merge')}</span>
+				<span class="verdict__title">${head.title}</span>
 				<span class="verdict__actions">
 					<span class="split-btn">
 						<gl-popover-confirm
+							class="merge-confirm"
 							heading=${count > 1 ? l10n.t('Merge Stack') : l10n.t('Merge Pull Request')}
 							message=${this.mergeConfirmMessage(pr, count)}
 							confirm=${this.mergeConfirmLabel(count)}
@@ -1550,7 +1666,54 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					${offerRebase && stack != null ? this.renderRebaseStackControl(stack) : nothing}
 				</span>
 			</div>
-			<div class="verdict__reasons">${this.renderChecksReason(pr)} ${this.renderNoConflictsReason(pr)}</div>
+			<div class="verdict__reasons">
+				${this.renderMergeQueueRemovalReason(pr)} ${this.renderChecksReason(pr)}
+				${this.renderNoConflictsReason(pr)}
+			</div>
+			${stack != null ? html`<div class="verdict__blast">${this.renderLandsSentence(stack, impact)}</div>` : nothing}
+		</div>`;
+	}
+
+	/** The ready verdict where the base branch merges only through a merge queue: Merge becomes Add to Merge Queue,
+	 *  with no merge-method menu (the queue's own rules decide how it merges). Never for a stacked merge of more than
+	 *  one pull request, which keeps the stacked merge path (see `getPullRequestMergeRoute`). */
+	private renderVerdictReadyToQueue(
+		pr: GraphSidebarPullRequest,
+		stack: PrStack | undefined,
+		impact: ReturnType<GlGraphPrSheet['computeStackImpact']>,
+		offerRebase: boolean,
+	) {
+		const message =
+			pr.headBranch != null && pr.baseBranch
+				? l10n.t(
+						'{base} merges only through its merge queue. Add {head} to the queue? The queue merges it once its checks pass.',
+						{ head: pr.headBranch, base: pr.baseBranch },
+					)
+				: l10n.t(
+						'This pull request merges only through its merge queue. Add it to the queue? The queue merges it once its checks pass.',
+					);
+
+		const head = this.getReadyVerdictHead(pr);
+		return html`<div class="verdict ${head.className}">
+			<div class="verdict__head">
+				<span class="verdict__title">${head.title}</span>
+				<span class="verdict__actions">
+					<gl-popover-confirm
+						heading=${l10n.t('Add to Merge Queue')}
+						message=${message}
+						confirm=${l10n.t('Add to Merge Queue')}
+						placement="top-end"
+						@gl-confirm=${this.onEnqueueConfirmed}
+					>
+						<gl-button slot="anchor">${l10n.t('Add to Merge Queue...')}</gl-button>
+					</gl-popover-confirm>
+					${offerRebase && stack != null ? this.renderRebaseStackControl(stack) : nothing}
+				</span>
+			</div>
+			<div class="verdict__reasons">
+				${this.renderMergeQueueRemovalReason(pr)} ${this.renderChecksReason(pr)}
+				${this.renderNoConflictsReason(pr)}
+			</div>
 			${stack != null ? html`<div class="verdict__blast">${this.renderLandsSentence(stack, impact)}</div>` : nothing}
 		</div>`;
 	}
@@ -1605,7 +1768,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			</div>
 			<div class="verdict__reasons">
 				<span><code-icon icon="close"></code-icon> ${l10n.t('Conflicting files')}</span>
-				${this.renderChecksReason(pr)}
+				${this.renderMergeQueueRemovalReason(pr)} ${this.renderChecksReason(pr)}
 			</div>
 			${
 				stack != null && pr.headBranch != null
@@ -1761,14 +1924,17 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		const position = layer.stack?.position;
 		const size = current.stack?.size;
 
+		const { queueStatus } = getPullRequestDisplayStatus(layer);
 		const dotClass =
 			layer.state === 'merged'
 				? 'stack-rail__dot stack-rail__dot--merged'
 				: isAnchor
 					? 'stack-rail__dot stack-rail__dot--current'
-					: currentOpen && (position ?? 0) <= currentPosition
-						? 'stack-rail__dot stack-rail__dot--landing'
-						: 'stack-rail__dot';
+					: queueStatus != null
+						? 'stack-rail__dot stack-rail__dot--queued'
+						: currentOpen && (position ?? 0) <= currentPosition
+							? 'stack-rail__dot stack-rail__dot--landing'
+							: 'stack-rail__dot';
 
 		// GitHub's stack navigator links between layers; every non-current row does the same here.
 		const interactive = !isCurrent;
@@ -1798,7 +1964,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			@click=${interactive ? activate : nothing}
 			@keydown=${interactive ? activate : nothing}
 		>
-			<span class="stack-rail__dot-col"><span class=${dotClass}></span></span>
+			<span class="stack-rail__dot-col"
+				><span class=${dotClass} title=${queueStatus ?? nothing}></span
+				>${queueStatus != null ? html`<span class="sr-only">${queueStatus}</span>` : nothing}</span
+			>
 			<span class="stack-rail__title">${layer.title}</span>
 			<span class="muted">#${layer.number}</span>
 			<span class="stack-rail__position ${isCurrent ? 'stack-rail__position--current' : ''}"
@@ -1821,7 +1990,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	/** The merge confirmation, shared by both split-button halves — the strategy menu stores its pick
 	 *  here and opens the same confirm the primary side anchors. */
-	@query('gl-popover-confirm')
+	@query('gl-popover-confirm.merge-confirm')
 	private _mergeConfirmEl?: GlPopoverConfirm;
 
 	/** Strategy chosen from the menu, consumed when the confirmation is accepted. Reactive so the
@@ -1913,6 +2082,32 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	private onMergeCancelled = (): void => {
 		this._pendingMergeMethod = undefined;
+	};
+
+	private onEnqueueConfirmed = (): void => {
+		const pr = this.pullRequest;
+		if (pr == null) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-merge-pull-request', {
+				detail: { number: pr.number, confirmed: true, queue: true },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private onDequeueConfirmed = (): void => {
+		const pr = this.pullRequest;
+		if (pr == null) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-dequeue-pull-request', {
+				detail: { number: pr.number },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	};
 
 	private dispatchMerge(mergeMethod: 'merge' | 'squash' | 'rebase' | undefined): void {

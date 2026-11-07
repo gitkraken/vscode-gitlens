@@ -37,6 +37,7 @@ export type Colors =
 	| `${typeof extensionPrefix}.mergedPullRequestIconColor`
 	| `${typeof extensionPrefix}.openAutolinkedIssueIconColor`
 	| `${typeof extensionPrefix}.openPullRequestIconColor`
+	| `${typeof extensionPrefix}.queuedPullRequestIconColor`
 	| `${typeof extensionPrefix}.trailingLineBackgroundColor`
 	| `${typeof extensionPrefix}.trailingLineForegroundColor`
 	| `${typeof extensionPrefix}.unpublishedChangesIconColor`

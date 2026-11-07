@@ -27,6 +27,7 @@ const pullRequestFields: Record<PullRequestFieldGroup, (pr: PullRequest) => unkn
 	authoredByMe: pr => [pr.authoredByMe],
 	stack: pr => [pr.stack],
 	milestone: pr => [pr.milestone],
+	mergeQueue: pr => [pr.mergeQueue],
 };
 
 const issueFields: Record<IssueFieldGroup, (issue: IssueShape) => unknown[]> = {

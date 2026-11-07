@@ -10,6 +10,7 @@ import type { PullRequestReviewer, PullRequestShape } from '@gitlens/git/models/
 import {
 	PullRequest,
 	PullRequestMergeableState,
+	PullRequestMergeQueueState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
@@ -212,6 +213,113 @@ suite('pullRequestEtag', () => {
 		assert.equal(
 			pullRequestEtag(fields, pullRequestEtagIncludes),
 			'pr1+mergeable+reviewDecision+checks:["opened",false,1767225600000,"abc","Mergeable","Approved","success"]',
+		);
+	});
+
+	test('a pull request outside any merge queue keeps the exact etag it had before the queue was read', () => {
+		const fields = pullRequestEtagFieldsFromShape(gitHubPullRequestShape());
+		assert.ok(!('mergeQueue' in fields), 'a row that is not queued carries no queue');
+		assert.equal(pullRequestEtag(fields, []), 'pr1:["opened",false,1767225600000,"abc"]');
+		// The include set consumers hold their etags under (e.g. Kepler's `['reviewDecision']`).
+		assert.equal(
+			pullRequestEtag(fields, ['reviewDecision']),
+			'pr1+reviewDecision:["opened",false,1767225600000,"abc","Approved"]',
+		);
+	});
+
+	test("a queued pull request's etag reads its queue state and enqueue time, whatever the includes", () => {
+		const queued: PullRequestEtagFields = {
+			...base,
+			mergeQueue: {
+				state: PullRequestMergeQueueState.AwaitingChecks,
+				enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+			},
+		};
+		for (const includes of includeSets) {
+			const etag = pullRequestEtag(queued, includes);
+			assert.notEqual(etag, pullRequestEtag(base, includes), 'joining the queue');
+			assert.notEqual(
+				etag,
+				pullRequestEtag(
+					{ ...queued, mergeQueue: { ...queued.mergeQueue!, state: PullRequestMergeQueueState.Mergeable } },
+					includes,
+				),
+				'moving through the queue',
+			);
+			assert.notEqual(
+				etag,
+				pullRequestEtag(
+					{ ...queued, mergeQueue: { ...queued.mergeQueue!, enqueuedAt: new Date('2026-01-03T00:00:00Z') } },
+					includes,
+				),
+				'leaving and rejoining the queue',
+			);
+		}
+		assert.equal(
+			pullRequestEtag(queued, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue","AwaitingChecks",1767312000000]]',
+		);
+	});
+
+	test('reads the queue state and enqueue time off a queued row, and nothing else of its entry', () => {
+		const enqueuedAt = new Date('2026-01-02T00:00:00Z');
+		const fields = pullRequestEtagFieldsFromShape(
+			gitHubPullRequestShape({
+				mergeQueue: {
+					state: PullRequestMergeQueueState.Mergeable,
+					enqueuedAt: enqueuedAt,
+					estimatedMergeAt: new Date('2026-01-02T00:10:00Z'),
+					url: 'https://github.com/o/r/queue/main',
+				},
+			}),
+		);
+		assert.deepEqual(fields.mergeQueue, { state: PullRequestMergeQueueState.Mergeable, enqueuedAt: enqueuedAt });
+	});
+
+	test('a merge-queue removal is read off the row and is part of the etag, whatever the includes', () => {
+		const removedAt = new Date('2026-01-02T00:00:00Z');
+		const fields = pullRequestEtagFieldsFromShape(
+			gitHubPullRequestShape({
+				mergeQueueRemoval: { reason: 'failed_checks', removedAt: removedAt },
+			}),
+		);
+		assert.equal(fields.mergeQueueRemovedAt, removedAt);
+
+		for (const includes of includeSets) {
+			const etag = pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, includes);
+			assert.notEqual(etag, pullRequestEtag(base, includes), 'removed between two checks');
+			assert.notEqual(
+				etag,
+				pullRequestEtag({ ...base, mergeQueueRemovedAt: new Date('2026-01-03T00:00:00Z') }, includes),
+				'removed again',
+			);
+		}
+		assert.equal(
+			pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue-removed",1767312000000]]',
+		);
+	});
+
+	test('neither whether the queue is required nor the queue position is an etag input', () => {
+		const plain = pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()), []);
+		assert.equal(
+			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: true })), []),
+			plain,
+		);
+
+		const entry = {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+		};
+		assert.equal(
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 1 } })),
+				[],
+			),
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 4 } })),
+				[],
+			),
 		);
 	});
 
@@ -534,7 +642,9 @@ suite('issueEtag', () => {
 	});
 });
 
-function gitHubPullRequestShape(overrides?: Pick<PullRequestShape, 'provider'>): PullRequestShape {
+function gitHubPullRequestShape(
+	overrides?: Partial<Pick<PullRequestShape, 'provider' | 'mergeQueue' | 'mergeQueueRequired' | 'mergeQueueRemoval'>>,
+): PullRequestShape {
 	const pr = new PullRequest(
 		{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 		{ id: 'octo', name: 'octo' },
