@@ -17,8 +17,9 @@ import type { Container } from '../../container.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { ConfirmToggleQuickPickItem, DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
-import { executeCoreCommand } from '../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { pickKeplerNotInstalledStep } from '../kepler/keplerNotInstalled.js';
 import { getKeplerProviderId, isKeplerSupportedProvider } from '../kepler/keplerProviders.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
 import { loadSupportedAgentsInStages, resolveDefaultAgent } from './agentRegistry.js';
@@ -137,9 +138,7 @@ export function getRequestedAgentRoute(args?: {
 /**
  * Whether the route step can offer "Open in Kepler" for this item: Kepler must be launchable here
  * (not VS Code for the web) and support the item's provider for its kind — a Bitbucket PR qualifies,
- * a Bitbucket issue does not. Deliberately ignores `KeplerService.installed`: a Kepler that isn't
- * installed is handled when the task starts (a warning offering Get Kepler), as the tree commands
- * do, since detection can't see every install.
+ * a Bitbucket issue does not.
  */
 export function canOfferKeplerRoute(keplerAvailable: boolean, item: AgentRouteItem | undefined): boolean {
 	if (!keplerAvailable || item == null) return false;
@@ -499,7 +498,8 @@ export function buildAgentPickerItems(
 ): AgentItem[] {
 	if (agents.length === 0) {
 		const header: AgentItem = {
-			label: l10n.t('$(warning) No agents available'),
+			// VS Code doesn't render `$(icon)` syntax in separator labels, so this one stays plain text
+			label: l10n.t('No agents available'),
 			description: options.detectionFailed
 				? l10n.t('No supported IDE chat host, no Claude extension; unable to detect CLIs')
 				: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
@@ -756,8 +756,11 @@ export async function resolveDefaultAgentOrNotify(
 export type ResolveAgentFlowResult =
 	| { readonly kind: 'manual' }
 	| { readonly kind: 'agent'; readonly descriptor: AgentDescriptor }
-	/** Hand off to Kepler — the caller must return BEFORE creating any branch/worktree */
-	| { readonly kind: 'kepler' }
+	/**
+	 * Hand off to Kepler — the caller must return BEFORE creating any branch/worktree.
+	 * `install` is set when Kepler isn't installed and the user chose to install it first
+	 */
+	| { readonly kind: 'kepler'; readonly install?: boolean }
 	| { readonly kind: 'cancel' };
 
 /** Builds the `agent.resolution` telemetry payload for a resolved manual-vs-agent flow. */
@@ -837,10 +840,13 @@ export async function* resolveAgentFlow(
 	// Interactive flow — yield steps to the wizard machinery. The persisted default is resolved (and any failure
 	// notified) on the first pass only, so going back to the pre-picker and on again doesn't repeat the notice
 	let defaultResolved = false;
+	// Becomes `'ask'` when the user goes back from a step reached through a non-`'ask'` route, so the
+	// route picker is shown instead of the wizard closing
+	let currentRoute = route;
 	while (true) {
 		let chosenRoute: PickableRoute;
-		if (route !== 'ask') {
-			chosenRoute = route;
+		if (currentRoute !== 'ask') {
+			chosenRoute = currentRoute;
 		} else {
 			const result = yield* pickRouteStep({
 				showBackButton: true,
@@ -852,7 +858,29 @@ export async function* resolveAgentFlow(
 		}
 
 		if (chosenRoute === 'manual') return { kind: 'manual' };
-		if (chosenRoute === 'kepler') return { kind: 'kepler' };
+		if (chosenRoute === 'kepler') {
+			if (container?.kepler.installed !== false) return { kind: 'kepler' };
+
+			// Kepler isn't installed — ask here, as the next wizard step, rather than after the wizard
+			// closes (a standalone quick pick would tear the wizard down)
+			const intent = options.item?.kind === 'pr' ? 'start-review' : 'start-work';
+			const picked = yield* pickKeplerNotInstalledStep(container, { intent: intent, showBackButton: true });
+			container.telemetry.sendEvent('kepler/notInstalled/action', {
+				intent: intent,
+				wizard: true,
+				action: picked === StepResultBreak ? 'back' : picked,
+			});
+			if (picked === StepResultBreak) {
+				currentRoute = 'ask';
+				continue;
+			}
+			if (picked === 'learn-more') {
+				void executeCommand('gitlens.kepler.openProductPage');
+				return { kind: 'cancel' };
+			}
+
+			return { kind: 'kepler', install: true };
+		}
 
 		// Agent route: try persisted default first.
 		if (!defaultResolved && persistedAgentId != null && container != null) {
@@ -866,10 +894,10 @@ export async function* resolveAgentFlow(
 		}
 
 		// Need to pick an agent. Show back button only when we got here via the pre-picker.
-		const picked = yield* pickAgentStep(container!, { showBackButton: route === 'ask' });
+		const picked = yield* pickAgentStep(container!, { showBackButton: currentRoute === 'ask' });
 		if (picked === StepResultBreak) {
 			// Back: when the pre-picker was shown, loop back to it. Otherwise cancel.
-			if (route === 'ask') continue;
+			if (currentRoute === 'ask') continue;
 			return { kind: 'cancel' };
 		}
 		if (picked.kind === 'agent') return { kind: 'agent', descriptor: picked.descriptor };

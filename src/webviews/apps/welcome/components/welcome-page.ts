@@ -270,7 +270,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 		id: 'kepler',
 		walkthroughKey: 'kepler',
 		title: l10n.t('Take your agent workflows further'),
-		body: html`
+		body: state => html`
 			<p>
 				${l10n.t("GitLens helps you understand and review agent-generated work inside your IDE. Kepler, GitKraken's Agentic Development Environment (ADE), gives you a dedicated workspace to coordinate AI agents, organize Tasks, and manage complex development workflows from one place.")}
 			</p>
@@ -278,7 +278,18 @@ const walkthroughSteps: WalkthroughStep[] = [
 				${l10n.t('Start from an issue or pull request, and Kepler creates the environment, launches the agent, and keeps related work organized in a single Task across repositories.')}
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.openKepler">${l10n.t('Get Kepler')}</gl-button>
+				${
+					state.keplerInstallable && !state.keplerInstalled
+						? html`<gl-button
+									href="command:gitlens.welcome.installKepler"
+									?disabled=${state.keplerInstalling}
+									>${state.keplerInstalling ? l10n.t('Installing Kepler…') : l10n.t('Install Kepler')}</gl-button
+								>
+								<gl-button appearance="secondary" href="command:gitlens.welcome.openKepler"
+									>${l10n.t('Learn More')}</gl-button
+								>`
+						: html`<gl-button href="command:gitlens.welcome.openKepler">${l10n.t('Learn More')}</gl-button>`
+				}
 			</div>
 		`,
 	},
@@ -485,6 +496,9 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 			plusState: this._state.plusState.get(),
 			mcpNeedsInstall: this._state.mcpNeedsInstall.get(),
 			mcpShowCleanupNotice: this._state.mcpShowCleanupNotice.get(),
+			keplerInstallable: this._state.walkthroughProgress.get()?.kepler.installable === true,
+			keplerInstalling: this._state.walkthroughProgress.get()?.kepler.installing === true,
+			keplerInstalled: this._state.walkthroughProgress.get()?.kepler.installed === true,
 		};
 	}
 
@@ -497,6 +511,7 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 
 	private renderMainWalkthrough(): unknown {
 		const progress = this._state.walkthroughProgress.get();
+		const conditionState = this.getStepConditionState();
 
 		return html`
 			<div part="page" class="welcome scrollable">
@@ -522,7 +537,7 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 				</div>
 				<gl-walkthrough class="section">
 					${walkthroughSteps
-						.filter(step => !step.condition || step.condition(this.getStepConditionState()))
+						.filter(step => !step.condition || step.condition(conditionState))
 						.map(
 							step => html`
 								<gl-walkthrough-step
@@ -534,7 +549,7 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 									}
 								>
 									<h1 slot="title">${step.title}</h1>
-									${step.body}
+									${typeof step.body === 'function' ? step.body(conditionState) : step.body}
 								</gl-walkthrough-step>
 							`,
 						)}

@@ -6,7 +6,7 @@ import type { Container } from '../../container.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { getKeplerHost } from './keplerHost.js';
 import { createKeplerSessionLink } from './keplerLink.js';
-import { promptKeplerNotInstalled } from './keplerTask.js';
+import { promptKeplerNotInstalled } from './keplerNotInstalled.js';
 
 /** An agent session to open in Kepler — identity only; Kepler resolves everything else. */
 export interface KeplerSessionRequest {
@@ -50,14 +50,16 @@ export async function openSessionInKepler(
 	};
 
 	if (container.kepler.installed === false) {
-		container.telemetry.sendEvent(
-			'kepler/session/open/failed',
-			{ ...data, 'failure.reason': 'not-installed' },
-			source,
-		);
-
-		await promptKeplerNotInstalled(source);
-		return false;
+		// Once Kepler is installed, carry straight on and open the session — no separate retry. The
+		// failure is reported only when the session didn't open: an install that went on to open it is a success
+		if (!(await promptKeplerNotInstalled(container, { intent: 'open-session', source: source }))) {
+			container.telemetry.sendEvent(
+				'kepler/session/open/failed',
+				{ ...data, 'failure.reason': 'not-installed' },
+				source,
+			);
+			return false;
+		}
 	}
 
 	let opened: boolean;

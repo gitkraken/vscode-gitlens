@@ -5808,6 +5808,60 @@ or
 }
 ```
 
+### kepler/install/completed
+
+> Sent when GitLens finishes installing Kepler
+
+```typescript
+{
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The installed version; absent when it is unknown before install (Windows)
+  'version': string
+}
+```
+
+### kepler/install/failed
+
+> Sent when installing Kepler fails or is cancelled
+
+```typescript
+{
+  // Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine
+  'failure.reason': 'cancelled' | 'download' | 'install' | 'manifest' | 'register' | 'unsupported' | 'verify',
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The installed version; absent when it is unknown before install (Windows)
+  'version': string
+}
+```
+
+### kepler/install/started
+
+> Sent when GitLens starts installing Kepler
+
+```typescript
+{
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup'
+}
+```
+
+### kepler/notInstalled/action
+
+> Sent when the user picks an action in the "Kepler isn't installed" quick pick, or dismisses it
+
+```typescript
+{
+  // What the user picked. `review` / `review-agent` = continued without Kepler; `back` = went back a wizard step; `dismiss` = closed the prompt
+  'action': 'back' | 'dismiss' | 'install' | 'learn-more' | 'review' | 'review-agent',
+  // What the user was doing when Kepler turned out not to be installed. `open-session` = opening an agent session in Kepler
+  'intent': 'new-task' | 'open-session' | 'start-review' | 'start-work',
+  // Whether the prompt was a step of the Start Work or Start Review wizard
+  'wizard': boolean
+}
+```
+
 ### kepler/productPage/opened
 
 > Sent when the user opens Kepler's product page from the "Try Kepler" CTA (Settings or Graph sidebar banner)
@@ -8015,7 +8069,7 @@ or
 ```typescript
 {
   'command': string,
-  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
+  'name': 'dismiss' | 'install/kepler' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'command'
 }
 ```
@@ -8024,7 +8078,7 @@ or
 
 ```typescript
 {
-  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
+  'name': 'dismiss' | 'install/kepler' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'url',
   'url': string
 }

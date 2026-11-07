@@ -42,6 +42,10 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:graph:hasSavedDefaultLayout': boolean;
 	'gitlens:hasVirtualFolders': boolean;
+	/** Kepler is known to be installed on this machine — `false` when it is not, or can't be told (a remote window) */
+	'gitlens:kepler:installed': boolean;
+	/** GitLens is installing Kepler right now */
+	'gitlens:kepler:installing': boolean;
 	'gitlens:launchpad:connected': boolean;
 	/** Indicates that this is the first run of a new install of GitLens */
 	'gitlens:install:new': boolean;

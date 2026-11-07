@@ -8,6 +8,7 @@ import { commands, env, window } from 'vscode';
 import '../../../container.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Container } from '../../../container.js';
+import type { KeplerNotInstalledAction, KeplerNotInstalledItem } from '../keplerNotInstalled.js';
 import type { KeplerTaskItem } from '../keplerTask.js';
 import {
 	findKeplerRepoPathForPullRequest,
@@ -26,21 +27,70 @@ const repoPath = '/Users/keith/code/vscode-gitlens';
 
 function makeContainer(
 	sendEvent: sinon.SinonSpy,
-	kepler?: { installed?: boolean | undefined; available?: boolean },
+	kepler?: { installed?: boolean | undefined; available?: boolean; install?: sinon.SinonStub },
 ): Container {
 	// `installed` defaults to `true` when omitted, but `{ installed: undefined }` is a deliberate
 	// "can't tell" override — `??` can't tell those two apart, so the key's presence is checked directly.
 	const installed = kepler != null && Object.hasOwn(kepler, 'installed') ? kepler.installed : true;
 
 	return {
+		ai: { allowed: true },
 		kepler: {
 			channel: 'staging',
 			scheme: 'kepler-staging://',
 			installed: installed,
 			available: kepler?.available ?? true,
+			canInstall: true,
+			getRelease: () => Promise.resolve(undefined),
+			install: kepler?.install ?? sinon.stub().resolves(false),
 		},
 		telemetry: { sendEvent: sendEvent },
 	} as unknown as Container;
+}
+
+interface FakeQuickPick {
+	items: KeplerNotInstalledItem[];
+	activeItems: KeplerNotInstalledItem[];
+	shown: boolean;
+}
+
+/**
+ * Stands in for the "Kepler isn't installed" quick pick: once shown, accepts the row with `pick`'s
+ * action, or hides (a dismissal) when `pick` is undefined.
+ */
+function stubQuickPick(sandbox: sinon.SinonSandbox, pick?: KeplerNotInstalledAction): FakeQuickPick {
+	let onAccept: (() => void) | undefined;
+	let onHide: (() => void) | undefined;
+	const qp = {
+		items: [] as KeplerNotInstalledItem[],
+		activeItems: [] as KeplerNotInstalledItem[],
+		shown: false,
+		onDidAccept: (fn: () => void) => {
+			onAccept = fn;
+			return { dispose: () => {} };
+		},
+		onDidHide: (fn: () => void) => {
+			onHide = fn;
+			return { dispose: () => {} };
+		},
+		show: () => {
+			qp.shown = true;
+			queueMicrotask(() => {
+				const item = pick != null ? qp.items.find(i => i.action === pick) : undefined;
+				if (item == null) {
+					onHide?.();
+					return;
+				}
+
+				qp.activeItems = [item];
+				onAccept?.();
+			});
+		},
+		hide: () => onHide?.(),
+		dispose: () => {},
+	};
+	sandbox.stub(window, 'createQuickPick').returns(qp as unknown as ReturnType<typeof window.createQuickPick>);
+	return qp;
 }
 
 suite('resolveKeplerTaskRequest', () => {
@@ -189,27 +239,53 @@ suite('startKeplerTask', () => {
 		}
 	});
 
-	test('installed === false: warns with a single Get Kepler action, sends no link, reports not-installed', async () => {
+	test('installed === false: shows the "Kepler isn\'t installed" quick pick, sends no link, reports not-installed', async () => {
+		const qp = stubQuickPick(sandbox);
+
 		const started = await startKeplerTask(makeContainer(sendEvent, { installed: false }), {
 			intent: 'new-task',
 		});
 
 		assert.strictEqual(started, false);
+		assert.strictEqual(qp.shown, true);
 		assert.strictEqual(openExternal.callCount, 0);
-		assert.strictEqual(showWarningMessage.callCount, 1);
-		assert.ok(String(showWarningMessage.firstCall.args[0]).includes("isn't installed"));
-		// A single action item, and nothing else (no modal option)
-		assert.strictEqual(showWarningMessage.firstCall.args.length, 2);
+		assert.strictEqual(showWarningMessage.callCount, 0);
+		// Dismissing it runs nothing
+		assert.strictEqual(executeCommand.callCount, 0);
 
-		assert.strictEqual(sendEvent.callCount, 1);
-		const [name, data] = sendEvent.firstCall.args;
+		assert.deepStrictEqual(sendEvent.firstCall.args[1], { intent: 'new-task', wizard: false, action: 'dismiss' });
+		const [name, data] = sendEvent.secondCall.args;
 		assert.strictEqual(name, 'kepler/task/start/failed');
 		assert.strictEqual(data['failure.reason'], 'not-installed');
 	});
 
-	test('installed === false: choosing Get Kepler runs the open-product-page command', async () => {
-		const getKeplerItem = 'Get Kepler';
-		showWarningMessage.resolves(getKeplerItem);
+	test('installed === false: a repository task offers only Install Kepler and Learn More', async () => {
+		const qp = stubQuickPick(sandbox);
+
+		await startKeplerTask(makeContainer(sendEvent, { installed: false }), { intent: 'new-task' });
+
+		assert.deepStrictEqual(
+			qp.items.filter(i => i.action != null).map(i => i.action),
+			['install', 'learn-more'],
+		);
+	});
+
+	test('installed === false: a PR review also offers to continue without Kepler', async () => {
+		const qp = stubQuickPick(sandbox);
+
+		await startKeplerTask(makeContainer(sendEvent, { installed: false }), {
+			intent: 'start-review',
+			item: githubPr,
+		});
+
+		assert.deepStrictEqual(
+			qp.items.filter(i => i.action != null).map(i => i.action),
+			['install', 'learn-more', 'review-agent', 'review'],
+		);
+	});
+
+	test('installed === false: choosing Learn More runs the open-product-page command', async () => {
+		stubQuickPick(sandbox, 'learn-more');
 
 		const started = await startKeplerTask(
 			makeContainer(sendEvent, { installed: false }),
@@ -222,12 +298,83 @@ suite('startKeplerTask', () => {
 		assert.deepStrictEqual(executeCommand.firstCall.args, ['gitlens.kepler.openProductPage', { source: 'view' }]);
 	});
 
-	test('installed === false: dismissing the warning does not run the open-product-page command', async () => {
-		showWarningMessage.resolves(undefined);
+	test('installed === false: choosing Start PR Review continues the review without Kepler', async () => {
+		stubQuickPick(sandbox, 'review');
 
-		await startKeplerTask(makeContainer(sendEvent, { installed: false }), { intent: 'new-task' });
+		const started = await startKeplerTask(
+			makeContainer(sendEvent, { installed: false }),
+			{ intent: 'start-review', item: githubPr },
+			{ source: 'view' },
+		);
 
-		assert.strictEqual(executeCommand.callCount, 0);
+		assert.strictEqual(started, false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.deepStrictEqual(executeCommand.firstCall.args, [
+			'gitlens.startReview',
+			{ prUrl: githubPr.url, showOpenInAgent: 'manual', source: { source: 'view' } },
+		]);
+	});
+
+	test('installed === false: choosing Install Kepler installs, then starts the task with no retry', async () => {
+		stubQuickPick(sandbox, 'install');
+		const install = sinon.stub().resolves(true);
+
+		const started = await startKeplerTask(
+			makeContainer(sendEvent, { installed: false, install: install }),
+			{ intent: 'new-task' },
+			{ source: 'view' },
+		);
+
+		assert.strictEqual(started, true);
+		assert.deepStrictEqual(install.firstCall.args, [{ source: 'view' }]);
+		assert.strictEqual(openExternal.callCount, 1);
+		assert.strictEqual(sendEvent.lastCall.args[0], 'kepler/task/start');
+		// The install resolved it, so no not-installed failure is reported
+		assert.ok(sendEvent.getCalls().every(c => c.args[0] !== 'kepler/task/start/failed'));
+	});
+
+	test('installed === false: a failed install does not start the task', async () => {
+		stubQuickPick(sandbox, 'install');
+
+		const started = await startKeplerTask(
+			makeContainer(sendEvent, { installed: false, install: sinon.stub().resolves(false) }),
+			{ intent: 'new-task' },
+		);
+
+		assert.strictEqual(started, false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.strictEqual(sendEvent.lastCall.args[0], 'kepler/task/start/failed');
+		assert.strictEqual(sendEvent.lastCall.args[1]['failure.reason'], 'not-installed');
+	});
+
+	test('installed === false with install: installs without prompting (the wizard already asked)', async () => {
+		const qp = stubQuickPick(sandbox);
+		const install = sinon.stub().resolves(true);
+
+		const started = await startKeplerTask(
+			makeContainer(sendEvent, { installed: false, install: install }),
+			{ intent: 'new-task' },
+			undefined,
+			{ install: true },
+		);
+
+		assert.strictEqual(started, true);
+		assert.strictEqual(qp.shown, false);
+		assert.strictEqual(install.callCount, 1);
+		assert.strictEqual(openExternal.callCount, 1);
+	});
+
+	test('installed === false: an unsupported provider is refused before Kepler is offered for install', async () => {
+		const qp = stubQuickPick(sandbox, 'install');
+
+		const started = await startKeplerTask(makeContainer(sendEvent, { installed: false }), {
+			intent: 'start-review',
+			item: { kind: 'pr', url: 'u', provider: { id: 'azure-devops-server', name: 'Azure DevOps Server' } },
+		});
+
+		assert.strictEqual(started, false);
+		assert.strictEqual(qp.shown, false);
+		assert.strictEqual(sendEvent.firstCall.args[1]['failure.reason'], 'unsupported-provider');
 	});
 
 	test("installed === undefined (can't tell): proceeds and sends the link", async () => {
