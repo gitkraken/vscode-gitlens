@@ -559,6 +559,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			setCachedUser(user);
 			return user;
 		} catch (ex) {
+			// A refusal says nothing about the user, so nothing is kept: the next call reads again once the host trusts it
+			if (ex instanceof WorkspaceUntrustedError) return undefined;
+
 			scope?.error(ex);
 
 			// Mark it so we won't bother trying again
@@ -625,6 +628,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			gitDir = {
 				uri: this.provider.getAbsoluteUri(joinPaths(repoPath, '.git'), repoPath),
 			};
+			// A refusal says nothing about the repository, so it is neither kept nor reported as a failed resolve: once
+			// the host trusts the path, the next call reads its real git dir
+			if (!this.isTrusted(repoPath)) return gitDir;
 
 			const gitDirPath = gitDir.uri.toString(true);
 			scope?.warn(`rev-parse failed for '${repoPath}'; falling back to '${gitDirPath}'`);
@@ -641,11 +647,16 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return gitDir;
 	}
 
+	/** Whether git may be run in `repoPath`: the context's workspace flag, then the host's per-path predicate */
+	private isTrusted(repoPath: string): boolean {
+		return this.context.workspace?.isTrusted !== false && this.git.isPathTrusted(repoPath);
+	}
+
 	/** The git dirs {@link getRepositoryInfo} would report for `repoPath`, when they can be read without running git */
 	private async readGitDirsWithoutGit(
 		repoPath: string,
 	): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
-		if (this.context.workspace?.isTrusted === false || this.git.options.isTrusted?.() === false) return undefined;
+		if (!this.isTrusted(repoPath)) return undefined;
 		if (isGitDirMovedByEnv(this.git.getRunEnvironment())) return undefined;
 
 		return readGitDirs(repoPath, this.cache.superprojects);
@@ -1283,7 +1294,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	> {
 		let result;
 
-		if (this.context.workspace?.isTrusted === false) {
+		if (!this.isTrusted(cwd)) {
 			try {
 				await fs.stat(joinPaths(cwd, 'HEAD'));
 				result = await this.git.run(
@@ -1364,7 +1375,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			}
 
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
-			if (inDotGit && this.context.workspace?.isTrusted !== false) {
+			if (inDotGit && this.isTrusted(cwd)) {
 				result = await this.git.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
 				throwIfUnanswered(result);
 

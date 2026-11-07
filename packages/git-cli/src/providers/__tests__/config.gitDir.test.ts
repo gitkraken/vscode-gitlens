@@ -57,7 +57,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 		cache = new Cache();
 		provider = new ConfigGitSubProvider(
 			{ hooks: {} } as unknown as GitServiceContext,
-			{} as unknown as Git,
+			{ isPathTrusted: () => true } as unknown as Git,
 			cache,
 			{ getAbsoluteUri: (path: string) => fileUri(path) } as unknown as CliGitProviderInternal,
 		);

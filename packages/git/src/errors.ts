@@ -2068,7 +2068,8 @@ export class WorkspaceUntrustedError extends Error {
 		return ex instanceof WorkspaceUntrustedError;
 	}
 
-	constructor() {
+	/** @param path The exact path the host refused (as passed to `GitOptions.isTrusted`), when one path was refused */
+	constructor(readonly path?: string) {
 		super(l10n.t('Unable to perform Git operations because the current workspace is untrusted'));
 
 		Error.captureStackTrace?.(this, new.target);

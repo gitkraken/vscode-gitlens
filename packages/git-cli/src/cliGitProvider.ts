@@ -182,10 +182,12 @@ export class CliGitProvider implements GitProvider {
 			options.git ??
 			new Git(options.locator, {
 				...options.gitOptions,
+				// The workspace flag, when the context has one, answers for every path; otherwise the host's own
+				// per-path predicate (`gitOptions.isTrusted`) stands, so a multi-repository host can refuse one repository
 				isTrusted:
 					options.context.workspace?.isTrusted != null
 						? () => options.context.workspace!.isTrusted!
-						: undefined,
+						: options.gitOptions?.isTrusted,
 			});
 		this._cacheOwned = !(options.cache instanceof Cache);
 		this._cache = options.cache instanceof Cache ? options.cache : new Cache();
