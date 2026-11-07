@@ -28,7 +28,11 @@ export interface CliGitServiceOptions {
 	/** Host-provided context hooks (cache events, workspace, integrations, telemetry, fs) */
 	context: CliGitProviderOptions['context'];
 
-	/** Git execution options passed through to the underlying Git executor */
+	/**
+	 * Git execution options passed through to the underlying Git executor. `gitOptions.isTrusted(repoPath)` is the
+	 * per-repository trust gate: a `false` answer rejects git runs in that path with `WorkspaceUntrustedError` before
+	 * any process starts. It applies only when `context.workspace.isTrusted` is unset; that flag wins when present.
+	 */
 	gitOptions?: CliGitProviderOptions['gitOptions'];
 
 	/** Use an existing Cache instance, or one will be created */

@@ -45,7 +45,7 @@ import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
 import type { CommandChanges } from './commandClassifier.js';
-import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
+import { getChangesForCommand, leadingCommand, scanLeadingOptions } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
 import type { ProcessSpawner, ProcessSpawnOptions, RunOptions, RunResult } from './exec.js';
@@ -679,6 +679,22 @@ export function classifySearchError(ex: unknown): SearchErrorClassification | un
 	return undefined;
 }
 
+/**
+ * Environment variables that point git at another repository's files: its git dir, the common dir its config and
+ * hooks are read from, or its working tree. Upper-case, as the names are compared after upper-casing.
+ */
+const repositoryEnvKeys: ReadonlySet<string> = new Set(['GIT_DIR', 'GIT_COMMON_DIR', 'GIT_WORK_TREE']);
+/** The longest of {@link repositoryEnvKeys}, so keys that can't match are never upper-cased */
+const repositoryEnvKeyMaxLength = Math.max(...Array.from(repositoryEnvKeys, k => k.length));
+
+/**
+ * Whether `path` resolves the same wherever it is resolved from. On Windows a rooted path with no drive (`\x`) takes
+ * the drive of the directory it is resolved against.
+ */
+function isFullyQualified(path: string): boolean {
+	return isAbsolute(path) && (process.platform !== 'win32' || !/^[\\/](?![\\/])/.test(path));
+}
+
 export interface GitOptions {
 	/** Custom environment variables to add to every git command */
 	env?: Record<string, string | undefined>;
@@ -686,8 +702,35 @@ export interface GitOptions {
 	getEnvironment?: () => Record<string, string | undefined> | undefined;
 	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to 60000. Set to 0 to disable. */
 	gitTimeout?: number;
-	/** Returns whether the workspace is currently trusted. Defaults to true when not provided. Called on every exec/stream. */
-	isTrusted?: () => boolean;
+	/**
+	 * Returns whether git may be run in `repoPath`. Defaults to trusted when not provided. Called on every exec/stream,
+	 * so it must be cheap; a refusal rejects with `WorkspaceUntrustedError` before any process starts.
+	 *
+	 * `repoPath` is the run's `cwd` resolved to an absolute path (so a `..` segment can't lead a path that only starts
+	 * under a trusted folder out of it) and normalized, and, when the run re-scopes itself with `-C`, that target
+	 * resolved against `cwd` the same way; an absolute `-C` target is asked about alone, as git applies `-C` before it
+	 * looks at anything, so `cwd` doesn't matter. A run with no (or an empty) `cwd` executes in the process's working
+	 * directory, so that is the path asked about; when that folder no longer exists the run is refused, with no path.
+	 * A run that moves the repository without `-C` is asked about where it moves it too: a leading `--git-dir` (the
+	 * git dir path itself, so a host that trusts `/repo` sees `/repo/.git` as inside it, and a bare repository at
+	 * `/srv/x.git` is asked as itself) or `--work-tree`, and `GIT_DIR`, `GIT_COMMON_DIR` or `GIT_WORK_TREE` in the
+	 * run's own `env` (every key spelling one without regard to case), each resolved against the directory the run
+	 * ends up in. One refused path refuses the run.
+	 * A single-workspace host (VS Code) answers for the whole workspace and ignores it; a host serving several
+	 * repositories answers per path (it should compare normalized paths).
+	 *
+	 * Git searches upward from a path for a repository, so answer for the repository git would find there (an
+	 * enclosing repository's mark counts), not by a bare path-prefix match. A run with no `cwd` (global config reads)
+	 * is asked about the process's working directory because git discovers a repository from there too; trust that
+	 * folder unless it is inside a refused repository.
+	 *
+	 * Only a return of exactly `true` trusts, so a predicate that returns anything else refuses. Without a predicate
+	 * every path is trusted.
+	 *
+	 * Nothing tells core when an answer changes. A host that starts trusting a path should reset that repository's
+	 * caches (`hooks.cache.onReset`, or unregister and register it again) so nothing read while it was refused is kept.
+	 */
+	isTrusted?: (repoPath: string) => boolean;
 	/** Queue configuration (max concurrent processes, etc.) */
 	queue?: GitQueueConfig;
 	/** Decodes non-UTF-8 git output. Required when repositories use non-UTF-8 encodings. */
@@ -1049,6 +1092,86 @@ export class Git {
 		throw new Error(message);
 	}
 
+	/**
+	 * Whether git may be run in `repoPath`. Trusted when the host gave no {@link GitOptions.isTrusted}; with one,
+	 * only an answer of exactly `true` trusts, so a predicate that returns nothing (or anything but a boolean)
+	 * refuses.
+	 */
+	isPathTrusted(repoPath: string): boolean {
+		const isTrusted = this.options.isTrusted;
+		return isTrusted == null || (isTrusted(repoPath) as unknown) === true;
+	}
+
+	/** Throws {@link WorkspaceUntrustedError}, carrying `path`, when the host refuses it */
+	private assertPathTrusted(path: string): void {
+		if (!this.isPathTrusted(path)) throw new WorkspaceUntrustedError(path);
+	}
+
+	/**
+	 * Throws {@link WorkspaceUntrustedError} when the host refuses `cwd` (or the process's working directory when
+	 * there is none) or any other path the run moves git to: a leading `-C`, a leading `--git-dir` or
+	 * `--work-tree`, or `GIT_DIR` / `GIT_COMMON_DIR` / `GIT_WORK_TREE` in the run's own `env`. Runs before anything
+	 * is spawned. A working directory that can't be resolved (the process's own was deleted) refuses without a path.
+	 */
+	private assertTrusted(
+		cwd: string | undefined,
+		configs: readonly (string | undefined)[] | undefined,
+		args: readonly (string | undefined)[],
+		env: Record<string, string | undefined> | undefined,
+	): void {
+		if (this.options.isTrusted == null) return;
+
+		// Only the global options ahead of the verb move git, so a long argv costs a walk to its verb, not its length
+		const { pathOverride, gitDir, workTree } = scanLeadingOptions(configs, args, false);
+
+		let where: string;
+		if (pathOverride != null && isFullyQualified(pathOverride)) {
+			// Git applies `-C` before it discovers or reads anything, so where the run starts is irrelevant to it
+			where = normalizePath(resolvePath(pathOverride));
+			this.assertPathTrusted(where);
+		} else {
+			let base;
+			try {
+				// An empty `cwd` is spawned in the process's working directory too (global config reads pass one), and
+				// a relative one resolves against it; either throws when that folder was deleted. Normalized, so the
+				// host sees this path in the same form as every other path it is asked about
+				base = normalizePath(resolvePath(cwd || process.cwd()));
+			} catch {
+				throw new WorkspaceUntrustedError();
+			}
+			this.assertPathTrusted(base);
+
+			where = base;
+			if (pathOverride != null) {
+				where = this.resolveNotifyPath(base, pathOverride);
+				if (where !== base) {
+					this.assertPathTrusted(where);
+				}
+			}
+		}
+
+		// Git resolves these against the directory it ends up in after every `-C`. A leading option wins over the
+		// environment variable, but both are asked about, so a refused one can't hide behind the other.
+		if (gitDir) {
+			this.assertPathTrusted(this.resolveNotifyPath(where, gitDir));
+		}
+		if (workTree) {
+			this.assertPathTrusted(this.resolveNotifyPath(where, workTree));
+		}
+		if (env == null) return;
+
+		// Every key spelling a name is asked about, not just the first: git elsewhere reads only the exact upper-case
+		// name, and Node on Windows keeps whichever spelling sorts first, so no single match stands for what git sees
+		for (const key of Object.keys(env)) {
+			if (key.length > repositoryEnvKeyMaxLength || !repositoryEnvKeys.has(key.toUpperCase())) continue;
+
+			const path = env[key];
+			if (!path) continue;
+
+			this.assertPathTrusted(this.resolveNotifyPath(where, path));
+		}
+	}
+
 	async run(
 		options: ExitCodeOnlyGitCommandOptions,
 		...args: readonly (string | undefined)[]
@@ -1061,8 +1184,16 @@ export class Git {
 		options: GitRunOptions,
 		...args: readonly (string | undefined)[]
 	): Promise<GitResult<T | unknown>> {
-		if (this.options.isTrusted?.() === false) throw new WorkspaceUntrustedError();
+		this.assertTrusted(options.cwd, options.configs, args, options.env);
 
+		return this.runTrusted<T>(options, args);
+	}
+
+	/** The body of {@link run} once the trust gate has passed, so a re-entry (`notify`) doesn't ask the host again */
+	private async runTrusted<T extends string | Buffer = string>(
+		options: GitRunOptions,
+		args: readonly (string | undefined)[],
+	): Promise<GitResult<T | unknown>> {
 		const runArgs = args.filter(a => a != null);
 
 		// `notify` announces once the run settles (success, failure or cancellation), which the bare
@@ -1070,7 +1201,7 @@ export class Git {
 		if (options.notify != null) {
 			const pending = await this.prepareNotify(options, runArgs);
 			try {
-				return await this.run<T>({ ...options, notify: undefined }, ...args);
+				return await this.runTrusted<T>({ ...options, notify: undefined }, args);
 			} finally {
 				if (pending != null) {
 					await this.applyNotify(pending);
@@ -1616,7 +1747,7 @@ export class Git {
 	}
 
 	async *stream(options: GitSpawnOptions, ...args: readonly (string | undefined)[]): AsyncGenerator<string> {
-		if (this.options.isTrusted?.() === false) throw new WorkspaceUntrustedError();
+		this.assertTrusted(options.cwd, options.configs, args, options.env);
 
 		const start = hrtime();
 		const startEpochMs = Date.now();
@@ -1850,7 +1981,7 @@ export class Git {
 	async rev_parse__show_toplevel(cwd: string): Promise<[safe: true, repoPath: string] | [safe: false] | []> {
 		let result;
 
-		if (this.options.isTrusted?.() === false) {
+		if (!this.isPathTrusted(cwd)) {
 			// Check if the folder is a bare clone: if it has a file named HEAD && `rev-parse --show-cdup` is empty
 			if (await fsExists(joinPaths(cwd, 'HEAD'))) {
 				try {
@@ -1894,7 +2025,7 @@ export class Git {
 
 			const inDotGit = GitWarnings.mustRunInWorkTree.test(ex.stderr ?? '');
 			// Check if we are in a bare clone
-			if (inDotGit && this.options.isTrusted?.() !== false) {
+			if (inDotGit && this.isPathTrusted(cwd)) {
 				result = await this.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
 				throwIfUnanswered(result);
 
@@ -1939,6 +2070,9 @@ export class Git {
 	async rev_parse__work_tree_of_git_dir(gitDir: string): Promise<string | undefined> {
 		const parent = dirname(gitDir);
 		if (parent === gitDir) return undefined;
+		// A trusted bare repository can sit in a folder the host refuses; git isn't run there, and no working tree of
+		// its own is the bare answer
+		if (!this.isPathTrusted(parent)) return undefined;
 
 		// A bare repo's parent fails `--show-toplevel`, or belongs to some other repo's git dir
 		const result = await this.run({ cwd: parent, errors: 'ignore' }, 'rev-parse', '--show-toplevel', '--git-dir');
