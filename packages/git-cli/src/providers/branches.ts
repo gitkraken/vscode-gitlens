@@ -419,6 +419,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		if (name != null) return (await this.getBranchFromSharedList(repoPath, name, scope, cancellation)).branch;
 
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
+
 		return this.cache.branch.getOrCreate(
 			repoPath,
 			async (cacheable, signal) => {
@@ -1076,6 +1081,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	private getCurrentBranchReferenceCore(
+		repoPath: string,
+		ordering?: string,
+		cancellation?: AbortSignal,
+	): Promise<GitBranchReference | undefined> {
+		const validation = this.cache.validateBeforeRead(repoPath);
+		return validation != null
+			? validation.then(() => this.readCurrentBranchReference(repoPath, ordering, cancellation))
+			: this.readCurrentBranchReference(repoPath, ordering, cancellation);
+	}
+
+	private readCurrentBranchReference(
 		repoPath: string,
 		ordering?: string,
 		cancellation?: AbortSignal,

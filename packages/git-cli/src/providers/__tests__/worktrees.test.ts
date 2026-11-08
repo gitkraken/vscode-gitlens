@@ -87,6 +87,7 @@ suite('WorktreesGitSubProvider.getWorktrees lock reason fallback', () => {
 		run = sinon.stub();
 		lockReasonListed = false;
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(repoPath, { invalidate: () => {} }, undefined),
 			evictCaches: () => {},
@@ -195,6 +196,7 @@ suite('WorktreesGitSubProvider.getWorktrees ignored worktrees', () => {
 		invalidated?: { count: number },
 	): WorktreesGitSubProvider {
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(
 					repoPath,
@@ -329,6 +331,7 @@ suite('WorktreesGitSubProvider.getWorktrees branch list consistency', () => {
 
 	function createProvider(listing: () => string): WorktreesGitSubProvider {
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(repoPath, { invalidate: () => invalidated++ }, undefined),
 			getWorktreePaths: () => [],

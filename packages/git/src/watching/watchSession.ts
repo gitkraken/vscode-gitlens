@@ -61,7 +61,8 @@ export interface WatchSessionOptions {
 	readonly onDidFireWorkingTreeChange?: (repoPath: string) => void;
 }
 
-const defaultRepoDelay = 250;
+/** The debounce a repo subscriber gets when it names none */
+export const defaultRepoDelay = 250;
 const defaultWorkingTreeDelay = 2500;
 const defaultRepoMaxWait = 2000;
 const defaultWorkingTreeMaxWait = 10000;

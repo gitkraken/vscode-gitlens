@@ -209,3 +209,184 @@ suite('createCliGitService — worktree admin entries', () => {
 		}
 	});
 });
+
+suite('createCliGitService — unwatched cache validation', () => {
+	const repoPath = '/test/repo';
+	const gitDirPath = `${repoPath}/.git`;
+
+	let cache: Cache;
+	let service: GitService;
+	let files: Map<string, number>;
+	let stats: string[];
+	let now: number;
+	const dateNow = Date.now;
+
+	setup(() => {
+		now = 1_000_123;
+		Date.now = () => now;
+
+		files = new Map([
+			[`${gitDirPath}/HEAD`, 1],
+			[`${gitDirPath}/logs/HEAD`, 1],
+			[`${gitDirPath}/refs/heads`, 1],
+		]);
+		stats = [];
+		const notFound = () => Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+		const fs: FileSystemProvider = {
+			readDirectory: notFound,
+			readFile: notFound,
+			stat: uri => {
+				const path = normalizePath(toFsPath(uri));
+				stats.push(path);
+				const mtime = files.get(path);
+				return Promise.resolve(
+					mtime != null ? { type: FileType.File, ctime: 0, mtime: mtime, size: 10 } : undefined,
+				);
+			},
+		};
+
+		cache = new Cache();
+		cache.gitDir.set(repoPath, { uri: fileUri(gitDirPath) });
+		service = createCliGitService({
+			context: { fs: fs },
+			locator: async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }),
+			cache: cache,
+			watchingProvider: { createWatcher: () => createDisposable(() => {}) },
+			validateUnwatchedCaches: true,
+		});
+	});
+
+	teardown(() => {
+		Date.now = dateNow;
+		service.dispose();
+		cache.dispose();
+	});
+
+	test("drops an unwatched repository's current branch once its HEAD's reflog moved", async () => {
+		await cache.validateBeforeRead(repoPath);
+
+		cache.branch.set(repoPath, Promise.resolve(undefined));
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+
+		const validation = cache.validateBeforeRead(repoPath);
+		assert.ok(validation != null);
+		await validation;
+		assert.strictEqual(cache.branch.has(repoPath), false);
+	});
+
+	test("reads an unwatched repository's ahead-of-base config again once its HEAD's reflog moved", async () => {
+		let reads = 0;
+		const read = () => cache.getAheadOfBaseConfigKey(repoPath, () => `key${++reads}`);
+		assert.strictEqual(await read(), 'key1');
+
+		// A checkout can change what `includeIf.onbranch` includes
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		assert.strictEqual(await read(), 'key2');
+	});
+
+	test("reads an unwatched repository's branch overview again once its heads moved", async () => {
+		let reads = 0;
+		const read = () =>
+			cache.getBranchOverview(repoPath, 'main|', () => {
+				reads++;
+				return undefined;
+			});
+		await read();
+		await read();
+		assert.strictEqual(reads, 1, 'served from the cache until something changes');
+
+		now += 300;
+		files.set(`${gitDirPath}/refs/heads`, 2);
+		await read();
+		assert.strictEqual(reads, 2);
+	});
+
+	test("reads an unwatched repository's contributors again once its heads moved", async () => {
+		let reads = 0;
+		const read = () =>
+			cache.getContributors(repoPath, 'HEAD', () => {
+				reads++;
+				return { contributors: [] };
+			});
+		await read();
+		await read();
+		assert.strictEqual(reads, 1, 'served from the cache until something changes');
+
+		now += 300;
+		files.set(`${gitDirPath}/refs/heads`, 2);
+		await read();
+		assert.strictEqual(reads, 2);
+	});
+
+	test("reads an unwatched repository's gitignore config listing again once its HEAD's reflog moved", async () => {
+		let reads = 0;
+		const read = () => cache.getIgnoreConfigListing(repoPath, () => `listing${++reads}`);
+		assert.strictEqual(await read(), 'listing1');
+		assert.strictEqual(await read(), 'listing1', 'served from the cache until something changes');
+
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		assert.strictEqual(await read(), 'listing2');
+	});
+
+	test("reads an unwatched repository's ahead-of-base config listing again once its HEAD's reflog moved", async () => {
+		let reads = 0;
+		const read = () => cache.getAheadOfBaseConfigListing(repoPath, () => `listing${++reads}`);
+		assert.strictEqual(await read(), 'listing1');
+
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		assert.strictEqual(await read(), 'listing2');
+	});
+
+	test('validates a repository whose watch is suspended, and again stats nothing once it resumes', async () => {
+		const handle = service.watchService!.watch(repoPath, { uri: fileUri(gitDirPath) });
+		assert.ok(handle != null);
+		const sub = handle.session.subscribe();
+
+		const handoff = cache.validateBeforeRead(repoPath);
+		assert.ok(handoff != null);
+		await handoff;
+		stats.length = 0;
+
+		service.watchService!.suspendAll();
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		const validation = cache.validateBeforeRead(repoPath);
+		assert.ok(validation != null);
+		await validation;
+		assert.ok(stats.length > 0);
+
+		service.watchService!.resumeAll();
+		stats.length = 0;
+		now += 300;
+		assert.strictEqual(cache.validateBeforeRead(repoPath), undefined);
+		assert.deepStrictEqual(stats, []);
+
+		sub.dispose();
+		handle.dispose();
+	});
+
+	test('stats nothing for a watched repository once the watch took over', async () => {
+		const handle = service.watchService!.watch(repoPath, { uri: fileUri(gitDirPath) });
+		assert.ok(handle != null);
+		const sub = handle.session.subscribe();
+
+		// What changed before the watcher attached is read as it does
+		const handoff = cache.validateBeforeRead(repoPath);
+		assert.ok(handoff != null);
+		await handoff;
+		stats.length = 0;
+
+		now += 300;
+		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		assert.strictEqual(cache.validateBeforeRead(repoPath), undefined);
+		await cache.getRemotes(repoPath, () => []);
+		assert.deepStrictEqual(stats, []);
+
+		sub.dispose();
+		handle.dispose();
+	});
+});

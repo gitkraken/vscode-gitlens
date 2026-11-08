@@ -58,6 +58,29 @@ export function parseCommonDir(content: string): string | undefined {
 	return content.replace(trailingNewlinesRegex, '') || undefined;
 }
 
+const transientFsErrorCodes: ReadonlySet<string> = new Set([
+	'EAGAIN',
+	'EBUSY',
+	'ECONNRESET',
+	'EHOSTDOWN',
+	'EHOSTUNREACH',
+	'EINTR',
+	'EIO',
+	'EMFILE',
+	'ENETUNREACH',
+	'ENFILE',
+	// A FUSE mount (sshfs, rclone) whose connection dropped
+	'ENOTCONN',
+	'ESTALE',
+	'ETIMEDOUT',
+]);
+
+/** Whether a file-system call failed in a way that may pass if made again soon */
+export function isTransientFsError(ex: unknown): boolean {
+	const code = (ex as { code?: unknown } | undefined)?.code;
+	return typeof code === 'string' && transientFsErrorCodes.has(code);
+}
+
 /**
  * The git dir and common git dir `git rev-parse --git-dir --git-common-dir` reports from the working tree `repoPath`,
  * read without running git, and only when that working tree has no superproject. `undefined` whenever the layout is
@@ -79,6 +102,24 @@ export async function readGitDirs(
 	try {
 		return await readGitDirsCore(repoPath, superprojects);
 	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * As {@link readGitDirs}, but rejects when a file it reads fails in a way that may pass (a share that timed out or
+ * dropped, too many open files), whose answer may differ once it reads. Any other failure, a file not there or not
+ * readable, is the layout's own answer
+ */
+export async function readGitDirsOrReject(
+	repoPath: string,
+	superprojects?: PromiseCache<string, boolean>,
+): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
+	try {
+		return await readGitDirsCore(repoPath, superprojects);
+	} catch (ex) {
+		if (isTransientFsError(ex)) throw ex;
+
 		return undefined;
 	}
 }

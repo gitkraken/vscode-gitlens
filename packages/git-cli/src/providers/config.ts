@@ -30,7 +30,7 @@ import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { fsExists } from '../exec/exec.js';
 import type { Git } from '../exec/git.js';
 import { isFolder, isGitAnswer, isGitUnanswered, throwIfUnanswered } from '../exec/git.js';
-import { isGitDirMovedByEnv, readGitDirs } from '../exec/gitDirResolver.js';
+import { isGitDirMovedByEnv, readGitDirs, readGitDirsOrReject } from '../exec/gitDirResolver.js';
 import { KeyedSequencer } from '../exec/indexLock.js';
 
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
@@ -497,6 +497,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const scope = getScopedLogger();
 
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
+
 		const cached = this.cache.currentUser.get(repoPath);
 		if (cached != null) return cached;
 		// If we found null, user data was not found - don't bother trying again
@@ -604,13 +609,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		let gitDir: GitDir;
 		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath);
 		if (fsGitDirs != null) {
-			const path = normalizePath(fsGitDirs.gitDir);
-			const commonPath = normalizePath(fsGitDirs.commonGitDir);
-			gitDir = {
-				uri: fileUri(path),
-				commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
-				parentUri: undefined,
-			};
+			gitDir = toGitDir(fsGitDirs);
 			if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
 				this.cache.gitDir.set(repoPath, gitDir);
 			}
@@ -647,19 +646,49 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return gitDir;
 	}
 
+	/**
+	 * Caches `repoPath`'s git dir when its files show it (see {@link readGitDirsWithoutGit}), never running git; whether
+	 * one is cached. `false` for a layout only git can answer for (a bare repository, a submodule, a
+	 * `--separate-git-dir` checkout, a `core.worktree`), which {@link getGitDir} resolves. Rejects when the answer may
+	 * differ if asked again soon: a file failed to read in a way that may pass, or the repository closed mid-read
+	 */
+	@trace({ quiet: true, exit: r => `returned ${r}` })
+	async resolveGitDirWithoutGit(repoPath: string): Promise<boolean> {
+		if (this.cache.gitDir.get(repoPath) != null) return true;
+
+		const closeGeneration = this.cache.getCloseGeneration(repoPath);
+		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath, true);
+		// As in `readGitDir`: unregistered mid-read, the path may come back as another repository's checkout
+		if (this.cache.getCloseGeneration(repoPath) !== closeGeneration) {
+			throw new Error(`'${repoPath}' was closed while its git dir was read`);
+		}
+		if (fsGitDirs == null) return false;
+
+		if (this.cache.gitDir.get(repoPath) == null) {
+			this.cache.gitDir.set(repoPath, toGitDir(fsGitDirs));
+		}
+		return true;
+	}
+
 	/** Whether git may be run in `repoPath`: the context's workspace flag, then the host's per-path predicate */
 	private isTrusted(repoPath: string): boolean {
 		return this.context.workspace?.isTrusted !== false && this.git.isPathTrusted(repoPath);
 	}
 
-	/** The git dirs {@link getRepositoryInfo} would report for `repoPath`, when they can be read without running git */
+	/**
+	 * The git dirs {@link getRepositoryInfo} would report for `repoPath`, when they can be read without running git;
+	 * `rejectIfTransient` rejects for a read that failed in a way that may pass (see `readGitDirsOrReject`)
+	 */
 	private async readGitDirsWithoutGit(
 		repoPath: string,
+		rejectIfTransient?: boolean,
 	): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
 		if (!this.isTrusted(repoPath)) return undefined;
 		if (isGitDirMovedByEnv(this.git.getRunEnvironment())) return undefined;
 
-		return readGitDirs(repoPath, this.cache.superprojects);
+		return rejectIfTransient
+			? readGitDirsOrReject(repoPath, this.cache.superprojects)
+			: readGitDirs(repoPath, this.cache.superprojects);
 	}
 
 	/**
@@ -1526,4 +1555,15 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		this._migratedRepos.add(repoPath);
 	}
+}
+
+/** The git dir {@link ConfigGitSubProvider.getGitDir} answers from the git dirs read without git */
+function toGitDir(fsGitDirs: { readonly gitDir: string; readonly commonGitDir: string }): GitDir {
+	const path = normalizePath(fsGitDirs.gitDir);
+	const commonPath = normalizePath(fsGitDirs.commonGitDir);
+	return {
+		uri: fileUri(path),
+		commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
+		parentUri: undefined,
+	};
 }

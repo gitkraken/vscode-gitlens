@@ -1,4 +1,7 @@
 import * as assert from 'assert';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as sinon from 'sinon';
 import { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
@@ -6,6 +9,7 @@ import type { GitDir } from '@gitlens/git/models/repository.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
+import { isTransientFsError } from '../../exec/gitDirResolver.js';
 import { ConfigGitSubProvider } from '../config.js';
 
 type GitDirs = { gitDir: string; commonGitDir: string };
@@ -216,6 +220,125 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 				commonUri: gitDirsB.commonGitDir,
 				parentUri: undefined,
 			});
+		});
+	});
+});
+
+suite('ConfigGitSubProvider.resolveGitDirWithoutGit', () => {
+	let cache: Cache;
+	let trusted: boolean;
+	let provider: ConfigGitSubProvider;
+	let getRepositoryInfo: sinon.SinonStub<[cwd: string], Promise<RepositoryInfo>>;
+
+	setup(() => {
+		cache = new Cache();
+		trusted = true;
+		provider = new ConfigGitSubProvider(
+			{ hooks: {} } as unknown as GitServiceContext,
+			{ isPathTrusted: () => trusted, getRunEnvironment: () => ({}) } as unknown as Git,
+			cache,
+			{ getAbsoluteUri: (path: string) => fileUri(path) } as unknown as CliGitProviderInternal,
+		);
+		getRepositoryInfo = sinon.stub(provider, 'getRepositoryInfo');
+	});
+
+	teardown(() => {
+		sinon.restore();
+		cache.dispose();
+	});
+
+	function stubReadGitDirs(): sinon.SinonStub<
+		[repoPath: string, rejectIfTransient?: boolean],
+		Promise<GitDirs | undefined>
+	> {
+		return sinon.stub(
+			provider as unknown as {
+				readGitDirsWithoutGit(repoPath: string, rejectIfTransient?: boolean): Promise<GitDirs | undefined>;
+			},
+			'readGitDirsWithoutGit',
+		);
+	}
+
+	test('caches the git dirs read from the files, as getGitDir would', async () => {
+		stubReadGitDirs().resolves({ gitDir: '/repos/a/.git/worktrees/w', commonGitDir: '/repos/a/.git' });
+
+		assert.strictEqual(await provider.resolveGitDirWithoutGit('/repos/a.worktrees/w'), true);
+		assert.deepStrictEqual(describe(cache.gitDir.get('/repos/a.worktrees/w')), {
+			uri: '/repos/a/.git/worktrees/w',
+			commonUri: '/repos/a/.git',
+			parentUri: undefined,
+		});
+		assert.strictEqual(getRepositoryInfo.callCount, 0);
+	});
+
+	test('answers false, caching nothing and never running git, when only git can answer', async () => {
+		stubReadGitDirs().resolves(undefined);
+
+		assert.strictEqual(await provider.resolveGitDirWithoutGit('/repos/bare.git'), false);
+		assert.strictEqual(cache.gitDir.get('/repos/bare.git'), undefined);
+		assert.strictEqual(getRepositoryInfo.callCount, 0);
+	});
+
+	test('reads so that a failure that may pass rejects, rather than answering false', async () => {
+		const read = stubReadGitDirs().resolves(undefined);
+
+		await provider.resolveGitDirWithoutGit('/repos/a');
+		assert.deepStrictEqual(read.firstCall.args, ['/repos/a', true]);
+	});
+
+	test('tells a file-system failure that may pass from one that is the layout', () => {
+		for (const code of ['EIO', 'ETIMEDOUT', 'ESTALE', 'EMFILE', 'ENOTCONN']) {
+			assert.strictEqual(isTransientFsError(Object.assign(new Error(code), { code: code })), true, code);
+		}
+		for (const code of ['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM']) {
+			assert.strictEqual(isTransientFsError(Object.assign(new Error(code), { code: code })), false, code);
+		}
+		assert.strictEqual(isTransientFsError(new Error('no code')), false);
+	});
+
+	test('rejects, caching nothing, when the path is unregistered mid-read', async () => {
+		const read = holdRead<GitDirs | undefined>();
+		stubReadGitDirs().callsFake(read.start);
+		cache.registerRepoPath(fileUri('/repos/a'), { uri: fileUri('/repos/a/.git') });
+
+		const resolving = provider.resolveGitDirWithoutGit('/repos/a');
+		await read.started;
+		cache.unregisterRepoPath('/repos/a');
+		read.settle({ gitDir: '/repos/a/.git', commonGitDir: '/repos/a/.git' });
+
+		await assert.rejects(resolving);
+		assert.strictEqual(cache.gitDir.get('/repos/a'), undefined);
+	});
+
+	suite('on disk', () => {
+		let root: string;
+		let repoPath: string;
+
+		setup(() => {
+			root = mkdtempSync(join(tmpdir(), 'gitlens-resolve-git-dir-'));
+			repoPath = join(root, 'repo');
+			mkdirSync(join(repoPath, '.git', 'objects'), { recursive: true });
+			mkdirSync(join(repoPath, '.git', 'refs'));
+			writeFileSync(join(repoPath, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+			writeFileSync(join(repoPath, '.git', 'config'), '[core]\n\tbare = false\n');
+		});
+
+		teardown(() => {
+			rmSync(root, { recursive: true, force: true });
+		});
+
+		test("reads a standard repository's git dir", async () => {
+			assert.strictEqual(await provider.resolveGitDirWithoutGit(repoPath), true);
+			assert.strictEqual(cache.gitDir.get(repoPath)?.uri.fsPath, join(repoPath, '.git'));
+			assert.strictEqual(getRepositoryInfo.callCount, 0);
+		});
+
+		test('reads nothing in a path the host does not trust', async () => {
+			trusted = false;
+
+			assert.strictEqual(await provider.resolveGitDirWithoutGit(repoPath), false);
+			assert.strictEqual(cache.gitDir.get(repoPath), undefined);
+			assert.strictEqual(getRepositoryInfo.callCount, 0);
 		});
 	});
 });

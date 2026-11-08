@@ -3757,3 +3757,56 @@ suite('resetDropsPendingRuns', () => {
 		});
 	}
 });
+
+suite('Cache read validator resource usage', () => {
+	test("reports the read validator's resource usage among its own until it is removed", () => {
+		const cache = new Cache();
+		try {
+			cache.setReadValidator(
+				() => undefined,
+				() => ({ 'unwatchedValidation.validations.count': 3 }),
+			);
+			assert.strictEqual(cache.getResourceUsage()['unwatchedValidation.validations.count'], 3);
+
+			cache.setReadValidator(undefined);
+			assert.strictEqual(cache.getResourceUsage()['unwatchedValidation.validations.count'], undefined);
+		} finally {
+			cache.dispose();
+		}
+	});
+});
+
+suite('Cache git results read validation', () => {
+	test('a cached git run waits for the read validator, then runs', async () => {
+		const cache = new Cache();
+		try {
+			const validation = defer<void>();
+			const validated: string[] = [];
+			cache.setReadValidator(repoPath => {
+				validated.push(repoPath);
+				return validation.promise;
+			});
+
+			let runs = 0;
+			const result: GitResult = {
+				stdout: 'abc',
+				stderr: undefined,
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			const read = cache.gitResults.getOrCreate('/repo', 'git merge-base main feature', () => {
+				runs++;
+				return Promise.resolve(result);
+			});
+			await Promise.resolve();
+			assert.deepStrictEqual(validated, ['/repo']);
+			assert.strictEqual(runs, 0, 'waits for the validation');
+
+			validation.fulfill();
+			assert.strictEqual(await read, result);
+			assert.strictEqual(runs, 1);
+		} finally {
+			cache.dispose();
+		}
+	});
+});

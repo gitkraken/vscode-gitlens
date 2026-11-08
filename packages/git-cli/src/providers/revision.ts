@@ -479,6 +479,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 			return this.resolveRevisionCore(repoPath, ref, path);
 		}
 
+		// Kept until a change report clears it, and a ref name resolves to wherever it pointed when first read, so
+		// validated as the refs' reads are (see `Cache.setReadValidator`)
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
+
 		const key = path != null ? `${ref}|${this.provider.getRelativePath(path, repoPath)}` : ref;
 		if (options?.force) {
 			// Hard-delete first: a later caller must never join a read that started before this one.
