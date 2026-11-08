@@ -343,8 +343,8 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		});
 
 		assert.deepEqual(seen, [
-			{ baseUrl: undefined, state: 'closed', cursor: undefined, summary: true },
-			{ baseUrl: undefined, state: 'merged', cursor: undefined, summary: true },
+			{ baseUrl: undefined, state: 'closed', cursor: undefined, summary: true, mergeQueue: undefined },
+			{ baseUrl: undefined, state: 'merged', cursor: undefined, summary: true, mergeQueue: undefined },
 		]);
 
 		manager.dispose();

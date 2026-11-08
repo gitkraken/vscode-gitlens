@@ -88,6 +88,7 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				});
 			},
 			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+			getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		} as unknown as GitHubApiConfig;
 		return { config: config, getCalls: () => calls };
 	}

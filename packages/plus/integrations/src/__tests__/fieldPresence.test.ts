@@ -369,12 +369,12 @@ function serveGitHub(runtime: FakeRuntime): string[] {
 	return operations;
 }
 
-async function connected(): Promise<{
+async function connected(mergeQueue = true): Promise<{
 	manager: Awaited<ReturnType<typeof connectedGitHub>>['manager'];
 	gh: GitHostIntegration;
 	operations: string[];
 }> {
-	const runtime = createFakeRuntime();
+	const runtime = createFakeRuntime({ mergeQueue: mergeQueue });
 	const operations = serveGitHub(runtime);
 	const { manager, gh } = await connectedGitHub(runtime);
 	// The account a read resolves `authoredByMe` with; unresolved, as a read is allowed to leave it.
@@ -422,6 +422,40 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			assert.equal(presence.mergeable, 'not-requested');
 			// The lite fragment selects it too.
 			assert.deepEqual(pr?.milestone, mappedMilestone);
+		}
+
+		manager.dispose();
+	});
+
+	test('without the merge-queue opt-in, no read selects the merge-queue data and every row says so', async () => {
+		const { manager, gh } = await connected(false);
+
+		const byNumber = await gh.getPullRequest(repo, '1', { throwOnError: true });
+		const search = await manager.searchPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+		});
+		const summary = await manager.searchPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			summary: true,
+		});
+		const listed = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.GitHub });
+
+		for (const [pr, projection] of [
+			[byNumber, 'point'],
+			[search.items[0], 'search'],
+			[summary.items[0], 'search-summary'],
+			[listed.items[0], 'account-summary'],
+		] as const) {
+			const presence = assertPullRequestRow(pr, projection);
+			const row = pr as PullRequest;
+			assert.equal(presence.mergeQueue, 'not-requested', projection);
+			assert.equal(row.mergeQueue, undefined, projection);
+			assert.equal(row.mergeQueueRequired, undefined, projection);
+			assert.equal(row.mergeQueueRemoval, undefined, projection);
+			// Everything else the read selects is unaffected.
+			assert.equal(presence.stack, 'fetched', projection);
 		}
 
 		manager.dispose();
@@ -617,8 +651,13 @@ function assertFullRow(
 	assert.equal(presence.milestone, 'fetched');
 }
 
+/** A row as an opting-in host reads it: a read that selected the merge-queue data always sets `mergeQueueRequired`. */
 function pullRequestRow(providerId: string, projection: string | undefined): PullRequestShape {
-	return { provider: { id: providerId }, projection: projection } as unknown as PullRequestShape;
+	return {
+		provider: { id: providerId },
+		projection: projection,
+		mergeQueueRequired: true,
+	} as unknown as PullRequestShape;
 }
 
 function issueRow(providerId: string, projection: string | undefined): IssueShape {
@@ -671,6 +710,33 @@ suite('Field presence lookup', () => {
 		);
 
 		manager.dispose();
+	});
+
+	test('a row that carries no `mergeQueueRequired` reads `mergeQueue` as not-requested, and only a fetched one', () => {
+		const providerIds = [
+			GitCloudHostIntegrationId.GitHub,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			GitCloudHostIntegrationId.GitLab,
+		];
+		for (const providerId of providerIds) {
+			for (const projection of pullRequestProjections) {
+				const read = getPullRequestFieldPresence(pullRequestRow(providerId, projection));
+				if (read == null) continue;
+
+				for (const mergeQueueRequired of [undefined, null]) {
+					const row = { ...pullRequestRow(providerId, projection), mergeQueueRequired: mergeQueueRequired };
+					const unread = getPullRequestFieldPresence(row as unknown as PullRequestShape);
+					const label = `${providerId}.${projection}.${mergeQueueRequired}`;
+					assert.ok(unread != null, label);
+					assert.deepEqual(
+						unread,
+						{ ...read, mergeQueue: read.mergeQueue === 'fetched' ? 'not-requested' : read.mergeQueue },
+						label,
+					);
+					assert.ok(Object.isFrozen(unread), label);
+				}
+			}
+		}
 	});
 
 	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks or merge queues', () => {

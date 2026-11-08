@@ -105,6 +105,7 @@ function createConfigAdapter(disposables: VsCodeDisposable[]): ConfigProvider {
 			includedOrganizations: configuration.get('launchpad.includedOrganizations'),
 			ignoredOrganizations: configuration.get('launchpad.ignoredOrganizations'),
 		}),
+		getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		getRemoteConfigs: (): readonly IntegrationsRemoteConfig[] =>
 			(configuration.get('remotes') ?? [])
 				// Require a non-empty domain or regex: an empty string passes `!= null` but would match

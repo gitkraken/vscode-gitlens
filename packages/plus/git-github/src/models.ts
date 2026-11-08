@@ -190,12 +190,14 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	stack?: GitHubPullRequestStack | null;
 	/** Only selected against github.com — see `stack`. */
 	stackEntry?: { position: number } | null;
-	/** Only selected against github.com — see `stack`. `null` when the pull request isn't queued. */
+	/** Only selected against github.com, for a read that asks for it (`mergeQueue`) or, when it doesn't say, a host
+	 *  that opts in (`GitHubApiConfig.getPullRequestReadOptions`) — see `stack`. `null` when the pull request isn't
+	 *  queued. */
 	mergeQueueEntry?: GitHubMergeQueueEntry | null;
-	/** Only selected against github.com — see `stack`. True whenever the base branch requires a merge queue, whatever
-	 *  the pull request's state. */
+	/** Selected with `mergeQueueEntry`. True whenever the base branch requires a merge queue, whatever the pull
+	 *  request's state. */
 	isMergeQueueEnabled?: boolean;
-	/** Only selected against github.com — see `stack`. The latest merge-queue event only (`timelineItems(last: 1)`). */
+	/** Selected with `mergeQueueEntry`. The latest merge-queue event only (`timelineItems(last: 1)`). */
 	mergeQueueEvents?: GitHubMergeQueueEvents | null;
 }
 
@@ -335,10 +337,15 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	commits?: {
 		nodes: { commit: { statusCheckRollup: { state: GitHubPullRequestStatusCheckRollupState } | null } }[];
 	};
-	/** Always selected, but only against github.com, like the full read's. `null` when the pull request isn't queued. */
+	/** Selected when the read selects merge-queue data, like the full read's. `null` when the pull request isn't queued. */
 	mergeQueueEntry?: Pick<GitHubMergeQueueEntry, 'state' | 'enqueuedAt'> | null;
-	/** Always selected, but only against github.com, exactly as the full read selects it. */
+	/** Selected when the read selects merge-queue data, exactly as the full read selects it. */
 	mergeQueueEvents?: GitHubMergeQueueEvents | null;
+	/**
+	 * Selected with the merge-queue data and nothing else, so its presence says the read selected it. Its value is
+	 * never an etag input: only a change to the base branch's rules moves it.
+	 */
+	isMergeQueueEnabled?: boolean;
 }
 
 /**
@@ -481,7 +488,8 @@ function fromGitHubPullRequestStack(pr: GitHubPullRequestLite): PullRequestStack
 	};
 }
 
-/** Absent on GitHub Enterprise Server (never selected) and `null` when the pull request isn't queued. */
+/** Absent where never selected (GitHub Enterprise Server, or a host that didn't opt in) and `null` when the pull
+ *  request isn't queued. */
 function fromGitHubPullRequestMergeQueueEntry(pr: GitHubPullRequestLite): PullRequestMergeQueueEntry | undefined {
 	return pr.mergeQueueEntry != null ? fromGitHubMergeQueueEntry(pr.mergeQueueEntry) : undefined;
 }
@@ -505,8 +513,8 @@ export function fromGitHubMergeQueueEntry(entry: GitHubMergeQueueEntry): PullReq
 /**
  * The pull request's latest removal from its merge queue, from its latest merge-queue event: set only when that
  * event is a removal (so it hasn't rejoined since) whose reason isn't `merged` (GitHub removes every merged entry
- * with that reason). Absent on GitHub Enterprise Server (never selected). Shared by the full read and the etag's
- * cheap check, so both derive the same removal.
+ * with that reason). Absent where never selected (GitHub Enterprise Server, or a host that didn't opt in). Shared by
+ * the full read and the etag's cheap check, so both derive the same removal.
  */
 export function fromGitHubMergeQueueRemoval(
 	events: GitHubMergeQueueEvents | null | undefined,

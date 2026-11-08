@@ -1974,6 +1974,10 @@ export abstract class GitHostIntegration<
 			filters?: PullRequestFilter[];
 			/** Request only the stable list fields, omitting optional provider enrichments. */
 			summary?: boolean;
+			/**
+			 * Selects merge-queue data on GitHub.com for this read, over the host's default; other providers ignore it.
+			 */
+			mergeQueue?: boolean;
 		},
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest | PullRequest> | undefined>> {
@@ -2025,6 +2029,7 @@ export abstract class GitHostIntegration<
 			includeReviewRequested?: boolean;
 			filters?: PullRequestFilter[];
 			summary?: boolean;
+			mergeQueue?: boolean;
 		},
 	): Promise<ProviderApiPagedResult<ProviderPullRequest | PullRequest> | undefined>;
 
@@ -2094,6 +2099,8 @@ export abstract class GitHostIntegration<
 			pageSize?: number;
 			/** See {@link IntegrationManager.searchPullRequestsPage}. */
 			summary?: boolean;
+			/** See {@link IntegrationManager.searchPullRequestsPage}. */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 		connectionId?: string,
@@ -2125,6 +2132,8 @@ export abstract class GitHostIntegration<
 			pageSize?: number;
 			/** See the caller's option of the same name on {@link searchPullRequestsPage}. */
 			summary?: boolean;
+			/** See the caller's option of the same name on {@link searchPullRequestsPage}. */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined>;
@@ -2361,7 +2370,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options?: { currentAccount?: { id: string; username?: string } },
+		options?: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
@@ -2408,7 +2417,7 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsBatch?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
 
@@ -2481,7 +2490,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsEtagFieldsResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestEtagFields | undefined>[] | undefined>> {
@@ -2528,7 +2537,7 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsEtagFields?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined>;
 
@@ -2549,7 +2558,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsForBranchesResult(
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>> {
@@ -2608,7 +2617,7 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsForBranches?(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
 

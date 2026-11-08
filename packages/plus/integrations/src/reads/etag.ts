@@ -72,6 +72,11 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.mergeQueueRemoval != null) {
 		fields.mergeQueueRemovedAt = pr.mergeQueueRemoval.removedAt;
 	}
+	// `mergeQueueRequired` is GitHub's non-null `isMergeQueueEnabled`, so only a row from a read that selected the
+	// merge-queue data has it.
+	if (pr.mergeQueueRequired != null) {
+		fields.mergeQueueRead = true;
+	}
 	return fields;
 }
 
@@ -140,6 +145,12 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	// two checks, which neither moves its update time nor shows a queue entry at either check, still reads as a change.
 	if (fields.mergeQueueRemovedAt != null) {
 		state.push(['merge-queue-removed', timeOf(fields.mergeQueueRemovedAt)]);
+	}
+	// Whenever the read selected the merge-queue data, so an etag from such a read never equals one from a read that
+	// didn't, even for a pull request that was never queued, whose state is otherwise identical. Tagged, like the
+	// terms above. A read that didn't select it adds nothing, so it computes the etag it did before.
+	if (fields.mergeQueueRead) {
+		state.push(['merge-queue-read']);
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;
