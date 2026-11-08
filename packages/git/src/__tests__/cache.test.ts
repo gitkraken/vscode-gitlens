@@ -1061,6 +1061,26 @@ suite('Cache — tag-scoped invalidation', () => {
 		assert.strictEqual(countReads, 2, 'a force-moved tag must not serve the count taken against its old commit');
 		assert.strictEqual(mergeBaseReads, 2, 'a force-moved tag must not serve its old fork point');
 	});
+
+	test('reachability is cleared when tags change', async () => {
+		let factoryCount = 0;
+		const factory = () => {
+			factoryCount++;
+			return Promise.resolve({ refs: [] });
+		};
+
+		await cache.reachability.getOrCreate(repoPath, 'abc123', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		cache.clearCaches(repoPath, 'tags');
+
+		await cache.reachability.getOrCreate(repoPath, 'abc123', factory);
+		assert.strictEqual(
+			factoryCount,
+			2,
+			'the tags a commit is reachable from must not survive a tag create or delete',
+		);
+	});
 });
 
 suite('Cache — gkConfig watcher reconciliation', () => {
