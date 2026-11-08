@@ -53,6 +53,8 @@ export async function searchPullRequestsPage(
 		domain?: string;
 		/** See {@link IntegrationManager.searchPullRequestsPage}. */
 		summary?: boolean;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		mergeQueue?: boolean;
 	},
 ): Promise<ProviderPagedResult<PullRequestShape>> {
 	const page = Math.max(1, Math.trunc(options.page ?? 1));
@@ -160,6 +162,7 @@ export async function searchPullRequestsPage(
 						cursor: cursor,
 						pageSize: options.itemsPerPage,
 						summary: options.summary,
+						mergeQueue: options.mergeQueue,
 					},
 					undefined,
 					options.connectionId,

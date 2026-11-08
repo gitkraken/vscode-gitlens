@@ -58,6 +58,8 @@ export async function listPullRequestsPage(
 		scopeConcurrency?: number;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		includeRemoteInfo?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. Account-wide only: the repo-scoped read ignores it. */
+		mergeQueue?: boolean;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -137,6 +139,7 @@ export async function listPullRequestsPage(
 		includeReviewRequested: options.includeReviewRequested ?? false,
 		filters: resolvedFilters.filters,
 		summary: true,
+		mergeQueue: options.mergeQueue,
 	};
 	// `filters` scopes the read to the current user (the core resolves the account for these), so it returns
 	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Bitbucket Data Center,

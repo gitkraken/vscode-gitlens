@@ -82,8 +82,10 @@ export interface PullRequestBatchResult {
 	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
 	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
 	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
-	 * compares unequal and costs a full read, never a false `unchanged`. Reactions are never an input: a host can add
-	 * one without moving the update time, so an `unchanged` copy's `thumbsUpCount` may be stale.
+	 * compares unequal and costs a full read, never a false `unchanged` — and so does one from a read that selected
+	 * merge-queue data (see {@link IntegrationManager.getPullRequestsBatch}'s `mergeQueue`) when the other didn't.
+	 * Reactions are never an input: a host can add one without moving the update time, so an `unchanged` copy's
+	 * `thumbsUpCount` may be stale.
 	 */
 	etag?: string;
 	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
@@ -108,6 +110,8 @@ export async function getPullRequestsBatch(
 		 * computed; the full read is the same. Calls that differ in this set never match each other's etags.
 		 */
 		etagIncludes?: readonly PullRequestEtagInclude[];
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		mergeQueue?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBatchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBatchResult> => ({
@@ -169,6 +173,9 @@ export async function getPullRequestsBatch(
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 	const etagIncludes = normalizePullRequestEtagIncludes(options.etagIncludes ?? []);
+	// Resolved once, so the cheap check and the full read select the same data and their etags agree even if the host's
+	// setting changes while the call is in flight.
+	const mergeQueue = options.mergeQueue ?? ctx.getPullRequestReadOptions().mergeQueue === true;
 	const toCoordinate = (t: PullRequestBatchTarget) => ({
 		owner: t.owner,
 		repo: t.repo,
@@ -199,6 +206,7 @@ export async function getPullRequestsBatch(
 								integration,
 								options.connectionId,
 							)),
+							mergeQueue: mergeQueue,
 						},
 						undefined,
 						options.connectionId,
@@ -215,7 +223,7 @@ export async function getPullRequestsBatch(
 				() =>
 					integration.getPullRequestsEtagFieldsResult(
 						batch.map(toCoordinate),
-						{ etagIncludes: etagIncludes },
+						{ etagIncludes: etagIncludes, mergeQueue: mergeQueue },
 						undefined,
 						options.connectionId,
 					),

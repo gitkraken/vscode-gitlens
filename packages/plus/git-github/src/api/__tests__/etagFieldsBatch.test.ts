@@ -40,6 +40,7 @@ function batchServe(
 	const requests: { query: string; variables: Record<string, unknown> }[] = [];
 	const config = {
 		isWeb: false,
+		getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
 		fetch: async (_url: unknown, init?: { body?: string }) => {
 			const body = JSON.parse(init?.body ?? '{}') as { query?: string; variables?: Record<string, unknown> };

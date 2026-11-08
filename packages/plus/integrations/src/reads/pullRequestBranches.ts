@@ -84,6 +84,8 @@ export async function getPullRequestsForBranches(
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		mergeQueue?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBranchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBranchResult> => ({
@@ -136,6 +138,9 @@ export async function getPullRequestsForBranches(
 	}
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
+	// Resolved once, so the by-name query and the batch read that settles a truncated target select the same data
+	// and one target's rows never disagree on it, even if the host's setting changes while the call is in flight.
+	const mergeQueue = options.mergeQueue ?? ctx.getPullRequestReadOptions().mergeQueue === true;
 	const currentAccount = await getCurrentAccountIdentity(integration, options.connectionId);
 
 	const warnings: ProviderWarning[] = [];
@@ -154,7 +159,7 @@ export async function getPullRequestsForBranches(
 					branch: t.branch,
 					headOwner: forkOwner(t),
 				})),
-				{ currentAccount: currentAccount, limit: pullRequestsForBranchLimit },
+				{ currentAccount: currentAccount, limit: pullRequestsForBranchLimit, mergeQueue: mergeQueue },
 				undefined,
 				options.connectionId,
 			),

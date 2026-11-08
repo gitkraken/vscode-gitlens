@@ -69,6 +69,12 @@ export interface ProviderReadContext {
 		options?: { throwOnFailure?: boolean },
 	): Promise<void>;
 
+	/**
+	 * The host's pull request read defaults (`ConfigProvider.getPullRequestReadOptions`), for a read that resolves
+	 * an option a caller may omit once, so its sub-reads can't disagree on it.
+	 */
+	getPullRequestReadOptions(): { readonly mergeQueue?: boolean };
+
 	/** The configured connection descriptors, as `getConfigured` exposes them. */
 	getConfigured(
 		id?: IntegrationIds,

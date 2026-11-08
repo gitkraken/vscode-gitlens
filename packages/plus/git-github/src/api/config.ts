@@ -75,6 +75,16 @@ export interface GitHubApiConfig {
 	 * Only used when `getLaunchpadIncludedOrganizations` returns empty.
 	 */
 	getLaunchpadIgnoredOrganizations?(): string[];
+
+	/**
+	 * Pull request read knobs. `mergeQueue: true` makes GitHub.com pull request reads select merge-queue data (the
+	 * queue entry, whether the base branch requires a queue, and the latest queue removal) and the etag cheap check
+	 * select its queue state. Off (omitted) by default: the selection costs a GitHub rate-limit request per pull
+	 * request read, and makes a queued pull request's etag change with every queue state change. A read's own
+	 * `mergeQueue` option, where it takes one, overrides this. Read on every query build, so a change applies from
+	 * the next read.
+	 */
+	getPullRequestReadOptions?(): { readonly mergeQueue?: boolean };
 }
 
 /**

@@ -58,7 +58,12 @@ export type PullRequestFieldGroup =
 	| 'milestone'
 	/**
 	 * `mergeQueue`, `mergeQueueRequired` and `mergeQueueRemoval`: the merge-queue data was read, so an absent entry
-	 * means not queued and an absent removal means none since the pull request last joined. Only GitHub.com's is read.
+	 * means not queued and an absent removal means none since the pull request last joined. Only GitHub.com's is read,
+	 * and only for a read that asks for it or, when it doesn't say, a host that opts in
+	 * (`ConfigProvider.getPullRequestReadOptions`). The tables describe what a read that selects it gets;
+	 * {@link getPullRequestFieldPresence} answers `not-requested` for a row that carries no `mergeQueueRequired`,
+	 * since GitHub's `isMergeQueueEnabled` is non-null, so every row whose read selected the merge-queue data has it
+	 * defined.
 	 */
 	| 'mergeQueue';
 
@@ -520,14 +525,30 @@ function lookup<P extends string, G extends string>(
 	return table != null && Object.hasOwn(table, projection) ? table[projection] : undefined;
 }
 
+/** The table entries with `mergeQueue` downgraded to `not-requested`, made once per entry rather than per call. */
+const withoutMergeQueue = new WeakMap<Presence<PullRequestFieldGroup>, Presence<PullRequestFieldGroup>>();
+
 /**
  * Which field groups the read that produced `pr` fetched, keyed by its provider and {@link PullRequestShape.projection}.
  * `undefined` when either is unknown or the provider has no table yet — then nothing can be said about any field.
+ *
+ * `mergeQueue` is derived from the row: a table says `fetched` for a read that selects the merge-queue data (by its
+ * own `mergeQueue`, else by the host's `ConfigProvider.getPullRequestReadOptions`). GitHub's `isMergeQueueEnabled` is
+ * non-null, so `mergeQueueRequired` is defined on every row whose read selected it, and a row without it was read
+ * without the selection.
  */
 export function getPullRequestFieldPresence(
 	pr: PullRequestShape,
 ): Readonly<Record<PullRequestFieldGroup, FieldPresence>> | undefined {
-	return lookup(pullRequestPresence, pr.provider.id, pr.projection);
+	const presence = lookup(pullRequestPresence, pr.provider.id, pr.projection);
+	if (presence?.mergeQueue !== 'fetched' || pr.mergeQueueRequired != null) return presence;
+
+	let downgraded = withoutMergeQueue.get(presence);
+	if (downgraded == null) {
+		downgraded = Object.freeze({ ...presence, mergeQueue: 'not-requested' });
+		withoutMergeQueue.set(presence, downgraded);
+	}
+	return downgraded;
 }
 
 /**

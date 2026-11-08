@@ -300,11 +300,67 @@ suite('pullRequestEtag', () => {
 		);
 	});
 
+	test('a read that selected the merge-queue data marks every etag it computes, whatever the includes', () => {
+		for (const includes of includeSets) {
+			assert.notEqual(
+				pullRequestEtag({ ...base, mergeQueueRead: true }, includes),
+				pullRequestEtag(base, includes),
+				`never queued, no removal (${includes.join(', ')})`,
+			);
+		}
+		assert.equal(
+			pullRequestEtag({ ...base, mergeQueueRead: true }, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue-read"]]',
+		);
+
+		// After the queue terms, before the includes, so a queued or removed pull request keeps its own terms.
+		assert.equal(
+			pullRequestEtag(
+				{
+					...base,
+					mergeQueueRead: true,
+					mergeQueue: {
+						state: PullRequestMergeQueueState.AwaitingChecks,
+						enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+					},
+				},
+				[],
+			),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue","AwaitingChecks",1767312000000],["merge-queue-read"]]',
+		);
+		assert.equal(
+			pullRequestEtag({ ...base, mergeQueueRead: true, mergeQueueRemovedAt: new Date('2026-01-02T00:00:00Z') }, [
+				'reviewDecision',
+			]),
+			'pr1+reviewDecision:["opened",false,1767225600000,"abc",["merge-queue-removed",1767312000000],["merge-queue-read"],"Approved"]',
+		);
+	});
+
+	test('a read that did not select the merge-queue data computes the etag it did before the marker existed', () => {
+		assert.equal(pullRequestEtag(base, []), 'pr1:["opened",false,1767225600000,"abc"]');
+		assert.equal(
+			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()), ['reviewDecision']),
+			'pr1+reviewDecision:["opened",false,1767225600000,"abc","Approved"]',
+		);
+	});
+
+	test('a row marks its etag exactly when it carries `mergeQueueRequired`, whatever its value', () => {
+		assert.equal(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()).mergeQueueRead, undefined);
+		assert.equal(
+			pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: true })).mergeQueueRead,
+			true,
+		);
+		assert.equal(
+			pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: false })).mergeQueueRead,
+			true,
+		);
+	});
+
 	test('neither whether the queue is required nor the queue position is an etag input', () => {
-		const plain = pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()), []);
+		// Only that the row carries the answer is: the marker of a read that selected the merge-queue data.
 		assert.equal(
 			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: true })), []),
-			plain,
+			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: false })), []),
 		);
 
 		const entry = {

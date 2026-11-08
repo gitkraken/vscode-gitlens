@@ -117,7 +117,7 @@ export async function drainPullRequests(
 	sweepOptions:
 		| Pick<
 				PullRequestSweepOptions,
-				'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency' | 'includeRemoteInfo'
+				'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency' | 'includeRemoteInfo' | 'mergeQueue'
 		  >
 		| undefined,
 	connectionId: string | undefined,
@@ -181,6 +181,7 @@ export async function drainPullRequests(
 							filters: filters,
 							// Lite by default; the full projection (reviews) only when a caller opts in.
 							summary: !includeReviews,
+							mergeQueue: sweepOptions?.mergeQueue,
 						},
 						connectionId,
 					)

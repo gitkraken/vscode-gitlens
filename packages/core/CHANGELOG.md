@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (plus/git-github, plus/integrations)** — GitHub.com pull request reads no longer select merge-queue data unless the host opts in with `ConfigProvider.getPullRequestReadOptions` (`{ mergeQueue: true }`; `GitHubApiConfig.getPullRequestReadOptions` for a `GitHubApi` built directly), or per read with `mergeQueue` on `listPullRequestsPage`, `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches`, `sweepPullRequests` and `sweepClosedPullRequests` (`true` selects it, `false` doesn't, omitted follows the host; the host-cached point reads follow the host alone, and a repo-scoped list or sweep goes through provider-apis, which selects none). Without the selection (`mergeQueue: false`, or neither the read nor the host asking for it), rows carry no `mergeQueue`, `mergeQueueRequired` or `mergeQueueRemoval`, `getPullRequestFieldPresence` answers `mergeQueue: 'not-requested'`, the etag cheap check selects no queue state, and no pull request's etag carries queue state or a removal (so a pull request joining, moving through or leaving a queue, or joining and being removed between two checks, no longer reads as changed), and reads cost what they did before 0.34.0 (the `timelineItems(last: 1)` connection, one rate-limit request per row, is gone: e.g. a 30-row full search page is 1 point instead of 2 and a 25-branch `getPullRequestsForBranches` chunk 10 instead of 13). `getMergeQueueEntriesForBranches`, `enqueuePullRequest` and `dequeuePullRequest` are unaffected. A read with merge-queue data adds a marker to every etag it computes, so an etag stored by a read made the other way compares changed once and is read in full again, as does every 0.34.0 etag once a read selects the data. A read without it computes the etag it did before 0.34.0, so under such a read a held 0.34.0 etag of a pull request that wasn't queued or removed still compares unchanged, and its row keeps the merge-queue fields it was read with until it next changes
+
 ## [0.34.0] - 2026-11-08
 
 ### Added

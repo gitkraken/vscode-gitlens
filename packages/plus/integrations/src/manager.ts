@@ -214,6 +214,13 @@ type PullRequestSweepCommonOptions = {
 	 */
 	includeRemoteInfo?: boolean;
 	/**
+	 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+	 * read: `true` selects it, `false` doesn't, omitted follows the host's `ConfigProvider.getPullRequestReadOptions`.
+	 * Account-wide targets only; a repo-scoped read goes through provider-apis, which selects none, and every other
+	 * provider ignores it. Selecting it costs a rate-limit request per row.
+	 */
+	mergeQueue?: boolean;
+	/**
 	 * Page budget per provider. A stop at this budget with a resumable cursor is reported as
 	 * `pagination-incomplete` with `recovery: 'page-budget'`. A part no budget reaches is reported beside it
 	 * with `recovery: 'none'`: a `provider-limit` omission when the reported match count exceeds the provider's
@@ -462,6 +469,14 @@ export interface IntegrationManager {
 		 * checked out or matched to local remotes. Defaults to `true`; other providers ignore it.
 		 */
 		includeRemoteInfo?: boolean;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`. Account-wide only (no `repos`); the repo-scoped read goes through
+		 * provider-apis, which selects none, and every other provider ignores it. Selecting it costs a rate-limit
+		 * request per row.
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	/**
 	 * Pull requests matching structured criteria over a repository/organization or current-user relationship
@@ -549,6 +564,13 @@ export interface IntegrationManager {
 		 * rather than a contract about which fields are present.
 		 */
 		summary?: boolean;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`. Every other provider ignores it. Selecting it costs a
+		 * rate-limit request per row.
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
 		state?: IssueStateFilter;
@@ -837,6 +859,15 @@ export interface IntegrationManager {
 		 * computed (and the cheap check's selection); the full read is the same.
 		 */
 		etagIncludes?: readonly PullRequestEtagInclude[];
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com, in the cheap
+		 * check and the full read alike: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it. A read
+		 * that selects it adds a marker to every etag it computes, so its etags and those of a read that doesn't never
+		 * compare equal: changing this, or the host setting, reads each held target in full once. Selecting it costs a
+		 * rate-limit request per row, in the cheap check as well as the full read.
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
@@ -882,6 +913,13 @@ export interface IntegrationManager {
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it.
+		 * Selecting it costs a rate-limit request per row (a 25-branch chunk 13 points instead of 10 without).
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
