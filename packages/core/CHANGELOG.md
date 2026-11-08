@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-08
+
 ### Added
 
 - Adds `mergeQueue` (`PullRequestMergeQueueEntry`) to pull requests read from GitHub.com, set while a pull request waits in its base branch's merge queue: its `state` (`PullRequestMergeQueueState`), `enqueuedAt`, `estimatedMergeAt` when GitHub gives an estimate (GitHub's time remaining, fixed to a date when the pull request is read, so a held entry counts down; it may be past on an entry held a while), and the queue's `url`. A queued pull request's `state` stays `opened`. Field presence gains a `mergeQueue` group, `fetched` wherever `stack` is and `unavailable` on GitHub Enterprise, which isn't asked for it, and on every other provider; absent `mergeQueue` means not queued only where that group is `fetched`. Adds `isPullRequestInMergeQueue` to tell whether an open pull request is queued. On GitHub.com a queued pull request's batch-read etag also covers its queue state and enqueue time, which GitHub changes without moving the update time, with no `etagIncludes` needed; the cheap check selects them there, and a pull request that isn't queued keeps exactly the etag it had before, under any `etagIncludes` (git, plus/git-github, plus/integrations)
@@ -1185,7 +1187,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.34.0...HEAD
+[0.34.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...gitkraken:releases/core/v0.34.0
 [0.33.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...gitkraken:releases/core/v0.33.0
 [0.32.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.31.0...gitkraken:releases/core/v0.32.0
 [0.31.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.30.0...gitkraken:releases/core/v0.31.0
