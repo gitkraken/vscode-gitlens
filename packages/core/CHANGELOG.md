@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `getBranchReflogWork` to `utils/branch.utils.js`: from a local branch's reflog (newest first, as `refs.getReflogEntries` reads it), whether the branch has work authored on it (`'work'`), was created here and never had any (`'none'`), or can't be told (`'unknown'`: an empty or expired reflog, or a branch created from the same-named remote branch). Every entry counts as work except a move that adds none: the branch's creation, a reset or rename, a fast-forward merge or pull, a fetch, a clone, or a rebase that replayed nothing. It tells a branch whose work was fast-forward merged apart from a new one, which `getBranchMergedStatus` reports alike, as merged (git)
 - Adds `getBranchLandedState` to `utils/branchLanded.utils.js`, with the `BranchLandedPullRequestCandidate` and `BranchLandedState` types: from a branch's tip sha and its pull requests, whether its work landed through a merged pull request. The head sha decides, never recency: an open pull request at the tip means the branch is live (`live`), a merged one at the tip means it landed, and otherwise the merged pull request with the fewest new commits decides between landed (none) and a successor (some). A pull request without a head sha never decides (git)
 
+### Fixed
+
+- Fixes `getCommitReachability` keeping the tags a commit is reachable from across a tag created or deleted: a `'tags'` change now clears the reachability cache too, as a branch change does (git)
+
 ## [0.33.0] - 2026-11-06
 
 ### Added

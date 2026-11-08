@@ -1140,6 +1140,8 @@ export class Cache implements Disposable {
 				// Keyed by ref names too, so a count or fork point taken against a tag-named base would outlive its move
 				keysToClear.add('leftRightCommitCount');
 				keysToClear.add('mergeBase');
+				// Lists the tags a commit is reachable from, which a tag created or deleted changes
+				keysToClear.add('reachability');
 			}
 
 			if (types.includes('tracking')) {
