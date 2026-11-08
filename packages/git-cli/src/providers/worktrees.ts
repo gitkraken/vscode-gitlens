@@ -294,6 +294,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			),
 		);
 
+		// Validated before the check below, so the cache's forced read evicts right after it rather than after a wait
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
+
 		if (force && this._unspawnedReads.has(this.cache.getCommonPath(repoPath))) {
 			force = false;
 		}

@@ -1,9 +1,9 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { some } from '@gitlens/utils/iterable.js';
-import { dirname, isAbsolute, isDescendant, joinPaths, normalizePath, relative } from '@gitlens/utils/path.js';
+import { isDescendant, joinPaths, normalizePath, relative } from '@gitlens/utils/path.js';
 import { FileType } from '../context.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
-import { getWorktreeAdminId, parseWorktreeAdminPath } from '../utils/repository.utils.js';
+import { getWorktreeAdminId, isIgnoredWorktreeEntry, parseWorktreeAdminPath } from '../utils/repository.utils.js';
 import { allWatchedRepositoryChanges, classifyGitDirChange } from './classifyChange.js';
 import type { GitConfigSections, GitConfigSectionsChange } from './configSections.js';
 import { diffGitConfigSections, parseGitConfigBytes } from './configSections.js';
@@ -940,13 +940,7 @@ export class WatchGroup implements UnifiedDisposable {
 	private async readIgnoredWorktree(id: string): Promise<boolean | undefined> {
 		const adminDir = joinPaths(this.commonGitDir, 'worktrees', id);
 		const content = await this.readWithTimeout(joinPaths(adminDir, 'gitdir'));
-		// Git writes the path of the worktree's `.git` file, relative to the entry under `worktree.useRelativePaths`
-		const dotGit = content != null ? new TextDecoder().decode(content).trim() : '';
-		const dotGitPath = dotGit ? normalizePath(isAbsolute(dotGit) ? dotGit : joinPaths(adminDir, dotGit)) : '';
-		if (!dotGitPath.endsWith('/.git')) return undefined;
-
-		const worktreePath = dirname(dotGitPath);
-		return this._ignoredWorktreeRoots.some(root => isDescendant(worktreePath, root));
+		return isIgnoredWorktreeEntry(adminDir, content, this._ignoredWorktreeRoots);
 	}
 
 	private queueWorktreesBaseline(take: () => Promise<void>): void {
@@ -1246,7 +1240,7 @@ function deliverRepoChanged(
 }
 
 /** The path doesn't exist: Node's error, or the one VS Code's file system raises */
-function isNotFound(ex: unknown): boolean {
+export function isNotFound(ex: unknown): boolean {
 	const code = (ex as { code?: unknown } | undefined)?.code;
 	return code === 'ENOENT' || code === 'FileNotFound';
 }
