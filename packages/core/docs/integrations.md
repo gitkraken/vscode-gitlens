@@ -35,15 +35,15 @@ models, and the provider clients are deliberately **not** on the facade: they ch
 cross-boundary contract — the package never imports `vscode` and has no ambient globals. The extension host's
 broader `IntegrationServiceContext` is internal and is not part of the published facade.
 
-| Provider       | Required | What it must do                                                                                                                                                                                  |
-| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                                                            |
-| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                                                   |
-| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, a change event.                                                                                              |
-| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                                                            |
-| `cache`        | no       | `IntegrationManagerCacheProvider`, whose only method is `getCurrentAccount`. Omit it for correct uncached reads; implement it for a long-lived manager to deduplicate provider identity lookups. |
-| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                                                      |
-| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                                                   |
+| Provider       | Required | What it must do                                                                                                                                                                                                                                 |
+| -------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                                                                                                           |
+| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                                                                                                  |
+| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, optional `getPullRequestReadOptions()` (`{ mergeQueue: true }` opts GitHub.com reads in to merge-queue data, unless a read says otherwise), a change event. |
+| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                                                                                                           |
+| `cache`        | no       | `IntegrationManagerCacheProvider`, whose only method is `getCurrentAccount`. Omit it for correct uncached reads; implement it for a long-lived manager to deduplicate provider identity lookups.                                                |
+| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                                                                                                     |
+| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                                                                                                  |
 
 A complete, type-checked, dependency-free example (including the optional-cache path) lives in
 [`tests/fixtures/integrations-consumer/src/consumer.test.ts`](https://github.com/gitkraken/vscode-gitlens/blob/core/tests/fixtures/integrations-consumer/src/consumer.test.ts).
@@ -204,7 +204,13 @@ The hosts with a cheap check select only the change state:
   that compares unchanged keeps the milestone as it was read. Against github.com it also selects each pull request's
   merge-queue entry (its `state` and `enqueuedAt` only), because joining, moving through and leaving the queue don't
   move the update time. Only a queued pull request's etag carries it, with no `etagIncludes` needed, so a pull request
-  that isn't queued keeps exactly the etag it had before the queue was read, under any include set. The estimate
+  that isn't queued keeps its queue-free etag plus the read marker described below, under any include set. All of
+  this is so only for a read that selects merge-queue data: `mergeQueue: true` on the read, or no `mergeQueue` and a
+  host whose `ConfigProvider.getPullRequestReadOptions()` answers `mergeQueue: true`; otherwise the check selects no
+  queue state, and no pull request's etag carries a queue entry, a removal or the marker. A read that selected the data
+  adds a `merge-queue-read` marker to every etag it computes, queued or not, so its etags and a read without the data's
+  never compare equal and a host switching between the two reads each held target in full once (the check selects
+  `isMergeQueueEnabled` only so the node says it selected the data; its value is never an input). The estimate
   (`estimatedMergeAt`) isn't an input: GitHub recomputes it as the queue moves, so an `unchanged` queued pull request's
   estimate can be stale, though as a date it keeps counting down. Nor is the `position`, which moves as the entries
   ahead merge, or `mergeQueueRequired`, which only a change to the base branch's rules moves, so an `unchanged` row's
@@ -289,6 +295,22 @@ so their rows are exactly its rows; a match that read can't check fails its whol
 fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. Bitbucket DC and Azure DevOps refuse a
 `headOwner` naming another owner, since neither can find a fork by its owner. It is uncached and bypasses
 `IntegrationCacheProvider.getPullRequestForBranch`.
+
+`listPullRequestsPage`, `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches`,
+`sweepPullRequests` and `sweepClosedPullRequests` also take `mergeQueue`, a per-read override of the host's
+`getPullRequestReadOptions().mergeQueue`, for a host that wants queue state on one surface without paying for it on
+all of them. `true` selects merge-queue data on GitHub.com for that read, `false` doesn't, and omitting it follows the
+host's setting (off when the host has none). Enterprise and every other provider ignore it, as does a read that goes
+through provider-apis, which selects none: the repo-scoped `listPullRequestsPage` and the repo-scoped targets of the
+sweeps. The point reads on the integration classes (`getPullRequest`, `getPullRequestForBranch`,
+`getPullRequestForCommit` and `getIssueOrPullRequest`) don't take it: the host caches their rows under a key that
+doesn't carry it, so they follow the host's setting alone. `getPullRequestsBatch` and `getPullRequestsForBranches`
+resolve it once per call, so the batch's cheap check and full read, and the branch read's by-name query and the batch
+read that settles a truncated target, always select the same data. A read that selects merge-queue data adds a
+marker to every etag it computes, so an etag from such a read never equals one from a read that doesn't, even for a
+pull request that was never queued. Changing either the per-read option or the host's setting therefore costs one
+full read per held target, and a row held without the data is read in full again to gain it. A read that doesn't
+select it computes the etag it did before merge-queue data existed.
 
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
@@ -405,7 +427,12 @@ The cells that aren't obvious from the projection names:
   GitLens' own reads don't. Its comment count is issue comments only, where `search` counts review
   comments too. On GitHub Enterprise it reads check runs only from server 3.0 on, which the table can't see.
 - `authoredByMe` needs the current account, which a read may fail to resolve, so it is never `fetched`.
-- `stack` and `mergeQueue` are selected only against github.com. A row without `mergeQueue` where the group is
+- `stack` and `mergeQueue` are selected only against github.com, and `mergeQueue` only by a read that asks for it
+  (`mergeQueue: true` on the manager read) or, when the read says nothing, a host whose
+  `ConfigProvider.getPullRequestReadOptions()` answers `mergeQueue: true`. The `mergeQueue` cells in the tables read
+  `fetched` for such a read; for any other read every GitHub.com row answers `not-requested`, which
+  `getPullRequestFieldPresence` derives from the row (GitHub's `isMergeQueueEnabled` is non-null, so a row whose read
+  selected the merge-queue data always has `mergeQueueRequired` set). A row without `mergeQueue` where the group is
   `fetched` is not queued; `isPullRequestInMergeQueue(pr)` answers that for an open pull request. Its
   `estimatedMergeAt` is GitHub's estimate of the time remaining, fixed to a date when the row was read, so it may be
   in the past on a row held a while, and its `position` is 1-based in enqueue order.
@@ -418,12 +445,14 @@ The cells that aren't obvious from the projection names:
   not queued, and not updated since. Any later update clears it — a comment or a label as well as a push — because
   GitHub's timeline orders commits by commit date, not push time, so it can't say whether a push followed the
   removal; GitHub's removal itself doesn't move the update time.
-- Cost: the merge-queue selection adds one connection per pull request (`timelineItems(last: 1)`). By GitHub's
-  rate-limit formula (a request per connection per parent node, summed, divided by 100 and rounded, minimum 1) that
-  is one more request per pull request read: a 30-row full search page goes from 121 requests (1 point) to 151 (2
-  points), a 100-row lite page from 1 to 101 (1 point either way), a 25-target batch read from 100 to 125 (1 point),
-  and the cheap check's 25 targets from 0 or 25 (with `'checks'`) to 25 or 50 (1 point either way). The filtered
-  search's worst case, 15 facets of 30 rows, goes from 1,815 requests (18 points) to 2,265 (23).
+- Cost, which only a read that selects merge-queue data pays (any other pays nothing; see the per-read `mergeQueue`
+  option in §4): the merge-queue selection adds one connection per
+  pull request (`timelineItems(last: 1)`). By GitHub's rate-limit formula (a request per connection per parent node,
+  summed, divided by 100 and rounded, minimum 1) that is one more request per pull request read: a 30-row full search
+  page goes from 121 requests (1 point) to 151 (2 points), a 100-row lite page from 1 to 101 (1 point either way), a
+  25-target batch read from 100 to 125 (1 point), and the cheap check's 25 targets from 0 or 25 (with `'checks'`) to 25
+  or 50 (1 point either way). The filtered search's worst case, 15 facets of 30 rows, goes from 1,815 requests (18
+  points) to 2,265 (23).
 
 #### Every other provider
 

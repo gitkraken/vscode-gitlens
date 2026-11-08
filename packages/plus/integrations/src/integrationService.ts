@@ -924,6 +924,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	// failure degrades to a warning instead of failing the whole call. The reads are repo-scoped (they
 	// compose the git-host `*Result` cores); account-scoped fan-out is the adapter's responsibility.
 
+	/** The host's pull request read defaults (`ConfigProvider.getPullRequestReadOptions`), `{}` for a host with none. */
+	getPullRequestReadOptions(): { readonly mergeQueue?: boolean } {
+		return this.ctx.config.getPullRequestReadOptions?.() ?? {};
+	}
+
 	/**
 	 * Warnings for an early-returning read where the integration couldn't be resolved. When a specific
 	 * `connectionId` or self-managed `domain` was requested, a missing integration means that target is
@@ -1224,6 +1229,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		scopeConcurrency?: number;
 		/** See {@link IntegrationManager.listPullRequestsPage}. */
 		includeRemoteInfo?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		mergeQueue?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
 	}
@@ -1242,6 +1249,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 		/** See {@link IntegrationManager.searchPullRequestsPage}. */
 		summary?: boolean;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		mergeQueue?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return searchPullRequestsPage(this, options);
 	}
@@ -1356,6 +1365,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 		/** Widens every etag to the listed inputs; see {@link IntegrationManager.getPullRequestsBatch}. */
 		etagIncludes?: readonly PullRequestEtagInclude[];
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
 	}
@@ -1369,6 +1380,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>> {
 		return getPullRequestsForBranches(this, options);
 	}

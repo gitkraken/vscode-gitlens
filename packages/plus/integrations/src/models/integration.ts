@@ -168,6 +168,14 @@ export interface PullRequestEtagFields {
 	 * moves neither its update time nor, at either check, `mergeQueue`.
 	 */
 	mergeQueueRemovedAt?: Date;
+	/**
+	 * The read selected merge-queue data (GitHub.com, for a read that asks for it or a host that opts in), whatever
+	 * that data says. Part of the etag whenever it is set, as a marker: without it a pull request that isn't queued and
+	 * has no removal computes the etag it has without the data, so a host that starts asking for the data would keep a
+	 * held row lacking it as `unchanged`. A full row sets it from its `mergeQueueRequired`, which only a read that
+	 * selected the data carries; a cheap check sets it from the same selection.
+	 */
+	mergeQueueRead?: true;
 }
 
 /**

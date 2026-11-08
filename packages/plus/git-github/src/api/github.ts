@@ -336,7 +336,9 @@ position
  * been followed by a rejoin. Shared by the full read and the etag's cheap check so both derive the same removal.
  * Aliased so it can never collide with another `timelineItems` selection. One extra connection per pull request:
  * against GitHub's rate-limit formula (a request per connection per parent node, summed, divided by 100) that adds
- * a point per 100 pull requests a document reads — see the `mergeQueue` cost note in core's integrations docs.
+ * a point per 100 pull requests a document reads — see the `mergeQueue` cost note in core's integrations docs. That
+ * cost is why the selection it belongs to is made only for a read that asks for it or a host that opts in
+ * (`getPullRequestReadOptions`).
  */
 const gqlPullRequestMergeQueueEventsFragment = `
 mergeQueueEvents: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
@@ -352,8 +354,10 @@ mergeQueueEvents: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT,
 
 /**
  * Merge-queue selection, appended alongside the stack one and for the same reason: GitHub Enterprise Server's schema
- * isn't verified to have `mergeQueueEntry`, and an unknown field fails the whole query rather than the field. Always
- * add it via `gqlPullRequestMergeQueueFragmentFor`, at every site that adds the stack selection.
+ * isn't verified to have `mergeQueueEntry`, and an unknown field fails the whole query rather than the field. It is
+ * also selected only when the read asks for it (`mergeQueue`) or, when it doesn't say, the host opts in with
+ * `GitHubApiConfig.getPullRequestReadOptions`, as it costs a rate-limit request per pull request read. Always add it
+ * via `gqlPullRequestMergeQueueFragmentFor`, at every site that adds the stack selection.
  */
 const gqlPullRequestMergeQueueFragment = `
 mergeQueueEntry {
@@ -363,8 +367,24 @@ isMergeQueueEnabled
 ${gqlPullRequestMergeQueueEventsFragment}
 `;
 
-function gqlPullRequestMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
-	return isGitHubDotCom(options) ? gqlPullRequestMergeQueueFragment : '';
+function gqlPullRequestMergeQueueFragmentFor(
+	options: { baseUrl?: string; mergeQueue?: boolean } | undefined,
+	config: Pick<GitHubApiConfig, 'getPullRequestReadOptions'>,
+): string {
+	return readsMergeQueue(options, config) ? gqlPullRequestMergeQueueFragment : '';
+}
+
+/**
+ * Whether a pull request read selects merge-queue data: github.com only, and only when the read asks for it
+ * (`options.mergeQueue`) or, when it doesn't say, the host opts in (`GitHubApiConfig.getPullRequestReadOptions`).
+ */
+function readsMergeQueue(
+	options: { baseUrl?: string; mergeQueue?: boolean } | undefined,
+	config: Pick<GitHubApiConfig, 'getPullRequestReadOptions'>,
+): boolean {
+	return (
+		isGitHubDotCom(options) && (options?.mergeQueue ?? config.getPullRequestReadOptions?.()?.mergeQueue) === true
+	);
 }
 
 /** One layer of a stack, as returned by the stacks REST API. Ordered bottom to top. */
@@ -590,8 +610,9 @@ repository {
  * The change state a pull request's etag reads (see {@link GitHubPullRequestEtagNode}). Every selection is copied
  * from {@link gqlPullRequestFragment} — same arguments, same nesting — so the cheap read sees exactly the values
  * the full read maps; only a requested reviewer drops its avatar and URL, since its nullness is all the etag reads.
- * `merged` is not needed: `state` already reads `MERGED`. The merge-queue entry's state is added against github.com
- * only, by {@link gqlPullRequestEtagMergeQueueFragmentFor}, as the full read adds its entry.
+ * `merged` is not needed: `state` already reads `MERGED`. The merge-queue entry's state is added by
+ * {@link gqlPullRequestEtagMergeQueueFragmentFor} exactly when the full read adds its entry: against github.com,
+ * for a read that selects merge-queue data.
  */
 const gqlPullRequestEtagFragment = `
 id
@@ -607,19 +628,25 @@ headRefOid
  * state, and since when (so leaving and rejoining the queue between checks still reads as a change), and its latest
  * merge-queue event, so a pull request that joined and was removed between two checks (neither of which moves the
  * update time) still reads as a change. Not the estimate, which GitHub recomputes as the queue moves and would fail
- * every check of a queued pull request, nor the position, which moves as the entries ahead of it merge, nor
- * `isMergeQueueEnabled`, which only a change to the base branch's rules moves.
+ * every check of a queued pull request, nor the position, which moves as the entries ahead of it merge. It also
+ * selects `isMergeQueueEnabled`, which only a change to the base branch's rules moves and so is never an etag input:
+ * its presence on the node is what tells the etag the read selected merge-queue data (see
+ * `PullRequestEtagFields.mergeQueueRead`).
  */
 const gqlPullRequestEtagMergeQueueFragment = `
 mergeQueueEntry {
 	state
 	enqueuedAt
 }
+isMergeQueueEnabled
 ${gqlPullRequestMergeQueueEventsFragment}
 `;
 
-function gqlPullRequestEtagMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
-	return isGitHubDotCom(options) ? gqlPullRequestEtagMergeQueueFragment : '';
+function gqlPullRequestEtagMergeQueueFragmentFor(
+	options: { baseUrl?: string; mergeQueue?: boolean } | undefined,
+	config: Pick<GitHubApiConfig, 'getPullRequestReadOptions'>,
+): string {
+	return readsMergeQueue(options, config) ? gqlPullRequestEtagMergeQueueFragment : '';
 }
 
 /**
@@ -1304,6 +1331,10 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
@@ -1328,7 +1359,7 @@ export class GitHubApi {
 		pullRequest(number: $number) {
 			${gqlPullRequestLiteFragment}
 			${gqlPullRequestStackFragmentFor(options)}
-			${gqlPullRequestMergeQueueFragmentFor(options)}
+			${gqlPullRequestMergeQueueFragmentFor(options, this.config)}
 		}
 	}
 }`;
@@ -1375,6 +1406,10 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			include?: GitHubPullRequestState[];
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
@@ -1410,7 +1445,7 @@ export class GitHubApi {
 				nodes {
 					${gqlPullRequestLiteFragment}
 					${gqlPullRequestStackFragmentFor(options)}
-					${gqlPullRequestMergeQueueFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options, this.config)}
 				}
 			}
 		}
@@ -1473,6 +1508,10 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -1507,7 +1546,7 @@ export class GitHubApi {
 					nodes {
 						${gqlPullRequestLiteFragment}
 						${gqlPullRequestStackFragmentFor(options)}
-						${gqlPullRequestMergeQueueFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options, this.config)}
 					}
 				}
 			}
@@ -4111,6 +4150,10 @@ export class GitHubApi {
 			 * an explicit relationship qualifier such as `author:@me` or `review-requested:@me`.
 			 */
 			includeDefaultInvolvement?: boolean;
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean; totalCount?: number }> {
@@ -4152,7 +4195,7 @@ export class GitHubApi {
 				...on PullRequest {
 					${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 					${gqlPullRequestStackFragmentFor(options)}
-					${gqlPullRequestMergeQueueFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options, this.config)}
 				}
 			}
 		}
@@ -4258,6 +4301,10 @@ export class GitHubApi {
 			avatarSize?: number;
 			silent?: boolean;
 			state?: PullRequestStateFilter;
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
@@ -4738,12 +4785,14 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
-		options?: { baseUrl?: string; avatarSize?: number },
+		options?: { baseUrl?: string; avatarSize?: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequest | undefined>[]> {
 		const scope = getScopedLogger();
 		if (coordinates.length === 0) return [];
 
+		const stackFragment = gqlPullRequestStackFragmentFor(options);
+		const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
 		const params = coordinates
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
 			.join('\n\t\t\t\t');
@@ -4752,8 +4801,8 @@ export class GitHubApi {
 				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestFragment}
-						${gqlPullRequestStackFragmentFor(options)}
-						${gqlPullRequestMergeQueueFragmentFor(options)}
+						${stackFragment}
+						${mergeQueueFragment}
 					}
 				}`,
 			)
@@ -4824,7 +4873,11 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
-		options?: { baseUrl?: string; etagIncludes?: readonly GitHubPullRequestEtagInclude[] },
+		options?: {
+			baseUrl?: string;
+			etagIncludes?: readonly GitHubPullRequestEtagInclude[];
+			mergeQueue?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<GitHubPullRequestEtagNode | undefined>[]> {
 		const scope = getScopedLogger();
@@ -4834,6 +4887,7 @@ export class GitHubApi {
 			new Set(options?.etagIncludes),
 			include => gqlPullRequestEtagIncludeFragments[include],
 		);
+		const mergeQueueFragment = gqlPullRequestEtagMergeQueueFragmentFor(options, this.config);
 
 		const params = coordinates
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
@@ -4843,7 +4897,7 @@ export class GitHubApi {
 				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestEtagFragment}
-						${gqlPullRequestEtagMergeQueueFragmentFor(options)}
+						${mergeQueueFragment}
 						${includeFragments.join('')}
 					}
 				}`,
@@ -5004,7 +5058,7 @@ export class GitHubApi {
 			branch: string;
 			headOwners: readonly (string | undefined)[];
 		}[],
-		options: { baseUrl?: string; avatarSize?: number; limit: number },
+		options: { baseUrl?: string; avatarSize?: number; limit: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }>[]> {
 		const scope = getScopedLogger();
@@ -5014,6 +5068,8 @@ export class GitHubApi {
 			headRepositoryOwner: { login: string } | null;
 		}
 
+		const stackFragment = gqlPullRequestStackFragmentFor(options);
+		const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
 		const params = queries
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
 			.join('\n\t\t\t\t');
@@ -5024,8 +5080,8 @@ export class GitHubApi {
 						totalCount
 						nodes {
 							${gqlPullRequestFragment}
-							${gqlPullRequestStackFragmentFor(options)}
-							${gqlPullRequestMergeQueueFragmentFor(options)}
+							${stackFragment}
+							${mergeQueueFragment}
 							headRepositoryOwner {
 								login
 							}
@@ -5710,6 +5766,10 @@ export class GitHubApi {
 			 * them and LOWERS it from four on.
 			 */
 			summary?: boolean;
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequestSearchResult | undefined> {
@@ -5803,6 +5863,8 @@ export class GitHubApi {
 		);
 
 		const includeVar = (alias: string): string => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
+		const stackFragment = gqlPullRequestStackFragmentFor(options);
+		const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
 		const params = facets.flatMap(f => [
 			`$${f.alias}Search: String!`,
 			`$${f.alias}Cursor: String`,
@@ -5819,8 +5881,8 @@ export class GitHubApi {
 				nodes {
 					... on PullRequest {
 						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
-						${gqlPullRequestStackFragmentFor(options)}
-						${gqlPullRequestMergeQueueFragmentFor(options)}
+						${stackFragment}
+						${mergeQueueFragment}
 					}
 				}
 			}`,
@@ -5951,6 +6013,10 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			include?: PullRequestState[];
+			/**
+			 * Whether this read selects merge-queue data, over the host's `getPullRequestReadOptions`. GitHub.com only.
+			 */
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
@@ -5973,6 +6039,8 @@ export class GitHubApi {
 		>;
 
 		try {
+			const stackFragment = gqlPullRequestStackFragmentFor(options);
+			const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
 			const params = stateSearches.map(({ alias }) =>
 				alias === 'search' ? '$searchQuery: String!' : `$${alias}SearchQuery: String!`,
 			);
@@ -5983,8 +6051,8 @@ export class GitHubApi {
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
-				${gqlPullRequestStackFragmentFor(options)}
-				${gqlPullRequestMergeQueueFragmentFor(options)}
+				${stackFragment}
+				${mergeQueueFragment}
 			}
 		}
 	}`;

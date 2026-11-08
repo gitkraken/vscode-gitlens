@@ -251,8 +251,9 @@ function createFullPullRequest(
 }
 
 /**
- * `mergeQueueEntry` is selected only against github.com, like the stack fields, so the mapper sees it absent
- * (Enterprise), `null` (github.com, not queued), or populated. Only the last may produce a queue entry.
+ * `mergeQueueEntry` is selected only against github.com, like the stack fields, and only for a host that opts in, so
+ * the mapper sees it absent (Enterprise, or no opt-in), `null` (not queued), or populated. Only the last may produce a
+ * queue entry.
  */
 suite('fromGitHubPullRequestLite merge queue mapping', () => {
 	const queued = {

@@ -200,6 +200,11 @@ function toPullRequestEtagFields(
 		fields.mergeQueueRemovedAt = mergeQueueRemoval.removedAt;
 	}
 
+	// Only the merge-queue selection carries it, and only its presence is read, never its value.
+	if (node.isMergeQueueEnabled != null) {
+		fields.mergeQueueRead = true;
+	}
+
 	if (etagIncludes.includes('mergeable')) {
 		fields.mergeableState =
 			node.mergeable != null ? fromGitHubPullRequestMergeableState(node.mergeable) : undefined;
@@ -622,6 +627,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			includeReviewRequested?: boolean;
 			filters?: PullRequestFilter[];
 			summary?: boolean;
+			mergeQueue?: boolean;
 		},
 	): Promise<ProviderApiPagedResult<PullRequest> | undefined> {
 		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
@@ -682,6 +688,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					state: facet.state,
 					cursor: cursors[facet.key],
 					summary: options?.summary,
+					mergeQueue: options?.mergeQueue,
 					...(facet.search != null ? { search: facet.search, includeDefaultInvolvement: false } : undefined),
 				}),
 			})),
@@ -818,6 +825,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			cursor?: string;
 			pageSize?: number;
 			summary?: boolean;
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined> {
@@ -832,6 +840,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				cursor: options.cursor,
 				pageSize: options.pageSize,
 				summary: options.summary,
+				mergeQueue: options.mergeQueue,
 			},
 			cancellation,
 		);
@@ -935,13 +944,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
 		const currentAccount = options?.currentAccount;
+		const mergeQueue = options?.mergeQueue;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -950,7 +960,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session) },
+					{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: mergeQueue },
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
@@ -998,13 +1008,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
 		const etagIncludes = options.etagIncludes ?? [];
+		const mergeQueue = options.mergeQueue;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -1013,7 +1024,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes },
+					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes, mergeQueue: mergeQueue },
 					cancellation,
 				),
 			(node): PullRequestEtagFields | undefined =>
@@ -1041,7 +1052,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsForBranches(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1078,7 +1089,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 						branch: g.branch,
 						headOwners: g.indices.map(i => targets[i].headOwner),
 					})),
-					{ baseUrl: baseUrl, limit: options.limit },
+					{ baseUrl: baseUrl, limit: options.limit, mergeQueue: options.mergeQueue },
 					cancellation,
 				),
 			(found): { pullRequests: PullRequestShape[][]; truncated: boolean } => ({
@@ -1130,7 +1141,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				this.getProviderPullRequestsBatch(
 					session,
 					coordinates,
-					{ currentAccount: currentAccount },
+					{ currentAccount: currentAccount, mergeQueue: options.mergeQueue },
 					cancellation,
 				),
 		);

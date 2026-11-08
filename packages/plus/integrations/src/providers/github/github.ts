@@ -62,6 +62,7 @@ export function createGitHubApi(ctx: IntegrationServiceContext): GitHubApi {
 		getLaunchpadIgnoredRepositories: () => [...(launchpad().ignoredRepositories ?? [])],
 		getLaunchpadIncludedOrganizations: () => [...(launchpad().includedOrganizations ?? [])],
 		getLaunchpadIgnoredOrganizations: () => [...(launchpad().ignoredOrganizations ?? [])],
+		getPullRequestReadOptions: () => ctx.config.getPullRequestReadOptions?.() ?? {},
 	};
 
 	return new GitHubApi(config);

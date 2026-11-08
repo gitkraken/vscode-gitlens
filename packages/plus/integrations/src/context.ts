@@ -270,6 +270,16 @@ export interface ConfigProvider {
 		includedOrganizations?: readonly string[];
 		ignoredOrganizations?: readonly string[];
 	};
+	/**
+	 * Pull request read knobs. `mergeQueue: true` makes GitHub.com pull request reads select merge-queue data
+	 * (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) and the etag cheap check select its queue state.
+	 * Off (omitted) by default: the selection costs a GitHub rate-limit request per pull request read, and makes a
+	 * queued pull request's etag change with every queue state change. The manager's `listPullRequestsPage`,
+	 * `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches` and sweeps take their own
+	 * `mergeQueue`, which overrides this for that read. Read on every query build, so a change applies from the next
+	 * read.
+	 */
+	getPullRequestReadOptions?(): { readonly mergeQueue?: boolean };
 	/** Per-remote-host configurations from `remotes`. */
 	getRemoteConfigs(): readonly IntegrationsRemoteConfig[];
 	/** Fires when any integration-relevant config changes. */
