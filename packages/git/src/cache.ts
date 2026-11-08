@@ -451,13 +451,61 @@ export class Cache implements Disposable {
 		  ) => PromiseOrValue<GkReconcileOutcome>)
 		| undefined;
 
+	/** Run before each read of a cache with no expiry (see {@link setReadValidator}) */
+	private _readValidator: ((repoPath: string) => Promise<void> | undefined) | undefined;
+	/** What the read validator reports among {@link getResourceUsage}'s */
+	private _readValidatorUsage: (() => ResourceUsage) | undefined;
+
 	[Symbol.dispose](): void {
 		this.dispose();
 	}
 
 	dispose(): void {
 		this.reset();
+		this._readValidator = undefined;
+		this._readValidatorUsage = undefined;
 		this._onDidChangeMergeTargets.dispose();
+	}
+
+	/**
+	 * Registers what runs before each read of the caches that only a change report, core's own writes or an explicit
+	 * clear drop in time (the branches, current branch and its reference, refs and their tips, tags, remotes, worktrees,
+	 * stashes, gk config, paused operation, and what is derived from them: default and base branch names, merge
+	 * targets, branch metadata, the initial commit, resolved revisions, commit counts, reachability, branch overviews,
+	 * contributors, the current user, the ahead-of-base and gitignore config listings, and the cached git runs). It
+	 * answers `undefined` when the read can go ahead at once, or a promise that settles, never rejecting, once it
+	 * applied whatever changed (as {@link onRepositoryChanged}), after which the read runs. A host that watches only
+	 * some repositories registers one that checks the others' git dirs (see `UnwatchedCacheValidator`); `undefined`
+	 * removes it. Kept across {@link reset}: it is host wiring, not cached state. `getResourceUsage` reports what it
+	 * costs among {@link getResourceUsage}'s.
+	 */
+	setReadValidator(
+		validator: ((repoPath: string) => Promise<void> | undefined) | undefined,
+		getResourceUsage?: () => ResourceUsage,
+	): void {
+		this._readValidator = validator;
+		this._readValidatorUsage = validator != null ? getResourceUsage : undefined;
+	}
+
+	/**
+	 * Runs the read validator (see {@link setReadValidator}) for a read of one of its caches made without the wrappers
+	 * here: `undefined` when the read can go ahead at once, or a promise (that never rejects) to read after
+	 */
+	validateBeforeRead(repoPath: string): Promise<void> | undefined {
+		return this._readValidator?.(repoPath);
+	}
+
+	/** Runs `read` once the read validator let `repoPath` be read, at once when it has nothing to wait for */
+	private readValidated<T>(repoPath: string, read: () => Promise<T>): Promise<T> {
+		const validation = this._readValidator?.(repoPath);
+		return validation != null ? validation.then(read) : read();
+	}
+
+	/** A map read directly by the providers, whose every `getOrCreate` is validated as the cache's own reads are */
+	private createValidatedRepoPromiseCacheMap<K, V>(
+		options: ConstructorParameters<typeof RepoPromiseCacheMap>[0],
+	): RepoPromiseCacheMap<K, V> {
+		return new ValidatedRepoPromiseCacheMap<K, V>(repoPath => this._readValidator?.(repoPath), options);
 	}
 
 	/** Resource usage retained by instantiated sub-caches and their bookkeeping maps. */
@@ -478,6 +526,9 @@ export class Cache implements Disposable {
 		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
 		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
 		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
+		if (this._readValidatorUsage != null) {
+			Object.assign(usage, this._readValidatorUsage());
+		}
 		return usage;
 	}
 
@@ -796,7 +847,10 @@ export class Cache implements Disposable {
 	}
 
 	get gitResults(): RepoPromiseCacheMap<RepoPath, GitResult> {
-		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>({ capacity: 200 }));
+		// Many of its runs are keyed by ref names (a merge base of two branches, `rev-parse --verify <ref>`)
+		return (this._caches.gitResults ??= this.createValidatedRepoPromiseCacheMap<RepoPath, GitResult>({
+			capacity: 200,
+		}));
 	}
 
 	get ignoreConfigListing(): PromiseMap<RepoPath, string | undefined> {
@@ -831,7 +885,7 @@ export class Cache implements Disposable {
 	}
 
 	get commitCount(): RepoPromiseCacheMap<string, number | undefined> {
-		return (this._caches.commitCount ??= new RepoPromiseCacheMap<string, number | undefined>({
+		return (this._caches.commitCount ??= this.createValidatedRepoPromiseCacheMap<string, number | undefined>({
 			accessTTL: 1000 * 60 * 60, // 60 minutes
 			capacity: 50,
 		}));
@@ -888,7 +942,10 @@ export class Cache implements Disposable {
 	}
 
 	get reachability(): RepoPromiseCacheMap<string, GitCommitReachability | undefined> {
-		return (this._caches.reachability ??= new RepoPromiseCacheMap<string, GitCommitReachability | undefined>({
+		return (this._caches.reachability ??= this.createValidatedRepoPromiseCacheMap<
+			string,
+			GitCommitReachability | undefined
+		>({
 			accessTTL: 1000 * 60 * 60, // 60 minutes
 			capacity: 25, // Limit to 25 commits per repo
 		}));
@@ -1764,6 +1821,18 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<PagedResult<GitBranch>>,
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>> {
+		return this.readValidated(repoPath, () => this.getSharedBranchesCore(repoPath, factory, cancellation));
+	}
+
+	private getSharedBranchesCore(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
 		const commonPath = this.getCommonPath(repoPath);
 
 		return this.sharedBranches.getOrCreate(
@@ -1811,6 +1880,24 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<PagedResult<GitBranch>>,
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitBranch>> {
+		return this.readValidated(repoPath, () => this.getBranchesCore(repoPath, factory, mapper, cancellation));
+	}
+
+	private getBranchesCore(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		mapper: (
+			branches: PagedResult<GitBranch>,
+			targetRepoPath: string,
+			commonPath: string,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
 		const commonPath = this.getCommonPath(repoPath);
 
 		// Register this caller with the shared factory's aggregate so that invariant 3
@@ -1819,7 +1906,7 @@ export class Cache implements Disposable {
 		// below to build the mapped entry. Swallow any rejection on this dangling reference so
 		// it doesn't surface as an unhandled rejection; the real caller-facing promise (via
 		// `branches.getOrCreate` below) is where caller cancellation flows to.
-		const registration = this.getSharedBranches(repoPath, factory, cancellation);
+		const registration = this.getSharedBranchesCore(repoPath, factory, cancellation);
 		void registration.catch(() => {});
 
 		// Build the per-`repoPath` mapped entry through `getOrCreate` so mapper internal git
@@ -1903,19 +1990,21 @@ export class Cache implements Disposable {
 		repoPath: string,
 		factory: (cacheable: CacheController) => PromiseOrValue<Map<string, string>>,
 	): Promise<Map<string, string>> {
-		return this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
-			const closeGeneration = this.getCloseGeneration(commonPath);
-			const map = await factory(cacheable);
-			// Seed the reconcile baseline on first observation only. Refreshes belong to
-			// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
-			// an incidental read that happens to land between an external write and the watcher event
-			// would otherwise advance the baseline to the post-change value, so the reconcile would diff
-			// that value against itself and silently drop the change.
-			if (!this._gkConfigSnapshots.has(commonPath) && this.isReadPathCurrent(commonPath, closeGeneration)) {
-				this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
-			}
-			return map;
-		});
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
+				const closeGeneration = this.getCloseGeneration(commonPath);
+				const map = await factory(cacheable);
+				// Seed the reconcile baseline on first observation only. Refreshes belong to
+				// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
+				// an incidental read that happens to land between an external write and the watcher event
+				// would otherwise advance the baseline to the post-change value, so the reconcile would diff
+				// that value against itself and silently drop the change.
+				if (!this._gkConfigSnapshots.has(commonPath) && this.isReadPathCurrent(commonPath, closeGeneration)) {
+					this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
+				}
+				return map;
+			}),
+		);
 	}
 
 	/** Whether a read that started under the common path `path` may still seed state for it: not registered or closed since */
@@ -2173,20 +2262,22 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<BranchContributionsOverview | undefined>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<BranchContributionsOverview | undefined> {
-		return this.getSharedOrCreateWithKey(
-			this.branchOverviews,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) =>
-				data == null
-					? data
-					: {
-							...data,
-							repoPath: newRepoPath,
-							contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
-						},
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.branchOverviews,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) =>
+					data == null
+						? data
+						: {
+								...data,
+								repoPath: newRepoPath,
+								contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
+							},
+				options,
+			),
 		);
 	}
 
@@ -2200,16 +2291,18 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributorsResult>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsResult> {
-		return this.getSharedOrCreateWithKey(
-			this.contributors,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => ({
-				...data,
-				contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
-			}),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.contributors,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => ({
+					...data,
+					contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
+				}),
+				options,
+			),
 		);
 	}
 
@@ -2223,13 +2316,15 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributor[]>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributor[]> {
-		return this.getSharedOrCreateWithKey(
-			this.contributorsLite,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => data.map(c => c.withRepoPath(newRepoPath)),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.contributorsLite,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => data.map(c => c.withRepoPath(newRepoPath)),
+				options,
+			),
 		);
 	}
 
@@ -2243,10 +2338,25 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributorsStats | undefined>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsStats | undefined> {
-		return this.getSharedSimpleWithKey(this.contributorsStats, repoPath, cacheKey, factory, options);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimpleWithKey(this.contributorsStats, repoPath, cacheKey, factory, options),
+		);
 	}
 
 	getBaseBranchName(
+		repoPath: string,
+		ref: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.readValidated(repoPath, () => this.getBaseBranchNameCore(repoPath, ref, factory, cancellation));
+	}
+
+	private getBaseBranchNameCore(
 		repoPath: string,
 		ref: string,
 		factory: (
@@ -2416,10 +2526,12 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.aheadOfBaseConfigKey.getOrCreate(
-			repoPath,
-			(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.aheadOfBaseConfigKey.getOrCreate(
+				repoPath,
+				(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
+				cancellation,
+			),
 		);
 	}
 
@@ -2437,7 +2549,9 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation),
+		);
 	}
 
 	/**
@@ -2454,14 +2568,16 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.ignoreConfigListing, repoPath, factory, cancellation);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.ignoreConfigListing, repoPath, factory, cancellation),
+		);
 	}
 
 	getBranchMetadataMap(
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<Map<string, BranchMetadata>>,
 	): Promise<Map<string, BranchMetadata>> {
-		return this.getSharedSimple(this.branchMetadataMap, repoPath, factory);
+		return this.readValidated(repoPath, () => this.getSharedSimple(this.branchMetadataMap, repoPath, factory));
 	}
 
 	getDefaultBranchName(
@@ -2474,9 +2590,11 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
-			cancellation: cancellation,
-		});
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
+				cancellation: cancellation,
+			}),
+		);
 	}
 
 	/** The cached default branch for one `remote` key, without reading it; `undefined` when none is cached */
@@ -2489,6 +2607,19 @@ export class Cache implements Disposable {
 	 * (see {@link CachedMergeTarget}). A checkout evicts only the entries marked `evictOnCheckout`
 	 */
 	getMergeTarget(
+		repoPath: string,
+		cacheKey: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<CachedMergeTarget>,
+		cancellation?: AbortSignal,
+	): Promise<CachedMergeTarget> {
+		return this.readValidated(repoPath, () => this.getMergeTargetCore(repoPath, cacheKey, factory, cancellation));
+	}
+
+	private getMergeTargetCore(
 		repoPath: string,
 		cacheKey: string,
 		factory: (
@@ -2575,7 +2706,7 @@ export class Cache implements Disposable {
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.initialCommitSha, repoPath, factory);
+		return this.readValidated(repoPath, () => this.getSharedSimple(this.initialCommitSha, repoPath, factory));
 	}
 
 	/** A rejected factory is never cached (`PromiseMap` evicts on rejection) — a failed read retries next time. */
@@ -2591,6 +2722,18 @@ export class Cache implements Disposable {
 	}
 
 	getRefs(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<RefRecord[]>,
+		cancellation?: AbortSignal,
+	): Promise<RefRecord[]> {
+		return this.readValidated(repoPath, () => this.getRefsCore(repoPath, factory, cancellation));
+	}
+
+	private getRefsCore(
 		repoPath: string,
 		factory: (
 			commonPath: string,
@@ -2644,12 +2787,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitRefTip[]>,
 		cancellation?: AbortSignal,
 	): Promise<GitRefTip[]> {
-		const commonPath = this.getCommonPath(repoPath);
-		return this.refTips.getOrCreate(
-			commonPath,
-			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
-			cancellation,
-		);
+		return this.readValidated(repoPath, () => {
+			const commonPath = this.getCommonPath(repoPath);
+			return this.refTips.getOrCreate(
+				commonPath,
+				(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+				cancellation,
+			);
+		});
 	}
 
 	async getRemotes(
@@ -2661,12 +2806,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitRemote[]>,
 		cancellation?: AbortSignal,
 	): Promise<GitRemote[]> {
-		return this.getSharedOrCreate(
-			this.remotes,
-			repoPath,
-			factory,
-			(data, newRepoPath) => data.map(r => r.withRepoPath(newRepoPath)),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreate(
+				this.remotes,
+				repoPath,
+				factory,
+				(data, newRepoPath) => data.map(r => r.withRepoPath(newRepoPath)),
+				cancellation,
+			),
 		);
 	}
 
@@ -2680,21 +2827,23 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitStash>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitStash> {
-		return this.getSharedOrCreateWithKey(
-			this.stashes,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => ({
-				repoPath: newRepoPath,
-				stashes: new Map(
-					Array.from(data.stashes.entries(), ([sha, s]) => [
-						sha,
-						s.withRepoPath<GitStashCommit>(newRepoPath),
-					]),
-				),
-			}),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.stashes,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => ({
+					repoPath: newRepoPath,
+					stashes: new Map(
+						Array.from(data.stashes.entries(), ([sha, s]) => [
+							sha,
+							s.withRepoPath<GitStashCommit>(newRepoPath),
+						]),
+					),
+				}),
+				options,
+			),
 		);
 	}
 
@@ -2707,12 +2856,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<PagedResult<GitTag>>,
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitTag>> {
-		return this.getSharedOrCreate(
-			this.tags,
-			repoPath,
-			factory,
-			(data, newRepoPath) => ({ ...data, values: data.values.map(t => t.withRepoPath(newRepoPath)) }),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreate(
+				this.tags,
+				repoPath,
+				factory,
+				(data, newRepoPath) => ({ ...data, values: data.values.map(t => t.withRepoPath(newRepoPath)) }),
+				cancellation,
+			),
 		);
 	}
 
@@ -2726,20 +2877,23 @@ export class Cache implements Disposable {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitWorktree[]> {
-		if (options?.force) {
-			// An aborted call must not cost every other caller the shared list
-			if (cancellation?.aborted) throw new CancellationError();
+		// Evicts right before the read, after the validation, so the forced read starts after both
+		return this.readValidated(repoPath, () => {
+			if (options?.force) {
+				// An aborted call must not cost every other caller the shared list
+				if (cancellation?.aborted) throw new CancellationError();
 
-			this.evictCaches(repoPath, 'worktreeList');
-		}
+				this.evictCaches(repoPath, 'worktreeList');
+			}
 
-		return this.getSharedOrCreate(
-			this.worktrees,
-			repoPath,
-			factory,
-			(data, newRepoPath) => data.map(w => w.withRepoPath(newRepoPath)),
-			cancellation,
-		);
+			return this.getSharedOrCreate(
+				this.worktrees,
+				repoPath,
+				factory,
+				(data, newRepoPath) => data.map(w => w.withRepoPath(newRepoPath)),
+				cancellation,
+			);
+		});
 	}
 
 	private async getSharedOrCreate<T>(
@@ -2901,5 +3055,20 @@ export class Cache implements Disposable {
 			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
 			options,
 		);
+	}
+}
+
+/** A {@link RepoPromiseCacheMap} whose `getOrCreate` waits for `validate` first (see {@link Cache.setReadValidator}) */
+class ValidatedRepoPromiseCacheMap<K, V> extends RepoPromiseCacheMap<K, V> {
+	constructor(
+		private readonly validate: (repoPath: string) => Promise<void> | undefined,
+		options: ConstructorParameters<typeof RepoPromiseCacheMap>[0],
+	) {
+		super(options);
+	}
+
+	override getOrCreate(...args: Parameters<RepoPromiseCacheMap<K, V>['getOrCreate']>): Promise<V> {
+		const validation = this.validate(args[0]);
+		return validation != null ? validation.then(() => super.getOrCreate(...args)) : super.getOrCreate(...args);
 	}
 }

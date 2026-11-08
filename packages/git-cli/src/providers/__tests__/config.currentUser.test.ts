@@ -259,6 +259,18 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 		assert.strictEqual(getConfigRegex.callCount, 1);
 	});
 
+	test('a cached user is read only after the read validator applied what changed', async () => {
+		cache.currentUser.set(repoPath, oldUser);
+		cache.setReadValidator(() =>
+			Promise.resolve().then(() => {
+				cache.clearCaches(repoPath, 'config');
+			}),
+		);
+
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
+		assert.strictEqual(getConfigRegex.callCount, 1);
+	});
+
 	test('a read with no drop caches the user', async () => {
 		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 		assert.deepStrictEqual(cache.currentUser.get(repoPath), newUser);

@@ -225,6 +225,18 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		return this._onDidChangeWatchMode.event;
 	}
 
+	private readonly _onDidChangeRepoWatched = new Emitter<{ repoPath: string; watched: boolean }>();
+	/**
+	 * Fires as a repository's `.git` directory starts being watched (its session's first repo subscriber connected it
+	 * to its watch group) and as it stops (its last one left, or its session was disposed); see {@link isRepoWatched}.
+	 * `repoPath` is the session's key ({@link getRepositoryKey}). Never fires as the service itself is disposed, nor as
+	 * the session suspends or resumes: a suspended session still reports what it held once it resumes, so there is
+	 * nothing to hand off, and {@link isRepoWatched} answers `false` meanwhile without announcing it.
+	 */
+	get onDidChangeRepoWatched(): Event<{ repoPath: string; watched: boolean }> {
+		return this._onDidChangeRepoWatched.event;
+	}
+
 	private readonly defaultRepoDelayMs?: number;
 	private readonly defaultWorkingTreeDelayMs?: number;
 	private readonly defaultRepoMaxWaitMs?: number;
@@ -296,6 +308,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this._onDidChangeWorkingTree.dispose();
 		this._onDidChangeFetchHead.dispose();
 		this._onDidChangeWatchMode.dispose();
+		this._onDidChangeRepoWatched.dispose();
 	}
 
 	/**
@@ -421,6 +434,18 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		if (this._disposed) return;
 
 		this.sessionMap.get(getRepositoryKey(repoPath))?.session.noteSelfWrite(changes, refs, options);
+	}
+
+	/**
+	 * Whether `repoPath`'s `.git` directory is watched: its session has a repo subscriber, so it is connected to its
+	 * watch group (natively, or polled in place of a watcher that can't be trusted). A session with only working-tree
+	 * subscribers, or none, doesn't count, nor does a suspended one: it holds what its watcher hears until it resumes,
+	 * and the poller doesn't poll meanwhile, so a read is served stale. Suspending or resuming announces nothing (see
+	 * {@link onDidChangeRepoWatched}).
+	 */
+	isRepoWatched(repoPath: string): boolean {
+		const record = this.sessionMap.get(getRepositoryKey(repoPath));
+		return record != null && this.isConnected(record) && !record.session.suspended;
 	}
 
 	/** Get an existing session by repo path */
@@ -565,8 +590,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			onUnwatchableChanged: (): void => this.updateWatchMode(record),
 		};
 
+		const wasConnected = group.sessions.has(session.repoPath);
 		group.addSession(session.repoPath, gitDir, hooks);
 		this.updateWatchMode(record);
+		if (!wasConnected) {
+			this.fireRepoWatchedIfConnected(record, true);
+		}
 	}
 
 	private disconnectFromWatchGroup(record: SessionRecord): void {
@@ -575,9 +604,25 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const group = this.watchGroups.get(commonGitDir);
 		if (group == null) return;
 
+		const wasConnected = group.sessions.has(session.repoPath);
 		group.removeSession(session.repoPath);
 		this.maybeDisposeWatchGroup(commonGitDir);
 		this.updateWatchMode(record);
+		if (wasConnected) {
+			this.fireRepoWatchedIfConnected(record, false);
+		}
+	}
+
+	private isConnected(record: SessionRecord): boolean {
+		const group = this.watchGroups.get((record.gitDir.commonUri ?? record.gitDir.uri).fsPath);
+		return group?.sessions.has(record.session.repoPath) ?? false;
+	}
+
+	/** Announces that `record` was just connected (`watched`) or disconnected, once that is what it is */
+	private fireRepoWatchedIfConnected(record: SessionRecord, watched: boolean): void {
+		if (this._disposed || this.isConnected(record) !== watched) return;
+
+		this._onDidChangeRepoWatched.fire({ repoPath: record.session.repoPath, watched: watched });
 	}
 
 	private computeWatchMode(record: SessionRecord): 'events' | 'poll' | undefined {

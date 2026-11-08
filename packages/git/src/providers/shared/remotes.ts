@@ -65,6 +65,12 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 	): Promise<GitRemote<RemoteProvider>[]> {
 		if (!repoPath) return [];
 
+		// Derived from the remotes, so validated as their reads are (see `Cache.setReadValidator`)
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
+
 		const remotes = this.cache.bestRemotes.getOrCreate(
 			repoPath,
 			async (_cacheable, aggregateSignal) => {

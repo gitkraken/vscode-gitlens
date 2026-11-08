@@ -1,4 +1,4 @@
-import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
+import { dirname, isAbsolute, isDescendant, joinPaths, normalizePath, relative } from '@gitlens/utils/path.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 
 export function getRepositoryOrWorktreePath(uri: Uri): string {
@@ -39,4 +39,23 @@ export function getWorktreeAdminId(gitDirPath: string, commonGitDirPath: string)
 
 	const entry = parseWorktreeAdminPath(relative(commonGitDirPath, gitDirPath));
 	return entry != null && entry.file == null ? entry.id : undefined;
+}
+
+/**
+ * Whether the linked worktree whose admin entry is `adminDir` lies under one of `ignoredRoots` (see
+ * `GitProvider.getIgnoredWorktreeRoots`), from the content of the entry's `gitdir` file; `undefined` when that names no
+ * worktree's `.git`, as when it couldn't be read
+ */
+export function isIgnoredWorktreeEntry(
+	adminDir: string,
+	gitdir: Uint8Array | undefined,
+	ignoredRoots: readonly string[],
+): boolean | undefined {
+	// Git writes the path of the worktree's `.git` file, relative to the entry under `worktree.useRelativePaths`
+	const dotGit = gitdir != null ? new TextDecoder().decode(gitdir).trim() : '';
+	const dotGitPath = dotGit ? normalizePath(isAbsolute(dotGit) ? dotGit : joinPaths(adminDir, dotGit)) : '';
+	if (!dotGitPath.endsWith('/.git')) return undefined;
+
+	const worktreePath = dirname(dotGitPath);
+	return ignoredRoots.some(root => isDescendant(worktreePath, root));
 }

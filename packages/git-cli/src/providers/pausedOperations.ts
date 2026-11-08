@@ -18,6 +18,7 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -123,6 +124,19 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	): Promise<GitPausedOperationStatus | undefined> {
 		const scope = getScopedLogger();
 
+		// A forced read drops the cached status and reads it again anyway, so it has nothing to wait for
+		const validation = options?.force ? undefined : this.cache.validateBeforeRead(repoPath);
+		return validation != null
+			? validation.then(() => this.readPausedOperationStatus(repoPath, options, scope, cancellation))
+			: this.readPausedOperationStatus(repoPath, options, scope, cancellation);
+	}
+
+	private readPausedOperationStatus(
+		repoPath: string,
+		options: { force?: boolean } | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<GitPausedOperationStatus | undefined> {
 		// Self-heal callers (WIP refresh) bypass the cache so a missed `'pausedOp'` FS-watcher
 		// event (CLI-driven completion, torn-down secondary-worktree watcher) can't leave the
 		// status stuck — the readdir-based detection is cheap enough to repeat on every tick.

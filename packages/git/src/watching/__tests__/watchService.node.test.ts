@@ -2050,6 +2050,84 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 
+	describe('isRepoWatched / onDidChangeRepoWatched', () => {
+		it("follows the session's repo subscribers, not its working-tree ones", () => {
+			const { factory } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const events: string[] = [];
+			service.onDidChangeRepoWatched(e =>
+				events.push(`${e.repoPath}:${e.watched}:${service.isRepoWatched(e.repoPath)}`),
+			);
+
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			assert.strictEqual(service.isRepoWatched('/repo'), false, 'a session alone watches nothing');
+
+			const wt = handle.session.subscribeToWorkingTree();
+			assert.strictEqual(service.isRepoWatched('/repo'), false);
+
+			const first = handle.session.subscribe();
+			const second = handle.session.subscribe();
+			assert.strictEqual(service.isRepoWatched('/repo'), true);
+			assert.strictEqual(service.isRepoWatched('/repo/'), true, 'keyed as the session is');
+
+			first.dispose();
+			assert.strictEqual(service.isRepoWatched('/repo'), true);
+			second.dispose();
+			assert.strictEqual(service.isRepoWatched('/repo'), false);
+
+			assert.deepStrictEqual(events, ['/repo:true:true', '/repo:false:false']);
+
+			wt.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('does not count a suspended session as watched, and announces neither its suspending nor its resuming', () => {
+			const { factory } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const events: string[] = [];
+			service.onDidChangeRepoWatched(e => events.push(`${e.repoPath}:${e.watched}`));
+
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+			assert.strictEqual(service.isRepoWatched('/repo'), true);
+
+			service.suspendAll();
+			assert.strictEqual(service.isRepoWatched('/repo'), false);
+
+			service.resumeAll();
+			assert.strictEqual(service.isRepoWatched('/repo'), true);
+
+			assert.deepStrictEqual(events, ['/repo:true']);
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('announces the stop as a watched session is disposed, but not as the service is', () => {
+			const { factory } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const events: string[] = [];
+			service.onDidChangeRepoWatched(e => events.push(`${e.repoPath}:${e.watched}`));
+
+			const a = service.watch('/a', standardGitDir('/a/.git'));
+			const b = service.watch('/b', standardGitDir('/b/.git'));
+			assertHandle(a);
+			assertHandle(b);
+			a.session.subscribe();
+			b.session.subscribe();
+
+			a.dispose();
+			assert.strictEqual(service.isRepoWatched('/a'), false);
+			service.dispose();
+
+			assert.deepStrictEqual(events, ['/a:true', '/b:true', '/a:false']);
+		});
+	});
+
 	describe('noteSelfWrite', () => {
 		function watchRepo(): {
 			service: RepositoryWatchService;
