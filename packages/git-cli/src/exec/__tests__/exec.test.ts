@@ -1346,6 +1346,76 @@ suite('Git.run onSpawn', () => {
 	});
 });
 
+suite('Git.run sharing an in-flight run', () => {
+	function newGit(): { git: Git; spawns: { encoding: unknown; finish: () => void }[] } {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const spawns: { encoding: unknown; finish: () => void }[] = [];
+		(git as unknown as { _runSpawn: unknown })._runSpawn = (
+			_cmd: string,
+			_args: readonly string[],
+			encoding: string,
+		) =>
+			new Promise(resolve => {
+				spawns.push({
+					encoding: encoding,
+					finish: () =>
+						resolve({
+							exitCode: 0,
+							stdout: encoding === 'buffer' ? Buffer.from('out') : 'out',
+							stderr: '',
+						}),
+				});
+			});
+		return { git: git, spawns: spawns };
+	}
+
+	async function until(condition: () => boolean): Promise<void> {
+		for (let i = 0; i < 100 && !condition(); i++) {
+			await new Promise(resolve => setImmediate(resolve));
+		}
+		assert.ok(condition());
+	}
+
+	test('keeps a buffer run apart from a text run of the same command', async () => {
+		const { git, spawns } = newGit();
+
+		const text = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		const bytes = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		await until(() => spawns.length === 2);
+		for (const s of spawns) {
+			s.finish();
+		}
+
+		assert.strictEqual(typeof (await text).stdout, 'string');
+		assert.ok(Buffer.isBuffer((await bytes).stdout));
+	});
+
+	test('never shares a buffer run, so each caller owns its bytes', async () => {
+		const { git, spawns } = newGit();
+
+		const first = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		const second = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		await until(() => spawns.length === 2);
+		for (const s of spawns) {
+			s.finish();
+		}
+
+		assert.notStrictEqual((await first).stdout, (await second).stdout);
+	});
+
+	test('still joins two text runs of the same command', async () => {
+		const { git, spawns } = newGit();
+
+		const first = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		const second = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		await until(() => spawns.length === 1);
+		spawns[0].finish();
+		await Promise.all([first, second]);
+
+		assert.strictEqual(spawns.length, 1);
+	});
+});
+
 suite('Git.stream stdin', () => {
 	test('rejects, rather than crashing on EPIPE, when git exits before reading its input', async () => {
 		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));

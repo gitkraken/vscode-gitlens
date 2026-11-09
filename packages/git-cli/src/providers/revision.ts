@@ -280,6 +280,16 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@debug({ quiet: true })
+	async getTrackedFilesRaw(repoPath: string, cancellation?: AbortSignal): Promise<Uint8Array> {
+		const result = await this.git.run<Buffer>(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw', encoding: 'buffer' },
+			'ls-files',
+			'-z',
+		);
+		return result.stdout;
+	}
+
+	@debug({ quiet: true })
 	async getTreeForRevision(
 		repoPath: string,
 		rev: string,

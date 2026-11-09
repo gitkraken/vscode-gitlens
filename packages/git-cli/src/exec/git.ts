@@ -1433,14 +1433,16 @@ export class Git {
 
 		// A run fed its own stdin or per-call env is never shared: the same argv can answer differently for
 		// each (a temporary index through `GIT_INDEX_FILE`, config injected through `GIT_CONFIG_*`). Nor is one
-		// carrying a retry hook, since the check it makes is that caller's own.
+		// carrying a retry hook, since the check it makes is that caller's own. Nor one answering raw bytes: a caller
+		// may transfer the buffer's memory to a worker, which would empty every other caller's copy.
 		const unshared =
 			options?.stdin != null ||
 			(options?.env != null && Object.keys(options.env).length > 0) ||
-			beforeIndexLockRetry != null;
+			beforeIndexLockRetry != null ||
+			encoding === 'buffer';
 		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
 			unshared ? `${unsharedRunCounter.next()}:` : ''
-		}${cancellation != null ? `${getAbortSignalId(cancellation)}:` : ''}${gitCommand}`;
+		}${encoding != null && encoding !== 'utf8' ? `${encoding}:` : ''}${cancellation != null ? `${getAbortSignalId(cancellation)}:` : ''}${gitCommand}`;
 
 		// When the subprocess actually started — `start` includes GitQueue wait, which is congestion rather
 		// than anything the repository did. Stays undefined for a dedup rider or a command aborted while queued.

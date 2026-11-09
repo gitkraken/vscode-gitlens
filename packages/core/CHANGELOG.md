@@ -8,8 +8,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
 - Adds `getBranchReflogWork` to `utils/branch.utils.js`: from a local branch's reflog (newest first, as `refs.getReflogEntries` reads it), whether the branch has work authored on it (`'work'`), was created here and never had any (`'none'`), or can't be told (`'unknown'`: an empty or expired reflog, or a branch created from the same-named remote branch). Every entry counts as work except a move that adds none: the branch's creation, a reset or rename, a fast-forward merge or pull, a fetch, a clone, or a rebase that replayed nothing. It tells a branch whose work was fast-forward merged apart from a new one, which `getBranchMergedStatus` reports alike, as merged (git)
 - Adds `getBranchLandedState` to `utils/branchLanded.utils.js`, with the `BranchLandedPullRequestCandidate` and `BranchLandedState` types: from a branch's tip sha and its pull requests, whether its work landed through a merged pull request. The head sha decides, never recency: an open pull request at the tip means the branch is live (`live`), a merged one at the tip means it landed, and otherwise the merged pull request with the fewest new commits decides between landed (none) and a successor (some). A pull request without a head sha never decides (git)
+
+### Fixed
+
+- Fixes two identical git runs in flight at once sharing one process when one asked for text and the other for raw bytes or another encoding, which handed one of them output of the wrong type; a raw-bytes run is now never shared, so a caller that transfers its buffer to a worker can't empty another caller's (git-cli)
 
 ## [0.35.0] - 2026-11-08
 
