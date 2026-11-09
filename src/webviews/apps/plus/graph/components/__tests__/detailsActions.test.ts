@@ -1556,6 +1556,52 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		assert.strictEqual(actions.holdScopeForRemap(fallback), false, 'nothing is held once the remap is done');
 	});
 
+	test('a tip move reloads the files once, after the remap, not for the scope it may replace', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		const scope: ScopeSelection = { type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] };
+		state.scope.set(scope);
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('d'), commit('c'), commit('b'), commit('a')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, fetched: ScopeSelection) => {
+				fetchedScopes.push(fetched);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		const before = fetchedScopes.length;
+		actions.applyPushedWip(wipAt(2, 'd'));
+		assert.strictEqual(fetchedScopes.length, before, 'nothing loads while the remap is pending');
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(
+			fetchedScopes.slice(before),
+			[scope],
+			'the remap kept the scope, so its files load once',
+		);
+	});
+
 	test('a selection held during the remap applies when the remap leaves the scope as it was', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');

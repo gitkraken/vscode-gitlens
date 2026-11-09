@@ -2820,6 +2820,8 @@ export class DetailsActions {
 		this._branchCommitsController = controller;
 
 		this.state.branchCommitsFetching.set(true);
+		const tipMoved = this._scopeBeforeTipMove != null;
+		let scopeReplaced = false;
 		let prevCommits: readonly BranchCommitEntry[] | undefined;
 		try {
 			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
@@ -2853,6 +2855,7 @@ export class DetailsActions {
 				this._scopeHeldForRemap = undefined;
 				this.state.scope.set(remapped);
 				void this.resources.scopeFiles.fetch(repoPath, remapped);
+				scopeReplaced = true;
 			}
 		} finally {
 			if (!controller.signal.aborted) {
@@ -2862,6 +2865,11 @@ export class DetailsActions {
 				if (held != null) {
 					this.state.scope.set(held);
 					void this.resources.scopeFiles.fetch(repoPath, held);
+				} else if (tipMoved && !scopeReplaced) {
+					const scope = this.state.scope.get();
+					if (scope?.type === 'wip') {
+						void this.resources.scopeFiles.fetch(repoPath, scope);
+					}
 				}
 			}
 			if (this._branchCommitsController === controller) {
@@ -3739,6 +3747,19 @@ export class DetailsActions {
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
 
+			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+			const tipBefore = prev?.branch?.reference?.sha;
+			const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
+			if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
+				this._tipBeforePause = tipBefore;
+			}
+			const tipMoved =
+				prev?.repo.path === repoPath &&
+				rewritten &&
+				wip.changes?.pausedOpStatus == null &&
+				repoPath === this.state.activeModeRepoPath.get();
+
 			// A working-tree change can move the files inside the current wip scope (or drop a
 			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
 			// the eventual run stay in agreement with the picker. Scoped to the active mode's repo so
@@ -3747,28 +3768,22 @@ export class DetailsActions {
 			// separately re-emits scope-change when its selection can no longer be honored, which
 			// reconciles the stored scope *identity*; this covers identity-stable ticks whose file
 			// set moved.)
+			// A tip move's remap reloads them itself, for the scope that replaces this one
 			const scope = this.state.scope.get();
-			if (scope?.type === 'wip' && repoPath === this.state.activeModeRepoPath.get()) {
+			if (
+				scope?.type === 'wip' &&
+				repoPath === this.state.activeModeRepoPath.get() &&
+				!tipMoved &&
+				this._scopeBeforeTipMove == null
+			) {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
 			}
 
-			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
-			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
-			const tipBefore = prev?.branch?.reference?.sha;
-			const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
-			if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
-				this._tipBeforePause = tipBefore;
-			}
-			if (
-				prev?.repo.path === repoPath &&
-				rewritten &&
-				wip.changes?.pausedOpStatus == null &&
-				repoPath === this.state.activeModeRepoPath.get()
-			) {
+			if (tipMoved) {
 				this._scopeBeforeTipMove ??= this.state.scope.get();
 				void this.fetchBranchCommits(repoPath);
 
-				const previousTip = prev.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
+				const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
 				this._tipBeforePause = undefined;
 				if (previousTip != null) {
 					void this.followRewrittenAnchor(repoPath, previousTip);
