@@ -26,6 +26,7 @@ import type {
 	ReviewReadingState,
 	ReviewResult,
 	ReviewThreadActionsState,
+	RewrittenHistory,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
@@ -34,6 +35,7 @@ import { abortRunningOperations } from '../graphCrossPaneState.js';
 import type { AnchorKey, AnchorSelection } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
+import { mapRewrittenCommit } from './detailsActions.js';
 import type {
 	GenerateMessageResult,
 	RunningOperation,
@@ -1191,6 +1193,166 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.toggleMode(remembered, newSelection);
 			}
 		}
+	}
+
+	/** Whether anything on the engaged anchor is still running — its results would report under the anchor it has */
+	engagedAnchorBusy(): boolean {
+		const state = this.actions.state;
+		return isAnchorBusy(
+			this.host.crossPaneState.runningOperations.get().get(
+				anchorKey({
+					sha: state.activeModeSha.get(),
+					shas: state.activeModeShas.get(),
+					repoPath: state.activeModeRepoPath.get(),
+				}),
+			),
+		);
+	}
+
+	/** Whether anything still runs on the engaged anchor or on a commit review kept in `repoPath` — a rewrite's move
+	 *  waits for all of them */
+	commitReviewsBusy(repoPath: string): boolean {
+		if (this.engagedAnchorBusy()) return true;
+
+		for (const bucket of this.host.crossPaneState.runningOperations.get().values()) {
+			const anchor = bucket.review?.anchor;
+			if (
+				anchor?.repoPath === repoPath &&
+				(anchor.kind === 'commit' || anchor.kind === 'multicommit') &&
+				isAnchorBusy(bucket)
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Whether any review on a commit or comparison in `repoPath` could have been rewritten — the engaged one or one
+	 *  kept for later — so a tip move there is worth reading the history for. */
+	hasCommitReviews(repoPath: string): boolean {
+		const state = this.actions.state;
+		const context = state.activeModeContext.get();
+		if ((context === 'commit' || context === 'multicommit') && state.activeModeRepoPath.get() === repoPath) {
+			return true;
+		}
+
+		for (const bucket of this.host.crossPaneState.runningOperations.get().values()) {
+			const anchor = bucket.review?.anchor;
+			if (anchor?.repoPath === repoPath && (anchor.kind === 'commit' || anchor.kind === 'multicommit')) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Moves every review on a commit or comparison that a rewrite of `repoPath`'s branch replaced onto the new
+	 *  commits — kept ones by their entry, the engaged one with its view. A review with something still running
+	 *  stays. Returns the commit an engaged single-commit review moved to, for the graph to select. */
+	followRewrittenHistory(history: RewrittenHistory, repoPath: string): string | undefined {
+		const state = this.actions.state;
+		const context = state.activeModeContext.get();
+		const engagedKey =
+			state.activeMode.get() === 'review' && (context === 'commit' || context === 'multicommit')
+				? anchorKey({ sha: state.activeModeSha.get(), shas: state.activeModeShas.get(), repoPath: repoPath })
+				: undefined;
+
+		for (const [key, bucket] of [...this.host.crossPaneState.runningOperations.get()]) {
+			const anchor = bucket.review?.anchor;
+			if (key === engagedKey || anchor?.repoPath !== repoPath || isAnchorBusy(bucket)) continue;
+			if (anchor.kind !== 'commit' && anchor.kind !== 'multicommit') continue;
+
+			const rewritten = mapRewrittenCommits([anchor.sha, ...(anchor.shas ?? [])], history);
+			if (rewritten != null) {
+				this.rekeyCommitReview(key, rewritten, anchor);
+			}
+		}
+
+		if (engagedKey == null) return undefined;
+
+		const rewritten = mapRewrittenCommits(
+			[state.activeModeSha.get(), ...(state.activeModeShas.get() ?? [])],
+			history,
+		);
+		return rewritten != null ? this.followRewrittenAnchor(rewritten) : undefined;
+	}
+
+	/** Moves the engaged commit-anchored review onto the commits a rewrite (an amend, a rebase) replaced its own
+	 *  with — its entry, remembered mode, scope and details — so it reads the new changes with its marks, findings
+	 *  and comments. Returns the commit a single-commit review moved to, for the graph to select. */
+	followRewrittenAnchor(rewritten: ReadonlyMap<string, string>): string | undefined {
+		const state = this.actions.state;
+		const context = state.activeModeContext.get();
+		if (state.activeMode.get() !== 'review') return undefined;
+		if (context !== 'commit' && context !== 'multicommit') return undefined;
+		if (this.engagedAnchorBusy()) return undefined;
+
+		const repoPath = state.activeModeRepoPath.get();
+		const sha = state.activeModeSha.get();
+		const shas = state.activeModeShas.get();
+		const oldKey = anchorKey({ sha: sha, shas: shas, repoPath: repoPath });
+		const moved = this.rekeyCommitReview(oldKey, rewritten, {
+			kind: context,
+			repoPath: repoPath ?? '',
+			sha: sha,
+			shas: shas,
+		});
+		if (moved == null) return undefined;
+
+		if (this._reviewFetchedForSelection === oldKey) {
+			this._reviewFetchedForSelection = moved.key;
+		}
+		state.activeModeSha.set(moved.anchor.sha);
+		state.activeModeShas.set(moved.anchor.shas);
+		const scope = mapRewrittenScope(state.scope.get(), rewritten);
+		state.scope.set(scope);
+		if (repoPath != null && scope != null) {
+			void this.actions.resources.scopeFiles.fetch(repoPath, scope);
+		}
+		if (context === 'multicommit') {
+			void this.actions.fetchCompareDetails(moved.anchor.shas, repoPath);
+			return undefined;
+		}
+		return moved.anchor.sha;
+	}
+
+	/** Re-keys a commit review's entry, remembered mode and what the host holds for it onto its rewritten commits */
+	private rekeyCommitReview(
+		oldKey: AnchorKey,
+		rewritten: ReadonlyMap<string, string>,
+		anchor: RunningOperationAnchor,
+	): { key: AnchorKey; anchor: RunningOperationAnchor } | undefined {
+		const map = (s: string) => rewritten.get(s) ?? s;
+		const next: RunningOperationAnchor = {
+			...anchor,
+			sha: anchor.sha != null ? map(anchor.sha) : undefined,
+			shas: anchor.shas?.map(map),
+		};
+		const newKey = anchorKey(next);
+		if (newKey === oldKey) return undefined;
+
+		void this.actions.services.graphInspect.moveReview(oldKey, newKey, next);
+
+		const registry = this.host.crossPaneState.runningOperations;
+		const bucket = registry.get().get(oldKey);
+		if (bucket?.review != null) {
+			const entries = new Map(registry.get());
+			entries.delete(oldKey);
+			entries.set(newKey, {
+				...bucket,
+				review: { ...bucket.review, anchor: next, scope: mapRewrittenScope(bucket.review.scope, rewritten) },
+			});
+			registry.set(entries);
+		}
+
+		const modes = this.host.crossPaneState.lastModeByAnchor;
+		const remembered = modes.get().get(oldKey);
+		if (remembered != null) {
+			const entries = new Map(modes.get());
+			entries.delete(oldKey);
+			entries.set(newKey, remembered);
+			modes.set(entries);
+		}
+		return { key: newKey, anchor: next };
 	}
 
 	// endregion
@@ -4261,4 +4423,57 @@ export class DetailsWorkflowController implements ReactiveController {
 	}
 
 	// endregion
+}
+
+/** Whether anything on an anchor is still running — its results would report under the anchor it has */
+function isAnchorBusy(bucket: RunningOperationBucket | undefined): boolean {
+	const review = bucket?.review;
+	return (
+		bucket?.compose != null ||
+		bucket?.resolve != null ||
+		bucket?.generateMessage != null ||
+		review?.execState === 'generating' ||
+		review?.orientRun != null ||
+		(review?.focusAreaRuns?.size ?? 0) > 0 ||
+		(review?.deepReview?.active === true && !review.deepReview.done)
+	);
+}
+
+/** What a rewrite made of `shas` — `undefined` when it touched none of them or one has no match left */
+function mapRewrittenCommits(
+	shas: readonly (string | undefined)[],
+	history: RewrittenHistory,
+): ReadonlyMap<string, string> | undefined {
+	const rewritten = new Map<string, string>();
+	for (const sha of shas) {
+		if (sha == null) continue;
+
+		const next = mapRewrittenCommit(sha, history);
+		if (next == null) return undefined;
+
+		if (next !== sha) {
+			rewritten.set(sha, next);
+		}
+	}
+	return rewritten.size ? rewritten : undefined;
+}
+
+function mapRewrittenScope(
+	scope: ScopeSelection | undefined,
+	rewritten: ReadonlyMap<string, string>,
+): ScopeSelection | undefined {
+	const map = (s: string) => rewritten.get(s) ?? s;
+	switch (scope?.type) {
+		case 'commit':
+			return { ...scope, sha: map(scope.sha) };
+		case 'compare':
+			return {
+				...scope,
+				fromSha: map(scope.fromSha),
+				toSha: map(scope.toSha),
+				includeShas: scope.includeShas?.map(map),
+			};
+		default:
+			return scope;
+	}
 }

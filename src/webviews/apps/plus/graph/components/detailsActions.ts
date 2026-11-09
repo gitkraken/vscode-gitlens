@@ -75,6 +75,7 @@ import type {
 	ReviewResult,
 	ReviewThreadActionsState,
 	ReviewThreadsArgs,
+	RewrittenHistory,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -160,11 +161,13 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 
 type MergeBases = { prev?: string; next?: string };
 
+type HistoryCommit = Pick<BranchCommitEntry, 'sha' | 'message'>;
+
 function findRewrite(
-	prev: readonly BranchCommitEntry[],
-	next: readonly BranchCommitEntry[],
+	prev: readonly HistoryCommit[],
+	next: readonly HistoryCommit[],
 	mergeBases: MergeBases | undefined,
-): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly BranchCommitEntry[] } {
+): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly HistoryCommit[] } {
 	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
 	// A branch window leaves out its merge base, where the old and new history can still meet (a first commit, an undo)
 	if (mergeBases?.next != null && !nextIndexes.has(mergeBases.next)) {
@@ -198,18 +201,12 @@ export function getRewrittenScopeShas(
 	return replaced.length && rewritten.length ? [...replaced, ...rewritten.map(c => c.sha)] : [];
 }
 
-/** Carries a scope's commit range, whole, across a history change: a rewritten commit maps by patch id, subject, or —
- *  at an unchanged count — place; a range holding the tip (or working changes) takes in commits added on top. */
-export function remapScopeRange(
-	scope: { includeShas: readonly string[]; includesWip: boolean },
-	prev: readonly BranchCommitEntry[] | undefined,
-	next: readonly BranchCommitEntry[],
-	mergeBases?: MergeBases,
-	patchIds?: Readonly<Record<string, string>>,
-): string[] | undefined {
-	const shas = scope.includeShas;
-	if (!prev?.length || !next.length) return undefined;
-
+function createRewriteMapper(
+	prev: readonly HistoryCommit[],
+	next: readonly HistoryCommit[],
+	mergeBases: MergeBases | undefined,
+	patchIds: Readonly<Record<string, string>> | undefined,
+): { rewritten: readonly HistoryCommit[]; mapOne: (sha: string) => number | 'belowRewriteUnloaded' | undefined } {
 	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
 	const mapOne = (sha: string): number | 'belowRewriteUnloaded' | undefined => {
 		const index = nextIndexes.get(sha);
@@ -232,6 +229,33 @@ export function remapScopeRange(
 						: undefined;
 		return match != null ? nextIndexes.get(match.sha) : undefined;
 	};
+	return { rewritten: rewritten, mapOne: mapOne };
+}
+
+/** The commit `sha` became in a rewrite of the branch from `history.mergeBase` — itself when the rewrite didn't
+ *  touch it, `undefined` when nothing in the new history matches it. */
+export function mapRewrittenCommit(sha: string, history: RewrittenHistory): string | undefined {
+	const { mergeBase, previous, next, patchIds } = history;
+	const index = createRewriteMapper(previous, next, { prev: mergeBase, next: mergeBase }, patchIds).mapOne(sha);
+	if (index === 'belowRewriteUnloaded') return sha;
+	if (index == null) return undefined;
+
+	return index < next.length ? next[index].sha : mergeBase;
+}
+
+/** Carries a scope's commit range, whole, across a history change: a rewritten commit maps by patch id, subject, or —
+ *  at an unchanged count — place; a range holding the tip (or working changes) takes in commits added on top. */
+export function remapScopeRange(
+	scope: { includeShas: readonly string[]; includesWip: boolean },
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
+	patchIds?: Readonly<Record<string, string>>,
+): string[] | undefined {
+	const shas = scope.includeShas;
+	if (!prev?.length || !next.length) return undefined;
+
+	const { rewritten, mapOne } = createRewriteMapper(prev, next, mergeBases, patchIds);
 
 	if (!shas.length) {
 		if (!scope.includesWip) return undefined;
@@ -2874,6 +2898,56 @@ export class DetailsActions {
 
 	/** The scope as it was when the tip moved, before the picker's fallback for vanished working-change rows replaced it */
 	private _scopeBeforeTipMove: ScopeSelection | undefined;
+	/** The branch tip when a rebase or other operation paused — what its commits are matched against once it lands */
+	private _tipBeforePause: string | undefined;
+	private _branchBeforePause: string | undefined;
+
+	/** Set by the workflow controller — moves the reviews on commits a rewrite replaced onto the new ones */
+	anchorRewrittenHandler?: (history: RewrittenHistory, repoPath: string) => void;
+	/** Set by the workflow controller — whether a run on a commit review in the repo would report under its old anchor */
+	anchorBusyHandler?: (repoPath: string) => boolean;
+	/** Set by the workflow controller — whether any review on a commit in the repo could have been rewritten */
+	commitReviewsHandler?: (repoPath: string) => boolean;
+	/** The tip before a rewrite that came while the anchor was busy — the move it calls for waits for the run */
+	private _deferredAnchorRewrite: { repoPath: string; previousTip: string } | undefined;
+
+	get hasDeferredAnchorRewrite(): boolean {
+		return this._deferredAnchorRewrite != null;
+	}
+
+	retryDeferredAnchorRewrite(): void {
+		const deferred = this._deferredAnchorRewrite;
+		if (deferred == null || this.anchorBusyHandler?.(deferred.repoPath)) return;
+
+		void this.followRewrittenReviews(deferred.repoPath, deferred.previousTip);
+	}
+
+	/** Reads what a rewrite of the branch made of the commits the repo's commit reviews are on */
+	private async followRewrittenReviews(repoPath: string, previousTip: string): Promise<void> {
+		if (!this.commitReviewsHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = undefined;
+			return;
+		}
+
+		// From the earliest tip a deferred move still holds: the history since then takes in every rewrite
+		const tip =
+			this._deferredAnchorRewrite?.repoPath === repoPath ? this._deferredAnchorRewrite.previousTip : previousTip;
+		if (this.anchorBusyHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
+
+		this._deferredAnchorRewrite = undefined;
+		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
+		if (history == null) return;
+		if (this.anchorBusyHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
+
+		this.anchorRewrittenHandler?.(history, repoPath);
+	}
+
 	/** A picker selection that came in while the tip-move remap was pending — applied only if the remap doesn't */
 	private _scopeHeldForRemap: ScopeSelection | undefined;
 
@@ -3817,18 +3891,26 @@ export class DetailsActions {
 
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
+
+		// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+		// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+		const tipBefore = prev?.branch?.reference?.sha;
+		const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
+		if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
+			this._tipBeforePause = tipBefore;
+			this._branchBeforePause = prev?.branch?.name;
+		}
+		// A checkout moves the tip too, onto another branch's commits — not a rewrite of these
+		const branchBefore = prev?.changes?.pausedOpStatus != null ? this._branchBeforePause : prev?.branch?.name;
+		const tipMovedHere =
+			prev?.repo.path === repoPath &&
+			rewritten &&
+			wip.changes?.pausedOpStatus == null &&
+			branchBefore === wip.branch?.name;
+
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
-
-			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
-			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
-			const rewritten =
-				prev?.branch?.reference?.sha !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
-			const tipMoved =
-				prev?.repo.path === repoPath &&
-				rewritten &&
-				wip.changes?.pausedOpStatus == null &&
-				repoPath === this.state.activeModeRepoPath.get();
+			const tipMoved = tipMovedHere && repoPath === this.state.activeModeRepoPath.get();
 
 			// A working-tree change can move the files inside the current wip scope (or drop a
 			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
@@ -3852,6 +3934,16 @@ export class DetailsActions {
 			if (tipMoved) {
 				this._scopeBeforeTipMove ??= this.state.scope.get();
 				void this.fetchBranchCommits(repoPath);
+			}
+		}
+
+		// Commit reviews follow a rewrite whether engaged or kept for later
+		if (tipMovedHere) {
+			const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
+			this._tipBeforePause = undefined;
+			this._branchBeforePause = undefined;
+			if (previousTip != null) {
+				void this.followRewrittenReviews(repoPath, previousTip);
 			}
 		}
 		const branchName = wip.branch?.name;

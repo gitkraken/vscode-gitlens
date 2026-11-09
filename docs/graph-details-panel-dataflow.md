@@ -250,6 +250,21 @@ and an append-only list of editor-made viewed marks; `review.applyReadingState` 
 strip and for the checklist, which selects and scrolls to its row (`gl-file-tree-pane.revealPath` →
 `gl-tree-view.focusedPath`, opening collapsed folders above it). There is no cursor: the panel's own buttons pass the active file explicitly.
 
+**History rewrites** (an amend, a rebase) move what a review is on. `DetailsActions.applyWipPayload` notices the
+branch tip move (a paused operation's landing included, matched from the tip before the pause) whether a mode is
+open or not. For a wip scope in an open mode it pins the scope (`_scopeBeforeTipMove`) and refetches the branch
+commits; `remapScopeRange` carries the range over (patch id, then subject, then place; a range holding the tip or
+working changes takes in commits added on top), and while that is pending a picker selection is held
+(`holdScopeForRemap`) so its fallback for a vanished working-changes row never loads, and the files load once after.
+When the repo has commit or comparison reviews (`hasCommitReviews`), the host lists the old and new history from
+where they part (`getRewrittenHistory`, with patch ids) and `DetailsWorkflowController.followRewrittenHistory` maps
+each review's commits (`mapRewrittenCommit`) and re-keys what moved (`rekeyCommitReview`): the registry entry, the
+remembered mode, and — through `graphInspect.moveReview` — the host's opened diffs, files, threads, thread actions
+and the deep review channel. The engaged review also moves its view (scope, details) and asks the graph to select the
+new commit, again once the graph's rows hold it. While anything runs on a commit review in the repo
+(`commitReviewsBusy`), the move waits (`_deferredAnchorRewrite`, from the earliest tip) and is retried on the
+panel's next update once nothing does.
+
 The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
 manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
 `entry.orientRun` like a focus-area run; as it lands, its order is written into `session.order`, which

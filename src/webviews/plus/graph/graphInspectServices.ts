@@ -153,6 +153,7 @@ import type {
 	ReviewThreadAction,
 	ReviewThreadActionsState,
 	ReviewThreadsArgs,
+	RewrittenHistory,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
@@ -489,6 +490,8 @@ export class GraphInspectServices {
 				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
 					getScopeFiles(this.container, repoPath, scope, signal),
 				getBranchCommits: (repoPath, options, signal) => this.getBranchCommits(repoPath, options, signal),
+				getRewrittenHistory: (repoPath, previousTip, signal) =>
+					this.getRewrittenHistory(repoPath, previousTip, signal),
 				getCommitPatchIds: async (repoPath, shas, signal) => {
 					const ids = await this.container.git
 						.getRepositoryService(repoPath)
@@ -628,6 +631,10 @@ export class GraphInspectServices {
 				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewFiles: args => this.setReviewFiles(args),
+				moveReview: (from, to, anchor) => {
+					this.moveReview(from, to, anchor);
+					return Promise.resolve();
+				},
 				reviewStep: (action, path, inListOrder) => this.reviewStep(action, path, inListOrder),
 				openReviewFile: args => {
 					this.reclaimReview();
@@ -986,6 +993,36 @@ export class GraphInspectServices {
 					return { root: data.root, frequencies: data.frequencies };
 				},
 			},
+		};
+	}
+
+	private async getRewrittenHistory(
+		repoPath: string,
+		previousTip: string,
+		signal?: AbortSignal,
+	): Promise<RewrittenHistory | undefined> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const mergeBase = await svc.refs.getMergeBase(previousTip, 'HEAD');
+		signal?.throwIfAborted();
+		if (mergeBase == null) return undefined;
+
+		const list = async (ref: string) => {
+			const log = await svc.commits.getLog(`${mergeBase}..${ref}`, { limit: 100 });
+			return Array.from(log?.commits.values() ?? [], c => ({ sha: c.sha, message: c.message ?? '' }));
+		};
+		const [previous, next] = await Promise.all([list(previousTip), list('HEAD')]);
+		signal?.throwIfAborted();
+
+		const ids = await svc.commits.getCommitPatchIds?.(
+			[...previous, ...next].map(c => c.sha),
+			undefined,
+			signal,
+		);
+		return {
+			mergeBase: mergeBase,
+			previous: previous,
+			next: next,
+			patchIds: ids != null ? Object.fromEntries(ids) : undefined,
 		};
 	}
 
@@ -1460,6 +1497,32 @@ export class GraphInspectServices {
 			...(noteId != null ? { noteId: noteId } : {}),
 		});
 		this._reviewThreadActionsEvent.fire({ anchor: journal.anchor, actions: [...journal.actions] });
+	}
+
+	private moveReview(from: string, to: string, anchor: DeepReviewAnchor): void {
+		if (this._deepReview?.state.anchorKey === from) {
+			this._deepReview.moveTo(anchor, to);
+		}
+		for (const [key, diff] of this._openedReviewDiffs) {
+			if (diff.anchor === from) {
+				this._openedReviewDiffs.set(key, { ...diff, anchor: to });
+			}
+		}
+		if (this._pendingReviewDiff?.diff.anchor === from) {
+			this._pendingReviewDiff.diff = { ...this._pendingReviewDiff.diff, anchor: to };
+		}
+		if (this._reviewFiles?.anchor === from) {
+			this._reviewFiles.anchor = to;
+		}
+		if (this._reviewFilesArgs?.anchor === from) {
+			this._reviewFilesArgs = { ...this._reviewFilesArgs, anchor: to };
+		}
+		if (this._reviewThreadsArgs?.anchor === from) {
+			this._reviewThreadsArgs = { ...this._reviewThreadsArgs, anchor: to };
+		}
+		if (this._reviewThreadActions?.anchor === from) {
+			this._reviewThreadActions = { ...this._reviewThreadActions, anchor: to };
+		}
 	}
 
 	/** The panel's threads and files are for its review: what the reader does in the editor from now on is
