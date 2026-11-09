@@ -83,6 +83,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an integration that stopped working after repeated failed requests still showing as connected in _Launchpad_, the _Commit Graph_, and autolinks &mdash; it now shows as disconnected until VS Code restarts
 - Fixes reconnecting one self-managed integration (e.g. GitHub Enterprise or GitLab Self-Managed) also disconnecting your other connections of the same kind
 - Fixes an _Azure DevOps Server_ connection at the server root rejecting a personal access token limited to one collection, leaving _Launchpad_ and the work item lists empty &mdash; GitLens now finds a collection the token works in, and when none accepts it, the warning says why and what to do ([#6071](https://github.com/gitkraken/vscode-gitlens/issues/6071))
+- Fixes opening and copying remote links for repositories cloned from Bitbucket's new SSH host ([#6092](https://github.com/gitkraken/vscode-gitlens/issues/6092))
 - Fixes checking out a pull request from a fork in a GitLab subgroup naming the new remote after the subgroup's path (e.g. `contrib/team`), which GitLens then misread &mdash; the remote is now named `contrib-team`
 - Fixes searching _Launchpad_ by a pasted GitLab merge request URL finding nothing when the repository is in a subgroup
 - Fixes _Cloud Workspaces_ matching or adding the wrong GitLab repository when two subgroups hold a repository with the same name

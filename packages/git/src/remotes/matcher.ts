@@ -51,7 +51,7 @@ interface ProviderEntry {
 }
 
 const builtInProviders: ProviderEntry[] = [
-	{ custom: false, matcher: 'bitbucket.org', type: 'bitbucket' },
+	{ custom: false, matcher: /^(?:ssh\.)?bitbucket\.org$/i, type: 'bitbucket' },
 	{ custom: false, matcher: 'github.com', type: 'github' },
 	{ custom: false, matcher: 'gitlab.com', type: 'gitlab' },
 	{ custom: false, matcher: /\bdev\.azure\.com$/i, type: 'azure-devops' },
@@ -100,7 +100,14 @@ function createBuiltInProvider(
 		case 'azure-devops':
 			return new AzureDevOpsRemoteProvider(domain, path, protocol, name, isVsts(domain), context);
 		case 'bitbucket':
-			return new BitbucketRemoteProvider(domain, path, protocol, name, custom, context);
+			return new BitbucketRemoteProvider(
+				domain.toLowerCase() === 'ssh.bitbucket.org' ? 'bitbucket.org' : domain,
+				path,
+				protocol,
+				name,
+				custom,
+				context,
+			);
 		case 'bitbucket-server':
 			return new BitbucketServerRemoteProvider(domain, path, protocol, name, custom, context);
 		case 'custom':
