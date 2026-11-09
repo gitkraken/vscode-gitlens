@@ -2008,4 +2008,38 @@ suite('mapRewrittenCommit', () => {
 		assert.deepStrictEqual(asked, ['c']);
 		assert.deepStrictEqual(moved, ['/repo']);
 	});
+
+	test('a checkout onto another branch is no rewrite', async () => {
+		const state = createDetailsState();
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return undefined;
+				},
+			},
+			branches: { getBranchEnrichment: async () => undefined },
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions.commitReviewsHandler = () => true;
+		const wipOn = (revision: number, branch: string, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', name: branch, reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipOn(1, 'feature/a', 'x'));
+		actions.applyPushedWip(wipOn(2, 'feature/b', 'y'));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, [], 'the checkout leaves the reviews on feature/a where they are');
+
+		actions.applyPushedWip(wipOn(3, 'feature/b', "y'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, ['y'], 'an amend on feature/b is one');
+	});
 });

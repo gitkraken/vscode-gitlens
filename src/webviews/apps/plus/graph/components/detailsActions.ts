@@ -2768,6 +2768,7 @@ export class DetailsActions {
 	private _scopeBeforeTipMove: ScopeSelection | undefined;
 	/** The branch tip when a rebase or other operation paused — what its commits are matched against once it lands */
 	private _tipBeforePause: string | undefined;
+	private _branchBeforePause: string | undefined;
 
 	/** Set by the workflow controller — moves the reviews on commits a rewrite replaced onto the new ones */
 	anchorRewrittenHandler?: (history: RewrittenHistory, repoPath: string) => void;
@@ -3765,8 +3766,15 @@ export class DetailsActions {
 		const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
 		if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
 			this._tipBeforePause = tipBefore;
+			this._branchBeforePause = prev?.branch?.name;
 		}
-		const tipMovedHere = prev?.repo.path === repoPath && rewritten && wip.changes?.pausedOpStatus == null;
+		// A checkout moves the tip too, onto another branch's commits — not a rewrite of these
+		const branchBefore = prev?.changes?.pausedOpStatus != null ? this._branchBeforePause : prev?.branch?.name;
+		const tipMovedHere =
+			prev?.repo.path === repoPath &&
+			rewritten &&
+			wip.changes?.pausedOpStatus == null &&
+			branchBefore === wip.branch?.name;
 
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
@@ -3801,6 +3809,7 @@ export class DetailsActions {
 		if (tipMovedHere) {
 			const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
 			this._tipBeforePause = undefined;
+			this._branchBeforePause = undefined;
 			if (previousTip != null) {
 				void this.followRewrittenReviews(repoPath, previousTip);
 			}
