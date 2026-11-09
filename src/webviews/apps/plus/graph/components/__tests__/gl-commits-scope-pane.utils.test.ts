@@ -4,6 +4,7 @@ import {
 	getDefaultEnd,
 	getDefaultStart,
 	getMinEndIndex,
+	rangeMovedWithRows,
 	resolveEndIndex,
 	resolveSelectionRange,
 	resolveStartIndex,
@@ -167,6 +168,50 @@ suite('gl-commits-scope-pane range/floor utils', () => {
 			// The picker distinguishes this "rows not loaded yet" case (empty items) from a genuine
 			// row-disappeared miss (items present, none match) by guarding its reconcile on items.length.
 			assert.strictEqual(resolveSelectionRange([], ['unstaged']), undefined);
+		});
+	});
+
+	suite('rangeMovedWithRows', () => {
+		const tipBefore = item('old-tip', 'pushed');
+		const tipAfter = item('new-tip', 'pushed');
+		const range = (start: string, end: string) => ({ start: start, end: end });
+
+		test('a rewrite that re-pins the range onto new commits moves it', () => {
+			// The branch went from many commits to a few, and the scope followed its tip onto the new
+			// one: the old scroll position means nothing on the new list.
+			const before = [tipBefore, commitA, commitB, item('c', 'pushed'), item('d', 'pushed'), mergeBase];
+			const after = [tipAfter, commitB, mergeBase];
+			assert.strictEqual(
+				rangeMovedWithRows(before, after, range('old-tip', 'old-tip'), range('new-tip', 'new-tip')),
+				true,
+			);
+		});
+
+		test('a commit added under a range that takes it in moves it', () => {
+			const before = [commitA, commitB, mergeBase];
+			const after = [tipAfter, commitA, commitB, mergeBase];
+			assert.strictEqual(rangeMovedWithRows(before, after, range('a', 'b'), range('new-tip', 'b')), true);
+		});
+
+		test('a list change that leaves the range on the same rows keeps the viewport', () => {
+			// A working-changes tick adds the staged row above a range of commits.
+			const before = [commitA, commitB, mergeBase];
+			const after = [staged, commitA, commitB, mergeBase];
+			assert.strictEqual(rangeMovedWithRows(before, after, range('a', 'b'), range('a', 'b')), false);
+		});
+
+		test('a range moved on an unchanged list keeps the viewport', () => {
+			// The reader dragged a handle: the rows are the same, so they are looking where they want.
+			const rows = [commitA, commitB, mergeBase];
+			const sameRows = [commitA, commitB, mergeBase];
+			assert.strictEqual(rangeMovedWithRows(rows, sameRows, range('a', 'a'), range('a', 'b')), false);
+		});
+
+		test('the first load and an empty list are left to the caller', () => {
+			const rows = [commitA, mergeBase];
+			assert.strictEqual(rangeMovedWithRows(undefined, rows, undefined, range('a', 'a')), false);
+			assert.strictEqual(rangeMovedWithRows([], rows, undefined, range('a', 'a')), false);
+			assert.strictEqual(rangeMovedWithRows(rows, [], range('a', 'a'), undefined), false);
 		});
 	});
 });

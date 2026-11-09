@@ -4,6 +4,7 @@ import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
+	BranchCommitEntry,
 	BranchComparisonOptions,
 	ComposeResult,
 	ReviewResult,
@@ -461,6 +462,48 @@ suite('DetailsWorkflowController.toggleMode — stale-on-re-entry', () => {
 			'review resource should reset when re-entering for a WIP row in a different worktree',
 		);
 		assert.strictEqual(controller['_reviewFetchedForSelection'], undefined);
+	});
+
+	[
+		{ tip: "c'", refetches: true, expected: ["c'", 'b'] },
+		{ tip: 'c', refetches: false, expected: ['c', 'b'] },
+	].forEach(({ tip, refetches, expected }) => {
+		test(`review: re-entering WIP ${refetches ? 'refetches' : 'keeps'} branch commits ${refetches ? 'behind' : 'at'} the branch tip`, async () => {
+			const host = new FakeHost({
+				repoPath: '/A',
+				graphRepoPath: '/parent',
+				selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+			});
+			const state = createDetailsState();
+			const commit = (sha: string) =>
+				({ sha: sha, message: sha.replace("'", ''), pushed: false }) as unknown as BranchCommitEntry;
+			let fetches = 0;
+			const services = createServices();
+			Object.assign(services.graphInspect, {
+				getBranchCommits: async () => {
+					fetches++;
+					return { commits: [commit("c'"), commit('b')], hasMore: false };
+				},
+				getCommitPatchIds: async () => undefined,
+			});
+			Object.assign(services, { ai: { getModel: async () => undefined } });
+			const actions = new DetailsActions(state, services, createResources());
+			const controller = new DetailsWorkflowController(host, actions);
+			host.connectAll();
+			host.tickHostUpdate();
+
+			// Listed before the mode was left; the branch may have been amended while it was off
+			state.branchCommits.set([commit('c'), commit('b')]);
+			actions['_branchCommitsFetchedRepoPath'] = '/A';
+			state.wip.set({ repo: { path: '/A' }, branch: { reference: { sha: tip } } } as unknown as Wip);
+
+			controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+			assert.strictEqual(fetches, refetches ? 1 : 0);
+			const scope = state.scope.get();
+			assert.deepStrictEqual(scope?.type === 'wip' ? scope.includeShas : undefined, expected);
+		});
 	});
 
 	test('compose: re-entering for the same WIP selection projects a saved registry result back into the resource', () => {

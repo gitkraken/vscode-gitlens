@@ -42,29 +42,36 @@ suite('reviewThreads — the right side of a review diff', () => {
 	});
 });
 
+/** Threads on the working side of an unstaged diff — no revision documents to resolve. */
+const threadsContainer = {
+	git: {
+		getRepositoryService: () => ({
+			getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
+		}),
+	},
+} as unknown as Container;
+
 function createThreadsOwner(): ReviewThreadsOwner & { reviewThreadsReleased: sinon.SinonStub } {
 	return {
 		reviewThreadAction: sinon.stub(),
 		reviewCommentPath: () => undefined,
+		reviewSideUri: (repoPath, rhs, path) => getReviewSideUri(threadsContainer, repoPath, rhs, path),
 		reviewThreadsReleased: sinon.stub(),
 	};
 }
 
 suite('reviewThreads — one graph shows its threads in the editor', () => {
-	// No items, so no comment controller is made
-	const container = {} as unknown as Container;
-
 	teardown(() => disposeReviewThreads());
 
 	test('tells the instance the threads were taken from, once', () => {
 		const first = createThreadsOwner();
 		const second = createThreadsOwner();
 
-		setReviewThreads(container, first, undefined);
-		setReviewThreads(container, first, undefined);
+		setReviewThreads(first, undefined);
+		setReviewThreads(first, undefined);
 		assert.strictEqual(first.reviewThreadsReleased.callCount, 0, 'setting again is not a hand-over');
 
-		setReviewThreads(container, second, undefined);
+		setReviewThreads(second, undefined);
 		assert.strictEqual(first.reviewThreadsReleased.callCount, 1);
 		assert.strictEqual(second.reviewThreadsReleased.callCount, 0);
 	});
@@ -75,23 +82,14 @@ suite('reviewThreads — one graph shows its threads in the editor', () => {
 		// What a released graph does on its way out
 		first.reviewThreadsReleased.callsFake(() => releaseReviewThreads(first));
 
-		setReviewThreads(container, first, undefined);
-		setReviewThreads(container, second, undefined);
+		setReviewThreads(first, undefined);
+		setReviewThreads(second, undefined);
 		releaseReviewThreads(first);
 
-		setReviewThreads(container, first, undefined);
+		setReviewThreads(first, undefined);
 		assert.strictEqual(second.reviewThreadsReleased.callCount, 1, 'the second still had the threads to lose');
 	});
 });
-
-/** Threads on the working side of an unstaged diff — no revision documents to resolve. */
-const threadsContainer = {
-	git: {
-		getRepositoryService: () => ({
-			getAbsoluteUri: (path: string, repoPath: string) => Uri.file(`${repoPath}/${path}`),
-		}),
-	},
-} as unknown as Container;
 
 function threadItem(id: string, findingId: string, notes?: ReviewFindingNote[]): ReviewThreadItem {
 	return {
@@ -143,11 +141,7 @@ suite('reviewThreads — a question to the reviewer', () => {
 	setup(() => {
 		shown = fakeCommentController();
 		owner = createThreadsOwner();
-		setReviewThreads(
-			threadsContainer,
-			owner,
-			threadsArgs([threadItem('a1', 'a'), threadItem('a2', 'a'), threadItem('b1', 'b')]),
-		);
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a'), threadItem('a2', 'a'), threadItem('b1', 'b')]));
 	});
 
 	teardown(() => {
@@ -166,34 +160,26 @@ suite('reviewThreads — a question to the reviewer', () => {
 	test('keeps waiting through a sync that brings no answer', () => {
 		markReviewerAsked(owner, 'a');
 		const question: ReviewFindingNote = { id: 'q', author: 'user', text: 'Why?', at: 1 };
-		setReviewThreads(
-			threadsContainer,
-			owner,
-			threadsArgs([threadItem('a1', 'a', [question]), threadItem('b1', 'b')]),
-		);
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a', [question]), threadItem('b1', 'b')]));
 
 		assert.strictEqual(shown.get('a1')?.label, waiting, "the reader's own words are not the answer");
 	});
 
 	test('stops waiting once the agent comments on the finding', () => {
 		markReviewerAsked(owner, 'a');
-		setReviewThreads(
-			threadsContainer,
-			owner,
-			threadsArgs([threadItem('a1', 'a', [agentNote]), threadItem('b1', 'b')]),
-		);
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a', [agentNote]), threadItem('b1', 'b')]));
 
 		assert.strictEqual(shown.get('a1')?.label, 'Warning');
 	});
 
 	test('waits for a newer answer than the one the finding already had', () => {
-		setReviewThreads(threadsContainer, owner, threadsArgs([threadItem('a1', 'a', [agentNote])]));
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a', [agentNote])]));
 		markReviewerAsked(owner, 'a');
-		setReviewThreads(threadsContainer, owner, threadsArgs([threadItem('a1', 'a', [agentNote])]));
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a', [agentNote])]));
 		assert.strictEqual(shown.get('a1')?.label, waiting);
 
 		const answer: ReviewFindingNote = { id: 'n2', author: 'agent', text: 'Still fine', at: 2 };
-		setReviewThreads(threadsContainer, owner, threadsArgs([threadItem('a1', 'a', [agentNote, answer])]));
+		setReviewThreads(owner, threadsArgs([threadItem('a1', 'a', [agentNote, answer])]));
 		assert.strictEqual(shown.get('a1')?.label, 'Warning');
 	});
 
@@ -241,7 +227,7 @@ suite('reviewThreads — a comment being edited', () => {
 	setup(() => {
 		shown = fakeCommentController();
 		owner = { ...createThreadsOwner(), reviewThreadAction: sinon.stub() };
-		setReviewThreads(threadsContainer, owner, readerItems([userNote]));
+		setReviewThreads(owner, readerItems([userNote]));
 	});
 
 	teardown(() => {
@@ -255,7 +241,7 @@ suite('reviewThreads — a comment being edited', () => {
 		editReviewComment(editing);
 		const before = thread.comments;
 
-		setReviewThreads(threadsContainer, owner, readerItems([userNote, later], [later]));
+		setReviewThreads(owner, readerItems([userNote, later], [later]));
 
 		assert.strictEqual(thread.comments, before, 'the comments are not rebuilt');
 		assert.strictEqual(editing.mode, CommentMode.Editing);
@@ -266,7 +252,7 @@ suite('reviewThreads — a comment being edited', () => {
 		const thread = shown.get('u1')!;
 		const editing = thread.comments[1];
 		editReviewComment(editing);
-		setReviewThreads(threadsContainer, owner, readerItems([userNote, later]));
+		setReviewThreads(owner, readerItems([userNote, later]));
 
 		cancelReviewCommentEdit(editing);
 
@@ -284,7 +270,7 @@ suite('reviewThreads — a comment being edited', () => {
 		const thread = shown.get('u1')!;
 		const editing = thread.comments[1];
 		editReviewComment(editing);
-		setReviewThreads(threadsContainer, owner, readerItems([userNote, later]));
+		setReviewThreads(owner, readerItems([userNote, later]));
 
 		editing.body = new MarkdownString('My note, edited');
 		saveReviewComment(editing);
@@ -308,7 +294,7 @@ suite('reviewThreads — a comment being edited', () => {
 		const [opening, note] = thread.comments;
 		editReviewComment(opening);
 		editReviewComment(note);
-		setReviewThreads(threadsContainer, owner, readerItems([userNote, later]));
+		setReviewThreads(owner, readerItems([userNote, later]));
 
 		opening.body = new MarkdownString('My words, edited');
 		saveReviewComment(opening);

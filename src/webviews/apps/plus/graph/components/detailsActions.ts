@@ -51,6 +51,7 @@ import { defaultViewFilesConfig } from '../../../../commitDetails/protocol.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	AutoRebaseSummaryResult,
+	BranchCommitEntry,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	BranchComparisonOptions,
@@ -155,6 +156,109 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 		);
 	}
 	return false;
+}
+
+type MergeBases = { prev?: string; next?: string };
+
+function findRewrite(
+	prev: readonly BranchCommitEntry[],
+	next: readonly BranchCommitEntry[],
+	mergeBases: MergeBases | undefined,
+): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly BranchCommitEntry[] } {
+	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
+	// A branch window leaves out its merge base, where the old and new history can still meet (a first commit, an undo)
+	if (mergeBases?.next != null && !nextIndexes.has(mergeBases.next)) {
+		nextIndexes.set(mergeBases.next, next.length);
+	}
+	const prevShas = mergeBases?.prev != null ? [...prev.map(c => c.sha), mergeBases.prev] : prev.map(c => c.sha);
+	const prevForkIndex = prevShas.findIndex(sha => nextIndexes.has(sha));
+	return prevForkIndex < 0
+		? { nextIndexes: nextIndexes, prevForkIndex: prev.length, rewritten: next }
+		: {
+				nextIndexes: nextIndexes,
+				prevForkIndex: prevForkIndex,
+				rewritten: next.slice(0, nextIndexes.get(prevShas[prevForkIndex])),
+			};
+}
+
+/** The scope's commits a rewrite replaced, plus the rewritten ones they may map to — the ones worth a patch id */
+export function getRewrittenScopeShas(
+	shas: readonly string[],
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
+): string[] {
+	if (!prev?.length) return [];
+
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
+	const replaced = shas.filter(sha => {
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		return !nextIndexes.has(sha) && prevIndex >= 0 && prevIndex < prevForkIndex;
+	});
+	return replaced.length && rewritten.length ? [...replaced, ...rewritten.map(c => c.sha)] : [];
+}
+
+/** Carries a scope's commit range, whole, across a history change: a rewritten commit maps by patch id, subject, or —
+ *  at an unchanged count — place; a range holding the tip (or working changes) takes in commits added on top. */
+export function remapScopeRange(
+	scope: { includeShas: readonly string[]; includesWip: boolean },
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
+	patchIds?: Readonly<Record<string, string>>,
+): string[] | undefined {
+	const shas = scope.includeShas;
+	if (!prev?.length || !next.length) return undefined;
+
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
+	const mapOne = (sha: string): number | 'belowRewriteUnloaded' | undefined => {
+		const index = nextIndexes.get(sha);
+		if (index != null) return index;
+
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		if (prevIndex < 0 || prevIndex >= prevForkIndex) return 'belowRewriteUnloaded';
+
+		const patchId = patchIds?.[sha];
+		const subject = getCommitSubject(prev[prevIndex].message);
+		const samePatch = patchId != null ? rewritten.filter(c => patchIds?.[c.sha] === patchId) : [];
+		const sameSubject = rewritten.filter(c => getCommitSubject(c.message) === subject);
+		const match =
+			samePatch.length === 1
+				? samePatch[0]
+				: sameSubject.length === 1
+					? sameSubject[0]
+					: rewritten.length === prevForkIndex
+						? rewritten[prevIndex]
+						: undefined;
+		return match != null ? nextIndexes.get(match.sha) : undefined;
+	};
+
+	if (!shas.length) {
+		if (!scope.includesWip) return undefined;
+
+		const tip = mapOne(prev[0].sha);
+		return typeof tip === 'number' && tip > 0 ? next.slice(0, tip).map(c => c.sha) : undefined;
+	}
+
+	const mapped = shas.map(sha => ({ sha: sha, index: mapOne(sha) }));
+	const indexes = mapped.map(m => m.index).filter(i => typeof i === 'number');
+	const unloaded = mapped.filter(m => m.index === 'belowRewriteUnloaded').map(m => m.sha);
+
+	const holdsTip = scope.includesWip || shas[0] === prev[0].sha;
+	const top = holdsTip ? 0 : indexes.length ? Math.min(...indexes) : undefined;
+	let bottom = unloaded.length ? next.length - 1 : indexes.length ? Math.max(...indexes) : undefined;
+	const oldestLost = mapped.at(-1)!.index == null;
+	if (oldestLost && rewritten.length) {
+		bottom = Math.max(bottom ?? 0, rewritten.length - 1);
+	}
+	if (top == null || bottom == null) return undefined;
+
+	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...unloaded];
+	return !remapped.length || areEqual(remapped, shas) ? undefined : remapped;
+}
+
+function getCommitSubject(message: string): string {
+	return message.split('\n', 1)[0].trim();
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -2768,6 +2872,19 @@ export class DetailsActions {
 		return this._branchCommitsFetchedRepoPath;
 	}
 
+	/** The scope as it was when the tip moved, before the picker's fallback for vanished working-change rows replaced it */
+	private _scopeBeforeTipMove: ScopeSelection | undefined;
+	/** A picker selection that came in while the tip-move remap was pending — applied only if the remap doesn't */
+	private _scopeHeldForRemap: ScopeSelection | undefined;
+
+	/** Holds `scope` back while a tip-move remap is pending, so the picker's fallback doesn't flash its files */
+	holdScopeForRemap(scope: ScopeSelection): boolean {
+		if (this._scopeBeforeTipMove == null) return false;
+
+		this._scopeHeldForRemap = scope;
+		return true;
+	}
+
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
@@ -2776,15 +2893,58 @@ export class DetailsActions {
 		this._branchCommitsController = controller;
 
 		this.state.branchCommitsFetching.set(true);
+		const tipMoved = this._scopeBeforeTipMove != null;
+		let scopeReplaced = false;
+		let prevCommits: readonly BranchCommitEntry[] | undefined;
 		try {
 			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
+			if (controller.signal.aborted) return;
+
+			prevCommits =
+				this._branchCommitsFetchedRepoPath != null &&
+				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
+					? this.state.branchCommits.get()
+					: undefined;
+			const scopeBeforeTipMove = this._scopeBeforeTipMove;
+			const scope = scopeBeforeTipMove ?? this.state.scope.get();
+			const remapped = await this.remapScope(
+				repoPath,
+				scope,
+				prevCommits,
+				result.commits,
+				{
+					prev: this.state.branchMergeBase.get()?.sha,
+					next: result.mergeBase?.sha,
+				},
+				controller.signal,
+			);
 			if (controller.signal.aborted) return;
 
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
+			if (remapped != null && (scopeBeforeTipMove != null || this.state.scope.get() === scope)) {
+				this._scopeHeldForRemap = undefined;
+				this.state.scope.set(remapped);
+				void this.resources.scopeFiles.fetch(repoPath, remapped);
+				scopeReplaced = true;
+			}
 		} finally {
+			if (!controller.signal.aborted) {
+				this._scopeBeforeTipMove = undefined;
+				const held = this._scopeHeldForRemap;
+				this._scopeHeldForRemap = undefined;
+				if (held != null) {
+					this.state.scope.set(held);
+					void this.resources.scopeFiles.fetch(repoPath, held);
+				} else if (tipMoved && !scopeReplaced) {
+					const scope = this.state.scope.get();
+					if (scope?.type === 'wip') {
+						void this.resources.scopeFiles.fetch(repoPath, scope);
+					}
+				}
+			}
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
 				this.state.branchCommitsFetching.set(false);
@@ -2792,6 +2952,7 @@ export class DetailsActions {
 		}
 
 		this.rederiveDeferredDefaultScope(repoPath);
+		this.reloadScopeCommitsPagedOut(repoPath, prevCommits);
 	}
 
 	/**
@@ -2846,6 +3007,46 @@ export class DetailsActions {
 
 		this.state.scope.set(refreshedScope);
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
+	}
+
+	private async remapScope(
+		repoPath: string,
+		scope: ScopeSelection | undefined,
+		prevCommits: readonly BranchCommitEntry[] | undefined,
+		nextCommits: readonly BranchCommitEntry[],
+		mergeBases: MergeBases,
+		signal: AbortSignal,
+	): Promise<ScopeSelection | undefined> {
+		if (scope?.type !== 'wip') return undefined;
+
+		const rewrittenShas = getRewrittenScopeShas(scope.includeShas, prevCommits, nextCommits, mergeBases);
+		const patchIds = rewrittenShas.length
+			? await this.services.graphInspect.getCommitPatchIds(repoPath, rewrittenShas, signal).catch(() => undefined)
+			: undefined;
+		const includeShas = remapScopeRange(
+			{ includeShas: scope.includeShas, includesWip: scope.includeStaged || scope.includeUnstaged },
+			prevCommits,
+			nextCommits,
+			mergeBases,
+			patchIds,
+		);
+		return includeShas != null ? { ...scope, includeShas: includeShas } : undefined;
+	}
+
+	/** A refetch lists the first page again: pages back while the scope holds commits that were listed before it */
+	private reloadScopeCommitsPagedOut(repoPath: string, prevCommits: readonly BranchCommitEntry[] | undefined): void {
+		const scope = this.state.scope.get();
+		if (scope?.type !== 'wip' || prevCommits == null) return;
+
+		const listed = new Set(this.state.branchCommits.get()?.map(c => c.sha));
+		const newestUntouched = prevCommits.findIndex(c => listed.has(c.sha));
+		if (newestUntouched < 0) return;
+
+		const pagedOut = (sha: string) =>
+			!listed.has(sha) && prevCommits.findIndex(c => c.sha === sha) > newestUntouched;
+		if (scope.includeShas.some(pagedOut)) {
+			void this.ensureBranchCommitsCover(repoPath, scope.includeShas);
+		}
 	}
 
 	/**
@@ -3619,6 +3820,16 @@ export class DetailsActions {
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
 
+			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+			const rewritten =
+				prev?.branch?.reference?.sha !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
+			const tipMoved =
+				prev?.repo.path === repoPath &&
+				rewritten &&
+				wip.changes?.pausedOpStatus == null &&
+				repoPath === this.state.activeModeRepoPath.get();
+
 			// A working-tree change can move the files inside the current wip scope (or drop a
 			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
 			// the eventual run stay in agreement with the picker. Scoped to the active mode's repo so
@@ -3627,9 +3838,20 @@ export class DetailsActions {
 			// separately re-emits scope-change when its selection can no longer be honored, which
 			// reconciles the stored scope *identity*; this covers identity-stable ticks whose file
 			// set moved.)
+			// A tip move's remap reloads them itself, for the scope that replaces this one
 			const scope = this.state.scope.get();
-			if (scope?.type === 'wip' && repoPath === this.state.activeModeRepoPath.get()) {
+			if (
+				scope?.type === 'wip' &&
+				repoPath === this.state.activeModeRepoPath.get() &&
+				!tipMoved &&
+				this._scopeBeforeTipMove == null
+			) {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
+			}
+
+			if (tipMoved) {
+				this._scopeBeforeTipMove ??= this.state.scope.get();
+				void this.fetchBranchCommits(repoPath);
 			}
 		}
 		const branchName = wip.branch?.name;

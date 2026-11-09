@@ -7,6 +7,7 @@ import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
 import {
 	getMinEndIndex,
+	rangeMovedWithRows,
 	resolveEndIndex,
 	resolveSelectionRange,
 	resolveStartIndex,
@@ -75,6 +76,9 @@ export class GlCommitsScopePane extends LitElement {
 	// Non-reactive: set in `syncSelectionRange()` when the controlled `selection` can no longer be
 	// honored, consumed in `updated()` to re-emit `scope-change` (post-render, avoiding re-entrancy).
 	private _pendingScopeReconcile = false;
+	// Non-reactive: the range's edge row IDs as of the last render, so `updated()` can tell a range
+	// the rows carried elsewhere (a rewrite re-pinning the scope) from one that stayed put.
+	private _lastRangeIds: { start: string; end: string } | undefined;
 	private _dragAc: AbortController | undefined;
 	private _scrollAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
@@ -201,12 +205,20 @@ export class GlCommitsScopePane extends LitElement {
 			return;
 		}
 
+		const range = this.rangeIds;
 		if (changedProperties.has('items')) {
 			const prev = changedProperties.get('items') as ScopeItem[] | undefined;
 			if (!prev?.length && this.items.length > 0) {
 				this.scrollEndHandleIntoView();
+			} else if (rangeMovedWithRows(prev, this.items, this._lastRangeIds, range)) {
+				// Synchronously, before the visibility recompute below, so no proxy flashes for the
+				// frame a deferred scroll would take. The end edge first, then the start, so a range
+				// taller than the pane shows its top.
+				this.scrollActiveHandleIntoView('end');
+				this.scrollActiveHandleIntoView('start');
 			}
 		}
+		this._lastRangeIds = range;
 
 		// Consume any pending keyboard/click focus *before* visibility recompute.
 		// Doing the scroll first means recompute sees post-scroll handle positions
@@ -328,6 +340,12 @@ export class GlCommitsScopePane extends LitElement {
 
 		this._userRangeStartId = this.items[range.start].id;
 		this._userRangeEndId = this.items[range.end].id;
+	}
+
+	private get rangeIds(): { start: string; end: string } | undefined {
+		const start = this.items[this.rangeStart]?.id;
+		const end = this.items[this.rangeEnd]?.id;
+		return start != null && end != null ? { start: start, end: end } : undefined;
 	}
 
 	/** Effective start: resolves stored ID to index, falls back to default-start. */

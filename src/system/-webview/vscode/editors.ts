@@ -122,7 +122,7 @@ export async function openChangesEditor(
 	}
 }
 
-function focusGroupByColumnCommand(column: ViewColumn): CoreCommands | undefined {
+export function focusGroupByColumnCommand(column: ViewColumn): CoreCommands | undefined {
 	switch (column) {
 		case ViewColumn.One:
 			return 'workbench.action.focusFirstEditorGroup';
