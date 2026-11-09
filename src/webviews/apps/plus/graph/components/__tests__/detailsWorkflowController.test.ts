@@ -4741,6 +4741,16 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 		assert.strictEqual(state.activeModeSha.get(), uncommitted, 'the engaged anchor is left alone');
 	});
 
+	test("a kept commit review's run holds a rewrite's move back for the repo", () => {
+		const { state, controller } = setup('generating');
+		state.activeModeContext.set('wip');
+		state.activeModeSha.set(uncommitted);
+
+		assert.strictEqual(controller.engagedAnchorBusy(), false);
+		assert.strictEqual(controller.commitReviewsBusy('/A'), true);
+		assert.strictEqual(controller.commitReviewsBusy('/B'), false);
+	});
+
 	test('a review with a run still going stays where it is', () => {
 		const { host, state, controller, oldKey } = setup('generating');
 

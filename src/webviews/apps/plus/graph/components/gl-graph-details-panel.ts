@@ -3042,7 +3042,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
-		this._actions.anchorBusyHandler = () => this._workflow.engagedAnchorBusy();
+		this._actions.anchorBusyHandler = repoPath => this._workflow.commitReviewsBusy(repoPath);
 		this._actions.commitReviewsHandler = repoPath => this._workflow.hasCommitReviews(repoPath);
 		this._actions.anchorRewrittenHandler = (history, repoPath) => {
 			const sha = this._workflow.followRewrittenHistory(history, repoPath);

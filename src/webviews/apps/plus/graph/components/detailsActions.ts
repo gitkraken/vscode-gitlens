@@ -2771,8 +2771,8 @@ export class DetailsActions {
 
 	/** Set by the workflow controller — moves the reviews on commits a rewrite replaced onto the new ones */
 	anchorRewrittenHandler?: (history: RewrittenHistory, repoPath: string) => void;
-	/** Set by the workflow controller — whether a run on the engaged anchor would report under the anchor it has */
-	anchorBusyHandler?: () => boolean;
+	/** Set by the workflow controller — whether a run on a commit review in the repo would report under its old anchor */
+	anchorBusyHandler?: (repoPath: string) => boolean;
 	/** Set by the workflow controller — whether any review on a commit in the repo could have been rewritten */
 	commitReviewsHandler?: (repoPath: string) => boolean;
 	/** The tip before a rewrite that came while the anchor was busy — the move it calls for waits for the run */
@@ -2784,7 +2784,7 @@ export class DetailsActions {
 
 	retryDeferredAnchorRewrite(): void {
 		const deferred = this._deferredAnchorRewrite;
-		if (deferred == null || this.anchorBusyHandler?.()) return;
+		if (deferred == null || this.anchorBusyHandler?.(deferred.repoPath)) return;
 
 		void this.followRewrittenReviews(deferred.repoPath, deferred.previousTip);
 	}
@@ -2799,7 +2799,7 @@ export class DetailsActions {
 		// From the earliest tip a deferred move still holds: the history since then takes in every rewrite
 		const tip =
 			this._deferredAnchorRewrite?.repoPath === repoPath ? this._deferredAnchorRewrite.previousTip : previousTip;
-		if (this.anchorBusyHandler?.()) {
+		if (this.anchorBusyHandler?.(repoPath)) {
 			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
 			return;
 		}
@@ -2807,7 +2807,7 @@ export class DetailsActions {
 		this._deferredAnchorRewrite = undefined;
 		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
 		if (history == null) return;
-		if (this.anchorBusyHandler?.()) {
+		if (this.anchorBusyHandler?.(repoPath)) {
 			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
 			return;
 		}

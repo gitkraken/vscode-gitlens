@@ -1209,6 +1209,24 @@ export class DetailsWorkflowController implements ReactiveController {
 		);
 	}
 
+	/** Whether anything still runs on the engaged anchor or on a commit review kept in `repoPath` — a rewrite's move
+	 *  waits for all of them */
+	commitReviewsBusy(repoPath: string): boolean {
+		if (this.engagedAnchorBusy()) return true;
+
+		for (const bucket of this.host.crossPaneState.runningOperations.get().values()) {
+			const anchor = bucket.review?.anchor;
+			if (
+				anchor?.repoPath === repoPath &&
+				(anchor.kind === 'commit' || anchor.kind === 'multicommit') &&
+				isAnchorBusy(bucket)
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Whether any review on a commit or comparison in `repoPath` could have been rewritten — the engaged one or one
 	 *  kept for later — so a tip move there is worth reading the history for. */
 	hasCommitReviews(repoPath: string): boolean {
