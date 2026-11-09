@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
+
+### Fixed
+
+- Fixes two identical git runs in flight at once sharing one process when one asked for text and the other for raw bytes or another encoding, which handed one of them output of the wrong type; a raw-bytes run is now never shared, so a caller that transfers its buffer to a worker can't empty another caller's (git-cli)
+
 ## [0.35.0] - 2026-11-08
 
 ### Changed
