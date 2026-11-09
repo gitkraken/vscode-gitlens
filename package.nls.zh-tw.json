@@ -472,6 +472,7 @@
 	"command.gitlens.graph.unpinBranchFromEdge.title": "從邊緣取消固定分支",
 	"command.gitlens.helpCenter.title": "幫助中心",
 	"command.gitlens.inviteToLiveShare.title": "邀請加入 Live Share",
+	"command.gitlens.kepler.install.title": "安裝 Kepler",
 	"command.gitlens.launchpad.indicator.toggle.title": "切換 Launchpad 指示器",
 	"command.gitlens.openAssociatedPullRequestOnRemote.title": "開啟關聯的提取要求",
 	"command.gitlens.openBlamePriorToChange.title": "開啟變更之前的追溯資訊",
