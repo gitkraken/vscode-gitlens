@@ -6995,6 +6995,7 @@
 	"{label} could not be enabled. Review its updated status for details.": "No se pudo habilitar {label}. Revise su estado actualizado para obtener más detalles.",
 	"{label} enabled.": "{label} habilitado.",
 	"{label} restored to its previous setting.": "{label} se restauró a su valor anterior.",
+	"{label} · [{key}] Click to Go in List Order": "{label} · [{key}] Haga clic para ir en el orden de la lista",
 	"{label} · {count}": "{label} · {count}",
 	"{lead} — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching": "{lead} — gestione varios árboles de trabajo activos, coordine agentes concurrentes y ejecute todo su ciclo de Git sin cambiar de contexto",
 	"{letAITakeTheFirstPass} — {resolveConflicts} proposes a fix for every file at once; you approve each one./{letAITakeTheFirstPass} is the styled label “Let AI take the first pass”.{resolveConflicts} is the styled label “Resolve Conflicts”.": "{letAITakeTheFirstPass} — {resolveConflicts} propone una corrección para todos los archivos a la vez; usted aprueba cada uno.",

@@ -162,7 +162,7 @@ import type {
 import type { ResolveRunErrors } from './resolveAIUnavailable.js';
 import { classifyResolveRunErrors, findAIUnavailableError, isAIQuotaExceededError } from './resolveAIUnavailable.js';
 import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
-import { claimReviewFiles, releaseReviewFiles } from './reviewReading.js';
+import { claimReviewFiles, getReviewStepTarget, releaseReviewFiles } from './reviewReading.js';
 import {
 	claimReviewCommenting,
 	getReviewSideUri,
@@ -388,6 +388,8 @@ export class GraphInspectServices {
 		marked: string[];
 		/** See {@link ReviewReadingState.markedBefore} */
 		markedBefore: number;
+		/** How many of `marked` the panel had when it last sent `viewed` — the later ones it hasn't taken in yet */
+		marksSynced: number;
 		active?: string;
 		/** Pending confirmation that no review diff is active — see `updateActiveReviewFile` */
 		activeSettling?: ReturnType<typeof setTimeout>;
@@ -626,7 +628,7 @@ export class GraphInspectServices {
 				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewFiles: args => this.setReviewFiles(args),
-				reviewStep: (action, path) => this.reviewStep(action, path),
+				reviewStep: (action, path, inListOrder) => this.reviewStep(action, path, inListOrder),
 				openReviewFile: args => {
 					this.reclaimReview();
 					void this.openReviewFile(args);
@@ -1926,6 +1928,7 @@ export class GraphInspectServices {
 
 	@debug()
 	async setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void> {
+		const reappliedByHost = args != null && args === this._reviewFilesArgs;
 		this._reviewFilesArgs = args;
 		if (args != null) {
 			this.followReview(args.anchor);
@@ -1984,6 +1987,7 @@ export class GraphInspectServices {
 			commentable: commentable,
 			marked: marked,
 			markedBefore: markedBefore,
+			marksSynced: same && reappliedByHost ? prior.marksSynced : marked.length,
 			tracking: tracking,
 		};
 		this._reviewFiles.active = this.findActiveReviewFile();
@@ -2060,7 +2064,7 @@ export class GraphInspectServices {
 	/** Steps from a path (the panel's buttons), from an editor's resource (the diff title buttons), or from
 	 *  the active editor (the keybindings) — so several open diffs each step from their own file. */
 	@debug()
-	async reviewStep(action: ReviewReadingAction, from?: string | Uri): Promise<void> {
+	async reviewStep(action: ReviewReadingAction, from?: string | Uri, inListOrder?: boolean): Promise<void> {
 		// The editor's commands only ever reach the instance that has the editor, so a released one is
 		// being stepped from its panel
 		this.reclaimReview();
@@ -2075,28 +2079,20 @@ export class GraphInspectServices {
 		const index = path != null ? files.paths.indexOf(path) : -1;
 		if (index < 0) return;
 
-		const open = (path: string) =>
-			void this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: path });
-		// The order loops: after the last file comes the first, before the first the last
-		const count = files.paths.length;
-		switch (action) {
-			case 'markViewed':
-				files.marked.push(files.paths[index]);
-				this._reviewMarksMade++;
-				if (count > 1) {
-					open(files.paths[(index + 1) % count]);
-				}
-				break;
-			case 'next':
-				if (count > 1) {
-					open(files.paths[(index + 1) % count]);
-				}
-				break;
-			case 'previous':
-				if (count > 1) {
-					open(files.paths[(index - 1 + count) % count]);
-				}
-				break;
+		if (action === 'markViewed') {
+			files.marked.push(files.paths[index]);
+			this._reviewMarksMade++;
+		}
+		const viewed = new Set([...files.viewed, ...files.marked.slice(files.marksSynced)]);
+		const target = getReviewStepTarget(
+			files.paths,
+			index,
+			action === 'previous' ? -1 : 1,
+			viewed,
+			inListOrder ?? false,
+		);
+		if (target != null) {
+			void this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: target });
 		}
 
 		this._reviewReadingEvent.fire(this.getReviewReadingState());

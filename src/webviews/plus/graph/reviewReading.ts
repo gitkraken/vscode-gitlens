@@ -6,7 +6,7 @@ import type { ReviewReadingAction } from './graphService.js';
  *  focus: the instance that last set its review files owns them until it clears them, is disposed, or
  *  another instance claims them — which the one it took them from is told. */
 export interface ReviewReadingOwner {
-	reviewStep(action: ReviewReadingAction, uri?: Uri): Promise<void>;
+	reviewStep(action: ReviewReadingAction, uri?: Uri, inListOrder?: boolean): Promise<void>;
 	/** Another instance took the editor over — this one's reading no longer shows there. */
 	reviewFilesReleased(): void;
 }
@@ -33,6 +33,26 @@ export function releaseReviewFiles(from: ReviewReadingOwner): void {
 	void setContext('gitlens:review:files', undefined);
 }
 
-export function stepReviewReading(action: ReviewReadingAction, uri?: Uri): Promise<void> {
-	return owner?.reviewStep(action, uri) ?? Promise.resolve();
+export function stepReviewReading(action: ReviewReadingAction, uri?: Uri, inListOrder?: boolean): Promise<void> {
+	return owner?.reviewStep(action, uri, inListOrder) ?? Promise.resolve();
+}
+
+/** The nearest file not yet viewed that way, looping; the list-order neighbor when asked or when all others are viewed */
+export function getReviewStepTarget(
+	paths: readonly string[],
+	index: number,
+	direction: 1 | -1,
+	viewed: ReadonlySet<string>,
+	inListOrder: boolean,
+): string | undefined {
+	const count = paths.length;
+	if (count < 2) return undefined;
+
+	if (!inListOrder) {
+		for (let step = 1; step < count; step++) {
+			const path = paths[(index + direction * step + count) % count];
+			if (!viewed.has(path)) return path;
+		}
+	}
+	return paths[(index + direction + count) % count];
 }

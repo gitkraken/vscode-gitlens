@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; a review is now something you work through, with or without AI, rather than a one-off AI report ([gitkraken/vscode-gitlens-private#100](https://github.com/gitkraken/vscode-gitlens-private/issues/100))
   - Adds a checklist of the changed files that tracks what you've viewed and brings back any file that changes afterward
-  - Adds reading controls to the diff editor that step through the review's files in order
+  - Adds reading controls to the diff editor that step through the review's files not yet viewed (<kbd>Alt</kbd>+click steps in list order)
   - Adds comment threads in the diff for AI findings and your own comments &mdash; reply to them, dismiss them, or hand them to your agent
   - Adds _Orient_ beside _Review Diff_ &mdash; _Orient_ has AI plan the order to read the files in, while _Review Diff_ finds issues in the diff
   - Adds _Review in Repo_ &mdash; hands the changes to your CLI agent, which can build, test and trace call paths in the repository and streams its findings back into the review

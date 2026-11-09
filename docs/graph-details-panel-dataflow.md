@@ -238,7 +238,13 @@ top to bottom as its `gl-file-tree-pane`s render it — each pane announces its 
 on leaving the mode. The host (`reviewReading.ts` owner registry, `gitlens:review:reading` /
 `gitlens:review:files` context keys) lights the diff title buttons and keybindings on those documents,
 follows the active tab to name the file being read, and steps from the file a command was invoked on —
-so several open diffs each step from their own. Its `onReviewReading` event carries the active file
+so several open diffs each step from their own. A step goes to the nearest file not yet viewed, looping
+(`getReviewStepTarget`); Alt+click on Next/Previous (the `…InListOrder` title-bar `alt` commands, or
+`altKey` on the panel's buttons) and a review with every other file viewed step in list order. Viewed
+means the panel's `viewed` list, sent with the files (marks still current, `getReviewFileProgress`),
+plus the marks made in the editor since — only a send from the panel moves that point (`marksSynced`):
+the host's own re-applies of the panel's last files (a reclaim, a learned diff side) don't, as the
+panel can't re-send while hidden. Its `onReviewReading` event carries the active file
 and an append-only list of editor-made viewed marks; `review.applyReadingState` folds the marks past
 `entry.reading.marksApplied` into the session and keeps the active file on the entry for the panel's
 strip and for the checklist, which selects and scrolls to its row (`gl-file-tree-pane.revealPath` →
