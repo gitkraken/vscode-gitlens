@@ -4452,6 +4452,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Skip when the resolved selection is structurally unchanged — otherwise a benign items
 		// refresh (e.g. WIP tick) triggers redundant renders and a scopeFiles re-fetch.
 		if (scopeSelectionEqual(this._state.scope.get(), newScope)) return;
+		if (this._actions.holdScopeForRemap(newScope)) return;
 
 		this._state.scope.set(newScope);
 		if (this.effectiveRepoPath) {

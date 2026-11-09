@@ -1489,6 +1489,107 @@ suite('DetailsActions — scope follows a history rewrite', () => {
 		assert.strictEqual(actions['_scopeBeforeTipMove'], undefined, 'the pin is consumed');
 	});
 
+	test("the picker's fallback for a committed row is held while the remap is pending, so its files never load", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		const stagedOnly: ScopeSelection = {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: [],
+		};
+		state.scope.set(stagedOnly);
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, scope: ScopeSelection) => {
+				fetchedScopes.push(scope);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, 'w'));
+		const fallback: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['c', 'b'],
+		};
+		assert.ok(actions.holdScopeForRemap(fallback), 'held while the remap is pending');
+		assert.strictEqual(state.scope.get(), stagedOnly);
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		const expected: ScopeSelection = {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		};
+		assert.deepStrictEqual(state.scope.get(), expected);
+		assert.ok(!fetchedScopes.includes(fallback), "the fallback's files are never loaded");
+		assert.strictEqual(actions.holdScopeForRemap(fallback), false, 'nothing is held once the remap is done');
+	});
+
+	test('a selection held during the remap applies when the remap leaves the scope as it was', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] });
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('d'), commit('c'), commit('b'), commit('a')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// A commit on top of a range without the tip: the remap keeps the scope
+		actions.applyPushedWip(wipAt(2, 'd'));
+		const picked: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['c', 'b'],
+		};
+		assert.ok(actions.holdScopeForRemap(picked));
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(state.scope.get(), picked);
+	});
+
 	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('review');

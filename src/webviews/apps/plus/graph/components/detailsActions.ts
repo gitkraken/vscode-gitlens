@@ -2742,6 +2742,16 @@ export class DetailsActions {
 
 	/** The scope as it was when the tip moved, before the picker's fallback for vanished working-change rows replaced it */
 	private _scopeBeforeTipMove: ScopeSelection | undefined;
+	/** A picker selection that came in while the tip-move remap was pending — applied only if the remap doesn't */
+	private _scopeHeldForRemap: ScopeSelection | undefined;
+
+	/** Holds `scope` back while a tip-move remap is pending, so the picker's fallback doesn't flash its files */
+	holdScopeForRemap(scope: ScopeSelection): boolean {
+		if (this._scopeBeforeTipMove == null) return false;
+
+		this._scopeHeldForRemap = scope;
+		return true;
+	}
 
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
@@ -2781,12 +2791,19 @@ export class DetailsActions {
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
 			if (remapped != null && (scopeBeforeTipMove != null || this.state.scope.get() === scope)) {
+				this._scopeHeldForRemap = undefined;
 				this.state.scope.set(remapped);
 				void this.resources.scopeFiles.fetch(repoPath, remapped);
 			}
 		} finally {
 			if (!controller.signal.aborted) {
 				this._scopeBeforeTipMove = undefined;
+				const held = this._scopeHeldForRemap;
+				this._scopeHeldForRemap = undefined;
+				if (held != null) {
+					this.state.scope.set(held);
+					void this.resources.scopeFiles.fetch(repoPath, held);
+				}
 			}
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
