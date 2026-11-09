@@ -404,6 +404,8 @@ export interface ReviewFilesArgs {
 	rhs: string;
 	/** The files, in reading order. */
 	paths: string[];
+	/** The files marked viewed whose content hasn't moved on since — the reading steps pass them by. */
+	viewed: string[];
 }
 
 export type ReviewThreadState = 'open' | 'dismissed';
@@ -840,7 +842,7 @@ export interface GraphInspectService {
 	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
 	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
 	 *  keybindings and title buttons do. */
-	reviewStep(action: ReviewReadingAction, path?: string): Promise<void>;
+	reviewStep(action: ReviewReadingAction, path?: string, inListOrder?: boolean): Promise<void>;
 	/** Opens a review file's diff where the reading steps open theirs — beside an editor-hosted graph. */
 	openReviewFile(args: ReviewOpenFileArgs): Promise<void>;
 	/** The active review file and the editor-made viewed marks; `undefined` once the review is left. */

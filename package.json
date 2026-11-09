@@ -9742,6 +9742,13 @@
 				"enablement": "gitlens:review:reading"
 			},
 			{
+				"command": "gitlens.review.walkNextInListOrder",
+				"title": "%command.gitlens.review.walkNextInListOrder.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-small-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
 				"command": "gitlens.review.walkPrevious",
 				"title": "%command.gitlens.review.walkPrevious.title%",
 				"category": "%command.category%",
@@ -9758,6 +9765,13 @@
 				"command": "gitlens.review.walkPrevious:key",
 				"title": "%command.gitlens.review.walkPrevious:key.title%",
 				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPreviousInListOrder",
+				"title": "%command.gitlens.review.walkPreviousInListOrder.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-small-left)",
 				"enablement": "gitlens:review:reading"
 			},
 			{
@@ -15779,6 +15793,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.review.walkNextInListOrder",
+					"when": "gitlens:review:reading"
+				},
+				{
 					"command": "gitlens.review.walkPrevious",
 					"when": "gitlens:review:reading"
 				},
@@ -15789,6 +15807,10 @@
 				{
 					"command": "gitlens.review.walkPrevious:key",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkPreviousInListOrder",
+					"when": "gitlens:review:reading"
 				},
 				{
 					"command": "gitlens.reviewChanges:graph",
@@ -18522,17 +18544,19 @@
 				{
 					"command": "gitlens.review.walkPrevious:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-98"
+					"group": "navigation@-104",
+					"alt": "gitlens.review.walkPreviousInListOrder"
 				},
 				{
 					"command": "gitlens.review.markViewedAndNext:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-97"
+					"group": "navigation@-103"
 				},
 				{
 					"command": "gitlens.review.walkNext:editor/title",
 					"when": "resource in gitlens:review:files",
-					"group": "navigation@-96"
+					"group": "navigation@-102",
+					"alt": "gitlens.review.walkNextInListOrder"
 				},
 				{
 					"command": "gitlens.annotations.previousChange",

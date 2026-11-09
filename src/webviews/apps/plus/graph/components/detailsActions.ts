@@ -3315,8 +3315,8 @@ export class DetailsActions {
 		void this.services.graphInspect.setReviewFiles(args);
 	}
 
-	stepReviewReading(action: ReviewReadingAction, path?: string): void {
-		void this.services.graphInspect.reviewStep(action, path);
+	stepReviewReading(action: ReviewReadingAction, path?: string, inListOrder?: boolean): void {
+		void this.services.graphInspect.reviewStep(action, path, inListOrder);
 	}
 
 	openReviewFile(args: ReviewOpenFileArgs): void {

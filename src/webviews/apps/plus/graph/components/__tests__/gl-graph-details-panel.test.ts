@@ -6,8 +6,11 @@ import type {
 	PastAgentSessionState,
 } from '../../../../../../agents/models/agentSessionState.js';
 import type { Wip } from '../../../../../plus/graph/detailsProtocol.js';
+import type { ReviewFilesArgs, ScopeFile, ScopeSelection } from '../../../../../plus/graph/graphService.js';
 import { getNextPastAgentSessionsLimit, shouldShowPastSessions } from '../gl-details-agent-status.js';
 import { GlGraphDetailsPanel } from '../gl-graph-details-panel.js';
+import type { ReviewSession } from '../reviewSession.js';
+import { emptyReviewSession } from '../reviewSession.js';
 import type { SheetDescriptor } from '../sheetStack.js';
 
 /** Minimal `this` for {@link GlGraphDetailsPanel.renderSheet}'s `agentSession`/`pastAgentSession`
@@ -237,5 +240,65 @@ suite('GlGraphDetailsPanel agent sheet cycling', () => {
 		assert.strictEqual(live.values[pastSessionIndex], undefined);
 		assert.strictEqual(past.values[sessionIndex], undefined);
 		assert.strictEqual(past.values[pastSessionIndex], pastSession);
+	});
+});
+
+suite('GlGraphDetailsPanel review files', () => {
+	type SyncHarness = {
+		_actions: { setReviewFiles(args: ReviewFilesArgs | undefined): void; resources: unknown };
+		_state: { activeMode: { get(): string }; scope: { get(): ScopeSelection } };
+		engagedRunningOperation: { kind: 'review'; session: ReviewSession };
+		effectiveRepoPath: string;
+		engagedAnchorKey: string;
+		_reviewReadingOrder?: string[];
+	};
+
+	test('sends as viewed only the files whose mark still holds, again whenever the marks change', () => {
+		const files = [
+			{ path: 'a.ts', contentId: '1' },
+			{ path: 'b.ts', contentId: '2' },
+			{ path: 'c.ts', contentId: '3' },
+			{ path: 'd.ts', contentId: '4' },
+		] as ScopeFile[];
+		const session = (viewed: ReviewSession['viewed']): ReviewSession => ({ ...emptyReviewSession, viewed: viewed });
+		const scope: ScopeSelection = { type: 'wip', includeStaged: false, includeUnstaged: true, includeShas: [] };
+		const sent: (ReviewFilesArgs | undefined)[] = [];
+		const panel: SyncHarness = {
+			_actions: {
+				setReviewFiles: args => sent.push(args),
+				resources: { scopeFiles: { value: { get: () => files } } },
+			},
+			_state: {
+				activeMode: { get: () => 'review' },
+				scope: { get: () => scope },
+			},
+			engagedRunningOperation: {
+				kind: 'review',
+				session: session(
+					new Map([
+						['a.ts', { contentId: '1' }],
+						// Changed since it was marked, and marked before findings came in on it
+						['b.ts', { contentId: 'before' }],
+						['c.ts', { contentId: '3', requeued: true }],
+					]),
+				),
+			},
+			effectiveRepoPath: '/repo',
+			engagedAnchorKey: 'wip|/repo',
+		};
+		const syncReviewFiles = Reflect.get(GlGraphDetailsPanel.prototype, 'syncReviewFiles') as (
+			this: SyncHarness,
+		) => void;
+
+		syncReviewFiles.call(panel);
+		assert.deepStrictEqual(sent.at(-1)?.viewed, ['a.ts']);
+
+		// a is un-checked in the panel
+		panel.engagedRunningOperation = { kind: 'review', session: session(new Map()) };
+		syncReviewFiles.call(panel);
+		assert.deepStrictEqual(sent.at(-1)?.viewed, []);
+
+		syncReviewFiles.call(panel);
+		assert.strictEqual(sent.length, 2, 'nothing changed, nothing sent');
 	});
 });
