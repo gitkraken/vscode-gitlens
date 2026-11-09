@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-09
+
 ### Added
 
 - Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
@@ -1202,7 +1204,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...HEAD
+[0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
 [0.35.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.34.0...gitkraken:releases/core/v0.35.0
 [0.34.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...gitkraken:releases/core/v0.34.0
 [0.33.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...gitkraken:releases/core/v0.33.0
