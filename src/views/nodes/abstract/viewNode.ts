@@ -20,10 +20,7 @@ import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import { getLaunchpadItemKey } from '../../../plus/launchpad/launchpadIdentity.js';
 import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad.js';
-import {
-	launchpadCategoryToGroupMap,
-	sharedCategoryToLaunchpadActionCategoryMap,
-} from '../../../plus/launchpad/models/launchpad.js';
+import { getLaunchpadActionCategory, launchpadCategoryToGroupMap } from '../../../plus/launchpad/models/launchpad.js';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -180,7 +177,10 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		}
 	} else if (context.launchpadItem != null) {
 		uniqueness += `/lp/${launchpadCategoryToGroupMap.get(
-			sharedCategoryToLaunchpadActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
+			getLaunchpadActionCategory(
+				context.launchpadItem.suggestedActionCategory,
+				context.launchpadItem.underlyingPullRequest,
+			),
 		)}/${context.launchpadItem.type}/${getLaunchpadItemKey(context.launchpadItem)}`;
 	}
 	if (context.pullRequest != null) {

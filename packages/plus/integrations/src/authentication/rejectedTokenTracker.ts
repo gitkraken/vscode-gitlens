@@ -13,9 +13,9 @@
  * Deliberately NOT re-armed when the refresh hands back a different token. The GK cloud mints a new access
  * token on every `/refresh`, so a credential the provider refuses for a reason a refresh cannot fix (retired
  * scopes being the plain case) would look "rotated" on each attempt: re-arming on that would refresh on every
- * read forever and the failure budget — the thing that disconnects and prompts a reconnect — would never
- * advance. What resets this instead is {@link clear}, called by every path that replaces or removes the stored
- * tokens; a connection that is simply working never reaches here at all.
+ * read forever and the connection's failure budget — which, for the primary, disconnects and prompts a
+ * reconnect — would never advance. What resets this instead is {@link clear}, called by every path that replaces
+ * or removes the stored tokens; a connection that is simply working never reaches here at all.
  */
 export class RejectedTokenTracker {
 	private readonly _rejections = new Map<string, 'armed' | 'spent'>();
@@ -35,7 +35,8 @@ export class RejectedTokenTracker {
 	/**
 	 * Arms the recovery refresh for `connectionId`. Returns `false` once this connection has had its refresh
 	 * (or already has one pending), so the caller falls back to its own failure handling: a token still
-	 * refused after the refresh is not self-healing, and only the failure budget ends in a reconnect prompt.
+	 * refused after the refresh is not self-healing, and only the failure budget (the primary's) ends in a reconnect
+	 * prompt.
 	 */
 	recordRejection(connectionId: string): boolean {
 		if (this._rejections.has(connectionId)) return false;

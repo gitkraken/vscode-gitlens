@@ -30,7 +30,6 @@ export const titlebarStyles = css`
 	}
 
 	:host-context(body[data-placement='panel']) .titlebar {
-		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 		border-top: var(--gl-border-width) solid transparent;
 	}
 
@@ -274,7 +273,7 @@ export const titlebarStyles = css`
 	}
 
 	.ref-button-group__clear:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 
@@ -490,22 +489,11 @@ export const graphHeaderControlStyles = css`
 	}
 
 	gl-search-box::part(search) {
-		--gl-search-input-background: var(--color-graph-actionbar-background);
 		--gl-search-input-border: var(--wa-input-border-color);
 	}
 
 	wa-option::part(base) {
 		padding: var(--gl-space-2) var(--gl-space-4);
-	}
-
-	wa-option:focus::part(base) {
-		color: var(--vscode-list-activeSelectionForeground);
-		background-color: var(--vscode-list-activeSelectionBackground);
-	}
-
-	wa-option:not(:focus):hover::part(base) {
-		color: var(--vscode-list-activeSelectionForeground);
-		background-color: var(--vscode-list-inactiveSelectionBackground);
 	}
 
 	wa-option::part(checked-icon) {
@@ -521,12 +509,7 @@ export const graphHeaderControlStyles = css`
 	}
 
 	wa-select::part(combobox) {
-		--wa-input-background-color: var(--color-graph-actionbar-background);
-		--wa-input-color: var(--color-foreground);
-		--wa-input-color-hover: var(--color-foreground);
-
 		padding: 0 0.75rem;
-		color: var(--color-foreground);
 		border-radius: var(--wa-border-radius-small);
 	}
 
@@ -538,15 +521,6 @@ export const graphHeaderControlStyles = css`
 		margin-inline-start: var(--wa-spacing-x-small);
 	}
 
-	wa-select[open]::part(combobox) {
-		background-color: var(--color-graph-actionbar-background);
-	}
-
-	wa-select:hover::part(combobox),
-	wa-select:focus::part(combobox) {
-		background-color: var(--color-graph-actionbar-selectedBackground);
-	}
-
 	/* Details split toggle: main half toggles show/hide, chevron half opens the placement popover.
 	   No chrome until hover, matching the other toolbar buttons around it. */
 	.split-toolbar {
@@ -556,7 +530,7 @@ export const graphHeaderControlStyles = css`
 	}
 
 	.split-toolbar:hover {
-		background: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 45%, transparent);
+		background: color-mix(in srgb, var(--gl-color-action-quiet-bg-hover) 45%, transparent);
 	}
 
 	.split-toolbar__main {
@@ -590,7 +564,7 @@ export const graphHeaderControlStyles = css`
 	}
 
 	.split-toolbar:hover .split-toolbar__chevron {
-		border-left-color: color-mix(in srgb, var(--vscode-foreground) 25%, transparent);
+		border-left-color: var(--gl-color-divider-base);
 	}
 
 	/* gl-button's default focus ring sits 2px OUTSIDE the host — on the narrow chevron half that
@@ -622,11 +596,17 @@ export const graphHeaderControlStyles = css`
 	}
 
 	.details-placement__option:hover {
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.details-placement__option:not(:disabled, :focus-visible, [aria-checked='true']):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.details-placement__option:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: 0.1rem solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
 	}
 

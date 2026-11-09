@@ -41,7 +41,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				margin-right: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 			}
 
@@ -50,7 +50,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.status--disconnected.integration {
-				color: var(--color-foreground--25);
+				color: var(--vscode-disabledForeground);
 			}
 
 			/* The pill; the shimmer that sweeps it is shared (skeletonStyles), which is also why

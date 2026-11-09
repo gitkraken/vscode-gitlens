@@ -14,11 +14,15 @@ import type { IntegrationService } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ApiClients } from '../providers/apiClients.js';
 import type { Source } from '../telemetry.js';
-import { supportedIntegrationIds } from '../utils/integration.utils.js';
+import { isSelfManagedHostIntegrationId, supportedIntegrationIds } from '../utils/integration.utils.js';
 import type { CloudIntegrationService } from './cloudIntegrationService.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
-import type { IntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
+import type {
+	IntegrationAuthenticationProvider,
+	IntegrationAuthenticationSessionDescriptor,
+} from './integrationAuthenticationProvider.js';
 import { CloudIntegrationAuthenticationProvider } from './integrationAuthenticationProvider.js';
+import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationIds, IntegrationAuthenticationProvider>();
@@ -76,6 +80,11 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.ensureProvider(providerId);
 	}
 
+	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */
+	getPrimaryConnectionId(providerId: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
+		return this.configuredIntegrationService.resolveConnectionId(providerId, descriptor);
+	}
+
 	@debug()
 	async reset(): Promise<void> {
 		// TODO: This really isn't ideal, since it will only work for "cloud" providers as we won't have any more specific descriptors
@@ -87,7 +96,7 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	supports(providerId: string): boolean {
-		// Linear and Trello are cloud-backed issue integrations (same as Jira): `ensureProvider` registers a
+		// Linear, Trello and Asana are cloud-backed issue integrations (same as Jira): `ensureProvider` registers a
 		// cloud auth provider for them, so a disconnect must offer to sign out of the cloud token too —
 		// otherwise the backend token and configured connection survive the disable.
 		switch (providerId) {
@@ -99,6 +108,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
+			case IssuesCloudHostIntegrationId.Asana:
 			case GitCloudHostIntegrationId.GitHub:
 				return true;
 			default:
@@ -117,8 +127,14 @@ export class IntegrationAuthenticationService implements Disposable {
 			id: providerId,
 		});
 		if (hostProvider != null) {
-			this.providers.set(providerId, hostProvider);
-			return hostProvider;
+			provider = new ObservedAuthenticationProvider(
+				hostProvider,
+				isSelfManagedHostIntegrationId(providerId),
+				(publication, domains) =>
+					this.getIntegrationService().onSessionPublishing(providerId, publication, domains),
+			);
+			this.providers.set(providerId, provider);
+			return provider;
 		}
 
 		// Every cloud integration shares one provider, parameterized by id (cloud-only).
@@ -135,6 +151,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
+			case IssuesCloudHostIntegrationId.Asana:
 				provider = new CloudIntegrationAuthenticationProvider(
 					this,
 					this.configuredIntegrationService,

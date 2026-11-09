@@ -74,7 +74,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 			   leaving one at full strength made the two rows read as different tiers of importance. */
 			.model__icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Clips rather than wrapping (via .truncate on the element): model ids run long
@@ -90,7 +90,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				flex: none;
 				margin-left: auto;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -111,7 +111,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 
 			.ai__icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* min-width: 0 is what makes .truncate's ellipsis possible — a flex item's automatic minimum is
@@ -131,14 +131,14 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
-				color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
+				color: var(--gl-color-feedback-warning-quiet-fg);
 				white-space: nowrap;
 			}
 
 			/* The end of the same escalation, in the error register: amber warns because there's still
 			   something left, and this is that warning's arrival. */
 			.ai__warning--exhausted {
-				color: var(--vscode-editorError-foreground, var(--vscode-charts-red));
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			/* Monospaced like the full Settings card's figure, so the same number reads the same in both
@@ -147,7 +147,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				flex: none;
 				font-family: var(--vscode-editor-font-family);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -168,11 +168,11 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 			}
 
 			.ai__fill--warning {
-				background: var(--vscode-charts-yellow);
+				background: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.ai__fill--exhausted {
-				background: var(--vscode-charts-red);
+				background: var(--gl-color-feedback-danger-quiet-fg);
 			}
 		`,
 	];

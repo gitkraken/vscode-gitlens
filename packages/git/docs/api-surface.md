@@ -76,7 +76,7 @@ provider.dispose();
 - `register(provider, canHandle): UnifiedDisposable`
 - `forRepo(repoUri): RepositoryService | undefined`
 - `closeRepo(repoUri): void`
-- `validateRepo(pathOrUri): Promise<ValidateRepoResult>` — pre-repo discovery: routes a candidate path to a provider and resolves repo identity (repoPath, gitDir, commonGitDir, superprojectPath) or reports unsafe/invalid. Delegates to `GitConfigSubProvider.getRepositoryInfo` under the hood. For a simple yes/no check, use `(await validateRepo(path)).valid`.
+- `validateRepo(pathOrUri): Promise<ValidateRepoResult>` — pre-repo discovery: routes a candidate path to a provider and resolves repo identity (repoPath, gitDir, commonGitDir, superprojectPath) or reports unsafe/invalid, and rejects when git gives no answer (a timeout, a killed process, a spawn failure). Delegates to `GitConfigSubProvider.getRepositoryInfo` under the hood. For a simple yes/no check, use `(await validateRepo(path)).valid`.
 - `getProvider(repoPath): { provider, path } | undefined`
 - `getProviders(): Iterable<GitProvider>`
 - `hasProviders: boolean`
@@ -664,6 +664,7 @@ All in `remotes/`:
 | `Cache`                                             | `cache.js`                  | Repository-level cache                                 |
 | `CachedGitTypes`                                    | `cache.js`                  | Cacheable type names                                   |
 | `UriScopedCachedGitTypes`                           | `cache.js`                  | URI-scoped cache type names                            |
+| `DropStampedCacheKey`                               | `cache.js`                  | Caches whose drops `Cache.isDroppedSince` can report   |
 | `GitDir`                                            | `models/repository.js`      | Git directory info (`path`, `commonPath`)              |
 | `GitCommitReachability`                             | `providers/commits.js`      | Commit reachability info                               |
 | `GitContributorsResult`                             | `providers/contributors.js` | Contributors query result                              |

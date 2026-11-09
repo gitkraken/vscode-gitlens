@@ -10,6 +10,7 @@ import type { PullRequestReviewer, PullRequestShape } from '@gitlens/git/models/
 import {
 	PullRequest,
 	PullRequestMergeableState,
+	PullRequestMergeQueueState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
@@ -215,6 +216,113 @@ suite('pullRequestEtag', () => {
 		);
 	});
 
+	test('a pull request outside any merge queue keeps the exact etag it had before the queue was read', () => {
+		const fields = pullRequestEtagFieldsFromShape(gitHubPullRequestShape());
+		assert.ok(!('mergeQueue' in fields), 'a row that is not queued carries no queue');
+		assert.equal(pullRequestEtag(fields, []), 'pr1:["opened",false,1767225600000,"abc"]');
+		// The include set consumers hold their etags under (e.g. Kepler's `['reviewDecision']`).
+		assert.equal(
+			pullRequestEtag(fields, ['reviewDecision']),
+			'pr1+reviewDecision:["opened",false,1767225600000,"abc","Approved"]',
+		);
+	});
+
+	test("a queued pull request's etag reads its queue state and enqueue time, whatever the includes", () => {
+		const queued: PullRequestEtagFields = {
+			...base,
+			mergeQueue: {
+				state: PullRequestMergeQueueState.AwaitingChecks,
+				enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+			},
+		};
+		for (const includes of includeSets) {
+			const etag = pullRequestEtag(queued, includes);
+			assert.notEqual(etag, pullRequestEtag(base, includes), 'joining the queue');
+			assert.notEqual(
+				etag,
+				pullRequestEtag(
+					{ ...queued, mergeQueue: { ...queued.mergeQueue!, state: PullRequestMergeQueueState.Mergeable } },
+					includes,
+				),
+				'moving through the queue',
+			);
+			assert.notEqual(
+				etag,
+				pullRequestEtag(
+					{ ...queued, mergeQueue: { ...queued.mergeQueue!, enqueuedAt: new Date('2026-01-03T00:00:00Z') } },
+					includes,
+				),
+				'leaving and rejoining the queue',
+			);
+		}
+		assert.equal(
+			pullRequestEtag(queued, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue","AwaitingChecks",1767312000000]]',
+		);
+	});
+
+	test('reads the queue state and enqueue time off a queued row, and nothing else of its entry', () => {
+		const enqueuedAt = new Date('2026-01-02T00:00:00Z');
+		const fields = pullRequestEtagFieldsFromShape(
+			gitHubPullRequestShape({
+				mergeQueue: {
+					state: PullRequestMergeQueueState.Mergeable,
+					enqueuedAt: enqueuedAt,
+					estimatedMergeAt: new Date('2026-01-02T00:10:00Z'),
+					url: 'https://github.com/o/r/queue/main',
+				},
+			}),
+		);
+		assert.deepEqual(fields.mergeQueue, { state: PullRequestMergeQueueState.Mergeable, enqueuedAt: enqueuedAt });
+	});
+
+	test('a merge-queue removal is read off the row and is part of the etag, whatever the includes', () => {
+		const removedAt = new Date('2026-01-02T00:00:00Z');
+		const fields = pullRequestEtagFieldsFromShape(
+			gitHubPullRequestShape({
+				mergeQueueRemoval: { reason: 'failed_checks', removedAt: removedAt },
+			}),
+		);
+		assert.equal(fields.mergeQueueRemovedAt, removedAt);
+
+		for (const includes of includeSets) {
+			const etag = pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, includes);
+			assert.notEqual(etag, pullRequestEtag(base, includes), 'removed between two checks');
+			assert.notEqual(
+				etag,
+				pullRequestEtag({ ...base, mergeQueueRemovedAt: new Date('2026-01-03T00:00:00Z') }, includes),
+				'removed again',
+			);
+		}
+		assert.equal(
+			pullRequestEtag({ ...base, mergeQueueRemovedAt: removedAt }, []),
+			'pr1:["opened",false,1767225600000,"abc",["merge-queue-removed",1767312000000]]',
+		);
+	});
+
+	test('neither whether the queue is required nor the queue position is an etag input', () => {
+		const plain = pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape()), []);
+		assert.equal(
+			pullRequestEtag(pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueueRequired: true })), []),
+			plain,
+		);
+
+		const entry = {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2026-01-02T00:00:00Z'),
+		};
+		assert.equal(
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 1 } })),
+				[],
+			),
+			pullRequestEtag(
+				pullRequestEtagFieldsFromShape(gitHubPullRequestShape({ mergeQueue: { ...entry, position: 4 } })),
+				[],
+			),
+		);
+	});
+
 	test('an Azure DevOps or Azure DevOps Server row carries the revision of its own fields; no other host does', () => {
 		for (const providerId of [
 			GitCloudHostIntegrationId.AzureDevOps,
@@ -323,6 +431,32 @@ suite('issueEtag', () => {
 	test('no includes gives the exact `is1:` form etags had before includes existed', () => {
 		assert.equal(issueEtag(issueBase, []), 'is1:["opened",1767225600000]');
 		assert.equal(issueEtag({ ...issueBase, thumbsUpCount: 3 }, []), 'is1:["opened",1767225600000]');
+	});
+
+	test("a Linear row's etag lists its sync links, or marks them unknown; no other provider's changes", () => {
+		const shapeOf = (providerId: string, syncedWith?: unknown[]) =>
+			({ ...issueBase, provider: { id: providerId }, syncedWith: syncedWith }) as unknown as IssueShape;
+
+		assert.equal(
+			issueEtag(
+				issueEtagFieldsFromShape(
+					shapeOf(IssuesCloudHostIntegrationId.Linear, [
+						{ provider: 'github', id: '6063246475' },
+						{ provider: 'github', id: '6063246474', owner: 'acme', repo: 'web', number: 1 },
+					]),
+				),
+				[],
+			),
+			'is1:["opened",1767225600000,["synced-with","6063246474:acme/web#1","6063246475:"]]',
+		);
+		assert.equal(
+			issueEtag(issueEtagFieldsFromShape(shapeOf(IssuesCloudHostIntegrationId.Linear)), []),
+			'is1:["opened",1767225600000,"synced-with:unknown"]',
+		);
+		assert.equal(
+			issueEtag(issueEtagFieldsFromShape(shapeOf(IssuesCloudHostIntegrationId.Jira, [])), []),
+			'is1:["opened",1767225600000]',
+		);
 	});
 
 	test("an Azure DevOps row's etag adds the rule its body is read by, so one held from before the rule misses; no other provider's changes", () => {
@@ -508,7 +642,9 @@ suite('issueEtag', () => {
 	});
 });
 
-function gitHubPullRequestShape(overrides?: Pick<PullRequestShape, 'provider'>): PullRequestShape {
+function gitHubPullRequestShape(
+	overrides?: Partial<Pick<PullRequestShape, 'provider' | 'mergeQueue' | 'mergeQueueRequired' | 'mergeQueueRemoval'>>,
+): PullRequestShape {
 	const pr = new PullRequest(
 		{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 		{ id: 'octo', name: 'octo' },

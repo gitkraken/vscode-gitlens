@@ -13,9 +13,16 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { BranchRef } from '../../../../shared/branchRefs.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
+import {
+	formatQueueHandledBehind,
+	getMergeQueueNote,
+	getMergeTargetQueueTreatment,
+	getQueuedPullRequestEntry,
+} from '../../shared/mergeQueue.utils.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
 import type { NextStep } from './nextStep.js';
-import { nextStepStyles, renderNextStep } from './nextStep.js';
+import { createMergeQueueNextStep, nextStepStyles, renderNextStep } from './nextStep.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -39,8 +46,15 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	/** The branch's associated pull request (if any). When set and open, the PR slot in `computeNextSteps`
 	 *  renders a "View Pull Request" row linking to `pr.url`. When unset and `pullRequestLoading`
 	 *  is true, renders an inline loading row. When unset and not loading, renders the
-	 *  "Create a Pull Request" action. */
-	@property({ type: Object }) pullRequest?: { id: string; title: string; url: string; state: string };
+	 *  "Create a Pull Request" action. While the PR is in a merge queue the row shows the queue's status
+	 *  instead, and the branch-changing suggestions give way to a single note. */
+	@property({ type: Object }) pullRequest?: {
+		id: string;
+		title: string;
+		url: string;
+		state: string;
+		mergeQueue?: MergeQueueEntryLike;
+	};
 	/** True while the host's PR enrichment fetch is in flight for this branch. Used to render a
 	 *  stable "Checking for pull request…" row that anchors the layout until enrichment lands. */
 	@property({ type: Boolean }) pullRequestLoading = false;
@@ -180,6 +194,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		const behind = branch.tracking?.behind ?? 0;
 		const upstreamMissing = branch.upstream == null || branch.upstream.missing === true;
 		const remoteName = getRemoteNameFromUpstream(branch.upstream?.name);
+		// While queued, the merge queue owns the branch: no push, force push, or merge-target rebase/merge.
+		const queueEntry = getQueuedPullRequestEntry(this.pullRequest);
 
 		const steps: NextStep[] = [];
 
@@ -214,16 +230,19 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					}),
 					actionLabel: l10n.t('Pull'),
 					onClick: () => this.emit('pull'),
-					alt: {
-						actionLabel: l10n.t('Force Push'),
-						tooltip: formatPlural(
-							l10n.t(
-								'{count, plural, one{Force push {count} commit to {remote}} other{Force push {count} commits to {remote}}}',
-							),
-							{ count: ahead, remote: remoteName },
-						),
-						onClick: () => this.emit('force-push'),
-					},
+					alt:
+						queueEntry != null
+							? undefined
+							: {
+									actionLabel: l10n.t('Force Push'),
+									tooltip: formatPlural(
+										l10n.t(
+											'{count, plural, one{Force push {count} commit to {remote}} other{Force push {count} commits to {remote}}}',
+										),
+										{ count: ahead, remote: remoteName },
+									),
+									onClick: () => this.emit('force-push'),
+								},
 				});
 			} else if (behind > 0) {
 				steps.push({
@@ -237,7 +256,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					actionLabel: l10n.t('Pull'),
 					onClick: () => this.emit('pull'),
 				});
-			} else if (ahead > 0) {
+			} else if (ahead > 0 && queueEntry == null) {
 				steps.push({
 					icon: 'repo-push',
 					label: formatPlural(
@@ -258,7 +277,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			// the row's role transforms in place. A merged/closed PR is still the branch's associated PR
 			// (the header chip shows it), but it isn't a next step, so it takes the Create PR leg.
 			const pr = this.pullRequest?.state === 'opened' ? this.pullRequest : undefined;
-			if (pr != null) {
+			if (pr != null && queueEntry != null) {
+				steps.push(createMergeQueueNextStep(pr.url, queueEntry));
+			} else if (pr != null) {
 				steps.push({
 					icon: 'git-pull-request',
 					label: l10n.t('Pull Request #{id}: {title}', { id: pr.id, title: pr.title }),
@@ -292,6 +313,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			steps.push(mergeTargetStep);
 		}
 
+		// One note in place of every branch-changing suggestion the queue withholds (here, and Recompose below).
+		if (queueEntry != null) {
+			steps.push({ icon: 'info', label: getMergeQueueNote() });
+		}
+
 		// Note: Review/Recompose are intentionally NOT appended here. `render()` concatenates
 		// `computeUniqueWorkSteps()` onto this list — so when the pending list is empty but
 		// unique-work exists, the Next-steps section still surfaces Review/Recompose rows
@@ -315,6 +341,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			actionLabel: l10n.t('Review'),
 			onClick: () => this.emit('review-branch-changes'),
 		};
+		// Recompose rewrites the branch, which the merge queue owns while the pull request is queued.
+		if (getQueuedPullRequestEntry(this.pullRequest) != null) return [review];
+
 		const recompose: NextStep = {
 			icon: 'wand',
 			label: l10n.t('Recompose Branch'),
@@ -406,6 +435,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 		const hasConflicts = mergeTarget.potentialConflicts?.status === 'conflicts';
 		if (hasConflicts) {
+			if (getMergeTargetQueueTreatment(this.pullRequest, 'conflicts') === 'warning') {
+				return {
+					icon: 'warning',
+					severity: 'warning',
+					label: l10n.t('Potential Conflicts with {target}', { target: mergeTarget.name }),
+				};
+			}
+
 			return {
 				icon: 'git-merge',
 				iconFlip: 'block',
@@ -425,6 +462,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 		const behind = mergeTarget.status?.behind ?? 0;
 		if (behind === 0) return undefined;
+
+		if (getMergeTargetQueueTreatment(this.pullRequest, 'behind') === 'queue-handled') {
+			return {
+				icon: 'git-merge',
+				iconFlip: 'block',
+				label: formatQueueHandledBehind(behind, mergeTarget.name),
+			};
+		}
 
 		return {
 			icon: 'git-merge',

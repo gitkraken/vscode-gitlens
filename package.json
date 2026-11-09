@@ -6341,6 +6341,16 @@
 				}
 			},
 			{
+				"id": "gitlens.queuedPullRequestIconColor",
+				"description": "%color.gitlens.queuedPullRequestIconColor.description%",
+				"defaults": {
+					"dark": "#d29922",
+					"light": "#9a6700",
+					"highContrast": "#d29922",
+					"highContrastLight": "#9a6700"
+				}
+			},
+			{
 				"id": "gitlens.mergedPullRequestIconColor",
 				"description": "%color.gitlens.mergedPullRequestIconColor.description%",
 				"defaults": {
@@ -8937,6 +8947,12 @@
 				"icon": "$(live-share)"
 			},
 			{
+				"command": "gitlens.kepler.install",
+				"title": "%command.gitlens.kepler.install.title%",
+				"category": "%command.category%",
+				"icon": "$(cloud-download)"
+			},
+			{
 				"command": "gitlens.kepler.newTask",
 				"title": "%command.gitlens.kepler.newTask.title%",
 				"icon": "$(gitlens-kepler)"
@@ -9629,6 +9645,120 @@
 				"command": "gitlens.revealFileInExplorer:graphDetails",
 				"title": "%command.gitlens.revealFileInExplorer:graphDetails.title%",
 				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "gitlens.review.cancelCommentEdit",
+				"title": "%command.gitlens.review.cancelCommentEdit.title%"
+			},
+			{
+				"command": "gitlens.review.deleteComment",
+				"title": "%command.gitlens.review.deleteComment.title%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.review.deleteThread",
+				"title": "%command.gitlens.review.deleteThread.title%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.review.discardComment",
+				"title": "%command.gitlens.review.discardComment.title%"
+			},
+			{
+				"command": "gitlens.review.dismissFinding",
+				"title": "%command.gitlens.review.dismissFinding.title%",
+				"icon": "$(check)"
+			},
+			{
+				"command": "gitlens.review.editComment",
+				"title": "%command.gitlens.review.editComment.title%",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext",
+				"title": "%command.gitlens.review.markViewedAndNext.title%",
+				"category": "%command.category%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:editor/title",
+				"title": "%command.gitlens.review.markViewedAndNext:editor/title.title%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"title": "%command.gitlens.review.markViewedAndNext:key.title%",
+				"icon": "$(check)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.reopenFinding",
+				"title": "%command.gitlens.review.reopenFinding.title%",
+				"icon": "$(issue-reopened)"
+			},
+			{
+				"command": "gitlens.review.replyAndAddress",
+				"title": "%command.gitlens.review.replyAndAddress.title%",
+				"icon": "$(comment-discussion-sparkle)"
+			},
+			{
+				"command": "gitlens.review.replyAndAskReviewer",
+				"title": "%command.gitlens.review.replyAndAskReviewer.title%",
+				"icon": "$(comment-discussion)"
+			},
+			{
+				"command": "gitlens.review.replyToFinding",
+				"title": "%command.gitlens.review.replyToFinding.title%",
+				"icon": "$(reply)"
+			},
+			{
+				"command": "gitlens.review.saveComment",
+				"title": "%command.gitlens.review.saveComment.title%"
+			},
+			{
+				"command": "gitlens.review.sendFindingToAgent",
+				"title": "%command.gitlens.review.sendFindingToAgent.title%",
+				"icon": "$(comment-discussion-sparkle)"
+			},
+			{
+				"command": "gitlens.review.walkNext",
+				"title": "%command.gitlens.review.walkNext.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkNext:editor/title",
+				"title": "%command.gitlens.review.walkNext:editor/title.title%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"title": "%command.gitlens.review.walkNext:key.title%",
+				"icon": "$(arrow-right)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious",
+				"title": "%command.gitlens.review.walkPrevious.title%",
+				"category": "%command.category%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:editor/title",
+				"title": "%command.gitlens.review.walkPrevious:editor/title.title%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"title": "%command.gitlens.review.walkPrevious:key.title%",
+				"icon": "$(arrow-left)",
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.reviewChanges:graph",
@@ -13445,6 +13575,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f15c"
 				}
+			},
+			"gitlens-provider-asana": {
+				"description": "provider-asana icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f15d"
+				}
 			}
 		},
 		"menus": {
@@ -15038,6 +15175,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.kepler.install",
+					"when": "!isWeb && !gitlens:kepler:installed && !gitlens:kepler:installing"
+				},
+				{
 					"command": "gitlens.kepler.newTask",
 					"when": "false"
 				},
@@ -15563,6 +15704,90 @@
 				},
 				{
 					"command": "gitlens.revealFileInExplorer:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.cancelCommentEdit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.deleteComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.deleteThread",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.discardComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.dismissFinding",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.editComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:key",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.reopenFinding",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.replyAndAddress",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.replyAndAskReviewer",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.replyToFinding",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.saveComment",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.sendFindingToAgent",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkNext",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.walkNext:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkNext:key",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkPrevious",
+					"when": "gitlens:review:reading"
+				},
+				{
+					"command": "gitlens.review.walkPrevious:editor/title",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.review.walkPrevious:key",
 					"when": "false"
 				},
 				{
@@ -18094,6 +18319,74 @@
 					"when": "false"
 				}
 			],
+			"comments/comment/context": [
+				{
+					"command": "gitlens.review.saveComment",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.cancelCommentEdit",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@2"
+				}
+			],
+			"comments/comment/title": [
+				{
+					"command": "gitlens.review.editComment",
+					"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.deleteComment",
+					"when": "commentController == gitlens.review",
+					"group": "inline@2"
+				}
+			],
+			"comments/commentThread/context": [
+				{
+					"command": "gitlens.review.replyToFinding",
+					"when": "commentController == gitlens.review",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.replyAndAskReviewer",
+					"when": "commentController == gitlens.review && gitlens:review:canAsk",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.review.replyAndAddress",
+					"when": "commentController == gitlens.review && gitlens:ai:allowed",
+					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.review.discardComment",
+					"when": "commentController == gitlens.review && commentThreadIsEmpty",
+					"group": "inline@4"
+				}
+			],
+			"comments/commentThread/title": [
+				{
+					"command": "gitlens.review.reopenFinding",
+					"when": "commentController == gitlens.review && commentThread == dismissed",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.review.dismissFinding",
+					"when": "commentController == gitlens.review && commentThread == open",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.review.sendFindingToAgent",
+					"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
+					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.review.deleteThread",
+					"when": "commentController == gitlens.review && commentThread =~ /^(open|dismissed)$/",
+					"group": "inline@9"
+				}
+			],
 			"editor/context": [
 				{
 					"command": "gitlens.openWorkingFile:editor/context",
@@ -18192,11 +18485,6 @@
 					"group": "navigation@-101"
 				},
 				{
-					"command": "gitlens.settings.refresh",
-					"when": "activeWebviewPanelId === gitlens.settings",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
@@ -18232,6 +18520,21 @@
 					"group": "navigation@-97"
 				},
 				{
+					"command": "gitlens.review.walkPrevious:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-98"
+				},
+				{
+					"command": "gitlens.review.markViewedAndNext:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-97"
+				},
+				{
+					"command": "gitlens.review.walkNext:editor/title",
+					"when": "resource in gitlens:review:files",
+					"group": "navigation@-96"
+				},
+				{
 					"command": "gitlens.annotations.previousChange",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@-100"
@@ -18258,11 +18561,6 @@
 					"alt": "gitlens.diffWithRevision"
 				},
 				{
-					"command": "gitlens.showQuickRevisionDetails:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
-				},
-				{
 					"command": "gitlens.diffWithNext:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@99"
@@ -18275,6 +18573,11 @@
 				{
 					"command": "gitlens.graph.refresh",
 					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.settings.refresh",
+					"when": "activeWebviewPanelId === gitlens.settings",
 					"group": "navigation@-99"
 				},
 				{
@@ -18299,6 +18602,11 @@
 					"submenu": "gitlens/editor/annotations",
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -30104,6 +30412,39 @@
 				"key": "ctrl+shift+g /",
 				"when": "config.gitlens.keymap == chorded && !gitlens:disabled",
 				"mac": "cmd+alt+g /"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"key": "alt+v",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.markViewedAndNext:key",
+				"key": "ctrl+shift+g v",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g v"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"key": "alt+]",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.walkNext:key",
+				"key": "ctrl+shift+g ]",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g ]"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"key": "alt+[",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+			},
+			{
+				"command": "gitlens.review.walkPrevious:key",
+				"key": "ctrl+shift+g [",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+				"mac": "cmd+alt+g ["
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",

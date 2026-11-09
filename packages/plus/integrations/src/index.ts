@@ -23,6 +23,9 @@ import type {
 import { createIntegrationService } from './integrationService.js';
 import type { IntegrationManager } from './manager.js';
 
+export type { Autolink, AutolinkReference, DynamicAutolinkReference, RefSet } from '@gitlens/git/models/autolink.js';
+export type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+
 /** A cached provider value, which may still be resolving. */
 export type IntegrationManagerCacheResult<T> = Promise<T | undefined> | T | undefined;
 
@@ -105,7 +108,9 @@ export interface IntegrationManagerContext {
 
 export type {
 	ClosedPullRequestSweepOptions,
+	GetAutolinkReferencesOptions,
 	IntegrationManager,
+	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	// Every option shape a caller has to BUILD is exported, not just the ones the manager returns:
@@ -204,6 +209,7 @@ export type {
 	ProviderPageInfo,
 	ProviderResult,
 	ProviderSweepResult,
+	ProviderSweepTargetRef,
 	ProviderWarning,
 	ProviderWarningCause,
 	ProviderWarningCauseReason,
@@ -215,6 +221,7 @@ export type {
 	ProviderWarningScope,
 	ProviderWarningSelector,
 	ProviderWarningUnreadableItems,
+	ProviderLinearProjectShape,
 	ProviderOrganization,
 	ProviderRepositoryShape,
 	RepositoryIdentity,

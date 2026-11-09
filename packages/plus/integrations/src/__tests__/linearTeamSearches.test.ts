@@ -6,6 +6,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
+import { IssueFilter } from '../providerFilters.js';
 import { parseIssueTrackerPageCursor } from '../reads/cursors.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -41,8 +42,17 @@ const teams = [
 	{ id: 'team-3', key: 'OPS', name: 'Ops', iconUrl: null },
 ];
 
-/** Linear numbers an issue `<team key>-<n>`; the normalized issue carries its team only inside an optional project. */
-function linearIssue(identifier: string, assigneeId: string = viewerId) {
+/**
+ * Linear numbers an issue `<team key>-<n>`; the normalized issue carries its team only inside an optional project.
+ * `syncedWith` is `[]` for an issue with no GitHub sync link, as provider-apis reports it; `null` leaves it absent, as when
+ * Linear fails to resolve the link list.
+ */
+function linearIssue(
+	identifier: string,
+	assigneeId: string | null = viewerId,
+	syncedWith: unknown[] | null = [],
+	authorId: string = 'a',
+) {
 	return {
 		id: `id-${identifier}`,
 		number: identifier,
@@ -51,13 +61,14 @@ function linearIssue(identifier: string, assigneeId: string = viewerId) {
 		createdDate: new Date(0),
 		updatedDate: new Date(0),
 		closedDate: null,
-		author: { id: 'a', name: 'A', avatarUrl: null, url: null },
-		assignees: [{ id: assigneeId, name: 'Me', avatarUrl: null, url: null }],
+		author: { id: authorId, name: 'A', avatarUrl: null, url: null },
+		assignees: assigneeId != null ? [{ id: assigneeId, name: 'Me', avatarUrl: null, url: null }] : [],
 		labels: [],
+		...(syncedWith != null ? { syncedWith: syncedWith } : {}),
 	};
 }
 
-type IssuesCall = { teams?: string[]; assignees?: string[]; cursor?: string };
+type IssuesCall = { teams?: string[]; assignees?: string[]; githubSyncedCreators?: string[]; cursor?: string };
 type IssuesPage = {
 	values: unknown[];
 	paging?: { more: boolean; cursor?: string };
@@ -82,10 +93,20 @@ async function connectedLinear(issues: (call: IssuesCall) => Promise<IssuesPage>
 		},
 		getLinearIssues: (
 			_token: unknown,
-			input: { teams?: string[]; assignees?: string[]; states?: GitIssueState[] },
+			input: {
+				teams?: string[];
+				assignees?: string[];
+				githubSyncedCreators?: string[];
+				states?: GitIssueState[];
+			},
 			options?: { cursor?: string },
 		) => {
-			const call = { teams: input.teams, assignees: input.assignees, cursor: options?.cursor };
+			const call = {
+				teams: input.teams,
+				assignees: input.assignees,
+				githubSyncedCreators: input.githubSyncedCreators,
+				cursor: options?.cursor,
+			};
 			calls.push(call);
 			states.push(input.states);
 			return issues(call);
@@ -108,7 +129,14 @@ suite('Linear team issue searches', () => {
 			itemsPerPage: 20,
 		});
 
-		assert.deepEqual(calls, [{ teams: ['team-1', 'team-2', 'team-3'], assignees: [viewerId], cursor: undefined }]);
+		assert.deepEqual(calls, [
+			{
+				teams: ['team-1', 'team-2', 'team-3'],
+				assignees: [viewerId],
+				githubSyncedCreators: [viewerId],
+				cursor: undefined,
+			},
+		]);
 		assert.deepEqual(result.items.map(i => i.id).sort(), ['ENG-1', 'OPS-7', 'OPS-8']);
 		assert.equal(result.fetchFailed, undefined);
 		assert.equal(result.page.truncated, undefined);
@@ -134,6 +162,27 @@ suite('Linear team issue searches', () => {
 		manager.dispose();
 	});
 
+	test('never searches a team asked for by the Assignee filter together with one that is not', async () => {
+		const { manager, linear, calls } = await connectedLinear(() => done([]));
+		const eng = { key: 'ENG', id: 'team-1', name: 'Engineering' };
+		const ops = { key: 'OPS', id: 'team-3', name: 'Ops' };
+
+		await linear.getIssuesForProjectsWithTruncationResult([
+			{ project: eng, options: { user: 'me', userId: viewerId } },
+			{ project: ops, options: { user: 'me', userId: viewerId, filters: [IssueFilter.Assignee] } },
+		]);
+
+		assert.deepEqual(
+			calls.map(c => [c.teams, c.assignees, c.githubSyncedCreators]),
+			[
+				[[eng.id], [viewerId], [viewerId]],
+				[[ops.id], [viewerId], undefined],
+			],
+		);
+
+		manager.dispose();
+	});
+
 	test('scopes each team read to the viewer server-side, asking for the viewer once', async () => {
 		// An issue matching no requested team sends the search to per-team reads, which is where a viewer query per
 		// team would show.
@@ -144,8 +193,8 @@ suite('Linear team issue searches', () => {
 		await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear, itemsPerPage: 20 });
 
 		assert.deepEqual(
-			calls.slice(1).map(c => c.assignees),
-			teams.map(() => [viewerId]),
+			calls.slice(1).map(c => [c.assignees, c.githubSyncedCreators]),
+			teams.map(() => [[viewerId], [viewerId]]),
 		);
 		// One for the account lookup, which the tracker cannot hand to a team, and one shared by every read after.
 		assert.equal(viewerReads(), 2);
@@ -284,8 +333,115 @@ suite('Linear team issue searches', () => {
 		});
 
 		assert.deepEqual(
-			calls.map(c => [c.teams, c.assignees]),
-			teams.map(t => [[t.id], undefined]),
+			calls.map(c => [c.teams, c.assignees, c.githubSyncedCreators]),
+			teams.map(t => [[t.id], undefined, undefined]),
+		);
+
+		manager.dispose();
+	});
+
+	// gitkraken/kepler#4480: Linear's GitHub Issues sync makes the author of a GitHub issue the creator of its Linear
+	// copy without assigning it, so an assignee-only read showed only the GitHub copy.
+	test("keeps the viewer's unassigned GitHub-synced issues the query returns", async () => {
+		const github = { service: 'github', id: '6063264575', owner: 'acme', repo: 'app', number: 2 };
+		const { manager } = await connectedLinear(() =>
+			done([
+				linearIssue('ENG-1'),
+				linearIssue('ENG-2', null, [github], viewerId),
+				linearIssue('ENG-3', 'someone-else', [], viewerId),
+				linearIssue('ENG-4', 'someone-else', [github]),
+				linearIssue('ENG-5', 'someone-else', [github], viewerId),
+			]),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(
+			result.items.map(i => i.id).sort(),
+			['ENG-1', 'ENG-2', 'ENG-5'],
+			"the viewer's synced copies whoever is assigned, but neither an issue with no GitHub sync link nor someone else's synced issue",
+		);
+		assert.deepEqual(result.items.find(i => i.id === 'ENG-2')?.syncedWith, [
+			{ provider: 'github', id: '6063264575', owner: 'acme', repo: 'app', number: 2 },
+		]);
+
+		manager.dispose();
+	});
+
+	test("keeps the viewer's copy whose sync links Linear failed to resolve, but not someone else's", async () => {
+		const { manager } = await connectedLinear(() =>
+			done([linearIssue('ENG-1'), linearIssue('ENG-2', null, null, viewerId), linearIssue('ENG-3', null, null)]),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(result.items.map(i => i.id).sort(), ['ENG-1', 'ENG-2']);
+
+		manager.dispose();
+	});
+
+	// provider-apis drops the synced-creator matches with no GitHub sync link after the query, so a page can come back
+	// empty with more to read: a later page failing then leaves nothing read, which is a hard error and not an empty
+	// partial, so the tracker retries the team instead of recording it as read.
+	test('fails a read whose later page fails after an emptied first page, and retries its team', async () => {
+		const { manager, linear } = await connectedLinear(call =>
+			call.cursor == null
+				? Promise.resolve({ values: [], paging: { more: true, cursor: 'c1' } })
+				: Promise.reject(new Error('503: Service Unavailable')),
+		);
+
+		const result = await linear.getIssuesForProjectWithTruncationResult(
+			{ key: 'ENG', id: 'team-1', name: 'Engineering' },
+			{ user: 'me', userId: viewerId },
+		);
+
+		assert.notEqual(result?.error, undefined);
+		assert.equal(result?.value, undefined);
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			itemsPerPage: 20,
+		});
+
+		assert.equal(page.fetchFailed, true);
+		assert.equal(parseIssueTrackerPageCursor(page.cursor)?.retryProjects?.length, teams.length);
+
+		manager.dispose();
+	});
+
+	test('reads only assigned issues when the Assignee filter is asked for by name', async () => {
+		const github = { service: 'github', id: '1', owner: 'acme', repo: 'app', number: 2 };
+		const { manager, calls } = await connectedLinear(() =>
+			done([linearIssue('ENG-1'), linearIssue('ENG-2', null, [github], viewerId)]),
+		);
+
+		const unfiltered = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			itemsPerPage: 20,
+		});
+		const assigned = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			filters: [IssueFilter.Assignee],
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(
+			calls.map(c => [c.assignees, c.githubSyncedCreators]),
+			[
+				[[viewerId], [viewerId]],
+				[[viewerId], undefined],
+			],
+		);
+		assert.deepEqual(unfiltered.items.map(i => i.id).sort(), ['ENG-1', 'ENG-2']);
+		assert.deepEqual(
+			assigned.items.map(i => i.id),
+			['ENG-1'],
 		);
 
 		manager.dispose();

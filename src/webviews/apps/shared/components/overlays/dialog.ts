@@ -5,8 +5,6 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 
-// #0000004d - light
-
 @customElement('gl-dialog')
 export class GlDialog extends LitElement {
 	static override styles = [
@@ -23,14 +21,14 @@ export class GlDialog extends LitElement {
 
 			dialog {
 				--gl-elevation: var(--gl-shadow-dialog);
-				--gl-elevation-border-color: var(--vscode-widget-border);
+				--gl-elevation-border-color: var(--gl-color-border-overlay);
 
 				width: min-content;
 				min-width: 40rem;
 				max-width: 50rem;
 				padding: var(--gl-space-20);
 				color: var(--vscode-editorWidget-foreground);
-				background: var(--vscode-editorWidget-background);
+				background: var(--gl-color-surface-overlay);
 				border-radius: var(--gl-radius-sm);
 
 				${elevatedSurface}

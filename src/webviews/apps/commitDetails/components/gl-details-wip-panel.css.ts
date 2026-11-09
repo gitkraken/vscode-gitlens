@@ -4,7 +4,6 @@ export const detailsWipPanelStyles = css`
 	:host([variant='embedded']) {
 		--gl-tree-view-margin-top: -0.2rem;
 		--gl-tree-view-filterable-margin-top: -0.4rem;
-		--action-item-foreground: var(--vscode-sideBarSectionHeader-foreground);
 	}
 
 	/* Split panel layout */
@@ -80,7 +79,6 @@ export const detailsWipPanelStyles = css`
 		display: flex;
 		flex: none;
 		flex-direction: column;
-		background-color: var(--vscode-sideBarSectionHeader-background, var(--color-background--level-05));
 	}
 
 	:host([variant='embedded']) .header__identity {
@@ -98,7 +96,7 @@ export const detailsWipPanelStyles = css`
 		align-items: center;
 		justify-content: center;
 		width: 3.2rem;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	:host([variant='embedded']) .header__wip-title {
@@ -112,7 +110,7 @@ export const detailsWipPanelStyles = css`
 		gap: 0.3rem;
 		align-items: center;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	:host([variant='embedded']) .header__identity-left {

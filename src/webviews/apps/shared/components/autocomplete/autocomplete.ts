@@ -42,9 +42,11 @@ export class GlAutocomplete extends LitElement {
 				display: none;
 			}
 
-			.scrollable {
+			/* The bordered surface wraps the scroller: scrollableBase recolors a .scrollable's border on
+			   hover/focus to reveal the scrollbar thumb, so the visible edge must not live on it */
+			.panel {
 				--gl-elevation: var(--gl-shadow-popover);
-				--gl-elevation-border-color: var(--vscode-widget-border);
+				--gl-elevation-border-color: var(--vscode-editorSuggestWidget-border);
 
 				position: absolute;
 				top: 100%;
@@ -52,24 +54,18 @@ export class GlAutocomplete extends LitElement {
 				z-index: var(--gl-z-popover);
 				min-width: min(max(100%, 30rem), var(--_max-width, 100%));
 				max-width: var(--_max-width, none);
-				max-height: 20rem;
 				margin-top: var(--gl-space-2);
-				overflow-y: auto;
-				color: var(--vscode-quickInput-foreground);
-				background-color: var(--vscode-quickInput-background);
+				overflow: hidden;
+				color: var(--vscode-editorSuggestWidget-foreground);
+				background-color: var(--vscode-editorSuggestWidget-background);
 				border-radius: var(--gl-radius-sm);
 
 				${elevatedSurface}
 			}
 
-			/* Override scrollbar thumb to not inherit the visible border-color */
-			.scrollable::-webkit-scrollbar-thumb {
-				border-color: transparent;
-			}
-
-			:host(:hover) .scrollable::-webkit-scrollbar-thumb,
-			:host(:focus-within) .scrollable::-webkit-scrollbar-thumb {
-				border-color: var(--vscode-scrollbarSlider-background);
+			.scrollable {
+				max-height: 20rem;
+				overflow-y: auto;
 			}
 
 			.autocomplete-item {
@@ -83,13 +79,18 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item:hover,
 			.autocomplete-item.selected {
-				color: var(--vscode-list-activeSelectionForeground);
-				background-color: var(--vscode-list-activeSelectionBackground);
+				color: var(--vscode-editorSuggestWidget-selectedForeground);
+				background-color: var(--vscode-editorSuggestWidget-selectedBackground);
 
 				.autocomplete-item__icon {
-					color: var(--vscode-list-activeSelectionIconForeground);
+					color: var(--vscode-editorSuggestWidget-selectedIconForeground);
 					opacity: 1;
 				}
+			}
+
+			.autocomplete-item.selected {
+				outline: var(--gl-border-width) solid var(--vscode-editorSuggestWidget-focusOutline, transparent);
+				outline-offset: -1px;
 			}
 
 			.autocomplete-item__icon {
@@ -141,11 +142,11 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item__highlight {
 				font-weight: 700;
-				color: var(--vscode-list-focusHighlightForeground, var(--vscode-textLink-foreground));
+				color: var(--vscode-editorSuggestWidget-highlightForeground);
 			}
 
 			.autocomplete-item.selected .autocomplete-item__highlight {
-				color: inherit;
+				color: var(--vscode-editorSuggestWidget-focusHighlightForeground);
 				text-decoration: underline;
 			}
 
@@ -170,7 +171,7 @@ export class GlAutocomplete extends LitElement {
 				line-height: 1.4;
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-list-inactiveSelectionBackground);
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.autocomplete-description:empty {
@@ -396,54 +397,56 @@ export class GlAutocomplete extends LitElement {
 	}
 
 	override render() {
-		return html`<div class="scrollable" role="listbox" tabindex="-1">
-			<div class="autocomplete-description">
-				<slot name="description"></slot>
-			</div>
-			${repeat(
-				this.items,
-				(item, index) => `${item.label}-${index}`,
-				(item, index) => {
-					const isSelected = index === this.selectedIndex;
+		return html`<div class="panel">
+			<div class="scrollable" role="listbox" tabindex="-1">
+				<div class="autocomplete-description">
+					<slot name="description"></slot>
+				</div>
+				${repeat(
+					this.items,
+					(item, index) => `${item.label}-${index}`,
+					(item, index) => {
+						const isSelected = index === this.selectedIndex;
 
-					return html`<div
-						id="autocomplete-item-${index}"
-						class="autocomplete-item ${isSelected ? 'selected' : ''}"
-						role="option"
-						aria-selected="${isSelected}"
-						@mousedown="${(e: MouseEvent) => this.handleItemMouseDown(e, index, item)}"
-					>
-						${
-							item.icon
-								? html`<div class="autocomplete-item__icon">
-										<code-icon icon="${item.icon}"></code-icon>
-									</div>`
-								: nothing
-						}
-						<div class="autocomplete-item__content">
-							<div class="autocomplete-item__header">
-								<div class="autocomplete-item__primary">
+						return html`<div
+							id="autocomplete-item-${index}"
+							class="autocomplete-item ${isSelected ? 'selected' : ''}"
+							role="option"
+							aria-selected="${isSelected}"
+							@mousedown="${(e: MouseEvent) => this.handleItemMouseDown(e, index, item)}"
+						>
+							${
+								item.icon
+									? html`<div class="autocomplete-item__icon">
+											<code-icon icon="${item.icon}"></code-icon>
+										</div>`
+									: nothing
+							}
+							<div class="autocomplete-item__content">
+								<div class="autocomplete-item__header">
+									<div class="autocomplete-item__primary">
+										${
+											item.match
+												? this.highlightMatches(item.label, item.match.matchedIndices)
+												: item.label
+										}
+									</div>
 									${
-										item.match
-											? this.highlightMatches(item.label, item.match.matchedIndices)
-											: item.label
+										item.description
+											? html`<div class="autocomplete-item__secondary">${item.description}</div>`
+											: nothing
 									}
 								</div>
 								${
-									item.description
-										? html`<div class="autocomplete-item__secondary">${item.description}</div>`
+									item.detail
+										? html`<div class="autocomplete-item__secondary">${item.detail}</div>`
 										: nothing
 								}
 							</div>
-							${
-								item.detail
-									? html`<div class="autocomplete-item__secondary">${item.detail}</div>`
-									: nothing
-							}
-						</div>
-					</div>`;
-				},
-			)}
+						</div>`;
+					},
+				)}
+			</div>
 		</div>`;
 	}
 }

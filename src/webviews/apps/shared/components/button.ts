@@ -23,10 +23,10 @@ declare global {
  * @slot suffix - Content after the label, typically a `code-icon`.
  * @slot tooltip - Rich tooltip content. Use instead of the `tooltip` property when the tooltip needs markup.
  *
- * @cssproperty --button-foreground - Text color. Default `var(--vscode-button-foreground)`.
- * @cssproperty --button-background - Background color. Default `var(--vscode-button-background)`.
- * @cssproperty --button-hover-background - Background color on hover. Default `var(--vscode-button-hoverBackground)`.
- * @cssproperty --button-border - Border color. Default `var(--vscode-button-border, transparent)`.
+ * @cssproperty --button-foreground - Text color. Default `var(--gl-color-action-primary-fg)`.
+ * @cssproperty --button-background - Background color. Default `var(--gl-color-action-primary-bg)`.
+ * @cssproperty --button-hover-background - Background color on hover. Default `var(--gl-color-action-primary-bg-hover)`.
+ * @cssproperty --button-border - Border color. Default `var(--gl-color-action-primary-border, transparent)`.
  * @cssproperty --button-width - Host and control width. Default `max-content`. Ignored when `full` is set.
  * @cssproperty --button-padding - Control padding. Default `0.4rem`.
  * @cssproperty --button-padding-inline - Horizontal padding for the default and `secondary` appearances only. Default `0.8rem`.
@@ -49,10 +49,10 @@ export class GlButton extends LitElement {
 		css`
 			:host {
 				/* Base color variables - can be overridden by variant */
-				--button-foreground: var(--vscode-button-foreground);
-				--button-background: var(--vscode-button-background);
-				--button-hover-background: var(--vscode-button-hoverBackground);
-				--button-border: var(--vscode-button-border, transparent);
+				--button-foreground: var(--gl-color-action-primary-fg);
+				--button-background: var(--gl-color-action-primary-bg);
+				--button-hover-background: var(--gl-color-action-primary-bg-hover);
+				--button-border: var(--gl-color-action-primary-border, transparent);
 
 				/* Layout variables */
 				--button-width: max-content;
@@ -148,37 +148,46 @@ export class GlButton extends LitElement {
 			}
 
 			:host([appearance='secondary']) {
-				--button-background: var(--vscode-button-secondaryBackground);
-				--button-foreground: var(--vscode-button-secondaryForeground);
-				--button-hover-background: var(--vscode-button-secondaryHoverBackground);
+				--button-background: var(--gl-color-action-secondary-bg);
+				--button-foreground: var(--gl-color-action-secondary-fg);
+				--button-hover-background: var(--gl-color-action-secondary-bg-hover);
+				--button-border: var(--gl-color-action-secondary-border);
 			}
 
 			:host([appearance='input']),
 			:host([appearance='toolbar']) {
 				--button-background: transparent;
-				--button-foreground: var(--vscode-foreground);
-				--button-hover-background: var(--vscode-toolbar-hoverBackground);
+				--button-foreground: var(--gl-color-action-quiet-fg);
+				--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 				--button-border: transparent;
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Every appearance but alert and link
+			   (which keep their own hover cues) needs it, since HC leaves the button hover fills unset too.
+			   Not while focused, so the focus ring wins */
+			:host(:not([appearance='alert'], [appearance='link'], [disabled], :focus-within):hover) {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			:host([appearance='alert']) {
 				--button-background: transparent;
-				--button-border: var(--color-alert-infoBorder);
-				--button-foreground: var(--color-alert-infoForeground);
-				--button-hover-background: var(--color-alert-infoBorder);
+				--button-border: var(--gl-color-feedback-info-border);
+				--button-foreground: var(--gl-color-feedback-info-fg);
+				--button-hover-background: var(--gl-color-feedback-info-border);
 				--button-line-height: 1.64;
 
 				width: max-content;
 			}
 
 			:host([appearance='alert']:not([disabled]):hover) {
-				--button-foreground: var(--vscode-button-foreground);
+				--button-foreground: var(--gl-color-action-primary-fg);
 			}
 
 			/* Text-link appearance — renders like an inline hyperlink rather than a button */
 			:host([appearance='link']) {
 				--button-background: transparent;
-				--button-foreground: var(--vscode-textLink-foreground);
+				--button-foreground: var(--gl-color-action-link-fg);
 				--button-hover-background: transparent;
 				--button-border: transparent;
 				--button-padding: 0;
@@ -200,32 +209,24 @@ export class GlButton extends LitElement {
 
 			/* Solid buttons (default and secondary) with variants get full color treatment */
 			:host([variant='danger']) {
-				--button-foreground: var(--vscode-inputValidation-errorForeground, #f48771);
-				--button-background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
-				--button-hover-background: color-mix(
-					in srgb,
-					#000 30%,
-					var(--vscode-inputValidation-errorBorder, #be1100)
-				);
-				--button-border: var(--vscode-inputValidation-errorBorder, #be1100);
+				--button-foreground: var(--gl-color-feedback-danger-fg);
+				--button-background: var(--gl-color-feedback-danger-bg);
+				--button-hover-background: var(--gl-color-feedback-danger-bg-hover);
+				--button-border: var(--gl-color-feedback-danger-border);
 			}
 
 			:host([variant='warning']) {
-				--button-foreground: var(--vscode-inputValidation-warningForeground, #fc6);
-				--button-background: var(--vscode-inputValidation-warningBackground, #352a05);
-				--button-hover-background: color-mix(
-					in srgb,
-					#000 30%,
-					var(--vscode-inputValidation-warningBorder, #b89500)
-				);
-				--button-border: var(--vscode-inputValidation-warningBorder, #b89500);
+				--button-foreground: var(--gl-color-feedback-warning-fg);
+				--button-background: var(--gl-color-feedback-warning-bg);
+				--button-hover-background: var(--gl-color-feedback-warning-bg-hover);
+				--button-border: var(--gl-color-feedback-warning-border);
 			}
 
 			:host([variant='success']) {
-				--button-foreground: #fff;
-				--button-background: color-mix(in srgb, #000 40%, var(--vscode-testing-iconPassed, #73c991));
-				--button-hover-background: color-mix(in srgb, #000 30%, var(--vscode-testing-iconPassed, #73c991));
-				--button-border: color-mix(in srgb, #000 40%, var(--vscode-testing-iconPassed, #73c991));
+				--button-foreground: var(--gl-color-feedback-success-fg);
+				--button-background: var(--gl-color-feedback-success-bg);
+				--button-hover-background: var(--gl-color-feedback-success-bg-hover);
+				--button-border: var(--gl-color-feedback-success-border);
 			}
 
 			/* Transparent appearances (toolbar, input, alert) with variants only change foreground color */
@@ -234,7 +235,7 @@ export class GlButton extends LitElement {
 			:host([appearance='toolbar'][variant='danger']),
 			:host([appearance='input'][variant='danger']),
 			:host([appearance='alert'][variant='danger']) {
-				--button-foreground: var(--vscode-errorForeground, #f48771);
+				--button-foreground: var(--gl-color-feedback-danger-quiet-fg);
 				--button-background: transparent;
 				--button-border: transparent;
 			}
@@ -242,7 +243,7 @@ export class GlButton extends LitElement {
 			:host([appearance='toolbar'][variant='warning']),
 			:host([appearance='input'][variant='warning']),
 			:host([appearance='alert'][variant='warning']) {
-				--button-foreground: var(--vscode-editorWarning-foreground, #cca700);
+				--button-foreground: var(--gl-color-feedback-warning-quiet-fg);
 				--button-background: transparent;
 				--button-border: transparent;
 			}
@@ -250,7 +251,7 @@ export class GlButton extends LitElement {
 			:host([appearance='toolbar'][variant='success']),
 			:host([appearance='input'][variant='success']),
 			:host([appearance='alert'][variant='success']) {
-				--button-foreground: var(--vscode-testing-iconPassed, #73c991);
+				--button-foreground: var(--gl-color-feedback-success-quiet-fg);
 				--button-background: transparent;
 				--button-border: transparent;
 			}

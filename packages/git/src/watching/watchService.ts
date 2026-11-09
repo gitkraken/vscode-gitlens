@@ -408,13 +408,15 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	 * Core announced one of its own writes for `repoPath`; the session watching it fires the announcement in place of
 	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}); `refs` are the full ref names it
 	 * moved, when it knows them, and `options.configConfinedToRefs` confines its `config` change to the sections of the
-	 * local branches among them (see `GitServiceHooks.repository.onChanged`). A path no session watches is ignored.
+	 * local branches among them (see `GitServiceHooks.repository.onChanged`); `options.movedWorktrees` confines its
+	 * `worktreeHead` change to those linked worktrees (see `AnnouncedRepositoryChanges.movedWorktrees`). A path no session
+	 * watches is ignored.
 	 */
 	noteSelfWrite(
 		repoPath: string,
 		changes: readonly RepositoryChange[],
 		refs?: readonly string[],
-		options?: { readonly configConfinedToRefs?: boolean },
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
 	): void {
 		if (this._disposed) return;
 
@@ -520,11 +522,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				ref?: string | false,
 				overflow?: boolean,
 				configBranches?: ReadonlySet<string>,
+				movedWorktree?: string,
 			): void => {
 				if (overflow) {
 					session.pushUnfencedRepoChanges(changes);
 				} else {
-					session.pushRepoChanges(changes, ref, configBranches);
+					session.pushRepoChanges(changes, ref, configBranches, movedWorktree);
 				}
 
 				// A working tree nothing watches is read again whenever the index or HEAD says it may have moved
@@ -623,23 +626,26 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		// Ahead of `ready()`, so the replay below waits for rules that may have changed while nothing watched them
 		const revalidated = filter?.revalidate();
 		if (filter != null) {
+			const replay = (): void => {
+				const pending = buffered;
+				const incomplete = bufferIncomplete;
+				filterReady = true;
+				buffered = undefined;
+				bufferIncomplete = false;
+
+				if (!pending?.length) return;
+
+				const paths = filterWorkingTreePaths(pending, repoPath, filter);
+				if (paths.length > 0 || incomplete) {
+					session.pushWorkingTreeChanges(paths, incomplete);
+				}
+			};
+			// A failed load still replays: the filter keeps the rules it had (none before its first load) and errs
+			// toward "not ignored", so an extra refresh is the worst case, where dropping the buffer loses real changes
 			void filter
 				.ready()
-				.then(() => {
-					filterReady = true;
-					if (buffered?.length) {
-						const paths = filterWorkingTreePaths(buffered, repoPath, filter);
-						if (paths.length > 0 || bufferIncomplete) {
-							session.pushWorkingTreeChanges(paths, bufferIncomplete);
-						}
-					}
-					buffered = undefined;
-					bufferIncomplete = false;
-				})
-				.catch(() => {
-					filterReady = true;
-					buffered = undefined;
-				});
+				.then(replay, replay)
+				.catch(() => {});
 		}
 
 		// An ignore rule changed (or may have): refresh the filter (unless it already reloaded) and the pruned set, and

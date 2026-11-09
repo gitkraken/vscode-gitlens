@@ -549,10 +549,15 @@ suite('inferGitCommandPriority() Test Suite', () => {
 		assert.strictEqual(inferGitCommandPriority(['--git-dir=/x.git', 'reflog']), 'background');
 	});
 
-	test('does not consume a value-taking option’s value if it looks like another flag', () => {
-		// peek rule: only consume next arg if it doesn't start with '-'
-		// Here '--foo' is treated as a flag of its own, and the next positional ('shortlog') is the command
+	test('a value-taking option consumes the next argument even when it looks like a flag', () => {
+		// git takes `-c`'s next argument as its value whatever it looks like, so 'shortlog' is the command
 		assert.strictEqual(inferGitCommandPriority(['-c', '--foo', 'shortlog']), 'background');
+		assert.strictEqual(inferGitCommandPriority(['-c', 'for-each-ref', 'status']), 'normal');
+	});
+
+	test('--list-cmds is not read as taking a separate value', () => {
+		// git accepts `--list-cmds=<group>` only, so a following word is the command
+		assert.strictEqual(inferGitCommandPriority(['--list-cmds', 'shortlog']), 'background');
 	});
 
 	test('skips flag-only leading args', () => {

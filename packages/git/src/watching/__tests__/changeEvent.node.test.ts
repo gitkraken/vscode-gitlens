@@ -175,6 +175,38 @@ describe('WatcherRepoChangeEvent', () => {
 		});
 	});
 
+	describe('movedWorktrees', () => {
+		const moved = ['worktrees', 'worktreeHead'] as const;
+
+		it('is unknown unless given, and given only with a worktreeHead change', () => {
+			assert.strictEqual(new WatcherRepoChangeEvent('/repo', [...moved]).movedWorktrees, undefined);
+			assert.strictEqual(
+				new WatcherRepoChangeEvent('/repo', ['worktrees'], undefined, undefined, ['A']).movedWorktrees,
+				undefined,
+			);
+			assert.deepStrictEqual(
+				[...new WatcherRepoChangeEvent('/repo', [...moved], undefined, undefined, ['A']).movedWorktrees!],
+				['A'],
+			);
+		});
+
+		it('with() unions both sides that changed worktreeHead, and an unknown side makes it unknown', () => {
+			const e = new WatcherRepoChangeEvent('/repo', [...moved], undefined, undefined, ['A']);
+
+			assert.deepStrictEqual([...e.with([...moved], undefined, ['B']).movedWorktrees!].sort(), ['A', 'B']);
+			assert.strictEqual(e.with([...moved]).movedWorktrees, undefined);
+			assert.strictEqual(
+				new WatcherRepoChangeEvent('/repo', [...moved]).with([...moved], undefined, ['B']).movedWorktrees,
+				undefined,
+			);
+			assert.deepStrictEqual([...e.with(['heads']).movedWorktrees!], ['A'], 'a side without worktreeHead');
+			assert.deepStrictEqual(
+				[...new WatcherRepoChangeEvent('/repo', ['heads']).with([...moved], undefined, ['B']).movedWorktrees!],
+				['B'],
+			);
+		});
+	});
+
 	describe('toString()', () => {
 		it('includes repoPath and changes by default', () => {
 			const e = new WatcherRepoChangeEvent('/repo', ['head']);

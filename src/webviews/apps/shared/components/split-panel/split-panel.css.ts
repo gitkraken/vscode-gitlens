@@ -93,7 +93,7 @@ export const splitPanelStyles = css`
 	}
 
 	.divider:focus-visible {
-		background-color: var(--vscode-focusBorder);
+		background-color: var(--gl-color-border-focus);
 	}
 
 	.divider:hover {

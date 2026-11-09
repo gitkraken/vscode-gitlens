@@ -53,7 +53,14 @@ export type PullRequestFieldGroup =
 	/** `authoredByMe`, and the `viewer` it was matched against. */
 	| 'authoredByMe'
 	/** `stack`. */
-	| 'stack';
+	| 'stack'
+	/** `milestone`. */
+	| 'milestone'
+	/**
+	 * `mergeQueue`, `mergeQueueRequired` and `mergeQueueRemoval`: the merge-queue data was read, so an absent entry
+	 * means not queued and an absent removal means none since the pull request last joined. Only GitHub.com's is read.
+	 */
+	| 'mergeQueue';
 
 /** A group is `fetched` only when every field in it is. */
 export type IssueFieldGroup =
@@ -68,7 +75,9 @@ export type IssueFieldGroup =
 	/** `thumbsUpCount`. */
 	| 'reactions'
 	/** `repository.accessLevel`. */
-	| 'access';
+	| 'access'
+	/** `milestone`: a Linear issue's is its project milestone. */
+	| 'milestone';
 
 type Presence<G extends string> = Readonly<Record<G, FieldPresence>>;
 type PresenceTable<P extends string, G extends string> = Readonly<Partial<Record<P, Presence<G>>>>;
@@ -88,6 +97,8 @@ const pullRequestFieldGroups: readonly PullRequestFieldGroup[] = [
 	'access',
 	'authoredByMe',
 	'stack',
+	'milestone',
+	'mergeQueue',
 ];
 
 const issueFieldGroups: readonly IssueFieldGroup[] = [
@@ -97,6 +108,7 @@ const issueFieldGroups: readonly IssueFieldGroup[] = [
 	'comments',
 	'reactions',
 	'access',
+	'milestone',
 ];
 
 /** Every group in `groups` listed as neither `fetched` nor `unavailable` is `not-requested`. */
@@ -136,8 +148,11 @@ function issuePresenceOf(
 	return presenceOf(issueFieldGroups, fetched, unavailable);
 }
 
-/** GitLens' own lite fragment (`fromGitHubPullRequestLite`). `stack` is only selected against github.com. */
-const gitHubLite = pullRequestPresenceOf(['description', 'stack']);
+/**
+ * GitLens' own lite fragment (`fromGitHubPullRequestLite`). `stack` and `mergeQueue` are only selected against
+ * github.com.
+ */
+const gitHubLite = pullRequestPresenceOf(['description', 'stack', 'milestone', 'mergeQueue']);
 
 /**
  * GitLens' own full fragment, which selects no reactions. The account-wide and batch reads return its rows as they
@@ -157,6 +172,8 @@ const gitHubFull = pullRequestPresenceOf([
 	'comments',
 	'access',
 	'stack',
+	'milestone',
+	'mergeQueue',
 ]);
 
 const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldGroup> = {
@@ -179,6 +196,7 @@ const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldG
 		'commitCount',
 		'comments',
 		'reactions',
+		'milestone',
 	]),
 	// `summary` drops the `commits` subtree that carries both the check rollup and the commit count.
 	'repos-summary': pullRequestPresenceOf([
@@ -188,12 +206,14 @@ const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldG
 		'diffStats',
 		'comments',
 		'reactions',
+		'milestone',
 	]),
 	batch: gitHubFull,
 };
 
 /**
- * GitHub Enterprise Server rejects the stack selection, so a read that carries `stack` on github.com can't here.
+ * GitHub Enterprise Server rejects the stack selection, and the merge-queue one isn't verified there, so neither is
+ * selected: a read that carries `stack` or `mergeQueue` on github.com can't here.
  * provider-apis also gates check runs on the server version, which this table can't see, so its rollup on the
  * repository-scoped read may come from commit statuses alone.
  */
@@ -202,6 +222,9 @@ const gitHubEnterprisePullRequests: PresenceTable<PullRequestProjection, PullReq
 		const enterprise: Record<PullRequestFieldGroup, FieldPresence> = { ...presence };
 		if (enterprise.stack === 'fetched') {
 			enterprise.stack = 'unavailable';
+		}
+		if (enterprise.mergeQueue === 'fetched') {
+			enterprise.mergeQueue = 'unavailable';
 		}
 		if (projection === 'repos') {
 			enterprise.checks = 'not-requested';
@@ -218,21 +241,22 @@ const gitHubIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 	search: gitHubNativeIssue,
 	account: gitHubNativeIssue,
 	// provider-apis' own fragment selects neither the body nor the repository's `viewerPermission`.
-	repos: presenceOf(issueFieldGroups, ['assignees', 'labels', 'comments', 'reactions']),
+	repos: presenceOf(issueFieldGroups, ['assignees', 'labels', 'comments', 'reactions', 'milestone']),
 	batch: gitHubNativeIssue,
 };
 
 /*
  * Every other provider. None of them reads the viewer's access (`repository.accessLevel` is absent on every row),
- * resolves `authoredByMe` reliably, or has stacks. provider-apis honors neither `summary` nor
- * `includeReviews` for them, so each `-summary` tag reads like its full one.
+ * resolves `authoredByMe` reliably, or has stacks, and only GitLab and Linear have milestones; none's merge queue
+ * (GitLab's merge trains included) is read yet. provider-apis honors neither `summary` nor `includeReviews` for them,
+ * so each `-summary` tag reads like its full one.
  */
 
 /**
  * GitLens' own GitLab reads: the point reads, and the free-text search. They select the description but leave it,
  * and everything else beyond the merge request's identity and refs, off the row.
  */
-const gitLabOwn = pullRequestPresenceOf([], ['stack']);
+const gitLabOwn = pullRequestPresenceOf([], ['stack', 'mergeQueue']);
 
 /**
  * provider-apis' merge request fragment and normalizer, which every other GitLab read goes through. It turns a null
@@ -250,9 +274,10 @@ function gitLabProviderApis(comments: boolean): Presence<PullRequestFieldGroup> 
 			'checks',
 			'mergeable',
 			'reactions',
+			'milestone',
 			...(comments ? (['comments'] as const) : []),
 		],
-		['stack'],
+		['stack', 'mergeQueue'],
 	);
 }
 
@@ -275,7 +300,13 @@ function gitLabPullRequestsFor(
  * Azure DevOps pull requests have no assignees (both converters fill `assignees` with the reviewers, which `reviews` and
  * `reviewRequests` already hold) and no reactions. Neither converter reads checks or counts.
  */
-const azureUnavailable: readonly PullRequestFieldGroup[] = ['assignees', 'reactions', 'stack'];
+const azureUnavailable: readonly PullRequestFieldGroup[] = [
+	'assignees',
+	'reactions',
+	'stack',
+	'milestone',
+	'mergeQueue',
+];
 /** Every list read: Azure truncates a listed pull request's description (to 400 characters). */
 const azureListed = pullRequestPresenceOf(['reviews', 'reviewRequests', 'mergeable'], azureUnavailable);
 /** The batch reads fetch each pull request by id, which returns the whole description. */
@@ -302,7 +333,13 @@ const azureServerPullRequests: PresenceTable<PullRequestProjection, PullRequestF
  * Bitbucket pull requests have no assignees or reactions. Neither provider-apis nor GitLens reads their build
  * statuses or mergeability: provider-apis fills a literal Mergeable, and GitLens' own converters leave it unset.
  */
-const bitbucketUnavailable: readonly PullRequestFieldGroup[] = ['assignees', 'reactions', 'stack'];
+const bitbucketUnavailable: readonly PullRequestFieldGroup[] = [
+	'assignees',
+	'reactions',
+	'stack',
+	'milestone',
+	'mergeQueue',
+];
 const bitbucketProviderApis = pullRequestPresenceOf(
 	['description', 'reviews', 'reviewRequests', 'comments'],
 	bitbucketUnavailable,
@@ -342,7 +379,7 @@ const bitbucketServerPullRequests: PresenceTable<PullRequestProjection, PullRequ
 /**
  * provider-apis' GitLab issue reads (GraphQL, and REST for the account-wide one). The repository's access isn't read.
  * The GraphQL comment count is nullable like the merge request's, and passed through, so only GitLab.com's is
- * promised; the REST one is always a number.
+ * promised; the REST one is always a number. The REST normalizer drops the milestone the response carries.
  */
 function gitLabIssuesFor(comments: boolean): PresenceTable<IssueProjection, IssueFieldGroup> {
 	const graphQL = issuePresenceOf([
@@ -350,6 +387,7 @@ function gitLabIssuesFor(comments: boolean): PresenceTable<IssueProjection, Issu
 		'assignees',
 		'labels',
 		'reactions',
+		'milestone',
 		...(comments ? (['comments'] as const) : []),
 	]);
 	return {
@@ -364,7 +402,7 @@ function gitLabIssuesFor(comments: boolean): PresenceTable<IssueProjection, Issu
  * Azure DevOps work items have no reactions (provider-apis' converter fills 0; GitLens' leaves it unset) and belong to
  * a project, not a repository.
  */
-const azureWorkItemUnavailable: readonly IssueFieldGroup[] = ['reactions', 'access'];
+const azureWorkItemUnavailable: readonly IssueFieldGroup[] = ['reactions', 'access', 'milestone'];
 /** provider-apis' work item converter, and GitLens' copy of it for the batch read. */
 const azureWorkItem = issuePresenceOf(['description', 'assignees', 'labels', 'comments'], azureWorkItemUnavailable);
 /** GitLens' own work item converter, which drops the tags. */
@@ -386,7 +424,7 @@ const azureServerIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
  * Bitbucket Cloud's legacy issues, which only the host's own `getIssue` and `searchMyIssues` read. They have no
  * labels, their votes aren't reactions, and neither a comment count nor the repository's access is read.
  */
-const bitbucketIssue = issuePresenceOf(['description', 'assignees'], ['labels', 'reactions']);
+const bitbucketIssue = issuePresenceOf(['description', 'assignees'], ['labels', 'reactions', 'milestone']);
 const bitbucketIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 	point: bitbucketIssue,
 	account: bitbucketIssue,
@@ -394,9 +432,10 @@ const bitbucketIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 
 /**
  * Tracker issues belong to no repository, and a tracker's votes aren't reactions (and read 0 where voting is off), so
- * neither group can be supplied.
+ * neither group can be supplied. Nor a milestone: Trello has none, and Jira's fix versions and sprints are many per
+ * issue, not one.
  */
-const trackerUnavailable: readonly IssueFieldGroup[] = ['reactions', 'access'];
+const trackerUnavailable: readonly IssueFieldGroup[] = ['reactions', 'access', 'milestone'];
 /**
  * provider-apis' Jira converter counts the comments embedded in the issue, which Jira may cap, rather than reading
  * their total.
@@ -417,7 +456,7 @@ const jiraServerIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 };
 
 /** provider-apis' Linear fragment selects no labels (it fills an empty list), comments or reactions. */
-const linearIssue = issuePresenceOf(['description', 'assignees'], ['access']);
+const linearIssue = issuePresenceOf(['description', 'assignees', 'milestone'], ['access']);
 const linearIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 	point: linearIssue,
 	account: linearIssue,
@@ -430,6 +469,17 @@ const trelloCard = issuePresenceOf(['assignees', 'labels', 'comments'], trackerU
 const trelloIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
 	point: trelloCard,
 	project: trelloCard,
+};
+
+/**
+ * provider-apis' Asana task fields: its notes, its single assignee, its tags as labels and its likes as reactions.
+ * Comments are stories, which a task doesn't count, so reading them would cost a request per task.
+ */
+const asanaTask = issuePresenceOf(['description', 'assignees', 'labels', 'reactions'], ['access', 'milestone']);
+const asanaIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
+	point: asanaTask,
+	account: asanaTask,
+	project: asanaTask,
 };
 
 const pullRequestPresence = new Map<string, PresenceTable<PullRequestProjection, PullRequestFieldGroup>>([
@@ -455,6 +505,7 @@ const issuePresence = new Map<string, PresenceTable<IssueProjection, IssueFieldG
 	[IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerIssues],
 	[IssuesCloudHostIntegrationId.Linear, linearIssues],
 	[IssuesCloudHostIntegrationId.Trello, trelloIssues],
+	[IssuesCloudHostIntegrationId.Asana, asanaIssues],
 ]);
 
 function lookup<P extends string, G extends string>(

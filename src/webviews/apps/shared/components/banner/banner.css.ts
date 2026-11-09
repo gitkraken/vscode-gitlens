@@ -3,8 +3,8 @@ import { css } from 'lit';
 export const bannerStyles = css`
 	:host {
 		/* Banner color custom properties */
-		--gl-banner-primary-background: var(--vscode-sideBar-background);
-		--gl-banner-secondary-background: var(--vscode-editor-background);
+		--gl-banner-primary-background: var(--gl-color-surface-aside);
+		--gl-banner-secondary-background: var(--gl-color-surface-base);
 		--gl-banner-primary-emphasis-background: var(--vscode-button-background);
 		--gl-banner-secondary-emphasis-background: var(--vscode-button-secondaryBackground);
 		--gl-banner-text-color: var(--vscode-foreground);
@@ -36,8 +36,7 @@ export const bannerStyles = css`
 	/* Solid display mode - same as card background */
 	.banner--solid {
 		background-color: var(--gl-banner-primary-background);
-		border: var(--gl-border-width) solid
-			color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 	}
 
 	/* Outline display mode - emphasis color outline with secondary background */
@@ -94,7 +93,7 @@ export const bannerStyles = css`
 	/* Gradient purple display mode - matches the auto-composer container styling */
 	.banner--gradient-purple {
 		background: var(--gl-gradient-brand-subtle);
-		border: var(--gl-border-width) solid var(--vscode-panel-border);
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-md);
 	}
 
@@ -111,7 +110,7 @@ export const bannerStyles = css`
 	}
 
 	.banner--gradient-purple .banner__body a {
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-color-action-link-fg);
 		text-decoration: none;
 	}
 
@@ -237,17 +236,7 @@ export const bannerStyles = css`
 		margin-top: var(--gl-space-8);
 	}
 
-	.banner:not(.banner--gradient-purple) .banner__button--primary {
-		grid-column: 2;
-		justify-self: center;
-		white-space: nowrap;
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
-		--button-foreground: var(--gl-banner-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
-		--button-padding: var(--gl-banner-button-padding);
-	}
-
-	.banner--gradient-purple .banner__button--primary {
+	.banner__button--primary {
 		grid-column: 2;
 		justify-self: center;
 		white-space: nowrap;
@@ -260,7 +249,7 @@ export const bannerStyles = css`
 		white-space: nowrap;
 		--button-background: transparent;
 		--button-foreground: var(--gl-banner-dim-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 10%, transparent);
+		--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	/* When only primary button exists, center it across the full width */
@@ -276,7 +265,7 @@ export const bannerStyles = css`
 		right: 0.8rem;
 		--button-background: transparent;
 		--button-foreground: var(--gl-banner-dim-text-color);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 15%, transparent);
+		--button-hover-background: var(--gl-color-action-quiet-bg-hover);
 		--button-padding: 0.4rem;
 
 		z-index: 1;
@@ -301,44 +290,6 @@ export const bannerStyles = css`
 			var(--vscode-button-secondaryBackground) 40%,
 			#fff 60%
 		);
-	}
-
-	/* Override text color for high contrast light theme specifically */
-	:host-context(.vscode-high-contrast-light) {
-		--gl-banner-text-color: #000;
-	}
-
-	:host-context(.vscode-dark) .banner:not(.banner--gradient-purple) .banner__button--primary,
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light))
-		.banner:not(.banner--gradient-purple)
-		.banner__button--primary {
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 10%, #fff 20%);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 20%, #fff 30%);
-		--button-foreground: #fff;
-	}
-
-	:host-context(.vscode-light) .banner:not(.banner--gradient-purple) .banner__button--primary,
-	:host-context(.vscode-high-contrast-light) .banner:not(.banner--gradient-purple) .banner__button--primary {
-		--button-background: color-mix(in lab, var(--gl-banner-primary-background) 8%, #fff 25%);
-		--button-hover-background: color-mix(in lab, var(--gl-banner-primary-background) 15%, #fff 35%);
-		--button-foreground: #000;
-	}
-
-	/* Make banner text darker in light themes */
-	:host-context(.vscode-light) .banner__body,
-	:host-context(.vscode-high-contrast-light) .banner__body {
-		color: color-mix(in lab, var(--gl-banner-text-color) 20%, #000 80%);
-	}
-
-	/* Strong colors for banner title - pure black/white for maximum contrast */
-	:host-context(.vscode-light) .banner__title,
-	:host-context(.vscode-high-contrast-light) .banner__title {
-		color: #000 !important;
-	}
-
-	:host-context(.vscode-dark) .banner__title,
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .banner__title {
-		color: #fff !important;
 	}
 
 	/* Responsive adjustments */

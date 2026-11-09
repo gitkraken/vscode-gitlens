@@ -21,12 +21,14 @@ export function renderLoadingState(text: string): TemplateResult {
 }
 
 /** Pass `retryEventName: undefined` for non-retryable errors (e.g. invalid compose scope, where
- *  the same input fails identically) — only Go Back is offered. */
+ *  the same input fails identically) — only Go Back is offered. `extraAction` is rendered last in the
+ *  actions row, for an error that has its own way out (e.g. buying more AI credits). */
 export function renderErrorState(
 	errorMessage: string | undefined,
 	defaultMessage: string,
 	retryEventName: string | undefined,
 	backEventName: string,
+	extraAction?: TemplateResult,
 ): TemplateResult {
 	const dispatch = (target: HTMLElement, name: string): void => {
 		target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));
@@ -78,6 +80,7 @@ export function renderErrorState(
 						>`
 					: nothing
 			}
+			${extraAction ?? nothing}
 		</div>
 	</div>`;
 }

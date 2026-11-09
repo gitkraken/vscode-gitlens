@@ -328,6 +328,37 @@ export class BranchesService {
 		};
 	}
 
+	/**
+	 * Just the branch's associated pull request — what {@link getBranchEnrichment}'s `pullRequest` leg resolves,
+	 * without the merge-target, autolinks and issues legs. For refreshing a pull request whose state moves on the
+	 * provider with nothing local to notice it (a merge queue) without re-running the whole enrichment.
+	 *
+	 * With `fresh`, the lookup bypasses the cache and rejects when it fails, so the caller can tell a failed lookup
+	 * from "no pull request" (resolves `undefined`).
+	 */
+	async getBranchPullRequest(
+		repoPath: string,
+		branchName: string,
+		signal?: AbortSignal,
+		options?: { fresh?: boolean },
+	): Promise<OverviewBranchPullRequest | undefined> {
+		signal?.throwIfAborted();
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const branch = await svc.branches.getBranch(branchName, undefined, signal);
+		signal?.throwIfAborted();
+		if (branch == null) return undefined;
+
+		return this.fetchPullRequestLeg(
+			branch,
+			getBranchAssociatedPullRequest(
+				this.container,
+				branch,
+				options?.fresh ? { avatarSize: 64, throwOnError: true, expiryOverride: true } : { avatarSize: 64 },
+			),
+			signal,
+		);
+	}
+
 	/** Only name + provider name/icon — the sheet has no use for the provider URL, and resolving it
 	 *  would add an async hop for nothing. Icon takes the same `'remote'` → `'cloud'` normalization
 	 *  every other projection applies. */

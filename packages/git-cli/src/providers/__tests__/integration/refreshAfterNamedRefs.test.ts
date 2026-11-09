@@ -951,6 +951,73 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			await repoOf(main.path).worktrees!.unlockWorktree(linked[0].path);
 		});
 
+		test('a checkout outside core in one worktree is told to every other checkout by its id, so only it loses its current branch', async () => {
+			const id = basename(git(linked[0].path, 'rev-parse', '--absolute-git-dir'));
+			for (const path of [main.path, linked[0].path, linked[1].path]) {
+				await repoOf(path).branches.getBranch();
+			}
+			resetObservations();
+			const stamp = provider.cache.getDropStamp();
+
+			git(linked[0].path, 'checkout', '-q', '--detach');
+			fireWorktreeHead(id, 'change');
+			await settle();
+
+			for (const co of [mainCo, bCo]) {
+				const moved = heardBy(co).filter(e => e.changed('worktreeHead'));
+				assert.strictEqual(moved.length, 1, `${co.key} heard the worktree's HEAD move`);
+				assert.deepStrictEqual(
+					[...(moved[0].movedWorktrees ?? [])],
+					[id],
+					`${co.key} heard which worktree moved`,
+				);
+			}
+			assert.ok(
+				provider.cache.isDroppedSince('currentBranchReference', linked[0].path, stamp),
+				'the worktree that moved',
+			);
+			for (const path of [main.path, linked[1].path]) {
+				assert.ok(!provider.cache.isDroppedSince('currentBranchReference', path, stamp), path);
+			}
+			assert.strictEqual((await repoOf(linked[0].path).branches.getBranch())?.detached, true);
+
+			git(linked[0].path, 'checkout', '-q', 'feature-a');
+			fireWorktreeHead(id, 'change');
+			await settle();
+		});
+
+		test("a checkout core runs in one worktree doesn't take the report of a checkout outside core in another for its own", async () => {
+			const idA = basename(git(linked[0].path, 'rev-parse', '--absolute-git-dir'));
+			const idB = basename(git(linked[1].path, 'rev-parse', '--absolute-git-dir'));
+			for (const path of [main.path, linked[0].path, linked[1].path]) {
+				await repoOf(path).branches.getBranch();
+			}
+			resetObservations();
+			const stamp = provider.cache.getDropStamp();
+
+			// Its own watcher hasn't reported it yet; the common watchers report both HEADs in the write's window
+			git(linked[1].path, 'checkout', '-q', '--detach');
+			await repoOf(linked[0].path).ops!.checkout(git(linked[0].path, 'rev-parse', 'HEAD'));
+			fireWorktreeHead(idA, 'change');
+			fireWorktreeHead(idB, 'change');
+			await settle();
+
+			const moved = heardBy(mainCo).filter(e => e.getUnannouncedChanges().includes('worktreeHead'));
+			assert.strictEqual(moved.length, 1, 'the main checkout heard the outside checkout');
+			assert.deepStrictEqual([...(moved[0].movedWorktrees ?? [])], [idB], 'by the id of the worktree it moved');
+			assert.ok(
+				provider.cache.isDroppedSince('currentBranchReference', linked[1].path, stamp),
+				'the worktree the outside checkout moved',
+			);
+			assert.strictEqual((await repoOf(linked[1].path).branches.getBranch())?.detached, true);
+
+			git(linked[1].path, 'checkout', '-q', 'feature-b');
+			await repoOf(linked[0].path).ops!.checkout('feature-a');
+			fireWorktreeHead(idA, 'change');
+			fireWorktreeHead(idB, 'change');
+			await settle();
+		});
+
 		test('adding a worktree with no commitish announces the branch git names after the path', async () => {
 			const path = join(root, 'wt-guess');
 			assert.ok(!(await localBranches(main.path)).includes('wt-guess'));

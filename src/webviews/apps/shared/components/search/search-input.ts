@@ -114,27 +114,6 @@ export class GlSearchInput extends GlElement {
 			--gl-search-input-buttons-right: 5;
 		}
 
-		label {
-			display: flex;
-			gap: var(--gl-space-2);
-			align-items: center;
-			justify-content: center;
-			width: 3.2rem;
-			height: 2.4rem;
-			color: var(--gl-search-input-foreground);
-			cursor: pointer;
-			border-radius: var(--gl-radius-sm);
-		}
-
-		label:hover {
-			background-color: var(--vscode-toolbar-hoverBackground);
-		}
-
-		label:focus {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
-
 		.icon-small {
 			font-size: var(--gl-font-micro);
 		}
@@ -158,7 +137,7 @@ export class GlSearchInput extends GlElement {
 		}
 
 		input:focus {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
 		}
 
@@ -171,11 +150,11 @@ export class GlSearchInput extends GlElement {
 		}
 
 		input[aria-valid='false'] {
-			border-color: var(--vscode-inputValidation-errorBorder);
+			border-color: var(--gl-color-feedback-danger-border);
 		}
 
 		input[aria-valid='false']:focus {
-			outline-color: var(--vscode-inputValidation-errorBorder);
+			outline-color: var(--gl-color-feedback-danger-border);
 		}
 
 		.message {
@@ -190,20 +169,21 @@ export class GlSearchInput extends GlElement {
 			padding: var(--gl-space-4);
 			font-size: var(--gl-font-md);
 			line-height: 1.4;
-			color: var(--gl-search-input-foreground);
-			background-color: var(--vscode-inputValidation-infoBackground);
-			border: var(--gl-border-width) solid var(--vscode-inputValidation-infoBorder);
+			color: var(--gl-color-feedback-info-fg);
+			background-color: var(--gl-color-feedback-info-bg);
+			border: var(--gl-border-width) solid var(--gl-color-feedback-info-border);
 			transform: translateY(-0.1rem);
 		}
 
 		input[aria-valid='false'] ~ .message {
-			background-color: var(--vscode-inputValidation-errorBackground);
-			border-color: var(--vscode-inputValidation-errorBorder);
+			color: var(--gl-color-feedback-danger-fg);
+			background-color: var(--gl-color-feedback-danger-bg);
+			border-color: var(--gl-color-feedback-danger-border);
 		}
 
 		.message-action {
 			margin-left: var(--gl-space-8);
-			color: var(--vscode-textLink-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: underline;
 			cursor: pointer;
 		}
@@ -288,22 +268,6 @@ export class GlSearchInput extends GlElement {
 			left: 0.2rem;
 		}
 
-		button {
-			padding: 0;
-			color: var(--gl-search-input-foreground);
-			background: none;
-			border: var(--gl-border-width) solid transparent;
-		}
-
-		button:focus:not([disabled]) {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
-
-		button:not([disabled]) {
-			cursor: pointer;
-		}
-
 		.example {
 			display: inline-block;
 			margin-left: 0.5em;
@@ -316,15 +280,6 @@ export class GlSearchInput extends GlElement {
 			border-radius: var(--gl-radius-sm);
 			backdrop-filter: brightness(1.3);
 		}
-
-		/* .popover {
-margin-left: -0.25rem;
-}
-.popover::part(body) {
-padding: 0 0 0.5rem 0;
-font-size: var(--vscode-font-size);
-background-color: var(--vscode-menu-background);
-} */
 
 		gl-copy-container {
 			--copy-padding: 0 0.1rem;

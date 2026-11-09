@@ -15,11 +15,12 @@ import type {
 	GkConfigKeys,
 } from '@gitlens/git/providers/config.js';
 import { parseBranchMetadataGkConfigKey } from '@gitlens/git/utils/branch.utils.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { first, some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { dirname, getBestPath, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -28,6 +29,8 @@ import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { fsExists } from '../exec/exec.js';
 import type { Git } from '../exec/git.js';
+import { isFolder, isGitAnswer, isGitUnanswered, throwIfUnanswered } from '../exec/git.js';
+import { isGitDirMovedByEnv, readGitDirs } from '../exec/gitDirResolver.js';
 import { KeyedSequencer } from '../exec/indexLock.js';
 
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
@@ -264,11 +267,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	/**
 	 * The latest pending `setGkConfig` write of each `commonPath\0key`. A call writing the same value with the same
-	 * skip option joins it; any other call chains after it, so one key's writes land in call order. Cleared on settle.
+	 * invalidation and error options joins it; any other call chains after it, so one key's writes land in call order. Cleared on settle.
 	 */
 	private readonly _pendingGkConfigWrites = new Map<
 		string,
-		{ value: string | undefined; skipKey: string; promise: Promise<void> }
+		{ value: string | undefined; skipKey: string; throwOnError: boolean; promise: Promise<void> }
 	>();
 
 	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
@@ -458,7 +461,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string | undefined,
 		key: string,
 		value: string | undefined,
-		options?: { file?: string; global?: boolean },
+		options?: { file?: string; global?: boolean; throwOnError?: boolean },
 	): Promise<void> {
 		const args: string[] = ['config'];
 
@@ -475,7 +478,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			args.push(key, value);
 		}
 
-		await this.git.run({ cwd: repoPath ?? '', runLocally: true }, ...args);
+		await this.git.run(
+			{ cwd: repoPath ?? '', runLocally: true, errors: options?.throwOnError ? 'throw' : undefined },
+			...args,
+		);
 
 		// Only invalidate cache when not using a custom file (custom files aren't cached)
 		if (!options?.file) {
@@ -485,7 +491,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 	}
 
-	@gate()
 	@debug({ quiet: true })
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
@@ -496,6 +501,24 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (cached != null) return cached;
 		// If we found null, user data was not found - don't bother trying again
 		if (cached === null) return undefined;
+
+		// A config change, close or reset mid-read drops what this read would cache, so it mustn't put its answer back.
+		// The path's own stamp keys the shared read, so a call made after a drop of its user reads again rather than
+		// joining it, and a drop of anything else splits no shared read
+		return this.readCurrentUser(repoPath, this.cache.getDropStamp('currentUser', repoPath), scope);
+	}
+
+	@gate((repoPath: string, dropStamp: number) => `${repoPath}|${dropStamp}`)
+	private async readCurrentUser(
+		repoPath: string,
+		dropStamp: number,
+		scope: ScopedLogger | undefined,
+	): Promise<GitUser | undefined> {
+		const setCachedUser = (value: GitUser | null): void => {
+			if (!this.cache.isDroppedSince('currentUser', repoPath, dropStamp)) {
+				this.cache.currentUser.set(repoPath, value);
+			}
+		};
 
 		const user: GitUser = { name: undefined, email: undefined };
 
@@ -511,7 +534,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
-					this.cache.currentUser.set(repoPath, null);
+					setCachedUser(null);
 					return undefined;
 				}
 
@@ -533,28 +556,30 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				}
 			}
 
-			this.cache.currentUser.set(repoPath, user);
+			setCachedUser(user);
 			return user;
 		} catch (ex) {
+			// A refusal says nothing about the user, so nothing is kept: the next call reads again once the host trusts it
+			if (ex instanceof WorkspaceUntrustedError) return undefined;
+
 			scope?.error(ex);
 
 			// Mark it so we won't bother trying again
-			this.cache.currentUser.set(repoPath, null);
+			setCachedUser(null);
 			return undefined;
 		}
 	}
 
-	@gate()
 	@trace({ quiet: true, exit: r => `returned ${r}` })
 	async getDefaultWorktreePath(repoPath: string): Promise<string | undefined> {
-		const gitDir = await this.getGitDir(repoPath);
+		// `undefined` when git gives no answer: every caller can go on without knowing which worktree is the default
+		const gitDir = await this.getGitDir(repoPath).catch(() => undefined);
 		if (gitDir == null) return undefined;
 
 		const basePath = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		return getBestPath(normalizePath(joinPaths(basePath, '..')));
 	}
 
-	@gate()
 	@trace({
 		quiet: true,
 		exit: r =>
@@ -565,9 +590,34 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (cached != null) return cached;
 
 		const scope = getScopedLogger();
-		const repoInfo = await this.getRepositoryInfo(repoPath);
+		// Neither cached nor joined once unregistered mid-read: the path may come back as another repository's checkout.
+		// The generation keys the shared read, so a call made after an unregister reads again
+		return this.readGitDir(repoPath, this.cache.getCloseGeneration(repoPath), scope);
+	}
 
+	@gate((repoPath: string, closeGeneration: number) => `${repoPath}|${closeGeneration}`)
+	private async readGitDir(
+		repoPath: string,
+		closeGeneration: number,
+		scope: ScopedLogger | undefined,
+	): Promise<GitDir> {
 		let gitDir: GitDir;
+		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath);
+		if (fsGitDirs != null) {
+			const path = normalizePath(fsGitDirs.gitDir);
+			const commonPath = normalizePath(fsGitDirs.commonGitDir);
+			gitDir = {
+				uri: fileUri(path),
+				commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
+				parentUri: undefined,
+			};
+			if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
+				this.cache.gitDir.set(repoPath, gitDir);
+			}
+			return gitDir;
+		}
+
+		const repoInfo = await this.getRepositoryInfo(repoPath);
 		if (!Array.isArray(repoInfo) && repoInfo != null) {
 			gitDir = {
 				uri: fileUri(repoInfo.gitDir),
@@ -578,6 +628,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			gitDir = {
 				uri: this.provider.getAbsoluteUri(joinPaths(repoPath, '.git'), repoPath),
 			};
+			// A refusal says nothing about the repository, so it is neither kept nor reported as a failed resolve: once
+			// the host trusts the path, the next call reads its real git dir
+			if (!this.isTrusted(repoPath)) return gitDir;
 
 			const gitDirPath = gitDir.uri.toString(true);
 			scope?.warn(`rev-parse failed for '${repoPath}'; falling back to '${gitDirPath}'`);
@@ -587,9 +640,26 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				`rev_parse returned ${JSON.stringify(repoInfo)}`,
 			);
 		}
-		this.cache.gitDir.set(repoPath, gitDir);
+		if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
+			this.cache.gitDir.set(repoPath, gitDir);
+		}
 
 		return gitDir;
+	}
+
+	/** Whether git may be run in `repoPath`: the context's workspace flag, then the host's per-path predicate */
+	private isTrusted(repoPath: string): boolean {
+		return this.context.workspace?.isTrusted !== false && this.git.isPathTrusted(repoPath);
+	}
+
+	/** The git dirs {@link getRepositoryInfo} would report for `repoPath`, when they can be read without running git */
+	private async readGitDirsWithoutGit(
+		repoPath: string,
+	): Promise<{ gitDir: string; commonGitDir: string } | undefined> {
+		if (!this.isTrusted(repoPath)) return undefined;
+		if (isGitDirMovedByEnv(this.git.getRunEnvironment())) return undefined;
+
+		return readGitDirs(repoPath, this.cache.superprojects);
 	}
 
 	/**
@@ -597,7 +667,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * Uses commonPath for worktrees so all worktrees share the same data.
 	 */
 	private async getGkConfigPath(repoPath: string): Promise<string | undefined> {
-		const gitDir = await this.getGitDir(repoPath);
+		// `undefined` when git gives no answer: gk reads and writes report that as their own failure, not by rejecting
+		const gitDir = await this.getGitDir(repoPath).catch((ex: unknown) => {
+			Logger.warn(`Unable to locate GitKraken config storage for '${repoPath}': ${String(ex)}`);
+			return undefined;
+		});
 		if (gitDir == null) return undefined;
 
 		// Use commonUri (main .git dir) for worktrees, otherwise use uri
@@ -606,12 +680,66 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@trace({ quiet: true })
-	async getGkConfig(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined> {
+	async getGkConfig(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { throwOnError?: boolean },
+	): Promise<string | undefined> {
+		if (options?.throwOnError) return this.getGkConfigStrict(repoPath, key);
+
 		// Served in-memory from a single bulk read of the whole `.git/gk/config` (no gk read needs `--type`).
 		// Canonicalize the key the way git does for `--get-regexp` output so subsection-less keys
 		// (e.g. `gk.defaultRemote`) match, and coerce an empty value to undefined to match the old
 		// `git config --get` (`.trim() || undefined`) contract.
-		return (await this.getGkConfigMap(repoPath)).get(canonicalizeGitConfigKey(key)) || undefined;
+		const map = await this.getGkConfigMap(repoPath);
+		return map.get(canonicalizeGitConfigKey(key)) || undefined;
+	}
+
+	private async getGkConfigStrict(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+	): Promise<string | undefined> {
+		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
+		const path = await this.getGkConfigPath(repoPath);
+		if (path == null) throw new Error('Unable to locate GitKraken config storage');
+
+		try {
+			await fs.lstat(path);
+		} catch (ex) {
+			if ((ex as NodeJS.ErrnoException).code !== 'ENOENT') throw ex;
+
+			// Windows also reports ENOENT for a child beneath a file, so absence needs a directory parent.
+			for (const parent of [dirname(path), dirname(dirname(path))]) {
+				const entry = await fs.lstat(parent).catch((parentError: unknown) => {
+					if ((parentError as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+
+					throw parentError;
+				});
+				if (entry == null) continue;
+
+				if (entry.isDirectory() || (entry.isSymbolicLink() && (await fs.stat(parent)).isDirectory())) {
+					return undefined;
+				}
+				break;
+			}
+
+			throw ex;
+		}
+
+		// Listing has no ambiguous "no matching key" exit code; storage failures must stop read-modify-write.
+		const result = await this.git.run(
+			{ cwd: repoPath, errors: 'throw', runLocally: true },
+			'config',
+			'--null',
+			'--list',
+			'-f',
+			path,
+		);
+		if (result.completion.status !== 'exited' || result.exitCode !== 0) {
+			throw new Error('Unable to read GitKraken config');
+		}
+
+		return parseConfigRegexNullOutput(result.stdout).get(canonicalizeGitConfigKey(key))?.at(-1) || undefined;
 	}
 
 	@trace({ quiet: true })
@@ -709,8 +837,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
 		if (!gkConfigPath) {
 			read.spawned = true;
-			// No `.git/gk/config` yet is a real answer, not a failure — a repo GitLens has never written to.
-			return { map: new Map(), failed: false };
+			return { map: new Map(), failed: true };
 		}
 
 		// Taken before the spawn, never after: a write landing in between then only makes its report re-read the file.
@@ -741,7 +868,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string,
 		key: GkConfigKeys | DeprecatedGkConfigKeys,
 		value: string | undefined,
-		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
+		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[]; throwOnError?: boolean },
 	): Promise<void> {
 		// A self-write (with skip targets) and a user-driven write of the same value have different invalidation
 		// semantics, so only a matching skip option may join: otherwise the user-driven write would skip invalidation.
@@ -749,15 +876,23 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const commonPath = this.cache.getCommonPath(repoPath);
 		const skipKey = options?.skipInvalidation?.length ? options.skipInvalidation.toSorted().join(',') : '';
 		const pendingKey = `${commonPath}\0${key}`;
+		const throwOnError = options?.throwOnError === true;
 
 		const previous = this._pendingGkConfigWrites.get(pendingKey);
-		if (previous != null && previous.value === value && previous.skipKey === skipKey) return previous.promise;
+		if (
+			previous != null &&
+			previous.value === value &&
+			previous.skipKey === skipKey &&
+			previous.throwOnError === throwOnError
+		) {
+			return previous.promise;
+		}
 
 		const promise =
 			previous != null
 				? previous.promise.catch(() => {}).then(() => this.setGkConfigCore(repoPath, key, value, options))
 				: this.setGkConfigCore(repoPath, key, value, options);
-		const pending = { value: value, skipKey: skipKey, promise: promise };
+		const pending = { value: value, skipKey: skipKey, throwOnError: throwOnError, promise: promise };
 		this._pendingGkConfigWrites.set(pendingKey, pending);
 		// Swallow the cleanup chain's rejection so a failed write doesn't surface as an unhandled
 		// rejection separate from the caller's own handling of the returned promise.
@@ -775,16 +910,24 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		repoPath: string,
 		key: GkConfigKeys | DeprecatedGkConfigKeys,
 		value: string | undefined,
-		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
+		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[]; throwOnError?: boolean },
 	): Promise<void> {
 		const scope = getScopedLogger();
 
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		if (!gkConfigPath) return;
+		if (!gkConfigPath) {
+			if (options?.throwOnError) throw new Error('Unable to locate GitKraken config storage');
+
+			return;
+		}
 
 		const gkConfigFolder = joinPaths(gkConfigPath, '..');
 
-		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
+		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) {
+			if (options?.throwOnError) throw new Error('Unable to prepare GitKraken config storage');
+
+			return;
+		}
 
 		// Seed the reconcile snapshot from the pre-write file, so the write below can tell whether it changed the
 		// value (first tracked-key write per repository only; the bulk read is cached for everything else)
@@ -793,7 +936,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		}
 
 		await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
-			this.setConfigCore(repoPath, key, value, { file: gkConfigPath }),
+			this.setConfigCore(repoPath, key, value, { file: gkConfigPath, throwOnError: options?.throwOnError }),
 		);
 
 		// Invalidate the bulk map (so the next read re-fetches) and the derived caches for this key's
@@ -1137,6 +1280,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return flags;
 	}
 
+	/**
+	 * `[]` when git says `cwd` isn't a repository it can use, or `cwd` isn't a folder. Rejects when git gives no answer
+	 * (it ran past its time limit, was killed or couldn't start), which says nothing about `cwd`.
+	 */
 	async getRepositoryInfo(
 		cwd: string,
 	): Promise<
@@ -1147,7 +1294,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	> {
 		let result;
 
-		if (this.context.workspace?.isTrusted === false) {
+		if (!this.isTrusted(cwd)) {
 			try {
 				await fs.stat(joinPaths(cwd, 'HEAD'));
 				result = await this.git.run(
@@ -1159,8 +1306,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					Logger.warn(`Skipping (untrusted); bare clone repository detected in '${cwd}'`);
 					return emptyArray as [];
 				}
-			} catch {
-				// If this throws, we should be good to open the repo
+			} catch (ex) {
+				// If this throws, we should be good to open the repo, unless git gave no answer about a bare clone
+				if (isGitUnanswered(ex)) throw ex;
 			}
 		}
 
@@ -1210,6 +1358,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			};
 		} catch (ex: any) {
 			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
+			// A `cwd` that's missing or not a folder fails the spawn itself, before git can say anything about it
+			if (!isGitAnswer(ex) && (isCancellationError(ex) || (await isFolder(cwd)))) throw ex;
 
 			const unsafeMatch =
 				/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n\u2022]+)/m.exec(
@@ -1225,54 +1375,38 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			}
 
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
-			if (inDotGit && this.context.workspace?.isTrusted !== false) {
+			if (inDotGit && this.isTrusted(cwd)) {
 				result = await this.git.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
+				throwIfUnanswered(result);
+
 				if (result.stdout.trim() === 'true') {
-					const result = await this.revParseGitDir(cwd);
+					const result = await this.git.rev_parse__git_dir(cwd).catch((ex: unknown) => {
+						if (isGitAnswer(ex)) return undefined;
+
+						throw ex;
+					});
 					const repoPath = result?.commonPath ?? result?.path;
-					if (repoPath?.length) return [true, repoPath];
+					if (repoPath?.length) {
+						const workTree = await this.git.rev_parse__work_tree_of_git_dir(repoPath);
+						return workTree ? this.getRepositoryInfo(workTree) : [true, repoPath];
+					}
 				}
 			}
 
-			if (inDotGit || ex.code === 'ENOENT') {
-				let exists = inDotGit ? false : await fsExists(cwd);
-				if (!exists) {
-					do {
-						const parent = dirname(cwd);
-						if (parent === cwd || parent.length === 0) return emptyArray as [];
+			if (inDotGit) {
+				let exists = false;
+				do {
+					const parent = dirname(cwd);
+					if (parent === cwd || parent.length === 0) return emptyArray as [];
 
-						cwd = parent;
-						exists = await fsExists(cwd);
-					} while (!exists);
+					cwd = parent;
+					exists = await fsExists(cwd);
+				} while (!exists);
 
-					return this.getRepositoryInfo(cwd);
-				}
+				return this.getRepositoryInfo(cwd);
 			}
 			return emptyArray as [];
 		}
-	}
-
-	private async revParseGitDir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const result = await this.git.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--git-dir', '--git-common-dir');
-		if (!result.stdout) return undefined;
-
-		let [dotGitPath, commonDotGitPath] = result.stdout.split('\n').map(r => r.trimStart());
-
-		if (!isAbsolute(dotGitPath)) {
-			dotGitPath = joinPaths(cwd, dotGitPath);
-		}
-		dotGitPath = normalizePath(dotGitPath);
-
-		if (commonDotGitPath) {
-			if (!isAbsolute(commonDotGitPath)) {
-				commonDotGitPath = joinPaths(cwd, commonDotGitPath);
-			}
-			commonDotGitPath = normalizePath(commonDotGitPath);
-
-			return { path: dotGitPath, commonPath: commonDotGitPath !== dotGitPath ? commonDotGitPath : undefined };
-		}
-
-		return { path: dotGitPath };
 	}
 
 	/**
@@ -1319,10 +1453,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const scope = getScopedLogger();
 
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		if (!gkConfigPath) {
-			this._migratedRepos.add(repoPath);
-			return;
-		}
+		if (!gkConfigPath) return;
 
 		const gkConfigFolder = joinPaths(gkConfigPath, '..');
 

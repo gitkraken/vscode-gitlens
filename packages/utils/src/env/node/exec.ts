@@ -1,5 +1,5 @@
 import type { ChildProcess, ExecFileException, ExecFileOptions } from 'child_process';
-import { exec, execFile, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import type { Stats } from 'fs';
 import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
@@ -8,7 +8,6 @@ import * as process from 'process';
 import type { Readable, Writable } from 'stream';
 import type { CancellationReason } from '../../cancellation.js';
 import { getScopedLogger, maybeStartScopedLogger } from '../../logger.scoped.js';
-import { normalizePath } from '../../path.js';
 import { isWindows } from './platform.js';
 
 // -- Error types --
@@ -173,19 +172,6 @@ export async function findExecutable(exe: string, args: string[]): Promise<{ cmd
 	}
 
 	return { cmd: exe, args: args };
-}
-
-export async function getWindowsShortPath(path: string): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
-		exec(`for %I in ("${path}") do @echo %~sI`, (error, stdout, _stderr) => {
-			if (error != null) {
-				reject(error);
-				return;
-			}
-
-			resolve(normalizePath(stdout.trim()));
-		});
-	});
 }
 
 /** What core uses of a spawned process; Node's `ChildProcess` satisfies it */

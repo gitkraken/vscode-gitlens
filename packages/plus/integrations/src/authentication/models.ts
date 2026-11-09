@@ -41,6 +41,40 @@ export interface ProviderAuthenticationSession extends AuthenticationSessionLike
 	readonly appKey?: string;
 }
 
+export type SessionPublication = {
+	readonly session?: ProviderAuthenticationSession;
+	readonly previousSessionId?: string;
+	readonly connectionId?: string;
+	/** A removal has no session from which to recover the affected storage variant. */
+	readonly cloud?: boolean;
+	readonly replacePrimary?: boolean;
+};
+
+export function getSessionIdentity(
+	session:
+		| Partial<
+				Pick<
+					ProviderAuthenticationSession,
+					'id' | 'accessToken' | 'domain' | 'baseUrl' | 'protocol' | 'appKey' | 'type' | 'cloud'
+				>
+		  >
+		| null
+		| undefined,
+): string | undefined {
+	return session == null
+		? undefined
+		: JSON.stringify([
+				session.id,
+				session.accessToken,
+				session.domain,
+				session.baseUrl,
+				session.protocol,
+				session.appKey,
+				session.type,
+				session.cloud,
+			]);
+}
+
 export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationIds | 'gitkraken'> {
 	readonly providerId: T;
 	/**
@@ -57,6 +91,8 @@ export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationI
 
 export interface TokenWithInfo<T extends IntegrationIds = IntegrationIds> extends TokenInfo<T> {
 	readonly accessToken: string;
+	/** The token's connection (its session's id), which a failed request's strike counts against. */
+	readonly connectionId?: string;
 }
 
 export function toTokenInfo<T extends IntegrationIds | 'gitkraken'>(
@@ -86,6 +122,7 @@ export function toTokenWithInfo<T extends IntegrationIds>(
 		...toTokenInfo(providerId, sessionToken, sessionInfo),
 		// use the actual token used for the request
 		accessToken: accessToken,
+		connectionId: session.id,
 	};
 }
 
@@ -177,6 +214,7 @@ export type CloudIntegrationType =
 	| 'jiraServer'
 	| 'linear'
 	| 'trello'
+	| 'asana'
 	| 'gitlab'
 	| 'github'
 	| 'bitbucket'
@@ -212,6 +250,7 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } 
 	jiraServer: IssuesSelfManagedHostIntegrationId.JiraServer,
 	linear: IssuesCloudHostIntegrationId.Linear,
 	trello: IssuesCloudHostIntegrationId.Trello,
+	asana: IssuesCloudHostIntegrationId.Asana,
 	gitlab: GitCloudHostIntegrationId.GitLab,
 	github: GitCloudHostIntegrationId.GitHub,
 	githubEnterprise: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -227,6 +266,7 @@ export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegration
 	[IssuesSelfManagedHostIntegrationId.JiraServer]: 'jiraServer',
 	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
+	[IssuesCloudHostIntegrationId.Asana]: 'asana',
 	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
 	[GitCloudHostIntegrationId.GitHub]: 'github',
 	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',

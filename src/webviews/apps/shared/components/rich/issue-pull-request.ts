@@ -95,6 +95,10 @@ export class IssuePullRequest extends GlElement {
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
 
+		.icon--pr-queued {
+			color: var(--vscode-gitlens-queuedPullRequestIconColor);
+		}
+
 		.icon--pr-draft {
 			color: var(--vscode-descriptionForeground);
 		}
@@ -151,7 +155,7 @@ export class IssuePullRequest extends GlElement {
 			padding: 0.1rem 0.4rem;
 			font-size: 0.9em;
 			line-height: 1;
-			border: var(--gl-border-width) solid var(--color-foreground--50);
+			border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
 			border-radius: var(--gl-radius-sm);
 			opacity: 0.8;
 		}
@@ -193,6 +197,15 @@ export class IssuePullRequest extends GlElement {
 			transform: translateY(0.1rem);
 		}
 
+		.queue {
+			display: flex;
+			gap: 0.3rem;
+			align-items: center;
+			margin: 0;
+			font-size: 1.1rem;
+			color: var(--vscode-gitlens-queuedPullRequestIconColor);
+		}
+
 		.review {
 			display: flex;
 			gap: 0.3rem;
@@ -229,8 +242,13 @@ export class IssuePullRequest extends GlElement {
 	@property()
 	dateStyle?: string;
 
+	/** `queued` is an open pull request waiting in a merge queue — pair it with {@link queueStatus}. */
 	@property()
-	status: 'opened' | 'closed' | 'merged' | undefined = 'merged';
+	status: 'opened' | 'closed' | 'merged' | 'queued' | undefined = 'merged';
+
+	/** Where a `queued` pull request stands in its merge queue, as its own line under the metadata. */
+	@property({ attribute: false })
+	queueStatus?: string;
 
 	@property()
 	type: 'autolink' | 'issue' | 'pr' = 'autolink';
@@ -300,7 +318,15 @@ export class IssuePullRequest extends GlElement {
 
 		if (this.compact) {
 			return html`
-				<span class="icon icon--${modifier}"><code-icon icon=${icon}></code-icon></span>
+				<span class="icon icon--${modifier}"
+					><code-icon
+						icon=${icon}
+						aria-label=${
+							// Queued shares the open glyph, so the label — not just the tint — has to say so.
+							this.status === 'queued' ? (this.queueStatus ?? l10n.t('Queued to merge')) : nothing
+						}
+					></code-icon
+				></span>
 				<p class="title">
 					${this.identifier}${
 						this.stack != null
@@ -377,6 +403,13 @@ export class IssuePullRequest extends GlElement {
 								class="stack"
 								>${this.stack.position}/${this.stack.size}</span
 							>
+						</p>`
+					: nothing
+			}
+			${
+				this.status === 'queued'
+					? html`<p class="queue">
+							<code-icon icon="history"></code-icon> ${this.queueStatus ?? l10n.t('Queued to merge')}
 						</p>`
 					: nothing
 			}

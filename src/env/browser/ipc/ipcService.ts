@@ -1,7 +1,7 @@
 // Browser/webworker stub — IPC server is not available in the web extension host.
 // CLI integration and agent providers are no-ops on the web (see env/browser/providers.ts),
 // so this stub never has handlers registered or capabilities published.
-import type { Disposable } from 'vscode';
+import type { Disposable, Event } from 'vscode';
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
@@ -12,6 +12,21 @@ export class IpcService implements Disposable {
 	constructor(_container: Container) {}
 
 	dispose(): void {}
+
+	/** Never fires — there is no server to start */
+	get onDidStart(): Event<void> {
+		return () => createDisposable(() => {});
+	}
+
+	/** There is no server to start */
+	get canStart(): boolean {
+		return false;
+	}
+
+	/** There is no server to start */
+	ensureStarted(): Promise<boolean> {
+		return Promise.resolve(false);
+	}
 
 	get port(): number | undefined {
 		return undefined;
@@ -36,6 +51,7 @@ export class IpcService implements Disposable {
 	registerHandler<Request = unknown, Response = unknown>(
 		_name: string,
 		_handler: IpcHandler<Request, Response>,
+		_routeToken?: string,
 	): UnifiedDisposable {
 		return createDisposable(() => {});
 	}

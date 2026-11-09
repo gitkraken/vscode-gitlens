@@ -9,7 +9,7 @@ import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
-import type { Config, DateStyle } from '../../config.js';
+import type { Config, DateStyle, KeyMap } from '../../config.js';
 import type { WebviewItemContext } from '../../system/webview.js';
 import { serializeWebviewItemContext } from '../../system/webview.js';
 import type { WebviewState } from '../protocol.js';
@@ -70,6 +70,8 @@ export interface Preferences {
 	 *  `scm.defaultViewSortKey` order, or sorts flat by the key alone. Mirrors `gitlens.sortWorkingChangesBy`. */
 	workingChangesSortBy: Config['sortWorkingChangesBy'];
 	aiEnabled: boolean;
+	/** `gitlens.keymap` — which keyboard shortcuts the review walk's hints name. Graph details only. */
+	keymap?: KeyMap;
 	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;
 	/** Whether the file-tree search box is visible. Persisted per workspace; defaults to `true`. */

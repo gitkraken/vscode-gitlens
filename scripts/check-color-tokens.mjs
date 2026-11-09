@@ -25,31 +25,8 @@ const skipDirectories = new Set(['node_modules', 'dist', 'out', '.git', '__tests
 // cannot quietly become the place orphans go to be forgotten.
 /** @type {Map<string, string>} */
 const reserved = new Map([
-	['--gl-color-border-aside', 'awaiting migration'],
-	['--gl-color-border-raised', 'awaiting migration'],
-	['--gl-color-border-contrast', 'awaiting migration'],
 	['--gl-color-feedback-info-bg-hover', 'awaiting migration'],
-	['--gl-color-feedback-info-quiet-fg', 'awaiting migration'],
-	['--gl-color-feedback-info-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-warning-bg-hover', 'awaiting migration'],
-	['--gl-color-feedback-warning-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-danger-bg', 'awaiting migration'],
-	['--gl-color-feedback-danger-border', 'awaiting migration'],
-	['--gl-color-feedback-danger-fg', 'awaiting migration'],
-	['--gl-color-feedback-danger-bg-hover', 'awaiting migration'],
-	['--gl-color-feedback-danger-quiet-fg', 'awaiting migration'],
-	['--gl-color-feedback-danger-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-feedback-success-bg-hover', 'awaiting migration'],
 	['--gl-color-feedback-success-quiet-border', 'awaiting the HC companion policy'],
-	['--gl-color-action-primary-bg', 'awaiting migration'],
-	['--gl-color-action-primary-fg', 'awaiting migration'],
-	['--gl-color-action-primary-bg-hover', 'awaiting migration'],
-	['--gl-color-action-primary-border', 'awaiting migration'],
-	['--gl-color-action-secondary-bg-hover', 'awaiting migration'],
-	['--gl-color-action-quiet-fg', 'awaiting migration'],
-	['--gl-color-action-quiet-bg-hover', 'awaiting migration'],
-	['--gl-color-action-quiet-bg-active', 'awaiting migration'],
-	['--gl-color-action-quiet-outline-hover', 'awaiting migration'],
 ]);
 
 async function* walk(directory) {
@@ -91,13 +68,10 @@ async function main() {
 			if (!text.includes('var(--gl-')) continue;
 
 			for (const name of tokens) {
-				let index = text.indexOf(`var(${name}`);
-				while (index !== -1) {
-					// `var(--gl-color-border-raised` must not count a hit on `…-raised-hover`
-					const next = text[index + name.length + 4];
-					if (next === ')' || next === ',' || next === ' ') uses.set(name, uses.get(name) + 1);
-					index = text.indexOf(`var(${name}`, index + 1);
-				}
+				// The formatter wraps a long `var(` onto the next line, so allow whitespace after it; the
+				// lookahead keeps `var(--gl-color-border-raised` from counting a hit on `…-raised-hover`
+				const count = text.match(new RegExp(`var\\(\\s*${name}(?=[\\s,)])`, 'g'))?.length ?? 0;
+				uses.set(name, uses.get(name) + count);
 			}
 		}
 	}

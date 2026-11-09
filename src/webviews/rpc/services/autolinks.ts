@@ -24,6 +24,8 @@ import type { Container } from '../../../container.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
 import { getCommitEnrichedAutolinks } from '../../../git/utils/-webview/commit.utils.js';
 import { getBestRemoteWithIntegration } from '../../../git/utils/-webview/remote.utils.js';
+import type { SerializedPullRequestMergeQueueEntry } from '../../shared/overviewBranches.js';
+import { serializePullRequestMergeQueue } from '../../shared/overviewEnrichment.utils.js';
 
 // ============================================================
 // Result Types
@@ -195,7 +197,7 @@ export class AutolinksService {
 			const issueOrPullRequest = await promise;
 			signal?.throwIfAborted();
 			if (issueOrPullRequest != null) {
-				issues.push(serializeIssueOrPullRequest(issueOrPullRequest));
+				issues.push(serializeAutolinkedItem(issueOrPullRequest));
 			}
 		}
 		return issues;
@@ -240,7 +242,7 @@ export class AutolinksService {
 				const issueOrPullRequest = await promise;
 				signal?.throwIfAborted();
 				if (issueOrPullRequest != null) {
-					issues.push(serializeIssueOrPullRequest(issueOrPullRequest));
+					issues.push(serializeAutolinkedItem(issueOrPullRequest));
 				}
 			}
 		}
@@ -255,6 +257,15 @@ export class AutolinksService {
 // ============================================================
 // Helpers
 // ============================================================
+
+/** The serialized issue or pull request, plus a queued pull request's merge-queue entry so the chips can show it.
+ *  The base shape carries no such field, so it rides as an extra the renderer reads structurally. */
+function serializeAutolinkedItem(
+	value: IssueOrPullRequest,
+): IssueOrPullRequest & { readonly mergeQueue?: SerializedPullRequestMergeQueueEntry } {
+	const mergeQueue = value.type === 'pullrequest' ? serializePullRequestMergeQueue(value) : undefined;
+	return { ...serializeIssueOrPullRequest(value), mergeQueue: mergeQueue };
+}
 
 /**
  * Linkify a commit message with autolink patterns as markdown.

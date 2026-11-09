@@ -33,18 +33,18 @@ export const switchStyles = css`
 	   border keeps the track visible in high-contrast themes where the fill may vanish. */
 	wa-switch::part(control) {
 		background-color: color-mix(in srgb, var(--color-foreground) 25%, transparent);
-		border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
+		border: var(--gl-border-width) solid var(--gl-color-border-contrast, transparent);
 	}
 
 	/* wa-switch exposes checked as a CSS custom state (customStates.set('checked', …)),
 	   not a reflected attribute — [checked] would never match */
 	wa-switch:state(checked)::part(control) {
 		background-color: var(--vscode-button-background);
-		border-color: var(--vscode-contrastBorder, var(--vscode-button-background));
+		border-color: var(--gl-color-border-contrast, var(--vscode-button-background));
 	}
 
 	wa-switch::part(thumb) {
-		background-color: var(--vscode-button-foreground, #fff);
+		background-color: var(--vscode-button-foreground);
 		border: none;
 		box-shadow: 0 1px 2px var(--vscode-widget-shadow);
 	}
@@ -54,7 +54,7 @@ export const switchStyles = css`
 	}
 
 	wa-switch:focus-within::part(control) {
-		outline: var(--gl-border-width) solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 

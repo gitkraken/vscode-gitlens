@@ -1,8 +1,12 @@
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import { GitFileIndexStatus, GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { ScopeFile, ScopeSelection } from './graphService.js';
+
+/** `contentId` of a working-tree file that is deleted on disk — there is no blob to hash. */
+const deletedContentId = 'deleted';
 
 /**
  * Resolves the file list for a given {@link ScopeSelection}.
@@ -38,6 +42,7 @@ export async function getScopeFiles(
 			anchor: 'committed',
 			anchorSha: scope.sha,
 			anchorBaseSha: anchorBaseSha,
+			contentId: scope.sha,
 		}));
 	}
 
@@ -54,6 +59,7 @@ export async function getScopeFiles(
 				anchor: 'committed',
 				anchorSha: anchorSha,
 				anchorBaseSha: anchorBaseSha,
+				contentId: anchorSha,
 			}));
 		}
 
@@ -64,19 +70,38 @@ export async function getScopeFiles(
 			anchor: 'committed',
 			anchorSha: scope.toSha,
 			anchorBaseSha: scope.fromSha,
+			contentId: scope.toSha,
 		}));
 	}
 
-	const wipEntries: GitFileChangeShape[] = [];
+	const wipEntries: ScopeFile[] = [];
 	if (scope.includeStaged || scope.includeUnstaged) {
 		const wipStatus = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
+		// The reviewed content of a working-tree layer is the file on disk; of a staged-only one, the
+		// index blob. A file deleted on disk, or deleted in the index, has no blob to hash — its identity
+		// is the deletion itself.
+		const workingPaths: string[] = [];
+		const indexPaths: string[] = [];
 		for (const f of wipStatus?.files ?? []) {
 			const hasStaged = f.indexStatus != null;
 			const hasUnstaged = f.workingTreeStatus != null;
 			const includeAsStaged = hasStaged && scope.includeStaged;
 			const includeAsUnstaged = hasUnstaged && scope.includeUnstaged;
 			if (!includeAsStaged && !includeAsUnstaged) continue;
+
+			let contentId: string | undefined;
+			if (includeAsUnstaged) {
+				if (f.workingTreeStatus === GitFileWorkingTreeStatus.Deleted) {
+					contentId = deletedContentId;
+				} else {
+					workingPaths.push(f.path);
+				}
+			} else if (f.indexStatus === GitFileIndexStatus.Deleted) {
+				contentId = deletedContentId;
+			} else {
+				indexPaths.push(f.path);
+			}
 
 			// Unstaged > staged matches the `anchorRank` ordering in graphWebview.ts, so right-click
 			// actions land on the topmost editable layer.
@@ -86,7 +111,17 @@ export async function getScopeFiles(
 				status: f.status,
 				originalPath: f.originalPath,
 				staged: includeAsStaged && !includeAsUnstaged,
+				contentId: contentId,
 			});
+		}
+
+		const [workingIds, indexIds] = await Promise.all([
+			svc.revision.getBlobIds?.(workingPaths, 'working', signal),
+			svc.revision.getBlobIds?.(indexPaths, 'index', signal),
+		]);
+		signal?.throwIfAborted();
+		for (const entry of wipEntries) {
+			entry.contentId ??= workingIds?.get(entry.path) ?? indexIds?.get(entry.path);
 		}
 	}
 
@@ -99,6 +134,7 @@ export async function getScopeFiles(
 		anchor: 'committed',
 		anchorSha: scope.includeShas[0],
 		anchorBaseSha: committedAnchorBaseSha,
+		contentId: scope.includeShas[0],
 	}));
 	const committedByNewPath = new Map(committedShapes.map(e => [e.path, e]));
 

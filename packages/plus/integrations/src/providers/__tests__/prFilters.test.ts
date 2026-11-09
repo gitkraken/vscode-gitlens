@@ -132,6 +132,85 @@ suite('PR/issue filter routing (#5435)', () => {
 		manager.dispose();
 	});
 
+	for (const { name, includeRemoteInfo, expected } of [
+		{ name: 'omitted', includeRemoteInfo: undefined, expected: true },
+		{ name: 'true', includeRemoteInfo: true, expected: true },
+		{ name: 'false', includeRemoteInfo: false, expected: undefined },
+	]) {
+		test(`Azure DevOps Server repo read ${name === 'false' ? 'skips' : 'requests'} remote info when includeRemoteInfo is ${name}`, async () => {
+			const runtime = createFakeRuntime();
+			await seedConnection(
+				runtime,
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				'ado.example.com',
+				'ado-sec',
+				'token-secondary',
+			);
+			const manager = createIntegrationManager(runtime);
+			const ado = await manager.get(GitSelfManagedHostIntegrationId.AzureDevOpsServer, 'ado.example.com');
+			assert.ok(ado != null, 'Azure DevOps Server integration resolves');
+
+			const captured: { input?: Record<string, unknown> } = {};
+			await stubProvider(
+				ado,
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				{ id: 'ado-account-id', username: 'octo' },
+				['getPullRequestsForRepoFn'],
+				captured,
+			);
+
+			await (
+				ado as unknown as {
+					getMyPullRequestsForRepos: (
+						repos: { namespace: string; project: string; name: string }[],
+						options: { includeRemoteInfo?: boolean },
+						connectionId: string,
+					) => Promise<unknown>;
+				}
+			).getMyPullRequestsForRepos(
+				[{ namespace: 'collection', project: 'project', name: 'repo' }],
+				{ includeRemoteInfo: includeRemoteInfo },
+				'ado-sec',
+			);
+
+			assert.ok(captured.input != null, 'the SDK call was made');
+			assert.equal(captured.input.includeRemoteInfo, expected);
+
+			manager.dispose();
+		});
+	}
+
+	test('includeRemoteInfo is never set for a non-Azure provider', async () => {
+		const runtime = createFakeRuntime();
+		await seedConnection(runtime, 'github', 'github.com', 'sec-tok', 'token-secondary');
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		const captured: { input?: Record<string, unknown> } = {};
+		await stubProvider(
+			gh,
+			'github',
+			{ id: 'acc-id', username: 'octocat' },
+			['getPullRequestsForReposFn'],
+			captured,
+		);
+
+		await (
+			gh as unknown as {
+				getMyPullRequestsForRepos: (
+					repos: { namespace: string; name: string }[],
+					options: { includeRemoteInfo?: boolean },
+					connectionId: string,
+				) => Promise<unknown>;
+			}
+		).getMyPullRequestsForRepos([{ namespace: 'octocat', name: 'hello' }], { includeRemoteInfo: true }, 'sec-tok');
+
+		assert.ok(captured.input != null, 'the SDK call was made');
+		assert.equal(captured.input.includeRemoteInfo, undefined);
+
+		manager.dispose();
+	});
+
 	test('GitHub review-requested filter is keyed by login (reviewRequestedLogin)', async () => {
 		const runtime = createFakeRuntime();
 		await seedConnection(runtime, 'github', 'github.com', 'sec-tok', 'token-secondary');

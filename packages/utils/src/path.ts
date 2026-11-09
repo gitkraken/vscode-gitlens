@@ -107,6 +107,15 @@ export function trimTrailingSlash(path: string): string {
 	return path.endsWith('/') ? path.slice(0, -1) : path;
 }
 
+/** Trims every trailing `/`, where {@link trimTrailingSlash} trims one. A linear scan, since `/\/+$/` is quadratic on a long run of `/` that doesn't end the string */
+export function trimTrailingSlashes(path: string): string {
+	let end = path.length;
+	while (end > 0 && path.charCodeAt(end - 1) === slash) {
+		end--;
+	}
+	return end === path.length ? path : path.slice(0, end);
+}
+
 export function getBestPath(pathOrUri: string): string {
 	if (!hasScheme(pathOrUri)) return normalizePath(pathOrUri);
 

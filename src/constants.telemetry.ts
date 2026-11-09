@@ -25,6 +25,7 @@ import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/auto
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
+import type { KeplerInstallFailureReason, KeplerReleaseFileKind } from './plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from './plus/kepler/keplerService.js';
 import type { KeplerTaskAction, KeplerTaskIntent } from './plus/kepler/keplerTask.js';
 import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
@@ -617,6 +618,16 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/review/generateFocusArea/completed': GraphDetailsReviewGenerateFocusAreaCompletedEvent;
 	/** Sent when a per-focus-area review (two-pass) generation fails */
 	'graphDetails/review/generateFocusArea/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when an orient pass (reading plan for the review's files) completes successfully */
+	'graphDetails/review/generateOrient/completed': GraphDetailsReviewGenerateOrientCompletedEvent;
+	/** Sent when an orient pass fails */
+	'graphDetails/review/generateOrient/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when the user hands the review to an agent (deep review) */
+	'graphDetails/review/deepReview/started': GraphDetailsReviewLifecycleEvent;
+	/** Sent when a deep review could not be handed to an agent */
+	'graphDetails/review/deepReview/failed': GraphDetailsReviewDeepReviewFailedEvent;
+	/** Sent when the agent reports the deep review done */
+	'graphDetails/review/deepReview/finished': GraphDetailsReviewDeepReviewFinishedEvent;
 	/** Sent when the user copies all or part of a review to clipboard */
 	'graphDetails/review/copied': GraphDetailsReviewActionEvent;
 	/** Sent when the user sends all or part of a review to an AI agent */
@@ -657,6 +668,14 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/session/open': KeplerSessionOpenEvent;
 	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
 	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
+	/** Sent when GitLens starts installing Kepler */
+	'kepler/install/started': KeplerInstallEvent;
+	/** Sent when GitLens finishes installing Kepler */
+	'kepler/install/completed': KeplerInstallCompletedEvent;
+	/** Sent when installing Kepler fails or is cancelled */
+	'kepler/install/failed': KeplerInstallFailedEvent;
+	/** Sent when the user picks an action in the "Kepler isn't installed" quick pick, or dismisses it */
+	'kepler/notInstalled/action': KeplerNotInstalledActionEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -1040,7 +1059,7 @@ interface AIExplainEvent extends AIEventDataSendBase {
 interface AIReviewEvent extends AIEventDataSendBase {
 	type: 'review';
 	reviewType: 'commit' | 'wip' | 'compare';
-	reviewMode: 'single-pass' | 'two-pass';
+	reviewMode: 'single-pass' | 'two-pass' | 'orient';
 }
 
 export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
@@ -1629,6 +1648,23 @@ interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 	'findings.severity.critical.count': number;
 	'findings.severity.warning.count': number;
 	'findings.severity.suggestion.count': number;
+}
+
+interface GraphDetailsReviewDeepReviewFailedEvent extends GraphContextEventData {
+	reason: 'no-agents' | 'no-channel' | 'cancelled' | 'error';
+}
+
+interface GraphDetailsReviewDeepReviewFinishedEvent extends GraphContextEventData {
+	/** Findings the agent reported over the whole review */
+	'findings.count': number;
+}
+
+interface GraphDetailsReviewGenerateOrientCompletedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
+	duration: number;
+	/** Reading groups the plan produced */
+	'result.groups.count': number;
+	/** Files the plan placed */
+	'result.files.count': number;
 }
 
 interface GraphDetailsReviewGenerateFocusAreaFailedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
@@ -2778,6 +2814,30 @@ interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
 	'failure.reason': 'not-installed' | 'open-failed';
 }
 
+interface KeplerInstallEvent {
+	/** The kind of installer file used, which follows the platform */
+	kind: KeplerReleaseFileKind;
+}
+
+interface KeplerInstallCompletedEvent extends KeplerInstallEvent {
+	/** The installed version; absent when it is unknown before install (Windows) */
+	version?: string;
+}
+
+interface KeplerInstallFailedEvent extends KeplerInstallCompletedEvent {
+	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
+	'failure.reason': KeplerInstallFailureReason;
+}
+
+interface KeplerNotInstalledActionEvent {
+	/** What the user was doing when Kepler turned out not to be installed. `open-session` = opening an agent session in Kepler */
+	intent: KeplerTaskIntent | 'open-session';
+	/** Whether the prompt was a step of the Start Work or Start Review wizard */
+	wizard: boolean;
+	/** What the user picked. `review` / `review-agent` = continued without Kepler; `back` = went back a wizard step; `dismiss` = closed the prompt */
+	action: 'install' | 'learn-more' | 'review' | 'review-agent' | 'back' | 'dismiss';
+}
+
 type InspectCommitContextEventData = {
 	'context.mode': 'commit';
 	'context.autolinks': number;
@@ -2814,6 +2874,7 @@ type LaunchpadGroups =
 	| 'follow-up'
 	| 'needs-review'
 	| 'waiting-for-review'
+	| 'merge-queue'
 	| 'draft'
 	| 'other'
 	| 'snoozed';
@@ -2839,6 +2900,7 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 	action:
 		| 'open'
 		| 'merge'
+		| 'dequeue'
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'
@@ -3435,6 +3497,7 @@ type WelcomeActionNames =
 	| 'open/composer'
 	| 'open/graph'
 	| 'open/help-center'
+	| 'install/kepler'
 	| 'open/help-center/community-vs-pro'
 	| 'open/kepler'
 	| 'open/launchpad'

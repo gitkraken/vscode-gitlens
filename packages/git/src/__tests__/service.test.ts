@@ -130,6 +130,14 @@ suite('GitService.validateRepo', () => {
 		assert.deepStrictEqual(result, { valid: false });
 	});
 
+	test('rejects when getRepositoryInfo rejects, rather than calling the path invalid', async () => {
+		const timeout = new Error('git ran past its time limit');
+		const getRepositoryInfo: GetRepositoryInfo = () => Promise.reject(timeout);
+		service.register(createMockProvider({ getRepositoryInfo: getRepositoryInfo }), () => true);
+
+		await assert.rejects(service.validateRepo('/home/user/repo'), (ex: unknown) => ex === timeout);
+	});
+
 	test('returns { valid: true, safe: false } when getRepositoryInfo resolves to [false]', async () => {
 		const getRepositoryInfo: GetRepositoryInfo = async () => [false];
 		service.register(createMockProvider({ getRepositoryInfo: getRepositoryInfo }), () => true);

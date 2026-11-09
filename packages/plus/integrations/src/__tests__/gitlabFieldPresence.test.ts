@@ -138,6 +138,18 @@ const project: Node = {
 
 const label: Node = { color: '#ff0000', description: 'A bug', id: 'gid://gitlab/ProjectLabel/1', title: 'bug' };
 
+/** A milestone as provider-apis' fragment selects it. */
+const milestone: Node = {
+	description: '',
+	dueDate: '2026-12-01',
+	id: 'gid://gitlab/Milestone/9',
+	iid: '3',
+	startDate: null,
+	state: 'active',
+	title: 'v1.0',
+	webPath: '/g/p/-/milestones/3',
+};
+
 /**
  * Every field provider-apis' merge request fragment selects, and the ones GitLens' own reads do. `nullCounts` is a
  * merge request GitLab answers null for the counts its schema makes nullable, which provider-apis turns into 0.
@@ -171,7 +183,7 @@ function mergeRequestNode(nullCounts = false): Node {
 		},
 		mergeStatusEnum: 'CAN_BE_MERGED',
 		labels: { nodes: [label] },
-		milestone: null,
+		milestone: milestone,
 		headPipeline: {
 			stages: {
 				nodes: [
@@ -217,7 +229,7 @@ function issueNode(): Node {
 		upvotes: 2,
 		userNotesCount: 5,
 		webUrl: 'https://gitlab.example.com/g/p/-/issues/1',
-		milestone: null,
+		milestone: milestone,
 	};
 }
 
@@ -437,7 +449,7 @@ function serveGitLab(runtime: FakeRuntime, origin: string, options?: { nullCount
 			operations.push('commit merge requests');
 			return Promise.resolve(json([restMergeRequest]));
 		}
-		if (path === 'search/' || path === 'search') {
+		if (path === 'search/' || path === 'search' || /^projects\/[^/]+\/search$/.test(path)) {
 			operations.push('search merge requests');
 			return Promise.resolve(json([restMergeRequest]));
 		}
@@ -501,6 +513,9 @@ function assertOwnRow(pr: PullRequestShape | undefined, projection: PullRequestP
 	assert.equal(row.body, undefined);
 	assert.equal(presence.description, 'not-requested');
 	assert.equal(presence.stack, 'unavailable');
+	// Not read, so unknown rather than none.
+	assert.equal(row.milestone, undefined);
+	assert.equal(presence.milestone, 'not-requested');
 	return row;
 }
 
@@ -530,6 +545,7 @@ function assertProviderApisRow(
 	assert.equal(presence.diffStats, 'not-requested');
 	assert.equal(presence.commitCount, 'not-requested');
 	assert.equal(presence.authoredByMe, 'not-requested');
+	assert.equal(row.milestone?.id, 'gid://gitlab/Milestone/9', `${projection}: the milestone`);
 	return row;
 }
 
@@ -716,13 +732,19 @@ for (const host of hosts) {
 				const presence = assertIssueRow(issue, projection);
 				assert.equal(presence.comments, host.comments, `${projection}: comments on ${host.name}`);
 				assertIssueViewerNotRead(issue, presence);
+				// Keyed by its global id, unique on the host, as a group milestone shared across projects needs.
+				assert.equal(issue?.milestone?.id, 'gid://gitlab/Milestone/9', projection);
+				assert.equal(issue?.milestone?.state, 'open', projection);
 			}
 			// The account-wide REST read's comment count is always a number.
 			for (const issue of [account.items[0], mine?.[0]]) {
 				const presence = assertIssueRow(issue, 'account');
 				assert.equal(presence.comments, 'fetched');
 				assertIssueViewerNotRead(issue, presence);
+				// Not promised: the REST normalizer drops it, though "my issues" reads it over GraphQL.
+				assert.equal(presence.milestone, 'not-requested');
 			}
+			assert.equal(account.items[0]?.milestone, undefined);
 
 			manager.dispose();
 		});

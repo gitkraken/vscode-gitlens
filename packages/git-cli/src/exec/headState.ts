@@ -4,6 +4,7 @@ import type { FileSystemProvider } from '@gitlens/git/context.js';
 import { FileType } from '@gitlens/git/context.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
+import { parseCommonDir, parseGitFile } from './gitDirResolver.js';
 
 /**
  * What a worktree's HEAD is on: the full name of its branch (`refs/heads/main`), `'detached'`, or `undefined` when
@@ -16,7 +17,6 @@ export type HeadState = { readonly branch: string } | 'detached' | undefined;
 
 const headBranchRegex = /^ref:\s*(refs\/heads\/\S+)\s*$/;
 const headShaRegex = /^(?:[0-9a-f]{40}|[0-9a-f]{64})\s*$/;
-const gitFileRegex = /^gitdir:\s*(.+?)\s*$/m;
 
 /**
  * Reads `repoPath`'s HEAD from the worktree's own `HEAD` file, without running git: read around a write, it says which
@@ -89,13 +89,15 @@ async function findGitDir(
 	if (stat == null) return undefined;
 	if (stat.type & FileType.Directory) return { uri: dotGit, commonUri: undefined };
 
-	const dir = gitFileRegex.exec(new TextDecoder().decode(await fs.readFile(dotGit)))?.[1];
+	const dir = parseGitFile(new TextDecoder().decode(await fs.readFile(dotGit)));
 	if (dir == null) return undefined;
 
 	const gitDir = resolvePath(repoPath, dir);
 	let commonDir: string | undefined;
 	try {
-		commonDir = new TextDecoder().decode(await fs.readFile(joinUriPath(fileUri(gitDir), 'commondir'))).trim();
+		commonDir = parseCommonDir(
+			new TextDecoder().decode(await fs.readFile(joinUriPath(fileUri(gitDir), 'commondir'))),
+		);
 	} catch {}
 	return { uri: fileUri(gitDir), commonUri: commonDir ? fileUri(resolvePath(gitDir, commonDir)) : undefined };
 }

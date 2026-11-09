@@ -4,15 +4,17 @@ import type { IntegrationIds } from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
 	providerFanOutConcurrency,
 	supportedOrderedCloudIntegrationIds,
 	supportedOrderedCloudIssuesIntegrationIds,
 } from '../constants.js';
-import type { ListOrgsOptions, ListProjectsOptions } from '../manager.js';
+import type { ListLinearProjectsOptions, ListOrgsOptions, ListProjectsOptions } from '../manager.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
 import { toProviderRepositoryShape } from '../providers/models.js';
 import type {
+	ProviderLinearProjectShape,
 	ProviderOrganization,
 	ProviderPagedResult,
 	ProviderRepositoryShape,
@@ -23,6 +25,7 @@ import { appendDedupedWarning } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
+	isLinearIntegration,
 	warnOnMissingSessionForDomain,
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
@@ -280,6 +283,55 @@ export async function listProjects(
 	});
 
 	return mergeHierarchyResults(results);
+}
+
+/**
+ * The Linear workspace's Projects (Linear's own `Project` entity), apart from the teams {@link listProjects} lists as
+ * Linear's projects. Reads the same connection a Linear issue read would, through the integration's cached, drained
+ * read, and reports a drain it could not finish as `fetchFailed` with a warning, as {@link listProjects} does.
+ */
+export async function listLinearProjects(
+	ctx: ProviderReadContext,
+	options?: ListLinearProjectsOptions,
+): Promise<ProviderResult<ProviderLinearProjectShape>> {
+	const id = IssuesCloudHostIntegrationId.Linear;
+	const connectionId = options?.connectionId;
+	const integration = await ctx.getIntegrationForRead(id, connectionId);
+	if (integration == null) {
+		// A requested connection that can't be resolved is a broken connection, not a workspace with no Projects.
+		const early = ctx.earlyReturnConnectionWarnings(id, connectionId);
+		return { items: [], warnings: early.warnings, fetchFailed: early.fetchFailed || undefined };
+	}
+
+	if (!isLinearIntegration(integration)) return { items: [], warnings: [] };
+
+	const domain = ctx.domainForRead(integration, id, connectionId);
+	await ctx.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
+
+	const warnings: ProviderWarning[] = [];
+	const { value: projects, warning } = await runCaptured(id, domain, connectionId, () =>
+		integration.getWorkspaceProjectsResult(connectionId),
+	);
+	// A warning with no value is a failed read, not a workspace with no Projects.
+	let fetchFailed = warning != null && projects == null;
+	if (warning != null) {
+		warnings.push(warning);
+	}
+	if (projects != null && mergeHierarchyIncompleteness(warnings, id, domain, connectionId, projects, 'Project')) {
+		fetchFailed = true;
+	}
+
+	return {
+		items: (projects?.values ?? []).map(project => ({
+			id: project.id,
+			providerId: id,
+			name: project.name,
+			state: project.state,
+			url: project.url,
+		})),
+		warnings: warnings,
+		fetchFailed: fetchFailed || undefined,
+	};
 }
 
 export async function listRepos(

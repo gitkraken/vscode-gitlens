@@ -43,12 +43,12 @@ export class GlFeatureBadge extends LitElement {
 				/* position: relative; */
 				display: inline-block;
 				--gl-feature-badge-color: currentcolor;
-				--gl-feature-badge-border-color: var(--color-foreground--50);
+				--gl-feature-badge-border-color: var(--vscode-descriptionForeground);
 				--max-width: 40rem;
 			}
 
 			a {
-				color: var(--color-link);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: underline;
 			}
 
@@ -61,7 +61,7 @@ export class GlFeatureBadge extends LitElement {
 				color: var(--gl-feature-badge-color, currentColor);
 				white-space: nowrap;
 				cursor: help;
-				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
+				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color);
 				border-radius: 1rem;
 			}
 
@@ -102,7 +102,7 @@ export class GlFeatureBadge extends LitElement {
 				display: flex;
 				flex-direction: column;
 				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.popup-content p {

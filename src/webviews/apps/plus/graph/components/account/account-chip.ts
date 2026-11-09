@@ -223,7 +223,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				margin: 0 calc(var(--gl-space-4) * -1) calc(var(--gl-space-2) * -1) var(--gl-space-4);
 				font-weight: 500;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				background-color: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
 				border-radius: 0 var(--gl-radius-xs) var(--gl-radius-xs) 0;
 			}
@@ -232,7 +232,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
   below the badges in the foreground ladder: it's supporting detail, and the body restates it. */
 			.plan-remaining {
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -260,7 +260,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.row__media code-icon {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Ring matches the Graph header's account pill (accountRing.css.ts) so the same entitlement reads
@@ -304,7 +304,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin: 0;
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.details__button {
@@ -326,7 +326,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				font-size: var(--gl-font-micro);
 				font-weight: var(--gl-font-weight-semibold);
 				line-height: 2.4rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				background-color: var(--vscode-toolbar-hoverBackground);
 				border-radius: 50%;
 			}

@@ -33,6 +33,11 @@ export interface WalkthroughProgressPayload {
 	 * takes effect live rather than only on the next walkthrough-progress change.
 	 */
 	readonly onboardingOptedOut: boolean;
+	/**
+	 * What the Kepler CTAs (the "Try Kepler" banner, the welcome card) offer. `installed` rides with
+	 * `installing` so the banner hides at once, before the walkthrough step catches up.
+	 */
+	readonly kepler: { readonly installable: boolean; readonly installing: boolean; readonly installed: boolean };
 }
 
 /**
@@ -63,6 +68,7 @@ export class WalkthroughService implements WalkthroughProgressService {
 			buffered =>
 				Disposable.from(
 					container.walkthrough.onDidChangeProgress(() => buffered(this.getProgressState())),
+					container.kepler.onDidChange(() => buffered(this.getProgressState())),
 					configuration.onDidChange(e => {
 						if (configuration.changed(e, 'advanced.skipOnboarding')) {
 							buffered(this.getProgressState());
@@ -97,6 +103,11 @@ export class WalkthroughService implements WalkthroughProgressService {
 				state: Object.fromEntries(walkthrough.getGraphState()) as Record<GraphWalkthroughContextKeys, boolean>,
 			},
 			onboardingOptedOut: configuration.get('advanced.skipOnboarding'),
+			kepler: {
+				installable: this.#container.kepler.canInstall,
+				installing: this.#container.kepler.installing,
+				installed: this.#container.kepler.installed === true,
+			},
 		};
 	}
 }

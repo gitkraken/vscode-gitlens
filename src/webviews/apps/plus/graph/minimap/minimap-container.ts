@@ -73,7 +73,7 @@ export class GlGraphMinimapContainer extends GlElement {
 		.minimap-settings__trigger {
 			padding: 0.125rem;
 			line-height: 1;
-			color: var(--color-foreground--75);
+			color: var(--vscode-icon-foreground);
 			appearance: none;
 			cursor: pointer;
 			background: transparent;
@@ -83,7 +83,13 @@ export class GlGraphMinimapContainer extends GlElement {
 
 		.minimap-settings__trigger:hover {
 			color: var(--color-foreground);
-			background-color: var(--color-graph-actionbar-selectedBackground);
+			background-color: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		.minimap-settings__trigger:not(:focus-visible):hover {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		[slot='content'] gl-radio,
@@ -99,7 +105,7 @@ export class GlGraphMinimapContainer extends GlElement {
 
 		.minimap-datatype__info {
 			font-size: var(--gl-font-base);
-			color: var(--color-foreground--50);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.minimap-datatype__info:hover {

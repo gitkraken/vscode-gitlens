@@ -23,6 +23,6 @@ export const linkStyles = css`
 export const ruleStyles = css`
 	hr {
 		border: none;
-		border-top: var(--gl-border-width) solid var(--color-foreground--25);
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 `;

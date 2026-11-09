@@ -125,7 +125,9 @@ export function unmatchedSelectorWarning(
 		message:
 			selector.kind === 'org'
 				? `No organization matches '${selector.value}' for '${id}'; it was removed or this connection can no longer see it.`
-				: `No project matches '${selector.value}'${org != null ? ` in '${org}'` : ''} for '${id}'; it was removed, renamed or this connection can no longer see it.`,
+				: selector.kind === 'linearProject'
+					? `No Linear Project matches '${selector.value}' for '${id}'; it was removed or this connection can no longer see it.`
+					: `No project matches '${selector.value}'${org != null ? ` in '${org}'` : ''} for '${id}'; it was removed, renamed or this connection can no longer see it.`,
 		kind: 'not-found',
 		isAuth: false,
 		selector: selector,

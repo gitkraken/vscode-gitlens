@@ -420,7 +420,7 @@ export async function runAutoRebaseLoop(
 		const handoff = {
 			resolutions: result.resolutions,
 			conflictedContents: snapshot,
-			errors: result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
+			errors: result.errors.map(e => ({ filePath: e.filePath, error: e.error })),
 			skipped: (result.skipped ?? []).map(s => ({ filePath: s.filePath, reason: s.reason })),
 			consultations: consultations,
 		};

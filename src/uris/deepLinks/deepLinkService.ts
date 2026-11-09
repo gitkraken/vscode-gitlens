@@ -11,7 +11,7 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
 import { isIntegrationId, isSupportedCloudIntegrationId } from '@gitlens/integrations/constants.js';
-import { fromBase64ToString } from '@gitlens/utils/base64.js';
+import { base64, fromBase64ToString } from '@gitlens/utils/base64.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/event.js';
 import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
@@ -2018,25 +2018,14 @@ export class DeepLinkService implements Disposable {
 		compareRef?: StoredNamedRef,
 		compareWithRef?: StoredNamedRef,
 	): Promise<URL> {
+		if (remoteUrl == null && typeof refOrIdOrRepoPath === 'string') {
+			return this.getRedirectUrl(`workspaces/${refOrIdOrRepoPath}`);
+		}
+
 		let targetType: DeepLinkType | undefined;
 		let targetId: string | undefined;
 		let compareWithTargetId: string | undefined;
-		const schemeOverride = configuration.get('deepLinks.schemeOverride');
-		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
-		let modePrefixString = '';
-		if (this.container.env === 'dev') {
-			modePrefixString = 'dev.';
-		} else if (this.container.env === 'staging') {
-			modePrefixString = 'staging.';
-		}
-
-		if (remoteUrl == null && typeof refOrIdOrRepoPath === 'string') {
-			const deepLinkRedirectUrl = new URL(
-				`https://${modePrefixString}gitkraken.dev/link/workspaces/${refOrIdOrRepoPath}`,
-			);
-			deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
-			return deepLinkRedirectUrl;
-		}
+		const scheme = this.getDeepLinkScheme();
 
 		const repoPath = typeof refOrIdOrRepoPath !== 'string' ? refOrIdOrRepoPath.repoPath : refOrIdOrRepoPath;
 		const repoId =
@@ -2088,14 +2077,7 @@ export class DeepLinkService implements Disposable {
 			deepLink.searchParams.set('url', remoteUrl);
 		}
 
-		const deepLinkRedirectUrl = new URL(
-			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
-				Buffer.from(deepLink.href).toString('base64'),
-			)}`,
-		);
-
-		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
-		return deepLinkRedirectUrl;
+		return this.getRedirectUrl(encodeURIComponent(base64(deepLink.href)));
 	}
 
 	async generateFileDeepLinkUr(
@@ -2107,14 +2089,7 @@ export class DeepLinkService implements Disposable {
 	): Promise<URL> {
 		const targetType = DeepLinkType.File;
 		const targetId = filePath;
-		const schemeOverride = configuration.get('deepLinks.schemeOverride');
-		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
-		let modePrefixString = '';
-		if (this.container.env === 'dev') {
-			modePrefixString = 'dev.';
-		} else if (this.container.env === 'staging') {
-			modePrefixString = 'staging.';
-		}
+		const scheme = this.getDeepLinkScheme();
 
 		const repoId =
 			(await this.container.git.getRepositoryService(repoPath).getUniqueRepositoryId()) ?? missingRepositoryId;
@@ -2156,14 +2131,18 @@ export class DeepLinkService implements Disposable {
 			}
 		}
 
-		const deepLinkRedirectUrl = new URL(
-			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
-				Buffer.from(deepLink.href).toString('base64'),
-			)}`,
-		);
+		return this.getRedirectUrl(encodeURIComponent(base64(deepLink.href)));
+	}
 
-		deepLinkRedirectUrl.searchParams.set('origin', 'gitlens');
-		return deepLinkRedirectUrl;
+	private getDeepLinkScheme(): string {
+		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+		return !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
+	}
+
+	private getRedirectUrl(path: string): URL {
+		const url = new URL(`link/${path}`, this.container.urls.baseGkDevUri.toString());
+		url.searchParams.set('origin', 'gitlens');
+		return url;
 	}
 }
 

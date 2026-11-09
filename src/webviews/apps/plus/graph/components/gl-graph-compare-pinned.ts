@@ -35,8 +35,8 @@ export class GlGraphComparePinned extends LitElement {
 				flex: 1;
 				flex-direction: column;
 				min-height: 0;
-				background: var(--vscode-sideBar-background, var(--color-background));
-				border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				background: var(--gl-color-surface-aside);
+				border-left: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.compare-pinned-host__header {
@@ -48,8 +48,7 @@ export class GlGraphComparePinned extends LitElement {
 				justify-content: space-between;
 				min-height: 4.2rem;
 				padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
-				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.compare-pinned-host__title {
@@ -59,7 +58,7 @@ export class GlGraphComparePinned extends LitElement {
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-lg);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+				color: var(--vscode-foreground);
 				white-space: nowrap;
 			}
 

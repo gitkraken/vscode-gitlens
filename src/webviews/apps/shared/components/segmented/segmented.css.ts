@@ -19,7 +19,7 @@ export const segmentedStyles = css`
 		font-family: var(--vscode-font-family);
 		font-size: 1.2rem;
 		line-height: 1.4;
-		color: var(--color-foreground--75);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 		appearance: none;
 		cursor: pointer;
@@ -30,7 +30,7 @@ export const segmentedStyles = css`
 
 	.segment:hover:not([aria-checked='true']) {
 		color: var(--color-foreground);
-		background-color: var(--vscode-toolbar-hoverBackground);
+		background-color: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	/* Fill + weight, not color alone, distinguish the selected segment;
@@ -39,11 +39,12 @@ export const segmentedStyles = css`
 		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-button-foreground);
 		background-color: var(--vscode-button-background);
-		border-color: var(--vscode-contrastBorder, transparent);
+		/* Keep the fallback: an unresolved var() leaves border-color at currentcolor, not .segment's transparent */
+		border-color: var(--gl-color-border-contrast, transparent);
 	}
 
 	.segment:focus-visible {
-		outline: 1px solid var(--color-focus-border);
+		outline: 1px solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 

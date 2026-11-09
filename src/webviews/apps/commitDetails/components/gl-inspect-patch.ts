@@ -47,7 +47,7 @@ export class InspectPatch extends GlElement {
 			}
 
 			a {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: none;
 			}
 
@@ -106,7 +106,7 @@ export class InspectPatch extends GlElement {
 			.section--action {
 				padding-top: 1.5rem;
 				padding-bottom: 1.5rem;
-				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.section--action > :first-child {
@@ -141,7 +141,7 @@ export class InspectPatch extends GlElement {
 			}
 
 			.message-input__control:focus {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -282,9 +282,9 @@ export class InspectPatch extends GlElement {
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-12);
 				line-height: 1.2;
-				color: var(--color-alert-foreground);
-				background-color: var(--color-alert-errorBackground);
-				border-left: 0.3rem solid var(--color-alert-errorBorder);
+				color: var(--gl-color-feedback-danger-fg);
+				background-color: var(--gl-color-feedback-danger-bg);
+				border-left: 0.3rem solid var(--gl-color-feedback-danger-border);
 			}
 
 			.alert code-icon {

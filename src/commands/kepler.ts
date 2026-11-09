@@ -9,7 +9,22 @@ import { openUrl } from '../system/-webview/vscode/uris.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 
-// The surface-agnostic "Get Kepler" CTA, used by the Settings and Graph sidebar banners.
+// Installs Kepler — the primary action of every Kepler CTA (the Settings and Graph sidebar banners,
+// the welcome card, and the "Kepler isn't installed" prompt). Where GitLens can't install it itself
+// (remote windows, non-production channels), opens the download page instead. Desktop only.
+@command()
+export class KeplerInstallCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.kepler.install');
+	}
+
+	execute(src?: Source): Promise<boolean> {
+		return this.container.kepler.install(src);
+	}
+}
+
+// The surface-agnostic "Learn More" action of the Kepler CTAs: the Settings and Graph sidebar banners
+// and the "Kepler isn't installed" prompt.
 //
 // Named `openProductPage`, not `openKepler`: this opens Kepler's *product page* in a browser, it
 // does not open Kepler itself. The `gitlens.kepler.*` namespace is for deep linking into an

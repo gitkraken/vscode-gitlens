@@ -1,3 +1,5 @@
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
+
 /** Extracts the host from a domain expressed as either a URL or a bare host. */
 export function hostFromDomain(domain: string | undefined): string | undefined {
 	const value = domain?.trim();
@@ -75,7 +77,7 @@ export function baseUrlFromDomain(domain: string | undefined, protocol: string |
 	const scheme = /^[a-z][a-z\d+\-.]*:\/\//i.test(value) ? undefined : (protocol ?? 'https:');
 	try {
 		const url = new URL(scheme == null ? value : `${scheme}//${value}`);
-		return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
+		return `${url.protocol}//${url.host}${trimTrailingSlashes(url.pathname)}`;
 	} catch {
 		return undefined;
 	}

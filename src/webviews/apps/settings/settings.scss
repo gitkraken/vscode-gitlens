@@ -1,4 +1,5 @@
 @use '../shared/styles/tokens';
+@use '../shared/styles/colors';
 @use '../shared/styles/theme';
 @use '../shared/styles/scrollbars';
 @use '../shared/styles/utils';
@@ -29,7 +30,7 @@ body {
 	font-family: var(--font-family);
 	font-size: 1.3rem;
 	color: var(--color-foreground);
-	background-color: var(--color-background);
+	background-color: var(--gl-color-surface-base);
 }
 
 gl-settings-app {

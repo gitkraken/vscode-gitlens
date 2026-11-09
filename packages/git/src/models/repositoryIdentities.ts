@@ -101,11 +101,3 @@ export interface RepositoryIdentityResponse {
 		readonly repoOwnerDomain?: string;
 	};
 }
-
-export function getPathFromProviderIdentity<ID extends string | GkProviderId>(
-	provider: RepositoryIdentityProviderDescriptor<ID>,
-): string {
-	return provider.repoOwnerDomain
-		? `${provider.repoOwnerDomain}/${provider.repoDomain}/${provider.repoName}`
-		: `${provider.repoDomain}/${provider.repoName}`;
-}

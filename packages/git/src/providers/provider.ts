@@ -38,6 +38,13 @@ export interface AnnouncedRepositoryChanges {
 	 * see `GitServiceHooks.repository.onChanged`
 	 */
 	readonly configConfinedToRefs?: boolean;
+	/**
+	 * With `worktreeHead` among {@link changes}, the admin ids (the `<id>` of `.git/worktrees/<id>`) of the linked
+	 * worktrees whose HEAD the write rewrote, or whose admin entry it added or removed; none for a write that moved only
+	 * the main checkout's HEAD. A watcher's report of a linked worktree it doesn't name is taken for an outside move.
+	 * Absent, the write may have moved any linked worktree's HEAD.
+	 */
+	readonly movedWorktrees?: readonly string[];
 }
 
 /**
@@ -91,8 +98,10 @@ export interface GitProvider {
 	 * An exact check of which of `paths` (repo-relative) git's ignore rules match — the subset that is ignored, as
 	 * given. A tracked file isn't reported as ignored, even when a rule matches it. This is git's answer, where the
 	 * in-memory `GitIgnoreFilter` errs toward not-ignored. Each path is checked as that exact file, never as pathspec
-	 * magic (a file named `:secret` is not `secret`), and comes back in the caller's spelling. Pass
-	 * `options.priority` (e.g. `'interactive'` when opening a file) for a caller waiting on the answer.
+	 * magic (a file named `:secret` is not `secret`), and comes back in the caller's spelling. A path git can't answer
+	 * (inside a submodule, beyond a symlink, outside the repository, or empty) isn't ignored, and doesn't cost the
+	 * others their answer; it rejects only when git fails for any other reason. Pass `options.priority` (e.g.
+	 * `'interactive'` when opening a file) for a caller waiting on the answer.
 	 */
 	getIgnoredPaths?(
 		repoPath: string,

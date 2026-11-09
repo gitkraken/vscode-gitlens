@@ -34,12 +34,14 @@ export function resourceMatchesOrg(resource: ResourceDescriptor, org: string): b
 
 /**
  * Whether a caller's `org`/`project` selector addresses this resource or project, for the reads that act on a
- * remembered selection. Jira's only by its canonical key (a site's id, a project's key): a site or project that was
- * removed must select nothing, not resolve through its old name or id to another one that happens to carry it as a
- * name, id or key. Every other provider by any identifier, as {@link resourceMatchesOrg}.
+ * remembered selection. Jira matches only its canonical key (a site's id, a project's key), and Asana its gid:
+ * a removed resource must select nothing, and a name matching another resource's identifier must not widen a read.
+ * Every other provider matches by any identifier, as {@link resourceMatchesOrg}.
  */
 export function selectorMatches(providerId: IntegrationIds, resource: ResourceDescriptor, selector: string): boolean {
-	return isJiraIntegrationId(providerId) ? resource.key === selector : resourceMatchesOrg(resource, selector);
+	return isJiraIntegrationId(providerId) || providerId === IssuesCloudHostIntegrationId.Asana
+		? resource.key === selector
+		: resourceMatchesOrg(resource, selector);
 }
 
 /**

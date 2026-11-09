@@ -1,5 +1,12 @@
+import * as l10n from '@vscode/l10n';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import type { AIReviewDetailResult } from '@gitlens/ai/models/results.js';
+import type {
+	AIReviewDetailResult,
+	AIReviewFinding,
+	AIReviewFocusArea,
+	AIReviewResult,
+} from '@gitlens/ai/models/results.js';
+import { getReviewFindingLocations } from '@gitlens/ai/models/results.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
@@ -10,11 +17,15 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewState,
 	ProposedCommit,
 	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveResult,
+	ReviewReadingState,
 	ReviewResult,
+	ReviewThreadActionsState,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
@@ -30,8 +41,38 @@ import type {
 	RunningOperationBucket,
 	RunningOperationExecState,
 } from './detailsState.js';
-import { compareSides } from './detailsState.js';
+import { abortRunningOperation, compareSides } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
+import type {
+	ReviewComment,
+	ReviewFileIdentity,
+	ReviewFindingsContent,
+	ReviewFindingState,
+	ReviewSession,
+} from './reviewSession.js';
+import {
+	agentFocusAreaId,
+	createReviewComment,
+	createReviewFindingIds,
+	emptyReviewSession,
+	getModelFindings,
+	withFileExcluded,
+	withFilesViewed,
+	withFindingNote,
+	withFindingNoteText,
+	withFindingsContent,
+	withFindingsRequeued,
+	withFindingState,
+	withoutFindingNote,
+	withoutFindingRecord,
+	withoutFindings,
+	withoutResultFinding,
+	withoutReviewComment,
+	withReadingOrder,
+	withReviewComment,
+	withReviewCommentText,
+	withReviewFindingIds,
+} from './reviewSession.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
  *  longer a mode; it has its own lifecycle via {@link DetailsWorkflowController.openCompare}
@@ -43,6 +84,128 @@ export type DetailsMode = 'review' | 'compose' | 'resolve';
  *  so the crossing is made once here rather than cast at each of the five compose RPCs. */
 function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
 	return anchorKey(anchor) as string as ComposeSessionKey;
+}
+
+/** The agent's findings join the result as their own focus area — the provenance the doc asks for sits on
+ *  each finding (`source`), and the area keeps them apart from the model's own in the index. One with the
+ *  id of a finding already there is that finding reported again, and takes its place. */
+export function withAgentFindings(
+	result: AIReviewResult | undefined,
+	fresh: readonly AIReviewFinding[],
+): AIReviewResult {
+	const areas = result?.focusAreas ?? [];
+	const existing = areas.find(a => a.id === agentFocusAreaId);
+	const byId = new Map(fresh.map(f => [f.id, f]));
+	const kept = (existing?.findings ?? []).map(f => {
+		const again = byId.get(f.id);
+		byId.delete(f.id);
+		return again ?? f;
+	});
+	const findings = [...kept, ...byId.values()];
+	const severity = findings.some(f => f.severity === 'critical')
+		? 'critical'
+		: findings.some(f => f.severity === 'warning')
+			? 'warning'
+			: 'suggestion';
+	return withAgentFocusArea(result, {
+		id: agentFocusAreaId,
+		label: l10n.t('Deep review'),
+		rationale: l10n.t('Reported by your agent, which could build, test and read beyond the diff.'),
+		severity: severity,
+		files: [...new Set(findings.flatMap(f => getReviewFindingLocations(f).map(l => l.filePath)))],
+		findings: findings,
+	});
+}
+
+/** The agent's area of a review — it comes over the Review in Repo channel, not from a run of the model,
+ *  so a fresh run has to carry it over rather than replace it. */
+export function getAgentFocusArea(value: ReviewResult | undefined): AIReviewFocusArea | undefined {
+	return value != null && 'result' in value
+		? value.result.focusAreas.find(a => a.id === agentFocusAreaId)
+		: undefined;
+}
+
+/** Puts the agent's area into a result, in place of the one it has. */
+export function withAgentFocusArea(result: AIReviewResult | undefined, area: AIReviewFocusArea): AIReviewResult {
+	const areas = result?.focusAreas ?? [];
+	return {
+		overview: result?.overview ?? l10n.t('A review in the repository by your agent.'),
+		mode: result?.mode ?? 'single-pass',
+		focusAreas: areas.some(a => a.id === agentFocusAreaId)
+			? areas.map(a => (a.id === agentFocusAreaId ? area : a))
+			: [...areas, area],
+	};
+}
+
+/** A finding gone from the review: the reader's own comment from the session, anyone else's from the
+ *  result — with its state and notes either way. */
+export function withoutReviewFinding(
+	result: AIReviewResult | undefined,
+	session: ReviewSession,
+	findingId: string,
+): { result: AIReviewResult | undefined; session: ReviewSession } {
+	if (session.comments?.some(c => c.id === findingId)) {
+		return { result: result, session: withoutReviewComment(session, findingId) };
+	}
+
+	return {
+		result: result != null ? withoutResultFinding(result, findingId) : undefined,
+		session: withoutFindingRecord(session, findingId),
+	};
+}
+
+/** A thread without its opening words: the first reply opens it now. The thread stays where it was, with
+ *  its state and the rest of its replies, as a comment of the review's own under the same id — an AI or
+ *  agent finding leaves the result for it. The id is the comment's from here on: findings that come in later
+ *  never take an id a comment holds (see `createReviewFindingIds`). With no reply to take over, the finding goes. */
+export function withoutFindingOpening(
+	result: AIReviewResult | undefined,
+	session: ReviewSession,
+	findingId: string,
+): { result: AIReviewResult | undefined; session: ReviewSession } {
+	const notes = session.notes.get(findingId);
+	const own = session.comments?.find(c => c.id === findingId);
+	const finding = own ?? result?.focusAreas.flatMap(a => a.findings ?? []).find(f => f.id === findingId);
+	if (!notes?.length || finding == null) return withoutReviewFinding(result, session, findingId);
+
+	const [next, ...rest] = notes;
+	const opened: ReviewComment = {
+		id: findingId,
+		severity: 'suggestion',
+		title: '',
+		description: next.text,
+		filePath: finding.filePath,
+		lineRange: finding.lineRange,
+		...(finding.locations != null ? { locations: finding.locations } : {}),
+		source: 'user',
+		...(next.author === 'agent' ? { author: 'agent' as const } : {}),
+	};
+	const nextNotes = new Map(session.notes);
+	if (rest.length > 0) {
+		nextNotes.set(findingId, rest);
+	} else {
+		nextNotes.delete(findingId);
+	}
+	return {
+		result: own == null && result != null ? withoutResultFinding(result, findingId) : result,
+		session: {
+			...session,
+			comments:
+				own != null
+					? session.comments!.map(c => (c.id === findingId ? opened : c))
+					: [...(session.comments ?? []), opened],
+			notes: nextNotes,
+		},
+	};
+}
+
+/** Deleting findings one by one has left the AI's review with nothing in it: there was at least one, and now
+ *  every area has been read and holds none. A review that never had any (a clean one) isn't emptied. */
+function isReviewEmptied(before: AIReviewResult | undefined, after: AIReviewResult | undefined): boolean {
+	const count = (result: AIReviewResult) => result.focusAreas.reduce((n, a) => n + (a.findings?.length ?? 0), 0);
+	return (
+		before != null && after != null && count(before) > 0 && after.focusAreas.every(a => a.findings?.length === 0)
+	);
 }
 
 /** The message a rejected run reports. One helper because it feeds both the panel's error pane
@@ -116,12 +279,17 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  worktree's persisted draft slot. Called by the controller from `onRunSettled` (and on
 	 *  re-engage after a disconnected settle) — never while the panel is disconnected. */
 	applyGeneratedCommitMessage(repoPath: string, message: string): void;
-	/** Reads the live review/compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
+	/** Reads the live compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
 	 *  the controller can persist them onto the engaged entry on mode-leave (see `hideMode`). Returns
 	 *  `undefined` when no ready refine-capable panel is mounted. */
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
 	readEngagedIdleDraft(): string | undefined;
+	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown.
+	 *  `instructions` is what the reader just said about it, from its thread. */
+	sendReviewFindingToAgent?(findingId: string, instructions?: string): void;
+	/** Routes a reader's question on a finding to the review agent, through the review panel. */
+	askReviewerAboutFinding?(findingId: string, question?: string): void;
 	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
@@ -218,6 +386,9 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _reviewFetchedForSelection: AnchorKey | undefined;
 	private _composeFetchedForSelection: AnchorKey | undefined;
 	private _resolveFetchedForSelection: AnchorKey | undefined;
+	/** The review the editor's reading state was last for — what a reading let go of clears, which may
+	 *  not be the review shown by then. */
+	private _readingAnchor: AnchorKey | undefined;
 	/**
 	 * Resolve-session gesture counts, reported on every resolve telemetry event so a session can be
 	 * read as "resolved after N refines and M retries" rather than as unrelated runs. A session is one
@@ -435,6 +606,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// the now-active panel's chip reflects its scope (not whichever scope was active
 		// previously). Signals don't notify on change here, so this is the hook point.
 		void this.actions.refreshScopedAiModel();
+		if (mode === 'review') {
+			void this.actions.refreshDeepReviewAvailability();
+		}
 
 		// Remember this anchor's mode so a subsequent return restores it.
 		this.rememberMode(selection, mode);
@@ -883,7 +1057,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 	}
 
-	/** Persist the outgoing review/compose/resolve panel's live Refine posture + unsubmitted draft onto its
+	/** Persist the outgoing compose/resolve panel's live Refine posture + unsubmitted draft onto its
 	 *  registry entry, so a later return to this anchor restores them. Reads the live panel through the
 	 *  host; no-ops when there's no entry (fresh result / discarded / destroyed / repo-switched away).
 	 *  Routed through {@link registerRunningOperation} — whose dedup guard compares the refine fields —
@@ -897,7 +1071,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		this.registerRunningOperation({
 			...entry,
-			refineMode: kind === 'review' ? snapshot.refineMode : snapshot.refineMode || undefined,
+			refineMode: snapshot.refineMode || undefined,
 			refineDraft: snapshot.refineDraft.trim() ? snapshot.refineDraft : undefined,
 		});
 	}
@@ -925,7 +1099,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		entry?.abortController?.abort();
+		abortRunningOperation(entry);
 		// Destroying a compose drops the webview's only handle on its plan, so tell the host to let go
 		// of it and close the session rather than leaving both until the next compose on this anchor or
 		// panel teardown. Read the key before the entry goes.
@@ -1057,17 +1231,521 @@ export class DetailsWorkflowController implements ReactiveController {
 			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
 			this.runReview(repoPath, entry?.prompt, excludedFiles, effectiveFilesCount, selectedIds, scopeItems);
 		},
+		setFilesViewed: (files: readonly ReviewFileIdentity[], viewed: boolean): void =>
+			this.updateReviewSession(session => withFilesViewed(session, files, viewed)),
+		setFileExcluded: (path: string, excluded: boolean): void =>
+			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
+		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
+			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		/** The reader's word on a finding, from its card — the thread's reply box lands in {@link applyThreadActions}. */
+		addFindingNote: (findingId: string, text: string): void =>
+			this.updateReviewSession(session =>
+				withFindingNote(session, findingId, { author: 'user', text: text, at: Date.now() }),
+			),
+		/** Removes a finding — the AI's, the agent's or the reader's own comment — from its card, with its
+		 *  threads; the thread's delete lands in {@link applyThreadActions}. */
+		deleteFinding: (findingId: string): void => {
+			const anchor = this.currentAnchor();
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			if (entry == null) return;
+
+			const current = entry.result ?? this.actions.resources.review.value.get();
+			const before = current != null && 'result' in current ? current.result : undefined;
+			const { result, session } = withoutReviewFinding(before, entry.session ?? emptyReviewSession, findingId);
+			if (result === before && session === entry.session) return;
+
+			this.registerRunningOperation({
+				...entry,
+				...(result !== before ? { result: { result: result! } } : {}),
+				session: session,
+			});
+			if (result !== before) {
+				this.actions.resources.review.mutate({ result: result! });
+			}
+			this.endReviewIfEmptied(entry, before, result);
+		},
+		/** Removes one note from a finding's thread, from its card. */
+		deleteFindingNote: (findingId: string, noteId: string): void =>
+			this.updateReviewSession(session => withoutFindingNote(session, findingId, noteId)),
+		/** The orient depth: a reading plan for the checklist, tracked on the entry like a focus-area run. */
+		runOrient: (
+			repoPath: string | undefined,
+			prompt: string | undefined,
+			excludedFiles: string[] | undefined,
+			scopeLabel?: string,
+		): void => {
+			const scope = this.actions.state.scope.get();
+			if (!repoPath || scope == null) return;
+
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const prior = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+			prior?.orientRun?.abort();
+
+			const controller = new AbortController();
+			this.registerRunningOperation({
+				...(prior ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+				orientRun: controller,
+				orientError: undefined,
+			});
+
+			const startedAt = performance.now();
+			const aiContext = this.actions.buildAIModelTelemetryContext();
+			// Too large for the model, the plan comes from the CLI agent, for this review
+			const inRepo = scopeLabel ? { anchor: anchor, anchorKey: key, scopeLabel: scopeLabel } : undefined;
+			// An Orient called off by the review it was for (deleted, cancelled) still holds the entry — let go
+			// of it, or the panel keeps it running; one replaced by a newer Orient has let go already
+			const settleAborted = () => {
+				const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+				if (entry?.orientRun !== controller) return;
+
+				this.registerRunningOperation({ ...entry, orientRun: undefined });
+			};
+			this.actions.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, controller.signal).then(
+				result => {
+					if (controller.signal.aborted) {
+						settleAborted();
+						return;
+					}
+
+					const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+					if (entry?.orientRun !== controller) return;
+
+					const duration = performance.now() - startedAt;
+					if ('error' in result) {
+						this.registerRunningOperation({
+							...entry,
+							orientRun: undefined,
+							orientError: result.error.message,
+						});
+						this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/failed', {
+							...aiContext,
+							duration: duration,
+							'failure.error.message': result.error.message,
+						});
+						return;
+					}
+
+					// The plan is the reading order: it applies as it lands, so the steps follow the groups
+					// top to bottom from here on (and the host has the order before the panes render)
+					const order = result.result.groups.flatMap(g => g.files.map(f => f.path));
+					this.registerRunningOperation({
+						...entry,
+						orientRun: undefined,
+						orient: result.result,
+						session: withReadingOrder(entry.session ?? emptyReviewSession, order),
+					});
+					this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/completed', {
+						...aiContext,
+						duration: duration,
+						'result.groups.count': result.result.groups.length,
+						'result.files.count': result.result.groups.reduce((sum, g) => sum + g.files.length, 0),
+					});
+				},
+				(ex: unknown) => {
+					if (controller.signal.aborted) {
+						settleAborted();
+						return;
+					}
+
+					const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+					if (entry?.orientRun !== controller) return;
+
+					this.registerRunningOperation({
+						...entry,
+						orientRun: undefined,
+						orientError: runFailureMessage(ex),
+					});
+					this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/failed', {
+						...aiContext,
+						duration: performance.now() - startedAt,
+						'failure.error.message': runFailureMessage(ex),
+					});
+				},
+			);
+		},
+		/** Hands the scope to an agent with a channel back into this review. */
+		startDeepReview: async (
+			repoPath: string | undefined,
+			prompt: string | undefined,
+			scopeLabel: string,
+			files: readonly string[],
+			priorFindings?: string,
+			focus?: DeepReviewArgs['focus'],
+		): Promise<void> => {
+			const scope = this.actions.state.scope.get();
+			if (!repoPath || scope == null) return;
+
+			if (focus == null) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			}
+			const anchor = this.currentAnchor();
+			const result = await this.actions.startDeepReview({
+				repoPath: repoPath,
+				anchor: anchor,
+				anchorKey: anchorKey(anchor),
+				scope: scope,
+				scopeLabel: scopeLabel,
+				files: [...files],
+				priorFindings: priorFindings,
+				prompt: prompt,
+				focus: focus,
+			});
+			if (!result.ok) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/failed', { reason: result.reason });
+			}
+		},
+		/** Puts the deep review's status strip away — the channel stays open and what the agent reports
+		 *  still lands in the review. */
+		hideDeepReview: (): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry?.deepReview == null || entry.deepReview.hidden) return;
+
+			this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, hidden: true } });
+		},
+		/** Folds what the agent reported into the review's result — as its own focus area, so the panel,
+		 *  the threads and the counts take the findings like any other — applying only the ones past the
+		 *  last sequence this anchor saw. */
+		applyDeepReviewState: (state: DeepReviewState | undefined): void => {
+			if (state == null) {
+				const entry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(this.currentAnchor()))?.review;
+				if (entry?.deepReview == null || !entry.deepReview.active) return;
+
+				this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, active: false } });
+				return;
+			}
+
+			// The report goes to the review it was started from — not whatever is shown now — and a new
+			// start numbers from 1 again, so the "applied up to" counters are per run
+			const anchor = state.anchor as RunningOperationAnchor;
+			const isCurrent = anchorKey(anchor) === anchorKey(this.currentAnchor());
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			const sameRun = entry?.deepReview?.run === state.run;
+			const applied = sameRun ? (entry?.deepReview?.seqApplied ?? 0) : 0;
+			let fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
+			let runFindingIds = (sameRun ? entry?.deepReview?.runFindingIds : undefined) ?? [];
+			const current = entry?.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
+			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
+			let findingsContent = entry?.findingsContent;
+			if (fresh.length > 0) {
+				// Over a failed run, what the agent reported before waits in the value Go Back restores
+				const earlier =
+					entry?.result != null && 'error' in entry.result
+						? getAgentFocusArea(entry.preErrorValue)
+						: undefined;
+				const base = result?.result ?? (earlier != null ? withAgentFocusArea(undefined, earlier) : undefined);
+				// The channel numbers what it takes per run, so its ids would repeat from one run to the next:
+				// each finding gets one of its own — the one it had, when the agent reports a finding again.
+				// Again means in a later run: this run's findings came in separate reports, and two alike are two
+				const agentFindings = getAgentFocusArea(base != null ? { result: base } : undefined)?.findings ?? [];
+				const thisRun = new Set(runFindingIds);
+				fresh = fresh.map(
+					createReviewFindingIds(
+						agentFindings.filter(f => !thisRun.has(f.id)),
+						[
+							...(base?.focusAreas
+								.filter(a => a.id !== agentFocusAreaId)
+								.flatMap(a => a.findings ?? [])
+								.map(f => f.id) ?? []),
+							...(entry?.session?.comments?.map(c => c.id) ?? []),
+							...thisRun,
+						],
+					),
+				);
+				runFindingIds = [...runFindingIds, ...fresh.map(f => f.id)];
+				result = { result: withAgentFindings(base, fresh) };
+				// The files in hand are the shown review's; a report for another one goes unrecorded
+				if (isCurrent) {
+					findingsContent = withFindingsContent(
+						findingsContent,
+						fresh,
+						this.actions.resources.scopeFiles.value.get(),
+					);
+				}
+			}
+			// What the agent added to findings that were already there lands as notes on them
+			const notesApplied = sameRun ? (entry?.deepReview?.notesApplied ?? 0) : 0;
+			let session = entry?.session;
+			for (const note of state.notes.filter(n => n.seq > notesApplied)) {
+				session = withFindingNote(session ?? emptyReviewSession, note.findingId, {
+					author: 'agent',
+					text: note.text,
+					at: Date.now(),
+				});
+			}
+			// New findings on files the reader already went through put those files back in the queue
+			if (session != null && fresh.length > 0) {
+				session = withFindingsRequeued(
+					session,
+					current != null && 'result' in current ? current.result : undefined,
+					result?.result,
+				);
+			}
+			const deepReview = {
+				run: state.run,
+				purpose: state.purpose,
+				handOff: state.handOff,
+				active: state.active,
+				done: state.done,
+				count: state.findings.length,
+				seqApplied: state.findings.at(-1)?.seq ?? applied,
+				runFindingIds: runFindingIds,
+				notesApplied: state.notes.at(-1)?.seq ?? notesApplied,
+				...(sameRun && entry?.deepReview?.hidden ? { hidden: true } : {}),
+			};
+			if (state.done && entry?.deepReview?.done !== true) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/finished', {
+					'findings.count': state.findings.length,
+				});
+			}
+
+			const base = entry ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
+			const withSession = session != null ? { session: session } : {};
+			if (result != null && fresh.length > 0) {
+				// The merged result is the entry's result now — and a run that never happened reads as
+				// complete, the way a resumed one does, so the panel shows the findings.
+				this.registerRunningOperation({
+					...base,
+					...withSession,
+					execState: base.execState === 'generating' ? 'generating' : 'complete',
+					result: result,
+					findingsContent: findingsContent,
+					deepReview: deepReview,
+				});
+				if (isCurrent) {
+					this.actions.resources.review.mutate(result);
+				}
+			} else {
+				this.registerRunningOperation({ ...base, ...withSession, deepReview: deepReview });
+			}
+		},
+		/** Drops the reading plan — and the order it gave the files — back to tree order. */
+		clearOrient: (): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry == null) return;
+
+			entry.orientRun?.abort();
+			this.registerRunningOperation({
+				...entry,
+				orient: undefined,
+				orientRun: undefined,
+				orientError: undefined,
+				session: entry.session != null ? withReadingOrder(entry.session, undefined) : undefined,
+			});
+		},
+		/** Folds editor-made thread actions into the session of the review they were taken in — only the
+		 *  ones past the last sequence that review applied. */
+		applyThreadActions: (state: ReviewThreadActionsState | undefined): void => {
+			if (state == null) return;
+
+			// The actions go to the review they were taken in, which may no longer be the one shown — the
+			// journal is that review's alone, so another review's count never reaches into it
+			const anchor = this.currentAnchor();
+			const isCurrent = state.anchor === anchorKey(anchor);
+			const existing = this.host.crossPaneState.runningOperations.get().get(state.anchor as AnchorKey)?.review;
+			const applied = existing?.threadActionsApplied ?? 0;
+			const fresh = state.actions.filter(a => a.seq > applied);
+			// A comment of the reader's own can come before any run — it starts the review's entry the way
+			// a viewed mark does, but only for the review shown: no entry is made from another's actions
+			if (fresh.length === 0 || (existing == null && (!isCurrent || !fresh.some(a => a.action === 'comment')))) {
+				return;
+			}
+
+			const entry = existing ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
+			let session = entry.session ?? emptyReviewSession;
+			const current = entry.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
+			const before = current != null && 'result' in current ? current.result : undefined;
+			let result = before;
+			// Hand-offs run after the session is registered, so what they send carries the reply
+			const handOffs: { to: 'reviewer' | 'agent'; send: () => void }[] = [];
+			let commented = false;
+			for (const { findingId, action, text, place, noteId } of fresh) {
+				switch (action) {
+					case 'comment':
+						if (text && place != null) {
+							session = withReviewComment(session, createReviewComment(findingId, place, text));
+							commented = true;
+						}
+						break;
+					case 'editComment':
+						if (text) {
+							session = withReviewCommentText(session, findingId, text);
+						}
+						break;
+					case 'delete':
+						({ result, session } = withoutReviewFinding(result, session, findingId));
+						break;
+					case 'editNote':
+						if (noteId != null && text) {
+							session = withFindingNoteText(session, findingId, noteId, text);
+						}
+						break;
+					case 'deleteOpening':
+						({ result, session } = withoutFindingOpening(result, session, findingId));
+						break;
+					case 'deleteNote':
+						if (noteId != null) {
+							session = withoutFindingNote(session, findingId, noteId);
+						}
+						break;
+					case 'dismiss':
+						session = withFindingState(session, findingId, 'dismissed');
+						break;
+					case 'reopen':
+						session = withFindingState(session, findingId, undefined);
+						break;
+					case 'sendToAgent':
+						handOffs.push({ to: 'agent', send: () => this.host.sendReviewFindingToAgent?.(findingId) });
+						break;
+					case 'reply':
+					case 'askReviewer':
+					case 'address':
+						if (text) {
+							session = withFindingNote(session, findingId, {
+								author: 'user',
+								text: text,
+								at: Date.now(),
+							});
+						}
+						if (action === 'askReviewer') {
+							handOffs.push({
+								to: 'reviewer',
+								send: () => this.host.askReviewerAboutFinding?.(findingId, text),
+							});
+						} else if (action === 'address') {
+							handOffs.push({
+								to: 'agent',
+								send: () => this.host.sendReviewFindingToAgent?.(findingId, text),
+							});
+						}
+						break;
+				}
+			}
+			// The comments show with the findings, so a review sitting on its checklist (no run yet, the
+			// findings discarded or stepped back from) opens to them when one is written
+			this.registerRunningOperation({
+				...entry,
+				...(commented && entry.execState === 'backed' ? { execState: 'complete' as const } : {}),
+				...(result !== before ? { result: { result: result! } } : {}),
+				session: session,
+				threadActionsApplied: fresh.at(-1)!.seq,
+			});
+			// The shown review is what the panel and its hand-offs act on — a hand-off for one that has been
+			// left would find its finding in the wrong review. The reply is kept; the reader is told the
+			// request itself went nowhere
+			if (!isCurrent) {
+				for (const to of new Set(handOffs.map(h => h.to))) {
+					this.actions.warnReviewHandOffDropped(to);
+				}
+				return;
+			}
+
+			if (result !== before) {
+				this.actions.resources.review.mutate({ result: result! });
+			}
+			for (const handOff of handOffs) {
+				handOff.send();
+			}
+			this.endReviewIfEmptied(entry, before, result);
+		},
+		/** Folds what the host reports about the editor into the entry of the review it is reading: the
+		 *  active review file, and the editor-made viewed marks past the ones already taken. */
+		applyReadingState: (state: ReviewReadingState | undefined): void => {
+			if (state == null) {
+				// The review last read — or, for a controller built since, the one shown, which is where reading
+				// was cleared before reading states carried their review
+				const read = this._readingAnchor ?? anchorKey(this.currentAnchor());
+				this._readingAnchor = undefined;
+				const entry = this.host.crossPaneState.runningOperations.get().get(read)?.review;
+				if (entry?.reading == null) return;
+
+				this.registerRunningOperation({ ...entry, reading: undefined });
+				return;
+			}
+
+			this._readingAnchor = state.anchor as AnchorKey;
+			const anchor = this.currentAnchor();
+
+			// The marks belong to the review they were made in; only the review shown gets an entry from them
+			const isCurrent = state.anchor === anchorKey(anchor);
+			const entry = this.host.crossPaneState.runningOperations.get().get(state.anchor as AnchorKey)?.review;
+			if (entry == null && !isCurrent) return;
+
+			// The marks are numbered across reviews, so a count taken in an earlier reading of this one
+			// can't skip any of the new list
+			const applied = Math.max((entry?.reading?.marksApplied ?? 0) - state.markedBefore, 0);
+			const fresh = state.marked.slice(applied);
+			let session = entry?.session ?? emptyReviewSession;
+			if (fresh.length > 0) {
+				const files = isCurrent ? this.actions.resources.scopeFiles.value.get() : undefined;
+				const byPath = new Map(files?.map(f => [f.path, f]));
+				session = withFilesViewed(
+					session,
+					fresh.map(path => byPath.get(path) ?? { path: path }),
+					true,
+				);
+			}
+
+			this.registerRunningOperation({
+				...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+				session: session,
+				reading: { active: state.active, marksApplied: state.markedBefore + state.marked.length },
+			});
+		},
+		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
+		// the entry aborts it too. Re-running an area supersedes its earlier run.
+		startFocusAreaRun: (focusAreaId: string): { signal: AbortSignal; prompt: string | undefined } | undefined => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry == null) return undefined;
+
+			entry.focusAreaRuns?.get(focusAreaId)?.abort();
+			const controller = new AbortController();
+			const runs = new Map(entry.focusAreaRuns);
+			runs.set(focusAreaId, controller);
+			this.registerRunningOperation({ ...entry, focusAreaRuns: runs });
+			return { signal: controller.signal, prompt: entry.prompt };
+		},
+		settleFocusAreaRun: (focusAreaId: string, signal: AbortSignal): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			const current = entry?.focusAreaRuns?.get(focusAreaId);
+			if (entry == null || current == null || current.signal !== signal) return;
+
+			const runs = new Map(entry.focusAreaRuns);
+			runs.delete(focusAreaId);
+			this.registerRunningOperation({ ...entry, focusAreaRuns: runs.size ? runs : undefined });
+		},
 		// Two-pass detail enrichment lands here. The render projection at the panel reads
 		// `entry.result ?? resource.value` — entry first — so mutating only the resource leaves
 		// a stale entry result that masks the new findings on the next render. Update both, entry
 		// first (same sequencing as `backFromError`), so the panel sees the enriched result.
-		enrichFocusAreaFindings: (focusAreaId: string, detail: AIReviewDetailResult): void => {
+		// Returns the area's findings with the ids they keep in the review.
+		enrichFocusAreaFindings: (focusAreaId: string, details: AIReviewDetailResult): AIReviewDetailResult => {
 			const anchor = this.currentAnchor();
 			const key = anchorKey(anchor);
 			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
 			const current = entry?.result ?? this.actions.resources.review.value.get();
-			if (current == null || !('result' in current)) return;
+			if (current == null || !('result' in current)) return details;
 
+			// A finding the area had (a re-analysis) or the run before had keeps its id — unless another area
+			// took it already
+			const analyzed = current.result.focusAreas.find(a => a.id === focusAreaId);
+			const detail: AIReviewDetailResult = {
+				...details,
+				findings: details.findings.map(
+					createReviewFindingIds(
+						getModelFindings([], [...(analyzed?.findings ?? []), ...(entry?.earlierFindings ?? [])]),
+						[
+							...current.result.focusAreas
+								.filter(a => a.id !== focusAreaId)
+								.flatMap(a => a.findings ?? [])
+								.map(f => f.id),
+							...(entry?.session?.comments?.map(c => c.id) ?? []),
+						],
+					),
+				),
+			};
 			const enriched: ReviewResult = {
 				result: {
 					...current.result,
@@ -1078,18 +1756,97 @@ export class DetailsWorkflowController implements ReactiveController {
 			};
 
 			if (entry != null) {
-				this.registerRunningOperation({ ...entry, result: enriched });
+				// The area's findings are new to the files the reader may have gone through already
+				const session =
+					entry.session != null
+						? withFindingsRequeued(entry.session, current.result, enriched.result)
+						: undefined;
+				this.registerRunningOperation({
+					...entry,
+					result: enriched,
+					session: session,
+					findingsContent: withFindingsContent(
+						entry.findingsContent,
+						detail.findings,
+						this.actions.resources.scopeFiles.value.get(),
+					),
+				});
 			}
 			this.actions.resources.review.mutate(enriched);
+			return detail;
 		},
-		// Destructive discard from the ready state — throw away the findings and exit to the plain
-		// view. Review produces read-only findings with no host session (unlike resolve), so
-		// `destroyEngagedOperation` is the complete teardown: abort + remove entry + reset + hide.
+		// Throws away the AI's findings, not the review: viewed marks, set-aside files, the reader's own
+		// comments and a running reading state stay, and the panel lands back on the checklist — or on the
+		// comments, when there are any.
 		discard: (): void => {
 			this.actions.sendTelemetryEvent('graphDetails/review/discarded');
-			this.destroyEngagedOperation('review');
+			this.dropReviewFindings(true);
 		},
 	};
+
+	/** Throws the AI's findings away and takes the review back to its checklist — or to the reader's comments,
+	 *  when there are any. `abortOrient`: a reading plan being made goes too, as when the reader deletes the
+	 *  findings; not when deleting the last of them one by one is what ended the review. */
+	private dropReviewFindings(abortOrient: boolean): void {
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+		if (entry == null) return;
+
+		if (abortOrient) {
+			abortRunningOperation(entry);
+		} else {
+			entry.abortController?.abort();
+			for (const run of entry.focusAreaRuns?.values() ?? []) {
+				run.abort();
+			}
+		}
+		this.registerRunningOperation({
+			...entry,
+			focusAreaRuns: undefined,
+			findingsContent: undefined,
+			earlierFindings: undefined,
+			// The agent's findings go with the rest, so its channel closes too; the strip stays put away
+			deepReview: entry.deepReview != null ? { ...entry.deepReview, hidden: true } : undefined,
+			session: entry.session != null ? withoutFindings(entry.session) : undefined,
+		});
+		if (entry.deepReview?.active) {
+			this.actions.stopDeepReview();
+		}
+		this.enterBackedNoResult('review');
+		this.actions.state.reviewPreErrorValue.set(undefined);
+		const after = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+		if (after?.session?.comments?.length) {
+			this.registerRunningOperation({ ...after, execState: 'complete' });
+		}
+	}
+
+	/** A review the reader has deleted every finding of, one by one, ends as Delete Findings ends it — quietly, as
+	 *  the reader deleted findings, not the review, and with a plan being made left to finish — unless the agent
+	 *  may still report into it. */
+	private endReviewIfEmptied(
+		entry: { deepReview?: { active: boolean; done: boolean } },
+		before: AIReviewResult | undefined,
+		after: AIReviewResult | undefined,
+	): void {
+		if (after === before || !isReviewEmptied(before, after)) return;
+		if (entry.deepReview?.active && !entry.deepReview.done) return;
+
+		this.dropReviewFindings(false);
+	}
+
+	/** Applies a session edit to the engaged anchor's review entry, creating the entry when the reader
+	 *  starts marking files before any run — the same backed-no-result shape an unsubmitted draft gets. */
+	private updateReviewSession(update: (session: ReviewSession) => ReviewSession): void {
+		const anchor = this.currentAnchor();
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+		const current = entry?.session ?? emptyReviewSession;
+		const next = update(current);
+		if (next === current) return;
+
+		this.registerRunningOperation({
+			...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+			session: next,
+		});
+	}
 
 	runReview(
 		repoPath: string | undefined,
@@ -1098,7 +1855,6 @@ export class DetailsWorkflowController implements ReactiveController {
 		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
-		options?: { mode?: 'refine' },
 	): void {
 		const scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
 		if (!repoPath || !scope) return;
@@ -1114,28 +1870,15 @@ export class DetailsWorkflowController implements ReactiveController {
 				? currentValue
 				: this.actions.state.reviewPreErrorValue.get(),
 		);
-		// Follow-up only when explicitly requested by the ready-state input AND there's a result
-		// to follow up on AND guidance to follow up with — an empty submit or a restart from idle
-		// is a fresh run, never a continuation
-		const refine =
-			options?.mode === 'refine' && instructions != null && currentValue != null && 'result' in currentValue;
 		this._reviewFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'review',
 			instructions,
-			controller =>
-				this.actions.startReview(
-					repoPath,
-					scope,
-					instructions,
-					excludedFiles,
-					controller.signal,
-					refine ? { mode: 'refine' } : undefined,
-				),
+			controller => this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,
-				refine: refine,
+				refine: false,
 			},
 		);
 	}
@@ -2098,7 +2841,15 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Abort any prior run on THIS (anchor, kind). Other anchors / the other kind on the same
 		// anchor are untouched.
 		const prior = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		prior?.abortController?.abort();
+		if (prior?.kind === 'review') {
+			// An Orient going on is the reader's own ask for a reading plan, not part of the run started over
+			prior.abortController?.abort();
+			for (const run of prior.focusAreaRuns?.values() ?? []) {
+				run.abort();
+			}
+		} else {
+			abortRunningOperation(prior);
+		}
 
 		const controller = new AbortController();
 		const exclusions = this.host.readEngagedExclusions();
@@ -2135,10 +2886,38 @@ export class DetailsWorkflowController implements ReactiveController {
 				lastCommitAllIncludedIds: this.actions.state.composeLastCommitAllIncludedIds.get(),
 			});
 		} else if (kind === 'review') {
+			const priorReview = prior?.kind === 'review' ? prior : undefined;
+			// The agent's findings aren't the model's to replace: the entry carries them through the run —
+			// their threads stay in the diff, like the reader's comments — and `onRunSettled` puts them into
+			// what the run returns. After a failed run they wait in the value Go Back would restore.
+			const agentArea = getAgentFocusArea(
+				priorReview?.result != null && 'error' in priorReview.result
+					? priorReview.preErrorValue
+					: priorReview?.result,
+			);
+			const preErrorValue = this.actions.state.reviewPreErrorValue.get();
 			this.registerRunningOperation({
 				...operation,
 				kind: kind,
-				preErrorValue: this.actions.state.reviewPreErrorValue.get(),
+				preErrorValue: preErrorValue,
+				result: agentArea != null ? { result: withAgentFocusArea(undefined, agentArea) } : undefined,
+				// What the run replaces — the result it starts over (shown or stepped back from), the one Go
+				// Back would restore, and what came before those — is where its findings take their ids from
+				earlierFindings: getModelFindings(
+					[priorReview?.result, preErrorValue, priorReview?.preErrorValue].map(v =>
+						v != null && 'result' in v ? v.result : undefined,
+					),
+					priorReview?.earlierFindings,
+				),
+				// The reader's progress, the reading plan and the agent's channel belong to the changeset, not
+				// to the run that just started — and so does how much of the host's append-only thread-action
+				// journal is applied, or the next editor action would replay all of it on the new result.
+				session: priorReview?.session,
+				orient: priorReview?.orient,
+				orientRun: priorReview?.orientRun,
+				reading: priorReview?.reading,
+				deepReview: priorReview?.deepReview,
+				threadActionsApplied: priorReview?.threadActionsApplied,
 			});
 		} else {
 			this.registerRunningOperation({ ...operation, kind: kind });
@@ -2749,6 +3528,42 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState = 'complete';
 		}
 
+		// Review-only: the run's findings get the ids they keep in the review — a finding the run before found
+		// too keeps its id, and with it its state and notes; ids the review holds (the agent's findings carried
+		// through the run, the reader's comments) are never taken
+		const agentArea = current.kind === 'review' ? getAgentFocusArea(current.result) : undefined;
+		if (current.kind === 'review' && value != null && 'result' in value) {
+			const settled = value.result as AIReviewResult;
+			const withIds = withReviewFindingIds(settled, current.earlierFindings ?? [], [
+				...(agentArea?.findings?.map(f => f.id) ?? []),
+				...(current.session?.comments?.map(c => c.id) ?? []),
+			]);
+			if (withIds !== settled) {
+				value = { ...value, result: withIds };
+			}
+		}
+
+		// Review-only: the agent's findings the entry carried through the run (see `dispatchOperation`),
+		// with whatever the agent reported meanwhile, join what the run returned — or, when it failed, the
+		// value Go Back restores and a retry carries on from.
+		let reviewPreErrorValue: { preErrorValue?: ReviewResult } = {};
+		if (agentArea != null) {
+			const reviewValue = value as ReviewResult | undefined;
+			if (reviewValue != null && 'result' in reviewValue) {
+				value = { result: withAgentFocusArea(reviewValue.result, agentArea) };
+			} else {
+				const prev = (current as Extract<RunningOperation, { kind: 'review' }>).preErrorValue;
+				reviewPreErrorValue = {
+					preErrorValue: {
+						result: withAgentFocusArea(
+							prev != null && 'result' in prev ? prev.result : undefined,
+							agentArea,
+						),
+					},
+				};
+			}
+		}
+
 		// Compose-only: stamp the plan's new cache key on a completed run, and carry the prior one
 		// forward on any other outcome — an error must stay refine-retryable.
 		let composeCacheKey: string | undefined;
@@ -2756,6 +3571,73 @@ export class DetailsWorkflowController implements ReactiveController {
 			composeCacheKey = (current as { cacheKey?: string }).cacheKey;
 			if (execState === 'complete' && value != null && 'result' in value) {
 				composeCacheKey = (value.result as { cacheKey?: string }).cacheKey ?? composeCacheKey;
+			}
+		}
+
+		// Review-only: a fresh result starts its own record of the content its findings were made against —
+		// from the files in hand, so only when they are this anchor's; otherwise nothing reads as stale.
+		// A failed run leaves the record with the result it falls back to.
+		let findingsContent = (current as { findingsContent?: ReviewFindingsContent }).findingsContent;
+		if (kind === 'review' && execState === 'complete' && value != null && 'result' in value) {
+			// The agent's findings carried through the run keep what they were recorded against
+			const carried =
+				agentArea != null && findingsContent != null
+					? new Map(
+							agentArea.findings
+								?.filter(f => findingsContent!.has(f.id))
+								.map(f => [f.id, findingsContent!.get(f.id)!]),
+						)
+					: undefined;
+			findingsContent =
+				anchorKey(anchor) === anchorKey(this.currentAnchor())
+					? withFindingsContent(
+							carried,
+							(value as { result: AIReviewResult }).result.focusAreas
+								.filter(a => a.id !== agentFocusAreaId)
+								.flatMap(a => a.findings ?? []),
+							this.actions.resources.scopeFiles.value.get(),
+						)
+					: carried;
+		}
+
+		// A review's findings put the files the reader already went through back in the queue — the
+		// marks were made before the findings existed
+		let session: ReviewSession | undefined;
+		if (kind === 'review') {
+			const review = current as Extract<RunningOperation, { kind: 'review' }>;
+			const settled = value as ReviewResult | undefined;
+			if (review.session != null && settled != null && 'result' in settled) {
+				// Known before: what the entry held through the run (the agent's findings), the result the run
+				// replaces — kept as the value Go Back restores — and the earlier findings the run's ids were
+				// matched against (they cover a re-run after stepping back), so a re-run finding the same
+				// things re-queues nothing
+				const held = review.result != null && 'result' in review.result ? review.result.result : undefined;
+				const replaced =
+					review.preErrorValue != null && 'result' in review.preErrorValue
+						? review.preErrorValue.result
+						: undefined;
+				const earlier: AIReviewFocusArea | undefined = review.earlierFindings?.length
+					? {
+							id: 'earlier',
+							label: '',
+							rationale: '',
+							severity: 'suggestion',
+							files: [],
+							findings: review.earlierFindings,
+						}
+					: undefined;
+				const known =
+					held != null || replaced != null || earlier != null
+						? {
+								...(replaced ?? held ?? { overview: '', mode: 'single-pass' as const }),
+								focusAreas: [
+									...(replaced?.focusAreas ?? []),
+									...(held?.focusAreas ?? []),
+									...(earlier != null ? [earlier] : []),
+								],
+							}
+						: undefined;
+				session = withFindingsRequeued(review.session, known, settled.result);
 			}
 		}
 
@@ -2776,6 +3658,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			basePrompt: current.basePrompt,
 			focusedFilePaths: current.focusedFilePaths,
 			cacheKey: composeCacheKey,
+			...reviewPreErrorValue,
+			...(kind === 'review' ? { findingsContent: findingsContent } : {}),
+			...(session != null ? { session: session } : {}),
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
@@ -3002,7 +3887,19 @@ export class DetailsWorkflowController implements ReactiveController {
 			existing.refineMode === op.refineMode &&
 			existing.refineDraft === op.refineDraft &&
 			// And the compose plan handle, so an update that only re-points it is never deduped away.
-			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey
+			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey &&
+			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
+				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
+			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
+			(existing as { findingsContent?: unknown }).findingsContent ===
+				(op as { findingsContent?: unknown }).findingsContent &&
+			(existing as { reading?: unknown }).reading === (op as { reading?: unknown }).reading &&
+			(existing as { threadActionsApplied?: number }).threadActionsApplied ===
+				(op as { threadActionsApplied?: number }).threadActionsApplied &&
+			(existing as { orient?: unknown }).orient === (op as { orient?: unknown }).orient &&
+			(existing as { orientRun?: unknown }).orientRun === (op as { orientRun?: unknown }).orientRun &&
+			(existing as { orientError?: unknown }).orientError === (op as { orientError?: unknown }).orientError &&
+			(existing as { deepReview?: unknown }).deepReview === (op as { deepReview?: unknown }).deepReview
 		) {
 			return;
 		}
@@ -3125,7 +4022,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		entry?.abortController?.abort();
+		abortRunningOperation(entry);
 		if (kind === 'resolve') {
 			// Resolve has no Back/Resume — cancelling returns to idle (the conflicted-file list).
 			this.removeRunningOperation(key, 'resolve');
@@ -3134,6 +4031,35 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		this.enterBackedNoResult(kind);
+		if (kind === 'review' && entry?.kind === 'review') {
+			this.restoreReviewAfterCancel(entry);
+		}
+	}
+
+	/** A cancelled re-run leaves the review as it was before it: the result it was replacing (with the agent's
+	 *  findings in it), or — with no earlier result — the agent's findings carried through the run, which
+	 *  aren't the model's to lose. With neither, the review stays on its checklist. */
+	private restoreReviewAfterCancel(cancelled: Extract<RunningOperation, { kind: 'review' }>): void {
+		const before =
+			cancelled.preErrorValue != null && 'result' in cancelled.preErrorValue
+				? cancelled.preErrorValue
+				: undefined;
+		const agentArea = getAgentFocusArea(cancelled.result);
+		const restored: ReviewResult | undefined =
+			before != null
+				? agentArea != null
+					? { result: withAgentFocusArea(before.result, agentArea) }
+					: before
+				: agentArea != null
+					? { result: withAgentFocusArea(undefined, agentArea) }
+					: undefined;
+		if (restored == null) return;
+
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(cancelled.anchor))?.review;
+		if (entry == null) return;
+
+		this.registerRunningOperation({ ...entry, execState: 'complete', result: restored });
+		this.actions.resources.review.mutate(restored);
 	}
 
 	/** Marks review/compose running operations for the given repo paths as `'orphaned'` and aborts
@@ -3149,13 +4075,15 @@ export class DetailsWorkflowController implements ReactiveController {
 			let nextBucket: RunningOperationBucket | undefined;
 			const review = bucket.review;
 			if (review != null && review.execState !== 'orphaned' && removedRepoPaths.has(review.anchor.repoPath)) {
-				review.abortController?.abort();
+				abortRunningOperation(review);
 				nextBucket ??= { ...bucket };
 				nextBucket.review = {
 					...review,
 					execState: 'orphaned',
 					abortController: undefined,
 					promise: undefined,
+					focusAreaRuns: undefined,
+					orientRun: undefined,
 				};
 				touched = true;
 			}

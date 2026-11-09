@@ -133,21 +133,15 @@ export interface TimelineLayout {
 
 export interface TimelineTheme {
 	background: string;
-	zebraOdd: string;
 	axisDomain: string;
 	axisLabel: string;
 	axisLabelMuted: string;
 	gridLine: string;
-	bubbleStroke: string;
 	selectedRing: string;
-	hoverRing: string;
 	additions: string;
 	deletions: string;
 	scrollThumb: string;
 	scrollThumbHover: string;
-	tooltipBg: string;
-	tooltipFg: string;
-	tooltipBorder: string;
 	/** Categorical palette for slices. The view model's `slice.colorIndex` indexes into this array,
 	 * wrapping with modulo for datasets that exceed the palette length. */
 	slicePalette: readonly string[];

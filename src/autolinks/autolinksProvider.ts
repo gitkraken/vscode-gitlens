@@ -4,6 +4,11 @@ import type { DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import {
+	formatPullRequestMergeQueueEnqueuedFromNow,
+	formatPullRequestMergeQueueStatus,
+	isPullRequestInMergeQueue,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { Integration } from '@gitlens/integrations/models/integration.js';
@@ -64,6 +69,13 @@ function getAutolinkName(ref: GlCacheableAutolinkReference | Autolink, num: stri
 }
 
 function getIssueStatusDescription(issue: IssueOrPullRequest, link?: string): string {
+	if (issue.type === 'pullrequest' && isPullRequestInMergeQueue(issue)) {
+		// Dated by when it joined the queue, since the status reads as what happened then
+		const status = formatPullRequestMergeQueueStatus(issue.mergeQueue);
+		const enqueued = formatPullRequestMergeQueueEnqueuedFromNow(issue.mergeQueue);
+		return link == null ? l10n.t('{0}, {1}', status, enqueued) : l10n.t('{0} {1}, {2}', link, status, enqueued);
+	}
+
 	const date = fromNow(issue.closedDate ?? issue.createdDate);
 	switch (issue.state) {
 		case 'opened':

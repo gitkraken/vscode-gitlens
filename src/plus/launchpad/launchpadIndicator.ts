@@ -17,6 +17,7 @@ import type { LaunchpadItem, LaunchpadProvider, LaunchpadRefreshEvent } from './
 import { groupAndSortLaunchpadItems, supportedLaunchpadIntegrations } from './launchpadProvider.js';
 import type { LaunchpadGroup } from './models/launchpad.js';
 import { launchpadGroupIconMap, launchpadPriorityGroups } from './models/launchpad.js';
+import { getBlockedSummaryLabel } from './utils/-webview/launchpadIndicator.utils.js';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
 type LaunchpadIndicatorItemState =
@@ -119,68 +120,6 @@ function getPullRequestCountStateLabel(count: number, state: LaunchpadIndicatorI
 				{ count: count },
 			);
 	}
-}
-
-function getBlockedSummaryLabel(
-	reviewersCount: number | undefined,
-	failedChecksCount: number | undefined,
-	conflictsCount: number | undefined,
-): string {
-	if (reviewersCount != null) {
-		if (failedChecksCount != null) {
-			if (conflictsCount != null) {
-				return formatPlural(
-					l10n.t(
-						'{reviewers, plural, one{{conflicts, plural, one{({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)} other{({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)}}} other{{conflicts, plural, one{({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)} other{({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)}}}}',
-					),
-					{ reviewers: reviewersCount, failedChecks: failedChecksCount, conflicts: conflictsCount },
-				);
-			}
-
-			return formatPlural(
-				l10n.t(
-					'{reviewers, plural, one{({reviewers} needs reviewers, {failedChecks} failed CI checks)} other{({reviewers} need reviewers, {failedChecks} failed CI checks)}}',
-				),
-				{ reviewers: reviewersCount, failedChecks: failedChecksCount },
-			);
-		}
-
-		if (conflictsCount != null) {
-			return formatPlural(
-				l10n.t(
-					'{reviewers, plural, one{{conflicts, plural, one{({reviewers} needs reviewers, {conflicts} has conflicts)} other{({reviewers} needs reviewers, {conflicts} have conflicts)}}} other{{conflicts, plural, one{({reviewers} need reviewers, {conflicts} has conflicts)} other{({reviewers} need reviewers, {conflicts} have conflicts)}}}}',
-				),
-				{ reviewers: reviewersCount, conflicts: conflictsCount },
-			);
-		}
-
-		return formatPlural(
-			l10n.t('{reviewers, plural, one{({reviewers} needs reviewers)} other{({reviewers} need reviewers)}}'),
-			{ reviewers: reviewersCount },
-		);
-	}
-
-	if (failedChecksCount != null) {
-		if (conflictsCount != null) {
-			return formatPlural(
-				l10n.t(
-					'{conflicts, plural, one{({failedChecks} failed CI checks, {conflicts} has conflicts)} other{({failedChecks} failed CI checks, {conflicts} have conflicts)}}',
-				),
-				{ failedChecks: failedChecksCount, conflicts: conflictsCount },
-			);
-		}
-
-		return l10n.t('({failedChecks} failed CI checks)', { failedChecks: failedChecksCount });
-	}
-
-	if (conflictsCount != null) {
-		return formatPlural(
-			l10n.t('{conflicts, plural, one{({conflicts} has conflicts)} other{({conflicts} have conflicts)}}'),
-			{ conflicts: conflictsCount },
-		);
-	}
-
-	return '';
 }
 
 export class LaunchpadIndicator implements Disposable {
@@ -596,7 +535,8 @@ export class LaunchpadIndicator implements Disposable {
 						const action = groupByMap(items, i =>
 							i.actionableCategory === 'failed-checks' ||
 							i.actionableCategory === 'conflicts' ||
-							i.actionableCategory === 'unassigned-reviewers'
+							i.actionableCategory === 'unassigned-reviewers' ||
+							i.actionableCategory === 'queue-failing'
 								? i.actionableCategory
 								: 'blocked',
 						);
@@ -608,6 +548,7 @@ export class LaunchpadIndicator implements Disposable {
 						let reviewersCount: number | undefined;
 						let failedChecksCount: number | undefined;
 						let conflictsCount: number | undefined;
+						let queueFailingCount: number | undefined;
 
 						let actionGroupItems = action.get('unassigned-reviewers');
 						if (actionGroupItems?.length) {
@@ -634,6 +575,12 @@ export class LaunchpadIndicator implements Disposable {
 							}
 						}
 
+						actionGroupItems = action.get('queue-failing');
+						if (actionGroupItems?.length) {
+							queueFailingCount = actionGroupItems.length;
+							item ??= actionGroupItems[0];
+						}
+
 						item ??= items[0];
 						const state = hasMultipleCategories ? 'blocked' : itemState;
 						const linkText =
@@ -655,7 +602,12 @@ export class LaunchpadIndicator implements Disposable {
 							)} "${escapeMarkdownLinkTitle(l10n.t('Open Blocked in Launchpad'))}")`,
 						);
 						if (hasMultipleCategories) {
-							const summary = getBlockedSummaryLabel(reviewersCount, failedChecksCount, conflictsCount);
+							const summary = getBlockedSummaryLabel(
+								reviewersCount,
+								failedChecksCount,
+								conflictsCount,
+								queueFailingCount,
+							);
 							if (summary) {
 								tooltip.appendMarkdown(`\\\n$(blank)$(blank) ${escapeMarkdown(summary)}`);
 							}
@@ -902,6 +854,7 @@ export interface LaunchpadSummaryResult {
 		blocked: number;
 		conflicts: number;
 		failedChecks: number;
+		queueFailing: number;
 		unassignedReviewers: number;
 	};
 
@@ -948,6 +901,7 @@ export function generateLaunchpadSummary(
 				const grouped = groupByMap(itemsInGroup, i =>
 					i.actionableCategory === 'failed-checks' ||
 					i.actionableCategory === 'conflicts' ||
+					i.actionableCategory === 'queue-failing' ||
 					i.actionableCategory === 'unassigned-reviewers'
 						? i.actionableCategory
 						: 'blocked',
@@ -959,6 +913,7 @@ export function generateLaunchpadSummary(
 					blocked: grouped.get('blocked')?.length ?? 0,
 					conflicts: grouped.get('conflicts')?.length ?? 0,
 					failedChecks: grouped.get('failed-checks')?.length ?? 0,
+					queueFailing: grouped.get('queue-failing')?.length ?? 0,
 					unassignedReviewers: grouped.get('unassigned-reviewers')?.length ?? 0,
 				};
 

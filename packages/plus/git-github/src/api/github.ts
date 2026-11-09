@@ -24,6 +24,9 @@ import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestMergeQueueActionFailureReason,
+	PullRequestMergeQueueActionResult,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestState,
@@ -71,6 +74,7 @@ import type {
 	GitHubIssueEtagInclude,
 	GitHubIssueEtagNode,
 	GitHubIssueOrPullRequest,
+	GitHubMergeQueueEntry,
 	GitHubPagedResult,
 	GitHubPageInfo,
 	GitHubPullRequest,
@@ -84,6 +88,7 @@ import type {
 import {
 	fromGitHubIssue,
 	fromGitHubIssueOrPullRequestState,
+	fromGitHubMergeQueueEntry,
 	fromGitHubPullRequest,
 	fromGitHubPullRequestLite,
 } from '../models.js';
@@ -314,6 +319,54 @@ function gqlPullRequestStackFragmentFor(options?: { baseUrl?: string }): string 
 	return isGitHubDotCom(options) ? gqlPullRequestStackFragment : '';
 }
 
+/** A `MergeQueueEntry`'s selection, shared by the per-pull-request fragment and the per-branch queue read so both
+ *  answer the one `GitHubMergeQueueEntry` shape `fromGitHubMergeQueueEntry` maps. */
+const gqlMergeQueueEntryFields = `
+state
+enqueuedAt
+estimatedTimeToMerge
+mergeQueue {
+	url
+}
+position
+`;
+
+/**
+ * The pull request's latest merge-queue event, which `fromGitHubMergeQueueRemoval` reads for a removal that hasn't
+ * been followed by a rejoin. Shared by the full read and the etag's cheap check so both derive the same removal.
+ * Aliased so it can never collide with another `timelineItems` selection. One extra connection per pull request:
+ * against GitHub's rate-limit formula (a request per connection per parent node, summed, divided by 100) that adds
+ * a point per 100 pull requests a document reads — see the `mergeQueue` cost note in core's integrations docs.
+ */
+const gqlPullRequestMergeQueueEventsFragment = `
+mergeQueueEvents: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+	nodes {
+		__typename
+		... on RemovedFromMergeQueueEvent {
+			createdAt
+			reason
+		}
+	}
+}
+`;
+
+/**
+ * Merge-queue selection, appended alongside the stack one and for the same reason: GitHub Enterprise Server's schema
+ * isn't verified to have `mergeQueueEntry`, and an unknown field fails the whole query rather than the field. Always
+ * add it via `gqlPullRequestMergeQueueFragmentFor`, at every site that adds the stack selection.
+ */
+const gqlPullRequestMergeQueueFragment = `
+mergeQueueEntry {
+	${gqlMergeQueueEntryFields}
+}
+isMergeQueueEnabled
+${gqlPullRequestMergeQueueEventsFragment}
+`;
+
+function gqlPullRequestMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
+	return isGitHubDotCom(options) ? gqlPullRequestMergeQueueFragment : '';
+}
+
 /** One layer of a stack, as returned by the stacks REST API. Ordered bottom to top. */
 export interface GitHubStackLayer {
 	number: number;
@@ -373,8 +426,24 @@ const asyncMergePollIntervalMs = 2000;
  *  generous — giving up early would report a failure for a merge still in progress. */
 const maxAsyncMergePolls = 300;
 
+/**
+ * Appended to the issue and pull request fragments rather than to {@link gqlIssueOrPullRequestFragment}, which also
+ * feeds the autolink lookups that don't need it. Assigning or clearing a milestone moves the item's `updatedAt`, so the
+ * etag fragments don't select it. Editing the milestone itself (its title, due date or state) moves no item's.
+ */
+const gqlMilestoneFragment = `
+milestone {
+	id
+	title
+	state
+	dueOn
+	url
+}
+`;
+
 const gqlPullRequestLiteFragment = `
 ${gqlIssueOrPullRequestFragment}
+${gqlMilestoneFragment}
 author {
 	login
 	avatarUrl(size: $avatarSize)
@@ -482,6 +551,7 @@ viewerCanUpdate
 
 const gqIssueFragment = `
 ${gqlIssueOrPullRequestFragment}
+${gqlMilestoneFragment}
 assignees(first: 100) {
 	nodes {
 		login
@@ -520,7 +590,8 @@ repository {
  * The change state a pull request's etag reads (see {@link GitHubPullRequestEtagNode}). Every selection is copied
  * from {@link gqlPullRequestFragment} — same arguments, same nesting — so the cheap read sees exactly the values
  * the full read maps; only a requested reviewer drops its avatar and URL, since its nullness is all the etag reads.
- * `merged` is not needed: `state` already reads `MERGED`.
+ * `merged` is not needed: `state` already reads `MERGED`. The merge-queue entry's state is added against github.com
+ * only, by {@link gqlPullRequestEtagMergeQueueFragmentFor}, as the full read adds its entry.
  */
 const gqlPullRequestEtagFragment = `
 id
@@ -530,6 +601,26 @@ isDraft
 updatedAt
 headRefOid
 `;
+
+/**
+ * The slice of {@link gqlPullRequestMergeQueueFragment} a pull request's etag reads: whether it's queued, in which
+ * state, and since when (so leaving and rejoining the queue between checks still reads as a change), and its latest
+ * merge-queue event, so a pull request that joined and was removed between two checks (neither of which moves the
+ * update time) still reads as a change. Not the estimate, which GitHub recomputes as the queue moves and would fail
+ * every check of a queued pull request, nor the position, which moves as the entries ahead of it merge, nor
+ * `isMergeQueueEnabled`, which only a change to the base branch's rules moves.
+ */
+const gqlPullRequestEtagMergeQueueFragment = `
+mergeQueueEntry {
+	state
+	enqueuedAt
+}
+${gqlPullRequestMergeQueueEventsFragment}
+`;
+
+function gqlPullRequestEtagMergeQueueFragmentFor(options?: { baseUrl?: string }): string {
+	return isGitHubDotCom(options) ? gqlPullRequestEtagMergeQueueFragment : '';
+}
 
 /**
  * The selection each {@link GitHubPullRequestEtagInclude} adds to {@link gqlPullRequestEtagFragment}, copied from
@@ -1237,6 +1328,7 @@ export class GitHubApi {
 		pullRequest(number: $number) {
 			${gqlPullRequestLiteFragment}
 			${gqlPullRequestStackFragmentFor(options)}
+			${gqlPullRequestMergeQueueFragmentFor(options)}
 		}
 	}
 }`;
@@ -1318,6 +1410,7 @@ export class GitHubApi {
 				nodes {
 					${gqlPullRequestLiteFragment}
 					${gqlPullRequestStackFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options)}
 				}
 			}
 		}
@@ -1414,6 +1507,7 @@ export class GitHubApi {
 					nodes {
 						${gqlPullRequestLiteFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}
 			}
@@ -3609,6 +3703,23 @@ export class GitHubApi {
 				return allowPartialNotFound === 'aliased' ? { data: data, errors: [] } : data;
 			} catch (ex) {
 				if (ex instanceof GraphqlResponseError) {
+					// Throttling is a fact about the whole request, so it wins over whichever error happens to be first,
+					// and over an alias it happens to name. GitHub answers 200 + `RATE_LIMIT` (code `graphql_rate_limit`)
+					// when the primary limit is exhausted.
+					if (ex.errors?.some(e => e.type === 'RATE_LIMIT' || e.type === 'RATE_LIMITED')) {
+						let resetAt: number | undefined;
+
+						const reset = ex.headers?.['x-ratelimit-reset'];
+						if (reset != null) {
+							resetAt = parseInt(reset, 10);
+							if (Number.isNaN(resetAt)) {
+								resetAt = undefined;
+							}
+						}
+
+						throw new RequestRateLimitError(ex, accessToken, resetAt);
+					}
+
 					if (
 						allowPartialNotFound === 'aliased' &&
 						ex.data != null &&
@@ -3617,8 +3728,8 @@ export class GitHubApi {
 					) {
 						// Every alias-scoped error's `path[0]` names a top-level key in `ex.data` — these queries
 						// have no other top-level fields. An error with no `path`, or naming something outside
-						// `data` (rate limits, bad credentials, query-cost errors), isn't alias-scoped and falls
-						// through to the whole-request classification below, unchanged.
+						// `data` (bad credentials, query-cost errors), isn't alias-scoped and falls through to the
+						// whole-request classification below, unchanged.
 						const aliasScoped = ex.errors.every(
 							e => e.path != null && e.path.length > 0 && e.path[0] in (ex.data as object),
 						);
@@ -3630,21 +3741,6 @@ export class GitHubApi {
 							throw new RequestNotFoundError(ex);
 						case 'FORBIDDEN':
 							throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
-						// GitHub answers 200 + `RATE_LIMIT` (code `graphql_rate_limit`) when the primary limit is exhausted
-						case 'RATE_LIMIT':
-						case 'RATE_LIMITED': {
-							let resetAt: number | undefined;
-
-							const reset = ex.headers?.['x-ratelimit-reset'];
-							if (reset != null) {
-								resetAt = parseInt(reset, 10);
-								if (Number.isNaN(resetAt)) {
-									resetAt = undefined;
-								}
-							}
-
-							throw new RequestRateLimitError(ex, accessToken, resetAt);
-						}
 					}
 
 					if (Logger.isDebugging) {
@@ -3863,6 +3959,7 @@ export class GitHubApi {
 									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 							),
 						deferFailure,
+						token.connectionId,
 					);
 				}
 				return;
@@ -3875,6 +3972,7 @@ export class GitHubApi {
 						ex,
 						() => this.config.onRequestError?.(provider, `${provider?.name ?? 'GitHub'} request timed out`),
 						deferFailure,
+						token.connectionId,
 					);
 					return;
 				}
@@ -3895,6 +3993,7 @@ export class GitHubApi {
 								: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 						),
 					deferFailure,
+					token.connectionId,
 				);
 				return;
 			default:
@@ -4053,6 +4152,7 @@ export class GitHubApi {
 				...on PullRequest {
 					${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 					${gqlPullRequestStackFragmentFor(options)}
+					${gqlPullRequestMergeQueueFragmentFor(options)}
 				}
 			}
 		}
@@ -4653,6 +4753,7 @@ export class GitHubApi {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}`,
 			)
@@ -4742,6 +4843,7 @@ export class GitHubApi {
 				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestEtagFragment}
+						${gqlPullRequestEtagMergeQueueFragmentFor(options)}
 						${includeFragments.join('')}
 					}
 				}`,
@@ -4881,29 +4983,41 @@ export class GitHubApi {
 	 * {@link getPullRequestNumbersForBranch} settles such a target, though it can't see a deleted fork's pull
 	 * request, so its caller keeps the rows matched here as well.
 	 *
+	 * One alias per query, however many head owners ask it: the owner filter runs on the returned nodes, so
+	 * queries that differ only by owner would send identical subqueries. The caller names each query once, with
+	 * every owner it wants answered from it (`headOwners`, where `undefined` means the base repository), and
+	 * the answer holds one list per owner, in `headOwners` order. The caller must keep queries distinct (same
+	 * repository, case-insensitively, and branch), or it pays for the duplicates.
+	 *
 	 * Returns POSITIONALLY, with the same per-alias rules as {@link getPullRequestsBatch}: a missing base
-	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list — while any other error on
-	 * a target's alias rejects only that target, and a whole-request failure still throws.
+	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list per owner — while any other
+	 * error on a query's alias rejects that query (every owner of it), and a whole-request failure still throws.
+	 * `truncated` is a property of the query, so it is shared by every owner.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async getPullRequestsForBranches(
 		provider: Provider,
 		token: GitHubTokenInfo,
-		targets: readonly { owner: string; repo: string; branch: string; headOwner?: string }[],
+		queries: readonly {
+			owner: string;
+			repo: string;
+			branch: string;
+			headOwners: readonly (string | undefined)[];
+		}[],
 		options: { baseUrl?: string; avatarSize?: number; limit: number },
 		cancellation?: AbortSignal,
-	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }>[]> {
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }>[]> {
 		const scope = getScopedLogger();
-		if (targets.length === 0) return [];
+		if (queries.length === 0) return [];
 
 		interface BranchPullRequest extends GitHubPullRequest {
 			headRepositoryOwner: { login: string } | null;
 		}
 
-		const params = targets
+		const params = queries
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
 			.join('\n\t\t\t\t');
-		const fields = targets
+		const fields = queries
 			.map(
 				(_, i) => `b${i}: repository(owner: $o${i}, name: $n${i}) {
 					pullRequests(headRefName: $h${i}, states: [OPEN, CLOSED, MERGED], first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -4911,6 +5025,7 @@ export class GitHubApi {
 						nodes {
 							${gqlPullRequestFragment}
 							${gqlPullRequestStackFragmentFor(options)}
+							${gqlPullRequestMergeQueueFragmentFor(options)}
 							headRepositoryOwner {
 								login
 							}
@@ -4932,7 +5047,7 @@ export class GitHubApi {
 			avatarSize: options.avatarSize,
 			limit: options.limit,
 		};
-		targets.forEach((t, i) => {
+		queries.forEach((t, i) => {
 			variables[`o${i}`] = t.owner;
 			variables[`n${i}`] = t.repo;
 			variables[`h${i}`] = t.branch;
@@ -4952,13 +5067,18 @@ export class GitHubApi {
 			// No data at all proves nothing about any slot, so it must not read as a batch of "none"s.
 			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by branch');
 
-			return targets.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }> => {
+			return queries.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }> => {
 				const alias = `b${i}`;
 				const repository = rsp.data[alias];
 
 				const verdict = getAliasErrorVerdict(rsp.errors, alias, repository);
 				if (verdict != null && verdict !== 'absent') return verdict;
-				if (repository == null) return { status: 'fulfilled', value: { pullRequests: [], truncated: false } };
+				if (repository == null) {
+					return {
+						status: 'fulfilled',
+						value: { pullRequests: t.headOwners.map(() => []), truncated: false },
+					};
+				}
 
 				const connection = repository.pullRequests;
 				if (connection == null) {
@@ -4968,31 +5088,43 @@ export class GitHubApi {
 					};
 				}
 
-				const headOwner = t.headOwner?.toLowerCase();
-				const nodes = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
-				const matches = nodes.filter(
-					pr =>
-						pr.headRefName === t.branch &&
-						(headOwner == null
-							? !pr.isCrossRepository
-							: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner here,
-								// so its pull request still matches. REST's `head` filter can't see it, which is why
-								// the caller unions the two steps rather than trusting REST alone.
-								pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
-				);
+				const returned = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
+				const nodes = returned.filter(pr => pr.headRefName === t.branch);
 
 				try {
+					// Each node is mapped once, however many owners match it, and only if one does: a row that
+					// matches nobody must cost nothing even when it can't be mapped.
+					const mapped = new Map<BranchPullRequest, PullRequest>();
 					// `first: $limit` already caps `nodes`, so the matches never exceed `limit`.
-					const pullRequests = matches
-						.map(pr => fromGitHubPullRequest(pr, provider))
-						.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					const pullRequests = t.headOwners.map(owner => {
+						const headOwner = owner?.toLowerCase();
+						return nodes
+							.filter(pr =>
+								headOwner == null
+									? !pr.isCrossRepository
+									: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner
+										// here, so its pull request still matches. REST's `head` filter can't see it,
+										// which is why the caller unions the two steps rather than trusting REST alone.
+										pr.isCrossRepository &&
+										pr.headRepositoryOwner?.login.toLowerCase() === headOwner,
+							)
+							.map(pr => {
+								let converted = mapped.get(pr);
+								if (converted == null) {
+									converted = fromGitHubPullRequest(pr, provider);
+									mapped.set(pr, converted);
+								}
+								return converted;
+							})
+							.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					});
 					return {
 						status: 'fulfilled',
-						value: { pullRequests: pullRequests, truncated: connection.totalCount > nodes.length },
+						value: { pullRequests: pullRequests, truncated: connection.totalCount > returned.length },
 					};
 				} catch (ex) {
-					// Rejects rather than answering with the rows that did map: a list missing a live pull request
-					// would read as a complete answer the consumer caches.
+					// Rejects the whole query rather than answering with the rows that did map: a list missing a
+					// live pull request would read as a complete answer the consumer caches.
 					scope?.warn(`failed to map pull requests; ${t.owner}/${t.repo}:${t.branch}, ex=${ex}`);
 					return { status: 'rejected', reason: ex };
 				}
@@ -5688,6 +5820,7 @@ export class GitHubApi {
 					... on PullRequest {
 						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options)}
 					}
 				}
 			}`,
@@ -5851,6 +5984,7 @@ export class GitHubApi {
 			...on PullRequest {
 				${gqlPullRequestFragment}
 				${gqlPullRequestStackFragmentFor(options)}
+				${gqlPullRequestMergeQueueFragmentFor(options)}
 			}
 		}
 	}`;
@@ -5948,6 +6082,102 @@ export class GitHubApi {
 
 			Logger.warn(scope, `Unable to list stacks for ${owner}/${repo}: ${ex}`);
 			return undefined;
+		}
+	}
+
+	/**
+	 * The merge-queue entries of the given base branches, keyed by pull request number, in one request — each
+	 * branch's queue is an alias on the one `repository` selection. For list surfaces whose pull requests arrive
+	 * through provider-apis' repository-scoped read, which selects no `mergeQueueEntry`; callers join by number.
+	 *
+	 * INTERIM: remove once provider-apis carries the merge-queue entry on its pull requests (goals S6).
+	 *
+	 * github.com only, like the `mergeQueueEntry` selection: `undefined` on GitHub Enterprise Server, whose schema
+	 * isn't verified to have `mergeQueue`, and for a repository GitHub reports not found. A branch without a queue
+	 * contributes nothing. At most the first 100 entries of each queue are read.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, branches) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branches: branches.join(','),
+		}),
+	})
+	async getMergeQueueEntriesForBranches(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return undefined;
+
+		const byNumber = new Map<number, PullRequestMergeQueueEntry>();
+		if (!branches.length) return byNumber;
+
+		type QueueEntryNode = GitHubMergeQueueEntry & { pullRequest: { number: number } | null };
+		interface QueryResult {
+			repository:
+				| Record<string, { entries: { nodes: (QueueEntryNode | null)[] | null } | null } | null>
+				| null
+				| undefined;
+		}
+
+		const params = branches.map((_, i) => `$b${i}: String!`).join('\n\t');
+		const fields = branches
+			.map(
+				(_, i) => `b${i}: mergeQueue(branch: $b${i}) {
+			entries(first: 100) {
+				nodes {
+					${gqlMergeQueueEntryFields}
+					pullRequest {
+						number
+					}
+				}
+			}
+		}`,
+			)
+			.join('\n\t\t');
+
+		const query = `query getMergeQueueEntriesForBranches(
+	$owner: String!
+	$repo: String!
+	${params}
+) {
+	repository(owner: $owner, name: $repo) {
+		${fields}
+	}
+}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl, owner: owner, repo: repo };
+		branches.forEach((branch, i) => {
+			variables[`b${i}`] = branch;
+		});
+
+		try {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, variables, scope, cancellation);
+			if (rsp?.repository == null) return undefined;
+
+			for (const queue of Object.values(rsp.repository)) {
+				for (const node of queue?.entries?.nodes ?? []) {
+					if (node?.pullRequest == null) continue;
+
+					byNumber.set(node.pullRequest.number, fromGitHubMergeQueueEntry(node));
+				}
+			}
+
+			return byNumber;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			// Silent: an enrichment of a list that already loaded mustn't prompt for re-authentication on its own.
+			throw this.handleException(ex, provider, scope, true);
 		}
 	}
 
@@ -6133,6 +6363,180 @@ export class GitHubApi {
 			throw this.handleException(ex, provider, scope);
 		}
 	}
+
+	/**
+	 * Adds a pull request to its base branch's merge queue, at the back (no `jump`). GitHub takes no merge method here:
+	 * the base branch's ruleset decides it. `expectedHeadSha` makes GitHub refuse a head that moved since it was read.
+	 *
+	 * GitHub's refusals come back as a `failed` result saying why (see {@link toGitHubMergeQueueActionFailure}),
+	 * without prompting to re-authenticate on a FORBIDDEN, which here means the account may not queue, not that the
+	 * token is bad. A failure to reach GitHub, a refused credential or a rate limit is thrown as from any other request,
+	 * and cancellation throws `CancellationError`. Like every mutation it is never retried. github.com only, like the
+	 * merge-queue reads: `unsupported` on GitHub Enterprise Server, whose schema isn't verified to have it.
+	 */
+	@trace({
+		args: (provider, token, nodeId, expectedHeadSha) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			nodeId: nodeId,
+			expectedHeadSha: expectedHeadSha,
+		}),
+	})
+	async enqueuePullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		nodeId: string,
+		expectedHeadSha: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return { status: 'failed', reason: 'unsupported' };
+
+		interface QueryResult {
+			enqueuePullRequest: { mergeQueueEntry: GitHubMergeQueueEntry | null } | null;
+		}
+
+		try {
+			const query = `mutation enqueuePullRequest(
+	$id: ID!
+	$expectedHeadOid: GitObjectID!
+) {
+	enqueuePullRequest(input: { pullRequestId: $id, expectedHeadOid: $expectedHeadOid }) {
+		mergeQueueEntry {
+			${gqlMergeQueueEntryFields}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{ id: nodeId, expectedHeadOid: expectedHeadSha, baseUrl: options?.baseUrl },
+				scope,
+				cancellation,
+			);
+
+			const entry = rsp?.enqueuePullRequest?.mergeQueueEntry;
+			return { status: 'queued', entry: entry != null ? fromGitHubMergeQueueEntry(entry) : undefined };
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const failure = toGitHubMergeQueueActionFailure(ex);
+			if (failure != null) {
+				scope?.warn(`GitHub refused to enqueue: ${failure.reason} (${failure.message})`);
+				return { status: 'failed', ...failure };
+			}
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Removes a pull request from its base branch's merge queue, losing its place there. Fails and throws as
+	 * {@link enqueuePullRequest} does, and is github.com only like it.
+	 */
+	@trace({
+		args: (provider, token, nodeId) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			nodeId: nodeId,
+		}),
+	})
+	async dequeuePullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		nodeId: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return { status: 'failed', reason: 'unsupported' };
+
+		interface QueryResult {
+			dequeuePullRequest: { mergeQueueEntry: { id: string } | null } | null;
+		}
+
+		try {
+			// `id` is the pull request's node id (DequeuePullRequestInput: "The ID of the pull request to be dequeued").
+			const query = `mutation dequeuePullRequest($id: ID!) {
+	dequeuePullRequest(input: { id: $id }) {
+		mergeQueueEntry {
+			id
+		}
+	}
+}`;
+
+			await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{ id: nodeId, baseUrl: options?.baseUrl },
+				scope,
+				cancellation,
+			);
+
+			return { status: 'dequeued' };
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const failure = toGitHubMergeQueueActionFailure(ex);
+			if (failure != null) {
+				scope?.warn(`GitHub refused to dequeue: ${failure.reason} (${failure.message})`);
+				return { status: 'failed', ...failure };
+			}
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+}
+
+/**
+ * The wordings {@link toGitHubMergeQueueActionFailure} recognizes, tried in order against the lowercased message.
+ * Each was observed live (2026-11-06) as a GraphQL `UNPROCESSABLE` error, and is matched tightly to GitHub's fixed
+ * phrasing: "Pull request is already in the queue" (enqueue of a queued pull request), "Failed to add PR #N: expected
+ * head oid does not match the current head oid" (enqueue at a stale head), "Pull request is closed" (enqueue of a
+ * merged or closed pull request) and "Pull request is in draft" (enqueue of a draft). Dequeue of a pull request that isn't queued is refused with only the generic
+ * `Failed to remove PR #N "<title>"`, which embeds the pull request's title, so it matches nothing here (a title like
+ * "Fix merge conflict" must not read as a conflict) and falls through to `unknown`.
+ */
+const mergeQueueActionFailurePatterns: readonly (readonly [PullRequestMergeQueueActionFailureReason, RegExp])[] = [
+	['already-queued', /\bis already in the queue\b/],
+	['head-changed', /\bexpected head oid does not match\b/],
+	['not-allowed', /^pull request is (?:closed|in draft)\b/],
+];
+
+/**
+ * Why GitHub refused to add a pull request to its merge queue or remove it, from the error its GraphQL answer carried
+ * (`errors[]`, which `graphql` throws as a `GraphqlResponseError`, or wraps in an `AuthenticationError` for FORBIDDEN
+ * and a `RequestNotFoundError` for NOT_FOUND). `undefined` for anything that isn't GitHub's answer about the action
+ * — a failure to reach it, a refused credential (HTTP 401/403), a rate limit — which the caller handles like any
+ * other request's failure.
+ *
+ * Only the wordings observed live (2026-11-06; see {@link mergeQueueActionFailurePatterns}) are recognized. Dequeue's
+ * refusal is generic and embeds the pull request's title, so it is never matched by wording and maps to `unknown`.
+ * When no message matches, the error's `type` decides (FORBIDDEN is `permission`), and anything else is `unknown`.
+ * The message is GitHub's own, for logs, never for display.
+ */
+export function toGitHubMergeQueueActionFailure(
+	ex: unknown,
+): { reason: PullRequestMergeQueueActionFailureReason; message: string } | undefined {
+	const original = ex instanceof AuthenticationError || ex instanceof RequestNotFoundError ? ex.original : ex;
+	if (!(original instanceof GraphqlResponseError)) return undefined;
+
+	const error = original.errors?.[0];
+	if (error == null) return undefined;
+
+	const message = error.message ?? '';
+	const text = message.toLowerCase();
+
+	const matched = mergeQueueActionFailurePatterns.find(([, pattern]) => pattern.test(text));
+	if (matched != null) return { reason: matched[0], message: message };
+
+	// A NOT_FOUND names the pull request's node id, which the caller just read, so it says nothing about the queue:
+	// most likely a repository the account can no longer see. `unknown`, like any other unrecognized refusal.
+	return { reason: error.type === 'FORBIDDEN' ? 'permission' : 'unknown', message: message };
 }
 
 /**

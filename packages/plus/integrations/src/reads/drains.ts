@@ -14,7 +14,8 @@ import type { ProviderPullRequest, ProviderReposInput, ProviderRepository } from
 import { getProviderPullRequestIdentity, pullRequestNamesPeople } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
-import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { hostFromDomain } from '../utils/domain.utils.js';
+import { isIssuesHostIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import {
 	cappedBesideBudgetWarning,
 	noConnectionWarning,
@@ -108,11 +109,17 @@ export async function drainPullRequests(
 	state: PullRequestStateFilter[] | undefined,
 	filters: PullRequestFilter[] | undefined,
 	/**
-	 * Breadth opt-ins that only the account-wide read can express. Grouped rather than passed positionally
-	 * because they are same-typed neighbors a transposition would silently swap, and picked from the sweep
-	 * options rather than restated so a third opt-in is declared once.
+	 * The sweep options the drain reads beyond its query: the breadth opt-ins only the account-wide read can
+	 * express, and the repo-scoped read's fan-out bound and clone-URL lookup. Grouped rather than passed
+	 * positionally because the opt-ins are same-typed neighbors a transposition would silently swap, and picked
+	 * from the sweep options rather than restated so a new one is declared once.
 	 */
-	accountWideOptions: Pick<PullRequestSweepOptions, 'includeReviewRequested' | 'includeReviews'> | undefined,
+	sweepOptions:
+		| Pick<
+				PullRequestSweepOptions,
+				'includeReviewRequested' | 'includeReviews' | 'scopeConcurrency' | 'includeRemoteInfo'
+		  >
+		| undefined,
 	connectionId: string | undefined,
 	maxPages: number,
 	attributeUnavailableProvider: boolean,
@@ -155,8 +162,8 @@ export async function drainPullRequests(
 	const accountWide = repos.length === 0;
 	// The breadth opt-ins are only expressible on the account-wide core, so gate them here — the single place
 	// that already knows which core it is about to call.
-	const includeReviewRequested = accountWide && (accountWideOptions?.includeReviewRequested ?? false);
-	const includeReviews = accountWide && (accountWideOptions?.includeReviews ?? false);
+	const includeReviewRequested = accountWide && (sweepOptions?.includeReviewRequested ?? false);
+	const includeReviews = accountWide && (sweepOptions?.includeReviews ?? false);
 	/** Every cursor already followed, so a provider that cycles them can't keep the drain walking in circles. */
 	const seenCursors = new Set<string>();
 
@@ -179,7 +186,13 @@ export async function drainPullRequests(
 					)
 				: integration.getMyPullRequestsForReposResult(
 						repos,
-						{ state: state, filters: filters, cursor: pageCursor },
+						{
+							state: state,
+							filters: filters,
+							cursor: pageCursor,
+							scopeConcurrency: sweepOptions?.scopeConcurrency,
+							includeRemoteInfo: sweepOptions?.includeRemoteInfo,
+						},
 						connectionId,
 					),
 		);
@@ -418,6 +431,17 @@ export async function drainRepositories(
 	}
 }
 
+function describeSweepTargetSelector(target: ProviderSweepTarget): string {
+	const parts: string[] = [];
+	if (target.connectionId != null) {
+		parts.push(`connectionId '${target.connectionId}'`);
+	}
+	if (target.domain != null) {
+		parts.push(`domain '${target.domain}'`);
+	}
+	return parts.length !== 0 ? ` (${parts.join(', ')})` : '';
+}
+
 export function resolvePullRequestSweepTargets(options: PullRequestSweepOptions | undefined): {
 	targets: readonly ProviderSweepTarget[];
 	attributeUnavailableProviders: boolean;
@@ -427,15 +451,35 @@ export function resolvePullRequestSweepTargets(options: PullRequestSweepOptions 
 			throw new TypeError("Pull request sweep 'targets' cannot be combined with 'providerIds' or 'connectionId'");
 		}
 
-		const seenProviderIds = new Set<IntegrationIds>();
+		// Keyed by the selector as the read resolves it, so a repeat is a duplicate however its domain is spelled.
+		// Several targets of one provider are legitimate (one per connection), but each must name its connection:
+		// an unnamed one reads the primary connection, which may be one of the named ones. A domain names a host
+		// only on a self-managed provider; a cloud provider's read ignores it.
+		const seenTargets = new Set<string>();
+		const targetCounts = new Map<IntegrationIds, number>();
+		const unnamedTargets: ProviderSweepTarget[] = [];
 		for (const target of options.targets) {
-			if (seenProviderIds.has(target.providerId)) {
+			const host = isSelfManagedHostIntegrationId(target.providerId) ? hostFromDomain(target.domain) : undefined;
+			const key = JSON.stringify([target.providerId, target.connectionId ?? '', host ?? '']);
+			if (seenTargets.has(key)) {
 				throw new TypeError(
-					`Pull request sweep targets must contain at most one target per provider; duplicate '${target.providerId}'`,
+					`Pull request sweep targets must be unique; duplicate '${target.providerId}' target${describeSweepTargetSelector(target)}`,
 				);
 			}
 
-			seenProviderIds.add(target.providerId);
+			seenTargets.add(key);
+			targetCounts.set(target.providerId, (targetCounts.get(target.providerId) ?? 0) + 1);
+			if (target.connectionId == null && host == null) {
+				unnamedTargets.push(target);
+			}
+		}
+
+		for (const target of unnamedTargets) {
+			if ((targetCounts.get(target.providerId) ?? 0) > 1) {
+				throw new TypeError(
+					`Pull request sweep targets for '${target.providerId}' must each name a connectionId or domain when there is more than one (a domain only on a self-managed host); an unnamed target reads the primary connection`,
+				);
+			}
 		}
 
 		return { targets: options.targets, attributeUnavailableProviders: true };

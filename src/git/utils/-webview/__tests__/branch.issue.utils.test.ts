@@ -1,9 +1,16 @@
 import * as assert from 'assert';
+import { promises as fs, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import * as sinon from 'sinon';
+import { window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GkConfigKeys } from '@gitlens/git/providers/config.js';
+import type { GitRunOptions } from '@gitlens/git/run.types.js';
 import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/models.js';
 import { encodeIssueOrPullRequestForGitConfig } from '@gitlens/integrations/providers/utils.js';
+import { createTestRepo } from '../../../../../packages/git-cli/src/providers/__tests__/integration/helpers.js';
 import type { Container } from '../../../../container.js';
 import {
 	addAssociatedIssueToBranch,
@@ -97,6 +104,122 @@ function createContainer(
 }
 
 suite('branch issue associations', () => {
+	let warnings: sinon.SinonStub;
+
+	setup(() => {
+		warnings = sinon.stub(window, 'showWarningMessage').resolves(undefined);
+	});
+
+	teardown(() => {
+		sinon.restore();
+	});
+
+	for (const failure of ['read', 'prepare-write'] as const) {
+		test(`reports real config provider ${failure} failure without replacing prior links or emitting success`, async () => {
+			const repo = createTestRepo();
+			try {
+				const actualBranch = { ...branch, repoPath: repo.path };
+				const key = `branch.${branch.name}.gk-associated-issues` satisfies GkConfigKeys;
+				const config = repo.provider.config;
+				const prior = JSON.stringify([
+					encodeIssueOrPullRequestForGitConfig(
+						{ ...createIssue('jira', 'atlassian.net'), id: 'EXISTING-1', nodeId: 'I_existing' },
+						{ key: 'resource', id: 'resource', name: '' },
+					),
+				]);
+				if (failure === 'read') {
+					await config.setGkConfig(repo.path, key, prior);
+					const real = repo.provider.git.run.bind(repo.provider.git);
+					sinon
+						.stub(repo.provider.git, 'run')
+						.callsFake(async (options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+							if (!args.includes('--list')) return real(options, ...args);
+
+							return {
+								stdout: '',
+								stderr: undefined,
+								completion: { status: 'failed', reason: 'unstarted', error: new Error('read failed') },
+							};
+						});
+				} else {
+					await config.getGkConfig(repo.path, key);
+					sinon
+						.stub(fs, 'mkdir')
+						.withArgs(join(repo.path, '.git', 'gk'), { recursive: true })
+						.rejects(new Error('permission denied'));
+				}
+
+				const { container } = createContainer();
+				const writes = sinon.spy(config, 'setGkConfig');
+				const changes = sinon.spy(container.events, 'fire');
+				sinon.stub(container.git, 'getRepositoryService').returns({
+					config: {
+						getGkConfig: config.getGkConfig.bind(config, repo.path),
+						setGkConfig: config.setGkConfig.bind(config, repo.path),
+					},
+				} as ReturnType<Container['git']['getRepositoryService']>);
+				await addAssociatedIssueToBranch(container, actualBranch, createIssue('jira', 'atlassian.net'));
+				assert.strictEqual(warnings.callCount, 1);
+				assert.strictEqual(changes.callCount, 0);
+				if (failure === 'read') {
+					assert.strictEqual(writes.callCount, 0);
+					assert.ok(readFileSync(join(repo.path, '.git', 'gk', 'config'), 'utf8').includes('EXISTING-1'));
+				} else {
+					assert.strictEqual(writes.callCount, 1);
+				}
+			} finally {
+				repo.cleanup();
+			}
+		});
+	}
+
+	test('reports missing owner information without writing an association', async () => {
+		const { container, writes } = createContainer();
+		const issue = { ...createIssue('jira', 'example.atlassian.net'), project: undefined };
+		await addAssociatedIssueToBranch(container, branch, issue, undefined);
+		assert.strictEqual(writes(), 0);
+		assert.strictEqual(warnings.callCount, 1);
+		assert.ok(warnings.firstCall.args[0].includes(issue.id));
+		assert.ok(warnings.firstCall.args[0].includes(branch.name));
+	});
+
+	for (const operation of ['read', 'write', 'unavailable'] as const) {
+		test(`reports a failed association when config ${operation} fails`, async () => {
+			const { container, writes } = createContainer();
+			const config = container.git.getRepositoryService(branch.repoPath).config;
+			if (operation === 'read') {
+				sinon.stub(config, 'getGkConfig').rejects(new Error('read failed'));
+			} else if (operation === 'write') {
+				sinon.stub(config, 'setGkConfig').rejects(new Error('write failed'));
+			} else {
+				sinon.stub(config, 'setGkConfig').value(undefined);
+			}
+			sinon
+				.stub(container.git, 'getRepositoryService')
+				.returns({ config: config } as ReturnType<Container['git']['getRepositoryService']>);
+			const issue = createIssue('jira', 'example.atlassian.net');
+			await addAssociatedIssueToBranch(container, branch, issue, owner);
+			assert.strictEqual(writes(), 0);
+			assert.strictEqual(warnings.callCount, 1);
+			assert.ok(warnings.firstCall.args[0].includes(issue.id));
+		});
+	}
+
+	test('persists and resolves Jira association by actual site id without a namespace', async () => {
+		const issue = createIssue('jira', 'example.atlassian.net');
+		issue.project!.resourceName = '';
+		const { container, read, writes } = createContainer([], issue);
+		await addAssociatedIssueToBranch(container, branch, issue);
+		assert.strictEqual(writes(), 1);
+		const encoded = read()[0];
+		assert.strictEqual('resourceId' in encoded ? encoded.resourceId : undefined, 'resource');
+		assert.strictEqual(read()[0].metadata.owner.id, 'resource');
+		assert.strictEqual(read()[0].metadata.owner.name, '');
+		const result = await getAssociatedIssuesForBranch(container, branch as GitBranch);
+		assert.strictEqual((await result.value)?.[0].issue, issue);
+		assert.strictEqual(warnings.callCount, 0);
+	});
+
 	for (const provider of [
 		'cloud-github-enterprise',
 		'cloud-gitlab-self-hosted',

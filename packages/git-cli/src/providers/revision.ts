@@ -16,7 +16,7 @@ import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
-import { splitPath } from '@gitlens/utils/path.js';
+import { joinPaths, splitPath } from '@gitlens/utils/path.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
@@ -73,9 +73,106 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				args.push('-c', '-o');
 			}
 
-			const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, ...args, '--', path);
+			// Literal, or a missing `[id]/page.tsx` would count as existing whenever `i/page.tsx` does
+			const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, ...args, '--', `:(literal)${path}`);
 			return Boolean(result.stdout.trim());
 		});
+	}
+
+	@debug()
+	async getBlobIds(
+		repoPath: string,
+		paths: readonly string[],
+		source: 'index' | 'working',
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string>> {
+		const ids = new Map<string, string>();
+		if (paths.length === 0) return ids;
+
+		if (source === 'index') {
+			// Literal pathspecs, so a file named like `[id]/page.tsx` doesn't also match `i/page.tsx`
+			const prefix = ['ls-files', '-z', '--stage'];
+			for (const batch of batchLiteralPathspecs(paths, prefix)) {
+				const result = await this.git.run(
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+					...prefix,
+					'--',
+					...batch,
+				);
+				for (const entry of parseGitLsFilesStaged(result.stdout, false)) {
+					// A conflicted path lists one entry per stage; the first is as good an identity as any
+					if (!ids.has(entry.path)) {
+						ids.set(entry.path, entry.oid);
+					}
+				}
+			}
+			return ids;
+		}
+
+		// `hash-object` without `-w` computes ids without storing anything; `--stdin-paths` hashes them
+		// all in one process, printing one line per path in input order. A path it can't hash (a
+		// submodule, a directory, a missing or unreadable file) ends the run right there, after the ids
+		// of the paths before it — so the first missing line names the culprit, and the rest resume in
+		// a new run after it.
+		const unhashable: string[] = [];
+		let start = 0;
+		while (start < paths.length) {
+			const pending = paths.slice(start);
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore', stdin: `${pending.join('\n')}\n` },
+				'hash-object',
+				'--stdin-paths',
+			);
+			const lines = result.stdout.split('\n');
+			let hashed = 0;
+			while (hashed < pending.length) {
+				const oid = lines[hashed]?.trim();
+				if (!oid) break;
+
+				ids.set(pending[hashed], oid);
+				hashed++;
+			}
+			if (hashed === pending.length) break;
+			// Only a run that exited with an error stopped at a path; a cancelled or never-started one
+			// says nothing about which path is to blame
+			if (result.completion.status !== 'exited' || result.completion.code === 0) break;
+
+			unhashable.push(pending[hashed]);
+			start += hashed + 1;
+		}
+
+		if (unhashable.length && !cancellation?.aborted) {
+			await Promise.all(
+				unhashable.map(async path => {
+					const oid = await this.getCheckedOutSubmoduleCommit(repoPath, path, cancellation);
+					if (oid) {
+						ids.set(path, oid);
+					}
+				}),
+			);
+		}
+		return ids;
+	}
+
+	/** The commit checked out in the submodule at `path` — what the index records for it too, so its id
+	 *  moves when the submodule does. Anything else that couldn't be hashed has no id. */
+	private async getCheckedOutSubmoduleCommit(
+		repoPath: string,
+		path: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		// Inside a plain directory git finds the outer repository and reports a non-empty prefix (`dir/`);
+		// only the top of a repository of its own answers with an empty one
+		const result = await this.git.run(
+			{ cwd: joinPaths(repoPath, path), cancellation: cancellation, errors: 'ignore' },
+			'rev-parse',
+			'--show-prefix',
+			'HEAD',
+		);
+		if (result.completion.status !== 'exited' || result.completion.code !== 0) return undefined;
+
+		const [prefix, sha] = result.stdout.split('\n');
+		return prefix === '' ? sha?.trim() || undefined : undefined;
 	}
 
 	/** `hash-object` without `-w` computes the id in the repository's format without storing anything */
@@ -128,7 +225,8 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 				'-z',
 				'--stage',
 				'--',
-				relativePath,
+				// Literal, or a glob-like name could read the entry of a different file that it matches
+				`:(literal)${relativePath}`,
 			);
 
 			const entries = parseGitLsFilesStaged(result.stdout, true);

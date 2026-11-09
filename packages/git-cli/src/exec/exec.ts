@@ -3,7 +3,6 @@ export {
 	endStdin,
 	findExecutable,
 	fsExists,
-	getWindowsShortPath,
 	run,
 	RunError,
 	runSpawn,

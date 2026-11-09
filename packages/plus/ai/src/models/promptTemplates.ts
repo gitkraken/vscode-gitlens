@@ -92,6 +92,53 @@ interface ReviewOverviewPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewOrientPromptTemplateContext {
+	files: string;
+	message: string;
+	context?: string;
+	instructions?: string;
+}
+
+interface DeepReviewPromptTemplateContext {
+	scopeLabel: string;
+	/** Shell command that shows the changes under review */
+	diffCommand: string;
+	/** The changed files, one per line */
+	files: string;
+	/** Where to POST findings, and the bearer token the request must carry */
+	endpoint: string;
+	token: string;
+	/** What an earlier review already found, with what the reader said about it — a whole section, with
+	 *  its own instructions, or nothing when no review ran before this one */
+	priorFindings?: string;
+	instructions?: string;
+}
+
+/** A reader's question or remark on one finding, for the review agent to take up — not a whole review */
+interface DeepReviewOrientPromptTemplateContext {
+	scopeLabel: string;
+	/** Shell command that shows the changes under review */
+	diffCommand: string;
+	/** Where to POST, and the bearer token the request must carry */
+	endpoint: string;
+	token: string;
+	instructions?: string;
+}
+
+interface DeepReviewFocusPromptTemplateContext {
+	scopeLabel: string;
+	/** Shell command that shows the changes under review */
+	diffCommand: string;
+	/** The finding as context: id, severity, state, places, text and what has been said about it */
+	finding: string;
+	/** What the reader just said about it */
+	question: string;
+	/** Where to POST, and the bearer token the request must carry */
+	endpoint: string;
+	token: string;
+	instructions?: string;
+}
+
 interface ReviewDetailPromptTemplateContext {
 	diff: string;
 	overview: string;
@@ -127,9 +174,13 @@ export type PromptTemplateType =
 	| 'explain-changes'
 	| 'review-changes'
 	| 'review-overview'
+	| 'review-orient'
 	| 'review-detail'
 	| 'review-refine'
 	| 'address-review-findings'
+	| 'deep-review'
+	| 'deep-review-focus'
+	| 'deep-review-orient'
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
 
@@ -158,12 +209,20 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? ReviewChangesPromptTemplateContext
 	: T extends 'review-overview'
 	? ReviewOverviewPromptTemplateContext
+	: T extends 'review-orient'
+	? ReviewOrientPromptTemplateContext
 	: T extends 'review-detail'
 	? ReviewDetailPromptTemplateContext
 	: T extends 'review-refine'
 	? ReviewRefinePromptTemplateContext
 	: T extends 'address-review-findings'
 	? AddressReviewFindingsPromptTemplateContext
+	: T extends 'deep-review'
+	? DeepReviewPromptTemplateContext
+	: T extends 'deep-review-focus'
+	? DeepReviewFocusPromptTemplateContext
+	: T extends 'deep-review-orient'
+	? DeepReviewOrientPromptTemplateContext
 	: T extends 'start-review-pullRequest'
 	? ReviewPullRequestPromptTemplateContext
 	: T extends 'start-work-issue'

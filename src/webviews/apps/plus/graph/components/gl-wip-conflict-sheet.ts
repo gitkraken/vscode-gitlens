@@ -70,7 +70,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 
 			.title code-icon {
 				flex-shrink: 0;
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.title__name {
@@ -98,7 +98,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 			/* Subtle hairline matching the sheet's own --vscode-widget-border edges (gl-detail-sheet
   header/footer). The divider's own :hover/:active states still recolor it on grab. */
 			.sides::part(divider) {
-				background-color: var(--vscode-widget-border, var(--color-foreground--25));
+				background-color: var(--gl-color-divider-base);
 			}
 
 			.state {

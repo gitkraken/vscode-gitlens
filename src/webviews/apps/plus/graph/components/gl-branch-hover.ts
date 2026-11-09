@@ -8,6 +8,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
@@ -467,7 +468,11 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 				() => html`
 					<div class="row">
 						<span class="icon">
-							<pr-icon ?draft=${pr!.draft} state=${pr!.state} pr-id=${pr!.id}></pr-icon>
+							<pr-icon
+								?draft=${pr!.draft}
+								state=${getPullRequestDisplayState(pr!)}
+								pr-id=${pr!.id}
+							></pr-icon>
 						</span>
 						<span class="name">
 							<a href=${pr!.url} @click=${(e: MouseEvent) => this.onPrTitleClick(e, pr!)}>${pr!.title}</a>
@@ -500,7 +505,11 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			case 'pullrequest':
 				return html`<div class="row">
 					<span class="icon">
-						<pr-icon ?draft=${item.draft ?? false} state=${item.state} pr-id=${item.id}></pr-icon>
+						<pr-icon
+							?draft=${item.draft ?? false}
+							state=${getPullRequestDisplayState(item)}
+							pr-id=${item.id}
+						></pr-icon>
 					</span>
 					${link}${identifier}
 				</div>`;

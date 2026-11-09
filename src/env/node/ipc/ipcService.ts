@@ -1,6 +1,6 @@
 import { ppid } from 'process';
-import type { Disposable } from 'vscode';
-import { env, workspace } from 'vscode';
+import type { Disposable, Event } from 'vscode';
+import { env, EventEmitter, workspace } from 'vscode';
 import {
 	agentDiscoveryDir,
 	cleanupDiscoveryFile,
@@ -49,6 +49,13 @@ export class IpcService implements Disposable {
 	private readonly _disposable: Disposable;
 	private _sweepTimer: ReturnType<typeof setTimeout> | undefined;
 
+	private readonly _onDidStart = new EventEmitter<void>();
+	/** Fires once the server is listening — {@link address} and {@link token} are unset until then, and the
+	 *  server starts on first use (the CLI's IPC once AI is enabled, the agents' discovery, a handler). */
+	get onDidStart(): Event<void> {
+		return this._onDidStart.event;
+	}
+
 	constructor(private readonly container: Container) {
 		this._disposable = workspace.onDidChangeWorkspaceFolders(() => void this.refreshDiscoveryFiles());
 
@@ -63,6 +70,7 @@ export class IpcService implements Disposable {
 
 	dispose(): void {
 		this._disposable.dispose();
+		this._onDidStart.dispose();
 		if (this._sweepTimer != null) {
 			clearTimeout(this._sweepTimer);
 			this._sweepTimer = undefined;
@@ -77,6 +85,17 @@ export class IpcService implements Disposable {
 		this._server?.dispose();
 		this._server = undefined;
 		this._serverPromise = undefined;
+	}
+
+	/** Whether the server can be started here — it can, on the desktop, whether or not anything has yet */
+	get canStart(): boolean {
+		return true;
+	}
+
+	/** Starts the server if nothing has yet — for a feature that hands its address out (a review's agent channel)
+	 *  rather than registering a handler first. Resolves `false` when it can't start. */
+	async ensureStarted(): Promise<boolean> {
+		return (await this.ensureServer()) != null;
 	}
 
 	get port(): number | undefined {
@@ -102,11 +121,13 @@ export class IpcService implements Disposable {
 	/**
 	 * Registers a handler under `/{name}`. Returns a disposable immediately; the
 	 * registration completes asynchronously once the server is running. Disposing
-	 * before the server starts cancels the pending registration.
+	 * before the server starts cancels the pending registration. A `routeToken`
+	 * authorizes this route alone, besides the server's own token.
 	 */
 	registerHandler<Request = unknown, Response = unknown>(
 		name: string,
 		handler: IpcHandler<Request, Response>,
+		routeToken?: string,
 	): UnifiedDisposable {
 		let inner: UnifiedDisposable | undefined;
 		let disposed = false;
@@ -117,7 +138,7 @@ export class IpcService implements Disposable {
 			try {
 				// Cast through unknown — the underlying server uses unknown/unknown but each
 				// handler typically narrows its own request/response shape.
-				inner = server.registerHandler(name, handler as unknown as IpcHandler<unknown, unknown>);
+				inner = server.registerHandler(name, handler as unknown as IpcHandler<unknown, unknown>, routeToken);
 			} catch (ex) {
 				// e.g., a duplicate handler name from a partial start retry.
 				Logger.error(ex, `${formatLoggableScopeBlock('IPC')} Failed to register handler '${name}'`);
@@ -201,6 +222,7 @@ export class IpcService implements Disposable {
 		this._serverPromise ??= createIpcServer<unknown, unknown>().then(
 			server => {
 				this._server = server;
+				this._onDidStart.fire();
 				return server;
 			},
 			(ex: unknown) => {

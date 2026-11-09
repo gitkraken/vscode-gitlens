@@ -64,13 +64,15 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		// gate) could join an enumeration that started before the change it's trying to detect. Evicting
 		// is safe mid-flight: the in-flight factory's settle is ownership-guarded and won't evict the
 		// successor installed here.
+		let previous: Promise<RefRecord[]> | undefined;
 		if (options?.force) {
 			const commonPath = this.cache.getCommonPath(repoPath);
+			previous = this.cache.refs.get(commonPath);
 			this.cache.refs.delete(commonPath);
 			this.cache.refTips.delete(commonPath);
 		}
 
-		return this.cache.getRefs(
+		const records = await this.cache.getRefs(
 			repoPath,
 			async (commonPath, cacheable, signal) => {
 				try {
@@ -120,6 +122,17 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			},
 			cancellation,
 		);
+		if (options?.force && !(await areRefTipsEqual(previous, records))) {
+			// Keyed by ref names in each checkout, as a tag move clears them, so a count or merge base taken before a
+			// ref moved can't be paired with the tips read now; the graph forces this read on every build, so only a
+			// read that found a ref moved drops them
+			const commonPath = this.cache.getCommonPath(repoPath);
+			for (const path of new Set([repoPath, ...this.cache.getWorktreePaths(commonPath)])) {
+				this.cache.leftRightCommitCount.delete(path);
+				this.cache.mergeBase.delete(path);
+			}
+		}
+		return records;
 	}
 
 	@debug({ quiet: true })
@@ -732,4 +745,23 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		// `git log --all` walk (graph, search, contributors) sees one, when it points at a commit, so a row it
 		// adds or drops can stay stale until the next heads change.
 	}
+}
+
+/** Whether `records` hold the same refs at the same commits as the read `previous`; `false` when it is unknown or failed */
+async function areRefTipsEqual(previous: Promise<RefRecord[]> | undefined, records: RefRecord[]): Promise<boolean> {
+	let before: RefRecord[];
+	try {
+		if (previous == null) return false;
+
+		before = await previous;
+	} catch {
+		return false;
+	}
+	if (before.length !== records.length) return false;
+
+	const tips = new Map<string, string>();
+	for (const record of before) {
+		tips.set(record.name, record.objectname);
+	}
+	return records.every(r => tips.get(r.name) === r.objectname);
 }

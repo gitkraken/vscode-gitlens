@@ -1056,3 +1056,40 @@ suite("Launchpad's mergeability for a row that has none", () => {
 		}
 	});
 });
+
+suite('pull request milestone', () => {
+	test('keys a milestone by its GraphQL id and maps its state, due date and page', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				milestone: {
+					id: '12',
+					graphQLId: 'gid://gitlab/Milestone/12',
+					number: 2,
+					title: '16.0',
+					description: null,
+					isOpen: false,
+					url: 'https://gitlab.com/o/r/-/milestones/2',
+					startDate: null,
+					dueDate: new Date('2026-05-01T00:00:00Z'),
+				},
+			}),
+			fakeProvider,
+		);
+
+		assert.deepEqual(pr.milestone, {
+			id: 'gid://gitlab/Milestone/12',
+			title: '16.0',
+			state: 'closed',
+			dueDate: new Date('2026-05-01T00:00:00Z'),
+			url: 'https://gitlab.com/o/r/-/milestones/2',
+		});
+	});
+
+	test('keeps none (null) apart from a provider that reports no milestone (key absent)', () => {
+		const none = fromProviderPullRequest(createProviderPullRequest({ milestone: null }), fakeProvider);
+		const unreported = fromProviderPullRequest(createProviderPullRequest(), fakeProvider);
+
+		assert.equal(none.milestone, null);
+		assert.equal(unreported.milestone, undefined);
+	});
+});
