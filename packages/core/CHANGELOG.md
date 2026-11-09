@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
+- Adds `branches.getCurrentHead`, which reads what a worktree has checked out (`GitCurrentHead`: the branch, or the one a paused rebase is rebasing, read from the rebase's own `head-name`; with `sha: true`, the commit; and whether a rebase is paused) fresh on every call, from the worktree's own `HEAD` file, falling back to `git symbolic-ref` when that file can't say (a reftable repository, a symlinked `HEAD`, or a branch that is itself a symbolic ref). It never reads or fills core's current-branch caches, so it answers right after a checkout no watcher has reported yet, and never walks the index as a status read does (git, git-cli)
 
 ### Fixed
 

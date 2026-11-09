@@ -1,6 +1,6 @@
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
 import type { GkConfigInvalidationTarget } from '../cache.js';
-import type { BranchDisposition, GitBranch } from '../models/branch.js';
+import type { BranchDisposition, GitBranch, GitCurrentHead } from '../models/branch.js';
 import type { GitCommitStats } from '../models/commit.js';
 import type { GitContributor } from '../models/contributor.js';
 import type { ConflictDetectionResult } from '../models/mergeConflicts.js';
@@ -214,6 +214,14 @@ export interface GitBranchesSubProvider {
 	): Promise<GitBranchMergedStatus>;
 	/** @internal not intended to be used outside of the sub-providers */
 	getCurrentBranchReference?(repoPath: string, cancellation?: AbortSignal): Promise<GitBranchReference | undefined>;
+	/**
+	 * Reads what `repoPath` has checked out fresh on every call: never from or into core's current-branch caches,
+	 * without waiting on cache validation, and without walking the index as a status does, so it answers right after a
+	 * checkout no watcher reported yet. A detached HEAD with a paused rebase names the rebased branch, as `getStatus` does,
+	 * and no branch when that rebase started on a detached HEAD. `sha` also reads the commit HEAD points at. Rejects when
+	 * `repoPath` isn't a repository or git fails, and with a `CancellationError` when `cancellation` aborts.
+	 */
+	getCurrentHead?(repoPath: string, options?: { sha?: boolean }, cancellation?: AbortSignal): Promise<GitCurrentHead>;
 	getLocalBranchByUpstream?(
 		repoPath: string,
 		remoteBranchName: string,
