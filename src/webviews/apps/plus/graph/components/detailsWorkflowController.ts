@@ -1211,7 +1211,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			review?.execState === 'generating' ||
 			review?.orientRun != null ||
 			(review?.focusAreaRuns?.size ?? 0) > 0 ||
-			review?.deepReview?.active === true
+			(review?.deepReview?.active === true && !review.deepReview.done)
 		);
 	}
 
@@ -1256,7 +1256,12 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 		};
 
-		void this.actions.services.graphInspect.moveReview(oldKey, newKey);
+		void this.actions.services.graphInspect.moveReview(oldKey, newKey, {
+			kind: context,
+			repoPath: repoPath ?? '',
+			sha: nextSha,
+			shas: nextShas,
+		});
 		if (review != null) {
 			const next = new Map(registry.get());
 			next.delete(oldKey);

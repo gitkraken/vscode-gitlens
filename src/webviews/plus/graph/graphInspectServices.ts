@@ -631,8 +631,8 @@ export class GraphInspectServices {
 				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewFiles: args => this.setReviewFiles(args),
-				moveReview: (from, to) => {
-					this.moveReview(from, to);
+				moveReview: (from, to, anchor) => {
+					this.moveReview(from, to, anchor);
 					return Promise.resolve();
 				},
 				reviewStep: (action, path, inListOrder) => this.reviewStep(action, path, inListOrder),
@@ -1499,7 +1499,10 @@ export class GraphInspectServices {
 		this._reviewThreadActionsEvent.fire({ anchor: journal.anchor, actions: [...journal.actions] });
 	}
 
-	private moveReview(from: string, to: string): void {
+	private moveReview(from: string, to: string, anchor: DeepReviewAnchor): void {
+		if (this._deepReview?.state.anchorKey === from) {
+			this._deepReview.moveTo(anchor, to);
+		}
 		for (const [key, diff] of this._openedReviewDiffs) {
 			if (diff.anchor === from) {
 				this._openedReviewDiffs.set(key, { ...diff, anchor: to });

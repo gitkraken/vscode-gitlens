@@ -4640,7 +4640,7 @@ suite('DetailsWorkflowController — failure telemetry classification', () => {
 });
 
 suite('DetailsWorkflowController — a rewritten commit review follows its commits', () => {
-	function setup(execState: 'complete' | 'generating' = 'complete') {
+	function setup(execState: 'complete' | 'generating' = 'complete', deepReview?: { active: boolean; done: boolean }) {
 		const host = new FakeHost({
 			repoPath: '/A',
 			graphRepoPath: '/A',
@@ -4674,6 +4674,7 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 							...bucket.review!,
 							anchor: { kind: 'commit', repoPath: '/A', sha: 'c' },
 							scope: { type: 'commit', sha: 'c' },
+							deepReview: deepReview != null ? { ...deepReview, count: 0, seqApplied: 0 } : undefined,
 						},
 					},
 				],
@@ -4698,6 +4699,23 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 		assert.deepStrictEqual(state.scope.get(), { type: 'commit', sha: "c'" });
 		assert.strictEqual(selected, "c'", 'the graph is asked to select the new commit');
 		assert.deepStrictEqual(moved, [[oldKey, newKey]], "the host's review state goes along");
+	});
+
+	test('a review whose agent finished moves, its channel along with it', () => {
+		const { state, controller, moved, oldKey } = setup('complete', { active: true, done: true });
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.strictEqual(state.activeModeSha.get(), "c'");
+		assert.deepStrictEqual(moved, [[oldKey, anchorKey({ sha: "c'", repoPath: '/A' })]]);
+	});
+
+	test('a review whose agent is still reviewing stays where it is', () => {
+		const { state, controller } = setup('complete', { active: true, done: false });
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.strictEqual(state.activeModeSha.get(), 'c');
 	});
 
 	test('a review with a run still going stays where it is', () => {

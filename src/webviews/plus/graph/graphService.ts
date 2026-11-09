@@ -855,7 +855,7 @@ export interface GraphInspectService {
 	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
 	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
 	/** The panel re-keyed a review (its commits were rewritten): what the host holds for it goes along */
-	moveReview(from: string, to: string): Promise<void>;
+	moveReview(from: string, to: string, anchor: DeepReviewAnchor): Promise<void>;
 	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
 	 *  keybindings and title buttons do. */
 	reviewStep(action: ReviewReadingAction, path?: string, inListOrder?: boolean): Promise<void>;

@@ -91,6 +91,13 @@ export class DeepReviewChannel {
 		return { ...this._state, findings: [...this._state.findings], notes: [...this._state.notes] };
 	}
 
+	/** The review moved onto rewritten commits — what the agent reports from now on goes to it there */
+	moveTo(anchor: DeepReviewAnchor, anchorKey: string): void {
+		this._state.anchor = anchor;
+		this._state.anchorKey = anchorKey;
+		this.changed();
+	}
+
 	/** A whole review goes into a channel that was open only for questions: it reads as a review from now on,
 	 *  one no agent has yet — the questions' agent got those, not this prompt. */
 	beginReview(): void {

@@ -2780,7 +2780,6 @@ export class DetailsActions {
 		return this._deferredAnchorRewrite != null;
 	}
 
-	/** Makes the move a rewrite during a run called for, once nothing on the anchor runs */
 	retryDeferredAnchorRewrite(): void {
 		const deferred = this._deferredAnchorRewrite;
 		if (deferred == null || this.anchorBusyHandler?.()) return;
@@ -2813,6 +2812,10 @@ export class DetailsActions {
 		const shas = anchorShas();
 		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
 		if (history == null || !areEqual(shas, anchorShas())) return;
+		if (this.anchorBusyHandler?.()) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
 
 		const rewritten = new Map<string, string>();
 		for (const sha of shas) {
