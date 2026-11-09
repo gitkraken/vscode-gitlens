@@ -2589,6 +2589,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this._actions?.hasDeferredAnchorRewrite) {
 			this._actions.retryDeferredAnchorRewrite();
 		}
+		this.selectRewrittenCommit();
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
@@ -3043,6 +3044,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.anchorRewrittenHandler = rewritten => {
 			const sha = this._workflow.followRewrittenAnchor(rewritten);
 			if (sha != null) {
+				this._selectAfterRewrite = { sha: sha, rows: this._graphState?.rows };
 				this.handleSelectCommit(sha);
 			}
 		};
@@ -4617,6 +4619,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			granularity: granularity,
 			instructions: instructions,
 		});
+	}
+
+	/** The commit a moved review asked the graph to select, and the rows it asked against */
+	private _selectAfterRewrite?: { sha: string; rows: unknown };
+
+	/** Asks again once the graph's rows have the commit — the first ask can come before the graph refreshed */
+	private selectRewrittenCommit(): void {
+		const pending = this._selectAfterRewrite;
+		if (pending == null) return;
+
+		const rows = this._graphState?.rows;
+		if (this.sha === pending.sha || this._state.activeModeSha.get() !== pending.sha) {
+			this._selectAfterRewrite = undefined;
+		} else if (rows !== pending.rows && rows?.some(r => r.sha === pending.sha)) {
+			this._selectAfterRewrite = undefined;
+			this.handleSelectCommit(pending.sha);
+		}
 	}
 
 	private handleSelectCommit(sha: string) {
