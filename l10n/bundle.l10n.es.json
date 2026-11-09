@@ -4882,6 +4882,7 @@
 	"Unable to delete tag because the remote repository rejected the push.": "No se pudo eliminar la etiqueta porque el repositorio remoto rechazó el push.",
 	"Unable to delete tag because the tag name is invalid": "No se pudo eliminar la etiqueta porque el nombre de la etiqueta no es válido",
 	"Unable to delete tag because you don't have permission to push to this remote repository.": "No se pudo eliminar la etiqueta porque no tiene permiso para hacer push a este repositorio remoto.",
+	"Unable to delete the current branch '{0}' because there is no other branch to switch to. Switch to another branch and try again.": "No se puede eliminar la rama actual '{0}' porque no hay otra rama a la que cambiar. Cambie a otra rama e inténtelo de nuevo.",
 	"Unable to delete worktree": "No se pudo eliminar el árbol de trabajo",
 	"Unable to delete worktree because it is locked": "No se pudo eliminar el árbol de trabajo porque está bloqueado",
 	"Unable to delete worktree because the directory is not empty": "No se pudo eliminar el árbol de trabajo porque el directorio no está vacío",

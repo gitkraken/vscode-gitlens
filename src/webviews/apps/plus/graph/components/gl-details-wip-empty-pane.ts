@@ -10,7 +10,7 @@ import type {
 } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
-import type { BranchRef } from '../../../../shared/branchRefs.js';
+import type { BranchRef, DeleteBranchOrWorktreeRefs } from '../../../../shared/branchRefs.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
@@ -409,10 +409,13 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				alt: {
 					actionLabel: deleteLabel,
 					tooltip: deleteLabel,
-					href: this._webview.createCommandLink<[BranchRef, BranchRef]>('gitlens.deleteBranchOrWorktree:', [
-						branchRef,
-						localTargetRef,
-					]),
+					href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
+						'gitlens.deleteBranchOrWorktree:',
+						{
+							...branchRef,
+							mergeTarget: localTargetRef,
+						},
+					),
 				},
 			};
 		}
@@ -426,10 +429,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 						? l10n.t('Branch Likely Merged into {target}', { target: mergeTarget.name })
 						: l10n.t('Branch Merged into {target}', { target: mergeTarget.name }),
 				actionLabel: deleteLabel,
-				href: this._webview.createCommandLink<[BranchRef, BranchRef]>('gitlens.deleteBranchOrWorktree:', [
-					branchRef,
-					targetRef,
-				]),
+				href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
+					...branchRef,
+					mergeTarget: targetRef,
+				}),
 			};
 		}
 

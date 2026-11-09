@@ -4882,6 +4882,7 @@
 	"Unable to delete tag because the remote repository rejected the push.": "无法删除标签，因为远程仓库拒绝了推送。",
 	"Unable to delete tag because the tag name is invalid": "无法删除标签，因为标签名称无效",
 	"Unable to delete tag because you don't have permission to push to this remote repository.": "无法删除标签，因为你没有推送到此远程仓库的权限。",
+	"Unable to delete the current branch '{0}' because there is no other branch to switch to. Switch to another branch and try again.": "无法删除当前分支“{0}”，因为没有其他可切换的分支。请先切换到其他分支，然后重试。",
 	"Unable to delete worktree": "无法删除工作树",
 	"Unable to delete worktree because it is locked": "无法删除工作树，因为它已被锁定",
 	"Unable to delete worktree because the directory is not empty": "无法删除工作树，因为目录不为空",

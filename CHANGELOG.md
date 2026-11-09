@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the interactive rebase editor cutting off the last commits when the conflict panel is open in a short pane
 - Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
 - Fixes the merge target status reporting a branch whose work was fast-forward merged as behind its merge target, with _Rebase_ and _Merge_ actions &mdash; it is shown as merged again, with an option to delete it, while a newly created branch with no commits of its own still shows as up to date or behind
+- Fixes _Delete Branch_ in the merge target status, the _Commit Graph_'s branch details and its working changes next steps doing nothing when clicked &mdash; it now opens the delete confirmation, and deleting the current branch switches to its merge target first, or explains why it can't when there is no other branch to switch to
 - Fixes a branch's commits disappearing from its details and ahead counts after its base branch was reset off them (e.g. a fast-forwarded pull request undone on `main`)
 - Fixes a repository's `.git` folder showing up as a second repository named `.git` (e.g. during a rebase) when `core.bare` is unset
 - Fixes every Git command failing until the window is reloaded after Git once couldn't be found or started

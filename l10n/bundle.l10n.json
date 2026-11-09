@@ -5062,6 +5062,7 @@
 	"Unable to delete tag because the remote repository rejected the push.": "Unable to delete tag because the remote repository rejected the push.",
 	"Unable to delete tag because the tag name is invalid": "Unable to delete tag because the tag name is invalid",
 	"Unable to delete tag because you don't have permission to push to this remote repository.": "Unable to delete tag because you don't have permission to push to this remote repository.",
+	"Unable to delete the current branch '{0}' because there is no other branch to switch to. Switch to another branch and try again.": "Unable to delete the current branch '{0}' because there is no other branch to switch to. Switch to another branch and try again.",
 	"Unable to delete worktree": "Unable to delete worktree",
 	"Unable to delete worktree because it is locked": "Unable to delete worktree because it is locked",
 	"Unable to delete worktree because the directory is not empty": "Unable to delete worktree because the directory is not empty",

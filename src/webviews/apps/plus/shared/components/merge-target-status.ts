@@ -6,7 +6,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { boxSizingBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
-import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
+import type { BranchAndTargetRefs, BranchRef, DeleteBranchOrWorktreeRefs } from '../../../../shared/branchRefs.js';
 import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shared/overviewBranches.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -463,9 +463,9 @@ export class GlMergeTargetStatus extends LitElement {
 							<gl-button
 								full
 								appearance="secondary"
-								href="${this._webview.createCommandLink<[BranchRef, BranchRef]>(
+								href="${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 									'gitlens.deleteBranchOrWorktree:',
-									[this.branchRef!, mergeTargetRef!],
+									{ ...this.branchRef!, mergeTarget: mergeTargetRef! },
 								)}"
 								><span
 									>${localizedContent(
@@ -505,9 +505,9 @@ export class GlMergeTargetStatus extends LitElement {
 					<div class="button-container">
 						<gl-button
 							full
-							href="${this._webview.createCommandLink<[BranchRef, BranchRef]>(
+							href="${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 								'gitlens.deleteBranchOrWorktree:',
-								[this.branchRef!, mergeTargetRef!],
+								{ ...this.branchRef!, mergeTarget: mergeTargetRef! },
 							)}"
 							><span
 								>${localizedContent(

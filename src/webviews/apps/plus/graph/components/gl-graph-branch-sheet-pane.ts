@@ -25,7 +25,7 @@ import type { State } from '../../../../plus/graph/detailsProtocol.js';
 import type { GraphItemContext } from '../../../../plus/graph/protocol.js';
 import type { BranchEnrichment, BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
-import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
+import type { BranchAndTargetRefs, BranchRef, DeleteBranchOrWorktreeRefs } from '../../../../shared/branchRefs.js';
 import type {
 	OverviewBranchIssue,
 	OverviewBranchMergeTarget,
@@ -1075,7 +1075,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			status = l10n.t('Missing from the remote');
 			actions = html`<gl-button
 					appearance="secondary"
-					href=${this._webview.createCommandLink<BranchRef>('gitlens.deleteBranchOrWorktree:', branchRef)}
+					href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', branchRef)}
 					>${l10n.t('Delete Local Branch')}</gl-button
 				><gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>`;
 		} else {
@@ -1656,9 +1656,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					<gl-button
 						appearance="secondary"
 						tooltip=${deleteLabel}
-						href=${this._webview.createCommandLink<[BranchRef, BranchRef]>(
+						href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 							'gitlens.deleteBranchOrWorktree:',
-							[branchRef, localTargetRef],
+							{ ...branchRef, mergeTarget: localTargetRef },
 						)}
 						>${deleteLabel}</gl-button
 					>
@@ -1667,10 +1667,10 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 			return html`<gl-button
 				appearance="secondary"
-				href=${this._webview.createCommandLink<[BranchRef, BranchRef]>('gitlens.deleteBranchOrWorktree:', [
-					branchRef,
-					targetRef,
-				])}
+				href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
+					...branchRef,
+					mergeTarget: targetRef,
+				})}
 				>${deleteLabel}</gl-button
 			>`;
 		}
