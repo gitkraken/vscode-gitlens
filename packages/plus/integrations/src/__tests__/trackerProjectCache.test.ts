@@ -686,6 +686,33 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('a refresh whose token refetch fails still drops the project list (#6159)', async () => {
+			// The refresh a consumer runs, with the GK API listing the connection but failing its token refetch: the
+			// stored token is kept and no new session is published, so only the forced refresh's own drop retires the
+			// list cached before it.
+			const { service, runtime, state, read } = await jiraCloud();
+
+			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			const fetchGkApi = runtime.account.fetchGkApi;
+			let refetches = 0;
+			runtime.account.fetchGkApi = (path, init) => {
+				if (path === 'v1/provider-tokens') return fetchGkApi(path, init);
+
+				refetches++;
+				return Promise.resolve(new Response(null, { status: 503 }));
+			};
+			await service.refreshConnections();
+			await flush();
+
+			assert.ok(refetches > 0, 'the token refetch was attempted');
+			const result = await read();
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+
+			service.dispose();
+		});
+
 		/**
 		 * How many project-list reads a later, UNFORCED connect on the same storage makes, like the next start of the
 		 * host. Not through `refreshConnections()`: its forced re-sync drops the caches before connecting, so it never
