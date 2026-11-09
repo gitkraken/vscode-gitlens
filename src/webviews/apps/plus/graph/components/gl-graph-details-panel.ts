@@ -2974,6 +2974,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this.isWip) {
 			void this._actions.refetchWipQuiet(repoPath, true);
 			void this._actions.fetchBranchCommits(repoPath);
+		} else if (this.isLockedCommitRunningOperation && this._state.activeModeContext.get() === 'multicommit') {
+			// The review's own commits — a rewrite moves them, while the graph's two-row selection stays behind
+			void this._actions.fetchCompareDetails(this._state.activeModeShas.get(), repoPath);
 		} else if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, repoPath, this.commitLites);
 		} else if (this.sha != null) {
