@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { RemoteResourceType } from '../../models/remoteResource.js';
 import { parseGitRemoteUrl } from '../../utils/remote.utils.js';
 import type { RemoteProviderConfig } from '../matcher.js';
 import { createRemoteProviderMatcher } from '../matcher.js';
@@ -29,6 +30,16 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			);
 			assert.ok(provider);
 			assert.strictEqual(provider.id, 'bitbucket');
+		});
+
+		test('matches Bitbucket SSH URL and uses the web domain', () => {
+			const url = 'git@ssh.bitbucket.org:owner/repo.git';
+			const [scheme, domain, path] = parseGitRemoteUrl(url);
+			const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'bitbucket');
+			assert.strictEqual(provider.domain, 'bitbucket.org');
+			assert.strictEqual(provider.url({ type: RemoteResourceType.Repo }), 'https://bitbucket.org/owner/repo');
 		});
 
 		test('matches Azure DevOps URL', () => {
