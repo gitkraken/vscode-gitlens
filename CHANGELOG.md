@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Generate Commit Message_ and _Compose Commits_ appearing twice in the _Source Control_ title bar &mdash; they now appear only in the GitLens AI (sparkle) menu ([#4396](https://github.com/gitkraken/vscode-gitlens/issues/4396))
 - Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines &mdash; when a review spans staged changes or several commits, or after a hunk line starting with `-- ` or `++ ` (such as a SQL or Lua comment); a finding now opens on the line it quotes, or on the file alone when that line is gone
 - Fixes focus-area reviews in _Review Changes_ ignoring the review's instructions, not stopping when the review is cancelled or its findings deleted, and opening a finding's file without its line range
+- Fixes the _Commit Graph_ taking keyboard focus from an editor or the terminal whenever an editor beside it opens or is focused &mdash; what was typed went into the graph instead
 - Fixes the interactive rebase editor reporting _No Conflicts Detected_ for a rebase that conflicts on Git versions before 2.45 &mdash; when it can't check, it now says so (conflict detection requires Git 2.45 or later)
 - Fixes the interactive rebase editor cutting off the last commits when the conflict panel is open in a short pane
 - Fixes _Change Merge Target_ suggesting a different branch than the views and _Commit Graph_ measure against &mdash; it now pre-selects the same merge target, including one taken from the branch's pull request
