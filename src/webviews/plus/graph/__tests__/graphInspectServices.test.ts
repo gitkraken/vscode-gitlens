@@ -2067,6 +2067,8 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 	type FakeGroup = { viewColumn: number; tabs: FakeTab[]; activeTab?: FakeTab };
 	type ReopenFake = ReviewOwnerFake & {
 		openReviewFile(args: { repoPath: string; lhs: string; rhs: string; path: string }): Promise<unknown>;
+		moveReview(from: string, to: string, anchor: { kind: string; repoPath: string; sha?: string }): void;
+		_deepReview?: unknown;
 		_openedReviewDiffs: Map<string, { lhs: string; rhs: string }>;
 	};
 
@@ -2203,6 +2205,24 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		await settle();
 		return group.activeTab!;
 	}
+
+	test("a commit review's diff is reopened once the panel moved the review onto the rewritten commit", async () => {
+		await openOnTip1();
+
+		const channel = { state: { anchorKey: 'wip|/repo' }, moveTo: sinon.spy() };
+		fake._deepReview = channel;
+		const anchor = { kind: 'commit', repoPath: '/repo', sha: 'tip2' };
+		fake.moveReview('wip|/repo', 'commit|/repo|tip2', anchor);
+		await fake.setReviewFiles({ ...files('tip2'), anchor: 'commit|/repo|tip2' });
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+		assert.deepStrictEqual(
+			channel.moveTo.firstCall.args,
+			[anchor, 'commit|/repo|tip2'],
+			"the agent's channel goes along",
+		);
+	});
 
 	test('a shown preview diff is reopened in place on the rewritten commit', async () => {
 		await openOnTip1();

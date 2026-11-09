@@ -4638,3 +4638,194 @@ suite('DetailsWorkflowController — failure telemetry classification', () => {
 		assert.strictEqual(events[0].data['failure.error.message'], undefined);
 	});
 });
+
+suite('DetailsWorkflowController — a rewritten commit review follows its commits', () => {
+	function setup(execState: 'complete' | 'generating' = 'complete', deepReview?: { active: boolean; done: boolean }) {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: 'c', shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const services = createServices();
+		const moved: [string, string][] = [];
+		Object.assign(services.graphInspect, {
+			moveReview: (from: string, to: string) => {
+				moved.push([from, to]);
+				return Promise.resolve();
+			},
+		});
+		const actions = new DetailsActions(state, services, createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set('c');
+		state.scope.set({ type: 'commit', sha: 'c' });
+		const oldKey = anchorKey({ sha: 'c', repoPath: '/A' });
+		const bucket = makeReviewBucket('/A', makeReviewResult('c'), execState);
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					oldKey,
+					{
+						review: {
+							...bucket.review!,
+							anchor: { kind: 'commit', repoPath: '/A', sha: 'c' },
+							scope: { type: 'commit', sha: 'c' },
+							deepReview: deepReview != null ? { ...deepReview, count: 0, seqApplied: 0 } : undefined,
+						},
+					},
+				],
+			]),
+		);
+		host.crossPaneState.lastModeByAnchor.set(new Map([[oldKey, 'review']]));
+		return { host: host, state: state, controller: controller, moved: moved, oldKey: oldKey };
+	}
+
+	test('the review, its entry and its remembered mode move to the rewritten commit', () => {
+		const { host, state, controller, moved, oldKey } = setup();
+
+		const selected = controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.deepStrictEqual(registry.get(newKey)?.review?.scope, { type: 'commit', sha: "c'" });
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.strictEqual(state.activeModeSha.get(), "c'");
+		assert.deepStrictEqual(state.scope.get(), { type: 'commit', sha: "c'" });
+		assert.strictEqual(selected, "c'", 'the graph is asked to select the new commit');
+		assert.deepStrictEqual(moved, [[oldKey, newKey]], "the host's review state goes along");
+	});
+
+	test('a review whose agent finished moves, its channel along with it', () => {
+		const { state, controller, moved, oldKey } = setup('complete', { active: true, done: true });
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.strictEqual(state.activeModeSha.get(), "c'");
+		assert.deepStrictEqual(moved, [[oldKey, anchorKey({ sha: "c'", repoPath: '/A' })]]);
+	});
+
+	test('a review whose agent is still reviewing stays where it is', () => {
+		const { state, controller } = setup('complete', { active: true, done: false });
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.strictEqual(state.activeModeSha.get(), 'c');
+	});
+
+	test('a review kept on a commit while another anchor is engaged moves too', () => {
+		const { host, state, controller, oldKey } = setup();
+		// The reader went on to the working tree; the commit review is kept for later
+		state.activeModeContext.set('wip');
+		state.activeModeSha.set(uncommitted);
+
+		controller.followRewrittenHistory(
+			{
+				mergeBase: 'base',
+				previous: [{ sha: 'c', message: 'c' }],
+				next: [{ sha: "c'", message: 'c' }],
+			},
+			'/A',
+		);
+
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.strictEqual(state.activeModeSha.get(), uncommitted, 'the engaged anchor is left alone');
+	});
+
+	test("a kept commit review's run holds a rewrite's move back for the repo", () => {
+		const { state, controller } = setup('generating');
+		state.activeModeContext.set('wip');
+		state.activeModeSha.set(uncommitted);
+
+		assert.strictEqual(controller.engagedAnchorBusy(), false);
+		assert.strictEqual(controller.commitReviewsBusy('/A'), true);
+		assert.strictEqual(controller.commitReviewsBusy('/B'), false);
+	});
+
+	test('a review with a run still going stays where it is', () => {
+		const { host, state, controller, oldKey } = setup('generating');
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.ok(host.crossPaneState.runningOperations.get().has(oldKey));
+		assert.strictEqual(state.activeModeSha.get(), 'c');
+	});
+
+	test("a kept review's run holds the move back, which lands once the run is done", async () => {
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A', selection: undefined });
+		const state = createDetailsState();
+		const services = createServices();
+		const asked: string[] = [];
+		const moved: [string, string][] = [];
+		Object.assign(services.graphInspect, {
+			getRewrittenHistory: (_repoPath: string, previousTip: string) => {
+				asked.push(previousTip);
+				return Promise.resolve({
+					mergeBase: 'base',
+					previous: [{ sha: 'c', message: 'c' }],
+					next: [{ sha: "c'", message: 'c' }],
+				});
+			},
+			moveReview: (from: string, to: string) => {
+				moved.push([from, to]);
+				return Promise.resolve();
+			},
+		});
+		const actions = new DetailsActions(state, services, createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		// Wired as the panel wires them
+		actions.anchorBusyHandler = repoPath => controller.commitReviewsBusy(repoPath);
+		actions.commitReviewsHandler = repoPath => controller.hasCommitReviews(repoPath);
+		actions.anchorRewrittenHandler = (history, repoPath) => controller.followRewrittenHistory(history, repoPath);
+
+		// A commit review kept for later, its AI run still going; no mode open
+		const oldKey = anchorKey({ sha: 'c', repoPath: '/A' });
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const entry = (execState: 'generating' | 'complete') => ({
+			review: {
+				...makeReviewBucket('/A', makeReviewResult('c'), execState).review!,
+				anchor: { kind: 'commit' as const, repoPath: '/A', sha: 'c' },
+				scope: { type: 'commit' as const, sha: 'c' },
+			},
+		});
+		host.crossPaneState.runningOperations.set(new Map([[oldKey, entry('generating')]]));
+		host.crossPaneState.lastModeByAnchor.set(new Map([[oldKey, 'review']]));
+		const wipAt = (revision: number, tip: string) =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///A', name: 'A', path: '/A', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/A', reference: { sha: tip } },
+			}) as unknown as Wip;
+		const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await settle();
+
+		assert.ok(host.crossPaneState.runningOperations.get().has(oldKey), 'the review stays while its run goes on');
+		assert.ok(actions.hasDeferredAnchorRewrite);
+		assert.deepStrictEqual(asked, []);
+
+		host.crossPaneState.runningOperations.set(new Map([[oldKey, entry('complete')]]));
+		actions.retryDeferredAnchorRewrite();
+		await settle();
+
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.deepStrictEqual(moved, [[oldKey, newKey]]);
+		assert.deepStrictEqual(asked, ['c']);
+	});
+});

@@ -392,6 +392,13 @@ export interface ReviewOpenFileArgs {
 	lineEnd?: number;
 }
 
+export interface RewrittenHistory {
+	mergeBase: string;
+	previous: { sha: string; message: string }[];
+	next: { sha: string; message: string }[];
+	patchIds?: Record<string, string>;
+}
+
 /** The files a review is reading: any of their diffs gets the reading commands (title buttons and
  *  keybindings), which step through them in this order. */
 export interface ReviewFilesArgs {
@@ -770,6 +777,13 @@ export interface GraphInspectService {
 		shas: readonly string[],
 		signal?: AbortSignal,
 	): Promise<Record<string, string> | undefined>;
+	/** The commits from where `previousTip` and the branch tip part ways up to each, newest first, with their
+	 *  patch ids — what a rewrite replaced and what replaced it. `undefined` when they share no history. */
+	getRewrittenHistory(
+		repoPath: string,
+		previousTip: string,
+		signal?: AbortSignal,
+	): Promise<RewrittenHistory | undefined>;
 	getCompareDiff(repoPath: string, from: string, to: string, signal?: AbortSignal): Promise<CompareDiff | undefined>;
 	/**
 	 * Returns the active graph search context for the given commit (or `undefined` when no
@@ -840,6 +854,8 @@ export interface GraphInspectService {
 	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings
 	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
 	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	/** The panel re-keyed a review (its commits were rewritten): what the host holds for it goes along */
+	moveReview(from: string, to: string, anchor: DeepReviewAnchor): Promise<void>;
 	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
 	 *  keybindings and title buttons do. */
 	reviewStep(action: ReviewReadingAction, path?: string, inListOrder?: boolean): Promise<void>;
