@@ -19,14 +19,6 @@ const models: GeminiModel[] = [
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
-		id: 'gemini-3.6-flash',
-		name: 'Gemini 3.6 Flash',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		default: true,
-		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
-	},
-	{
 		id: 'gemini-3.5-flash-lite',
 		name: 'Gemini 3.5 Flash-Lite',
 		maxTokens: { input: 1048576, output: 65536 },
@@ -48,6 +40,15 @@ const models: GeminiModel[] = [
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
+		id: 'gemini-3-flash-preview',
+		name: 'Gemini 3 Flash Preview',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		// Default stays on this preview: the 3.6/3.8 Flash models cost ~1.4x per request (~2.9x from 2027-01-01)
+		default: true,
+		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
+	},
+	{
 		id: 'gemini-2.5-flash-lite',
 		name: 'Gemini 2.5 Flash-Lite',
 		maxTokens: { input: 1048576, output: 65536 },
@@ -62,16 +63,16 @@ const models: GeminiModel[] = [
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
-		id: 'gemini-3.5-flash',
-		name: 'Gemini 3.5 Flash',
+		id: 'gemini-3.6-flash',
+		name: 'Gemini 3.6 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
 		hidden: true,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
-		id: 'gemini-3-flash-preview',
-		name: 'Gemini 3 Flash Preview',
+		id: 'gemini-3.5-flash',
+		name: 'Gemini 3.5 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
 		hidden: true,
