@@ -6,7 +6,7 @@ import type {
 } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { BranchError } from '@gitlens/git/errors.js';
-import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/branch.js';
+import type { BranchDisposition, BranchMetadata, GitCurrentHead } from '@gitlens/git/models/branch.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitBranchReference, RefRecord } from '@gitlens/git/models/reference.js';
@@ -1078,6 +1078,76 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			});
 		}
 		return ref;
+	}
+
+	@debug({ quiet: true })
+	async getCurrentHead(
+		repoPath: string,
+		options?: { sha?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitCurrentHead> {
+		const [headResult, shaResult] = await Promise.allSettled([
+			this.readCurrentHeadBranch(repoPath, cancellation),
+			options?.sha
+				? this.git.run(
+						// Exits 1 with no output when the branch is unborn
+						{ cwd: repoPath, cancellation: cancellation, errors: 'throw', expectedExitCodes: [1] },
+						'rev-parse',
+						'--verify',
+						'-q',
+						'HEAD^{commit}',
+					)
+				: undefined,
+		]);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (headResult.status === 'rejected') throw headResult.reason;
+		if (shaResult.status === 'rejected') throw shaResult.reason;
+
+		const sha = shaResult.value?.stdout.trim();
+		return { branch: headResult.value.branch, sha: sha || undefined, rebasing: headResult.value.rebasing };
+	}
+
+	/** The branch `repoPath`'s HEAD is on, or the one a paused rebase is rebasing, read fresh for {@link getCurrentHead} */
+	private async readCurrentHeadBranch(
+		repoPath: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ branch: string | undefined; rebasing: boolean }> {
+		const state = await readHeadState(repoPath, this.context.fs, this.cache);
+		if (state == null) {
+			// Exits 1 with no output when HEAD is detached, and 128 when `repoPath` isn't a repository
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw', expectedExitCodes: [1] },
+				'symbolic-ref',
+				'-q',
+				'HEAD',
+			);
+			const ref = result.stdout.trim();
+			if (ref.startsWith('refs/heads/')) return { branch: ref.substring('refs/heads/'.length), rebasing: false };
+		} else if (state !== 'detached') {
+			return { branch: state.branch.substring('refs/heads/'.length), rebasing: false };
+		}
+
+		// A paused rebase leaves HEAD detached, and its `head-name` names the branch it rebases (`detached HEAD` for one
+		// started on a detached HEAD). Read here rather than as the paused-operation status, which runs git several
+		// times over and, for the other operations, reads the current-branch caches.
+		const gitDir = await this.provider.config.getGitDir(repoPath).catch(() => undefined);
+		if (gitDir == null) return { branch: undefined, rebasing: false };
+
+		for (const dir of ['rebase-apply', 'rebase-merge']) {
+			let name: string;
+			try {
+				name = new TextDecoder()
+					.decode(await this.context.fs.readFile(joinUriPath(gitDir.uri, dir, 'head-name')))
+					.trim();
+			} catch {
+				continue;
+			}
+			return {
+				branch: name.startsWith('refs/heads/') ? name.substring('refs/heads/'.length) : undefined,
+				rebasing: true,
+			};
+		}
+		return { branch: undefined, rebasing: false };
 	}
 
 	private getCurrentBranchReferenceCore(

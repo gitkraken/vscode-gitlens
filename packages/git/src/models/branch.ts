@@ -13,6 +13,16 @@ import {
 import { getUpstreamStatus } from '../utils/status.utils.js';
 import type { GitBranchReference } from './reference.js';
 
+/** What a worktree has checked out, read fresh (see `GitBranchesSubProvider.getCurrentHead`) */
+export interface GitCurrentHead {
+	/** The branch HEAD is on (short name, e.g. `main`), or the branch a paused rebase is rebasing; `undefined` when HEAD is detached */
+	readonly branch: string | undefined;
+	/** The commit HEAD points at; `undefined` when the branch is unborn (no commit yet) or the read didn't ask for it (`sha: true`) */
+	readonly sha: string | undefined;
+	/** HEAD is detached because a rebase is paused, so `branch` names the branch being rebased, or is `undefined` when the rebase started on a detached HEAD */
+	readonly rebasing: boolean;
+}
+
 export type BranchDisposition = 'starred' | 'archived';
 
 /** The `.git/gk/config` keys (`branch.<name>.<key>`) a branch's {@link BranchMetadata} is read from */
