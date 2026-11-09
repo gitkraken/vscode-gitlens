@@ -3,7 +3,11 @@ import { loggable } from '@gitlens/utils/decorators/log.js';
 import { serializable } from '@gitlens/utils/decorators/serializable.js';
 import type { RequireSome, RequireSomeWithProps } from '@gitlens/utils/types.js';
 import type { IssueProject, IssueRepository } from './issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issueOrPullRequest.js';
+import type {
+	IssueMilestone,
+	IssueOrPullRequest,
+	IssueOrPullRequestState as PullRequestState,
+} from './issueOrPullRequest.js';
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
@@ -63,6 +67,24 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
 	readonly stack?: PullRequestStackInfo;
+	/**
+	 * The pull request's place in its base branch's merge queue. Absent means either not queued or not fetched — ask
+	 * `getPullRequestFieldPresence` (`@gitlens/integrations`) for the row's `mergeQueue` group to tell them apart.
+	 * Only GitHub.com reports one.
+	 */
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+	/**
+	 * Whether the base branch accepts this pull request only through a merge queue, so merging it means adding it to
+	 * the queue. `undefined` means not read; read wherever `mergeQueue` is (the same `mergeQueue` field group).
+	 */
+	readonly mergeQueueRequired?: boolean;
+	/**
+	 * The pull request's latest removal from its merge queue, set only while that removal is its latest merge-queue
+	 * event (it hasn't rejoined since) and the removal didn't merge it. It stays set however much later the pull
+	 * request changes, so ask `isPullRequestMergeQueueRemovalCurrent` whether it still describes the pull request.
+	 * Read wherever `mergeQueue` is (the same `mergeQueue` field group); absent there means no such removal.
+	 */
+	readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval;
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
 	/**
@@ -134,6 +156,10 @@ export class PullRequest implements PullRequestShape {
 		public readonly projection?: PullRequestProjection,
 		public readonly viewer?: { readonly id: string; readonly username?: string },
 		public readonly viewerUnresolved?: true,
+		public readonly milestone?: IssueMilestone | null,
+		public readonly mergeQueue?: PullRequestMergeQueueEntry,
+		public readonly mergeQueueRequired?: boolean,
+		public readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval,
 	) {}
 
 	get closed(): boolean {
@@ -174,6 +200,16 @@ export const enum PullRequestMergeableState {
 	Conflicting = 'Conflicting',
 	FailingChecks = 'FailingChecks',
 	BlockedByPolicy = 'BlockedByPolicy',
+}
+
+/** Where a queued pull request stands in its merge queue. Mirrors GitHub's `MergeQueueEntryState`. */
+export const enum PullRequestMergeQueueState {
+	Queued = 'Queued',
+	/** Waiting for its required checks to pass. */
+	AwaitingChecks = 'AwaitingChecks',
+	Mergeable = 'Mergeable',
+	Unmergeable = 'Unmergeable',
+	Locked = 'Locked',
 }
 
 export const enum PullRequestStatusCheckRollupState {
@@ -345,7 +381,10 @@ export interface PullRequestRef {
 	 * provider-apis' converters fill `''` instead, so test for a value rather than for `undefined`.
 	 */
 	owner: string | undefined;
-	/** `undefined` (or `''`) when the ref's repository was deleted, as {@link owner}. */
+	/**
+	 * The repository's name, never a path: a GitLab nested group is all {@link owner}. `undefined` (or `''`) when the
+	 * ref's repository was deleted, as {@link owner}.
+	 */
 	repo: string | undefined;
 	branch: string;
 	sha: string;
@@ -427,6 +466,70 @@ export interface PullRequestStackLayers {
 	/** The stack's layers, ordered bottom (closest to {@link baseRef}) to top. */
 	layers: PullRequestStackLayer[];
 }
+
+/** A pull request's entry in its base branch's merge queue. */
+export interface PullRequestMergeQueueEntry {
+	state: PullRequestMergeQueueState;
+	/** When the pull request joined the queue. */
+	enqueuedAt: Date;
+	/**
+	 * When the provider expects it to merge: its estimate of the time remaining, fixed to a date when the entry was
+	 * read, so it counts down while the entry is held rather than restarting at each render. Absent when the provider
+	 * gives none; may already be past on an entry held a while.
+	 */
+	estimatedMergeAt?: Date;
+	/** The merge queue's web URL. */
+	url?: string;
+	/**
+	 * The entry's 1-based place in the queue, in enqueue order. Absent when the provider gives none. It moves as the
+	 * entries ahead of it merge or leave, so it is never an etag input: an `unchanged` row's position can be stale.
+	 */
+	position?: number;
+}
+
+/** A pull request's removal from its base branch's merge queue, other than by merging. */
+export interface PullRequestMergeQueueRemoval {
+	/**
+	 * The provider's own reason, passed through as given — GitHub's include `failed_checks` and `manual`, and others
+	 * are undocumented. Empty when the provider gives none. Classify it with `getPullRequestMergeQueueRemovalKind`.
+	 */
+	reason: string;
+	/** When the pull request was removed. */
+	removedAt: Date;
+}
+
+/** Why adding a pull request to its merge queue, or removing it, failed. */
+export type PullRequestMergeQueueActionFailureReason =
+	/** Adding a pull request that is already queued. */
+	| 'already-queued'
+	/** The pull request's head moved since it was read, so the head it was asked to queue is stale. */
+	| 'head-changed'
+	/** The host refused the action for the pull request's own state: its base branch has no merge queue, it is a
+	 *  draft or closed, or it doesn't meet the queue's requirements. */
+	| 'not-allowed'
+	/** The account may not add to or remove from this queue. */
+	| 'permission'
+	/** The host (or this integration) has no merge queue to act on. */
+	| 'unsupported'
+	/** Anything else, including a failure to reach the host. */
+	| 'unknown';
+
+/**
+ * What adding a pull request to its merge queue, or removing it, did. A failure says why, with the host's own message
+ * when it gave one — for logs and diagnostics, not for display.
+ */
+export type PullRequestMergeQueueActionResult =
+	| {
+			readonly status: 'queued';
+			/** The new entry, when the host returned one. */
+			readonly entry?: PullRequestMergeQueueEntry;
+	  }
+	| { readonly status: 'dequeued' }
+	| {
+			readonly status: 'failed';
+			readonly reason: PullRequestMergeQueueActionFailureReason;
+			readonly message?: string;
+	  };
 
 export interface PullRequestReviewer {
 	isCodeOwner?: boolean;

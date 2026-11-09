@@ -23,13 +23,11 @@ export class GlRefOverflowChip extends LitElement {
 			display: inline-flex;
 			align-items: center;
 			max-width: 100%;
-
-			--color-focus-border: var(--vscode-focusBorder);
 		}
 
 		:focus,
 		:focus-within {
-			outline-color: var(--color-focus-border);
+			outline-color: var(--gl-color-border-focus);
 		}
 
 		.chip {

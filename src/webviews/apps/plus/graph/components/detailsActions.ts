@@ -22,7 +22,6 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -60,10 +59,21 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphServices,
+	OrientInRepoArgs,
 	ReresolveFileResult,
 	ResolveResult,
+	ReviewFilesArgs,
+	ReviewOpenFileArgs,
+	ReviewOrientResult,
+	ReviewReadingAction,
+	ReviewReadingState,
 	ReviewResult,
+	ReviewThreadActionsState,
+	ReviewThreadsArgs,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -96,10 +106,16 @@ import {
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { Resource } from '../../../shared/state/resource.js';
+import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import type { AppState } from '../context.js';
 import { compareSides } from './detailsState.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
+import {
+	getQueuedPullRequestRefreshOutcome,
+	PausableRecheckTimer,
+	queuedPullRequestRecheckMs,
+} from './queuedPullRequestRecheck.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
 /** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
@@ -139,33 +155,6 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 		);
 	}
 	return false;
-}
-
-export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs: string; rhs: string } | undefined {
-	if (scope == null) return undefined;
-	if (scope.type === 'commit') return { lhs: `${scope.sha}^`, rhs: scope.sha };
-	if (scope.type === 'compare') return { lhs: scope.fromSha, rhs: scope.toSha };
-
-	// wip — match scope inputs as closely as possible with a single range
-	const hasShas = (scope.includeShas?.length ?? 0) > 0;
-	if (!hasShas) {
-		if (scope.includeUnstaged && !scope.includeStaged) {
-			return { lhs: uncommittedStaged, rhs: uncommitted };
-		}
-		if (!scope.includeUnstaged && scope.includeStaged) {
-			return { lhs: 'HEAD', rhs: uncommittedStaged };
-		}
-		return { lhs: 'HEAD', rhs: uncommitted };
-	}
-
-	// Seeded scopes guarantee the range-base boundary commit last and the tip first (see
-	// GraphComposeScopeSeed); picker-driven scopes are in pane row order (newest-first), where the
-	// bottom row is the visible range base. Commits-only ranges diff to the selection's own tip —
-	// an interior range ends below HEAD, so 'HEAD' would fold newer commits into the diff.
-	const lhs = `${scope.includeShas.at(-1)}^`;
-	if (scope.includeUnstaged) return { lhs: lhs, rhs: uncommitted };
-	if (scope.includeStaged) return { lhs: lhs, rhs: uncommittedStaged };
-	return { lhs: lhs, rhs: scope.includeShas[0] };
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -285,6 +274,7 @@ export class DetailsActions {
 	private _branchCommitsController?: AbortController;
 	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
+	private readonly _queuedPullRequestRecheck = new PausableRecheckTimer(queuedPullRequestRecheckMs);
 	private _branchCompareEnrichmentControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	private _branchCompareContributorsControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	/** Per-(tab,sha) abort controllers for lazy commit-file fetches in branch-compare. New selection
@@ -293,6 +283,8 @@ export class DetailsActions {
 	private _aiExcludedFilesGeneration = 0;
 	/** Latest-fetch-wins guard for overlapping `fetchPreferences` re-fetches. */
 	private _preferencesGeneration = 0;
+	/** Latest-answer-wins guard between Review in Repo availability fetches and the host's pushes. */
+	private _deepReviewAvailabilityGeneration = 0;
 
 	/** Branch-keyed cache of WIP enrichment (autolinks/issues/mergeTarget). Populated on first
 	 *  successful fetch; consulted on subsequent visits to hydrate state synchronously and avoid
@@ -400,6 +392,7 @@ export class DetailsActions {
 
 	dispose(): void {
 		this._disposed = true;
+		this._queuedPullRequestRecheck.dispose();
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 		this._enrichmentController?.abort();
@@ -576,9 +569,27 @@ export class DetailsActions {
 		this.state.hasAccount.set(getSettledValue(hasAccountRes) ?? false);
 		this.state.orgSettings.set(getSettledValue(orgSettingsRes) ?? { ai: false, drafts: false });
 		this.state.aiModel.set(getSettledValue(aiModelRes));
+		// Waits on agent detection, so it settles on its own rather than holding the capabilities up
+		void this.refreshDeepReviewAvailability();
 
 		// Subscribe to AI model + config changes so the chips and preferences stay in sync.
 		void this.subscribeEvents();
+	}
+
+	/** Asks again whether Review in Repo can run — on mount and whenever review mode is entered; the host also
+	 *  pushes the answer when it changes (`onDeepReviewAvailability`). Entering review mode is also what notices
+	 *  an agent CLI installed since: once the agents list's cache has expired, this read refreshes it, and a list
+	 *  that changed comes back as a push. */
+	async refreshDeepReviewAvailability(): Promise<void> {
+		const generation = ++this._deepReviewAvailabilityGeneration;
+		try {
+			const availability = await this.services.graphInspect.getDeepReviewAvailability();
+			if (this._disposed || generation !== this._deepReviewAvailabilityGeneration) return;
+
+			this.state.deepReviewAvailability.set(availability);
+		} catch {
+			// Unknown stays unknown — the depth remains offered and a click reports the reason
+		}
 	}
 
 	/** Publishes the fast, config/storage-derived {@link Preferences}. Run up front by
@@ -599,6 +610,7 @@ export class DetailsActions {
 				'views.commitDetails.files',
 				'signing.showSignatureBadges',
 				'sortWorkingChangesBy',
+				'keymap',
 			),
 			s.config.getManyCore(
 				'workbench.tree.renderIndentGuides',
@@ -613,8 +625,16 @@ export class DetailsActions {
 		if (this._preferencesGeneration !== generation) return;
 
 		const pullRequestExpanded = getSettledValue(pullRequestExpandedRes);
-		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, workingChangesSortBy] =
-			getSettledValue(filesPrefsRes) ?? [];
+		const [
+			avatars,
+			currentUserNameStyle,
+			dateFormat,
+			dateStyle,
+			files,
+			showSignatureBadges,
+			workingChangesSortBy,
+			keymap,
+		] = getSettledValue(filesPrefsRes) ?? [];
 		const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] = getSettledValue(treePrefsRes) ?? [];
 		const aiEnabled = getSettledValue(aiEnabledRes);
 
@@ -630,6 +650,7 @@ export class DetailsActions {
 			workingFilesOrderBy: workingFilesOrderBy ?? 'path',
 			workingChangesSortBy: workingChangesSortBy ?? 'stage',
 			aiEnabled: aiEnabled ?? false,
+			keymap: keymap ?? 'chorded',
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges ?? true,
 			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`
@@ -652,6 +673,16 @@ export class DetailsActions {
 			() =>
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
+				}),
+			// The active review file and editor-made marks are host-owned; the workflow controller folds them into the session.
+			() => this.services.graphInspect.onReviewReading(state => this.reviewReadingHandler?.(state)),
+			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
+			() => this.services.graphInspect.onDeepReview(state => this.deepReviewHandler?.(state)),
+			() =>
+				this.services.graphInspect.onDeepReviewAvailability(availability => {
+					// Newer than any fetch still in flight
+					this._deepReviewAvailabilityGeneration++;
+					this.state.deepReviewAvailability.set(availability);
 				}),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
@@ -717,19 +748,15 @@ export class DetailsActions {
 	/** Direct-RPC review run. Bypasses {@link resources.review} so the run is owned by the
 	 *  caller's `AbortController` (held on the registry entry), not the single-instance
 	 *  `Resource` — letting the in-flight generation survive an anchor switch. The caller is
-	 *  responsible for updating the registry entry on resolve/reject.
-	 *
-	 *  `options.mode: 'refine'` makes the run a follow-up on the host-cached review conversation
-	 *  (prior exchanges replayed to the AI) instead of a fresh run. */
+	 *  responsible for updating the registry entry on resolve/reject. */
 	startReview(
 		repoPath: string,
 		scope: ScopeSelection,
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
 		signal: AbortSignal,
-		options?: { mode?: 'refine' },
 	): Promise<ReviewResult> {
-		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal, options);
+		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal);
 	}
 
 	/** Direct-RPC compose run. See {@link startReview} for rationale.
@@ -1390,6 +1417,7 @@ export class DetailsActions {
 					clearTimeout(maxWaitTimer);
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 					return;
 				}
 
@@ -1451,8 +1479,12 @@ export class DetailsActions {
 								hasPullRequest: true,
 							});
 							this.state.wipPullRequest.set(pr);
+							this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
 						}),
-						noopUnlessReal,
+						(e: unknown) => {
+							this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
+							noopUnlessReal(e);
+						},
 					)
 					.finally(() => {
 						if (signal.aborted) return;
@@ -1465,8 +1497,83 @@ export class DetailsActions {
 				if (!signal.aborted) {
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 				}
 				noopUnlessReal(e);
+			},
+		);
+	}
+
+	/**
+	 * A pull request leaves its merge queue (merged, or removed) on the provider, with nothing local to notice it —
+	 * and the enrichment above only re-runs on a selection or branch change. Left alone, a WIP pane open on a queued
+	 * pull request would keep withholding branch actions indefinitely. So while it's queued, ask again once the
+	 * host's cached copy has expired, for as long as this selection's enrichment stays current (`signal`). The wait
+	 * only counts while the Graph is visible (see {@link PausableRecheckTimer}).
+	 */
+	private scheduleQueuedPullRequestRecheck(
+		repoPath: string,
+		branchName: string,
+		pr: OverviewBranchPullRequest | undefined,
+		signal: AbortSignal,
+	): void {
+		if (signal.aborted || this._disposed || !isPullRequestQueued(pr)) {
+			this._queuedPullRequestRecheck.cancel();
+			return;
+		}
+
+		this._queuedPullRequestRecheck.schedule(
+			() => this.refreshQueuedPullRequest(repoPath, branchName, signal),
+			signal,
+		);
+	}
+
+	/** After a failed or empty fetch, keep the recheck going if what's on screen (e.g. hydrated from cache) is still
+	 *  a queued pull request — otherwise it would stay on screen, holding branch actions, with nothing to clear it. */
+	private keepCheckingShownQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted) return;
+
+		this.scheduleQueuedPullRequestRecheck(repoPath, branchName, this.state.wipPullRequest.get(), signal);
+	}
+
+	/** Re-asks for just the branch's pull request — not the whole enrichment, whose merge-target leg (ahead/behind,
+	 *  merged status, conflict simulation), autolinks and issues don't change while the queue holds the branch. */
+	private refreshQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted || this._disposed) return;
+
+		const cacheKey = `${branchName}:${repoPath}`;
+		const settle = (refreshed: PromiseSettledResult<OverviewBranchPullRequest | undefined>): void => {
+			if (signal.aborted || this._disposed) return;
+
+			const shown = this.state.wipPullRequest.get();
+			const pr = refreshed.status === 'fulfilled' ? refreshed.value : undefined;
+			switch (getQueuedPullRequestRefreshOutcome(shown, refreshed)) {
+				case 'still-queued':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
+					break;
+				case 'left-queue':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					// Leaving the queue usually means the branch merged, so the merge-target status (and the actions
+					// it drives) is stale too — run the full enrichment once to catch it up. It hydrates from the
+					// cache entry just updated, so nothing flashes back to loading.
+					this.fetchWipBranchEnrichment(repoPath, branchName, signal);
+					break;
+				case 'retry':
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, shown, signal);
+					break;
+				case 'stop':
+					break;
+			}
+		};
+
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(
+			pr => settle({ status: 'fulfilled', value: pr }),
+			(e: unknown) => {
+				noopUnlessReal(e);
+				settle({ status: 'rejected', reason: e });
 			},
 		);
 	}
@@ -2923,6 +3030,52 @@ export class DetailsActions {
 			};
 		}
 		return current;
+	}
+
+	/** Set by the panel once its workflow controller exists — `onReviewReading` updates land here. */
+	reviewReadingHandler?: (state: ReviewReadingState | undefined) => void;
+	/** Likewise for thread actions taken in the editor. */
+	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+	/** And for what a delegated deep review reports. */
+	deepReviewHandler?: (state: DeepReviewState | undefined) => void;
+
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		return this.services.graphInspect.startDeepReview(args);
+	}
+
+	stopDeepReview(): void {
+		void this.services.graphInspect.stopDeepReview();
+	}
+
+	warnReviewHandOffDropped(to: 'reviewer' | 'agent'): void {
+		void this.services.graphInspect.warnReviewHandOffDropped(to);
+	}
+
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt: string | undefined,
+		excludedFiles: string[] | undefined,
+		inRepo: OrientInRepoArgs | undefined,
+		signal: AbortSignal,
+	): Promise<ReviewOrientResult> {
+		return this.services.graphInspect.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, signal);
+	}
+
+	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
+		void this.services.graphInspect.setReviewThreads(args);
+	}
+
+	setReviewFiles(args: ReviewFilesArgs | undefined): void {
+		void this.services.graphInspect.setReviewFiles(args);
+	}
+
+	stepReviewReading(action: ReviewReadingAction, path?: string): void {
+		void this.services.graphInspect.reviewStep(action, path);
+	}
+
+	openReviewFile(args: ReviewOpenFileArgs): void {
+		void this.services.graphInspect.openReviewFile(args);
 	}
 
 	openFileByPath(

@@ -15,7 +15,7 @@ import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.j
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/search.js';
-import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestDisplayStatus, getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
@@ -141,7 +141,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			:focus,
 			:focus-within,
 			:focus-visible {
-				outline-color: var(--vscode-focusBorder);
+				outline-color: var(--gl-color-border-focus);
 			}
 
 			progress-indicator {
@@ -1269,6 +1269,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						<span><code-icon icon="chevron-right"></code-icon></span>
 						${when(pillPr, pr => {
 							const prNumber = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+							const { status: prStatus, queueStatus } = getPullRequestDisplayStatus(pr);
 							return html`
 								<gl-popover placement="bottom">
 									<button
@@ -1280,7 +1281,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										<issue-pull-request
 											type="pr"
 											identifier=${`#${prNumber}`}
-											status=${pr.state}
+											status=${prStatus}
+											.queueStatus=${queueStatus}
 											.stack=${pr.stack}
 											compact
 										></issue-pull-request>
@@ -1291,7 +1293,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											name=${pr.title}
 											url=${pr.url}
 											identifier=${`#${prNumber}`}
-											status=${pr.state}
+											status=${prStatus}
+											.queueStatus=${queueStatus}
 											.stack=${pr.stack}
 											.author=${pr.author?.name}
 											date-label="updated"

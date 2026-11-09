@@ -28,7 +28,11 @@ export interface CliGitServiceOptions {
 	/** Host-provided context hooks (cache events, workspace, integrations, telemetry, fs) */
 	context: CliGitProviderOptions['context'];
 
-	/** Git execution options passed through to the underlying Git executor */
+	/**
+	 * Git execution options passed through to the underlying Git executor. `gitOptions.isTrusted(repoPath)` is the
+	 * per-repository trust gate: a `false` answer rejects git runs in that path with `WorkspaceUntrustedError` before
+	 * any process starts. It applies only when `context.workspace.isTrusted` is unset; that flag wins when present.
+	 */
 	gitOptions?: CliGitProviderOptions['gitOptions'];
 
 	/** Use an existing Cache instance, or one will be created */
@@ -36,6 +40,9 @@ export interface CliGitServiceOptions {
 
 	/** Folders, relative to a repository's common git dir, whose worktrees core acts as if didn't exist */
 	ignoredWorktreeFolders?: CliGitProviderOptions['ignoredWorktreeFolders'];
+
+	/** Refreshes a checkout's index after core's own writes rewrote it (see `CliGitProviderOptions`); off by default */
+	refreshIndexAfterWrites?: CliGitProviderOptions['refreshIndexAfterWrites'];
 
 	/**
 	 * Filesystem watching provider. When provided, the {@link GitService}
@@ -89,6 +96,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		gitOptions: options.gitOptions,
 		cache: options.cache,
 		ignoredWorktreeFolders: options.ignoredWorktreeFolders,
+		refreshIndexAfterWrites: options.refreshIndexAfterWrites,
 	});
 
 	service.register(provider, () => true);
@@ -105,7 +113,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 	service.watchService?.onDidChangeRepository(e => {
 		const changes = e.getUnannouncedChanges();
 		if (changes.length) {
-			provider.cache.onRepositoryChanged(e.repoPath, changes);
+			provider.cache.onRepositoryChanged(e.repoPath, changes, { movedWorktrees: e.movedWorktrees });
 		}
 	});
 	// FETCH_HEAD maps to no session change, and there's no `Repository` model here to force-fire `lastFetched` (as

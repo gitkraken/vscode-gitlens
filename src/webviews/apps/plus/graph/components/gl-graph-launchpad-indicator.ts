@@ -115,7 +115,7 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 				margin: 0;
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}

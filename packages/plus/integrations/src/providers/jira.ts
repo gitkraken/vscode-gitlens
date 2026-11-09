@@ -1,6 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { JIRA_MAX_PROJECT_KEYS_PER_REQUEST } from '@gitkraken/provider-apis';
-import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -30,6 +29,7 @@ import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
+import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
 	drainJiraIssues,
@@ -148,31 +148,13 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				const organization = organizations.find(o => o.id === project.resourceId);
 				if (organization == null) continue;
 
-				const dashedPrefix = `${project.key}-`;
-				const underscoredPrefix = `${project.key}_`;
-				autolinks.push({
-					prefix: dashedPrefix,
-					url: `${organization.url}/browse/${dashedPrefix}<num>`,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
-
-					type: 'issue',
-					description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-					descriptor: { ...organization },
-				});
-				autolinks.push({
-					prefix: underscoredPrefix,
-					url: `${organization.url}/browse/${dashedPrefix}<num>`,
-					alphanumeric: false,
-					ignoreCase: false,
-					referenceType: 'branch',
-					title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
-
-					type: 'issue',
-					description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-					descriptor: { ...organization },
-				});
+				autolinks.push(
+					...createIssueAutolinkReferences(
+						project.key,
+						`${organization.url}/browse/${project.key}-<num>`,
+						organization,
+					),
+				);
 			}
 
 			// A set missing a site's projects is served but not kept, so the next call tries that site again; one
@@ -659,8 +641,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 *
 	 * Never proves an absence. Jira silently omits a key it can't find or show (listing it in no `issueErrors` either),
 	 * and answers a moved issue under its new key, which no longer matches the key asked for. Either way the target's
-	 * slot is rejected, so the full read, whose 404 does prove an absence, decides. When no target was answered and
-	 * nothing failed, the check declines instead, so a batch of only such keys costs a full read, not a failure.
+	 * slot is rejected, so the full read distinguishes a missing issue from a site failure. When no target was
+	 * answered and nothing failed, the check declines, so a batch of only such keys costs a full read, not a failure.
 	 */
 	protected override async getProviderIssuesEtagFieldsByResourceId(
 		session: ProviderAuthenticationSession,
@@ -841,7 +823,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		}
 	}
 
-	override invalidateDiscoveryCaches(): void {
+	protected override clearDiscoveryCaches(): void {
 		this._discoveryInvalidatedAt = Date.now();
 		this._organizations.clear();
 		this._projects.clear();

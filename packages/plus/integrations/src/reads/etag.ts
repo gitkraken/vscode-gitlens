@@ -1,6 +1,10 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
 import { getIssueFieldPresence } from '../fieldPresence.js';
 import type {
 	IssueEtagFields,
@@ -12,6 +16,7 @@ import {
 	azureWorkItemDescriptionRule,
 	azureWorkItemViewerRule,
 	issueEtagIncludes,
+	linearSyncedWithEtagKeys,
 	pullRequestEtagIncludes,
 	pullRequestRevision,
 } from '../models/integration.js';
@@ -61,6 +66,12 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.viewerUnresolved) {
 		fields.viewerUnresolved = true;
 	}
+	if (pr.mergeQueue != null) {
+		fields.mergeQueue = { state: pr.mergeQueue.state, enqueuedAt: pr.mergeQueue.enqueuedAt };
+	}
+	if (pr.mergeQueueRemoval != null) {
+		fields.mergeQueueRemovedAt = pr.mergeQueueRemoval.removedAt;
+	}
 	return fields;
 }
 
@@ -83,6 +94,9 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 		if (!issue.viewerUnresolved && (issue.viewer != null || !issueNamesPeople(issue))) {
 			fields.viewerRule = azureWorkItemViewerRule;
 		}
+	}
+	if (issue.provider?.id === IssuesCloudHostIntegrationId.Linear) {
+		fields.syncedWithKeys = issue.syncedWith != null ? linearSyncedWithEtagKeys(issue.syncedWith) : null;
 	}
 	return fields;
 }
@@ -115,6 +129,17 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	}
 	if (fields.viewerUnresolved) {
 		state.push('viewer-unresolved');
+	}
+	// Only while queued, so a pull request outside any queue keeps exactly the etag it always had, and joining,
+	// moving through or leaving the queue (none of which moves the update time) still reads as a change. Tagged, so
+	// it can never read as another input.
+	if (fields.mergeQueue != null) {
+		state.push(['merge-queue', fields.mergeQueue.state, timeOf(fields.mergeQueue.enqueuedAt)]);
+	}
+	// Likewise only while the pull request's latest merge-queue event is a removal, so a pull request removed between
+	// two checks, which neither moves its update time nor shows a queue entry at either check, still reads as a change.
+	if (fields.mergeQueueRemovedAt != null) {
+		state.push(['merge-queue-removed', timeOf(fields.mergeQueueRemovedAt)]);
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;
@@ -156,6 +181,11 @@ export function issueEtag(fields: IssueEtagFields, includes: readonly IssueEtagI
 	}
 	if (fields.viewerRule != null) {
 		state.push(fields.viewerRule);
+	}
+	// Only where it is set, so every other provider's etag stays exactly what it was. An unknown list is spelled
+	// apart from every known one, so it never compares unchanged.
+	if (fields.syncedWithKeys !== undefined) {
+		state.push(fields.syncedWithKeys === null ? 'synced-with:unknown' : ['synced-with', ...fields.syncedWithKeys]);
 	}
 	if (covered.length === 0) return `is1:${JSON.stringify(state)}`;
 

@@ -81,16 +81,16 @@ export class GlChipOverflow extends LitElement {
 
 			.overflow-chip:hover,
 			.overflow-chip:focus-visible {
-				background-color: var(--vscode-toolbar-hoverBackground);
+				background-color: var(--gl-color-action-quiet-bg-hover);
 				opacity: 1;
 			}
 
 			.overflow-chip:active {
-				background-color: var(--vscode-toolbar-activeBackground);
+				background-color: var(--gl-color-action-quiet-bg-active);
 			}
 
 			.overflow-chip:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 1px;
 			}
 

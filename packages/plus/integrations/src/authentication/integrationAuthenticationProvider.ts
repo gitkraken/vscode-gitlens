@@ -168,6 +168,26 @@ abstract class IntegrationAuthenticationProviderBase<
 		let refetched: ProviderAuthenticationSession | undefined;
 		let signOutMark: number;
 		if (options?.forceNewSession) {
+			if (isSelfManagedHostIntegrationId(this.authProviderId)) {
+				const connectionId =
+					descriptor.connectionId ||
+					this.configuredIntegrationService.getConfiguredConnectionId(
+						this.authProviderId,
+						descriptor.domain,
+						true,
+					);
+				if (
+					!this.configuredIntegrationService.isConnectionConfiguredForHost(
+						this.authProviderId,
+						connectionId,
+						descriptor.domain,
+					)
+				) {
+					return undefined;
+				}
+
+				descriptor = { ...descriptor, connectionId: connectionId };
+			}
 			// Cloud-only delete (see deleteSession): scope to cloud so the cloud variant's id is cleared even
 			// when a mixed local+cloud connection's local descriptor is primary. A sign-out, so a token fetched before
 			// it is not stored back; the mark is taken after it, so this session's own fetch is not refused.
@@ -175,7 +195,7 @@ abstract class IntegrationAuthenticationProviderBase<
 				this.authProviderId,
 				{ ...descriptor, cloud: true },
 				true,
-				{ signOut: true },
+				{ signOut: true, preserveConfigured: isSelfManagedHostIntegrationId(this.authProviderId) },
 			);
 			signOutMark = this.configuredIntegrationService.getSignOutMark();
 		} else {
@@ -268,7 +288,7 @@ export class CloudIntegrationAuthenticationProvider<
 		options?: GetNewSessionOptions,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		if (options?.forceNewSession) {
-			if ((await this.disconnectCloudSession()) === 'failure') {
+			if ((await this.disconnectCloudSession(descriptor)) === 'failure') {
 				return undefined;
 			}
 
@@ -438,11 +458,19 @@ export class CloudIntegrationAuthenticationProvider<
 		};
 	}
 
-	private async disconnectCloudSession(): Promise<'skip' | 'success' | 'failure'> {
+	private async disconnectCloudSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+	): Promise<'skip' | 'success' | 'failure'> {
 		const loggedIn = (await this.authenticationService.ctx.account.getAccount()) != null;
 		if (!loggedIn) return 'skip';
 
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
-		return (await cloudIntegrations.disconnect(this.authProviderId)) ? 'success' : 'failure';
+		if (!(await cloudIntegrations.disconnect(this.authProviderId, descriptor.connectionId))) return 'failure';
+
+		if (isSelfManagedHostIntegrationId(this.authProviderId)) {
+			await this.deleteSession(descriptor, { preserveConfigured: false });
+		}
+
+		return 'success';
 	}
 }

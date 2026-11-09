@@ -16,6 +16,10 @@ import type { WalkthroughProgress } from '../../../../constants.walkthroughs.js'
  * because that one they can flip back on themselves — it isn't a dead end the way org policy is.
  * `undefined` reads as NOT org-disabled, matching each caller's own "no verdict yet" default.
  *
+ * Also suppressed when `keplerInstalled` is true — the host knows Kepler is installed a moment before
+ * the walkthrough's `kepler` step completes, and the banner must not show an enabled Install button in
+ * between. `undefined` reads as NOT installed.
+ *
  * Lives here rather than in `kepler-banner.ts` so consumers keep an explicit side-effect import of the
  * component: a host that imported only a named export from the component module would still register
  * the element today, but silently stop the moment that import was refactored away. */
@@ -23,7 +27,8 @@ export function shouldShowKeplerBanner(options: {
 	progress: WalkthroughProgress | undefined;
 	onboardingOptedOut: boolean | undefined;
 	orgDisabledAi: boolean | undefined;
+	keplerInstalled?: boolean;
 }): boolean {
-	const { progress, onboardingOptedOut, orgDisabledAi } = options;
-	return progress != null && !onboardingOptedOut && !orgDisabledAi && !progress.state.kepler;
+	const { progress, onboardingOptedOut, orgDisabledAi, keplerInstalled } = options;
+	return progress != null && !onboardingOptedOut && !orgDisabledAi && !keplerInstalled && !progress.state.kepler;
 }

@@ -100,7 +100,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				align-items: flex-start;
 				font-size: 1.15rem;
 				line-height: 1.4;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hint code-icon {
@@ -137,7 +137,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				flex: 1 1 0;
 				min-width: 13rem;
 				padding: 0.9rem 1.1rem;
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -156,9 +156,9 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				color: var(--gl-color-feedback-info-fg);
+				background-color: var(--gl-color-feedback-info-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-md);
 			}
 		`,

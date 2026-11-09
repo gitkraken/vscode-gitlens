@@ -54,6 +54,10 @@ export async function listPullRequestsPage(
 		 * shape and keeps doing so, so an explicit `false` does not widen it back to the full projection.
 		 */
 		summary?: boolean;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		scopeConcurrency?: number;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		includeRemoteInfo?: boolean;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -135,13 +139,15 @@ export async function listPullRequestsPage(
 		summary: true,
 	};
 	// `filters` scopes the read to the current user (the core resolves the account for these), so it returns
-	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Azure), whose
-	// per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
+	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Bitbucket Data Center,
+	// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
 	const scopedInput = {
 		state: options.states,
 		filters: resolvedFilters.filters,
 		pageSize: options.itemsPerPage,
 		summary: options.summary,
+		scopeConcurrency: options.scopeConcurrency,
+		includeRemoteInfo: options.includeRemoteInfo,
 	};
 	const readPage = (pageCursor: string | undefined, requestedPage?: number) =>
 		runCaptured(

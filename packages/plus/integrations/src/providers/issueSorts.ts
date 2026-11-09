@@ -87,3 +87,9 @@ export const linearIssueSorts: IssueSorting[] = surface('linear');
 
 /** Trello's search modifiers: `sort:edited` / `sort:-edited`, and nothing else usable for issues. */
 export const trelloIssueSorts: IssueSorting[] = surface('trello');
+
+/**
+ * Asana's task list, which takes no ordering parameter: empty today, so a read carrying `sort` is refused. Derived all
+ * the same, so a sort the SDK learns is advertised here without an edit.
+ */
+export const asanaIssueSorts: IssueSorting[] = surface('asana');

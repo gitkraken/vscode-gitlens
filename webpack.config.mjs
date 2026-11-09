@@ -668,7 +668,10 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
 		// Webviews are application surfaces rather than 244 KiB landing pages. Preserve a concrete
 		// budget so webpack reports—and the build rejects—future bundles that cross it.
-		performance: { maxAssetSize: 3 * 1024 * 1024, maxEntrypointSize: 3 * 1024 * 1024 },
+		// The entrypoint ceiling is 3.25 MiB since the Commit Graph's review mode (#100) took its entrypoint
+		// (shared.js + graph.css + graph.js) past 3 MiB; runtime import() can't move that code out of it on
+		// VS Code Web (see `splitChunks` below). `benchmark:graph:bundle` tracks the graph's growth closely.
+		performance: { maxAssetSize: 3 * 1024 * 1024, maxEntrypointSize: 3.25 * 1024 * 1024 },
 		output: {
 			chunkFilename: '[name].js',
 			filename: '[name].js',

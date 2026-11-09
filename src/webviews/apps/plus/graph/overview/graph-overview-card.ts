@@ -8,6 +8,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
@@ -115,30 +116,14 @@ export class GlGraphOverviewCard extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 8%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 12%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 8%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 12%);
 		}
 
 		:host-context(.vscode-light),
 		:host-context(.vscode-high-contrast-light) {
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 6%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 10%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 6%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 10%);
 		}
 
 		/* Lights up when one or more selected/focused graph rows live on this branch.
@@ -663,7 +648,11 @@ export class GlGraphOverviewCard extends LitElement {
 
 		// `<pr-icon>` has its own `<gl-tooltip>` when state is set — render directly without
 		// wrapping to avoid nested tooltips.
-		return html`<pr-icon ?draft=${pr.draft ?? false} state=${pr.state} pr-id=${pr.id}></pr-icon>`;
+		return html`<pr-icon
+			?draft=${pr.draft ?? false}
+			state=${getPullRequestDisplayState(pr)}
+			pr-id=${pr.id}
+		></pr-icon>`;
 	}
 
 	private renderAgentsIndicator() {

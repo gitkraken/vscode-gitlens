@@ -11,6 +11,8 @@ import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shar
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import type { QueueablePullRequest } from '../mergeQueue.utils.js';
+import { getMergeQueueNote, getMergeTargetQueueTreatment } from '../mergeQueue.utils.js';
 import { chipStyles } from './chipStyles.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
@@ -242,6 +244,11 @@ export class GlMergeTargetStatus extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	loading = false;
+
+	/** The branch's pull request, when known. While it's in a merge queue the queue owns the branch, so the popover
+	 *  offers no Rebase/Merge: conflicts stay a warning, and being behind is the queue's job. */
+	@property({ attribute: false })
+	pullRequest?: QueueablePullRequest;
 
 	/** Compact presentation for tight surfaces (the branch hover): the indicator renders at 80% scale and
 	 *  opens a plain one-line tooltip instead of the full interactive popover (no push/compare/delete
@@ -516,38 +523,43 @@ export class GlMergeTargetStatus extends LitElement {
 		}
 
 		if (this.conflicts) {
+			const queued = getMergeTargetQueueTreatment(this.pullRequest, 'conflicts') !== 'default';
 			return html`${this.renderHeader(l10n.t('Potential Conflicts with Merge Target'), 'warning', 'warning')}
 				<div class="body">
 					${this.status ? html`<p>${this.renderBehindDescription(this.status.behind)}</p>` : nothing}
-					<div class="button-container">
-						<gl-button
-							full
-							href="${this._webview.createCommandLink<BranchRef>(
-								'gitlens.rebaseCurrentOnto:',
-								this.targetBranchRef,
-							)}"
-							><span
-								>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
-									branch: renderBranchName(this.conflicts.branch),
-									target: target,
-								})}</span
-							></gl-button
-						>
-						<gl-button
-							full
-							appearance="secondary"
-							href="${this._webview.createCommandLink<BranchRef>(
-								'gitlens.mergeIntoCurrent:',
-								this.targetBranchRef,
-							)}"
-							><span
-								>${localizedContent(l10n.t('Merge {target} into {branch}'), {
-									target: target,
-									branch: renderBranchName(this.conflicts.branch),
-								})}</span
-							></gl-button
-						>
-					</div>
+					${
+						queued
+							? html`<p>${getMergeQueueNote()}</p>`
+							: html`<div class="button-container">
+									<gl-button
+										full
+										href="${this._webview.createCommandLink<BranchRef>(
+											'gitlens.rebaseCurrentOnto:',
+											this.targetBranchRef,
+										)}"
+										><span
+											>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
+												branch: renderBranchName(this.conflicts.branch),
+												target: target,
+											})}</span
+										></gl-button
+									>
+									<gl-button
+										full
+										appearance="secondary"
+										href="${this._webview.createCommandLink<BranchRef>(
+											'gitlens.mergeIntoCurrent:',
+											this.targetBranchRef,
+										)}"
+										><span
+											>${localizedContent(l10n.t('Merge {target} into {branch}'), {
+												target: target,
+												branch: renderBranchName(this.conflicts.branch),
+											})}</span
+										></gl-button
+									>
+								</div>`
+					}
 					<p class="status--merge-conflict">
 						<code-icon icon="warning"></code-icon>
 						${formatPlural(
@@ -563,6 +575,7 @@ export class GlMergeTargetStatus extends LitElement {
 
 		if (this.status != null) {
 			if (this.status.behind > 0) {
+				const queued = getMergeTargetQueueTreatment(this.pullRequest, 'behind') !== 'default';
 				return html`${this.renderHeader(
 						formatPlural(
 							l10n.t(
@@ -573,39 +586,44 @@ export class GlMergeTargetStatus extends LitElement {
 							},
 						),
 						'arrow-down',
-						'warning',
+						// Behind isn't something to act on while queued — the queue merges against the latest target.
+						queued ? undefined : 'warning',
 					)}
 					<div class="body">
 						<p>${this.renderBehindDescription(this.status.behind)}</p>
-						<div class="button-container">
-							<gl-button
-								full
-								href="${this._webview.createCommandLink<BranchRef>(
-									'gitlens.rebaseCurrentOnto:',
-									this.targetBranchRef,
-								)}"
-								><span
-									>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
-										branch: renderBranchName(this.branch.name),
-										target: target,
-									})}</span
-								></gl-button
-							>
-							<gl-button
-								full
-								appearance="secondary"
-								href="${this._webview.createCommandLink<BranchRef>(
-									'gitlens.mergeIntoCurrent:',
-									this.targetBranchRef,
-								)}"
-								><span
-									>${localizedContent(l10n.t('Merge {target} into {branch}'), {
-										target: target,
-										branch: renderBranchName(this.branch.name),
-									})}</span
-								></gl-button
-							>
-						</div>
+						${
+							queued
+								? html`<p>${getMergeQueueNote()}</p>`
+								: html`<div class="button-container">
+										<gl-button
+											full
+											href="${this._webview.createCommandLink<BranchRef>(
+												'gitlens.rebaseCurrentOnto:',
+												this.targetBranchRef,
+											)}"
+											><span
+												>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
+													branch: renderBranchName(this.branch.name),
+													target: target,
+												})}</span
+											></gl-button
+										>
+										<gl-button
+											full
+											appearance="secondary"
+											href="${this._webview.createCommandLink<BranchRef>(
+												'gitlens.mergeIntoCurrent:',
+												this.targetBranchRef,
+											)}"
+											><span
+												>${localizedContent(l10n.t('Merge {target} into {branch}'), {
+													target: target,
+													branch: renderBranchName(this.branch.name),
+												})}</span
+											></gl-button
+										>
+									</div>`
+						}
 						${
 							this.conflictError
 								? html`<p class="status--merge-unknown">

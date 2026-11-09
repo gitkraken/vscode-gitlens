@@ -56,8 +56,8 @@ export class GlAiModelChip extends LitElement {
 		.chip:hover,
 		.chip:focus-visible {
 			outline: none;
-			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
-			border-color: var(--vscode-toolbar-hoverOutline, transparent);
+			background: var(--gl-color-action-quiet-bg-hover);
+			border-color: var(--gl-color-action-quiet-outline-hover, transparent);
 		}
 
 		/* Model name leads (foreground); provider trails, quieter — no separator, the
@@ -117,7 +117,7 @@ export class GlAiModelChip extends LitElement {
 		[slot='content'] hr {
 			margin: var(--gl-space-4) 0;
 			border: none;
-			border-top: var(--gl-border-width) solid var(--color-foreground--25);
+			border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 	`;
 

@@ -40,7 +40,8 @@ export class GlChartSlider extends GlElement {
 		}
 
 		wa-slider::part(track) {
-			background-color: var(--vscode-scrollbarSlider-background);
+			background-color: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+			border: var(--gl-border-width) solid var(--gl-color-border-contrast, transparent);
 		}
 
 		/* Indicator is anchored to max (= the working tree at the right edge) via indicator-offset,

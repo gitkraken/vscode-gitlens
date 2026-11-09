@@ -174,7 +174,7 @@ export const cardStyles = css`
 	}
 
 	.card--focusable:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 	}
 
 	.card__actions {

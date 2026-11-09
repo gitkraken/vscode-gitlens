@@ -44,8 +44,8 @@ export function applyGraphThemeVariables(isLight: boolean, isHighContrast: boole
 
 	const tokens: Record<string, readonly string[]> = {
 		'--brand': ['--vscode-button-background', '--vscode-focusBorder', '--vscode-textLink-foreground'],
-		'--border': ['--vscode-panel-border', '--vscode-widget-border', '--vscode-input-border'],
-		'--secondary': ['--vscode-list-hoverBackground', '--vscode-toolbar-hoverBackground'],
+		'--border': ['--gl-color-border-overlay'],
+		'--secondary': ['--vscode-list-hoverBackground'],
 		'--background': ['--vscode-editor-background'],
 		'--foreground': ['--vscode-editor-foreground', '--vscode-foreground'],
 		'--muted-foreground': ['--vscode-descriptionForeground', '--vscode-disabledForeground'],

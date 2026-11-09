@@ -1,3 +1,4 @@
+import { AzureDevOps } from '@gitkraken/provider-apis';
 import type {
 	AzureDevOpsRestResource,
 	AzureDevOpsRestResourceInfo,
@@ -40,7 +41,7 @@ import type { ProviderIssueSearchPage } from '../../models/issueReads.js';
 import { decodePathSegment } from '../../utils/domain.utils.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
-import { createProviderApiRequest, createProviderApis } from '../providerApiClient.js';
+import { createProviderApiRequest } from '../providerApiClient.js';
 import { throwProviderError } from '../providerErrors.js';
 import type {
 	AzureForkRepositoryUrls,
@@ -116,7 +117,7 @@ function parseAzureRepositoryDescriptor(repo: string): { projectName: string; re
 }
 
 export class AzureDevOpsApi implements Disposable {
-	private readonly restApi: ReturnType<typeof createProviderApis>['azureDevOps'];
+	private readonly restApi: AzureDevOps;
 	private readonly _disposable: Disposable | undefined;
 	private readonly _workItemStates: AzureWorkItemStatesCache;
 	private readonly ownsWorkItemStates: boolean;
@@ -142,9 +143,9 @@ export class AzureDevOpsApi implements Disposable {
 		workItemStates?: AzureWorkItemStatesCache,
 		workItemDescriptions?: AzureWorkItemDescriptionsCache,
 	) {
-		this.restApi = createProviderApis({
+		this.restApi = new AzureDevOps({
 			request: createProviderApiRequest((input, init) => config.fetch(input, init)),
-		}).azureDevOps;
+		});
 		this._workItemStates = workItemStates ?? new AzureWorkItemStatesCache();
 		this.ownsWorkItemStates = workItemStates == null;
 		this._workItemDescriptions = workItemDescriptions ?? new AzureWorkItemDescriptionsCache();

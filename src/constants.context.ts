@@ -42,6 +42,10 @@ export type ContextKeys = {
 	'gitlens:gk:organization:drafts:enabled': boolean;
 	'gitlens:graph:hasSavedDefaultLayout': boolean;
 	'gitlens:hasVirtualFolders': boolean;
+	/** Kepler is known to be installed on this machine — `false` when it is not, or can't be told (a remote window) */
+	'gitlens:kepler:installed': boolean;
+	/** GitLens is installing Kepler right now */
+	'gitlens:kepler:installing': boolean;
 	'gitlens:launchpad:connected': boolean;
 	/** Indicates that this is the first run of a new install of GitLens */
 	'gitlens:install:new': boolean;
@@ -57,6 +61,12 @@ export type ContextKeys = {
 	'gitlens:prerelease': boolean;
 	'gitlens:promo': PromoKeys;
 	'gitlens:readonly': boolean;
+	/** A review has files to read — the editor keybindings and diff title buttons that step through them are live. */
+	'gitlens:review:reading': boolean;
+	/** Documents the review's files open as; `resource in gitlens:review:files` scopes the title buttons and keybindings to them. */
+	'gitlens:review:files': Uri[];
+	/** Review in Repo can start here — the local channel is up and an agent is there to hand to; a thread's Ask Reviewer goes the same way. */
+	'gitlens:review:canAsk': boolean;
 	'gitlens:rebase:editor:enabled': boolean;
 	'gitlens:repos:withRemotes': string[];
 	'gitlens:repos:withHostingIntegrations': string[];

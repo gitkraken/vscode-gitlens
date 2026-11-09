@@ -4,6 +4,7 @@ import type { AIReviewResult } from '../../models/results.js';
 import {
 	parseReviewDetailResult,
 	parseReviewDetailResultJson,
+	parseReviewOrientJson,
 	parseReviewResult,
 	parseReviewResultJson,
 	parseSummarizeResult,
@@ -119,6 +120,7 @@ suite('serializeReviewResult', () => {
 										description: 'Missing model title',
 										file: null,
 										lines: null,
+										locations: null,
 									},
 								],
 							},
@@ -279,6 +281,59 @@ suite('parseReviewResultJson', () => {
 				findings: null,
 			},
 		],
+	});
+
+	test('a finding with several places keeps them all, first place first, each once', () => {
+		const result = parseReviewResultJson(
+			JSON.stringify({
+				overview: 'o',
+				focusAreas: [
+					{
+						label: 'Dup',
+						rationale: 'r',
+						severity: 'suggestion',
+						files: ['src/a.ts', 'src/b.ts'],
+						findings: [
+							{
+								severity: 'suggestion',
+								title: 'Copied block',
+								description: 'd',
+								file: 'src/a.ts',
+								lines: { start: 10, end: 12 },
+								locations: [
+									{ file: 'src/a.ts', lines: { start: 10, end: 12 } },
+									{ file: 'src/b.ts', lines: { start: 30, end: 32 } },
+									{ file: 'src/c.ts', lines: null },
+								],
+							},
+							{
+								severity: 'warning',
+								title: 'First place only in locations',
+								description: 'd',
+								file: null,
+								lines: null,
+								locations: [{ file: 'src/d.ts', lines: { start: 1, end: 1 } }],
+							},
+						],
+					},
+				],
+			}),
+			'single-pass',
+		);
+		const [multi, single] = result.focusAreas[0].findings!;
+		assert.strictEqual(multi.filePath, 'src/a.ts');
+		assert.deepStrictEqual(multi.lineRange, { start: 10, end: 12 });
+		assert.deepStrictEqual(multi.locations, [
+			{ filePath: 'src/a.ts', lineRange: { start: 10, end: 12 } },
+			{ filePath: 'src/b.ts', lineRange: { start: 30, end: 32 } },
+			{ filePath: 'src/c.ts' },
+		]);
+		assert.strictEqual(single.filePath, 'src/d.ts');
+		assert.deepStrictEqual(single.lineRange, { start: 1, end: 1 });
+		assert.strictEqual(single.locations, undefined, 'one place is the finding itself, not a list');
+
+		const replayed = parseReviewResultJson(serializeReviewResult(result), 'single-pass');
+		assert.deepStrictEqual(replayed.focusAreas[0].findings, result.focusAreas[0].findings, 'round-trips');
 	});
 
 	test('parses the JSON shape with positional area/finding ids and null-normalized optionals', () => {
@@ -527,5 +582,52 @@ suite('parseReviewDetailResultJson', () => {
 
 		assert.deepStrictEqual(parseReviewDetailResultJson(xml, 'area-1'), parseReviewDetailResult(xml, 'area-1'));
 		assert.strictEqual(parseReviewDetailResultJson(xml, 'area-1').findings[0].id, 'area-1-f1');
+	});
+});
+
+suite('parseReviewOrientJson', () => {
+	test('keeps groups and files in order, drops a repeated file, and defaults an unknown kind', () => {
+		const result = parseReviewOrientJson(`\`\`\`json
+{"overview":" The retry engine. ","groups":[
+ {"label":"Core","kind":"core","summary":" The engine itself. ","files":[{"path":"src/retry.ts","note":"new backoff engine"},{"path":"src/service.ts","note":"adopts it"}]},
+ {"label":"","kind":"odd","files":[{"path":"src/service.ts","note":"again"},{"path":"test/retry.test.ts","note":"timing only"}]},
+ {"label":"Empty","kind":"mechanical","files":[]}
+]}
+\`\`\``);
+
+		assert.strictEqual(result.overview, 'The retry engine.');
+		assert.deepStrictEqual(
+			result.groups.map(g => ({
+				id: g.id,
+				label: g.label,
+				kind: g.kind,
+				summary: g.summary,
+				fallback: g.labelIsFallback ?? false,
+				files: g.files.map(f => f.path),
+			})),
+			[
+				{
+					id: 'group-1',
+					label: 'Core',
+					kind: 'core',
+					summary: 'The engine itself.',
+					fallback: false,
+					files: ['src/retry.ts', 'src/service.ts'],
+				},
+				{
+					id: 'group-2',
+					label: 'Untitled group',
+					kind: 'supporting',
+					summary: '',
+					fallback: true,
+					files: ['test/retry.test.ts'],
+				},
+			],
+		);
+	});
+
+	test('rejects an empty or shapeless response', () => {
+		assert.throws(() => parseReviewOrientJson('  '));
+		assert.throws(() => parseReviewOrientJson('{"overview":"no groups"}'));
 	});
 });

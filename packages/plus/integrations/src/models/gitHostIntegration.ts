@@ -6,6 +6,8 @@ import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/m
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueActionResult,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -21,8 +23,10 @@ import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderScopeFailure } from '../collectionMetadata.js';
@@ -34,7 +38,7 @@ import {
 	unsettledMissMessage,
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type {
 	GetIssuesOptions,
@@ -92,6 +96,11 @@ function sendsBasicCredential(providerId: IntegrationIds, session: ProviderAuthe
 	return isAzureProviderId(providerId) ? session.type !== 'oauth' : undefined;
 }
 
+/** A finite number >= 1 truncated to an integer; anything else (which would starve the pool) is the default. */
+function resolveScopeConcurrency(value: number | undefined): number {
+	return value != null && Number.isFinite(value) && value >= 1 ? Math.trunc(value) : providerFanOutConcurrency;
+}
+
 /** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
 export type SearchMyPullRequestsOptions = {
 	/** Suppresses the user-facing notification when the read fails. */
@@ -120,6 +129,20 @@ type MyPullRequestsForReposOptions = {
 	state?: PullRequestStateFilter | PullRequestStateFilter[];
 	/** Requests the lightweight row shape without per-row build status or commit count. */
 	summary?: boolean;
+	/**
+	 * Most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts that read repository
+	 * by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud, Bitbucket Data Center and Azure DevOps;
+	 * GitHub/GHE send one query whatever the repo count. A value that isn't a finite number >= 1 falls back to the
+	 * default.
+	 */
+	scopeConcurrency?: number;
+	/**
+	 * Azure DevOps only, repo-scoped: `false` skips the lookup that fills each row's clone URLs, saving one
+	 * request per repository (and fork source) per page. Rows then carry no `refs.base.url`/`refs.head.url`
+	 * (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be checked out or matched to local
+	 * remotes. Defaults to `true`; other providers ignore it.
+	 */
+	includeRemoteInfo?: boolean;
 };
 
 /** A repository as the batch and branch reads name it. */
@@ -439,12 +462,16 @@ export abstract class GitHostIntegration<
 		return defaultBranch;
 	}
 
+	/**
+	 * Reads one repository. `readAt`, when set, is where it was read, which may not be where `repo` names it: an Azure
+	 * DevOps Server integration may read a remote's path as another collection and project than the remote parser did.
+	 */
 	getRepoInfo?(repo: {
 		owner: string;
 		name: string;
 		project?: string;
 		connectionId?: string;
-	}): Promise<ProviderRepository | undefined>;
+	}): Promise<(ProviderRepository & { readAt?: { owner: string; name: string; project?: string } }) | undefined>;
 
 	/**
 	 * Settles what one repository's refusal of the credential means, as a batch read settles a refused target (see
@@ -475,6 +502,16 @@ export abstract class GitHostIntegration<
 		repo: string,
 		cancellation?: AbortSignal,
 	): Promise<Map<number, PullRequestStackInfo> | undefined>;
+
+	/** Merge-queue entries for the given base branches of the repository, keyed by pull request number, for rows from a
+	 *  read that selects no merge queue. Only hosts with a readable merge queue implement this (currently GitHub.com);
+	 *  `undefined` means unavailable. INTERIM: remove once provider-apis carries the entry on its rows (goals S6). */
+	getMergeQueueEntriesByPullRequestNumber?(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined>;
 
 	/** The ordered layers of the stack the given pull request belongs to, bottom to top. `undefined`
 	 *  when the host has no stacks concept, the repository isn't enrolled, or the pull request isn't
@@ -636,7 +673,7 @@ export abstract class GitHostIntegration<
 					{ scope: scope, connectionId: connectionId },
 				);
 			} else {
-				this.resetRequestExceptionCount('getOrganizationsForUser');
+				this.resetRequestExceptionCount('getOrganizationsForUser', connectionId);
 			}
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -677,7 +714,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderProjectsForOrg(session, org);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getProjectsForOrg');
+			this.resetRequestExceptionCount('getProjectsForOrg', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForOrg', ex, { scope: scope, connectionId: connectionId });
@@ -715,7 +752,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderRepositoriesForOrg?.(session, org, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getRepositoriesForOrg');
+			this.resetRequestExceptionCount('getRepositoriesForOrg', options?.connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForOrg', ex, {
@@ -757,7 +794,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderRepositoriesForUser(session, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getRepositoriesForUser');
+			this.resetRequestExceptionCount('getRepositoriesForUser', options?.connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForUser', ex, {
@@ -806,6 +843,99 @@ export abstract class GitHostIntegration<
 		options?: { mergeMethod?: PullRequestMergeMethod },
 		cancellation?: AbortSignal,
 	): Promise<boolean>;
+
+	/**
+	 * Adds a pull request to its base branch's merge queue (where `mergeQueueRequired` says merging means queueing).
+	 * The result says why on failure: the host's refusal (`already-queued`, `head-changed`, `permission`, …),
+	 * `unsupported` where this host has no merge queue to act on (only GitHub.com's is), or `unknown` for anything
+	 * else, including no connection or a failure to reach the host — the provider's message rides along for logs, not
+	 * for display. Cancellation throws `CancellationError`. Evicts cached pull requests whatever the outcome, as
+	 * {@link mergePullRequest} does.
+	 */
+	@trace()
+	async enqueuePullRequest(pr: PullRequest, cancellation?: AbortSignal): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		return this.runMergeQueueAction(
+			'enqueuePullRequest',
+			this.enqueueProviderPullRequest?.bind(this),
+			pr,
+			cancellation,
+			scope,
+		);
+	}
+
+	/**
+	 * Removes a queued pull request from its base branch's merge queue, losing its place there. Results, failures and
+	 * cancellation as {@link enqueuePullRequest}.
+	 */
+	@trace()
+	async dequeuePullRequest(pr: PullRequest, cancellation?: AbortSignal): Promise<PullRequestMergeQueueActionResult> {
+		const scope = getScopedLogger();
+		return this.runMergeQueueAction(
+			'dequeuePullRequest',
+			this.dequeueProviderPullRequest?.bind(this),
+			pr,
+			cancellation,
+			scope,
+		);
+	}
+
+	/** {@link mergePullRequest}'s session and failure handling, for the merge-queue actions. */
+	private async runMergeQueueAction(
+		syncReqUsecase: 'enqueuePullRequest' | 'dequeuePullRequest',
+		action:
+			| ((
+					session: ProviderAuthenticationSession,
+					pr: PullRequest,
+					cancellation?: AbortSignal,
+			  ) => Promise<PullRequestMergeQueueActionResult>)
+			| undefined,
+		pr: PullRequest,
+		cancellation: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<PullRequestMergeQueueActionResult> {
+		if (action == null) return { status: 'failed', reason: 'unsupported' };
+
+		const sessionFailure = await this.prepareSessionLookup();
+		if (sessionFailure != null) {
+			return {
+				status: 'failed',
+				reason: 'unknown',
+				message: sessionFailure === 'unconnected' ? 'Not connected' : sessionFailure.message,
+			};
+		}
+
+		try {
+			const result = await action(this._session!, pr, cancellation);
+			this.resetRequestExceptionCount(syncReqUsecase);
+			return result;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const error = toError(ex);
+			this.handleProviderException(syncReqUsecase, error, { scope: scope });
+			return { status: 'failed', reason: 'unknown', message: error.message };
+		} finally {
+			// Joining or leaving a queue changes the pull request's queue state on the server, and a refusal may have
+			// raced a change made elsewhere, so cached pull requests can't be trusted either way.
+			this.ctx.cache.deletePullRequests();
+		}
+	}
+
+	/** Implemented only by hosts whose merge queue this integration can act on (currently GitHub.com); the base
+	 *  reports `unsupported` without one. */
+	protected enqueueProviderPullRequest?(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult>;
+
+	/** See {@link enqueueProviderPullRequest}. */
+	protected dequeueProviderPullRequest?(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult>;
 
 	@trace()
 	async getPullRequestForBranch(
@@ -1106,6 +1236,7 @@ export abstract class GitHostIntegration<
 				unsettled,
 				r => `${r.namespace}\0${r.project}`,
 			);
+			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
 			const cursorInfo = this.parseCursorInfo<PagedProjectInput>(options?.cursor);
 			const cursors: PagedProjectInput[] = cursorInfo.cursors ?? [];
 			let projectInputs: PagedProjectInput[] = Array.from(projects.values(), project => ({
@@ -1123,32 +1254,29 @@ export abstract class GitHostIntegration<
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
-				// `allSettled`, not `Promise.all`: one project's read rejecting must not discard every sibling
-				// project's already-fetched issues and cursors. A rejected project is recorded as a structured
-				// failure so the facade can warn and set `fetchFailed` instead of reporting a partial project set
-				// as complete.
-				const settled = await Promise.allSettled(
-					projectInputs.map(async projectInput => {
-						const results = await api.getIssuesForAzureProject(
-							toTokenWithInfo(providerId, session),
-							projectInput.namespace,
-							projectInput.project,
-							{
-								...getIssuesOptions,
-								cursor: projectInput.cursor,
-								baseUrl: customUrl,
-								isPAT: sendsBasicCredential(providerId, session),
-								// Continuation is driven by the per-project cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: projectInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								sort: options?.sort,
-							},
-						);
-						return { projectInput: projectInput, results: results };
-					}),
-				);
+				// Settled, not `Promise.all`: one project's read rejecting must not discard every sibling project's
+				// already-fetched issues and cursors. A rejected project is recorded as a structured failure so the
+				// facade can warn and set `fetchFailed` instead of reporting a partial project set as complete.
+				const settled = await mapSettledBounded(projectInputs, scopeConcurrency, async projectInput => {
+					const results = await api.getIssuesForAzureProject(
+						toTokenWithInfo(providerId, session),
+						projectInput.namespace,
+						projectInput.project,
+						{
+							...getIssuesOptions,
+							cursor: projectInput.cursor,
+							baseUrl: customUrl,
+							isPAT: sendsBasicCredential(providerId, session),
+							// Continuation is driven by the per-project cursor; only apply an explicit page on the
+							// first request so it can't clobber a continuation cursor on later pages.
+							page: projectInput.cursor == null ? options?.page : undefined,
+							pageSize: options?.pageSize,
+							states: states,
+							sort: options?.sort,
+						},
+					);
+					return { projectInput: projectInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
@@ -1218,7 +1346,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getIssuesForRepos');
+				this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 				// With the session that read the rows, so a connection switched since can't lend them its identity.
 				const viewers = await this.getIssueViewers(session, data);
 				return {
@@ -1289,6 +1417,7 @@ export abstract class GitHostIntegration<
 		}
 
 		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !repoIdsInput) {
+			const scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1302,29 +1431,23 @@ export abstract class GitHostIntegration<
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
-				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// Settled, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
 				// already-fetched issues and cursors. A rejected repo is recorded as a structured failure so the
 				// facade can warn and set `fetchFailed` instead of reporting a partial repo set as complete.
-				const settled = await Promise.allSettled(
-					repoInputs.map(async repoInput => {
-						const results = await api.getIssuesForRepo(
-							toTokenWithInfo(providerId, session),
-							repoInput.repo,
-							{
-								...getIssuesOptions,
-								cursor: repoInput.cursor,
-								baseUrl: customUrl,
-								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: repoInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								sort: options?.sort,
-							},
-						);
-						return { repoInput: repoInput, results: results };
-					}),
-				);
+				const settled = await mapSettledBounded(repoInputs, scopeConcurrency, async repoInput => {
+					const results = await api.getIssuesForRepo(toTokenWithInfo(providerId, session), repoInput.repo, {
+						...getIssuesOptions,
+						cursor: repoInput.cursor,
+						baseUrl: customUrl,
+						// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+						// first request so it can't clobber a continuation cursor on later pages.
+						page: repoInput.cursor == null ? options?.page : undefined,
+						pageSize: options?.pageSize,
+						states: states,
+						sort: options?.sort,
+					});
+					return { repoInput: repoInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
@@ -1364,7 +1487,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getIssuesForRepos');
+				this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 				return {
 					value: {
 						values: data,
@@ -1418,7 +1541,7 @@ export abstract class GitHostIntegration<
 			}
 
 			await this.confirmScopedAuthFailures(session, result.metadata);
-			this.resetRequestExceptionCount('getIssuesForRepos');
+			this.resetRequestExceptionCount('getIssuesForRepos', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForRepos', ex, {
@@ -1637,6 +1760,12 @@ export abstract class GitHostIntegration<
 		) {
 			const toRepoInputKey = (r: ProviderRepoInput) => `${r.namespace}\0${r.project ?? ''}\0${r.name}`;
 			const unsettledRepos = toUnsettledScopeKeys(reposOrRepoIds, unsettled, toRepoInputKey);
+			let scopeConcurrency = resolveScopeConcurrency(options?.scopeConcurrency);
+			// Bitbucket Data Center reads each requested state of a repository as its own request, all at once, so
+			// the bound is shared out across the states to stay a bound on requests, as the SDK's own fan-out did.
+			if (providerId === GitSelfManagedHostIntegrationId.BitbucketServer) {
+				scopeConcurrency = Math.max(1, Math.floor(scopeConcurrency / Math.max(1, states?.length ?? 1)));
+			}
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1651,40 +1780,42 @@ export abstract class GitHostIntegration<
 				let metadata: CollectionMetadata | undefined;
 				const failures: CollectionScopeFailure[] = [];
 				const data: ProviderPullRequest[] = [];
-				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// Settled, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
 				// already-fetched PRs and cursors. A rejected repo becomes a structured `CollectionScopeFailure`
 				// (attributed to that repo) so the facade warns on it + sets `fetchFailed`, while the survivors and
 				// their continuation cursors are still returned.
-				const settled = await Promise.allSettled(
-					repoInputs.map(async repoInput => {
-						const results = await api.getPullRequestsForRepo(
-							toTokenWithInfo(providerId, session),
-							repoInput.repo,
-							{
-								...getPullRequestsOptions,
-								cursor: repoInput.cursor,
-								isPAT: sendsBasicCredential(providerId, session),
-								// Per repository: an unfiltered read may span organizations, and a host can narrow the base
-								// to each repository's own.
-								baseUrl:
-									options?.customUrl == null && isGitSelfManagedHostIntegrationId(providerId)
-										? this.getRepositoriesApiBaseUrl(session, [repoInput.repo])
-										: customUrl,
-								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
-								// first request so it can't clobber a continuation cursor on later pages.
-								page: repoInput.cursor == null ? options?.page : undefined,
-								pageSize: options?.pageSize,
-								states: states,
-								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-								includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
-							},
-						);
-						return { repoInput: repoInput, results: results };
-					}),
-				);
+				const settled = await mapSettledBounded(repoInputs, scopeConcurrency, async repoInput => {
+					const results = await api.getPullRequestsForRepo(
+						toTokenWithInfo(providerId, session),
+						repoInput.repo,
+						{
+							...getPullRequestsOptions,
+							cursor: repoInput.cursor,
+							isPAT: sendsBasicCredential(providerId, session),
+							// Per repository: an unfiltered read may span organizations, and a host can narrow the base
+							// to each repository's own.
+							baseUrl:
+								options?.customUrl == null && isGitSelfManagedHostIntegrationId(providerId)
+									? this.getRepositoriesApiBaseUrl(session, [repoInput.repo])
+									: customUrl,
+							// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+							// first request so it can't clobber a continuation cursor on later pages.
+							page: repoInput.cursor == null ? options?.page : undefined,
+							pageSize: options?.pageSize,
+							states: states,
+							// Azure DevOps only populates clone URLs on request (extra call), which a caller may opt out
+							// of; no-op elsewhere.
+							includeRemoteInfo:
+								isAzureProviderId(providerId) && options?.includeRemoteInfo !== false
+									? true
+									: undefined,
+						},
+					);
+					return { repoInput: repoInput, results: results };
+				});
 				throwIfAllSettledFailed(settled);
 
-				// `allSettled` preserves order, so `settled[i]` is `repoInputs[i]`.
+				// Settled results keep input order, so `settled[i]` is `repoInputs[i]`.
 				settled.forEach((outcome, i) => {
 					if (outcome.status !== 'fulfilled') {
 						const failedRepo = repoInputs[i].repo;
@@ -1737,7 +1868,7 @@ export abstract class GitHostIntegration<
 				}
 
 				await this.confirmScopedAuthFailures(session, metadata);
-				this.resetRequestExceptionCount('getPullRequestsForRepos');
+				this.resetRequestExceptionCount('getPullRequestsForRepos', connectionId);
 				return {
 					value: {
 						values: data,
@@ -1772,12 +1903,14 @@ export abstract class GitHostIntegration<
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
-				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-				includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
+				// Azure DevOps only populates clone URLs on request (extra call), which a caller may opt out of;
+				// no-op elsewhere.
+				includeRemoteInfo:
+					isAzureProviderId(providerId) && options?.includeRemoteInfo !== false ? true : undefined,
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			await this.confirmScopedAuthFailures(session, result.metadata);
-			this.resetRequestExceptionCount('getPullRequestsForRepos');
+			this.resetRequestExceptionCount('getPullRequestsForRepos', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getPullRequestsForRepos', ex, {
@@ -1809,7 +1942,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 				searchOptions,
 			);
-			this.resetRequestExceptionCount('searchMyPullRequests');
+			this.resetRequestExceptionCount('searchMyPullRequests', connectionId);
 			return { value: prs, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyPullRequests', ex, {
@@ -1857,7 +1990,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.getProviderMyPullRequestsForUser(session, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getMyPullRequestsForUser');
+			this.resetRequestExceptionCount('getMyPullRequestsForUser', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getMyPullRequestsForUser', ex, {
@@ -1973,7 +2106,7 @@ export abstract class GitHostIntegration<
 		try {
 			const result = await this.searchProviderPullRequestsPage?.(session, options, cancellation);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('searchPullRequestsPage');
+			this.resetRequestExceptionCount('searchPullRequestsPage', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchPullRequestsPage', ex, { scope: scope, connectionId: connectionId });
@@ -2018,7 +2151,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 				searchOptions,
 			);
-			this.resetRequestExceptionCount('searchPullRequests');
+			this.resetRequestExceptionCount('searchPullRequests', connectionId);
 			return prs;
 		} catch (ex) {
 			this.handleProviderException('searchPullRequests', ex, { scope: scope, connectionId: connectionId });
@@ -2067,7 +2200,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.searchProviderIssuesPage?.(session, options, cancellation);
-			this.resetRequestExceptionCount('searchIssuesPage');
+			this.resetRequestExceptionCount('searchIssuesPage', connectionId);
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchIssuesPage', ex, { scope: scope, connectionId: connectionId });
@@ -2114,7 +2247,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const counts = await this.countProviderIssues?.(session, scopes, cancellation);
-			this.resetRequestExceptionCount('countIssues');
+			this.resetRequestExceptionCount('countIssues', connectionId);
 			return { value: counts, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('countIssues', ex, { scope: scope, connectionId: connectionId });
@@ -2175,21 +2308,21 @@ export abstract class GitHostIntegration<
 			const targets = await this.resolveRepositoryCoordinates(session, coordinates, cancellation);
 			slots = await this.getProviderIssuesBatch?.(session, targets.coordinates, cancellation);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getIssuesBatch');
+				this.resetRequestExceptionCount('getIssuesBatch', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, issue => issue == null);
 
-			this.resetRequestExceptionCount('getIssuesBatch');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getIssuesBatch', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getIssuesBatch', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2243,21 +2376,21 @@ export abstract class GitHostIntegration<
 			const targets = await this.resolveRepositoryCoordinates(session, coordinates, cancellation);
 			slots = await this.getProviderPullRequestsBatch?.(session, targets.coordinates, options, cancellation);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getPullRequestsBatch');
+				this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, pr => pr == null);
 
-			this.resetRequestExceptionCount('getPullRequestsBatch');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getPullRequestsBatch', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2315,7 +2448,7 @@ export abstract class GitHostIntegration<
 			});
 
 			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields');
+				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2373,7 +2506,7 @@ export abstract class GitHostIntegration<
 			});
 
 			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getPullRequestsEtagFields');
+				this.resetRequestExceptionCount('getPullRequestsEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2436,7 +2569,7 @@ export abstract class GitHostIntegration<
 				cancellation,
 			);
 			if (slots == null) {
-				this.resetRequestExceptionCount('getPullRequestsForBranches');
+				this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
 				return { value: undefined, duration: performance.now() - start };
 			}
 
@@ -2447,15 +2580,15 @@ export abstract class GitHostIntegration<
 				found => found.pullRequests.length === 0 && !found.truncated,
 			);
 
-			this.resetRequestExceptionCount('getPullRequestsForBranches');
-			this.reportDeferredRequestFailures(settled, false);
+			this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			const struck = this.handleProviderException('getPullRequestsForBranches', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck);
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -2468,8 +2601,9 @@ export abstract class GitHostIntegration<
 	 * A row matches only when its head branch is the target's `branch` AND its head repository is the base
 	 * repository itself (`headOwner` omitted) or the fork `headOwner` owns — a same-named branch in some other
 	 * fork is a different branch. A host that reads one target per request fans out with `mapSettledBounded`, so
-	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 targets per request, and a request
-	 * that throws rejects only its own targets.
+	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 distinct repository-and-branch queries
+	 * per request, each answering every target that names it, so a query's failure rejects all of those targets, and a
+	 * request that throws rejects only its own targets.
 	 */
 	protected getProviderPullRequestsForBranches?(
 		session: ProviderAuthenticationSession,
@@ -2497,7 +2631,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const counts = await this.countProviderPullRequests?.(session, scopes, cancellation);
-			this.resetRequestExceptionCount('countPullRequests');
+			this.resetRequestExceptionCount('countPullRequests', connectionId);
 			return { value: counts, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('countPullRequests', ex, { scope: scope, connectionId: connectionId });

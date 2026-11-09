@@ -15,7 +15,7 @@ export const timelineBaseStyles = css`
 
 	/* roll into shared focus style */
 	:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 
@@ -51,15 +51,6 @@ export const timelineBaseStyles = css`
 		font-weight: var(--gl-font-weight-regular);
 	}
 
-	h3 {
-		margin-bottom: 0;
-		font-size: 1.5rem;
-		font-weight: var(--gl-font-weight-semibold);
-		color: var(--color-view-header-foreground);
-		white-space: nowrap;
-		border: none;
-	}
-
 	h4 {
 		margin: 0.5rem 0 1rem;
 		font-size: 1.5rem;
@@ -76,7 +67,7 @@ export const timelineStyles = css`
 		overflow: hidden;
 		font-family: var(--font-family);
 		font-size: var(--font-size);
-		color: var(--color-view-foreground);
+		color: var(--vscode-foreground);
 	}
 
 	.container {
@@ -100,7 +91,7 @@ export const timelineStyles = css`
 	}
 
 	:host-context(body[data-placement='view']) gl-feature-gate {
-		background-color: var(--vscode-sideBar-background);
+		background-color: var(--gl-color-surface-base);
 	}
 
 	gl-feature-gate gl-feature-badge {

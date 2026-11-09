@@ -1,4 +1,5 @@
 import * as l10n from '@vscode/l10n';
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -20,6 +21,8 @@ import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
+import type { Source } from '../../../../../constants.telemetry.js';
+import { createCommandLink } from '../../../../../system/commands.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
@@ -28,6 +31,7 @@ import type {
 	AutoRebaseRunUpdate,
 	AutoRebaseSummaryStep,
 	ConflictSide,
+	ResolveAIUnavailable,
 	ResolvedFileSummary,
 	ResolveFileError,
 	ResolveSkippedFile,
@@ -48,7 +52,13 @@ import {
 } from './resolveDisplay.js';
 import { liveRefineDraft, liveRefineMode, syncRefinePosture } from './shared-panel-helpers.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
-import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
+import {
+	panelErrorStyles,
+	panelHostStyles,
+	panelLoadingStageStyles,
+	panelLoadingStyles,
+	panelStaleBannerStyles,
+} from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
@@ -136,6 +146,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		panelLoadingStyles,
 		panelLoadingStageStyles,
 		panelErrorStyles,
+		panelStaleBannerStyles,
 		scrollableBase,
 		subPanelEnterStyles,
 		resolveDisplayStyles,
@@ -243,7 +254,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: flex;
 				flex: none;
 				flex-direction: column;
-				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.auto-rebase__history {
@@ -257,7 +268,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-8);
 				justify-content: flex-end;
 				padding: var(--gl-space-8) var(--gl-space-12);
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Progress summary above the sections — orientation before detail. */
@@ -267,7 +278,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-6);
 				padding: var(--gl-space-10) var(--gl-space-12);
-				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-progress__text {
@@ -286,7 +297,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 			.resolve-progress__need {
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--vscode-editorWarning-foreground, #cca700);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.resolve-progress__bar {
@@ -305,11 +316,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-progress__bar-seg--done {
-				background: var(--vscode-charts-green, var(--vscode-testing-iconPassed, currentColor));
+				background: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.resolve-progress__bar-seg--need {
-				background: var(--vscode-editorWarning-foreground, #cca700);
+				background: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			/* Counted, collapsible result-group headers (Resolved / Needs your input). */
@@ -332,7 +343,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 				text-align: left;
 				cursor: pointer;
-				background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				background: var(--gl-color-surface-aside);
 				border: none;
 			}
 
@@ -350,12 +361,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-section__head--resolved .resolve-section__status {
-				color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.resolve-section__head--needs,
 			.resolve-section__head--needs .resolve-section__status {
-				color: var(--vscode-editorWarning-foreground, #cca700);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			.resolve-section__label {
@@ -375,8 +386,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-section__head--needs .resolve-section__count {
-				color: var(--vscode-editorWarning-foreground, #cca700);
-				background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 22%, transparent);
+				color: var(--gl-color-feedback-warning-quiet-fg);
+				background: color-mix(in srgb, var(--gl-color-feedback-warning-quiet-fg) 22%, transparent);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-quiet-border);
 			}
 
 			.resolve-file {
@@ -384,7 +396,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-2);
 				padding: 0.5rem 1.2rem;
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-file__head {
@@ -430,7 +442,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-file__error {
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			/* Rename/rename decision: the two candidate names shown as indented side rows under the header. */
@@ -440,7 +452,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-4);
 				padding-left: var(--gl-space-8);
 				margin: var(--gl-space-6) 0 var(--gl-space-2) var(--gl-space-6);
-				border-left: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-left: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-file__side {
@@ -487,7 +499,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-8);
 				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
 				container: resolve-ready / inline-size;
-				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.resolve-gate {
@@ -550,6 +562,33 @@ export class GlDetailsResolveModePanel extends LitElement {
 				margin-bottom: var(--gl-space-12);
 			}
 
+			/* AI became unavailable mid-run — the one notice for every file it left unresolved. */
+			.resolve-unavailable {
+				flex: none;
+				align-items: flex-start;
+				margin: var(--gl-space-8) var(--gl-space-12) 0;
+			}
+
+			.resolve-unavailable > code-icon {
+				margin-top: var(--gl-space-2);
+			}
+
+			.resolve-unavailable__content {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				min-width: 0;
+				color: var(--vscode-foreground);
+			}
+
+			.resolve-unavailable__title {
+				font-weight: var(--gl-font-weight-semibold);
+			}
+
+			.resolve-unavailable__action {
+				align-self: flex-start;
+			}
+
 			/* Per-row feedback input, indented under its file. */
 			.resolve-file__feedback {
 				display: block;
@@ -560,6 +599,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 	@property({ attribute: 'status' }) status: ResolveModeStatus = 'idle';
 	@property() errorMessage?: string;
+	/** Call to action for the `error` state — set when the run failed because AI is unavailable. */
+	@property() errorAction?: ResolveAIUnavailable['action'];
+	/** AI became unavailable after some files were resolved — rendered once above the results. */
+	@property({ type: Object }) aiUnavailable?: ResolveAIUnavailable;
 	@property({ type: Array }) resolutions?: readonly ResolvedFileSummary[];
 	@property({ type: Array }) errors?: readonly ResolveFileError[];
 	@property({ type: Array }) skipped?: readonly ResolveSkippedFile[];
@@ -812,6 +855,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					l10n.t('An error occurred while resolving conflicts.'),
 					'resolve-error-retry',
 					'resolve-error-back',
+					this.renderAIUnavailableAction(this.errorAction),
 				);
 			case 'ready':
 				return this.renderReady();
@@ -1310,6 +1354,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 						</div>`
 					: nothing
 			}
+			${this.renderAIUnavailable(errors)}
 			<div class="resolve-results scrollable">
 				${
 					resolvedCount > 0
@@ -1591,6 +1636,48 @@ export class GlDetailsResolveModePanel extends LitElement {
 		this.emit('resolve-retry-file', { filePath: filePath, prompt: prompt });
 	}
 
+	/** The run-level notice for files left unresolved because AI became unavailable — those rows carry no
+	 *  message of their own. Counted from the rows still listed, so it shrinks as the user takes sides and
+	 *  goes away once none are left. */
+	private renderAIUnavailable(errors: readonly ResolveFileError[]): unknown {
+		const notice = this.aiUnavailable;
+		if (notice == null) return nothing;
+
+		const count = errors.reduce((n, e) => (e.message == null ? n + 1 : n), 0);
+		if (count === 0) return nothing;
+
+		return html`<div class="stale-banner resolve-unavailable" role="status">
+			<code-icon icon="warning" aria-hidden="true"></code-icon>
+			<div class="resolve-unavailable__content">
+				<span class="resolve-unavailable__title"
+					>${formatPlural(
+						l10n.t(
+							'{count, plural, one{AI is unavailable, so {count} file wasn’t resolved} other{AI is unavailable, so {count} files weren’t resolved}}',
+						),
+						{ count: count },
+					)}</span
+				>
+				<span>${notice.message}</span>
+				${this.renderAIUnavailableAction(notice.action)}
+			</div>
+		</div>`;
+	}
+
+	private renderAIUnavailableAction(action: ResolveAIUnavailable['action']): TemplateResult | undefined {
+		if (action !== 'purchase-credits') return undefined;
+
+		return html`<gl-button
+			class="resolve-unavailable__action"
+			appearance="secondary"
+			href=${createCommandLink<Source>('gitlens.ai.purchaseCredits', {
+				source: 'graph',
+				detail: { location: 'graph-details:resolve' },
+			})}
+			>${l10n.t('Get More Credits')}
+			<code-icon icon="link-external" slot="suffix" aria-hidden="true"></code-icon>
+		</gl-button>`;
+	}
+
 	/** Builds the "Needs your input" list. Each rename/rename pair (both target paths share the same
 	 *  original `renameOf`) is collapsed into a single decision row so the user sees both candidate names
 	 *  and their side together — instead of two disconnected half-rows each with one take-side button. */
@@ -1709,7 +1796,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				<span class="resolve-file__path">${e.filePath}</span>
 				${this.renderFallbackActions(e)}
 			</div>
-			<p class="resolve-file__reasoning resolve-file__error">${e.message}</p>
+			${e.message != null ? html`<p class="resolve-file__reasoning resolve-file__error">${e.message}</p>` : nothing}
 		</li>`;
 	}
 

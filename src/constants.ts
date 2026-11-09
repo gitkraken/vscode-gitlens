@@ -133,6 +133,7 @@ export const urls = Object.freeze({
 	workspaces: `https://gitkraken.com/solutions/workspaces?${utm}`,
 
 	kepler: `https://www.gitkraken.com/kepler?${utm}`,
+	keplerDownload: `https://www.gitkraken.com/kepler/download?${utm}`,
 
 	cli: `https://gitkraken.com/cli?${utm}`,
 	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,

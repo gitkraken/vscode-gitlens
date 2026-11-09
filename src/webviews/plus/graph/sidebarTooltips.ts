@@ -1,8 +1,10 @@
 import * as l10n from '@vscode/l10n';
+import { formatPullRequestMergeQueueStatus } from '@gitlens/git/utils/pullRequest.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
+import { formatMergeQueueRemoval } from '../../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import type {
 	GraphSidebarBranch,
 	GraphSidebarPullRequest,
@@ -91,6 +93,12 @@ export function pullRequestTooltip(pr: GraphSidebarPullRequest, dateFormat?: str
 		byline = l10n.t('#{0}', pr.number);
 	}
 	tooltip += `\\\n${byline}`;
+
+	if (pr.state === 'opened' && pr.mergeQueue != null) {
+		tooltip += `\\\n${formatPullRequestMergeQueueStatus(pr.mergeQueue)}`;
+	} else if (pr.mergeQueueRemoval != null) {
+		tooltip += `\\\n${formatMergeQueueRemoval(pr.mergeQueueRemoval)}`;
+	}
 
 	return tooltip;
 }

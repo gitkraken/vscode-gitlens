@@ -49,11 +49,17 @@ export class ActionItem extends LitElement {
 
 		:host(:hover),
 		:host(:focus-within) {
-			background-color: var(--action-item-hover-background, var(--vscode-toolbar-hoverBackground));
+			background-color: var(--action-item-hover-background, var(--gl-color-action-quiet-bg-hover));
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		:host(:not([disabled], :focus-within):hover) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		:host(:active) {
-			background-color: var(--action-item-active-background, var(--vscode-toolbar-activeBackground));
+			background-color: var(--action-item-active-background, var(--gl-color-action-quiet-bg-active));
 		}
 
 		:host([disabled]) {

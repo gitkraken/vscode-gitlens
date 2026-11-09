@@ -368,7 +368,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						.reachability=${reach}
 						.reachabilityState=${reachState}
 						.branchName=${commit?.stashOnRef}
-						.aiEnabled=${org?.ai !== false}
+						.aiEnabled=${(prefs?.aiEnabled ?? false) && org?.ai !== false}
 						.aiModel=${s.aiModel.get()}
 						@switch-model=${() => actions?.executeCommand('gitlens.ai.switchProvider')}
 						@gl-pick-commit=${() => this._actions?.pickCommit()}

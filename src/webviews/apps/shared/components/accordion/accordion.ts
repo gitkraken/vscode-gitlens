@@ -21,7 +21,7 @@ export class GlAccordion extends LitElement {
 			font-size: var(--vscode-font-size);
 			font-weight: var(--vscode-font-weight);
 			color: var(--vscode-foreground);
-			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
+			background-color: var(--gl-accordion-content-background, var(--gl-color-surface-base));
 		}
 
 		/*
@@ -41,7 +41,7 @@ overflow: hidden;
 			user-select: none;
 			outline: none;
 			list-style: none;
-			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
+			background-color: var(--gl-accordion-header-background, var(--gl-color-surface-aside));
 		}
 
 		.header::-webkit-details-marker {
@@ -61,17 +61,17 @@ overflow: hidden;
 		}
 
 		.header:hover {
-			background-color: var(--vscode-list-hoverBackground);
+			background-color: var(--gl-color-action-quiet-bg-hover);
 		}
 
 		.header:focus {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
 		}
 
 		.content {
 			padding: var(--gl-space-12);
-			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
+			background-color: var(--gl-accordion-content-background, var(--gl-color-surface-base));
 		}
 	`;
 

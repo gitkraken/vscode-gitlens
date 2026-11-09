@@ -7,7 +7,7 @@ export const badgeBase = css`
 		font-size: var(--gl-badge-font-size, x-small);
 		font-weight: var(--gl-font-weight-semibold);
 		font-variant: all-small-caps;
-		color: var(--gl-badge-color, var(--color-foreground--50));
+		color: var(--gl-badge-color, var(--vscode-descriptionForeground));
 		white-space: nowrap;
 		border: currentcolor 1px solid;
 		border-radius: 1rem;
@@ -31,9 +31,9 @@ export const badgeBase = css`
 		padding: var(--gl-space-2) var(--gl-space-6);
 		font-weight: 500;
 		line-height: 1;
-		color: var(--vscode-button-foreground, #fff);
-		background-color: var(--vscode-gitDecoration-conflictingResourceForeground);
-		border: none;
+		color: var(--gl-color-feedback-warning-fg);
+		background-color: var(--gl-color-feedback-warning-bg);
+		border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -78,11 +78,14 @@ export const badgeBase = css`
 		padding: 0.1rem 0.6rem;
 		font-weight: var(--gl-font-weight-semibold);
 		font-variant: normal;
-		color: var(--vscode-editorWarning-foreground, var(--color-foreground--65));
+		color: var(--gl-color-feedback-warning-quiet-fg);
 		letter-spacing: 0.06em;
-		background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 12%, transparent);
+		background-color: color-mix(in srgb, var(--gl-color-feedback-warning-quiet-fg) 12%, transparent);
 		border: var(--gl-border-width) solid
-			color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
+			var(
+				--gl-color-feedback-warning-quiet-border,
+				color-mix(in srgb, var(--gl-color-feedback-warning-quiet-fg) 60%, transparent)
+			);
 		border-radius: var(--gl-radius-sm);
 	}
 `;

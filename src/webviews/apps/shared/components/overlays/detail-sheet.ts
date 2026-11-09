@@ -97,8 +97,8 @@ export class GlDetailSheet extends LitElement {
 				height: 100%;
 				min-height: 0;
 				pointer-events: auto;
-				background: var(--vscode-sideBar-background, var(--color-background));
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				background: var(--gl-color-surface-aside);
+				border-top: var(--gl-border-width) solid var(--gl-color-border-raised);
 
 				/* Bottom-anchored sheet: directional top-only border (it fills the panel, flush on the
  other edges), so it can't use the full-border elevatedSurface helper. The top border
@@ -123,7 +123,7 @@ export class GlDetailSheet extends LitElement {
 			}
 
 			.sheet:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -0.2rem;
 			}
 
@@ -135,7 +135,7 @@ export class GlDetailSheet extends LitElement {
 				padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 				border-top-left-radius: var(--gl-radius-sm);
 				border-top-right-radius: var(--gl-radius-sm);
 			}
@@ -190,7 +190,7 @@ export class GlDetailSheet extends LitElement {
 				flex: 0 0 auto;
 				gap: var(--gl-space-8);
 				padding: var(--gl-space-6) var(--gl-space-12);
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.sheet__footer:empty {

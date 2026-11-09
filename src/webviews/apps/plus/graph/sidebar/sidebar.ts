@@ -114,6 +114,18 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			outline-offset: -1px;
 		}
 
+		/* Toolbar hover fill, like the rail's gl-button siblings: color alone is no cue where
+   descriptionForeground equals foreground (e.g. Light Modern) */
+		.item:hover .icon {
+			background-color: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		.item:not(:focus-visible):hover .icon {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
+		}
+
 		.sidebar {
 			position: relative;
 
@@ -130,9 +142,9 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			padding: 0.5rem 0;
 			font-size: 9px;
 			font-weight: var(--gl-font-weight-semibold);
-			color: var(--color-view-foreground--65);
-			background-color: var(--color-view-background);
-			border-color: var(--vscode-sideBar-border, transparent);
+			color: var(--vscode-descriptionForeground);
+			background-color: var(--gl-color-surface-aside);
+			border-color: var(--gl-color-border-aside, transparent);
 			border-right: var(--gl-border-width) solid transparent;
 		}
 
@@ -162,7 +174,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			width: 100%;
 			padding: 0;
 			font: inherit;
-			color: var(--color-view-foreground--65);
+			color: var(--vscode-descriptionForeground);
 			text-decoration: none;
 			cursor: pointer;
 			background: none;
@@ -170,12 +182,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.item:hover {
-			color: var(--color-view-foreground);
+			color: var(--vscode-foreground);
 			text-decoration: none;
 		}
 
 		.item.active {
-			color: var(--color-view-foreground);
+			color: var(--vscode-foreground);
 		}
 
 		.item.overview {
@@ -209,11 +221,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 		.count {
 			margin-top: var(--gl-space-4);
-			color: var(--color-view-foreground--50);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.count.error {
-			color: var(--vscode-errorForeground);
+			color: var(--gl-color-feedback-danger-quiet-fg);
 			opacity: 0.6;
 		}
 
@@ -231,11 +243,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
  --button-foreground beats a value merely inherited from the gl-new-indicator wrapper. */
 		.display-mode-toggle gl-button {
 			position: relative;
-			--button-foreground: var(--color-view-foreground--65);
+			--button-foreground: var(--vscode-descriptionForeground);
 		}
 
 		.display-mode-toggle:hover gl-button {
-			--button-foreground: var(--color-view-foreground);
+			--button-foreground: var(--gl-color-action-quiet-fg);
 		}
 
 		/* Evidence dot for the Git Health banner's indicator — armed only on the visualizations
@@ -263,7 +275,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.toggle-tooltip__hint code-icon {
-			color: var(--color-alert-infoBorder);
+			color: var(--gl-color-feedback-info-quiet-fg);
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
@@ -280,11 +292,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
  the measured bottom block and folds nav icons into the … menu instead. */
 		.rail-action {
 			margin: 0 auto;
-			--button-foreground: var(--color-view-foreground--65);
+			--button-foreground: var(--vscode-descriptionForeground);
 		}
 
 		.rail-action:hover {
-			--button-foreground: var(--color-view-foreground);
+			--button-foreground: var(--gl-color-action-quiet-fg);
 		}
 
 		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
@@ -357,7 +369,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 		.overflow-menu-item .count {
 			margin: 0;
-			color: var(--color-view-foreground--50);
+			color: var(--vscode-descriptionForeground);
 		}
 	`;
 

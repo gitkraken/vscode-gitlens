@@ -103,6 +103,11 @@ export type IssuesForProjectOptions = {
 	 * (Trello) refuses anything but `'open'` rather than serving its open cards as if they were the closed ones.
 	 */
 	state?: IssueStateFilter;
+	/**
+	 * Linear only: narrows the read to issues in any of these Linear Projects (Linear's `Project` entity, by id),
+	 * server-side. Validated by the facade, which refuses it for any other tracker; omitted or empty adds nothing.
+	 */
+	linearProjects?: readonly string[];
 };
 
 /** One project of a batched tracker read (`IssuesIntegration.getIssuesForProjectsWithTruncationResult`). */
@@ -166,6 +171,12 @@ export type MyIssuesForReposOptions = {
 	 * that, because it is also the layer that can refuse a key no merge can honor.
 	 */
 	sort?: IssueSorting;
+	/**
+	 * Most per-repository requests (per-project for Azure DevOps) one provider read keeps in flight. Defaults to 6.
+	 * Only GitLab, GitLab self-managed and Azure DevOps fan out; GitHub/GHE send one query whatever the repo count.
+	 * A value that isn't a finite number >= 1 falls back to the default.
+	 */
+	scopeConcurrency?: number;
 };
 
 /**

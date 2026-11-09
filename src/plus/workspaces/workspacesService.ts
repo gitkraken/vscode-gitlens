@@ -1398,14 +1398,21 @@ export class WorkspacesService implements Disposable {
 	}
 }
 
-async function getRemoteDescriptor(remote: GitRemote): Promise<RemoteDescriptor | undefined> {
+export async function getRemoteDescriptor(remote: GitRemote): Promise<RemoteDescriptor | undefined> {
 	if (remote.provider?.owner == null) return undefined;
 
 	const remoteRepoName = remote.provider.path.split('/').pop();
 	if (remoteRepoName == null) return undefined;
+
+	// GitLab's owner is the whole namespace, but the provider's own splits at the first slash
+	const { path } = remote.provider;
+	const namespaceEnd = path.lastIndexOf('/');
+	const owner =
+		remote.provider.id === 'gitlab' && namespaceEnd > 0 ? path.substring(0, namespaceEnd) : remote.provider.owner;
+
 	return {
 		provider: remote.provider.id.toLowerCase(),
-		owner: remote.provider.owner.toLowerCase(),
+		owner: owner.toLowerCase(),
 		repoName: remoteRepoName.toLowerCase(),
 		url: await getRemoteProviderUrl(remote.provider, { type: RemoteResourceType.Repo }),
 	};

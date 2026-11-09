@@ -153,9 +153,12 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			font-size: 1.4rem;
 		}
 
+		/* border-box keeps the high contrast edge inside the tile's fixed size */
 		.coachmark__icon--warning {
-			color: var(--vscode-charts-yellow);
-			background: color-mix(in srgb, var(--vscode-charts-yellow) 15%, transparent);
+			box-sizing: border-box;
+			color: var(--gl-color-feedback-warning-quiet-fg);
+			background: color-mix(in srgb, var(--gl-color-feedback-warning-quiet-fg) 15%, transparent);
+			border: var(--gl-border-width) solid var(--gl-color-feedback-warning-quiet-border);
 		}
 
 		.coachmark__icon--scoped {
@@ -260,19 +263,19 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.dot--critical {
-			background: var(--vscode-charts-red);
+			background: var(--gl-color-feedback-danger-quiet-fg);
 		}
 
 		.dot--warning {
-			background: var(--vscode-charts-yellow);
+			background: var(--gl-color-feedback-warning-quiet-fg);
 		}
 
 		.dot--suggestion {
-			background: var(--vscode-charts-blue);
+			background: var(--gl-color-feedback-info-quiet-fg);
 		}
 
 		.dot--success {
-			background: var(--vscode-charts-green);
+			background: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.dot--attention {
@@ -294,9 +297,9 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			font-size: 1.1rem;
 			font-weight: 500;
 			line-height: 1.6rem;
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			white-space: nowrap;
-			background: var(--vscode-button-background);
+			background: var(--gl-color-action-primary-bg);
 			border-radius: 0.3rem;
 		}
 
@@ -304,7 +307,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			line-height: 1.4rem;
 			color: var(--color-foreground);
 			background: none;
-			border: 0.1rem solid var(--vscode-widget-border);
+			border: 0.1rem solid var(--gl-color-border-raised);
 		}
 
 		/* Scoped under the body so it out-specifies the body's blanket p { margin: 0 } reset. */
@@ -325,7 +328,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		.coachmark__trust code-icon {
 			flex: none;
 			font-size: 1rem;
-			color: var(--vscode-charts-green);
+			color: var(--gl-color-feedback-success-quiet-fg);
 			translate: 0 0.1rem;
 		}
 
@@ -347,19 +350,19 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			height: 2rem;
 			padding: 0;
 			vertical-align: middle;
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			cursor: pointer;
-			background: var(--vscode-button-background);
+			background: var(--gl-color-action-primary-bg);
 			border: none;
 			border-radius: 50%;
 		}
 
 		.lightbulb:hover {
-			background: var(--vscode-button-hoverBackground);
+			background: var(--gl-color-action-primary-bg-hover);
 		}
 
 		.lightbulb:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: 1px solid var(--gl-color-border-focus);
 			outline-offset: 0.1rem;
 		}
 

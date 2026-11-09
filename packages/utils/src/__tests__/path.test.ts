@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { makeHierarchical } from '../array.js';
-import { arePathsEqual, normalizePath, trimTrailingSlash } from '../path.js';
+import { arePathsEqual, normalizePath, trimTrailingSlash, trimTrailingSlashes } from '../path.js';
 
 // Git reports an untracked directory that is itself a repository as a single entry with a trailing
 // slash, since it can't recurse past the embedded repository boundary.
@@ -29,6 +29,33 @@ suite('path', () => {
 
 		test('trims only the last of repeated trailing slashes', () => {
 			assert.strictEqual(trimTrailingSlash('a//'), 'a/');
+		});
+	});
+
+	suite('trimTrailingSlashes', () => {
+		test('trims a run of trailing slashes', () => {
+			assert.strictEqual(trimTrailingSlashes('a/b///'), 'a/b');
+			assert.strictEqual(trimTrailingSlashes('a/b/'), 'a/b');
+		});
+
+		test('reduces all-slash and empty input to empty', () => {
+			assert.strictEqual(trimTrailingSlashes('///'), '');
+			assert.strictEqual(trimTrailingSlashes('/'), '');
+			assert.strictEqual(trimTrailingSlashes(''), '');
+		});
+
+		test('leaves a path with no trailing slash untouched', () => {
+			assert.strictEqual(trimTrailingSlashes('a/b'), 'a/b');
+		});
+
+		test('keeps interior slashes and backslashes', () => {
+			assert.strictEqual(trimTrailingSlashes('a//b'), 'a//b');
+			assert.strictEqual(trimTrailingSlashes('weird\\name/'), 'weird\\name');
+		});
+
+		test('returns a long interior run of slashes unchanged', () => {
+			const value = `${'/'.repeat(100_000)}a`;
+			assert.strictEqual(trimTrailingSlashes(value), value);
 		});
 	});
 

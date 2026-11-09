@@ -136,7 +136,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-editor-background);
 				--gl-kanban-card-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
-				--gl-kanban-card-border: var(--vscode-panel-border, transparent);
+				--gl-kanban-card-border: var(--gl-color-border-raised);
 				--gl-kanban-column-gap: 1.2rem;
 				--gl-kanban-card-radius: var(--gl-radius-sm);
 			}
@@ -164,7 +164,7 @@ horizontal column scroll and the per-column vertical scroll silently disappear. 
  * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
  * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
 				padding: var(--gl-space-4) var(--gl-space-6) var(--gl-space-4) var(--gl-space-12);
-				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border, transparent);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.header__title {
@@ -187,7 +187,7 @@ horizontal column scroll and the per-column vertical scroll silently disappear. 
 
 			.header__count {
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Experimental stamp uses the shared gl-badge with appearance=experimental. Sits inside
@@ -247,7 +247,7 @@ view (not just one control) is experimental. */
 				padding: var(--gl-space-8) var(--gl-space-10);
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
 				border-bottom: var(--gl-border-width) solid var(--gl-kanban-card-border);
@@ -271,7 +271,7 @@ view (not just one control) is experimental. */
 				margin-left: auto;
 				font-size: var(--gl-font-micro);
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: none;
 				letter-spacing: 0;
 			}
@@ -294,7 +294,7 @@ view (not just one control) is experimental. */
 				padding: var(--gl-space-4) var(--gl-space-2);
 				font-size: var(--gl-font-sm);
 				font-style: italic;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.card {
@@ -327,7 +327,7 @@ view (not just one control) is experimental. */
 			}
 
 			.card:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -373,7 +373,7 @@ view (not just one control) is experimental. */
 			.card__phase {
 				font-size: var(--gl-font-micro);
 				font-weight: 500;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -401,7 +401,7 @@ even when the subtitle is missing so the Open Session stays visually anchored. *
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-micro);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -447,7 +447,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-micro);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -463,13 +463,13 @@ Allow / Deny / View Plan cluster left-aligned. */
 				align-items: center;
 				justify-content: center;
 				padding: var(--gl-space-20);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}
 
 			.empty-state code-icon {
 				font-size: 2.4rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 		`,
 	];

@@ -31,7 +31,7 @@ export class GlGraphHeaderPromo extends SignalWatcher(LitElement) {
 			}
 
 			gl-promo::part(link) {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			gl-promo::part(link):hover {

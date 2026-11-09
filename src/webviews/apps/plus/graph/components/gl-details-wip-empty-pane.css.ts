@@ -29,7 +29,7 @@ export const detailsWipEmptyPaneStyles = css`
 		margin: 0;
 		font-size: var(--gl-font-sm);
 		font-weight: 500;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}

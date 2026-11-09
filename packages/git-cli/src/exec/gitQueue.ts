@@ -1,3 +1,4 @@
+import { scanLeadingOptions } from './commandClassifier.js';
 import type { GitCommandPriority } from './exec.types.js';
 
 interface QueuedCommand {
@@ -264,41 +265,10 @@ export class GitQueue {
 	}
 }
 
-/**
- * Git global options that consume the next positional arg as their value
- * (e.g. `--work-tree <path>`). Long-form `--name=value` is already skipped by
- * the leading-dash check, so only the separated form needs explicit handling.
- */
-const optionsTakingValue = new Set([
-	'-c',
-	'-C',
-	'--git-dir',
-	'--work-tree',
-	'--namespace',
-	'--exec-path',
-	'--super-prefix',
-	'--config-env',
-	'--attr-source',
-	'--list-cmds',
-]);
-
 /** Extracts the primary git subcommand from an arg list, skipping global options and their values. */
 export function getPrimaryGitCommand(args: readonly (string | undefined)[]): string | undefined {
-	for (let i = 0; i < args.length; i++) {
-		const a = args[i];
-		if (a == null) continue;
-		if (optionsTakingValue.has(a)) {
-			const next = args[i + 1];
-			if (next != null && !next.startsWith('-')) {
-				i++;
-			}
-			continue;
-		}
-		if (a.startsWith('-')) continue;
-
-		return a;
-	}
-	return undefined;
+	// Classifying always answers where the verb sits, which the cheaper scan omits when no option moves the repository
+	return args[scanLeadingOptions(undefined, args, true).verbIndex];
 }
 
 /**

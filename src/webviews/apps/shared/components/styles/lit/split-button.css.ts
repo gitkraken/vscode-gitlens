@@ -53,7 +53,7 @@ export const splitButtonStyles = css`
 			var(--button-line-height, 1.35) * 1em + 2 * var(--button-padding, 0.4rem) + 2 * var(--gl-border-width)
 		);
 		border-left: var(--gl-border-width) solid
-			var(--gl-split-btn-seam, color-mix(in srgb, transparent 72%, var(--vscode-button-foreground)));
+			var(--gl-split-btn-seam, color-mix(in srgb, transparent 72%, var(--gl-color-action-primary-fg)));
 		border-start-start-radius: 0;
 		border-end-start-radius: 0;
 		--button-padding-inline: 0.5rem;

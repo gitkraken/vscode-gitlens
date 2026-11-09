@@ -135,7 +135,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.rule {
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -152,7 +152,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				align-items: center;
 				justify-content: center;
 				padding: var(--gl-space-4);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: transparent;
 				border: none;
@@ -160,8 +160,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.rule__expander:hover {
-				color: var(--color-foreground);
-				background-color: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
+				background-color: var(--gl-color-action-quiet-bg-hover);
 			}
 
 			.rule__expander:focus-visible {
@@ -183,7 +185,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.rule__title-matcher {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.rule__title-matcher code {
@@ -193,13 +195,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 			.rule__title-unset {
 				font-style: italic;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.rule__delete {
 				flex: none;
 				padding: var(--gl-space-4);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: transparent;
 				border: none;
@@ -207,8 +209,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.rule__delete:hover {
-				color: var(--color-foreground);
-				background-color: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
+				background-color: var(--gl-color-action-quiet-bg-hover);
 			}
 
 			.rule__delete:focus-visible {
@@ -220,8 +224,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: var(--gl-space-12);
 				padding: var(--gl-space-12);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.field {
@@ -278,8 +281,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: var(--gl-space-10);
 				padding-block-start: var(--gl-space-8);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.urls__heading {
@@ -290,7 +292,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 			.field__tokens {
 				font-size: 1.1rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.field__tokens code {
@@ -312,17 +314,17 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.notice--warning {
-				color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.notice--hint {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hint {
 				font-size: 1.15rem;
 				line-height: 1.5;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			gl-button {

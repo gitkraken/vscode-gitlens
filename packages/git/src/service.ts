@@ -236,6 +236,7 @@ export class GitService implements UnifiedDisposable {
 					? provider.onDidAnnounceChanges?.(e =>
 							watchService.noteSelfWrite(e.repoPath, e.changes, e.refs, {
 								configConfinedToRefs: e.configConfinedToRefs,
+								movedWorktrees: e.movedWorktrees,
 							}),
 						)
 					: undefined,
@@ -353,7 +354,8 @@ export class GitService implements UnifiedDisposable {
 	 * discriminated union. For a simple yes/no check, use `(await validateRepo(path)).valid`.
 	 *
 	 * Returns `{ valid: false }` if no provider can handle the path or if the routed
-	 * provider does not implement `getRepositoryInfo`.
+	 * provider does not implement `getRepositoryInfo`. Rejects when git gives no answer
+	 * (it ran past its time limit, was killed or couldn't start), which says nothing about the path.
 	 */
 	async validateRepo(pathOrUri: Uri | string): Promise<ValidateRepoResult> {
 		const key = getRepositoryKey(pathOrUri);

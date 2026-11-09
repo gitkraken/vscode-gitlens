@@ -1708,6 +1708,37 @@ suite('GitHubApi.getIssuesBatch (#5802)', () => {
 		);
 	});
 
+	test('a RATE_LIMITED naming an alias throws the whole call rather than failing that alias', async () => {
+		const { config } = batchServe({ i0: { issue: issueNode(1) }, i1: null }, [
+			{ type: 'RATE_LIMITED', path: ['i1'], message: 'API rate limit exceeded for user ID 1.' },
+		]);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() =>
+				api.getIssuesBatch(provider, token, [
+					{ owner: 'o', repo: 'a', number: 1 },
+					{ owner: 'o', repo: 'a', number: 2 },
+				]),
+			(ex: unknown) => ex instanceof RequestRateLimitError,
+		);
+	});
+
+	for (const first of ['NOT_FOUND', 'FORBIDDEN', 'SOMETHING_NEW']) {
+		test(`a RATE_LIMITED after a leading ${first} error still throws RequestRateLimitError`, async () => {
+			const { config } = batchServe({ i0: { issue: issueNode(1) } }, [
+				{ type: first },
+				{ type: 'RATE_LIMITED', message: 'API rate limit exceeded for user ID 1.' },
+			]);
+			const api = new GitHubApi(config);
+
+			await assert.rejects(
+				() => api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]),
+				(ex: unknown) => ex instanceof RequestRateLimitError,
+			);
+		});
+	}
+
 	test('FORBIDDEN with no path still throws AuthenticationError, as today', async () => {
 		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [{ type: 'FORBIDDEN' }]);
 		const api = new GitHubApi(config);

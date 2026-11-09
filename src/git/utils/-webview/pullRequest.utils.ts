@@ -15,6 +15,14 @@ import type { Container } from '../../../container.js';
 import { AuthenticationRequiredError, getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../models/repository.js';
 
+/**
+ * A remote name can't hold a slash, because a remote branch name is read as `<remote>/<branch>` up to its first one,
+ * and a GitLab nested group owner (`group/subgroup`) holds one.
+ */
+export function getRemoteNameForPullRequestOwner(owner: string): string {
+	return owner.replaceAll('/', '-');
+}
+
 export async function describePullRequestWithAI(
 	container: Container,
 	repo: string | GlRepository,
@@ -114,9 +122,11 @@ export async function ensurePullRequestRemote(
 		const result = await window.showInformationMessage(message, { modal: true }, confirm, cancel);
 
 		if (result === confirm) {
-			await repo.git.remotes.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, {
-				fetch: true,
-			});
+			await repo.git.remotes.addRemoteWithResult?.(
+				getRemoteNameForPullRequestOwner(identity.provider.repoDomain),
+				identity.remote.url,
+				{ fetch: true },
+			);
 			return true;
 		}
 	}

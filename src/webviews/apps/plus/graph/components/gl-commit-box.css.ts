@@ -19,7 +19,7 @@ export const commitBoxStyles = css`
 		flex-direction: column;
 		gap: var(--gl-space-4);
 		padding: var(--gl-space-6) var(--gl-space-12) var(--gl-space-8);
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		--gl-input-working-border-color: var(--gl-agent-working-color);
 	}
 
@@ -41,7 +41,7 @@ export const commitBoxStyles = css`
 	}
 
 	.signing-indicator:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: 0.1rem solid var(--gl-color-border-focus);
 		outline-offset: 0.2rem;
 	}
 
@@ -162,7 +162,7 @@ export const commitBoxStyles = css`
 
 	.textarea:focus {
 		outline: none;
-		border-color: var(--vscode-focusBorder);
+		border-color: var(--gl-color-border-focus);
 	}
 
 	.textarea.has-error {
@@ -223,7 +223,7 @@ export const commitBoxStyles = css`
 
 	.char-count {
 		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground, var(--color-foreground--65));
+		color: var(--vscode-descriptionForeground);
 		pointer-events: none;
 	}
 
@@ -251,12 +251,6 @@ export const commitBoxStyles = css`
 	.commit-btn {
 		flex: 1;
 		min-width: 0;
-	}
-
-	.commit-btn[variant='warning'] {
-		--button-background: var(--vscode-inputValidation-warningBorder, #b89500);
-		--button-foreground: #000;
-		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
 	}
 
 	/* The pair spans the same full width the single commit button occupies (the shared module

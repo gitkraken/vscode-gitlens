@@ -1,4 +1,6 @@
 import * as l10n from '@vscode/l10n';
+import { gitKrakenProviderDescriptor } from './constants.js';
+import type { AIModel } from './models/model.js';
 
 export const enum AIErrorReason {
 	DeniedByOrganization,
@@ -14,14 +16,19 @@ export const enum AIErrorReason {
 	UserQuotaExceeded,
 	NoNetwork,
 	Unreachable,
+	ModelUnavailable,
 }
 
 export class AIError extends Error {
 	readonly diagnosticMessage: string;
 	readonly original?: Error;
 	readonly reason: AIErrorReason | undefined;
+	/** Optional provider context. Omitted preserves the legacy GitKraken quota message and credit offers, so a
+	 *  non-GitKraken provider must pass its own to get provider-neutral text (and no credit offers). Also names
+	 *  the provider in the model-unavailable message. */
+	readonly provider?: AIModel['provider'];
 
-	constructor(reason: AIErrorReason, original?: Error) {
+	constructor(reason: AIErrorReason, original?: Error, provider?: AIModel['provider']) {
 		let message: string;
 		let diagnosticMessage: string;
 		switch (reason) {
@@ -35,19 +42,25 @@ export class AIError extends Error {
 				break;
 			case AIErrorReason.UserQuotaExceeded:
 				diagnosticMessage = 'You have exceeded your user token limit';
-				message = l10n.t('You have exceeded your user token limit');
+				message =
+					provider != null && provider.id !== gitKrakenProviderDescriptor.id
+						? l10n.t(
+								'You’ve reached the AI usage limit for {0}. Check your plan and usage with {0}, or switch to a different provider.',
+								provider.name,
+							)
+						: l10n.t('You’ve reached the weekly AI usage included in your plan.');
 				break;
 			case AIErrorReason.RateLimitExceeded:
 				diagnosticMessage = 'Rate limit exceeded';
-				message = l10n.t('Rate limit exceeded');
+				message = l10n.t('Rate limit exceeded.');
 				break;
 			case AIErrorReason.RateLimitOrFundsExceeded:
 				diagnosticMessage = 'Rate limit exceeded or your account is out of funds';
-				message = l10n.t('Rate limit exceeded or your account is out of funds');
+				message = l10n.t('Rate limit exceeded or your account is out of funds.');
 				break;
 			case AIErrorReason.ServiceCapacityExceeded:
 				diagnosticMessage = 'Service capacity exceeded';
-				message = l10n.t('Service capacity exceeded');
+				message = l10n.t('Service capacity exceeded.');
 				break;
 			case AIErrorReason.NoNetwork:
 				diagnosticMessage = 'Unable to reach the AI service. Please check your internet connection.';
@@ -64,6 +77,18 @@ export class AIError extends Error {
 			case AIErrorReason.ModelNotSupported:
 				diagnosticMessage = 'Model not supported for this request';
 				message = l10n.t('Model not supported for this request');
+				break;
+			case AIErrorReason.ModelUnavailable:
+				diagnosticMessage = 'Model is no longer available';
+				message =
+					provider != null
+						? l10n.t(
+								'The selected model is no longer available from {0}. Switch to a different model and try again.',
+								provider.name,
+							)
+						: l10n.t(
+								'The selected model is no longer available. Switch to a different model and try again.',
+							);
 				break;
 			case AIErrorReason.Unauthorized:
 				diagnosticMessage = 'You are not authorized to use the specified provider or model';
@@ -88,6 +113,7 @@ export class AIError extends Error {
 		this.diagnosticMessage = diagnosticMessage;
 		this.original = original;
 		this.reason = reason;
+		this.provider = provider;
 		Error.captureStackTrace?.(this, new.target);
 	}
 
@@ -152,8 +178,12 @@ export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIE
  *
  * `RequestTooLarge` and `NoRequestData` are therefore deliberately excluded — they're properties of
  * the one request that failed.
+ *
+ * An `AuthenticationRequiredError` (expired GitKraken session) counts too: it isn't an `AIError`, but
+ * every remaining request will fail identically until the user signs in again.
  */
-export function isAIUnavailableError(ex: unknown): ex is AIError {
+export function isAIUnavailableError(ex: unknown): ex is AIError | AuthenticationRequiredError {
+	if (ex instanceof AuthenticationRequiredError) return true;
 	if (!(ex instanceof AIError)) return false;
 
 	switch (ex.reason) {
@@ -168,6 +198,7 @@ export function isAIUnavailableError(ex: unknown): ex is AIError {
 		case AIErrorReason.NoNetwork:
 		case AIErrorReason.Unreachable:
 		case AIErrorReason.ModelNotSupported:
+		case AIErrorReason.ModelUnavailable:
 			return true;
 		default:
 			return false;

@@ -44,6 +44,7 @@ import type {
 } from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
 import { clearResponseFormatRejections } from '@gitlens/ai/providers/responseFormatCache.js';
+import { getBackendActionType } from '@gitlens/ai/utils/ai.utils.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -194,6 +195,7 @@ export function scopeForAction(action: AIActionType): AIModelScope | undefined {
 		case 'generate-commits':
 			return 'compose';
 		case 'review-changes':
+		case 'review-orient':
 			return 'review';
 		case 'conflict-resolution':
 			return 'resolve';
@@ -1450,6 +1452,9 @@ export class AIProviderService implements AIService, Disposable {
 			 *  reason and can report it in its own UI. */
 			silent?: boolean;
 			throwAIErrors?: boolean;
+			/** The caller has another way to run a request too large for the model, so the too-large notification
+			 *  (and its Switch Model offer) would only be noise: the error is thrown to it instead. */
+			tooLargeHandled?: boolean;
 			/** Tools to advertise to the model. Silently dropped for providers that don't support them,
 			 *  so callers don't need to know which provider resolved. */
 			tools?: readonly AIToolDefinition[];
@@ -1802,6 +1807,8 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.RequestTooLarge: {
+									if (options?.tooLargeHandled) throw error;
+
 									void (async () => {
 										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 										const result = await window.showErrorMessage(
@@ -1822,6 +1829,27 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.UserQuotaExceeded: {
+									// An external provider's own limit (e.g. Copilot's) has nothing to do with GitKraken
+									// credits, so don't read the subscription or offer to buy any.
+									if (error.provider != null && error.provider.id !== 'gitkraken') {
+										void (async () => {
+											const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+											const result = await window.showErrorMessage(
+												getPresentableErrorMessage(error),
+												switchModel,
+											);
+											if (result === switchModel) {
+												void this.switchModel(source);
+											}
+										})().catch((ex: unknown) =>
+											scope?.error(ex, 'Failed to show AI error notification'),
+										);
+
+										if (options?.throwAIErrors) throw error;
+
+										return undefined;
+									}
+
 									void (async () => {
 										const sub = await this.container.subscription.getSubscription();
 										// Kept for telemetry — the purchase gate itself is the shared predicate the
@@ -1926,6 +1954,24 @@ export class AIProviderService implements AIService, Disposable {
 										),
 										l10n.t('OK'),
 									);
+									if (options?.throwAIErrors) throw error;
+
+									return undefined;
+								}
+								case AIErrorReason.ModelUnavailable: {
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											getPresentableErrorMessage(error),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
+									);
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
@@ -2114,7 +2160,7 @@ export class AIProviderService implements AIService, Disposable {
 					provider: provider,
 					model: model,
 					task_type: 'message-prompt',
-					action: action,
+					action: getBackendActionType(action),
 					total_tokens: totalTokens,
 					...(inputTokens != null && { input_tokens: inputTokens }),
 				}),

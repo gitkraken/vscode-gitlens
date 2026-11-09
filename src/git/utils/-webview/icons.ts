@@ -5,6 +5,7 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { getRemoteThemeIconString } from '@gitlens/git/utils/remote.utils.js';
 import type { IconPath } from '../../../@types/vscode.iconpath.d.js';
 import type { Colors } from '../../../constants.colors.js';
@@ -58,7 +59,7 @@ export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): strin
 	}
 
 	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
+		switch (getPullRequestDisplayState(issue)) {
 			case 'merged':
 				return `<span class="codicon codicon-git-merge" style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
@@ -66,6 +67,10 @@ export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): strin
 			case 'closed':
 				return `<span class="codicon codicon-git-pull-request-closed" style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
+				};"></span>`;
+			case 'queued':
+				return `<span class="codicon codicon-git-pull-request" style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
 				};"></span>`;
 			case 'opened':
 				return `<span class="codicon codicon-git-pull-request" style="color:${
@@ -96,7 +101,7 @@ export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): s
 	}
 
 	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
+		switch (getPullRequestDisplayState(issue)) {
 			case 'merged':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
@@ -105,6 +110,10 @@ export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): s
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
 				};">$(git-pull-request-closed)</span>`;
+			case 'queued':
+				return `<span style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
+				};">$(git-pull-request)</span>`;
 			case 'opened':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
@@ -132,7 +141,7 @@ export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): Them
 	}
 
 	if (issue.type === 'pullrequest') {
-		switch (issue.state) {
+		switch (getPullRequestDisplayState(issue)) {
 			case 'merged':
 				return new ThemeIcon(
 					'git-merge',
@@ -142,6 +151,11 @@ export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): Them
 				return new ThemeIcon(
 					'git-pull-request-closed',
 					new ThemeColor('gitlens.closedPullRequestIconColor' satisfies Colors),
+				);
+			case 'queued':
+				return new ThemeIcon(
+					'git-pull-request',
+					new ThemeColor('gitlens.queuedPullRequestIconColor' satisfies Colors),
 				);
 			case 'opened':
 				return new ThemeIcon(

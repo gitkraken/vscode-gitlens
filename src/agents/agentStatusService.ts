@@ -253,6 +253,12 @@ export class AgentStatusService implements Disposable {
 				this._worktreeMetadataGeneration++;
 				this.maybeFireSessionsChanged();
 			}),
+			this.container.kepler.onDidChange(() => {
+				// Whether Kepler is installed is embedded in every session too (`keplerAgent`, which offers
+				// Open Session in Kepler), and an install from GitLens flips it mid-session
+				this._worktreeMetadataGeneration++;
+				this.maybeFireSessionsChanged();
+			}),
 			window.onDidChangeWindowState(e => {
 				if (e.focused) {
 					this.startProviders();

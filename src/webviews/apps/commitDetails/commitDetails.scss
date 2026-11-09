@@ -1,3 +1,4 @@
+@use '../shared/styles/colors';
 @use '../shared/styles/details-base';
 
 .commit-detail-panel {
@@ -25,7 +26,7 @@ gl-details-commit-panel {
 
 :root {
 	--gl-avatar-size: 1.6rem;
-	--gl-patch-ghost-color: var(--color-foreground--50);
+	--gl-patch-ghost-color: var(--vscode-descriptionForeground);
 }
 
 // ── Embedded details styles: CSS moved to component Shadow DOM (.css.ts files) ──

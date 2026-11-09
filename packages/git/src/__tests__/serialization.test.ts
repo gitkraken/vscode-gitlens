@@ -103,6 +103,10 @@ suite('provider model serialization', () => {
 			bodyField: { id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' },
 			providerState: { id: 'state-1', name: 'In Review', color: '#ff0000', category: 'IN_PROGRESS' },
 			iterations: [{ id: 'sprint-1', name: 'Sprint 1', isActive: true, startDate: now, endDate: now }],
+			syncedWith: [
+				{ provider: 'github', id: '6063246474', owner: 'acme', repo: 'web', number: 42 },
+				{ provider: 'github', id: '6063246475' },
+			],
 			url: 'https://github.com/gitkraken/vscode-gitlens/issues/1',
 			state: 'opened',
 			createdDate: now,
@@ -117,5 +121,46 @@ suite('provider model serialization', () => {
 		assert.deepEqual(serialized.bodyField, issue.bodyField);
 		assert.deepEqual(serialized.providerState, issue.providerState);
 		assert.deepEqual(serialized.iterations, issue.iterations);
+		assert.deepEqual(serialized.syncedWith, issue.syncedWith);
+	});
+
+	test('copies the milestone, keeping none (null) apart from not read (undefined)', () => {
+		const milestone = { id: 'MI_1', title: 'v1.0', state: 'open', dueDate: now } as const;
+		const base = {
+			type: 'issue',
+			provider: provider,
+			author: author,
+			assignees: [],
+			id: 'issue-3',
+			nodeId: 'node-5',
+			title: 'Issue',
+			url: 'https://github.com/gitkraken/vscode-gitlens/issues/3',
+			state: 'opened',
+			createdDate: now,
+			updatedDate: now,
+			closed: false,
+		} satisfies IssueShape;
+		const pullRequest: PullRequest = {
+			type: 'pullrequest',
+			provider: provider,
+			author: author,
+			id: 'pr-3',
+			nodeId: 'node-6',
+			title: 'Pull request',
+			url: 'https://github.com/gitkraken/vscode-gitlens/pull/3',
+			repository: { owner: 'gitkraken', repo: 'vscode-gitlens' },
+			state: 'opened',
+			createdDate: now,
+			updatedDate: now,
+			closed: false,
+			milestone: milestone,
+		};
+
+		const serialized = serializeIssue({ ...base, milestone: milestone });
+		assert.deepEqual(serialized.milestone, milestone);
+		assert.notEqual(serialized.milestone, milestone, 'the milestone is copied, not shared');
+		assert.deepEqual(serializePullRequest(pullRequest).milestone, milestone);
+		assert.equal(serializeIssue({ ...base, milestone: null }).milestone, null);
+		assert.equal(serializeIssue(base).milestone, undefined);
 	});
 });

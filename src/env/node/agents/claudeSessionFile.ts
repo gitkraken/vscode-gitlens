@@ -1,7 +1,11 @@
+import { execFile } from 'child_process';
 import { readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
-import { findExecutable, run } from '@gitlens/utils/env/node/exec.js';
+import * as process from 'process';
+import type { ProcessSpawner } from '@gitlens/utils/env/node/exec.js';
+import { findExecutable, runSpawn, spawnProcess } from '@gitlens/utils/env/node/exec.js';
+import { isWindows } from '@gitlens/utils/env/node/platform.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 
@@ -122,19 +126,57 @@ export function getLiveClaudeSessions(
 	return liveSessionsCache.getOrCreate(`${command} ${timeoutMs}`, () => queryLiveClaudeSessions(command, timeoutMs));
 }
 
+/**
+ * A {@link ProcessSpawner} whose timeout kills the whole process tree on Windows. There, Node's own
+ * timeout kill terminates only the direct child — and when `claude` resolves to npm's `claude.cmd`
+ * shim, that child is `cmd.exe`, so the real `claude.exe` beneath it would be orphaned on every
+ * timed-out poll (#6146). `taskkill /T` finds descendants by parent pid, so it must run while the
+ * root is still alive; the trailing `kill()` only marks the process killed if anything survived.
+ */
+function spawnKillingTreeOnTimeout(onTimeout: () => void): ProcessSpawner {
+	return (command, args, { timeout, ...options }) => {
+		const child = spawnProcess(command, args, options);
+		if (timeout == null) return child;
+
+		const timer = setTimeout(() => {
+			onTimeout();
+			if (!isWindows || child.pid == null) {
+				child.kill();
+				return;
+			}
+
+			execFile(
+				join(process.env.SYSTEMROOT ?? 'C:\\WINDOWS', 'System32', 'taskkill.exe'),
+				['/T', '/F', '/PID', String(child.pid)],
+				{ windowsHide: true },
+				() => child.kill(),
+			);
+		}, timeout);
+		child.once('close', () => clearTimeout(timer));
+		return child;
+	};
+}
+
 async function queryLiveClaudeSessions(
 	command: string,
 	timeoutMs: number,
 ): Promise<ReadonlyMap<string, LiveClaudeSession>> {
 	let output: string;
+	let timedOut = false;
 	try {
 		const resolved = await findExecutable(command, ['agents', '--json']);
-		output = await run(resolved.cmd, resolved.args, 'utf8', {
+		({ stdout: output } = await runSpawn<string>(resolved.cmd, resolved.args, 'utf8', {
 			timeout: timeoutMs,
 			quiet: true,
-		});
+			spawn: spawnKillingTreeOnTimeout(() => (timedOut = true)),
+		}));
 	} catch (ex) {
-		Logger.debug(`getLiveClaudeSessions: ${ex instanceof Error ? ex.message : String(ex)}`);
+		if (timedOut) {
+			// Warn, not debug: a CLI that hangs every time silently disables live reconciliation
+			Logger.warn(`getLiveClaudeSessions: '${command} agents --json' did not answer within ${timeoutMs}ms`);
+		} else {
+			Logger.debug(`getLiveClaudeSessions: ${ex instanceof Error ? ex.message : String(ex)}`);
+		}
 		return new Map();
 	}
 

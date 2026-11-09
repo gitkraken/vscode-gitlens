@@ -5398,6 +5398,11 @@
 				]
 			}
 		},
+		"gitlens.kepler.install": {
+			"label": "Install Kepler",
+			"icon": "$(cloud-download)",
+			"commandPalette": "!isWeb && !gitlens:kepler:installed && !gitlens:kepler:installing"
+		},
 		"gitlens.kepler.newTask": {
 			"label": "Start Task in Kepler",
 			"icon": "$(gitlens-kepler)",
@@ -7327,6 +7332,267 @@
 					}
 				]
 			}
+		},
+		"gitlens.review.cancelCommentEdit": {
+			"label": "Cancel",
+			"menus": {
+				"comments/comment/context": [
+					{
+						"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.review.deleteComment": {
+			"label": "Delete Comment",
+			"icon": "$(trash)",
+			"menus": {
+				"comments/comment/title": [
+					{
+						"when": "commentController == gitlens.review",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.review.deleteThread": {
+			"label": "Delete Thread",
+			"icon": "$(trash)",
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread =~ /^(open|dismissed)$/",
+						"group": "inline",
+						"order": 9
+					}
+				]
+			}
+		},
+		"gitlens.review.discardComment": {
+			"label": "Delete",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review && commentThreadIsEmpty",
+						"group": "inline",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.review.dismissFinding": {
+			"label": "Dismiss Finding",
+			"icon": "$(check)",
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.review.editComment": {
+			"label": "Edit Comment",
+			"icon": "$(edit)",
+			"menus": {
+				"comments/comment/title": [
+					{
+						"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.markViewedAndNext": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:reading",
+			"commandPalette": "gitlens:review:reading"
+		},
+		"gitlens.review.markViewedAndNext:editor/title": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:reading",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files",
+						"group": "navigation",
+						"order": -97
+					}
+				]
+			}
+		},
+		"gitlens.review.markViewedAndNext:key": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:reading",
+			"keybindings": [
+				{
+					"key": "alt+v",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+				},
+				{
+					"key": "ctrl+shift+g v",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+					"mac": "cmd+alt+g v"
+				}
+			]
+		},
+		"gitlens.review.reopenFinding": {
+			"label": "Reopen Finding",
+			"icon": "$(issue-reopened)",
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == dismissed",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.replyAndAddress": {
+			"label": "Address with Agent",
+			"icon": "$(comment-discussion-sparkle)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review && gitlens:ai:allowed",
+						"group": "inline",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.review.replyAndAskReviewer": {
+			"label": "Ask Reviewer",
+			"icon": "$(comment-discussion)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review && gitlens:review:canAsk",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.review.replyToFinding": {
+			"label": "Leave a Comment",
+			"icon": "$(reply)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.saveComment": {
+			"label": "Save",
+			"menus": {
+				"comments/comment/context": [
+					{
+						"when": "commentController == gitlens.review && comment =~ /^(user-comment|note-user)$/",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.sendFindingToAgent": {
+			"label": "Address Finding with Agent",
+			"icon": "$(comment-discussion-sparkle)",
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
+						"group": "inline",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.review.walkNext": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:reading",
+			"commandPalette": "gitlens:review:reading"
+		},
+		"gitlens.review.walkNext:editor/title": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:reading",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files",
+						"group": "navigation",
+						"order": -96
+					}
+				]
+			}
+		},
+		"gitlens.review.walkNext:key": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:reading",
+			"keybindings": [
+				{
+					"key": "alt+]",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+				},
+				{
+					"key": "ctrl+shift+g ]",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+					"mac": "cmd+alt+g ]"
+				}
+			]
+		},
+		"gitlens.review.walkPrevious": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:reading",
+			"commandPalette": "gitlens:review:reading"
+		},
+		"gitlens.review.walkPrevious:editor/title": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:reading",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files",
+						"group": "navigation",
+						"order": -98
+					}
+				]
+			}
+		},
+		"gitlens.review.walkPrevious:key": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:reading",
+			"keybindings": [
+				{
+					"key": "alt+[",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
+				},
+				{
+					"key": "ctrl+shift+g [",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
+					"mac": "cmd+alt+g ["
+				}
+			]
 		},
 		"gitlens.reviewChanges:graph": {
 			"label": "Review Changes...",

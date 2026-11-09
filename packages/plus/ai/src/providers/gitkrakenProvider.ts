@@ -3,7 +3,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { gitKrakenProviderDescriptor as provider } from '../constants.js';
 import { AIError, AIErrorReason, AuthenticationRequiredError } from '../errors.js';
 import type { AIActionType, AIModel } from '../models/model.js';
-import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
+import { getBackendActionType, getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type GitKrakenModel = AIModel<typeof provider.id>;
@@ -129,7 +129,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		return {
 			Accept: 'application/json',
 			Authorization: `Bearer ${apiKey}`,
-			'GK-Action': action,
+			'GK-Action': getBackendActionType(action),
 			// Scopes the backend's once-per-conversation feature fee — without it every request in a
 			// multi-call session (e.g. conflict resolution) is charged the full flat fee.
 			...(conversationId ? { 'GK-Conversation-ID': conversationId } : {}),

@@ -150,6 +150,7 @@ async function jiraServer() {
 		projects: [{ id: '10001', key: 'ALPHA', name: 'Alpha' }],
 		deleted: new Set<string>(),
 		projectReads: 0,
+		accountReads: 0,
 		searches: [] as string[],
 		/** When set, the project list waits on it, so a test can act while the read is in flight. */
 		projectsGate: undefined as Promise<void> | undefined,
@@ -160,10 +161,12 @@ async function jiraServer() {
 		user: 'julian' as string | undefined,
 	};
 	stubApi(integration, {
-		getJiraServerCurrentUser: () =>
-			state.user == null || state.user.toLowerCase() === 'anonymous'
+		getJiraServerCurrentUser: () => {
+			state.accountReads++;
+			return state.user == null || state.user.toLowerCase() === 'anonymous'
 				? Promise.reject(new Error('(401) Unauthorized.'))
-				: Promise.resolve({ id: state.user, name: state.user, username: state.user }),
+				: Promise.resolve({ id: state.user, name: state.user, username: state.user });
+		},
 		getJiraServerProjects: async () => {
 			state.projectReads++;
 			if (state.projectsError != null) throw state.projectsError;
@@ -429,7 +432,8 @@ suite('Tracker project cache (#5907)', () => {
 				result.warnings.some(w => w.selector != null),
 				false,
 			);
-			assert.equal(state.projectReads, 2, 'the list was read again before the miss was weighed');
+			assert.equal(state.projectReads, 1, 'the anonymous empty response fails its first discovery read');
+			assert.equal(state.accountReads, 1, 'a fresh account check proves the credential was refused');
 
 			// The same answers with a credential the account lookup accepts prove the project gone.
 			state.user = 'julian';

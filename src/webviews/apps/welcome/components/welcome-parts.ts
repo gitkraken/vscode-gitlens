@@ -23,6 +23,11 @@ export type WalkthroughStepConditionState = {
 	plusState: SubscriptionState | undefined;
 	mcpNeedsInstall: boolean;
 	mcpShowCleanupNotice: boolean;
+	/** Whether GitLens can install Kepler here; `false` until the host's payload lands */
+	keplerInstallable: boolean;
+	/** Whether GitLens is installing Kepler right now */
+	keplerInstalling: boolean;
+	keplerInstalled: boolean;
 };
 
 export type WalkthroughStep = {
@@ -30,7 +35,8 @@ export type WalkthroughStep = {
 	/** The key used to track completion in the walkthrough progress state */
 	walkthroughKey?: WalkthroughContextKeys;
 	title: string;
-	body: TemplateResult;
+	/** A function when the body depends on host state */
+	body: TemplateResult | ((state: WalkthroughStepConditionState) => TemplateResult);
 	condition?: (state: WalkthroughStepConditionState) => boolean;
 };
 
@@ -43,7 +49,7 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			:host(:focus-within) {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -83,7 +89,7 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			:host([completed]) .status-icon {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.content {

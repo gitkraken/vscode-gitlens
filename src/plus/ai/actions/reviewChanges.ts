@@ -1,17 +1,23 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
 import { l10n } from 'vscode';
-import type { AIModel } from '@gitlens/ai/models/model.js';
+import type { AIActionType, AIModel } from '@gitlens/ai/models/model.js';
 import type {
 	PromptTemplateContext,
 	PromptTemplateType,
 	TruncationHandler,
 } from '@gitlens/ai/models/promptTemplates.js';
 import type { AIChatMessage, AIResponseFormat } from '@gitlens/ai/models/provider.js';
-import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
-import { reviewDetailSchema, reviewOverviewSchema, reviewResultSchema } from '@gitlens/ai/prompts.js';
+import type { AIReviewDetailResult, AIReviewOrientResult, AIReviewResult } from '@gitlens/ai/models/results.js';
+import {
+	reviewDetailSchema,
+	reviewOrientSchema,
+	reviewOverviewSchema,
+	reviewResultSchema,
+} from '@gitlens/ai/prompts.js';
 import { didModelDecline, estimatedCharactersPerToken } from '@gitlens/ai/utils/ai.utils.js';
 import {
 	parseReviewDetailResultJson,
+	parseReviewOrientJson,
 	parseReviewResultJson,
 	serializeReviewResult,
 } from '@gitlens/ai/utils/results.utils.js';
@@ -25,7 +31,7 @@ import { mergeUserInstructions } from '../utils/-webview/prompt.utils.js';
 
 export type AIReviewSourceContext = AISourceContext<{
 	type: TelemetryEvents['ai/review']['reviewType'];
-	mode: 'single-pass' | 'two-pass';
+	mode: TelemetryEvents['ai/review']['reviewMode'];
 }>;
 
 /**
@@ -77,7 +83,9 @@ export interface AIReviewFollowUp {
 interface RunReviewSpec<TTemplate extends PromptTemplateType, TResult> {
 	promptTemplate: TTemplate;
 	getProgressTitle: (model: AIModel) => string;
-	reviewMode: 'single-pass' | 'two-pass';
+	reviewMode: TelemetryEvents['ai/review']['reviewMode'];
+	/** The AI action the run bills as; the review action unless a spec says otherwise */
+	action?: AIActionType;
 	truncation: TruncationHandler<TTemplate> | undefined;
 	responseFormat: AIResponseFormat;
 	parse: (content: string) => TResult;
@@ -91,12 +99,12 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 	sourceContext: AIReviewSourceContext,
 	spec: RunReviewSpec<TTemplate, TResult>,
 	followUp?: AIReviewFollowUp,
-	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; tooLargeHandled?: boolean },
 ): Promise<AIResult<TResult> | 'cancelled' | undefined> {
 	const { context, ...source } = sourceContext;
 
 	const result = await service.sendRequest(
-		'review-changes',
+		spec.action ?? 'review-changes',
 		undefined,
 		{
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
@@ -261,6 +269,34 @@ export function reviewOverview(
 		},
 		followUp,
 		rest,
+	);
+}
+
+/** Lays out a reading order for the changes from their file manifest — a map for the reader, no findings */
+export function reviewOrient(
+	service: AIService,
+	promptContext:
+		| PromptTemplateContext<'review-orient'>
+		| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'review-orient'>>),
+	sourceContext: AIReviewSourceContext,
+	/** `tooLargeHandled`: the caller runs a plan too large for the model another way — see `sendRequest` */
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; tooLargeHandled?: boolean },
+): Promise<AIResult<AIReviewOrientResult> | 'cancelled' | undefined> {
+	return runReview(
+		service,
+		promptContext,
+		sourceContext,
+		{
+			promptTemplate: 'review-orient',
+			action: 'review-orient',
+			getProgressTitle: model => l10n.t('Orienting with {0}...', model.name),
+			reviewMode: 'orient',
+			truncation: undefined,
+			responseFormat: reviewOrientSchema,
+			parse: content => parseReviewOrientJson(content),
+		},
+		undefined,
+		options,
 	);
 }
 

@@ -76,7 +76,7 @@ export class GlCommitRow extends LitElement {
 			width: 45%;
 			height: 45%;
 			object-fit: cover;
-			border: 0.15rem solid var(--vscode-sideBar-background, var(--color-background));
+			border: 0.15rem solid var(--gl-color-surface-aside);
 			border-radius: 50%;
 		}
 
@@ -98,7 +98,7 @@ export class GlCommitRow extends LitElement {
 			align-items: center;
 			min-width: 0;
 			font-size: var(--gl-font-sm);
-			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.sha {

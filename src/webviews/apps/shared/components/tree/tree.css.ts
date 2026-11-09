@@ -80,7 +80,7 @@ export const treeItemStyles = [
 		:host([disable-check]) slot[name='decorations-before'],
 		:host([disable-check]) slot[name='decorations-after'],
 		:host([disable-check]) .actions {
-			color: var(--vscode-disabledForeground, inherit);
+			color: var(--vscode-disabledForeground);
 			opacity: 0.7;
 		}
 
@@ -164,7 +164,8 @@ export const treeItemStyles = [
 			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: flex-start;
-			min-width: 0;
+			/* The label keeps a readable minimum against a long trailing decoration (see decorations-after) */
+			min-width: min(18rem, 50%);
 			padding: 0;
 			overflow: hidden;
 			font-family: inherit;
@@ -325,7 +326,7 @@ export const treeItemStyles = [
   default outline. Drawn on the wrapper so it frames the whole 1.6rem box; the input's own outline
   stays off (see .checkbox__input). :focus-visible keeps it keyboard-only, matching VS Code. */
 		.checkbox:has(.checkbox__input:focus-visible) {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0.1rem;
 		}
 
@@ -381,14 +382,26 @@ export const treeItemStyles = [
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 		}
 
-		::slotted([slot='decorations-before'].decoration-text) {
-			font-size: var(--gl-decoration-before-font-size, inherit);
-			opacity: var(--gl-decoration-before-opacity, 1);
+		/* A long trailing text decoration (a reading plan's note) gives way before the label does: the
+  slot may shrink and ellipsize, and the label keeps a readable minimum, so a row never shows a note
+  with no name in front of it */
+		slot[name='decorations-after'] {
+			flex: 0 1 auto;
+			min-width: 0;
+			overflow: hidden;
 		}
 
 		::slotted([slot='decorations-after'].decoration-text) {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-size: var(--gl-decoration-after-font-size, inherit);
 			opacity: var(--gl-decoration-after-opacity, 1);
+		}
+
+		::slotted([slot='decorations-before'].decoration-text) {
+			font-size: var(--gl-decoration-before-font-size, inherit);
+			opacity: var(--gl-decoration-before-opacity, 1);
 		}
 
 		::slotted([slot^='decorations-'].decoration-text--added),

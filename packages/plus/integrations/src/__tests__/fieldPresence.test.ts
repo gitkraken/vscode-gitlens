@@ -5,6 +5,7 @@ import { suite, test } from 'mocha';
 import type { IssueProjection, IssueShape } from '@gitlens/git/models/issue.js';
 import { RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestProjection, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
 import { serializeIssue } from '@gitlens/git/utils/issue.utils.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
@@ -64,8 +65,27 @@ const repository = {
 	url: 'https://github.com/o/r',
 };
 
+/** A milestone as GitLens' own fragment selects it; provider-apis' adds `description` and `number`. */
+const milestone = {
+	id: 'MI_1',
+	title: 'v1.0',
+	state: 'OPEN',
+	dueOn: '2026-12-01T00:00:00Z',
+	url: 'https://github.com/o/r/milestone/1',
+} as const;
+const sdkMilestone = { ...milestone, description: '', number: 1 };
+
+/** The milestone every GitHub row maps {@link milestone} to, whichever client read it. */
+const mappedMilestone = {
+	id: 'MI_1',
+	title: 'v1.0',
+	state: 'open',
+	dueDate: new Date('2026-12-01T00:00:00Z'),
+	url: 'https://github.com/o/r/milestone/1',
+};
+
 /**
- * Every field GitLens' own full and stack fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
+ * Every field GitLens' own full, stack and merge-queue fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
  * values a hardcoded or rebuilt viewer would lose, and the code-owner request is one a lossy conversion would flatten.
  */
 function nativePullRequestNode(): GitHubPullRequestFixture {
@@ -80,6 +100,15 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 			repository: { ...repository, viewerPermission: 'READ' },
 			stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
 			stackEntry: { position: 1 },
+			mergeQueueEntry: {
+				state: 'AWAITING_CHECKS',
+				enqueuedAt: '2026-01-01T00:00:00Z',
+				estimatedTimeToMerge: 600,
+				mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+				position: 1,
+			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
 			additions: 3,
 			assignees: { nodes: [member] },
 			changedFiles: 2,
@@ -90,6 +119,7 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 			totalCommentsCount: 5,
 			viewerCanUpdate: false,
 			headRepositoryOwner: { login: 'o' },
+			milestone: milestone,
 		},
 		{ owner: 'o', name: 'r' },
 	);
@@ -118,6 +148,7 @@ function selectNativePullRequest(query: string): Node {
 	const unselected = [
 		...(query.includes('totalCommentsCount') ? [] : fullOnlyPullRequestFields),
 		...(query.includes('stackEntry') ? [] : ['stack', 'stackEntry']),
+		...(query.includes('mergeQueueEntry') ? [] : ['mergeQueueEntry', 'isMergeQueueEnabled', 'mergeQueueEvents']),
 	];
 	return Object.fromEntries(Object.entries(nativePullRequestNode()).filter(([field]) => !unselected.includes(field)));
 }
@@ -189,7 +220,7 @@ function selectSdkPullRequest(query: string): Node {
 		changedFiles: 2,
 		mergeable: 'MERGEABLE',
 		mergeStateStatus: 'CLEAN',
-		milestone: null,
+		milestone: sdkMilestone,
 		labels: { nodes: [] },
 		viewerCanMergeAsAdmin: false,
 	};
@@ -217,6 +248,7 @@ function selectNativeIssue(query: string): Node {
 		labels: { nodes: [{ color: 'ff0000', name: 'bug' }] },
 		reactions: { totalCount: 2 },
 		repository: { name: 'r', owner: { login: 'o' }, viewerPermission: 'READ', url: 'https://github.com/o/r' },
+		milestone: milestone,
 		body: 'Body',
 	};
 	if (!/\bbody\b/.test(query)) {
@@ -242,7 +274,7 @@ function sdkIssue(): Node {
 		comments: { totalCount: 5 },
 		assignees: { nodes: [sdkAccount('octo')] },
 		state: 'OPEN',
-		milestone: null,
+		milestone: sdkMilestone,
 		labels: { nodes: [{ color: 'ff0000', description: '', id: 'L_1', name: 'bug' }] },
 	};
 }
@@ -388,6 +420,8 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			const presence = assertPullRequestRow(pr, 'point');
 			assert.equal(presence.stack, 'fetched');
 			assert.equal(presence.mergeable, 'not-requested');
+			// The lite fragment selects it too.
+			assert.deepEqual(pr?.milestone, mappedMilestone);
 		}
 
 		manager.dispose();
@@ -480,6 +514,8 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			assert.equal(presence.reviewRequests, 'not-requested');
 			assert.deepEqual(pr.latestReviews, []);
 			assert.equal(presence.reviews, 'not-requested');
+			// Keyed by the node id, as GitLens' own reads key it, not by provider-apis' per-repository number.
+			assert.deepEqual(pr.milestone, mappedMilestone);
 		}
 		const presence = assertPullRequestRow(summary.items[0], 'repos-summary');
 		assert.equal(presence.checks, 'not-requested');
@@ -530,6 +566,9 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 		assert.equal(presence.description, 'not-requested');
 		assert.equal(scoped.items[0].repository?.accessLevel, undefined);
 		assert.equal(presence.access, 'not-requested');
+		// Both clients map it alike.
+		assert.deepEqual(scoped.items[0].milestone, mappedMilestone);
+		assert.deepEqual(point?.milestone, mappedMilestone);
 		assertIssueRow(searched.items[0], 'search');
 		assertIssueRow(broadened.items[0], 'search');
 		assertIssueRow(batch.items[0]?.issue, 'batch');
@@ -557,6 +596,13 @@ function assertFullRow(
 	assert.equal(presence.diffStats, 'fetched');
 	assert.deepEqual(row.stack, { id: 'S_1', number: 7, size: 2, position: 1, baseRef: 'main' });
 	assert.equal(presence.stack, 'fetched');
+	assert.equal(row.mergeQueue?.state, PullRequestMergeQueueState.AwaitingChecks);
+	assert.equal(row.mergeQueue?.url, 'https://github.com/o/r/queue/main');
+	assert.equal(row.mergeQueue?.position, 1);
+	// The same group covers whether the queue is required and the latest removal (none: it rejoined since).
+	assert.equal(row.mergeQueueRequired, true);
+	assert.equal(row.mergeQueueRemoval, undefined);
+	assert.equal(presence.mergeQueue, 'fetched');
 	assert.equal(row.reviewRequests?.length, 1);
 	assert.equal(row.reviewRequests?.[0]?.isCodeOwner, true);
 	// A submitted review says nothing about code ownership.
@@ -567,6 +613,8 @@ function assertFullRow(
 	assert.equal(presence.access, 'fetched');
 	assert.equal(row.thumbsUpCount, undefined);
 	assert.equal(presence.reactions, 'not-requested');
+	assert.deepEqual(row.milestone, mappedMilestone);
+	assert.equal(presence.milestone, 'fetched');
 }
 
 function pullRequestRow(providerId: string, projection: string | undefined): PullRequestShape {
@@ -625,7 +673,7 @@ suite('Field presence lookup', () => {
 		manager.dispose();
 	});
 
-	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks', () => {
+	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks or merge queues', () => {
 		for (const projection of pullRequestProjections) {
 			const dotCom = getPullRequestFieldPresence(pullRequestRow(GitCloudHostIntegrationId.GitHub, projection));
 			const enterprise = getPullRequestFieldPresence(
@@ -639,6 +687,12 @@ suite('Field presence lookup', () => {
 			}
 			assert.notEqual(enterprise.stack, 'fetched', projection);
 			assert.equal(enterprise.stack, dotCom.stack === 'fetched' ? 'unavailable' : dotCom.stack, projection);
+			assert.notEqual(enterprise.mergeQueue, 'fetched', projection);
+			assert.equal(
+				enterprise.mergeQueue,
+				dotCom.mergeQueue === 'fetched' ? 'unavailable' : dotCom.mergeQueue,
+				projection,
+			);
 		}
 		for (const projection of issueProjections) {
 			assert.deepEqual(
@@ -781,6 +835,7 @@ const issueTables: Record<string, readonly string[]> = {
 	'jira-issues': [IssuesCloudHostIntegrationId.Jira, IssuesSelfManagedHostIntegrationId.JiraServer],
 	'linear-issues': [IssuesCloudHostIntegrationId.Linear],
 	'trello-issues': [IssuesCloudHostIntegrationId.Trello],
+	'asana-issues': [IssuesCloudHostIntegrationId.Asana],
 };
 
 suite('Field presence docs', () => {

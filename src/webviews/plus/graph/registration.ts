@@ -1,4 +1,4 @@
-import type { TextEditor, Uri } from 'vscode';
+import type { Comment, CommentReply, CommentThread, TextEditor, Uri } from 'vscode';
 import { Disposable, l10n, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -36,6 +36,18 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
+import { stepReviewReading } from './reviewReading.js';
+import {
+	cancelReviewCommentEdit,
+	deleteReviewComment,
+	deleteReviewThread,
+	discardReviewThread,
+	disposeReviewThreads,
+	editReviewComment,
+	runReviewThreadAction,
+	runReviewThreadReply,
+	saveReviewComment,
+} from './reviewThreads.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
@@ -262,6 +274,42 @@ export function registerGraphWebviewCommands<T>(
 	}
 
 	return Disposable.from(
+		// The title-bar variants receive the editor's resource; the keybinding and palette ones take the
+		// active editor's
+		registerCommand('gitlens.review.walkNext', () => stepReviewReading('next')),
+		registerCommand('gitlens.review.walkNext:editor/title', (uri?: Uri) => stepReviewReading('next', uri)),
+		registerCommand('gitlens.review.walkNext:key', () => stepReviewReading('next')),
+		registerCommand('gitlens.review.walkPrevious', () => stepReviewReading('previous')),
+		registerCommand('gitlens.review.walkPrevious:editor/title', (uri?: Uri) => stepReviewReading('previous', uri)),
+		registerCommand('gitlens.review.walkPrevious:key', () => stepReviewReading('previous')),
+		registerCommand('gitlens.review.markViewedAndNext', () => stepReviewReading('markViewed')),
+		registerCommand('gitlens.review.markViewedAndNext:editor/title', (uri?: Uri) =>
+			stepReviewReading('markViewed', uri),
+		),
+		registerCommand('gitlens.review.markViewedAndNext:key', () => stepReviewReading('markViewed')),
+		registerCommand('gitlens.review.dismissFinding', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'dismiss'),
+		),
+		registerCommand('gitlens.review.reopenFinding', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'reopen'),
+		),
+		registerCommand('gitlens.review.sendFindingToAgent', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'sendToAgent'),
+		),
+		registerCommand('gitlens.review.replyToFinding', (reply?: CommentReply) => runReviewThreadReply(reply)),
+		registerCommand('gitlens.review.replyAndAskReviewer', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'askReviewer'),
+		),
+		registerCommand('gitlens.review.replyAndAddress', (reply?: CommentReply) =>
+			runReviewThreadReply(reply, 'address'),
+		),
+		registerCommand('gitlens.review.editComment', (comment?: Comment) => editReviewComment(comment)),
+		registerCommand('gitlens.review.saveComment', (comment?: Comment) => saveReviewComment(comment)),
+		registerCommand('gitlens.review.cancelCommentEdit', (comment?: Comment) => cancelReviewCommentEdit(comment)),
+		registerCommand('gitlens.review.deleteComment', (comment?: Comment) => deleteReviewComment(comment)),
+		registerCommand('gitlens.review.deleteThread', (thread?: CommentThread) => deleteReviewThread(thread)),
+		registerCommand('gitlens.review.discardComment', (reply?: CommentReply) => discardReviewThread(reply)),
+		{ dispose: () => disposeReviewThreads() },
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
 			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any
 			// future link all route through here, so the surface can move without breaking its callers.

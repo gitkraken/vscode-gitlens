@@ -205,7 +205,7 @@ margin + matching padding-top similarly covers the section's 'padding-top' zone.
 				/* Match the WIP details panel background (same token the commit-box uses) so the
  sticky heading reads as continuous with the surrounding panel instead of as a
  tinted metadata-bar strip. */
-				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				background-color: var(--gl-color-surface-aside);
 			}
 
 			/* Only the toggle is the button; the resume action is its sibling at the far right. */
@@ -287,7 +287,7 @@ upright without an explicit override. */
 			}
 
 			.section__heading:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
 			}
@@ -343,7 +343,7 @@ static Agents label. Live headings retain the normal foreground summary color. *
 				margin-left: -0.4rem;
 				font-size: 0.7em;
 				color: var(--vscode-foreground);
-				border: 2px solid var(--gl-metadata-bar-bg, var(--vscode-editor-background));
+				border: 2px solid var(--gl-metadata-bar-bg);
 				border-radius: 50%;
 			}
 
@@ -372,7 +372,7 @@ static Agents label. Live headings retain the normal foreground summary color. *
 
 			.section__cluster-dot--overflow {
 				color: var(--vscode-descriptionForeground);
-				background-color: var(--vscode-editor-background);
+				background-color: var(--gl-color-surface-aside);
 				border-color: color-mix(in srgb, var(--vscode-descriptionForeground) 40%, transparent);
 			}
 
@@ -438,7 +438,7 @@ static Agents label. Live headings retain the normal foreground summary color. *
 
 			.section__hover-row + .section__hover-row {
 				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 			}
 
 			/* One row per session, so it draws the shared phase mark rather than a plain dot — the
@@ -504,7 +504,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 
 			.section__hover-footer {
 				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 			}
 
 			.section__hover-count {
@@ -525,7 +525,7 @@ icon-circle in the rail) so each surfaces as actionable on its own. */
 				align-items: start;
 				padding: var(--gl-space-6) var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
-				border: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
 				border-radius: var(--gl-radius-sm);
 				transition:
@@ -571,7 +571,7 @@ icon-circle in the rail) so each surfaces as actionable on its own. */
 			/* Keyboard focus ring — same inset recipe as .card--selected so the two read as one
  system, and the ring stays inside the card's footprint. */
 			.card:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 

@@ -314,7 +314,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		scrollableBase,
 		css`
 			:host {
-				--link-foreground: var(--vscode-textLink-foreground);
+				--link-foreground: var(--gl-color-action-link-fg);
 				--link-foreground-active: var(--vscode-textLink-activeForeground);
 				--lp-frame-bg: #121212;
 				--lp-frame-stroke: #363636;
@@ -379,18 +379,18 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-inline: auto;
 				font-size: var(--gl-font-md);
 				line-height: 1.4;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				text-align: start;
 				text-wrap: pretty;
 				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 12%);
-				border-inline-start: 0.2rem solid var(--color-alert-infoBorder);
+				border-inline-start: 0.2rem solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-sm);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) both;
 			}
 
 			.upgrade-banner code-icon {
 				flex: none;
-				color: var(--color-alert-infoBorder);
+				color: var(--gl-color-feedback-info-quiet-fg);
 			}
 
 			.logo {
@@ -416,14 +416,14 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.success code-icon {
-				color: var(--vscode-charts-green);
+				color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.heading {
 				margin-block: 0;
 				font-size: var(--gl-font-lg);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-ui-foreground);
+				color: var(--vscode-foreground);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 60ms both;
 			}
 
@@ -445,11 +445,11 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-block: var(--gl-space-16) 0;
 				font-size: var(--gl-font-md);
 				line-height: 1.4;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				text-align: start;
 				text-wrap: pretty;
 				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 12%);
-				border-inline-start: 0.2rem solid var(--color-alert-infoBorder);
+				border-inline-start: 0.2rem solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-sm);
 				/* No opacity here: gl-fade-up fills both, so its final keyframe (opacity 1) wins
 				   over any declared value — the dim would apply ONLY under prefers-reduced-motion,
@@ -460,7 +460,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 			.promise code-icon {
 				flex: none;
-				color: var(--color-alert-infoBorder);
+				color: var(--gl-color-feedback-info-quiet-fg);
 			}
 
 			/* A flex item defaults to min-width:auto, so without this the text can't shrink below its
@@ -529,7 +529,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.cancel:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
 			}
@@ -685,7 +685,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				appearance: none;
 				cursor: pointer;
 				background: none;
-				border: 1px solid var(--vscode-widget-border);
+				border: 1px solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-sm);
 			}
 
@@ -693,7 +693,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			.layout__option:focus-visible {
 				outline: none;
 				background-color: var(--vscode-list-hoverBackground);
-				border-color: var(--vscode-focusBorder);
+				border-color: var(--gl-color-border-focus);
 			}
 
 			.layout__option.selected {
@@ -767,8 +767,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				background: linear-gradient(
 					to right,
 					transparent,
-					var(--vscode-widget-border) 18%,
-					var(--vscode-widget-border) 82%,
+					var(--gl-color-divider-base) 18%,
+					var(--gl-color-divider-base) 82%,
 					transparent
 				);
 			}
@@ -869,7 +869,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.pro-strip__tab:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
 			}
@@ -897,7 +897,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.pro-strip__dot:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 			}
 
