@@ -4718,6 +4718,29 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 		assert.strictEqual(state.activeModeSha.get(), 'c');
 	});
 
+	test('a review kept on a commit while another anchor is engaged moves too', () => {
+		const { host, state, controller, oldKey } = setup();
+		// The reader went on to the working tree; the commit review is kept for later
+		state.activeModeContext.set('wip');
+		state.activeModeSha.set(uncommitted);
+
+		controller.followRewrittenHistory(
+			{
+				mergeBase: 'base',
+				previous: [{ sha: 'c', message: 'c' }],
+				next: [{ sha: "c'", message: 'c' }],
+			},
+			'/A',
+		);
+
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.strictEqual(state.activeModeSha.get(), uncommitted, 'the engaged anchor is left alone');
+	});
+
 	test('a review with a run still going stays where it is', () => {
 		const { host, state, controller, oldKey } = setup('generating');
 

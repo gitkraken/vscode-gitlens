@@ -1906,8 +1906,9 @@ suite('mapRewrittenCommit', () => {
 			},
 		} as unknown as ResolvedServices;
 		const actions = new DetailsActions(state, services, createResources());
-		const moved: ReadonlyMap<string, string>[] = [];
-		actions.anchorRewrittenHandler = rewritten => moved.push(rewritten);
+		actions.commitReviewsHandler = () => true;
+		const moved: string[][] = [];
+		actions.anchorRewrittenHandler = history => moved.push(history.next.map(c => c.sha));
 		const wipAt = (revision: number, tip: string): Wip =>
 			({
 				changes: undefined,
@@ -1922,10 +1923,7 @@ suite('mapRewrittenCommit', () => {
 		await new Promise<void>(resolve => setTimeout(resolve, 0));
 
 		assert.deepStrictEqual(asked, ['c']);
-		assert.deepStrictEqual(
-			moved.map(m => [...m]),
-			[[['c', "c'"]]],
-		);
+		assert.deepStrictEqual(moved, [["c'"]]);
 	});
 
 	test('a rewrite during a run waits for it, then moves from the tip before the first rewrite', async () => {
@@ -1949,8 +1947,9 @@ suite('mapRewrittenCommit', () => {
 		const actions = new DetailsActions(state, services, createResources());
 		let busy = true;
 		actions.anchorBusyHandler = () => busy;
-		const moved: ReadonlyMap<string, string>[] = [];
-		actions.anchorRewrittenHandler = rewritten => moved.push(rewritten);
+		actions.commitReviewsHandler = () => true;
+		const moved: string[][] = [];
+		actions.anchorRewrittenHandler = history => moved.push(history.next.map(c => c.sha));
 		const wipAt = (revision: number, tip: string): Wip =>
 			({
 				changes: undefined,
@@ -1973,10 +1972,40 @@ suite('mapRewrittenCommit', () => {
 		await new Promise<void>(resolve => setTimeout(resolve, 0));
 
 		assert.deepStrictEqual(asked, ['c'], 'matched from the tip before the first amend');
-		assert.deepStrictEqual(
-			moved.map(m => [...m]),
-			[[['c', "c''"]]],
-		);
+		assert.deepStrictEqual(moved, [["c''"]]);
 		assert.strictEqual(actions.hasDeferredAnchorRewrite, false);
+	});
+
+	test('a tip move with no mode open still moves the commit reviews kept for later', async () => {
+		const state = createDetailsState();
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return { mergeBase: 'base', previous: commits('c'), next: commits("c'") };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions.commitReviewsHandler = repoPath => repoPath === '/repo';
+		const moved: string[] = [];
+		actions.anchorRewrittenHandler = (_history, repoPath) => moved.push(repoPath);
+		const wipAt = (revision: number, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(asked, ['c']);
+		assert.deepStrictEqual(moved, ['/repo']);
 	});
 });

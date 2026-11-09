@@ -2981,6 +2981,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		} else if (this.isLockedCommitRunningOperation && this._state.activeModeContext.get() === 'multicommit') {
 			// The review's own commits — a rewrite moves them, while the graph's two-row selection stays behind
 			void this._actions.fetchCompareDetails(this._state.activeModeShas.get(), repoPath);
+		} else if (this.isLockedCommitRunningOperation && this.sha !== this._state.activeModeSha.get()) {
+			// Another row picked under a locked commit review: the review's commit stays in the details
 		} else if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, repoPath, this.commitLites);
 		} else if (this.sha != null) {
@@ -3041,8 +3043,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
 		this._actions.anchorBusyHandler = () => this._workflow.engagedAnchorBusy();
-		this._actions.anchorRewrittenHandler = rewritten => {
-			const sha = this._workflow.followRewrittenAnchor(rewritten);
+		this._actions.commitReviewsHandler = repoPath => this._workflow.hasCommitReviews(repoPath);
+		this._actions.anchorRewrittenHandler = (history, repoPath) => {
+			const sha = this._workflow.followRewrittenHistory(history, repoPath);
 			if (sha != null) {
 				this._selectAfterRewrite = { sha: sha, rows: this._graphState?.rows, from: this.sha };
 				this.handleSelectCommit(sha);

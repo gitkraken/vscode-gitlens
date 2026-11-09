@@ -2769,10 +2769,12 @@ export class DetailsActions {
 	/** The branch tip when a rebase or other operation paused — what its commits are matched against once it lands */
 	private _tipBeforePause: string | undefined;
 
-	/** Set by the workflow controller — moves a commit-anchored mode onto the commits a rewrite replaced its own with */
-	anchorRewrittenHandler?: (rewritten: ReadonlyMap<string, string>) => void;
-	/** Set by the workflow controller — whether a run on the anchor would report under the anchor it has */
+	/** Set by the workflow controller — moves the reviews on commits a rewrite replaced onto the new ones */
+	anchorRewrittenHandler?: (history: RewrittenHistory, repoPath: string) => void;
+	/** Set by the workflow controller — whether a run on the engaged anchor would report under the anchor it has */
 	anchorBusyHandler?: () => boolean;
+	/** Set by the workflow controller — whether any review on a commit in the repo could have been rewritten */
+	commitReviewsHandler?: (repoPath: string) => boolean;
 	/** The tip before a rewrite that came while the anchor was busy — the move it calls for waits for the run */
 	private _deferredAnchorRewrite: { repoPath: string; previousTip: string } | undefined;
 
@@ -2784,13 +2786,12 @@ export class DetailsActions {
 		const deferred = this._deferredAnchorRewrite;
 		if (deferred == null || this.anchorBusyHandler?.()) return;
 
-		void this.followRewrittenAnchor(deferred.repoPath, deferred.previousTip);
+		void this.followRewrittenReviews(deferred.repoPath, deferred.previousTip);
 	}
 
-	/** Finds what a rewrite of the branch made of the commits a commit-anchored mode is on */
-	private async followRewrittenAnchor(repoPath: string, previousTip: string): Promise<void> {
-		const context = this.state.activeModeContext.get();
-		if (context !== 'commit' && context !== 'multicommit') {
+	/** Reads what a rewrite of the branch made of the commits the repo's commit reviews are on */
+	private async followRewrittenReviews(repoPath: string, previousTip: string): Promise<void> {
+		if (!this.commitReviewsHandler?.(repoPath)) {
 			this._deferredAnchorRewrite = undefined;
 			return;
 		}
@@ -2804,31 +2805,14 @@ export class DetailsActions {
 		}
 
 		this._deferredAnchorRewrite = undefined;
-
-		const anchorShas = () => {
-			const sha = this.state.activeModeSha.get();
-			return this.state.activeModeShas.get() ?? (sha != null ? [sha] : []);
-		};
-		const shas = anchorShas();
 		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
-		if (history == null || !areEqual(shas, anchorShas())) return;
+		if (history == null) return;
 		if (this.anchorBusyHandler?.()) {
 			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
 			return;
 		}
 
-		const rewritten = new Map<string, string>();
-		for (const sha of shas) {
-			const next = mapRewrittenCommit(sha, history);
-			if (next == null) return;
-
-			if (next !== sha) {
-				rewritten.set(sha, next);
-			}
-		}
-		if (rewritten.size) {
-			this.anchorRewrittenHandler?.(rewritten);
-		}
+		this.anchorRewrittenHandler?.(history, repoPath);
 	}
 
 	/** A picker selection that came in while the tip-move remap was pending — applied only if the remap doesn't */
@@ -3774,21 +3758,19 @@ export class DetailsActions {
 
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
+
+		// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+		// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+		const tipBefore = prev?.branch?.reference?.sha;
+		const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
+		if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
+			this._tipBeforePause = tipBefore;
+		}
+		const tipMovedHere = prev?.repo.path === repoPath && rewritten && wip.changes?.pausedOpStatus == null;
+
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
-
-			// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
-			// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
-			const tipBefore = prev?.branch?.reference?.sha;
-			const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
-			if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
-				this._tipBeforePause = tipBefore;
-			}
-			const tipMoved =
-				prev?.repo.path === repoPath &&
-				rewritten &&
-				wip.changes?.pausedOpStatus == null &&
-				repoPath === this.state.activeModeRepoPath.get();
+			const tipMoved = tipMovedHere && repoPath === this.state.activeModeRepoPath.get();
 
 			// A working-tree change can move the files inside the current wip scope (or drop a
 			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
@@ -3812,12 +3794,15 @@ export class DetailsActions {
 			if (tipMoved) {
 				this._scopeBeforeTipMove ??= this.state.scope.get();
 				void this.fetchBranchCommits(repoPath);
+			}
+		}
 
-				const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
-				this._tipBeforePause = undefined;
-				if (previousTip != null) {
-					void this.followRewrittenAnchor(repoPath, previousTip);
-				}
+		// Commit reviews follow a rewrite whether engaged or kept for later
+		if (tipMovedHere) {
+			const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
+			this._tipBeforePause = undefined;
+			if (previousTip != null) {
+				void this.followRewrittenReviews(repoPath, previousTip);
 			}
 		}
 		const branchName = wip.branch?.name;
