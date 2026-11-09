@@ -4630,8 +4630,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (pending == null) return;
 
 		const rows = this._graphState?.rows;
-		// Settled, moved on, or the reader picked another row meanwhile
-		if (this.sha === pending.sha || this.sha !== pending.from || this._state.activeModeSha.get() !== pending.sha) {
+		// Settled, moved on, or the reader picked another row meanwhile — the graph clearing its selection isn't a pick
+		const picked = this.sha != null && this.sha !== pending.from;
+		if (this.sha === pending.sha || picked || this._state.activeModeSha.get() !== pending.sha) {
 			this._selectAfterRewrite = undefined;
 		} else if (rows !== pending.rows && rows?.some(r => r.sha === pending.sha)) {
 			this._selectAfterRewrite = undefined;
