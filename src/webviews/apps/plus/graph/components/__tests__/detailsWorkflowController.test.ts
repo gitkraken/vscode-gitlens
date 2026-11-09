@@ -4759,4 +4759,73 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 		assert.ok(host.crossPaneState.runningOperations.get().has(oldKey));
 		assert.strictEqual(state.activeModeSha.get(), 'c');
 	});
+
+	test("a kept review's run holds the move back, which lands once the run is done", async () => {
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A', selection: undefined });
+		const state = createDetailsState();
+		const services = createServices();
+		const asked: string[] = [];
+		const moved: [string, string][] = [];
+		Object.assign(services.graphInspect, {
+			getRewrittenHistory: (_repoPath: string, previousTip: string) => {
+				asked.push(previousTip);
+				return Promise.resolve({
+					mergeBase: 'base',
+					previous: [{ sha: 'c', message: 'c' }],
+					next: [{ sha: "c'", message: 'c' }],
+				});
+			},
+			moveReview: (from: string, to: string) => {
+				moved.push([from, to]);
+				return Promise.resolve();
+			},
+		});
+		const actions = new DetailsActions(state, services, createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		// Wired as the panel wires them
+		actions.anchorBusyHandler = repoPath => controller.commitReviewsBusy(repoPath);
+		actions.commitReviewsHandler = repoPath => controller.hasCommitReviews(repoPath);
+		actions.anchorRewrittenHandler = (history, repoPath) => controller.followRewrittenHistory(history, repoPath);
+
+		// A commit review kept for later, its AI run still going; no mode open
+		const oldKey = anchorKey({ sha: 'c', repoPath: '/A' });
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const entry = (execState: 'generating' | 'complete') => ({
+			review: {
+				...makeReviewBucket('/A', makeReviewResult('c'), execState).review!,
+				anchor: { kind: 'commit' as const, repoPath: '/A', sha: 'c' },
+				scope: { type: 'commit' as const, sha: 'c' },
+			},
+		});
+		host.crossPaneState.runningOperations.set(new Map([[oldKey, entry('generating')]]));
+		host.crossPaneState.lastModeByAnchor.set(new Map([[oldKey, 'review']]));
+		const wipAt = (revision: number, tip: string) =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///A', name: 'A', path: '/A', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/A', reference: { sha: tip } },
+			}) as unknown as Wip;
+		const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await settle();
+
+		assert.ok(host.crossPaneState.runningOperations.get().has(oldKey), 'the review stays while its run goes on');
+		assert.ok(actions.hasDeferredAnchorRewrite);
+		assert.deepStrictEqual(asked, []);
+
+		host.crossPaneState.runningOperations.set(new Map([[oldKey, entry('complete')]]));
+		actions.retryDeferredAnchorRewrite();
+		await settle();
+
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.deepStrictEqual(moved, [[oldKey, newKey]]);
+		assert.deepStrictEqual(asked, ['c']);
+	});
 });
