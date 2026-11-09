@@ -476,6 +476,7 @@
 	"command.gitlens.graph.unpinBranchFromEdge.title": "Unpin Branch from Edge",
 	"command.gitlens.helpCenter.title": "Help Center",
 	"command.gitlens.inviteToLiveShare.title": "Invite to Live Share",
+	"command.gitlens.kepler.install.title": "Install Kepler",
 	"command.gitlens.kepler.newTask.title": "Start Task in Kepler",
 	"command.gitlens.kepler.startReview.title": "Start Review in Kepler",
 	"command.gitlens.kepler.startReview:graph.title": "Start Review in Kepler",

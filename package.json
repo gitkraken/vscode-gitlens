@@ -8947,6 +8947,12 @@
 				"icon": "$(live-share)"
 			},
 			{
+				"command": "gitlens.kepler.install",
+				"title": "%command.gitlens.kepler.install.title%",
+				"category": "%command.category%",
+				"icon": "$(cloud-download)"
+			},
+			{
 				"command": "gitlens.kepler.newTask",
 				"title": "%command.gitlens.kepler.newTask.title%",
 				"icon": "$(gitlens-kepler)"
@@ -15167,6 +15173,10 @@
 				{
 					"command": "gitlens.inviteToLiveShare",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.kepler.install",
+					"when": "!isWeb && !gitlens:kepler:installed && !gitlens:kepler:installing"
 				},
 				{
 					"command": "gitlens.kepler.newTask",

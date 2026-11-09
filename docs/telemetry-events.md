@@ -5808,6 +5808,45 @@ or
 }
 ```
 
+### kepler/install/completed
+
+> Sent when GitLens finishes installing Kepler
+
+```typescript
+{
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The installed version; absent when it is unknown before install (Windows)
+  'version': string
+}
+```
+
+### kepler/install/failed
+
+> Sent when installing Kepler fails or is cancelled
+
+```typescript
+{
+  // Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine
+  'failure.reason': 'cancelled' | 'download' | 'install' | 'manifest' | 'register' | 'unsupported' | 'verify',
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The installed version; absent when it is unknown before install (Windows)
+  'version': string
+}
+```
+
+### kepler/install/started
+
+> Sent when GitLens starts installing Kepler
+
+```typescript
+{
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup'
+}
+```
+
 ### kepler/productPage/opened
 
 > Sent when the user opens Kepler's product page from the "Try Kepler" CTA (Settings or Graph sidebar banner)

@@ -5398,6 +5398,11 @@
 				]
 			}
 		},
+		"gitlens.kepler.install": {
+			"label": "Install Kepler",
+			"icon": "$(cloud-download)",
+			"commandPalette": "!isWeb && !gitlens:kepler:installed && !gitlens:kepler:installing"
+		},
 		"gitlens.kepler.newTask": {
 			"label": "Start Task in Kepler",
 			"icon": "$(gitlens-kepler)",
