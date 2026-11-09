@@ -144,7 +144,10 @@ function titles(result: ProviderPagedResult<IssueShape>): string[] {
  * the integration cached, but a search scoped to one is refused the way the live instance refuses it.
  */
 async function jiraServer() {
-	const { service } = createCloudService(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain);
+	const { service, runtime, tokenRequests } = createCloudService(
+		IssuesSelfManagedHostIntegrationId.JiraServer,
+		jiraServerDomain,
+	);
 	const integration = (await service.get(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain))!;
 	const state = {
 		projects: [{ id: '10001', key: 'ALPHA', name: 'Alpha' }],
@@ -191,14 +194,21 @@ async function jiraServer() {
 	await service.refreshConnections();
 	await flush();
 
-	const read = (options?: { forceSync?: boolean; project?: string }) =>
+	const read = (options?: { forceSync?: boolean; project?: string; connectionId?: string }) =>
 		service.listIssueTrackerIssuesPage({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
 			domain: jiraServerDomain,
 			includeAllAssignees: true,
 			...options,
 		});
-	return { service: service, integration: integration, state: state, read: read };
+	return {
+		service: service,
+		runtime: runtime,
+		tokenRequests: tokenRequests,
+		integration: integration,
+		state: state,
+		read: read,
+	};
 }
 
 suite('Tracker project cache (#5907)', () => {
@@ -253,6 +263,66 @@ suite('Tracker project cache (#5907)', () => {
 			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 
 			assert.deepEqual(titles(await read({ forceSync: true })), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a per-connection forceSync read re-reads the project list when its re-sync succeeds', async () => {
+			// The per-connection re-sync goes through the auth provider, which never reaches the integration's own re-sync
+			// and the cache drop it makes, so only the read's own drop lets it see the new project.
+			const { service, state, tokenRequests, read } = await jiraServer();
+
+			await read({ connectionId: 't1' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			const syncs = tokenRequests.length;
+
+			const result = await read({ connectionId: 't1', forceSync: true });
+			assert.ok(tokenRequests.length > syncs, 'the connection was re-synced');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a per-connection forceSync read re-reads the project list even when its re-sync fails', async () => {
+			// A failed refetch keeps the stored token and still has the read go ahead, and nothing on this path drops
+			// the cache but the read itself, so the list cached before the refresh must not outlive it.
+			const { service, runtime, state, read } = await jiraServer();
+
+			await read({ connectionId: 't1' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			let syncs = 0;
+			runtime.account.fetchGkApi = () => {
+				syncs++;
+				return Promise.reject(new Error('GK API outage'));
+			};
+
+			const result = await read({ connectionId: 't1', forceSync: true });
+			assert.ok(syncs > 0, 'the re-sync was attempted');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a forceSync read re-reads the project list even when its re-sync fails', async () => {
+			// The primary read's failed re-sync still has the read go ahead, so the list cached before the refresh must
+			// not outlive the refresh the caller asked for.
+			const { service, runtime, state, read } = await jiraServer();
+
+			await read();
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			let syncs = 0;
+			runtime.account.fetchGkApi = () => {
+				syncs++;
+				return Promise.reject(new Error('GK API outage'));
+			};
+
+			const result = await read({ forceSync: true });
+			assert.ok(syncs > 0, 'the re-sync was attempted');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
 			assert.equal(state.projectReads, 2);
 
 			service.dispose();
