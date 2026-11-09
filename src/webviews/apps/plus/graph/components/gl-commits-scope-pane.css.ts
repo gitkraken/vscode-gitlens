@@ -81,9 +81,11 @@ export const commitsScopePaneStyles = css`
 	   hosts — opacity on a gl-tooltip / formatted-date / gl-avatar carries
 	   through to their hoisted popups. So skip those hosts at the outer
 	   level and dim their visible parts directly: label-text inside the
-	   tooltip, formatted-date's 'base' part, gl-avatar's 'avatar' part. */
+	   tooltip, a commit's line stats inside theirs, formatted-date's 'base'
+	   part, gl-avatar's 'avatar' part. */
 	.scope-row--excluded > *:not(.scope-row__dot-col, gl-tooltip, formatted-date, gl-avatar),
 	.scope-row--excluded .scope-row__label-text,
+	.scope-row--excluded .scope-row__stats,
 	.scope-row--excluded formatted-date::part(base),
 	.scope-row--excluded gl-avatar::part(avatar),
 	.scope-row--excluded .scope-row__dot-col > * {
