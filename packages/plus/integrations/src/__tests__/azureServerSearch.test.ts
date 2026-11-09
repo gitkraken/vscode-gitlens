@@ -583,6 +583,26 @@ suite('Azure DevOps Server filtered search', () => {
 				});
 			});
 		}
+
+		test('searches a collection whose name reads as an escape when it is not encoded', async () => {
+			// The collection name is a path segment the server decodes, so sent as is `R%26D` names the collection `R&D`:
+			// both the WIQL query and the hydration of what it matched have to encode it to reach this one.
+			const escaped: FakeCollection = {
+				name: 'R%26D',
+				projects: ['Lab'],
+				workItems: [
+					{ id: 7, project: 'Lab', title: 'Prototype', createdBy: 'me', assignedTo: 'me' },
+					{ id: 8, project: 'Lab', title: 'Survey' },
+				],
+				pullRequests: [],
+			};
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [escaped] });
+			await withManager(server, async (manager, target) => {
+				const search = await manager.searchIssuesPage({ ...target, org: 'R%26D' });
+				assert.ok(!search.fetchFailed, JSON.stringify(search.warnings));
+				assert.deepEqual(search.items.map(i => i.title).sort(), ['Prototype', 'Survey']);
+			});
+		});
 	});
 
 	suite('page size', () => {
