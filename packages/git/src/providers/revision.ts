@@ -45,6 +45,12 @@ export interface GitRevisionSubProvider {
 		options?: { paths?: readonly string[] },
 		cancellation?: AbortSignal,
 	): Promise<string[]>;
+	/**
+	 * The whole index's paths exactly as `git ls-files -z` prints them: each NUL-terminated, repo-relative, in index
+	 * order. An unmerged path appears once per stage, unlike {@link getTrackedFiles}, which dedupes.
+	 * Rejects when git fails (e.g. not a repository), and with a `CancellationError` when `cancellation` aborts.
+	 */
+	getTrackedFilesRaw?(repoPath: string, cancellation?: AbortSignal): Promise<Uint8Array>;
 	getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined>;
 	/**
 	 * Lists every entry (files and folders) of the tree at `rev`, recursively.

@@ -422,3 +422,41 @@ suite('RevisionSubProvider.getBlobIds (working) with paths hash-object cannot re
 		assert.notStrictEqual(ids.get('sub'), submoduleHead);
 	});
 });
+
+suite('RevisionSubProvider.getTrackedFilesRaw', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		addCommit(repo.path, 'src/nested/deep.txt', 'x', 'Nested');
+		addCommit(repo.path, 'caf\u00e9 \u65e5\u672c.txt', 'x', 'Non-ASCII');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('returns the bytes `git ls-files -z` prints', async () => {
+		const raw = await repo.provider.revision.getTrackedFilesRaw(repo.path);
+
+		const expected = execFileSync('git', ['ls-files', '-z'], { cwd: repo.path });
+		assert.ok(raw instanceof Uint8Array);
+		assert.ok(Buffer.from(raw).equals(expected));
+		assert.ok(raw.length > 0);
+	});
+
+	test('rejects outside a repository', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'gitlens-notrepo-'));
+		try {
+			await assert.rejects(repo.provider.revision.getTrackedFilesRaw(dir));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test('rejects with a cancellation when already aborted', async () => {
+		await assert.rejects(repo.provider.revision.getTrackedFilesRaw(repo.path, AbortSignal.abort()), (ex: unknown) =>
+			isCancellationError(ex),
+		);
+	});
+});
