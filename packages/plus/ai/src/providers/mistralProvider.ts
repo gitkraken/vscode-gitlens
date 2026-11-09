@@ -7,8 +7,14 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type MistralModel = AIModel<typeof provider.id>;
 const models: MistralModel[] = [
 	{
+		id: 'mistral-large-4',
+		name: 'Mistral Large 4',
+		maxTokens: { input: 1000000, output: 4096 },
+		provider: provider,
+	},
+	{
 		id: 'mistral-medium-latest',
-		name: 'Mistral Medium 3.5',
+		name: 'Mistral Medium (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -26,8 +32,14 @@ const models: MistralModel[] = [
 		provider: provider,
 	},
 	{
+		id: 'zai-glm-5-3-flash',
+		name: 'GLM 5.3 Flash',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+	},
+	{
 		id: 'mistral-small-latest',
-		name: 'Mistral Small 4',
+		name: 'Mistral Small (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 		default: true,
@@ -41,7 +53,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'mistral-large-latest',
-		name: 'Mistral Large 3',
+		name: 'Mistral Large (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -54,7 +66,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'ministral-14b-latest',
-		name: 'Ministral 3 14B',
+		name: 'Ministral 14B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -67,7 +79,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'ministral-8b-latest',
-		name: 'Ministral 3 8B',
+		name: 'Ministral 8B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -80,7 +92,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'ministral-3b-latest',
-		name: 'Ministral 3 3B',
+		name: 'Ministral 3B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -93,7 +105,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'codestral-latest',
-		name: 'Codestral',
+		name: 'Codestral (latest)',
 		maxTokens: { input: 131072, output: 4096 },
 		provider: provider,
 	},
