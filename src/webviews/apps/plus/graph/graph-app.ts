@@ -2558,6 +2558,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// or needing one — so any open sheet re-reads it rather than keep offering a stale action
 			void this.refreshPullRequestSheets(e.detail.number);
 		}
+		// Working Changes shows the same pull request for its branch, and its next steps follow its queue state
+		this.detailsPanelEl?.refreshWipPullRequest(e.detail.number);
 	};
 
 	/** Remove from Merge Queue — from the pull request sheet, already confirmed in place. */
@@ -2567,6 +2569,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		await pullRequest.dequeue(e.detail.number, { confirmed: true });
 		void this.refreshPullRequestSheets(e.detail.number);
+		this.detailsPanelEl?.refreshWipPullRequest(e.detail.number);
 	};
 
 	/** Re-reads a pull request whose state an action may have changed, and swaps it into any open sheet showing it.
@@ -2587,7 +2590,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const unsubscribe = await subscribeAll([
 				async () => {
 					const pullRequest = await services.pullRequest;
-					return pullRequest.onPullRequestChanged(e => void this.refreshPullRequestSheets(e.number));
+					return pullRequest.onPullRequestChanged(e => {
+						void this.refreshPullRequestSheets(e.number);
+						this.detailsPanelEl?.refreshWipPullRequest(e.number);
+					});
 				},
 			]);
 			// Disconnected while subscribing — `disconnectedCallback` had nothing to release yet

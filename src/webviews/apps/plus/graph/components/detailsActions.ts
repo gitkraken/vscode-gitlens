@@ -1579,6 +1579,36 @@ export class DetailsActions {
 	}
 
 	/**
+	 * Re-reads the WIP branch's pull request after a Graph action changed it on the provider — adding it to or
+	 * removing it from its merge queue, or merging it. Nothing local changes, so the enrichment wouldn't re-run on its
+	 * own, and the queued recheck only runs for a pull request already shown as queued: without this, a pull request
+	 * just queued from its sheet keeps offering Rebase, Merge and Recompose here. A no-op unless it's the one shown.
+	 */
+	refreshWipPullRequest(number: string): void {
+		if (this._disposed || this.state.wipPullRequest.get()?.number !== number) return;
+
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		const signal = this._enrichmentController?.signal;
+		if (!branchName || !repoPath || signal == null || signal.aborted) return;
+
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(pr => {
+			if (signal.aborted || this._disposed) return;
+
+			this._wipEnrichmentCache.update(`${branchName}:${repoPath}`, { pullRequest: pr, hasPullRequest: true });
+			this.state.wipPullRequest.set(pr);
+			if (pr?.state === 'opened') {
+				this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
+				return;
+			}
+
+			// Merged (or gone with its head branch): the merge-target status and the actions it drives are stale too
+			this.fetchWipBranchEnrichment(repoPath, branchName, signal);
+		}, noopUnlessReal);
+	}
+
+	/**
 	 * Open a pull request in the Pull Request sidebar view by `(repoPath, id, providerId)`.
 	 *
 	 * When all three are present, the host resolves the PR by id via the matching integration —

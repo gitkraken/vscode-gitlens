@@ -1328,6 +1328,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	};
 
+	/** Re-reads the Working Changes pull request when it's the one a Graph action just changed (see
+	 *  {@link DetailsActions.refreshWipPullRequest}). */
+	refreshWipPullRequest(number: string): void {
+		this._actions?.refreshWipPullRequest(number);
+	}
+
 	/** Reflects a completed merge on every open pull request sheet the merge affects — the sheet stays
 	 *  up, it just stops claiming the pull request is open. Optimistic by design: the host's pull request
 	 *  cache still holds the pre-merge object, so a refetch would read back the stale state; a merge of
