@@ -1193,6 +1193,93 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 	}
 
+	/** Moves a commit-anchored review onto the commits a rewrite (an amend, a rebase) replaced its own with — its
+	 *  entry, remembered mode, scope and details — so it reads the new changes with its marks, findings and comments.
+	 *  Left as it was while anything on the entry is still running, which would report under the old anchor. */
+	followRewrittenAnchor(rewritten: ReadonlyMap<string, string>): void {
+		const state = this.actions.state;
+		const context = state.activeModeContext.get();
+		if (state.activeMode.get() !== 'review' || (context !== 'commit' && context !== 'multicommit')) return;
+
+		const repoPath = state.activeModeRepoPath.get();
+		const sha = state.activeModeSha.get();
+		const shas = state.activeModeShas.get();
+		const oldKey = anchorKey({ sha: sha, shas: shas, repoPath: repoPath });
+		const registry = this.host.crossPaneState.runningOperations;
+		const bucket = registry.get().get(oldKey);
+		const review = bucket?.review;
+		const busy =
+			bucket?.compose != null ||
+			bucket?.resolve != null ||
+			bucket?.generateMessage != null ||
+			review?.execState === 'generating' ||
+			review?.orientRun != null ||
+			(review?.focusAreaRuns?.size ?? 0) > 0 ||
+			review?.deepReview?.active === true;
+		if (busy) return;
+
+		const map = (s: string) => rewritten.get(s) ?? s;
+		const nextSha = sha != null ? map(sha) : undefined;
+		const nextShas = shas?.map(map);
+		const newKey = anchorKey({ sha: nextSha, shas: nextShas, repoPath: repoPath });
+		if (newKey === oldKey) return;
+
+		const mapScope = (scope: ScopeSelection | undefined): ScopeSelection | undefined => {
+			switch (scope?.type) {
+				case 'commit':
+					return { ...scope, sha: map(scope.sha) };
+				case 'compare':
+					return {
+						...scope,
+						fromSha: map(scope.fromSha),
+						toSha: map(scope.toSha),
+						includeShas: scope.includeShas?.map(map),
+					};
+				default:
+					return scope;
+			}
+		};
+
+		if (review != null) {
+			const next = new Map(registry.get());
+			next.delete(oldKey);
+			next.set(newKey, {
+				...bucket,
+				review: {
+					...review,
+					anchor: { ...review.anchor, sha: nextSha, shas: nextShas },
+					scope: mapScope(review.scope),
+				},
+			});
+			registry.set(next);
+		}
+
+		const modes = this.host.crossPaneState.lastModeByAnchor;
+		const remembered = modes.get().get(oldKey);
+		if (remembered != null) {
+			const next = new Map(modes.get());
+			next.delete(oldKey);
+			next.set(newKey, remembered);
+			modes.set(next);
+		}
+		if (this._reviewFetchedForSelection === oldKey) {
+			this._reviewFetchedForSelection = newKey;
+		}
+
+		state.activeModeSha.set(nextSha);
+		state.activeModeShas.set(nextShas);
+		const scope = mapScope(state.scope.get());
+		state.scope.set(scope);
+		if (repoPath != null && scope != null) {
+			void this.actions.resources.scopeFiles.fetch(repoPath, scope);
+		}
+		if (context === 'multicommit') {
+			void this.actions.fetchCompareDetails(nextShas, repoPath);
+		} else {
+			void this.actions.fetchDetails(nextSha, repoPath);
+		}
+	}
+
 	// endregion
 
 	// region Review workflow

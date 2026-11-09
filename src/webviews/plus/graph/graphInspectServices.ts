@@ -153,6 +153,7 @@ import type {
 	ReviewThreadAction,
 	ReviewThreadActionsState,
 	ReviewThreadsArgs,
+	RewrittenHistory,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
@@ -489,6 +490,8 @@ export class GraphInspectServices {
 				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
 					getScopeFiles(this.container, repoPath, scope, signal),
 				getBranchCommits: (repoPath, options, signal) => this.getBranchCommits(repoPath, options, signal),
+				getRewrittenHistory: (repoPath, previousTip, signal) =>
+					this.getRewrittenHistory(repoPath, previousTip, signal),
 				getCommitPatchIds: async (repoPath, shas, signal) => {
 					const ids = await this.container.git
 						.getRepositoryService(repoPath)
@@ -986,6 +989,36 @@ export class GraphInspectServices {
 					return { root: data.root, frequencies: data.frequencies };
 				},
 			},
+		};
+	}
+
+	private async getRewrittenHistory(
+		repoPath: string,
+		previousTip: string,
+		signal?: AbortSignal,
+	): Promise<RewrittenHistory | undefined> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const mergeBase = await svc.refs.getMergeBase(previousTip, 'HEAD');
+		signal?.throwIfAborted();
+		if (mergeBase == null) return undefined;
+
+		const list = async (ref: string) => {
+			const log = await svc.commits.getLog(`${mergeBase}..${ref}`, { limit: 100 });
+			return Array.from(log?.commits.values() ?? [], c => ({ sha: c.sha, message: c.message ?? '' }));
+		};
+		const [previous, next] = await Promise.all([list(previousTip), list('HEAD')]);
+		signal?.throwIfAborted();
+
+		const ids = await svc.commits.getCommitPatchIds?.(
+			[...previous, ...next].map(c => c.sha),
+			undefined,
+			signal,
+		);
+		return {
+			mergeBase: mergeBase,
+			previous: previous,
+			next: next,
+			patchIds: ids != null ? Object.fromEntries(ids) : undefined,
 		};
 	}
 

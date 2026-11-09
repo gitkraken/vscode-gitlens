@@ -4638,3 +4638,70 @@ suite('DetailsWorkflowController — failure telemetry classification', () => {
 		assert.strictEqual(events[0].data['failure.error.message'], undefined);
 	});
 });
+
+suite('DetailsWorkflowController — a rewritten commit review follows its commits', () => {
+	function setup(execState: 'complete' | 'generating' = 'complete') {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: 'c', shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const fetched: (string | undefined)[] = [];
+		actions.fetchDetails = sha => {
+			fetched.push(sha);
+			return Promise.resolve();
+		};
+		const controller = new DetailsWorkflowController(host, actions);
+
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set('c');
+		state.scope.set({ type: 'commit', sha: 'c' });
+		const oldKey = anchorKey({ sha: 'c', repoPath: '/A' });
+		const bucket = makeReviewBucket('/A', makeReviewResult('c'), execState);
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					oldKey,
+					{
+						review: {
+							...bucket.review!,
+							anchor: { kind: 'commit', repoPath: '/A', sha: 'c' },
+							scope: { type: 'commit', sha: 'c' },
+						},
+					},
+				],
+			]),
+		);
+		host.crossPaneState.lastModeByAnchor.set(new Map([[oldKey, 'review']]));
+		return { host: host, state: state, controller: controller, fetched: fetched, oldKey: oldKey };
+	}
+
+	test('the review, its entry and its remembered mode move to the rewritten commit', () => {
+		const { host, state, controller, fetched, oldKey } = setup();
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
+		const registry = host.crossPaneState.runningOperations.get();
+		assert.strictEqual(registry.has(oldKey), false);
+		assert.strictEqual(registry.get(newKey)?.review?.anchor.sha, "c'");
+		assert.deepStrictEqual(registry.get(newKey)?.review?.scope, { type: 'commit', sha: "c'" });
+		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
+		assert.strictEqual(state.activeModeSha.get(), "c'");
+		assert.deepStrictEqual(state.scope.get(), { type: 'commit', sha: "c'" });
+		assert.deepStrictEqual(fetched, ["c'"], 'the panel loads the new commit');
+	});
+
+	test('a review with a run still going stays where it is', () => {
+		const { host, state, controller, oldKey } = setup('generating');
+
+		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+
+		assert.ok(host.crossPaneState.runningOperations.get().has(oldKey));
+		assert.strictEqual(state.activeModeSha.get(), 'c');
+	});
+});

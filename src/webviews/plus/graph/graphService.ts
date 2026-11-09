@@ -394,6 +394,13 @@ export interface ReviewOpenFileArgs {
 
 /** The files a review is reading: any of their diffs gets the reading commands (title buttons and
  *  keybindings), which step through them in this order. */
+export interface RewrittenHistory {
+	mergeBase: string;
+	previous: { sha: string; message: string }[];
+	next: { sha: string; message: string }[];
+	patchIds?: Record<string, string>;
+}
+
 export interface ReviewFilesArgs {
 	/** The review the files are read for, as the panel keys its reviews — opaque to the host, which stamps
 	 *  what the editor does with it (see {@link ReviewReadingState}, {@link ReviewThreadActionsState}). */
@@ -770,6 +777,13 @@ export interface GraphInspectService {
 		shas: readonly string[],
 		signal?: AbortSignal,
 	): Promise<Record<string, string> | undefined>;
+	/** The commits from where `previousTip` and the branch tip part ways up to each, newest first, with their
+	 *  patch ids — what a rewrite replaced and what replaced it. `undefined` when they share no history. */
+	getRewrittenHistory(
+		repoPath: string,
+		previousTip: string,
+		signal?: AbortSignal,
+	): Promise<RewrittenHistory | undefined>;
 	getCompareDiff(repoPath: string, from: string, to: string, signal?: AbortSignal): Promise<CompareDiff | undefined>;
 	/**
 	 * Returns the active graph search context for the given commit (or `undefined` when no

@@ -3026,6 +3026,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
+		this._actions.anchorRewrittenHandler = rewritten => this._workflow.followRewrittenAnchor(rewritten);
 		this._actions.deepReviewHandler = state => this._workflow.review.applyDeepReviewState(state);
 
 		if (this._pendingCompare != null) {
