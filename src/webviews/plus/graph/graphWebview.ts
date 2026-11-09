@@ -2252,6 +2252,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	onFocusChanged(focused: boolean): void {
+		this._inspect.graphFocused = focused;
 		// With the graph open twice, the editor's review follows the one the reader last worked in
 		if (focused) {
 			this._inspect.reclaimReview();

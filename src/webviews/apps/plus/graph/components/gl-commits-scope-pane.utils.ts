@@ -112,3 +112,23 @@ export function resolveSelectionRange(
 
 	return { start: start, end: end };
 }
+
+/**
+ * Whether an update put the selected range on other rows because the rows themselves changed: a
+ * history rewrite that re-pinned the scope onto new commits, or commits added under a range that
+ * takes them in. The scroll position belongs to the old list (one that shrank from dozens of commits
+ * to a few is left clamped to its bottom, the range out of sight above), so the picker brings the
+ * range back into view. A list change that leaves the range on the same rows, or a range moved on an
+ * unchanged list, keeps the viewport.
+ */
+export function rangeMovedWithRows(
+	prevItems: readonly ScopeItem[] | undefined,
+	items: readonly ScopeItem[],
+	prevRange: { start: string; end: string } | undefined,
+	range: { start: string; end: string } | undefined,
+): boolean {
+	if (!prevItems?.length || !items.length || prevRange == null || range == null) return false;
+	if (prevRange.start === range.start && prevRange.end === range.end) return false;
+
+	return prevItems.length !== items.length || prevItems.some((item, i) => item.id !== items[i].id);
+}
