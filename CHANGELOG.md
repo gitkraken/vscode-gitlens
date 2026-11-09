@@ -33,13 +33,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Install Kepler_ and _Learn More_ to the _Try Kepler_ banners in _GitLens Settings_ and the _Commit Graph_'s _Agents_ sidebar, and to the Kepler step of the _Welcome_ view walkthrough; adds a _GitLens: Install Kepler_ command
   - Replaces the "Kepler isn't installed" warning with a picker that offers to install Kepler and then carries on with what you started &mdash; or, for a pull request review, to continue without Kepler; in _Start Work_ and _Start PR Review_ it's the next step, so you can go back
   - Opens the Kepler download page instead in remote windows (Remote - SSH, WSL, Dev Containers), since Kepler runs on your own machine
-- Adds Mistral Large 4 and GLM 5.3 Flash to the Mistral provider's models
+- Adds support for the latest AI models &mdash; Claude Fable 5.2, Opus 5.5, Sonnet 5.5, and Haiku 5.5, GPT-6.1 (Sol and Terra) and GPT-6 (Astra, Sol, and Luna), Gemini 4 Argon and Gemini 3.8 Flash, Grok 4.7, DeepSeek Flash, Mistral Large 4, and GLM 5.3 Flash
 
 ### Changed
 
 - Changes GitLens webviews and the _Commit Graph_ to follow your theme more closely &mdash; banner text, the Graph's search box and amend button, autocomplete dropdowns, and info, success and warning marks now use your theme's colors instead of fixed ones ([#5400](https://github.com/gitkraken/vscode-gitlens/issues/5400))
 - Changes the Pro feature gates, badges, and upgrade prompts to offer _Upgrade to Pro_ alongside _Reactivate Pro Trial_, so an account the server won't reactivate still has a path to Pro ([#6010](https://github.com/gitkraken/vscode-gitlens/issues/6010))
 - Improves starting a task or review in Kepler when using Remote - SSH or WSL &mdash; Kepler now opens on the machine you're working on, so the task lands in the Kepler window connected to it ([#5760](https://github.com/gitkraken/vscode-gitlens/issues/5760))
+- Changes the recommended AI models to Claude Haiku 5.5, Gemini 3.6 Flash, and DeepSeek Flash, hides older model generations from the model picker, and removes models their providers have retired
 
 ### Fixed
 

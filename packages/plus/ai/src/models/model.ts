@@ -57,6 +57,41 @@ export interface AIProviderDescriptorWithConfiguration<
 
 export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDescriptor<T>): AIModel<T>[] => [
 	{
+		id: 'gpt-6.1-sol',
+		name: 'GPT-6.1 Sol',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		temperature: null, // Sends no temperature, like GPT-5 — `getValidatedTemperature`'s `gpt-5` id check doesn't match GPT-6
+	},
+	{
+		id: 'gpt-6.1-terra',
+		name: 'GPT-6.1 Terra',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'gpt-6-astra',
+		name: 'GPT-6 Astra',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'gpt-6-sol',
+		name: 'GPT-6 Sol',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
+		id: 'gpt-6-luna',
+		name: 'GPT-6 Luna',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		temperature: null,
+	},
+	{
 		id: 'gpt-5.6',
 		name: 'GPT-5.6 Sol',
 		maxTokens: { input: 922000, output: 128000 }, // 1.05M context, but OpenAI caps input at 922k
@@ -87,6 +122,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		name: 'GPT-5.5',
 		maxTokens: { input: 922000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-5.5-pro',
@@ -100,18 +136,21 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		name: 'GPT-5.4',
 		maxTokens: { input: 922000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-5.4-mini',
 		name: 'GPT-5.4 mini',
 		maxTokens: { input: 272000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-5.4-nano',
 		name: 'GPT-5.4 nano',
 		maxTokens: { input: 272000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gpt-5.3-codex',
