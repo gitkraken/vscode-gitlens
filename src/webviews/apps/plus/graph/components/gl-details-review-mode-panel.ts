@@ -2000,7 +2000,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 	/** One-click scopes over the picker: the uncommitted changes, those with the commits not pushed yet, and
 	 *  the whole branch since it split off from its merge target. A preset that would pick what another does
 	 *  is left out — without an upstream nothing is pushed, so Unpushed is the branch — and so is Branch when
-	 *  no merge base was found, as the list is then only the latest commits. */
+	 *  no merge base was found, as the list is then only the latest commits. A lone preset still shows — a
+	 *  pushed branch with a clean tree has only Branch, its one-click way to the whole branch — unless it
+	 *  picks every row the picker holds, leaving nothing to choose. */
 	private renderScopePresets() {
 		const items = this.scopeItems ?? [];
 		const ids = (rows: readonly ScopeItem[]) => rows.map(i => i.id);
@@ -2038,7 +2040,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 				ids: branch,
 			});
 		}
-		if (presets.length < 2) return nothing;
+		if (!presets.length) return nothing;
+		if (presets.length === 1 && same(presets[0].ids, ids(items.filter(i => i.state !== 'merge-base')))) {
+			return nothing;
+		}
 
 		const selected = this.scopeSelectionIds() ?? [];
 		return html`<div class="scope-presets" role="group" aria-label=${l10n.t('Review scope')}>
