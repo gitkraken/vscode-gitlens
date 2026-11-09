@@ -13,6 +13,18 @@ const models: MistralModel[] = [
 		provider: provider,
 	},
 	{
+		id: 'zai-glm-5-3',
+		name: 'GLM 5.3',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'zai-glm-5-3-flash',
+		name: 'GLM 5.3 Flash',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+	},
+	{
 		id: 'mistral-medium-latest',
 		name: 'Mistral Medium (latest)',
 		maxTokens: { input: 262144, output: 4096 },
@@ -24,18 +36,6 @@ const models: MistralModel[] = [
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 		hidden: true,
-	},
-	{
-		id: 'zai-glm-5-3',
-		name: 'GLM 5.3',
-		maxTokens: { input: 1000000, output: 128000 },
-		provider: provider,
-	},
-	{
-		id: 'zai-glm-5-3-flash',
-		name: 'GLM 5.3 Flash',
-		maxTokens: { input: 1000000, output: 128000 },
-		provider: provider,
 	},
 	{
 		id: 'mistral-small-latest',

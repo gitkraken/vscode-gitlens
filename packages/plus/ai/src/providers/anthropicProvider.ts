@@ -17,11 +17,10 @@ const models: AnthropicModel[] = [
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
-		id: 'claude-haiku-5-5',
-		name: 'Claude Haiku 5.5',
+		id: 'claude-opus-5-5',
+		name: 'Claude Opus 5.5',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
-		default: true,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
@@ -32,10 +31,11 @@ const models: AnthropicModel[] = [
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
-		id: 'claude-opus-5-5',
-		name: 'Claude Opus 5.5',
+		id: 'claude-haiku-5-5',
+		name: 'Claude Haiku 5.5',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		default: true,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
@@ -54,18 +54,18 @@ const models: AnthropicModel[] = [
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
-		id: 'claude-sonnet-5',
-		name: 'Claude Sonnet 5',
-		maxTokens: { input: 1000000, output: 128000 },
-		provider: provider,
-		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
-	},
-	{
 		id: 'claude-fable-5',
 		name: 'Claude Fable 5',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
 		// Requires 30-day data retention; ZDR orgs get a 400 on every request
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-sonnet-5',
+		name: 'Claude Sonnet 5',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
