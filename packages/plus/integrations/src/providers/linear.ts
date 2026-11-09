@@ -177,8 +177,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	private _organizations: Map<string, LinearOrganizationDescriptor | undefined> | undefined;
 	/**
-	 * In flight by token. The request can't be aborted (provider-apis takes no signal), so a lookup that outlives its
-	 * caller's timeout is joined by the next one rather than piling another request on top of it.
+	 * In flight by token and discovery generation. The request can't be aborted (provider-apis takes no signal), so a
+	 * lookup that outlives its caller's timeout is joined by the next one rather than piling another request on top of
+	 * it; but not across a drop, since a lookup started before a forced refresh answers as from before it (#6162).
 	 */
 	private readonly _organizationRequests = new Map<string, Promise<LinearOrganizationDescriptor | undefined>>();
 	private async getOrganization(
@@ -192,10 +193,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const cachedResources = organizations.get(accessToken);
 
 		if (cachedResources == null || force) {
-			let request = this._organizationRequests.get(accessToken);
+			const requestKey = `${this.discoveryGeneration}:${accessToken}`;
+			let request = this._organizationRequests.get(requestKey);
 			if (request == null) {
-				request = this.fetchOrganization(session).finally(() => this._organizationRequests.delete(accessToken));
-				this._organizationRequests.set(accessToken, request);
+				request = this.fetchOrganization(session).finally(() => this._organizationRequests.delete(requestKey));
+				this._organizationRequests.set(requestKey, request);
 			}
 
 			const descriptor = await request;

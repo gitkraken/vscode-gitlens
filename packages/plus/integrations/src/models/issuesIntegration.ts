@@ -387,11 +387,21 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Result-returning core of {@link getResourcesForUser}. Recovers thrown errors into `{ error }` so callers
-	 * can surface them as warnings rather than silently swallowing them to `undefined`. Gated here (not on the
+	 * can surface them as warnings rather than silently swallowing them to `undefined`. Deduped here (not on the
 	 * wrapper) so direct callers such as the ProviderBackend facade share the same dedup as `getResourcesForUser`.
 	 */
+	getResourcesForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+		// Joined only within a discovery generation: a read started after a drop (a forced refresh) must not take the
+		// lookup a read made before it, which answers with the resources as they were then (#6162). An empty
+		// connectionId reads the primary, so it shares the primary's lookup.
+		return this.getResourcesForUserResultCore(connectionId || undefined, this.discoveryGeneration);
+	}
+
 	@gate()
-	async getResourcesForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+	private async getResourcesForUserResultCore(
+		connectionId: string | undefined,
+		_discoveryGeneration: number,
+	): Promise<IntegrationResult<T[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
