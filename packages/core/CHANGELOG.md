@@ -8,10 +8,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
-- Adds `branches.getCurrentHead`, which reads what a worktree has checked out (`GitCurrentHead`: the branch, or the one a paused rebase is rebasing, read from the rebase's own `head-name`; with `sha: true`, the commit; and whether a rebase is paused) fresh on every call, from the worktree's own `HEAD` file, falling back to `git symbolic-ref` when that file can't say (a reftable repository, a symlinked `HEAD`, or a branch that is itself a symbolic ref). It never reads or fills core's current-branch caches, so it answers right after a checkout no watcher has reported yet, and never walks the index as a status read does (git, git-cli)
 - Adds `getBranchReflogWork` to `utils/branch.utils.js`: from a local branch's reflog (newest first, as `refs.getReflogEntries` reads it), whether the branch has work authored on it (`'work'`), was created here and never had any (`'none'`), or can't be told (`'unknown'`: an empty or expired reflog, or a branch created from the same-named remote branch). Every entry counts as work except a move that adds none: the branch's creation, a reset or rename, a fast-forward merge or pull, a fetch, a clone, or a rebase that replayed nothing. It tells a branch whose work was fast-forward merged apart from a new one, which `getBranchMergedStatus` reports alike, as merged (git)
 - Adds `getBranchLandedState` to `utils/branchLanded.utils.js`, with the `BranchLandedPullRequestCandidate` and `BranchLandedState` types: from a branch's tip sha and its pull requests, whether its work landed through a merged pull request. The head sha decides, never recency: an open pull request at the tip means the branch is live (`live`), a merged one at the tip means it landed, and otherwise the merged pull request with the fewest new commits decides between landed (none) and a successor (some). A pull request without a head sha never decides (git)
+
+## [0.36.0] - 2026-11-09
+
+### Added
+
+- Adds `revision.getTrackedFilesRaw`, the whole index listing as the raw bytes `git ls-files -z` prints (an unmerged path once per stage), for a host that parses it elsewhere, such as in a worker, instead of having `getTrackedFiles` split and dedupe it into strings on the calling thread. Rejects when git fails, and with a `CancellationError` when aborted (git, git-cli)
+- Adds `branches.getCurrentHead`, which reads what a worktree has checked out (`GitCurrentHead`: the branch, or the one a paused rebase is rebasing, read from the rebase's own `head-name`; with `sha: true`, the commit; and whether a rebase is paused) fresh on every call, from the worktree's own `HEAD` file, falling back to `git symbolic-ref` when that file can't say (a reftable repository, a symlinked `HEAD`, or a branch that is itself a symbolic ref). It never reads or fills core's current-branch caches, so it answers right after a checkout no watcher has reported yet, and never walks the index as a status read does (git, git-cli)
 
 ### Fixed
 
@@ -1204,7 +1209,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...HEAD
+[0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
 [0.35.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.34.0...gitkraken:releases/core/v0.35.0
 [0.34.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...gitkraken:releases/core/v0.34.0
 [0.33.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.32.0...gitkraken:releases/core/v0.33.0
