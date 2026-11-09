@@ -5,6 +5,7 @@ import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
+import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
@@ -971,7 +972,10 @@ export class GraphProducersService {
 		}
 
 		if (branch.upstream != null) {
-			branchState.upstream = branch.upstream.name;
+			// A gone upstream reads as "no upstream", matching the full build
+			if (!branch.upstream.missing) {
+				branchState.upstream = branch.upstream.name;
+			}
 			try {
 				const remote = await getBranchRemote(this.container, branch);
 				if (remote?.provider != null) {
@@ -992,9 +996,19 @@ export class GraphProducersService {
 			// the previous branch — a wrong PR pill, and a wrong (jumpable) tip — so drop them and let the
 			// full build supply the new ones.
 			const last = this._lastSentBranchState;
-			if (last?.upstream === branchState.upstream) {
+			// A gone upstream leaves `upstream` unset on both sides, which can't tell branches apart — there the PR
+			// carries only while its head is this branch's tip
+			if (
+				last != null &&
+				last.upstream === branchState.upstream &&
+				(branchState.upstream != null || last.pr?.refs?.head?.sha === branch.sha)
+			) {
 				branchState.pr ??= last.pr;
 				branchState.upstreamSha ??= last.upstreamSha;
+			}
+			// Derived from the carried PR against THIS branch's tip, so a PR carried from another branch can't mark it
+			if (branchState.pr != null && getBranchLandedState(branch.sha, [{ pullRequest: branchState.pr }]).landed) {
+				branchState.landed = true;
 			}
 		}
 

@@ -469,6 +469,14 @@ export class GraphStateProvider implements Disposable {
 	@signalState(false)
 	accessor scopeLoading: boolean = false;
 
+	/**
+	 * Webview-local (never from the host): set by the details panel's WIP merge-target enrichment when the
+	 * checked-out branch landed per merge-target evidence (git heuristics included). Stamped with the tip
+	 * sha the verdict was computed for so the header can ignore it after a branch switch or new commit.
+	 */
+	@signalState()
+	accessor wipLanded: AppState['wipLanded'];
+
 	@signalState<AppState['navigating']>(false)
 	accessor navigating: AppState['navigating'] = false;
 

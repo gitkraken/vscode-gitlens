@@ -1357,6 +1357,20 @@ export class DetailsActions {
 		return reachable ? true : undefined;
 	}
 
+	/** Sets the WIP merge target and mirrors its landed verdict (stamped with the branch tip sha) onto the graph
+	 *  state so the header can hide Publish for a branch that landed per git evidence. */
+	private setWipMergeTarget(status: BranchMergeTargetStatus | undefined): void {
+		this.state.wipMergeTarget.set(status);
+
+		if (this.graphState == null) return;
+
+		const sha = status?.branch.reference.sha;
+		this.graphState.wipLanded =
+			status?.mergeTarget?.landed != null && sha != null
+				? { repoPath: status.branch.repoPath, sha: sha }
+				: undefined;
+	}
+
 	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {
 		const s = this.services;
 		const cacheKey = `${branchName}:${repoPath}`;
@@ -1373,10 +1387,10 @@ export class DetailsActions {
 			this.state.wipIssues.set(cached.issues);
 			// MergeTarget — undefined is a valid resolved value, so use the sentinel to distinguish.
 			if (cached.hasMergeTarget) {
-				this.state.wipMergeTarget.set(cached.mergeTarget);
+				this.setWipMergeTarget(cached.mergeTarget);
 				this.state.wipMergeTargetLoading.set(false);
 			} else {
-				this.state.wipMergeTarget.set(undefined);
+				this.setWipMergeTarget(undefined);
 				this.state.wipMergeTargetLoading.set(true);
 			}
 			// PullRequest — same sentinel convention as mergeTarget.
@@ -1391,7 +1405,7 @@ export class DetailsActions {
 			// First visit to this branch — clear any prior-branch values and show loading.
 			this.state.wipAutolinks.set(undefined);
 			this.state.wipIssues.set(undefined);
-			this.state.wipMergeTarget.set(undefined);
+			this.setWipMergeTarget(undefined);
 			this.state.wipMergeTargetLoading.set(true);
 			this.state.wipPullRequest.set(undefined);
 			this.state.wipPullRequestLoading.set(true);
@@ -1454,7 +1468,7 @@ export class DetailsActions {
 								mergeTarget: status,
 								hasMergeTarget: true,
 							});
-							this.state.wipMergeTarget.set(status);
+							this.setWipMergeTarget(status);
 						}),
 						noopUnlessReal,
 					)

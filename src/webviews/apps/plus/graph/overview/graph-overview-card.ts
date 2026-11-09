@@ -75,7 +75,7 @@ function getBranchCardIndicator(
 		// Merge-target is fetched lazily by <gl-branch-hover> on first hover and published into shared
 		// `overviewEnrichment`, which `graph-overview` passes straight back down as our `enrichment` prop.
 		// So this stays absent until someone hovers the branch — by design, it's expensive.
-		if (enrichment?.mergeTarget?.mergedStatus?.merged) return 'branch-merged';
+		if (enrichment?.mergeTarget?.landed != null) return 'branch-merged';
 	}
 
 	if (branch.upstream?.missing) return 'branch-missingUpstream';
@@ -731,24 +731,27 @@ export class GlGraphOverviewCard extends LitElement {
 						></action-item>`,
 					);
 				}
-			} else if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
-				// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
-				// opened in another worktree) can be offered
-				actions.push(
-					html`<action-item
-						label=${l10n.t('Publish Repository')}
-						icon="cloud-upload"
-						href=${this.createCommandLink('gitlens.publishRepository:')}
-					></action-item>`,
-				);
-			} else {
-				actions.push(
-					html`<action-item
-						label=${l10n.t('Publish Branch')}
-						icon="cloud-upload"
-						href=${this.createCommandLink('gitlens.publishBranch:')}
-					></action-item>`,
-				);
+			} else if (this.enrichment?.mergeTarget?.landed == null) {
+				// A landed branch's work is already in the merge target, so there is nothing to publish
+				if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
+					// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
+					// opened in another worktree) can be offered
+					actions.push(
+						html`<action-item
+							label=${l10n.t('Publish Repository')}
+							icon="cloud-upload"
+							href=${this.createCommandLink('gitlens.publishRepository:')}
+						></action-item>`,
+					);
+				} else {
+					actions.push(
+						html`<action-item
+							label=${l10n.t('Publish Branch')}
+							icon="cloud-upload"
+							href=${this.createCommandLink('gitlens.publishBranch:')}
+						></action-item>`,
+					);
+				}
 			}
 		} else if (this.isWorktree) {
 			actions.push(

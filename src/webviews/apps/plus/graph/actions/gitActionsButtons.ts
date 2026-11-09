@@ -106,7 +106,7 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 	wipState?: GraphWipState;
 
 	@property({ type: Object })
-	state!: State;
+	state!: AppState;
 
 	private get hasWorkingChanges(): boolean {
 		const stats = this.wipState?.workDirStats;
@@ -189,10 +189,13 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 				.wipState=${this.wipState}
 			></gl-push-pull-button>
 			${
-				this.branchState != null && this.branchState.upstream == null
+				this.branchState != null &&
+				this.branchState.upstream == null &&
+				!isBranchLanded(this.branchState, this.state)
 					? html`<gl-publish-button
 							.branchState=${this.branchState}
 							.branchName=${this.branchName}
+							.state=${this.state}
 						></gl-publish-button>`
 					: nothing
 			}
@@ -1509,6 +1512,21 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 }
 
+/** Landed by PR head-sha (host `branchState.landed`) or by the WIP merge-target verdict (git evidence), the latter
+ *  only while it was computed for the branch tip currently shown. */
+function isBranchLanded(branchState: BranchState | undefined, state: AppState | undefined): boolean {
+	if (branchState?.landed) return true;
+
+	const wipLanded = state?.wipLanded;
+	const branch = state?.branch;
+	return (
+		wipLanded != null &&
+		branch?.sha != null &&
+		wipLanded.sha === branch.sha &&
+		wipLanded.repoPath === branch.repoPath
+	);
+}
+
 @customElement('gl-publish-button')
 export class GlPublishButton extends LitElement {
 	static override styles = [
@@ -1560,9 +1578,19 @@ export class GlPublishButton extends LitElement {
 	@property({ type: String })
 	branchName?: string;
 
+	@property({ type: Object })
+	state?: AppState;
+
 	override render() {
-		// Only when the current branch has no upstream (unpublished)
-		if (this.branchState == null || this.branchState.upstream != null) return nothing;
+		// Only when the current branch has no upstream (unpublished) — and never for a branch whose pull request
+		// already landed it: its upstream is gone because the PR merged, and publishing would resurrect it
+		if (
+			this.branchState == null ||
+			this.branchState.upstream != null ||
+			isBranchLanded(this.branchState, this.state)
+		) {
+			return nothing;
+		}
 
 		if (this.branchState.hasRemotes === false) {
 			return html`

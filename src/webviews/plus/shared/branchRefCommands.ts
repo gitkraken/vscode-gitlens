@@ -121,6 +121,7 @@ export async function deleteBranchOrWorktree(
 	container: Container,
 	ref: BranchRef,
 	mergeTarget?: BranchRef,
+	options?: { mergedPullRequest?: { id: string; sha: string } },
 ): Promise<void> {
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) return;
@@ -130,10 +131,22 @@ export async function deleteBranchOrWorktree(
 	const worktree =
 		branch.worktree === false ? undefined : (branch.worktree ?? (await getBranchWorktree(container, branch)));
 
+	// The merged pull request only vouches for the tip it was checked against — a commit since may not be in it
+	const mergedPullRequest =
+		options?.mergedPullRequest != null && options.mergedPullRequest.sha === branch.sha
+			? options.mergedPullRequest
+			: undefined;
+
 	const deleteWizardState = {
 		subcommand: 'delete',
 		repo: ref.repoPath,
 		references: branch,
+		...(mergedPullRequest != null
+			? {
+					flags: ['--force'] as ('--force' | '--remotes')[],
+					reason: l10n.t('Pull request #{0} was merged', mergedPullRequest.id),
+				}
+			: undefined),
 	} as const;
 
 	if (!worktree || worktree.isDefault) {

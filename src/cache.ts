@@ -25,6 +25,8 @@ type Caches = {
 	issuesOrPrsById: { key: `id:${string}:${string}`; value: IssueOrPullRequest };
 	issuesOrPrsByIdAndRepo: { key: `id:${string}:${string}:${string}`; value: IssueOrPullRequest };
 	prByBranch: { key: `branch:${string}:${string}`; value: PullRequest };
+	/** Every pull request whose head is the branch name, in any state — an empty list is a proven "none" */
+	prsByBranchName: { key: `branch:${string}:${string}`; value: PullRequest[] };
 	prsById: { key: `id:${string}:${string}`; value: PullRequest };
 	prsBySha: { key: `sha:${string}:${string}`; value: PullRequest };
 	repoMetadata: { key: `repo:${string}`; value: RepositoryMetadata };
@@ -86,7 +88,12 @@ export class CacheProvider implements Disposable {
 	 *  entries is the correct blast radius. Merges are rare; the cost is a refetch on next demand. */
 	deletePullRequests(): void {
 		for (const key of this._cache.keys()) {
-			if (key.startsWith('prByBranch:') || key.startsWith('prsById:') || key.startsWith('prsBySha:')) {
+			if (
+				key.startsWith('prByBranch:') ||
+				key.startsWith('prsByBranchName:') ||
+				key.startsWith('prsById:') ||
+				key.startsWith('prsBySha:')
+			) {
 				this._cache.delete(key);
 				continue;
 			}
@@ -261,6 +268,17 @@ export class CacheProvider implements Disposable {
 			this.wrapPullRequestCacheable(cacheable, key, etag),
 			options,
 		);
+	}
+
+	getPullRequestsForBranchName(
+		branch: string,
+		repo: ResourceDescriptor,
+		integration: GitHostIntegration | undefined,
+		cacheable: Cacheable<PullRequest[]>,
+		options?: ExpiryOptions,
+	): CacheResult<PullRequest[]> {
+		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
+		return this.get('prsByBranchName', `branch:${branch}:${key}`, etag, cacheable, options);
 	}
 
 	getPullRequestForSha(
@@ -504,6 +522,9 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;
 		}
+		case 'prsByBranchName':
+			// Bounded like `prByBranch`'s "none", since a pull request can be opened or merged at any time
+			return defaultExpiresAt;
 		// case 'enrichedAutolinksBySha':
 		default:
 			return value == null ? 0 /* Never expires */ : defaultExpiresAt;

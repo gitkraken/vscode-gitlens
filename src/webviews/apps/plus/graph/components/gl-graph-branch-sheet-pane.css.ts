@@ -272,6 +272,8 @@ export const graphBranchSheetPaneStyles = css`
 
 	.relationship-card__mt--merged,
 	.relationship-card__mt--merged .relationship-card__mt-indicator,
+	.relationship-card__mt--merged-pr,
+	.relationship-card__mt--merged-pr .relationship-card__mt-indicator,
 	.relationship-card__mt--likely-merged,
 	.relationship-card__mt--likely-merged .relationship-card__mt-indicator,
 	.relationship-card__mt--merged-local,
@@ -304,7 +306,8 @@ export const graphBranchSheetPaneStyles = css`
 		border-color: color-mix(in srgb, transparent 65%, var(--relationship-card-merge-clean));
 	}
 
-	.relationship-card__verdict--unknown {
+	.relationship-card__verdict--unknown,
+	.relationship-card__verdict--successor {
 		color: var(--vscode-descriptionForeground);
 		background: color-mix(in srgb, transparent 94%, var(--color-foreground));
 	}
@@ -318,6 +321,7 @@ export const graphBranchSheetPaneStyles = css`
 	}
 
 	.relationship-card__verdict--merged,
+	.relationship-card__verdict--merged-pr,
 	.relationship-card__verdict--likely-merged {
 		color: var(--relationship-card-merged);
 		background: color-mix(in srgb, transparent 90%, var(--relationship-card-merged));

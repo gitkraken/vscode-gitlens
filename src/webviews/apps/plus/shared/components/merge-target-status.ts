@@ -95,6 +95,10 @@ export const mergeTargetStyles = css`
 		transform: rotateY(180deg);
 	}
 
+	.status--successor .status-indicator {
+		color: var(--color-foreground--50);
+	}
+
 	.status--in-sync .status-indicator {
 		color: var(--color-status--in-sync);
 	}
@@ -308,6 +312,25 @@ export class GlMergeTargetStatus extends LitElement {
 		return this.target?.mergedStatus;
 	}
 
+	/** Whether the branch's work landed (by its merged pull request, else by git evidence) — what the surfaces switch
+	 *  on, never {@link mergedStatus} alone */
+	private get landed() {
+		return this.target?.landed;
+	}
+
+	/** The branch's pull request merged but the branch has commits it didn't carry, so it is NOT landed */
+	private get successor() {
+		return this.target?.successor;
+	}
+
+	/** Only PR evidence may pre-select Force Delete — git evidence can't prove the work is safe to drop */
+	private get deleteOptions(): { mergedPullRequest?: { id: string; sha: string } } | undefined {
+		const landed = this.landed;
+		return landed?.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
+			? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
+			: undefined;
+	}
+
 	private get status() {
 		return this.target?.status;
 	}
@@ -338,7 +361,16 @@ export class GlMergeTargetStatus extends LitElement {
 	/** One-line status summary for the compact tooltip — a terse stand-in for the popover's rich header. */
 	private get compactStatusLabel(): string {
 		const target = this.target?.name ?? l10n.t('the merge target');
-		if (this.mergedStatus?.merged) return l10n.t('Merged into {target}', { target: target });
+		const landed = this.landed;
+		if (landed != null) {
+			return landed.via === 'pr' && landed.pullRequest != null
+				? l10n.t('Merged via Pull Request #{id}', { id: landed.pullRequest.id })
+				: l10n.t('Merged into {target}', { target: target });
+		}
+
+		const successor = this.successor;
+		if (successor != null) return this.successorTitle(successor);
+
 		if (this.conflicts) return l10n.t('Merging into {target} will cause conflicts', { target: target });
 
 		const behind = this.status?.behind ?? 0;
@@ -354,8 +386,17 @@ export class GlMergeTargetStatus extends LitElement {
 		return l10n.t('Merges cleanly into {target}', { target: target });
 	}
 
+	private successorTitle(successor: NonNullable<OverviewBranchMergeTarget['successor']>): string {
+		return formatPlural(
+			l10n.t(
+				'{count, plural, one{Pull request #{id} was merged; {count} new commit since} other{Pull request #{id} was merged; {count} new commits since}}',
+			),
+			{ count: successor.newCommits, id: successor.pullRequest.id },
+		);
+	}
+
 	override render(): unknown {
-		if (!this.status && !this.conflicts) {
+		if (!this.status && !this.conflicts && this.landed == null && this.successor == null) {
 			if (this.loading) {
 				return html`<gl-tooltip content=${l10n.t('Checking merge target status…')}>
 					<span class="chip status--loading${this.compact ? ' compact' : ''}" aria-busy="true">
@@ -370,9 +411,12 @@ export class GlMergeTargetStatus extends LitElement {
 		let icon;
 		let status;
 
-		if (this.mergedStatus?.merged) {
+		if (this.landed != null) {
 			icon = 'git-merge';
 			status = 'merged';
+		} else if (this.successor != null) {
+			icon = 'git-pull-request';
+			status = 'successor';
 		} else if (this.conflicts) {
 			icon = 'warning';
 			status = 'conflict';
@@ -404,15 +448,17 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderContent() {
-		const target = renderBranchName(this.target?.name);
+		const landed = this.landed;
+		const localBranchOnly =
+			landed?.via === 'git' && this.mergedStatus?.merged ? this.mergedStatus.localBranchOnly : undefined;
 
 		const mergeTargetRef =
-			this.mergedStatus?.merged && this.mergedStatus.localBranchOnly
+			localBranchOnly != null
 				? {
 						repoPath: this.branch.repoPath,
-						branchId: this.mergedStatus.localBranchOnly.id!,
-						branchName: this.mergedStatus.localBranchOnly.name,
-						branchUpstreamName: this.mergedStatus.localBranchOnly.upstream?.name,
+						branchId: localBranchOnly.id!,
+						branchName: localBranchOnly.name,
+						branchUpstreamName: localBranchOnly.upstream?.name,
 					}
 				: this.target
 					? {
@@ -423,10 +469,10 @@ export class GlMergeTargetStatus extends LitElement {
 						}
 					: undefined;
 
-		if (this.mergedStatus?.merged) {
-			if (this.mergedStatus.localBranchOnly) {
+		if (landed != null) {
+			if (localBranchOnly != null) {
 				return html`${this.renderHeader(
-						this.mergedStatus.confidence !== 'highest'
+						landed.confidence !== 'highest'
 							? l10n.t('Branch Likely Merged Locally into Merge Target')
 							: l10n.t('Branch Merged Locally into Merge Target'),
 						'git-merge',
@@ -434,7 +480,7 @@ export class GlMergeTargetStatus extends LitElement {
 					<div class="body">
 						<p>
 							${localizedContent(
-								this.mergedStatus.confidence !== 'highest'
+								landed.confidence !== 'highest'
 									? l10n.t(
 											"Your current branch {branch} has likely been merged into its merge target's local branch {target}.",
 										)
@@ -443,7 +489,7 @@ export class GlMergeTargetStatus extends LitElement {
 										),
 								{
 									branch: renderBranchName(this.branch.name),
-									target: renderBranchName(this.mergedStatus.localBranchOnly.name),
+									target: renderBranchName(localBranchOnly.name),
 								},
 							)}
 						</p>
@@ -456,7 +502,7 @@ export class GlMergeTargetStatus extends LitElement {
 								)}"
 								><span
 									>${localizedContent(l10n.t('Push {branch}'), {
-										branch: renderBranchName(this.mergedStatus.localBranchOnly.name),
+										branch: renderBranchName(localBranchOnly.name),
 									})}</span
 								></gl-button
 							>
@@ -465,7 +511,7 @@ export class GlMergeTargetStatus extends LitElement {
 								appearance="secondary"
 								href="${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 									'gitlens.deleteBranchOrWorktree:',
-									{ ...this.branchRef!, mergeTarget: mergeTargetRef! },
+									{ ...this.branchRef!, mergeTarget: mergeTargetRef },
 								)}"
 								><span
 									>${localizedContent(
@@ -480,34 +526,56 @@ export class GlMergeTargetStatus extends LitElement {
 					</div>`;
 			}
 
+			const mergedPullRequest = landed.via === 'pr' ? landed.pullRequest : undefined;
 			return html`${this.renderHeader(
-					this.mergedStatus.confidence !== 'highest'
-						? l10n.t('Branch Likely Merged into Merge Target')
-						: l10n.t('Branch Merged into Merge Target'),
+					mergedPullRequest != null
+						? l10n.t('Merged via Pull Request #{id}', {
+								id: mergedPullRequest.id,
+							})
+						: landed.confidence !== 'highest'
+							? l10n.t('Branch Likely Merged into Merge Target')
+							: l10n.t('Branch Merged into Merge Target'),
 					'git-merge',
 				)}
 				<div class="body">
 					<p>
-						${localizedContent(
-							this.mergedStatus.confidence !== 'highest'
-								? l10n.t(
-										'Your current branch {branch} has likely been merged into its merge target {target}.',
+						${
+							mergedPullRequest != null
+								? localizedContent(
+										l10n.t(
+											'The pull request #{id} for your current branch {branch} was merged into its merge target {target}.',
+										),
+										{
+											id: mergedPullRequest.id,
+											branch: renderBranchName(this.branch.name),
+											target: this.renderInlineTargetEdit(this.target),
+										},
 									)
-								: l10n.t(
-										'Your current branch {branch} has been merged into its merge target {target}.',
-									),
-							{
-								branch: renderBranchName(this.branch.name),
-								target: this.renderInlineTargetEdit(this.target),
-							},
-						)}
+								: localizedContent(
+										landed.confidence !== 'highest'
+											? l10n.t(
+													'Your current branch {branch} has likely been merged into its merge target {target}.',
+												)
+											: l10n.t(
+													'Your current branch {branch} has been merged into its merge target {target}.',
+												),
+										{
+											branch: renderBranchName(this.branch.name),
+											target: this.renderInlineTargetEdit(this.target),
+										},
+									)
+						}
 					</p>
 					<div class="button-container">
 						<gl-button
 							full
 							href="${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 								'gitlens.deleteBranchOrWorktree:',
-								{ ...this.branchRef!, mergeTarget: mergeTargetRef! },
+								{
+									...this.branchRef!,
+									mergeTarget: mergeTargetRef,
+									...this.deleteOptions,
+								},
 							)}"
 							><span
 								>${localizedContent(
@@ -522,54 +590,39 @@ export class GlMergeTargetStatus extends LitElement {
 				</div>`;
 		}
 
+		const successor = this.successor;
+		if (successor != null) {
+			return html`${this.renderHeader(this.successorTitle(successor), 'git-pull-request')}
+				<div class="body">
+					<p>
+						${localizedContent(
+							formatPlural(
+								l10n.t(
+									'{count, plural, one{Pull request #{id} for your current branch {branch} was merged into its merge target {target}, but the branch has {count} new commit since.} other{Pull request #{id} for your current branch {branch} was merged into its merge target {target}, but the branch has {count} new commits since.}}',
+								),
+								{ count: successor.newCommits, id: successor.pullRequest.id },
+							),
+							{
+								branch: renderBranchName(this.branch.name),
+								target: this.renderInlineTargetEdit(this.target),
+							},
+						)}
+					</p>
+					${
+						(this.status?.behind ?? 0) > 0
+							? html`${this.renderMergeActions(this.conflicts?.branch ?? this.branch.name, false)}
+								${this.renderConflictCheck()}`
+							: nothing
+					}
+				</div>`;
+		}
+
 		if (this.conflicts) {
 			const queued = getMergeTargetQueueTreatment(this.pullRequest, 'conflicts') !== 'default';
 			return html`${this.renderHeader(l10n.t('Potential Conflicts with Merge Target'), 'warning', 'warning')}
 				<div class="body">
 					${this.status ? html`<p>${this.renderBehindDescription(this.status.behind)}</p>` : nothing}
-					${
-						queued
-							? html`<p>${getMergeQueueNote()}</p>`
-							: html`<div class="button-container">
-									<gl-button
-										full
-										href="${this._webview.createCommandLink<BranchRef>(
-											'gitlens.rebaseCurrentOnto:',
-											this.targetBranchRef,
-										)}"
-										><span
-											>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
-												branch: renderBranchName(this.conflicts.branch),
-												target: target,
-											})}</span
-										></gl-button
-									>
-									<gl-button
-										full
-										appearance="secondary"
-										href="${this._webview.createCommandLink<BranchRef>(
-											'gitlens.mergeIntoCurrent:',
-											this.targetBranchRef,
-										)}"
-										><span
-											>${localizedContent(l10n.t('Merge {target} into {branch}'), {
-												target: target,
-												branch: renderBranchName(this.conflicts.branch),
-											})}</span
-										></gl-button
-									>
-								</div>`
-					}
-					<p class="status--merge-conflict">
-						<code-icon icon="warning"></code-icon>
-						${formatPlural(
-							l10n.t(
-								'{count, plural, one{Merging will cause conflicts in {count} file that will need to be resolved.} other{Merging will cause conflicts in {count} files that will need to be resolved.}}',
-							),
-							{ count: this.conflicts.files.length },
-						)}
-					</p>
-					${this.renderFiles(this.conflicts.files)}
+					${this.renderMergeActions(this.conflicts.branch, queued)} ${this.renderConflictCheck()}
 				</div>`;
 		}
 
@@ -591,51 +644,7 @@ export class GlMergeTargetStatus extends LitElement {
 					)}
 					<div class="body">
 						<p>${this.renderBehindDescription(this.status.behind)}</p>
-						${
-							queued
-								? html`<p>${getMergeQueueNote()}</p>`
-								: html`<div class="button-container">
-										<gl-button
-											full
-											href="${this._webview.createCommandLink<BranchRef>(
-												'gitlens.rebaseCurrentOnto:',
-												this.targetBranchRef,
-											)}"
-											><span
-												>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
-													branch: renderBranchName(this.branch.name),
-													target: target,
-												})}</span
-											></gl-button
-										>
-										<gl-button
-											full
-											appearance="secondary"
-											href="${this._webview.createCommandLink<BranchRef>(
-												'gitlens.mergeIntoCurrent:',
-												this.targetBranchRef,
-											)}"
-											><span
-												>${localizedContent(l10n.t('Merge {target} into {branch}'), {
-													target: target,
-													branch: renderBranchName(this.branch.name),
-												})}</span
-											></gl-button
-										>
-									</div>`
-						}
-						${
-							this.conflictError
-								? html`<p class="status--merge-unknown">
-										<code-icon icon="error"></code-icon> ${l10n.t('Unable to detect conflicts.')}
-									</p>`
-								: this.conflictResult?.status === 'clean'
-									? html`<p class="status--merge-clean">
-											<code-icon icon="check"></code-icon>
-											${l10n.t('Merging will not cause conflicts.')}
-										</p>`
-									: nothing
-						}
+						${this.renderMergeActions(this.branch.name, queued)} ${this.renderConflictCheck()}
 					</div>`;
 			}
 
@@ -651,6 +660,68 @@ export class GlMergeTargetStatus extends LitElement {
 						)}
 					</p>
 				</div>`;
+		}
+
+		return nothing;
+	}
+
+	/** Rebase/Merge buttons (or the merge-queue note when queued) for a branch that's behind its merge target */
+	private renderMergeActions(branchName: string, queued: boolean) {
+		if (queued) return html`<p>${getMergeQueueNote()}</p>`;
+
+		const target = renderBranchName(this.target?.name);
+		return html`<div class="button-container">
+			<gl-button
+				full
+				href="${this._webview.createCommandLink<BranchRef>('gitlens.rebaseCurrentOnto:', this.targetBranchRef)}"
+				><span
+					>${localizedContent(l10n.t('Rebase {branch} onto {target}'), {
+						branch: renderBranchName(branchName),
+						target: target,
+					})}</span
+				></gl-button
+			>
+			<gl-button
+				full
+				appearance="secondary"
+				href="${this._webview.createCommandLink<BranchRef>('gitlens.mergeIntoCurrent:', this.targetBranchRef)}"
+				><span
+					>${localizedContent(l10n.t('Merge {target} into {branch}'), {
+						target: target,
+						branch: renderBranchName(branchName),
+					})}</span
+				></gl-button
+			>
+		</div>`;
+	}
+
+	/** The potential-conflicts warning (with files), or the unable-to-detect / no-conflicts note */
+	private renderConflictCheck() {
+		const conflicts = this.conflicts;
+		if (conflicts != null) {
+			return html`<p class="status--merge-conflict">
+					<code-icon icon="warning"></code-icon>
+					${formatPlural(
+						l10n.t(
+							'{count, plural, one{Merging will cause conflicts in {count} file that will need to be resolved.} other{Merging will cause conflicts in {count} files that will need to be resolved.}}',
+						),
+						{ count: conflicts.files.length },
+					)}
+				</p>
+				${this.renderFiles(conflicts.files)}`;
+		}
+
+		if (this.conflictError) {
+			return html`<p class="status--merge-unknown">
+				<code-icon icon="error"></code-icon> ${l10n.t('Unable to detect conflicts.')}
+			</p>`;
+		}
+
+		if (this.conflictResult?.status === 'clean') {
+			return html`<p class="status--merge-clean">
+				<code-icon icon="check"></code-icon>
+				${l10n.t('Merging will not cause conflicts.')}
+			</p>`;
 		}
 
 		return nothing;

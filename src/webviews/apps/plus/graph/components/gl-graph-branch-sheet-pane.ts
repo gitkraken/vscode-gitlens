@@ -88,7 +88,16 @@ export type BranchSheetRef = {
 type BranchSnapshot = BranchEnrichment['branch'];
 
 /** The merge-target card's single verdict — what merging would cost, or that it already happened. */
-type MergeTargetVerdict = 'in-sync' | 'clean' | 'unknown' | 'conflicts' | 'merged' | 'likely-merged' | 'merged-local';
+type MergeTargetVerdict =
+	| 'in-sync'
+	| 'clean'
+	| 'unknown'
+	| 'conflicts'
+	| 'merged'
+	| 'merged-pr'
+	| 'likely-merged'
+	| 'merged-local'
+	| 'successor';
 
 /** Overlay glyph per verdict, mirroring `gl-merge-target-status`'s indicator vocabulary. */
 const mergeTargetVerdictIndicators: Record<MergeTargetVerdict, string> = {
@@ -97,8 +106,10 @@ const mergeTargetVerdictIndicators: Record<MergeTargetVerdict, string> = {
 	unknown: 'arrow-down',
 	conflicts: 'warning',
 	merged: 'git-merge',
+	'merged-pr': 'git-merge',
 	'likely-merged': 'git-merge',
 	'merged-local': 'git-merge',
+	successor: 'git-pull-request',
 };
 
 /** Per-ref cache so reopening the same ref within a session doesn't refetch. Sentinels
@@ -1043,6 +1054,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const publish = this.publishAction(branch, branchRef);
 		// While queued, the merge queue owns the branch — Pull and Fetch stay, Push and Force Push aren't suggested.
 		const queued = getQueuedPullRequestEntry(this._pullRequest) != null;
+		// A landed branch's work is already in the merge target, so re-publishing it would resurrect a dead branch
+		const mergeTarget = this._mergeTarget?.mergeTarget;
+		const landed = mergeTarget?.landed != null;
 		// Starts as `cloud` and swaps in place once the remote leg settles — never a shimmer.
 		const kindIcon = this.renderKindIcon(providerIconName(this._remote?.provider?.icon), l10n.t('Upstream'));
 
@@ -1061,23 +1075,38 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				</div>
 				<div class="relationship-card__foot">
 					<div class="relationship-card__actions">
-						<gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>
+						${
+							landed
+								? nothing
+								: html`<gl-button appearance="secondary" href=${publish.href}
+										>${publish.label}</gl-button
+									>`
+						}
 					</div>
 				</div>
 			</div>`;
 		}
 
 		let status: string;
-		let actions: TemplateResult;
-		if (upstream.missing) {
-			// Usually means the PR merged and the remote branch was auto-deleted, so deleting the
-			// local branch leads and re-publishing is the fallback.
+		let actions: TemplateResult | typeof nothing;
+		if (upstream.missing && landed) {
+			// The merge-target card's Delete is the single destructive action for a landed branch
 			status = l10n.t('Missing from the remote');
-			actions = html`<gl-button
-					appearance="secondary"
-					href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', branchRef)}
-					>${l10n.t('Delete Local Branch')}</gl-button
-				><gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>`;
+			actions = nothing;
+		} else if (upstream.missing) {
+			// Usually means the PR merged and the remote branch was auto-deleted, so deleting the
+			// local branch leads and re-publishing is the fallback — unless the work landed, when there
+			// is nothing left to publish.
+			status = l10n.t('Missing from the remote');
+			actions = html`${
+					this.ref?.refType !== 'remote'
+						? html`<gl-button
+								appearance="secondary"
+								href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', branchRef)}
+								>${l10n.t('Delete Local Branch')}</gl-button
+							>`
+						: nothing
+				}<gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>`;
 		} else {
 			// The pill owns the counts, so the words never repeat them.
 			const fetch = html`<gl-button
@@ -1207,7 +1236,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	 *  once the branch is merged (nothing left to explain/changelog against a dead branch). */
 	private renderAiBand(branch: BranchSnapshot): TemplateResult | typeof nothing {
 		if (!this.aiEnabled) return nothing;
-		if (this._mergeTarget?.mergeTarget?.mergedStatus?.merged) return nothing;
+		if (this._mergeTarget?.mergeTarget?.landed != null) return nothing;
 
 		const scopes = this.computeAiScopes(branch);
 		if (scopes.unpushed == null && scopes.target == null) return nothing;
@@ -1382,16 +1411,40 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	 *  payload, so the whole card shimmers until they all land and the conflict answer is already
 	 *  terminal by the time a chip can render. */
 	private mergeTargetCardVerdict(mergeTarget: OverviewBranchMergeTarget): MergeTargetVerdict {
-		const merged = mergeTarget.mergedStatus;
-		if (merged?.merged) {
-			if (merged.localBranchOnly != null) return 'merged-local';
-			return merged.confidence === 'highest' ? 'merged' : 'likely-merged';
+		const { landed } = mergeTarget;
+		if (landed != null) {
+			if (landed.via === 'pr') return 'merged-pr';
+
+			const merged = mergeTarget.mergedStatus;
+			if (merged?.merged && merged.localBranchOnly != null) return 'merged-local';
+			return landed.confidence === 'highest' ? 'merged' : 'likely-merged';
 		}
+		if (mergeTarget.successor != null) return 'successor';
+
+		return this.mergeTargetGitVerdict(mergeTarget);
+	}
+
+	/** The verdict from git evidence alone (conflicts → behind → in-sync). Split out so a successor, whose chip is
+	 *  owned by the merged pull request, can still offer Rebase/Merge and surface conflicts. */
+	private mergeTargetGitVerdict(
+		mergeTarget: OverviewBranchMergeTarget,
+	): 'in-sync' | 'clean' | 'unknown' | 'conflicts' {
 		if (mergeTarget.potentialConflicts?.status === 'conflicts') return 'conflicts';
 		if ((mergeTarget.status?.behind ?? 0) > 0) {
 			return mergeTarget.potentialConflicts?.status === 'clean' ? 'clean' : 'unknown';
 		}
 		return 'in-sync';
+	}
+
+	/** `mergedPullRequest` pre-selects Force Delete, so only PR evidence may pass it — git evidence can't prove the
+	 *  work is safe to drop. */
+	private deleteOptions(
+		mergeTarget: OverviewBranchMergeTarget | undefined,
+	): { mergedPullRequest?: { id: string; sha: string } } | undefined {
+		const landed = mergeTarget?.landed;
+		return landed?.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
+			? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
+			: undefined;
 	}
 
 	/** Whether the verdict is one the Rebase/Merge pair applies to. */
@@ -1436,7 +1489,11 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				})}
 			</div>
 			<div class="relationship-card__foot">
-				${this.renderMergeTargetChip(mergeTarget, verdict)}
+				${this.renderMergeTargetChip(mergeTarget, verdict)}${
+					verdict === 'successor' && this.mergeTargetGitVerdict(mergeTarget) === 'conflicts'
+						? this.renderMergeTargetChip(mergeTarget, 'conflicts')
+						: nothing
+				}
 				<span class="relationship-card__status"
 					>${this.renderMergeTargetCardStatusText(mergeTarget, verdict)}</span
 				>
@@ -1503,6 +1560,25 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					l10n.t('Merged into {target}', { target: mergeTarget.name }),
 				];
 				break;
+			case 'merged-pr': {
+				const id = mergeTarget.landed?.pullRequest?.id ?? '';
+				[icon, label, tooltip] = [
+					'check',
+					l10n.t('Merged'),
+					l10n.t('Merged via Pull Request #{id}', { id: id }),
+				];
+				break;
+			}
+			case 'successor': {
+				const successor = mergeTarget.successor;
+				icon = 'git-pull-request';
+				label = l10n.t('New Commits Since PR');
+				tooltip =
+					successor != null
+						? this.successorStatus(successor)
+						: l10n.t('The pull request was merged, but the branch has new commits since');
+				break;
+			}
 			case 'likely-merged':
 				[icon, label, tooltip] = [
 					'git-merge',
@@ -1563,7 +1639,10 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	): string {
 		switch (verdict) {
 			case 'merged':
+			case 'merged-pr':
 				return l10n.t('Safe to delete');
+			case 'successor':
+				return mergeTarget.successor != null ? this.successorStatus(mergeTarget.successor) : '';
 			case 'likely-merged':
 				return l10n.t('Squashed or rebased');
 			case 'merged-local':
@@ -1599,6 +1678,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		}
 	}
 
+	private successorStatus(successor: NonNullable<OverviewBranchMergeTarget['successor']>): string {
+		return formatPlural(
+			l10n.t(
+				'{count, plural, one{Pull request #{id} was merged; {count} new commit since} other{Pull request #{id} was merged; {count} new commits since}}',
+			),
+			{ count: successor.newCommits, id: successor.pullRequest.id },
+		);
+	}
+
 	/** Whether the Rebase/Merge pair can actually run — checked out somewhere (the commands run against
 	 *  the branch's OWN checked-out worktree) and its own upstream settled (otherwise push/pull is the
 	 *  bigger ask first). When false the buttons stay, disabled, with the reason in their tooltip. */
@@ -1631,16 +1719,22 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const branchRef = this.toBranchRef(branch);
 		const isWorktree = this.isOtherWorktree(branch.worktree);
 		const deleteLabel = isWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Branch');
+		// Delete only ever removes a local branch or worktree, never a remote branch on the server
+		const canDelete = this.ref?.refType !== 'remote';
+
+		// A successor is not landed: it has work the merged PR didn't carry, so there is no Delete — but it can
+		// still be behind the target, so Rebase/Merge is decided from git evidence alone.
+		const actionVerdict = verdict === 'successor' ? this.mergeTargetGitVerdict(mergeTarget) : verdict;
 
 		const mergedStatus = mergeTarget.mergedStatus;
-		if (mergedStatus?.merged) {
+		if (mergeTarget.landed != null) {
 			const targetRef: BranchRef = {
 				repoPath: mergeTarget.repoPath,
 				branchId: mergeTarget.id,
 				branchName: mergeTarget.name,
 			};
 
-			if (mergedStatus.localBranchOnly) {
+			if (verdict === 'merged-local' && mergedStatus?.merged && mergedStatus.localBranchOnly) {
 				const localTargetRef: BranchRef = {
 					repoPath: branch.repoPath,
 					branchId: mergedStatus.localBranchOnly.id!,
@@ -1653,32 +1747,40 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 						href=${this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', localTargetRef)}
 						>${l10n.t('Push {branch}', { branch: mergedStatus.localBranchOnly.name })}</gl-button
 					>
-					<gl-button
-						appearance="secondary"
-						tooltip=${deleteLabel}
-						href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
-							'gitlens.deleteBranchOrWorktree:',
-							{ ...branchRef, mergeTarget: localTargetRef },
-						)}
-						>${deleteLabel}</gl-button
-					>
+					${
+						canDelete
+							? html`<gl-button
+									appearance="secondary"
+									tooltip=${deleteLabel}
+									href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
+										'gitlens.deleteBranchOrWorktree:',
+										{ ...branchRef, mergeTarget: localTargetRef },
+									)}
+									>${deleteLabel}</gl-button
+								>`
+							: nothing
+					}
 				</button-container>`;
 			}
 
+			if (!canDelete) return nothing;
+
+			const deleteOptions = this.deleteOptions(mergeTarget);
 			return html`<gl-button
 				appearance="secondary"
 				href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
 					...branchRef,
 					mergeTarget: targetRef,
+					...deleteOptions,
 				})}
 				>${deleteLabel}</gl-button
 			>`;
 		}
 
-		if (!this.isBehindVerdict(verdict)) return nothing;
+		if (!this.isBehindVerdict(actionVerdict)) return nothing;
 		// While queued, conflicts stay a warning (the chip) and behind is the queue's job — no Merge/Rebase either way.
 		if (
-			getMergeTargetQueueTreatment(this._pullRequest, verdict === 'conflicts' ? 'conflicts' : 'behind') !==
+			getMergeTargetQueueTreatment(this._pullRequest, actionVerdict === 'conflicts' ? 'conflicts' : 'behind') !==
 			'default'
 		) {
 			return nothing;

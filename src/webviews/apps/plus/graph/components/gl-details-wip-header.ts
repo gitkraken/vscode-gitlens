@@ -445,6 +445,9 @@ export class GlDetailsWipHeader extends LitElement {
 		if (!branch) return nothing;
 
 		if (branch.upstream == null || branch.upstream.missing === true) {
+			// A landed branch's work is already in the merge target, so publishing it would resurrect a dead branch
+			if (this.mergeTargetStatus?.mergeTarget?.landed != null) return nothing;
+
 			// `git.publish` publishes the main repo's HEAD, so only offer it for the primary worktree's WIP
 			const isSecondaryWorktree =
 				this.wip?.repo?.path != null &&

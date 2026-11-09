@@ -705,6 +705,9 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
+	/** `true` when {@link pr} merged and its head is this branch's tip, so the branch's work landed through it.
+	 *  Head-sha equality only (no git counts), so the header can hide Publish without any merge-target data. */
+	landed?: boolean;
 	worktree?: boolean;
 	/** Whether the repo has any remotes. `false` is what turns the header's Publish Branch into Publish Repository
 	 *  (which creates the hosted repo via VS Code's `git.publish`). Absent when not probed. */

@@ -264,9 +264,24 @@ export interface OverviewBranchMergeTarget {
 	sha: string;
 	name: string;
 	status?: GitTrackingState;
+	/** Pure git evidence; {@link landed} is what decides whether the branch's work landed */
 	mergedStatus?: GitBranchMergedStatus;
+	/** Set when the branch's work landed — by its merged pull request first, else by {@link mergedStatus} */
+	landed?: OverviewBranchLanded;
+	/** The branch's pull request merged, but the branch has commits after its head — so it is NOT landed */
+	successor?: { pullRequest: { id: string; url: string }; newCommits: number };
 	potentialConflicts?: ConflictDetectionResult;
 	targetBranch: string | undefined;
 	baseBranch: string | undefined;
 	defaultBranch: string | undefined;
+}
+
+export interface OverviewBranchLanded {
+	via: 'pr' | 'git';
+	/** git evidence confidence; 'highest' for PR evidence */
+	confidence: 'highest' | 'high' | 'medium';
+	/** `id` is the pull request number, as {@link OverviewBranchPullRequest.number} */
+	pullRequest?: { id: string; url: string; title?: string };
+	/** The branch tip the verdict was computed against; set for pull request evidence */
+	tipSha?: string;
 }

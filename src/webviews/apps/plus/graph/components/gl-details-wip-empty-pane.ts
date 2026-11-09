@@ -3,6 +3,7 @@ import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	LaunchpadSummaryError,
@@ -197,9 +198,46 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		// While queued, the merge queue owns the branch: no push, force push, or merge-target rebase/merge.
 		const queueEntry = getQueuedPullRequestEntry(this.pullRequest);
 
+		// A landed branch's work is already in the merge target: nothing to publish, push, pull, open a PR for, or
+		// rebase — the only next step is to clean it up.
+		const mergeTarget = this.mergeTargetStatus?.mergeTarget;
+		if (mergeTarget?.landed != null) {
+			const mergedStep = this.computeMergeTargetStep(true);
+			return mergedStep != null ? [mergedStep] : [];
+		}
+
+		const successor = mergeTarget?.successor;
 		const steps: NextStep[] = [];
 
-		if (upstreamMissing && this.hasRemotes === false) {
+		if (branch.upstream?.missing === true && successor == null) {
+			// The remote branch is gone (usually its PR merged and it was auto-deleted), so Delete leads, as on the
+			// branch sheet's upstream card. Publish stays as the alternative, since unpushed work can't be ruled out
+			// here. A successor keeps the normal Publish step: its new commits exist nowhere else.
+			const branchRef: BranchRef = {
+				repoPath: branch.repoPath,
+				branchId: getBranchId(branch.repoPath, false, branch.name),
+				branchName: branch.name,
+			};
+			steps.push({
+				icon: 'trash',
+				label: l10n.t('{branch} is missing from the remote', {
+					branch: branch.name,
+				}),
+				actionLabel: l10n.t('Delete Local Branch'),
+				href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
+					'gitlens.deleteBranchOrWorktree:',
+					branchRef,
+				),
+				alt: {
+					actionLabel: l10n.t('Publish'),
+					tooltip: l10n.t('Publish {branch} to {remote}', {
+						branch: branch.name,
+						remote: remoteName,
+					}),
+					onClick: () => this.emit('publish-branch'),
+				},
+			});
+		} else if (upstreamMissing && this.hasRemotes === false) {
 			steps.push({
 				icon: 'cloud-upload',
 				label: l10n.t('Create a remote repository and publish {branch} to it', { branch: branch.name }),
@@ -297,7 +335,15 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				const useAI = this.aiCreatePrEnabled;
 				steps.push({
 					icon: 'git-pull-request-create',
-					label: l10n.t('Create a Pull Request'),
+					label:
+						successor != null
+							? formatPlural(
+									l10n.t(
+										'{count, plural, one{Create a Pull Request for {count} New Commit} other{Create a Pull Request for {count} New Commits}}',
+									),
+									{ count: successor.newCommits },
+								)
+							: l10n.t('Create a Pull Request'),
 					actionLabel: l10n.t('Create PR'),
 					actionPrefixIcon: useAI ? 'sparkle' : undefined,
 					onClick: () => this.emit(useAI ? 'create-pr-ai' : 'create-pr'),
@@ -351,6 +397,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			onClick: () => this.emit('recompose-branch-changes'),
 		};
 
+		// Recomposing a landed branch would rewrite history that's already in the merge target
+		if (this.mergeTargetStatus?.mergeTarget?.landed != null) return [review];
+
 		return recomposeFirst ? [recompose, review] : [review, recompose];
 	}
 
@@ -389,8 +438,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		const isWorktree = branch.worktree != null && !branch.worktree.isDefault;
 		const deleteLabel = isWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Branch');
 
+		const landed = mergeTarget.landed;
 		const mergedStatus = mergeTarget.mergedStatus;
-		if (mergedStatus?.merged && mergedStatus.localBranchOnly) {
+		if (landed?.via === 'git' && mergedStatus?.merged && mergedStatus.localBranchOnly) {
 			const localTargetRef: BranchRef = {
 				repoPath: branch.repoPath,
 				branchId: mergedStatus.localBranchOnly.id!,
@@ -401,37 +451,54 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				icon: 'git-merge',
 				iconFlip: 'block',
 				label:
-					mergedStatus.confidence !== 'highest'
-						? l10n.t('Branch Likely Merged Locally into {target}', { target: mergeTarget.name })
-						: l10n.t('Branch Merged Locally into {target}', { target: mergeTarget.name }),
-				actionLabel: l10n.t('Push {branch}', { branch: mergedStatus.localBranchOnly.name }),
+					landed.confidence !== 'highest'
+						? l10n.t('Branch Likely Merged Locally into {target}', {
+								target: mergeTarget.name,
+							})
+						: l10n.t('Branch Merged Locally into {target}', {
+								target: mergeTarget.name,
+							}),
+				actionLabel: l10n.t('Push {branch}', {
+					branch: mergedStatus.localBranchOnly.name,
+				}),
 				href: this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', localTargetRef),
 				alt: {
 					actionLabel: deleteLabel,
 					tooltip: deleteLabel,
 					href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 						'gitlens.deleteBranchOrWorktree:',
-						{
-							...branchRef,
-							mergeTarget: localTargetRef,
-						},
+						{ ...branchRef, mergeTarget: localTargetRef },
 					),
 				},
 			};
 		}
 
-		if (mergedStatus?.merged) {
+		if (landed != null) {
+			// Only PR evidence may pre-select Force Delete — git evidence can't prove the work is safe to drop
+			const mergedPullRequest = landed.via === 'pr' ? landed.pullRequest : undefined;
 			return {
 				icon: 'git-merge',
 				iconFlip: 'block',
 				label:
-					mergedStatus.confidence !== 'highest'
-						? l10n.t('Branch Likely Merged into {target}', { target: mergeTarget.name })
-						: l10n.t('Branch Merged into {target}', { target: mergeTarget.name }),
+					mergedPullRequest != null
+						? l10n.t('Branch Merged into {target} via Pull Request #{id}', {
+								target: mergeTarget.name,
+								id: mergedPullRequest.id,
+							})
+						: landed.confidence !== 'highest'
+							? l10n.t('Branch Likely Merged into {target}', {
+									target: mergeTarget.name,
+								})
+							: l10n.t('Branch Merged into {target}', {
+									target: mergeTarget.name,
+								}),
 				actionLabel: deleteLabel,
 				href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
 					...branchRef,
 					mergeTarget: targetRef,
+					...(mergedPullRequest != null && landed.tipSha != null
+						? { mergedPullRequest: { id: mergedPullRequest.id, sha: landed.tipSha } }
+						: undefined),
 				}),
 			};
 		}

@@ -34,6 +34,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Replaces the "Kepler isn't installed" warning with a picker that offers to install Kepler and then carries on with what you started &mdash; or, for a pull request review, to continue without Kepler; in _Start Work_ and _Start PR Review_ it's the next step, so you can go back
   - Opens the Kepler download page instead in remote windows (Remote - SSH, WSL, Dev Containers), since Kepler runs on your own machine
 - Adds support for the latest AI models &mdash; Claude Fable 5.2, Opus 5.5, Sonnet 5.5, and Haiku 5.5, GPT-6.1 (Sol and Terra) and GPT-6 (Astra, Sol, and Luna), Gemini 4 Argon and Gemini 3.8 Flash, Grok 4.7, DeepSeek Flash, Mistral Large 4, and GLM 5.3 Flash
+- Adds cleanup actions for branches whose work has already landed ([#3896](https://github.com/gitkraken/vscode-gitlens/issues/3896)) &mdash; when a branch's pull request was merged, or Git shows its work is in the merge target, the merge target status, the _Commit Graph_'s branch details, overview and working changes next steps lead with deleting the branch instead of offering _Publish_, _Rebase_, _Merge_ or _Create Pull Request_
+  - Recognizes a merged pull request even after its branch was deleted on the remote, and pre-selects _Force Delete_ only when a merged pull request proves the work landed
+  - Shows a branch with commits after its merged pull request as having new commits since, with an option to create a pull request for them
+  - Leads with _Delete Local Branch_, with _Publish_ as the fallback, for a branch that is missing from the remote and hasn't landed
 
 ### Changed
 

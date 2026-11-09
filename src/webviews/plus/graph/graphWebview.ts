@@ -28,6 +28,7 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
+import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isPullRequestInMergeQueue, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -6015,7 +6016,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							// mid-flight here, this out-ranks it. The fast path carries `pr` forward
 							// (`pr ??=`), so the pill survives the correcting build.
 							void this._producers.notifyDidChangeBranchState(
-								{ ...base, pr: serializePullRequest(pr) },
+								{
+									...base,
+									pr: serializePullRequest(pr),
+									landed: getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed != null,
+								},
 								this._producers.nextBranchStateRevision(),
 							);
 						}
@@ -6024,6 +6029,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const pr = maybePr?.value;
 					if (pr != null) {
 						branchState.pr = serializePullRequest(pr);
+						if (getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed != null) {
+							branchState.landed = true;
+						}
 					}
 				}
 			}

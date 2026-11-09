@@ -412,7 +412,12 @@ export class GraphCommands {
 	@command('gitlens.deleteBranchOrWorktree:')
 	@debug()
 	private async deleteBranchOrWorktree(args: DeleteBranchOrWorktreeRefs) {
-		await branchRefCommands.deleteBranchOrWorktree(this.container, args, args.mergeTarget);
+		await branchRefCommands.deleteBranchOrWorktree(
+			this.container,
+			args,
+			args.mergeTarget,
+			args.mergedPullRequest != null ? { mergedPullRequest: args.mergedPullRequest } : undefined,
+		);
 	}
 
 	@command('gitlens.fetchRemote:')

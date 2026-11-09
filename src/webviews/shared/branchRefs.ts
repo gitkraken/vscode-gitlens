@@ -17,10 +17,12 @@ export interface BranchAndTargetRefs extends BranchRef {
 	mergeTargetName: string;
 }
 
-/** A branch to delete, sent as one object since webview command links can't carry positional args */
+/** A branch to delete, with the optional context the delete wizard uses to pick its defaults */
 export type DeleteBranchOrWorktreeRefs = BranchRef & {
-	/** The branch to switch to when deleting the current branch */
+	/** The branch it landed in, used to pre-select safe-delete behavior */
 	mergeTarget?: BranchRef;
+	/** Only PR evidence may pass this — it pre-selects Force Delete */
+	mergedPullRequest?: { id: string; sha: string };
 };
 
 export interface OpenWorktreeCommandArgs extends BranchRef {
