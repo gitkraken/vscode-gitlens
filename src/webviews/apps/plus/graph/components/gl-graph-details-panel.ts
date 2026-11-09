@@ -3044,7 +3044,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.anchorRewrittenHandler = rewritten => {
 			const sha = this._workflow.followRewrittenAnchor(rewritten);
 			if (sha != null) {
-				this._selectAfterRewrite = { sha: sha, rows: this._graphState?.rows };
+				this._selectAfterRewrite = { sha: sha, rows: this._graphState?.rows, from: this.sha };
 				this.handleSelectCommit(sha);
 			}
 		};
@@ -4622,7 +4622,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** The commit a moved review asked the graph to select, and the rows it asked against */
-	private _selectAfterRewrite?: { sha: string; rows: unknown };
+	private _selectAfterRewrite?: { sha: string; rows: unknown; from: string | undefined };
 
 	/** Asks again once the graph's rows have the commit — the first ask can come before the graph refreshed */
 	private selectRewrittenCommit(): void {
@@ -4630,7 +4630,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (pending == null) return;
 
 		const rows = this._graphState?.rows;
-		if (this.sha === pending.sha || this._state.activeModeSha.get() !== pending.sha) {
+		// Settled, moved on, or the reader picked another row meanwhile
+		if (this.sha === pending.sha || this.sha !== pending.from || this._state.activeModeSha.get() !== pending.sha) {
 			this._selectAfterRewrite = undefined;
 		} else if (rows !== pending.rows && rows?.some(r => r.sha === pending.sha)) {
 			this._selectAfterRewrite = undefined;
