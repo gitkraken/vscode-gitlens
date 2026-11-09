@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
 import {
@@ -396,6 +397,8 @@ export class GlCommitsScopePane extends LitElement {
 		const isFirst = index === 0;
 		const isLast = !this.loading && index === this.items.length - 1;
 		const isMergeBase = item.state === 'merge-base';
+		// A commit row's additions/deletions count lines; a working-changes row's count files.
+		const isCommit = item.state === 'pushed' || item.state === 'unpushed';
 		const hasStats =
 			(item.additions != null && item.additions > 0) ||
 			(item.deletions != null && item.deletions > 0) ||
@@ -436,13 +439,15 @@ export class GlCommitsScopePane extends LitElement {
 			}
 			${
 				hasStats
-					? html`<commit-stats
-							class="scope-row__stats"
-							.added=${item.additions || undefined}
-							.modified=${item.modified || undefined}
-							.removed=${item.deletions || undefined}
-							symbol="icons"
-						></commit-stats>`
+					? isCommit
+						? this.renderCommitLineStats(item)
+						: html`<commit-stats
+								class="scope-row__stats"
+								.added=${item.additions || undefined}
+								.modified=${item.modified || undefined}
+								.removed=${item.deletions || undefined}
+								symbol="icons"
+							></commit-stats>`
 					: item.fileCount != null
 						? html`<commit-stats
 								class="scope-row__stats"
@@ -467,6 +472,43 @@ export class GlCommitsScopePane extends LitElement {
 			}
 			${isMergeBase ? html`<span class="scope-row__base-tag">${l10n.t('Base')}</span>` : nothing}
 		</div>`;
+	}
+
+	/**
+	 * A commit's line counts, shown the way the row has always shown them. `<commit-stats>` reads
+	 * added/removed as FILE counts and its own tooltip would say so ("930 files changed"), so it
+	 * renders without one and this tooltip says what the numbers are, with the file count.
+	 */
+	private renderCommitLineStats(item: ScopeItem) {
+		const lines: string[] = [];
+		if (item.additions) {
+			lines.push(formatPlural(l10n.t('{0, plural, one{{0} addition} other{{0} additions}}'), [item.additions]));
+		}
+		if (item.deletions) {
+			lines.push(formatPlural(l10n.t('{0, plural, one{{0} deletion} other{{0} deletions}}'), [item.deletions]));
+		}
+
+		return html`<gl-tooltip placement="bottom-end"
+			><commit-stats
+				class="scope-row__stats"
+				no-tooltip
+				.added=${item.additions || undefined}
+				.removed=${item.deletions || undefined}
+				symbol="icons"
+			></commit-stats>
+			<div slot="content">
+				${
+					item.fileCount
+						? html`<div>
+								${formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [
+									item.fileCount,
+								])}
+							</div>`
+						: nothing
+				}
+				<div>${lines.join(', ')}</div>
+			</div></gl-tooltip
+		>`;
 	}
 
 	private renderHandle(type: 'start' | 'end', upperState: ScopeItemState | undefined) {
