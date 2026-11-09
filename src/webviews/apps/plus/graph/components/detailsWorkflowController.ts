@@ -1195,11 +1195,13 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	/** Moves a commit-anchored review onto the commits a rewrite (an amend, a rebase) replaced its own with — its
 	 *  entry, remembered mode, scope and details — so it reads the new changes with its marks, findings and comments.
-	 *  Left as it was while anything on the entry is still running, which would report under the old anchor. */
-	followRewrittenAnchor(rewritten: ReadonlyMap<string, string>): void {
+	 *  Left as it was while anything on the entry is still running, which would report under the old anchor.
+	 *  Returns the commit a single-commit review moved to, for the graph to select. */
+	followRewrittenAnchor(rewritten: ReadonlyMap<string, string>): string | undefined {
 		const state = this.actions.state;
 		const context = state.activeModeContext.get();
-		if (state.activeMode.get() !== 'review' || (context !== 'commit' && context !== 'multicommit')) return;
+		if (state.activeMode.get() !== 'review') return undefined;
+		if (context !== 'commit' && context !== 'multicommit') return undefined;
 
 		const repoPath = state.activeModeRepoPath.get();
 		const sha = state.activeModeSha.get();
@@ -1216,13 +1218,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			review?.orientRun != null ||
 			(review?.focusAreaRuns?.size ?? 0) > 0 ||
 			review?.deepReview?.active === true;
-		if (busy) return;
+		if (busy) return undefined;
 
 		const map = (s: string) => rewritten.get(s) ?? s;
 		const nextSha = sha != null ? map(sha) : undefined;
 		const nextShas = shas?.map(map);
 		const newKey = anchorKey({ sha: nextSha, shas: nextShas, repoPath: repoPath });
-		if (newKey === oldKey) return;
+		if (newKey === oldKey) return undefined;
 
 		const mapScope = (scope: ScopeSelection | undefined): ScopeSelection | undefined => {
 			switch (scope?.type) {
@@ -1240,6 +1242,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 		};
 
+		void this.actions.services.graphInspect.moveReview(oldKey, newKey);
 		if (review != null) {
 			const next = new Map(registry.get());
 			next.delete(oldKey);
@@ -1275,9 +1278,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 		if (context === 'multicommit') {
 			void this.actions.fetchCompareDetails(nextShas, repoPath);
-		} else {
-			void this.actions.fetchDetails(nextSha, repoPath);
+			return undefined;
 		}
+		return nextSha;
 	}
 
 	// endregion

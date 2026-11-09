@@ -2067,6 +2067,7 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 	type FakeGroup = { viewColumn: number; tabs: FakeTab[]; activeTab?: FakeTab };
 	type ReopenFake = ReviewOwnerFake & {
 		openReviewFile(args: { repoPath: string; lhs: string; rhs: string; path: string }): Promise<unknown>;
+		moveReview(from: string, to: string): void;
 		_openedReviewDiffs: Map<string, { lhs: string; rhs: string }>;
 	};
 
@@ -2203,6 +2204,16 @@ suite('graphInspectServices — a review diff left on rewritten commits reopens 
 		await settle();
 		return group.activeTab!;
 	}
+
+	test("a commit review's diff is reopened once the panel moved the review onto the rewritten commit", async () => {
+		await openOnTip1();
+
+		fake.moveReview('wip|/repo', 'commit|/repo|tip2');
+		await fake.setReviewFiles({ ...files('tip2'), anchor: 'commit|/repo|tip2' });
+		await settle();
+
+		assert.deepStrictEqual(diffTabs().map(modifiedOf), [side('tip2', 'b.ts').toString()]);
+	});
 
 	test('a shown preview diff is reopened in place on the rewritten commit', async () => {
 		await openOnTip1();

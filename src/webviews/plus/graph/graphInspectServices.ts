@@ -631,6 +631,10 @@ export class GraphInspectServices {
 				onDeepReviewAvailability: this.subscribeToDeepReviewAvailability(buffer, tracker),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewFiles: args => this.setReviewFiles(args),
+				moveReview: (from, to) => {
+					this.moveReview(from, to);
+					return Promise.resolve();
+				},
 				reviewStep: (action, path, inListOrder) => this.reviewStep(action, path, inListOrder),
 				openReviewFile: args => {
 					this.reclaimReview();
@@ -1493,6 +1497,29 @@ export class GraphInspectServices {
 			...(noteId != null ? { noteId: noteId } : {}),
 		});
 		this._reviewThreadActionsEvent.fire({ anchor: journal.anchor, actions: [...journal.actions] });
+	}
+
+	private moveReview(from: string, to: string): void {
+		for (const [key, diff] of this._openedReviewDiffs) {
+			if (diff.anchor === from) {
+				this._openedReviewDiffs.set(key, { ...diff, anchor: to });
+			}
+		}
+		if (this._pendingReviewDiff?.diff.anchor === from) {
+			this._pendingReviewDiff.diff = { ...this._pendingReviewDiff.diff, anchor: to };
+		}
+		if (this._reviewFiles?.anchor === from) {
+			this._reviewFiles.anchor = to;
+		}
+		if (this._reviewFilesArgs?.anchor === from) {
+			this._reviewFilesArgs = { ...this._reviewFilesArgs, anchor: to };
+		}
+		if (this._reviewThreadsArgs?.anchor === from) {
+			this._reviewThreadsArgs = { ...this._reviewThreadsArgs, anchor: to };
+		}
+		if (this._reviewThreadActions?.anchor === from) {
+			this._reviewThreadActions = { ...this._reviewThreadActions, anchor: to };
+		}
 	}
 
 	/** The panel's threads and files are for its review: what the reader does in the editor from now on is

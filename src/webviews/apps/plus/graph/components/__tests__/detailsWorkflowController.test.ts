@@ -4647,12 +4647,15 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 			selection: { sha: 'c', shas: undefined, repoPath: '/A' },
 		});
 		const state = createDetailsState();
-		const actions = new DetailsActions(state, createServices(), createResources());
-		const fetched: (string | undefined)[] = [];
-		actions.fetchDetails = sha => {
-			fetched.push(sha);
-			return Promise.resolve();
-		};
+		const services = createServices();
+		const moved: [string, string][] = [];
+		Object.assign(services.graphInspect, {
+			moveReview: (from: string, to: string) => {
+				moved.push([from, to]);
+				return Promise.resolve();
+			},
+		});
+		const actions = new DetailsActions(state, services, createResources());
 		const controller = new DetailsWorkflowController(host, actions);
 
 		state.activeMode.set('review');
@@ -4677,13 +4680,13 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 			]),
 		);
 		host.crossPaneState.lastModeByAnchor.set(new Map([[oldKey, 'review']]));
-		return { host: host, state: state, controller: controller, fetched: fetched, oldKey: oldKey };
+		return { host: host, state: state, controller: controller, moved: moved, oldKey: oldKey };
 	}
 
 	test('the review, its entry and its remembered mode move to the rewritten commit', () => {
-		const { host, state, controller, fetched, oldKey } = setup();
+		const { host, state, controller, moved, oldKey } = setup();
 
-		controller.followRewrittenAnchor(new Map([['c', "c'"]]));
+		const selected = controller.followRewrittenAnchor(new Map([['c', "c'"]]));
 
 		const newKey = anchorKey({ sha: "c'", repoPath: '/A' });
 		const registry = host.crossPaneState.runningOperations.get();
@@ -4693,7 +4696,8 @@ suite('DetailsWorkflowController — a rewritten commit review follows its commi
 		assert.strictEqual(host.crossPaneState.lastModeByAnchor.get().get(newKey), 'review');
 		assert.strictEqual(state.activeModeSha.get(), "c'");
 		assert.deepStrictEqual(state.scope.get(), { type: 'commit', sha: "c'" });
-		assert.deepStrictEqual(fetched, ["c'"], 'the panel loads the new commit');
+		assert.strictEqual(selected, "c'", 'the graph is asked to select the new commit');
+		assert.deepStrictEqual(moved, [[oldKey, newKey]], "the host's review state goes along");
 	});
 
 	test('a review with a run still going stays where it is', () => {

@@ -2265,7 +2265,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// entry-time commit's data. Compare's sheet floats over the panel and owns its own
 		// refs — selection changes underneath should still drive normal panel fetches so the
 		// underlying view (visible behind the inert sheet) stays current.
-		if (this._servicesResolved && this._actions != null && selectionChanged && !isLockedCommitRunningOperation) {
+		// A locked review's own commit selected in the graph (it moved onto a rewritten one) loads like any selection
+		const selectedLockedCommit = isLockedCommitRunningOperation && this.sha === this._state.activeModeSha.get();
+		if (
+			this._servicesResolved &&
+			this._actions != null &&
+			selectionChanged &&
+			(!isLockedCommitRunningOperation || selectedLockedCommit)
+		) {
 			if (this.isMultiCommit) {
 				void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 			} else {
@@ -3026,7 +3033,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
-		this._actions.anchorRewrittenHandler = rewritten => this._workflow.followRewrittenAnchor(rewritten);
+		this._actions.anchorRewrittenHandler = rewritten => {
+			const sha = this._workflow.followRewrittenAnchor(rewritten);
+			if (sha != null) {
+				this.handleSelectCommit(sha);
+			}
+		};
 		this._actions.deepReviewHandler = state => this._workflow.review.applyDeepReviewState(state);
 
 		if (this._pendingCompare != null) {

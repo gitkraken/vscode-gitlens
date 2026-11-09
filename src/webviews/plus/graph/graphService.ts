@@ -392,8 +392,6 @@ export interface ReviewOpenFileArgs {
 	lineEnd?: number;
 }
 
-/** The files a review is reading: any of their diffs gets the reading commands (title buttons and
- *  keybindings), which step through them in this order. */
 export interface RewrittenHistory {
 	mergeBase: string;
 	previous: { sha: string; message: string }[];
@@ -401,6 +399,8 @@ export interface RewrittenHistory {
 	patchIds?: Record<string, string>;
 }
 
+/** The files a review is reading: any of their diffs gets the reading commands (title buttons and
+ *  keybindings), which step through them in this order. */
 export interface ReviewFilesArgs {
 	/** The review the files are read for, as the panel keys its reviews — opaque to the host, which stamps
 	 *  what the editor does with it (see {@link ReviewReadingState}, {@link ReviewThreadActionsState}). */
@@ -854,6 +854,8 @@ export interface GraphInspectService {
 	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings
 	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
 	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	/** The panel re-keyed a review (its commits were rewritten): what the host holds for it goes along */
+	moveReview(from: string, to: string): Promise<void>;
 	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
 	 *  keybindings and title buttons do. */
 	reviewStep(action: ReviewReadingAction, path?: string, inListOrder?: boolean): Promise<void>;
