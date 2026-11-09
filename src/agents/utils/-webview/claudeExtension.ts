@@ -29,19 +29,29 @@ export function isActiveClaudeTab(): boolean {
 }
 
 /** Returns `true` when the Claude Code VS Code extension is installed AND at least one of its
- *  sessionId-bearing open commands is registered (`editor.open` or `primaryEditor.open` — older
- *  Claude Code versions registered only the latter). Deliberately excludes `sidebar.open`: it
+ *  sessionId-bearing open commands is available (`editor.open` or `primaryEditor.open` — older
+ *  Claude Code versions had only the latter). Deliberately excludes `sidebar.open`: it
  *  takes no arguments and can't carry a sessionId or prompt, so it's not usable as a primary
  *  dispatch target. The picker uses this to gate the "Claude" entry; the agent status service
  *  uses it as the fallback decision when the session metadata file doesn't tell us whether the
  *  session is extension-hosted or CLI-hosted. */
 export async function isClaudeExtensionAvailable(): Promise<boolean> {
-	if (extensions.getExtension(claudeExtensionId) == null) return false;
+	const extension = extensions.getExtension(claudeExtensionId);
+	if (extension == null) return false;
+
+	const openCommands = [claudeExtensionOpenCommand, claudeExtensionPrimaryEditorOpenCommand];
+
+	// Claude Code activates only once startup finishes, so a window that dispatches earlier (one opened
+	// by a deep link) finds none of its commands registered yet. Running a contributed command activates
+	// its extension first, so until then the manifest is what says the command is there (#6140)
+	if (!extension.isActive) {
+		const contributed = (extension.packageJSON as { contributes?: { commands?: { command?: string }[] } })
+			.contributes?.commands;
+		return contributed?.some(c => c.command != null && openCommands.includes(c.command)) ?? false;
+	}
 
 	const registered = await commands.getCommands(true);
-	return (
-		registered.includes(claudeExtensionOpenCommand) || registered.includes(claudeExtensionPrimaryEditorOpenCommand)
-	);
+	return openCommands.some(c => registered.includes(c));
 }
 
 /** Shared fallback chain for opening a Claude Code session via the Claude Code VS Code extension:

@@ -120,7 +120,7 @@ function getFirstRow(items: readonly Row[]): Row {
 function holdNonCliAgents(sandbox: sinon.SinonSandbox): { release: () => void } {
 	const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
 	getExtension.callThrough();
-	getExtension.withArgs(claudeExtensionId).returns({});
+	getExtension.withArgs(claudeExtensionId).returns({ isActive: true });
 
 	let release!: () => void;
 	const registered = new Promise<string[]>(resolve => {
@@ -1302,7 +1302,7 @@ suite('loadSupportedAgentsInStages', () => {
 	test('a failed non-CLI check keeps the CLI rows', async () => {
 		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
 		getExtension.callThrough();
-		getExtension.withArgs(claudeExtensionId).returns({});
+		getExtension.withArgs(claudeExtensionId).returns({ isActive: true });
 		const getCommands = sandbox.stub(commands, 'getCommands') as sinon.SinonStub;
 		getCommands.callThrough();
 		getCommands.withArgs(true).rejects(new Error('commands unavailable'));
@@ -1316,5 +1316,36 @@ suite('loadSupportedAgentsInStages', () => {
 			[cliAgentId],
 		);
 		assert.strictEqual(cliDetectionFailed, false);
+	});
+
+	// #6140: Claude Code activates once startup finishes, so a window that dispatches earlier finds none of its
+	// commands registered — running one activates it, so the extension still counts as available
+	test('a Claude extension that has not activated yet is offered by the commands it contributes', async () => {
+		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
+		getExtension.callThrough();
+		getExtension.withArgs(claudeExtensionId).returns({
+			isActive: false,
+			packageJSON: { contributes: { commands: [{ command: claudeExtensionOpenCommand }] } },
+		});
+		const getCommands = sandbox.stub(commands, 'getCommands') as sinon.SinonStub;
+		getCommands.callThrough();
+		getCommands.withArgs(true).resolves([]);
+
+		const { nonCli } = loadSupportedAgentsInStages(makeContainer());
+
+		assert.ok((await nonCli).some(a => a.id === claudeExtensionRowId));
+	});
+
+	test('a Claude extension that has not activated yet and contributes no open command is not offered', async () => {
+		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
+		getExtension.callThrough();
+		getExtension.withArgs(claudeExtensionId).returns({
+			isActive: false,
+			packageJSON: { contributes: { commands: [{ command: 'claude-vscode.sidebar.open' }] } },
+		});
+
+		const { nonCli } = loadSupportedAgentsInStages(makeContainer());
+
+		assert.ok(!(await nonCli).some(a => a.id === claudeExtensionRowId));
 	});
 });

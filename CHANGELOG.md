@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes _Review with Agent_ and other prompts sent to the Claude Code extension failing with "Agent 'Claude Code Extension' is no longer available" when sent right after a window opens, before the extension has started &mdash; GitLens now starts it and sends the prompt ([#6140](https://github.com/gitkraken/vscode-gitlens/issues/6140))
 - Fixes AI conflict resolution with Copilot starting every remaining file after hitting Copilot's usage or rate limit, or when the selected model is no longer available &mdash; it now stops and says why, naming Copilot's own limit or offering to switch models ([#6118](https://github.com/gitkraken/vscode-gitlens/issues/6118), [#6145](https://github.com/gitkraken/vscode-gitlens/issues/6145))
 - Fixes AI conflict resolution sending a request for every remaining file after AI becomes unavailable (e.g. the weekly AI allowance runs out or the provider rejects its API key) &mdash; it now stops and shows one message explaining why, and the _Commit Graph_'s _Resolve_ mode chooses the AI model once per run
 - Fixes _Retry_ and _Refine_ in the _Commit Graph_'s _Resolve_ mode dropping _Apply & Resume with AI_ while an automatic rebase is still paused

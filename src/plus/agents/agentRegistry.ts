@@ -39,7 +39,7 @@ export type SupportedAgentsLoad = {
  *
  * Filters applied:
  *   - IDE chat: host must be in `supportedChatHosts`
- *   - Claude extension: extension installed AND its open-prompt command registered
+ *   - Claude extension: extension installed AND its open-prompt command registered (or contributed, until it activates)
  *   - CLI: gkcli reports `detected: true` AND emits a non-empty `executable` that exists on disk
  *
  * Loads in two stages, for a picker that shows rows as soon as they're ready. Callers that only check for agents
