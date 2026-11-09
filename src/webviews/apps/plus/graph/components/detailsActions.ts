@@ -2771,20 +2771,47 @@ export class DetailsActions {
 
 	/** Set by the workflow controller — moves a commit-anchored mode onto the commits a rewrite replaced its own with */
 	anchorRewrittenHandler?: (rewritten: ReadonlyMap<string, string>) => void;
+	/** Set by the workflow controller — whether a run on the anchor would report under the anchor it has */
+	anchorBusyHandler?: () => boolean;
+	/** The tip before a rewrite that came while the anchor was busy — the move it calls for waits for the run */
+	private _deferredAnchorRewrite: { repoPath: string; previousTip: string } | undefined;
+
+	get hasDeferredAnchorRewrite(): boolean {
+		return this._deferredAnchorRewrite != null;
+	}
+
+	/** Makes the move a rewrite during a run called for, once nothing on the anchor runs */
+	retryDeferredAnchorRewrite(): void {
+		const deferred = this._deferredAnchorRewrite;
+		if (deferred == null || this.anchorBusyHandler?.()) return;
+
+		void this.followRewrittenAnchor(deferred.repoPath, deferred.previousTip);
+	}
 
 	/** Finds what a rewrite of the branch made of the commits a commit-anchored mode is on */
 	private async followRewrittenAnchor(repoPath: string, previousTip: string): Promise<void> {
 		const context = this.state.activeModeContext.get();
-		if (context !== 'commit' && context !== 'multicommit') return;
+		if (context !== 'commit' && context !== 'multicommit') {
+			this._deferredAnchorRewrite = undefined;
+			return;
+		}
+
+		// From the earliest tip a deferred move still holds: the history since then takes in every rewrite
+		const tip =
+			this._deferredAnchorRewrite?.repoPath === repoPath ? this._deferredAnchorRewrite.previousTip : previousTip;
+		if (this.anchorBusyHandler?.()) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
+
+		this._deferredAnchorRewrite = undefined;
 
 		const anchorShas = () => {
 			const sha = this.state.activeModeSha.get();
 			return this.state.activeModeShas.get() ?? (sha != null ? [sha] : []);
 		};
 		const shas = anchorShas();
-		const history = await this.services.graphInspect
-			.getRewrittenHistory(repoPath, previousTip)
-			.catch(() => undefined);
+		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
 		if (history == null || !areEqual(shas, anchorShas())) return;
 
 		const rewritten = new Map<string, string>();

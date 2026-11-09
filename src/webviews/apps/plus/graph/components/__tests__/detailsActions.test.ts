@@ -1927,4 +1927,56 @@ suite('mapRewrittenCommit', () => {
 			[[['c', "c'"]]],
 		);
 	});
+
+	test('a rewrite during a run waits for it, then moves from the tip before the first rewrite', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/repo');
+		state.activeModeSha.set('c');
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => ({ commits: [], hasMore: false }),
+				getCommitPatchIds: async () => undefined,
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return { mergeBase: 'base', previous: commits('c'), next: commits("c''") };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		let busy = true;
+		actions.anchorBusyHandler = () => busy;
+		const moved: ReadonlyMap<string, string>[] = [];
+		actions.anchorRewrittenHandler = rewritten => moved.push(rewritten);
+		const wipAt = (revision: number, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// Two amends while an AI review runs on the commit
+		actions.applyPushedWip(wipAt(2, "c'"));
+		actions.applyPushedWip(wipAt(3, "c''"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, [], 'nothing is matched while the run goes on');
+		assert.ok(actions.hasDeferredAnchorRewrite);
+
+		busy = false;
+		actions.retryDeferredAnchorRewrite();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(asked, ['c'], 'matched from the tip before the first amend');
+		assert.deepStrictEqual(
+			moved.map(m => [...m]),
+			[[['c', "c''"]]],
+		);
+		assert.strictEqual(actions.hasDeferredAnchorRewrite, false);
+	});
 });

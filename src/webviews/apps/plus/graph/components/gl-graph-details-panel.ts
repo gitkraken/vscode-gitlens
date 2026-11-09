@@ -2586,6 +2586,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	override updated(changedProperties: Map<string, unknown>): void {
 		this.syncReviewThreads();
 		this.syncReviewFiles();
+		if (this._actions?.hasDeferredAnchorRewrite) {
+			this._actions.retryDeferredAnchorRewrite();
+		}
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
@@ -3036,6 +3039,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewReadingHandler = state => this._workflow.review.applyReadingState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
+		this._actions.anchorBusyHandler = () => this._workflow.engagedAnchorBusy();
 		this._actions.anchorRewrittenHandler = rewritten => {
 			const sha = this._workflow.followRewrittenAnchor(rewritten);
 			if (sha != null) {

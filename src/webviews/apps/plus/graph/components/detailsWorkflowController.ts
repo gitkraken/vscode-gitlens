@@ -1193,15 +1193,38 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 	}
 
+	/** Whether anything on the engaged anchor is still running — its results would report under the anchor it has */
+	engagedAnchorBusy(): boolean {
+		const state = this.actions.state;
+		const bucket = this.host.crossPaneState.runningOperations.get().get(
+			anchorKey({
+				sha: state.activeModeSha.get(),
+				shas: state.activeModeShas.get(),
+				repoPath: state.activeModeRepoPath.get(),
+			}),
+		);
+		const review = bucket?.review;
+		return (
+			bucket?.compose != null ||
+			bucket?.resolve != null ||
+			bucket?.generateMessage != null ||
+			review?.execState === 'generating' ||
+			review?.orientRun != null ||
+			(review?.focusAreaRuns?.size ?? 0) > 0 ||
+			review?.deepReview?.active === true
+		);
+	}
+
 	/** Moves a commit-anchored review onto the commits a rewrite (an amend, a rebase) replaced its own with — its
 	 *  entry, remembered mode, scope and details — so it reads the new changes with its marks, findings and comments.
-	 *  Left as it was while anything on the entry is still running, which would report under the old anchor.
 	 *  Returns the commit a single-commit review moved to, for the graph to select. */
 	followRewrittenAnchor(rewritten: ReadonlyMap<string, string>): string | undefined {
 		const state = this.actions.state;
 		const context = state.activeModeContext.get();
 		if (state.activeMode.get() !== 'review') return undefined;
 		if (context !== 'commit' && context !== 'multicommit') return undefined;
+
+		if (this.engagedAnchorBusy()) return undefined;
 
 		const repoPath = state.activeModeRepoPath.get();
 		const sha = state.activeModeSha.get();
@@ -1210,15 +1233,6 @@ export class DetailsWorkflowController implements ReactiveController {
 		const registry = this.host.crossPaneState.runningOperations;
 		const bucket = registry.get().get(oldKey);
 		const review = bucket?.review;
-		const busy =
-			bucket?.compose != null ||
-			bucket?.resolve != null ||
-			bucket?.generateMessage != null ||
-			review?.execState === 'generating' ||
-			review?.orientRun != null ||
-			(review?.focusAreaRuns?.size ?? 0) > 0 ||
-			review?.deepReview?.active === true;
-		if (busy) return undefined;
 
 		const map = (s: string) => rewritten.get(s) ?? s;
 		const nextSha = sha != null ? map(sha) : undefined;
