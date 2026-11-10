@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes GitHub/GHE pull request text searches for exactly open and merged matches filling their ten-result limit with open pull requests before considering merged ones. This combination now selects and combines matches newest-created first, overriding unquoted `sort:` qualifiers in the search text. Other state combinations and the filtered, paged search keep their existing behavior ([#5980](https://github.com/gitkraken/vscode-gitlens/issues/5980)) (plus/git-github)
+
 ## [0.37.0] - 2026-11-10
 
 ### Added
