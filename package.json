@@ -6124,6 +6124,16 @@
 							"null"
 						],
 						"default": null,
+						"enum": [
+							null,
+							true,
+							false
+						],
+						"enumDescriptions": [
+							"%config.advanced.commits.delayLoadingFileDetails.enumDescriptions.0%",
+							"%config.advanced.commits.delayLoadingFileDetails.enumDescriptions.1%",
+							"%config.advanced.commits.delayLoadingFileDetails.enumDescriptions.2%"
+						],
 						"markdownDescription": "%config.advanced.commits.delayLoadingFileDetails.markdownDescription%",
 						"scope": "window",
 						"order": 120
