@@ -2,8 +2,8 @@ import * as assert from 'assert';
 import type { FilteredGitFeatures } from '@gitlens/git/features.js';
 import { getRefParser } from '../refParser.js';
 
-const recordSep = '\x1E';
-const fieldSep = '\x1D';
+const recordSep = '\0\x1E';
+const fieldSep = '\0\x1D';
 
 // Unified RefRecord fields, in mapping declaration order:
 // current, name, objectname, peeledObjectname, upstream, upstreamTracking,
@@ -226,7 +226,7 @@ suite('Ref Parser Test Suite', () => {
 			[featuresWithWorktree, ['/home/user/worktree', 'origin', 'refs/heads/main']],
 		] as const) {
 			const parser = getRefParser(features);
-			assert.ok(parser.arguments[0].endsWith('%(push)%1D'), 'push is the last field of the format');
+			assert.ok(parser.arguments[0].endsWith('%(push)%00%1D'), 'push is the last field of the format');
 
 			const [result] = [
 				...parser.parse(buildData([buildRecord([...fields, ...gated, 'refs/remotes/fork/main'])])),

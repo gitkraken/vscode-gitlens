@@ -1,6 +1,17 @@
 import * as assert from 'assert';
-import type { CommitsWithFilesLogParser, GraphLogParser } from '../logParser.js';
-import { getCommitsLogParser, getGraphParser } from '../logParser.js';
+import type {
+	CommitsInFileRangeLogParser,
+	CommitsLogParser,
+	CommitsWithFilesLogParser,
+	GraphLogParser,
+} from '../logParser.js';
+import {
+	getCommitsLogParser,
+	getContributorsLogParser,
+	getGraphParser,
+	getShaAndDatesWithFilesLogParser,
+	getStashLogParser,
+} from '../logParser.js';
 
 /**
  * Tests for the log parser's file parsing logic with --raw and --numstat output.
@@ -359,7 +370,7 @@ suite('Log Parser - File Parsing Test Suite', () => {
 
 suite('Log Parser - Batched Async Parsing Test Suite', () => {
 	function record(fields: string[]): string {
-		return `\x1E${fields.join('\x1D')}\x1D`;
+		return `\0\x1E${fields.join('\0\x1D')}\0\x1D`;
 	}
 
 	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
@@ -408,7 +419,7 @@ suite('Log Parser - Batched Async Parsing Test Suite', () => {
 	test('empty records are skipped and a trailing record without a final separator parses', async () => {
 		const parser = getGraphParser() as GraphLogParser;
 		// Double record-separator (empty record) + final record missing its trailing content boundary
-		const raw = `\x1E\x1E${record(['sha9', 'Dee', 'd@x.com', '900', '901', '', '', 'tail']).slice(1)}`;
+		const raw = `\0\x1E\0\x1E${record(['sha9', 'Dee', 'd@x.com', '900', '901', '', '', 'tail']).slice(1)}`;
 		const expected = await collect(parser.parseAsync(streamOf([raw])));
 		const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(raw, 5))));
 		assert.deepStrictEqual(batches.flat(), expected);
@@ -417,7 +428,7 @@ suite('Log Parser - Batched Async Parsing Test Suite', () => {
 
 suite('Log Parser - Truncated Record Guard', () => {
 	function record(fields: string[]): string {
-		return `\x1E${fields.join('\x1D')}\x1D`;
+		return `\0\x1E${fields.join('\0\x1D')}\0\x1D`;
 	}
 
 	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
@@ -439,9 +450,10 @@ suite('Log Parser - Truncated Record Guard', () => {
 	const complete2 = record(['sha2', 'Bob', 'b@x.com', '200', '201', '', '', 'second commit']);
 	// All fields terminated except the last (message), which is missing its trailing separator - simulates a
 	// cancelled/early-closed stream that stopped mid-message.
-	const truncatedMidMessage = '\x1Esha3\x1DCarol\x1Dc@x.com\x1D300\x1D301\x1D\x1D\x1Dthird commit partial';
+	const truncatedMidMessage =
+		'\0\x1Esha3\0\x1DCarol\0\x1Dc@x.com\0\x1D300\0\x1D301\0\x1D\0\x1D\0\x1Dthird commit partial';
 	// Stream ends right after the sha field's separator - truncated well before the message.
-	const truncatedEarlyField = '\x1Esha4\x1D';
+	const truncatedEarlyField = '\0\x1Esha4\0\x1D';
 
 	test('parseAsyncBatched drops a truncated mid-message tail, keeps preceding complete records', async () => {
 		const parser = getGraphParser() as GraphLogParser;
@@ -507,9 +519,206 @@ suite('Log Parser - Truncated Record Guard', () => {
 			'first commit',
 		]);
 		const truncatedCommit =
-			'\x1Esha2\x1DBob\x1Db@x.com\x1D200\x1DBob\x1Db@x.com\x1D201\x1D\x1D\x1Dsecond commit partial';
+			'\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1DBob\0\x1Db@x.com\0\x1D201\0\x1D\0\x1D\0\x1Dsecond commit partial';
 		const entries = await collect(parser.parseAsync(streamOf([completeCommit + truncatedCommit])));
 		assert.strictEqual(entries.length, 1, 'Truncated commit must be dropped');
 		assert.strictEqual(entries[0].sha, 'sha1');
+	});
+});
+
+// #5659 — free text (messages, names, refs, reflog subjects) can contain bare 0x1E/0x1D. They must not
+// split a record or shift its fields in any parser variant.
+suite('Log Parser - Embedded Separator Characters (#5659)', () => {
+	const evilMessage = 'subject \x1E with a record sep\n\nbody \x1D with a field sep \x1E\x1D\n';
+	const evilAuthor = 'Ev\x1Eil \x1DName';
+	const evilTips = 'HEAD -> main\x1E, tag: v\x1D1';
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	function chunk(s: string, size: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length; i += size) {
+			out.push(s.substring(i, i + size));
+		}
+		return out;
+	}
+
+	function record(separators: { record: string; field: string }, fields: string[], trailing = ''): string {
+		return `${separators.record}${fields.join(separators.field)}${separators.field}${trailing}`;
+	}
+
+	// commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, message
+	function commitFields(sha: string): string[] {
+		return [sha, evilAuthor, 'e@x.com', '100', evilAuthor, 'e@x.com', '101', 'p1', evilTips, evilMessage];
+	}
+
+	function assertCommit(entry: Record<string, unknown> | undefined, sha: string): void {
+		assert.ok(entry, `Missing entry for ${sha}`);
+		assert.strictEqual(entry.sha, sha);
+		assert.strictEqual(entry.author, evilAuthor);
+		assert.strictEqual(entry.committer, evilAuthor);
+		assert.strictEqual(entry.tips, evilTips);
+		assert.strictEqual(entry.message, evilMessage);
+		assert.strictEqual(entry.parents, 'p1');
+	}
+
+	test('separators are multi-char sentinels, not a bare 0x1E/0x1D', () => {
+		const parser = getCommitsLogParser(false);
+		assert.strictEqual(parser.separators.record, '\0\x1E');
+		assert.strictEqual(parser.separators.field, '\0\x1D');
+		assert.ok(parser.arguments[0].startsWith('--format=%x00%x1E%H%x00%x1D'), parser.arguments[0]);
+	});
+
+	test('parse (sync, used for limit:1 lookups) keeps a commit with embedded separators intact', () => {
+		const parser = getCommitsLogParser(false) as CommitsLogParser;
+		const data = record(parser.separators, commitFields('sha1')) + record(parser.separators, commitFields('sha2'));
+		const entries = [...parser.parse(data)];
+		assert.strictEqual(entries.length, 2);
+		assertCommit(entries[0], 'sha1');
+		assertCommit(entries[1], 'sha2');
+	});
+
+	test('parseAsync keeps a commit with embedded separators intact across chunkings', async () => {
+		const parser = getCommitsLogParser(false) as CommitsLogParser;
+		const data = record(parser.separators, commitFields('sha1')) + record(parser.separators, commitFields('sha2'));
+		for (const size of [1, 2, 3, 7, data.length]) {
+			const entries = await collect(parser.parseAsync(streamOf(chunk(data, size))));
+			assert.strictEqual(entries.length, 2, `chunk size ${size}`);
+			assertCommit(entries[0], 'sha1');
+			assertCommit(entries[1], 'sha2');
+		}
+	});
+
+	test('parseAsyncBatched (graph) keeps a commit with embedded separators intact across chunkings', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		// graphMapping: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
+		const fields = (sha: string) => [sha, evilAuthor, 'e@x.com', '100', '101', 'p1', evilTips, evilMessage];
+		const data = record(parser.separators, fields('sha1')) + record(parser.separators, fields('sha2'));
+		const expected = await collect(parser.parseAsync(streamOf([data])));
+		assert.strictEqual(expected.length, 2);
+		assert.strictEqual(expected[0].message, evilMessage);
+		assert.strictEqual(expected[1].tips, evilTips);
+		// Sizes 1 and 2 split the 2-char sentinels themselves across chunks
+		for (const size of [1, 2, 3, 7, data.length]) {
+			const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(data, size))));
+			assert.deepStrictEqual(batches.flat(), expected, `chunk size ${size} diverged`);
+		}
+	});
+
+	test('files+stats variant (parse and parseAsync) keeps fields and files intact', async () => {
+		const parser = getCommitsLogParser(true) as CommitsWithFilesLogParser;
+		const files = '\n\n:100644 100644 abc1234 def5678 M\tsrc/file.ts\n3\t1\tsrc/file.ts\n';
+		const data =
+			record(parser.separators, commitFields('sha1'), files) +
+			record(parser.separators, commitFields('sha2'), files);
+
+		for (const entries of [[...parser.parse(data)], await collect(parser.parseAsync(streamOf(chunk(data, 3))))]) {
+			assert.strictEqual(entries.length, 2);
+			for (const [i, entry] of entries.entries()) {
+				assertCommit(entry, `sha${i + 1}`);
+				assert.strictEqual(entry.files.length, 1);
+				assert.strictEqual(entry.files[0].path, 'src/file.ts');
+				assert.strictEqual(entry.stats.additions, 3);
+				assert.strictEqual(entry.stats.deletions, 1);
+			}
+		}
+	});
+
+	test('patch (file range) variant (parse and parseAsync) keeps fields and file intact', async () => {
+		const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+		const patch =
+			'\n\ndiff --git a/src/file.ts b/src/file.ts\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,2 +1,3 @@\n x\n+y\n';
+		const data =
+			record(parser.separators, commitFields('sha1'), patch) +
+			record(parser.separators, commitFields('sha2'), patch);
+
+		for (const entries of [[...parser.parse(data)], await collect(parser.parseAsync(streamOf(chunk(data, 3))))]) {
+			assert.strictEqual(entries.length, 2);
+			for (const [i, entry] of entries.entries()) {
+				assertCommit(entry, `sha${i + 1}`);
+				assert.strictEqual(entry.files?.[0]?.path, 'src/file.ts');
+			}
+		}
+	});
+
+	test('stats variant (parse and parseAsync) keeps fields and stats intact', async () => {
+		const parser = getContributorsLogParser(true);
+		// contributorsMapping: sha, author, email, date, message
+		const stats = '\n\n 1 file changed, 2 insertions(+), 1 deletion(-)\n';
+		const fields = (sha: string) => [sha, evilAuthor, 'e@x.com', '100', evilMessage];
+		const data =
+			record(parser.separators, fields('sha1'), stats) + record(parser.separators, fields('sha2'), stats);
+
+		// `getContributorsLogParser` returns a stats/no-stats union, so name the shared entry shape
+		type Entry = { sha: string; author: string; message: string; stats?: unknown };
+		const entriesList: Entry[][] = [
+			[...parser.parse(data)],
+			await collect<Entry>(parser.parseAsync(streamOf(chunk(data, 3)))),
+		];
+		for (const entries of entriesList) {
+			assert.strictEqual(entries.length, 2);
+			for (const [i, entry] of entries.entries()) {
+				assert.strictEqual(entry.sha, `sha${i + 1}`);
+				assert.strictEqual(entry.author, evilAuthor);
+				assert.strictEqual(entry.message, evilMessage);
+				assert.deepStrictEqual(entry.stats, { files: 1, additions: 2, deletions: 1 });
+			}
+		}
+	});
+
+	test('name-only files variant (parse and parseAsync) keeps fields and files intact', async () => {
+		const parser = getShaAndDatesWithFilesLogParser(true);
+		// shaAndDateAndTipsMapping: sha, authorDate, committerDate, tips
+		const files = '\n\nsrc/file.ts\n';
+		const fields = (sha: string) => [sha, '100', '101', evilTips];
+		const data =
+			record(parser.separators, fields('sha1'), files) + record(parser.separators, fields('sha2'), files);
+
+		for (const entries of [[...parser.parse(data)], await collect(parser.parseAsync(streamOf(chunk(data, 3))))]) {
+			assert.strictEqual(entries.length, 2);
+			for (const [i, entry] of entries.entries()) {
+				assert.strictEqual(entry.sha, `sha${i + 1}`);
+				assert.strictEqual(entry.tips, evilTips);
+				assert.deepStrictEqual(entry.files, [{ path: 'src/file.ts' }]);
+			}
+		}
+	});
+
+	test('stash variant keeps a reflog subject and commit subject with embedded separators intact', () => {
+		const parser = getStashLogParser(false);
+		// stashMapping: sha, authorDate, committedDate, parents, stashName, summary, commitSubject
+		const summary = 'On main: wip \x1E with \x1D seps';
+		const fields = (sha: string, n: number) => [sha, '100', '101', 'p1 p2', `stash@{${n}}`, summary, summary];
+		const data = record(parser.separators, fields('sha1', 0)) + record(parser.separators, fields('sha2', 1));
+		const entries = [...parser.parse(data)];
+		assert.strictEqual(entries.length, 2);
+		assert.deepStrictEqual(
+			entries.map(e => [e.sha, e.stashName, e.summary, e.commitSubject]),
+			[
+				['sha1', 'stash@{0}', summary, summary],
+				['sha2', 'stash@{1}', summary, summary],
+			],
+		);
+	});
+
+	test('parse (sync) skips a malformed record instead of yielding undefined fields', () => {
+		const parser = getCommitsLogParser(false) as CommitsLogParser;
+		const { record: rs, field: fs } = parser.separators;
+		const data = `${record(parser.separators, commitFields('sha1'))}${rs}sha2${fs}Bob${fs}truncated`;
+		const entries = [...parser.parse(data)];
+		assert.strictEqual(entries.length, 1, 'Malformed record must be skipped');
+		assertCommit(entries[0], 'sha1');
 	});
 });

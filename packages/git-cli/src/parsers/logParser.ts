@@ -293,20 +293,38 @@ interface LogParsedStatsWithFilesStats {
 	deletions: number;
 }
 
-const recordSep = '\x1E'; // ASCII Record Separator character
-const recordFormatSep = '%x1E';
-const fieldSep = '\x1D'; // ASCII Group Separator character
-const fieldFormatSep = '%x1D';
+// Records and fields are framed by NUL-prefixed ASCII separators rather than a bare control char, since
+// free text (messages, names, refs, reflog subjects) can contain 0x1E/0x1D — a lone one would split a
+// record or shift its fields (#5659). Git refuses NUL in commit messages, and idents, ref names, and
+// (unquoted) paths can't contain it, so the 2-char sentinels can't appear in any formatted field.
+const recordSep = '\0\x1E';
+const recordFormatSep = '%x00%x1E';
+const fieldSep = '\0\x1D';
+const fieldFormatSep = '%x00%x1D';
+
+// Returns the index of the next `separator` (a `\0` + marker pair) at or after `from`. Scans for the marker
+// char alone — V8 finds a single char faster than a 2-char pattern, which matters on the graph walk — then
+// confirms the NUL before it, skipping a bare marker embedded in free text.
+function indexOfSeparator(s: string, separator: string, from: number): number {
+	const marker = separator[1];
+	let index = s.indexOf(marker, from + 1);
+	while (index !== -1 && s.charCodeAt(index - 1) !== 0) {
+		index = s.indexOf(marker, index + 1);
+	}
+	return index === -1 ? -1 : index - 1;
+}
 
 // A complete record terminates every mapped field with a field separator — a cancelled/early-closed
-// stream resolves cleanly with a truncated tail missing at least the final terminator.
+// stream resolves cleanly with a truncated tail missing at least the final terminator, and a malformed
+// record must not yield undefined fields to consumers that assume every mapped field is present.
 function isCompleteRecord(record: string, requiredFields: number): boolean {
 	let count = 0;
-	let index = -1;
+	let start = 0;
 	while (count < requiredFields) {
-		index = record.indexOf(fieldSep, index + 1);
+		const index = record.indexOf(fieldSep, start);
 		if (index === -1) return false;
 
+		start = index + fieldSep.length;
 		count++;
 	}
 	return true;
@@ -338,6 +356,8 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			entry = {} as unknown as LogParsedEntry<T>;
 			fields = iterateByDelimiter(record, fieldSep);
@@ -397,19 +417,20 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 
 	// Builds one entry from a complete record with a plain `indexOf` walk. Matches `parseAsync`'s
 	// semantics exactly: fields beyond the mapping are ignored, and every mapped field is
-	// terminated by a field separator (the format string appends one after each field).
-	function parseRecord(record: string): LogParsedEntry<T> {
+	// terminated by a field separator (the format string appends one after each field). Returns
+	// `undefined` for an incomplete record (missing a field terminator) so it's dropped, not yielded.
+	function parseRecord(record: string): LogParsedEntry<T> | undefined {
 		// Fields sliced out of the record become long-lived (graph rows); flatten the record so they
 		// pin a record-sized copy rather than the full walk output the record was sliced from.
 		record = flattenString(record);
 		const entry = {} as unknown as LogParsedEntry<T>;
 		let start = 0;
 		for (const key of keys) {
-			const end = record.indexOf(fieldSep, start);
-			if (end === -1) break;
+			const end = indexOfSeparator(record, fieldSep, start);
+			if (end === -1) return undefined;
 
 			entry[key] = record.substring(start, end) as T[keyof T];
-			start = end + 1;
+			start = end + fieldSep.length;
 		}
 		return entry;
 	}
@@ -425,14 +446,17 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			let batch: LogParsedEntry<T>[] | undefined;
 			let start = 0;
 			while (true) {
-				const end = buffer.indexOf(recordSep, start);
+				const end = indexOfSeparator(buffer, recordSep, start);
 				if (end === -1) break;
 
 				if (end > start) {
-					(batch ??= []).push(parseRecord(buffer.substring(start, end)));
-					count++;
+					const entry = parseRecord(buffer.substring(start, end));
+					if (entry != null) {
+						(batch ??= []).push(entry);
+						count++;
+					}
 				}
-				start = end + 1;
+				start = end + recordSep.length;
 			}
 			if (start > 0) {
 				buffer = buffer.substring(start);
@@ -443,9 +467,12 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		}
 		// Trailing record (the stream doesn't end with a record separator); a truncated tail from a
 		// cancelled/early-closed stream is missing a field terminator and must be dropped, not parsed.
-		if (buffer.length > 0 && isCompleteRecord(buffer, keys.length)) {
-			count++;
-			yield [parseRecord(buffer)];
+		if (buffer.length > 0) {
+			const entry = parseRecord(buffer);
+			if (entry != null) {
+				count++;
+				yield [entry];
+			}
 		}
 
 		sw?.stop({ suffix: ` parsed ${count} records` });
@@ -630,6 +657,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
@@ -837,6 +866,8 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
@@ -1004,6 +1035,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
@@ -1164,6 +1197,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithStats<T>;
@@ -1207,6 +1242,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 
 		for await (const record of records) {
 			if (!record.length) continue;
+			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithStats<T>;
@@ -1289,6 +1326,8 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 
 		for (const record of records) {
 			if (!record.length) continue;
+			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
@@ -1334,6 +1373,8 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 
 		for await (const record of records) {
 			if (!record.length) continue;
+			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;

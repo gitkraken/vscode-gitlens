@@ -55,10 +55,12 @@ export function getRefParser(supportedFeatures: FilteredGitFeatures<'git:for-eac
 	return _refParser;
 }
 
-const recordSep = '\x1E'; // ASCII Record Separator character
-const recordFormatSep = '%1E';
-const fieldSep = '\x1D'; // ASCII Group Separator character
-const fieldFormatSep = '%1D';
+// NUL-prefixed separators: free-text fields like `%(subject)` can contain a bare 0x1E/0x1D, but not NUL
+// (git refuses it in messages), so the 2-char sentinels can't appear inside a field (#5659)
+const recordSep = '\0\x1E';
+const recordFormatSep = '%00%1E';
+const fieldSep = '\0\x1D';
+const fieldFormatSep = '%00%1D';
 
 function createRefParser<T extends Record<string, string | undefined>>(
 	mapping: ExtractAll<T, string | undefined>,

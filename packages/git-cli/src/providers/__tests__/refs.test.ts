@@ -10,8 +10,8 @@ import type { Git } from '../../exec/git.js';
 import { GitError } from '../../exec/git.js';
 import { RefsGitSubProvider } from '../refs.js';
 
-const recordSep = '\x1E';
-const fieldSep = '\x1D';
+const recordSep = '\0\x1E';
+const fieldSep = '\0\x1D';
 
 // Unified RefRecord fields, in mapping declaration order:
 // current, name, objectname, peeledObjectname, upstream, upstreamTracking,
