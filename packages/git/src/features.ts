@@ -12,6 +12,7 @@ export type GitFeatures =
 	| 'git:fsmonitor:linux'
 	| 'git:ignoreRevsFile'
 	| 'git:index:skipHash'
+	| 'git:log:diff-merges'
 	| 'git:ls-files:directory'
 	| 'git:maintenance'
 	| 'git:maintenance:pack-refs'
@@ -78,6 +79,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:ignoreRevsFile', '2.23'],
 	// `index.skipHash` (skip the trailing index checksum for faster writes); part of `feature.manyFiles`.
 	['git:index:skipHash', '2.40'],
+	// `log --diff-merges=first-parent`: diffs a merge against its first parent only (`-m` diffs against every parent)
+	['git:log:diff-merges', '2.31'],
 	// `ls-files --others --directory --no-empty-directory` answers from the directory walk as reworked in 2.27;
 	// the flags themselves are older
 	['git:ls-files:directory', '2.27'],
