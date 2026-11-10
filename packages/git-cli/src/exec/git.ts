@@ -122,6 +122,11 @@ export function batchLiteralPathspecs(
 
 export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
 export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
+// These are background reads, so they must never rewrite the index or take its lock (a stat-dirty file otherwise makes
+// git refresh and write it). Only for a git supporting `git:diff:autoRefreshIndex:off`. Caveat: a
+// `--name-status`/`--name-only`/`--raw` diff against the working tree reports a file whose timestamps moved but whose
+// content did not as modified, so those forms must not use this against a working tree.
+export const gitConfigsDiffNoIndexRefresh = [...gitConfigsDiff, '-c', 'diff.autoRefreshIndex=false'] as const;
 export const gitConfigsLog = ['-c', 'log.showSignature=false'] as const;
 export const gitConfigsLogWithFiles = ['-c', 'log.showSignature=false', '-c', 'diff.renameLimit=0'] as const;
 export const gitConfigsLogWithSignatures = ['-c', 'log.showSignature=true'] as const;
@@ -1057,6 +1062,11 @@ export class Git {
 		return this._gitLocation != null
 			? compare(fromString(this._gitLocation.version), fromString(version)) !== -1
 			: this.version().then(v => compare(fromString(v), fromString(version)) !== -1);
+	}
+
+	/** The configs for a diff read of the working tree: ones that leave the index alone when this git can do so safely. */
+	async getDiffReadConfigs(): Promise<readonly string[]> {
+		return (await this.supports('git:diff:autoRefreshIndex:off')) ? gitConfigsDiffNoIndexRefresh : gitConfigsDiff;
 	}
 
 	supported<T extends GitFeatureOrPrefix>(feature: T): FilteredGitFeatures<T>[] | Promise<FilteredGitFeatures<T>[]> {

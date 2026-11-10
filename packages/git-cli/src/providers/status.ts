@@ -359,10 +359,12 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${priority}`,
 			async (correlationKey, signal) => {
 				if (staged || unstaged) {
+					const diffConfigs = await this.git.getDiffReadConfigs();
 					const diffQuiet = (revision: string | undefined) =>
 						this.git.run(
 							{
 								cwd: repoPath,
+								configs: diffConfigs,
 								cancellation: signal,
 								errors: 'throw',
 								expectedExitCodes: [1],
@@ -430,11 +432,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'getWorkingChangesState',
 			async (correlationKey, signal) => {
+				const diffConfigs = await this.git.getDiffReadConfigs();
 				const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
 					// Check for staged changes
 					this.git.run(
 						{
 							cwd: repoPath,
+							configs: diffConfigs,
 							cancellation: signal,
 							errors: 'throw',
 							expectedExitCodes: [1],
@@ -448,6 +452,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					this.git.run(
 						{
 							cwd: repoPath,
+							configs: diffConfigs,
 							cancellation: signal,
 							errors: 'throw',
 							expectedExitCodes: [1],
