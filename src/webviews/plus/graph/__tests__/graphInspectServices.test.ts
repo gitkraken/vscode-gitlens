@@ -11,6 +11,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 // first avoids it (see `graphProducersService.upstreamMetadata.test.ts`)
 import '../../../../container.js';
 import type { Container } from '../../../../container.js';
+import { getPresentableErrorMessage } from '../../../../errors.js';
 import type { ConflictProgressEvent } from '../../../../plus/coretools/conflict/types.js';
 import { getContext } from '../../../../system/-webview/context.js';
 import { GraphInspectServices } from '../graphInspectServices.js';
@@ -3150,4 +3151,119 @@ suite('getReviewStepTarget', () => {
 			);
 		});
 	}
+});
+
+// #5781/#5837: Review passes `throwAIErrors`, so a terminal AI failure reaches the panel as the request's own
+// rejection. The regression this pins is the old mapping of "no result" to `Review was cancelled.` — a failure
+// recorded as a cancel, which `constants.telemetry.ts` tells analysts to discount.
+suite('graphInspectServices — a Review reports why an AI request failed, and only a cancel reads as one', () => {
+	const cancelledMessage = 'Review was cancelled.';
+
+	/** The shape `sendRequest` + `runReview` give a failed run: the request starts, its promise rejects */
+	function failedRequest(error: Error) {
+		const promise = Promise.reject(error);
+		promise.catch(() => {});
+		return { promise: promise };
+	}
+
+	const failures = [
+		{
+			name: 'RateLimitExceeded',
+			error: new AIError(AIErrorReason.RateLimitExceeded),
+			message: 'Rate limit exceeded.',
+		},
+		{
+			name: 'RateLimitOrFundsExceeded',
+			error: new AIError(AIErrorReason.RateLimitOrFundsExceeded),
+			message: 'Rate limit exceeded or your account is out of funds.',
+		},
+		{
+			name: 'UserQuotaExceeded',
+			error: new AIError(AIErrorReason.UserQuotaExceeded),
+			message: 'You’ve reached the weekly AI usage included in your plan.',
+		},
+		{
+			name: 'NoEntitlement',
+			error: new AIError(AIErrorReason.NoEntitlement),
+			message: 'You do not have the required entitlement to use this feature',
+		},
+	];
+
+	for (const { name, error, message } of failures) {
+		test(`single-pass: ${name} reports its own reason`, async () => {
+			const m = createReviewFake();
+			m.reviewChanges.returns(failedRequest(error));
+
+			const result = await m.graphInspect.reviewChanges('/repo', wipScope({ includeUnstaged: true }));
+
+			assert.deepStrictEqual(result, { error: { message: message } });
+			assert.strictEqual(message, getPresentableErrorMessage(error));
+			assert.notStrictEqual(message, cancelledMessage);
+		});
+
+		test(`two-pass overview: ${name} reports its own reason`, async () => {
+			const m = createReviewFake(diffForTwoPassManifest);
+			m.reviewOverview.returns(failedRequest(error));
+
+			const result = await m.graphInspect.reviewChanges('/repo', wipScope({ includeUnstaged: true }));
+
+			sinon.assert.notCalled(m.reviewChanges);
+			assert.deepStrictEqual(result, { error: { message: message } });
+		});
+
+		test(`focus area: ${name} reports its own reason`, async () => {
+			const m = createReviewFake(diffForTwoPassManifest);
+			m.reviewFocusArea.returns(failedRequest(error));
+
+			const result = await m.graphInspect.reviewFocusArea(
+				'/repo',
+				wipScope({ includeUnstaged: true }),
+				'area-1',
+				['modified.txt'],
+				'overview',
+			);
+
+			sinon.assert.calledOnce(m.reviewFocusArea);
+			assert.deepStrictEqual(result, { error: { message: message } });
+		});
+	}
+
+	test('a failure that rejects the action call itself reports its own reason too', async () => {
+		const m = createReviewFake();
+		m.reviewChanges.rejects(new AIError(AIErrorReason.RateLimitExceeded));
+
+		const result = await m.graphInspect.reviewChanges('/repo', wipScope({ includeUnstaged: true }));
+
+		assert.deepStrictEqual(result, { error: { message: 'Rate limit exceeded.' } });
+	});
+
+	// The telemetry contract: this exact text is what marks a run as a genuine cancel.
+	test('a genuine cancel reads exactly `Review was cancelled.` on every branch', async () => {
+		const settle = (value: 'cancelled' | undefined) => ({ promise: Promise.resolve(value) });
+		const scope = wipScope({ includeUnstaged: true });
+		const expected = { error: { message: cancelledMessage } };
+
+		for (const value of ['cancelled', undefined] as const) {
+			const single = createReviewFake();
+			single.reviewChanges.returns(settle(value));
+			assert.deepStrictEqual(await single.graphInspect.reviewChanges('/repo', scope), expected, 'single-pass');
+
+			const twoPass = createReviewFake(diffForTwoPassManifest);
+			twoPass.reviewOverview.returns(settle(value));
+			assert.deepStrictEqual(await twoPass.graphInspect.reviewChanges('/repo', scope), expected, 'two-pass');
+
+			const focus = createReviewFake(diffForTwoPassManifest);
+			focus.reviewFocusArea.returns(settle(value));
+			assert.deepStrictEqual(
+				await focus.graphInspect.reviewFocusArea('/repo', scope, 'area-1', ['modified.txt'], 'overview'),
+				expected,
+				'focus area',
+			);
+		}
+
+		// Also when the action itself returns the sentinel instead of a request
+		const direct = createReviewFake();
+		direct.reviewChanges.returns('cancelled');
+		assert.deepStrictEqual(await direct.graphInspect.reviewChanges('/repo', scope), expected, 'direct sentinel');
+	});
 });
