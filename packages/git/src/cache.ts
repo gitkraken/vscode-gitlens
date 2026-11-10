@@ -67,6 +67,25 @@ export type CachedGitTypes =
 	/** Only the worktree list: unlike `'worktrees'`, no worktree's git results or merge targets */
 	| 'worktreeList';
 
+/**
+ * The cache types whose change leaves `gitResults` valid. Its runs read refs, objects and config, never the index or a
+ * working tree, so an index or file change (`blame`, `diff`, `fileLog`, `tracking`) keeps them; it is shared by every
+ * worktree of a repository, so clearing it on those would drop every worktree's results on each `git add`.
+ * A fetch that moves a ref reports that ref's change; `lastFetched` alone means only `FETCH_HEAD` was written, and a
+ * run that names `FETCH_HEAD` is never cached.
+ */
+const typesKeepingGitResults: ReadonlySet<CachedGitTypes> = new Set<CachedGitTypes>([
+	'blame',
+	'diff',
+	'fileLog',
+	'gitignore',
+	'gkConfig',
+	'lastFetched',
+	'providers',
+	'tracking',
+	'worktreeList',
+]);
+
 /** Whether a reset of these types makes in-flight git runs stale (none or empty meaning every type) */
 export function resetDropsPendingRuns(types: readonly CachedGitTypes[] | undefined): boolean {
 	// A provider reset touches only remote-provider metadata, and the list's next read never joins a running
@@ -1210,8 +1229,7 @@ export class Cache implements Disposable {
 				keysToClear.add('worktrees');
 			}
 
-			// Git results: cleared for any meaningful type change
-			if (types.some(t => t !== 'gitignore' && t !== 'gkConfig' && t !== 'providers' && t !== 'worktreeList')) {
+			if (types.some(t => !typesKeepingGitResults.has(t))) {
 				keysToClear.add('gitResults');
 			}
 		}

@@ -1211,8 +1211,9 @@ export class Git {
 
 		const gitCommand = `git ${runArgs.join(' ')}`;
 
-		// If cache is provided, use it to cache the full result
-		if (options.caching != null) {
+		// If cache is provided, use it to cache the full result. Never for a run that names `FETCH_HEAD`: a fetch can
+		// rewrite it without moving any ref, and nothing clears the cache for that
+		if (options.caching != null && !gitCommand.includes('FETCH_HEAD')) {
 			const cachePath = options.caching.commonPath ?? options.cwd!;
 			// Drop the cached (or in-flight) entry first so `getOrCreate` below always creates a fresh
 			// entry with its own `AbortAggregate` — the underlying spawn can then never join an in-flight
