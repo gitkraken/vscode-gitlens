@@ -49,12 +49,17 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		let tagsResult = await this.cache.getTags(
 			repoPath,
-			async (commonPath, _cacheable, signal) => {
+			async (commonPath, cacheable, signal) => {
 				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
 				signal ??= cancellation;
 				try {
 					const records = await this.provider.refs.getRefs(commonPath, signal);
-					if (!records.length) return emptyPagedResult;
+					if (!records.length) {
+						// Empty also means the listing failed; the listing's own cached answer covers a
+						// repository that truly has no refs without another git run
+						cacheable.invalidate();
+						return emptyPagedResult;
+					}
 
 					using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
@@ -86,6 +91,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 					return { values: tags };
 				} catch (ex) {
+					cacheable.invalidate();
 					scope?.error(ex);
 					if (isCancellationError(ex)) throw ex;
 

@@ -198,11 +198,49 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 				assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 			});
 
+			test('a read that throws answers no user but is not kept', async () => {
+				getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+				assert.strictEqual(cache.currentUser.get(repoPath), undefined);
+
+				assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
+			});
+
+			test('a successful read with no user config caches the environment user', async () => {
+				process_env.GIT_AUTHOR_NAME = 'Env User';
+				process_env.GIT_AUTHOR_EMAIL = 'env@example.com';
+				getConfigRegex.resolves(new Map());
+
+				const envUser = { name: 'Env User', email: 'env@example.com' };
+				assert.deepStrictEqual(await provider.getCurrentUser(repoPath), envUser);
+				assert.deepStrictEqual(cache.currentUser.get(repoPath), envUser);
+
+				assert.deepStrictEqual(await provider.getCurrentUser(repoPath), envUser);
+				assert.strictEqual(getConfigRegex.callCount, 1);
+			});
+
+			test('an OS with no account for the process caches "no user"', async () => {
+				(os.userInfo as sinon.SinonStub).throws(
+					new Error('ENOENT: no such file or directory, uv_os_get_passwd'),
+				);
+				getConfigRegex.resolves(new Map());
+
+				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+				assert.strictEqual(cache.currentUser.get(repoPath), null);
+
+				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+				assert.strictEqual(getConfigRegex.callCount, 1);
+			});
+
 			test('a read with no drop caches "no user"', async () => {
 				getConfigRegex.resolves(new Map());
 
 				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
 				assert.strictEqual(cache.currentUser.get(repoPath), null);
+
+				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+				assert.strictEqual(getConfigRegex.callCount, 1);
 			});
 		});
 	});
@@ -269,6 +307,16 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 
 		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 		assert.strictEqual(getConfigRegex.callCount, 1);
+	});
+
+	test('a read that throws answers no user but is not kept', async () => {
+		getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(cache.currentUser.get(repoPath), undefined);
+
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
+		assert.strictEqual(getConfigRegex.callCount, 2);
 	});
 
 	test('a read with no drop caches the user', async () => {
