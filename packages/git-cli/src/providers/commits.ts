@@ -1110,7 +1110,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			if (merges) {
 				// If we are are asking for a specific ref, ensure we return the merge commit files
 				if (isSingleCommit) {
-					args.push('-m');
+					// `-m` would diff against every parent, yet only the first record is kept
+					args.push((await this.git.supports('git:log:diff-merges')) ? '--diff-merges=first-parent' : '-m');
 				}
 				args.push(merges === 'first-parent' ? '--first-parent' : '--no-min-parents');
 			} else {
