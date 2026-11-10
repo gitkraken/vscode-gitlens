@@ -61,3 +61,26 @@ export function isConflictStatus(status: string | undefined): status is 'U' | Gi
 export function getFileDiffPathspecs(file: { path: string; originalPath?: string }): string[] {
 	return file.originalPath ? [file.path, file.originalPath] : [file.path];
 }
+
+/**
+ * Matches a repository-relative path as git matches `:(literal)` pathspecs: a path itself or anything under it, a
+ * trailing slash naming the same folder, and `.` the whole repository.
+ */
+export function toLiteralPathspecMatcher(paths: readonly string[]): (path: string) => boolean {
+	const specs = new Set<string>();
+	for (const p of paths) {
+		const spec = p.replace(/\/+$/, '');
+		if (spec === '' || spec === '.') return () => true;
+
+		specs.add(spec);
+	}
+
+	return path => {
+		if (specs.has(path)) return true;
+
+		for (let i = path.lastIndexOf('/'); i > 0; i = path.lastIndexOf('/', i - 1)) {
+			if (specs.has(path.substring(0, i))) return true;
+		}
+		return false;
+	};
+}

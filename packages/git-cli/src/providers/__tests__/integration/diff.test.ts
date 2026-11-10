@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
@@ -863,5 +863,231 @@ suite('DiffSubProvider.getDiff — unborn HEAD', () => {
 			parsed?.files.map(f => f.path),
 			['a.txt'],
 		);
+	});
+});
+
+suite('DiffSubProvider.getDiffStatus — nothing to diff from', () => {
+	let repo: TestRepo;
+	let unbornPath: string;
+
+	suiteSetup(() => {
+		// `createTestRepo` always commits, so it only supplies the provider; the repository under test has nothing committed
+		repo = createTestRepo();
+		unbornPath = mkdtempSync(join(tmpdir(), 'gitlens-unborn-status-'));
+		execFileSync('git', ['init', '-b', 'main'], { cwd: unbornPath, stdio: 'pipe' });
+		writeFileSync(join(unbornPath, 'a.txt'), 'one\n');
+		execFileSync('git', ['add', 'a.txt'], { cwd: unbornPath, stdio: 'pipe' });
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+		rmSync(unbornPath, { recursive: true, force: true });
+	});
+
+	test('an unborn HEAD lists the staged file as added', async () => {
+		const files = await repo.provider.diff.getDiffStatus(unbornPath, 'HEAD');
+		assert.deepStrictEqual(
+			files?.map(f => [f.path, f.status]),
+			[['a.txt', 'A']],
+		);
+	});
+
+	test("an unborn HEAD resolves rather than rejects with errors: 'throw'", async () => {
+		const files = await repo.provider.diff.getDiffStatus(unbornPath, 'HEAD', undefined, { errors: 'throw' });
+		assert.deepStrictEqual(
+			files?.map(f => f.path),
+			['a.txt'],
+		);
+	});
+
+	test('a root commit lists its files as added, from a pair or a range', async () => {
+		const r = createTestRepo();
+		try {
+			const root = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], {
+				cwd: r.path,
+				encoding: 'utf-8',
+			}).trim();
+			addCommit(r.path, 'b.txt', 'b\n', 'Add b.txt');
+
+			for (const files of [
+				await r.provider.diff.getDiffStatus(r.path, `${root}^`, root, { errors: 'throw' }),
+				await r.provider.diff.getDiffStatus(r.path, `${root}^..${root}`, undefined, { errors: 'throw' }),
+			]) {
+				assert.deepStrictEqual(
+					files?.map(f => [f.path, f.status]),
+					[['README.md', 'A']],
+				);
+			}
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('a missing parent of a commit that has one still rejects', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'b.txt', 'b\n', 'Add b.txt');
+			const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: r.path, encoding: 'utf-8' }).trim();
+
+			await assert.rejects(
+				r.provider.diff.getDiffStatus(r.path, `${head}^^^`, head, { errors: 'throw' }),
+				(ex: unknown) => ex instanceof GitError,
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('getDiff of a root commit diffs it against the empty tree', async () => {
+		const r = createTestRepo();
+		try {
+			const root = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], {
+				cwd: r.path,
+				encoding: 'utf-8',
+			}).trim();
+			addCommit(r.path, 'b.txt', 'b\n', 'Add b.txt');
+
+			const diff = await r.provider.diff.getDiff(r.path, root, undefined, { errors: 'throw' });
+			assert.ok(diff != null);
+			assert.ok(diff.contents.includes('new file mode'), 'the root commit adds its files');
+			assert.ok(diff.contents.includes('README.md'));
+			assert.strictEqual(diff.to, root);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('DiffSubProvider.getDiffStatus — paths', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		addCommit(repo.path, 'a.txt', 'a\n', 'Add a');
+		addCommit(repo.path, 'b.txt', 'b\n', 'Add b');
+		addCommit(repo.path, '[id]/page.txt', 'p\n', 'Add [id]/page');
+		addCommit(repo.path, 'i/page.txt', 'p\n', 'Add i/page');
+		for (const f of ['a.txt', 'b.txt', '[id]/page.txt', 'i/page.txt']) {
+			writeFileSync(join(repo.path, f), 'changed\n');
+		}
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('limits the status to the given files', async () => {
+		const files = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, {
+			paths: ['a.txt', 'b.txt'],
+		});
+		assert.deepStrictEqual(files?.map(f => f.path).sort(), ['a.txt', 'b.txt']);
+	});
+
+	test('matches a name with glob characters literally', async () => {
+		const files = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, {
+			paths: ['[id]/page.txt', 'a.txt'],
+		});
+		assert.deepStrictEqual(files?.map(f => f.path).sort(), ['[id]/page.txt', 'a.txt']);
+
+		// As a glob, `[id]` would also match the sibling `i`
+		const folder = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, { paths: ['[id]'] });
+		assert.deepStrictEqual(
+			folder?.map(f => f.path),
+			['[id]/page.txt'],
+		);
+	});
+
+	test('reads many paths across batches', async () => {
+		const many = Array.from({ length: 6000 }, (_, i) => `missing/${'x'.repeat(40)}-${i}.txt`);
+		const files = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, {
+			paths: [...many, 'a.txt', ...many.map(p => `${p}.b`), 'b.txt'],
+			errors: 'throw',
+		});
+		assert.deepStrictEqual(files?.map(f => f.path).sort(), ['a.txt', 'b.txt']);
+	});
+
+	test('lists a file once when overlapping paths fall in different batches', async () => {
+		const many = Array.from({ length: 3000 }, (_, i) => `missing/${'x'.repeat(40)}-${i}.txt`);
+		const files = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, {
+			paths: ['[id]', ...many, '[id]/page.txt', 'a.txt', 'a.txt'],
+			errors: 'throw',
+		});
+		assert.deepStrictEqual(files?.map(f => f.path).sort(), ['[id]/page.txt', 'a.txt']);
+	});
+
+	test('merges in the untracked files under the paths, whatever `path` says', async () => {
+		mkdirSync(join(repo.path, 'new'), { recursive: true });
+		writeFileSync(join(repo.path, 'new', 'n.txt'), 'n\n');
+		writeFileSync(join(repo.path, 'other.txt'), 'o\n');
+		try {
+			const files = await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, {
+				includeUntracked: true,
+				path: 'a.txt',
+				paths: ['new/', 'b.txt'],
+			});
+			assert.deepStrictEqual(files?.map(f => f.path).sort(), ['b.txt', 'new/n.txt']);
+		} finally {
+			rmSync(join(repo.path, 'new'), { recursive: true, force: true });
+			rmSync(join(repo.path, 'other.txt'), { force: true });
+		}
+	});
+
+	test('an empty list resolves undefined', async () => {
+		assert.strictEqual(
+			await repo.provider.diff.getDiffStatus(repo.path, 'HEAD', undefined, { paths: [] }),
+			undefined,
+		);
+	});
+});
+
+suite('DiffSubProvider.getDiff — renames', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		const body = `${Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n')}\n`;
+		addCommit(repo.path, 'old.txt', body, 'Add old');
+		execFileSync('git', ['mv', 'old.txt', 'new.txt'], { cwd: repo.path, stdio: 'pipe' });
+		execFileSync('git', ['commit', '-m', 'Rename'], { cwd: repo.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'diff.renames', 'false'], { cwd: repo.path, stdio: 'pipe' });
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('follows diff.renames when left undefined', async () => {
+		const diff = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~1');
+		assert.ok(!diff?.contents.includes('rename from'));
+		assert.ok(diff?.contents.includes('deleted file'));
+	});
+
+	test('renames: true shows the rename whatever diff.renames says', async () => {
+		const diff = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~1', { renames: true });
+		assert.ok(diff != null);
+		assert.ok(diff.contents.includes('rename from old.txt'));
+		assert.ok(!diff.contents.includes('deleted file'));
+
+		const parsed = await repo.provider.diff.getParsedDiff?.(repo.path, 'HEAD', 'HEAD~1', { renames: true });
+		assert.strictEqual(parsed?.files.length, 1);
+	});
+
+	test('renames: true honours similarityThreshold', async () => {
+		const diff = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~1', {
+			renames: true,
+			similarityThreshold: 100,
+		});
+		assert.ok(diff?.contents.includes('rename from old.txt'));
+	});
+
+	test('renames: false shows a delete and an add even when diff.renames is on', async () => {
+		execFileSync('git', ['config', 'diff.renames', 'true'], { cwd: repo.path, stdio: 'pipe' });
+		try {
+			const diff = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~1', { renames: false });
+			assert.ok(!diff?.contents.includes('rename from'));
+			assert.ok(diff?.contents.includes('deleted file'));
+		} finally {
+			execFileSync('git', ['config', 'diff.renames', 'false'], { cwd: repo.path, stdio: 'pipe' });
+		}
 	});
 });
