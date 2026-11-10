@@ -115,6 +115,99 @@ suite('runSpawn spawner Test Suite', () => {
 	});
 });
 
+function neverHangs<T>(promise: Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const hung = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new Error('runSpawn never settled')), 3000);
+	});
+	return Promise.race([promise, hung]).finally(() => clearTimeout(timer));
+}
+
+suite('runSpawn undecodable output Test Suite', () => {
+	const exitsClean = ['-e', `process.stdout.write('hi')`];
+	const exitsFailed = ['-e', `process.stderr.write('bad'); process.exit(2)`];
+
+	test('runSpawn rejects when a non-UTF-8 encoding has no decode function', async () => {
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, exitsClean, 'latin1', {})),
+			(ex: unknown) =>
+				ex instanceof Error &&
+				!(ex instanceof RunError) &&
+				ex.message.includes('no decode function configured'),
+		);
+	});
+
+	test('runSpawn rejects with the decode rejection, unchanged', async () => {
+		const failure = new Error('decode rejected');
+		await assert.rejects(
+			neverHangs(
+				runSpawn<string>(process.execPath, exitsClean, 'latin1', { decode: () => Promise.reject(failure) }),
+			),
+			(ex: unknown) => ex === failure,
+		);
+	});
+
+	test('runSpawn rejects with the decode error when a failed run cannot decode its output', async () => {
+		const failure = new Error('decode threw');
+		await assert.rejects(
+			neverHangs(
+				runSpawn<string>(process.execPath, exitsFailed, 'latin1', {
+					decode: () => {
+						throw failure;
+					},
+				}),
+			),
+			(ex: unknown) => ex === failure,
+		);
+	});
+
+	test('runSpawn still resolves a clean run and rejects a failed one', async () => {
+		const ok = await neverHangs(runSpawn<string>(process.execPath, exitsClean, 'utf8', {}));
+		assert.strictEqual(ok.stdout, 'hi');
+		assert.strictEqual(ok.exitCode, 0);
+
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, exitsFailed, 'utf8', {})),
+			(ex: unknown) => ex instanceof RunError && ex.code === 2 && ex.stderr === 'bad',
+		);
+	});
+});
+
+suite('runSpawn stdin pipe Test Suite', () => {
+	function recording(): { stdio: unknown[]; spawner: ProcessSpawner } {
+		const stdio: unknown[] = [];
+		const spawner: ProcessSpawner = (command, args, options) => {
+			stdio.push(options.stdio?.[0]);
+			return spawn(command, args, options);
+		};
+		return { stdio: stdio, spawner: spawner };
+	}
+
+	test('runSpawn opens no stdin pipe when there is no input', async () => {
+		const { stdio, spawner } = recording();
+		const args = ['-e', `process.stdout.write('hi')`];
+
+		const result = await runSpawn<string>(process.execPath, args, 'utf8', { spawn: spawner });
+		const exitCodeOnly = await runSpawn(process.execPath, args, 'utf8', { exitCodeOnly: true, spawn: spawner });
+
+		assert.strictEqual(result.stdout, 'hi');
+		assert.strictEqual(exitCodeOnly.exitCode, 0);
+		assert.deepStrictEqual(stdio, ['ignore', 'ignore']);
+	});
+
+	test('runSpawn opens a stdin pipe and delivers the input when there is some', async () => {
+		const { stdio, spawner } = recording();
+
+		const result = await runSpawn<string>(process.execPath, ['-e', `process.stdin.pipe(process.stdout)`], 'utf8', {
+			stdin: 'abc',
+			spawn: spawner,
+		});
+
+		assert.strictEqual(result.stdout, 'abc');
+		assert.deepStrictEqual(stdio, ['pipe']);
+	});
+});
+
 async function countTimers(): Promise<number> {
 	// Mocha arms its own test timer only once the test returns its promise, so count after yielding to it. Callers
 	// assert no MORE timers than before: an earlier test's timer may fire in between, but a leak only ever adds one

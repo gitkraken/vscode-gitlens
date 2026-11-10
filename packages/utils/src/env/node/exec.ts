@@ -481,7 +481,7 @@ export function runSpawn<T extends string | Buffer>(
 			// 0 disables it, which the spawner contract spells as absent
 			timeout: opts.timeout === 0 ? undefined : opts.timeout,
 			signal: cancellation,
-			stdio: ['pipe', null, null],
+			stdio: [stdin != null ? 'pipe' : 'ignore', null, null],
 		});
 		const errorEncoding = encoding === 'buffer' ? 'utf8' : encoding;
 
@@ -516,20 +516,32 @@ export function runSpawn<T extends string | Buffer>(
 			}));
 		}
 
-		proc.once('error', async ex => {
+		// An async listener's throw would be an unhandled rejection that leaves the promise pending forever, so
+		// anything it throws (an undecodable output, a failing `decode`) rejects the run instead. It rejects as
+		// thrown: wrapped in a `RunError` with the exit code, a clean exit would read as a run with no output
+		const rejectThrown = (ex: unknown): void => reject(ex instanceof Error ? ex : new Error(String(ex)));
+		proc.once('error', ex => void onError(ex).catch(rejectThrown));
+		proc.once('close', (code, signal) => void onClose(code, signal).catch(rejectThrown));
+
+		async function onError(ex: Error): Promise<void> {
 			if (ex?.name === 'AbortError') {
 				reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, undefined, undefined, 'aborted'));
 
 				return;
 			}
 
-			const stdio = getStdio<string>(errorEncoding);
-			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
+			// The launch failure is what the caller acts on, so output that can't be decoded is left out of it
+			let stdout = '';
+			let stderr = '';
+			try {
+				const stdio = getStdio<string>(errorEncoding);
+				({ stdout, stderr } = stdio instanceof Promise ? await stdio : stdio);
+			} catch {}
 
 			reject(new RunError(ex, stdout, stderr));
-		});
+		}
 
-		proc.once('close', async (code, signal) => {
+		async function onClose(code: number | null, signal: NodeJS.Signals | null): Promise<void> {
 			if (options?.exitCodeOnly) {
 				// Resolves unconditionally, so this is the one path that can hand back a signalled run. `code`
 				// is null exactly when the process was killed — report the signal rather than coercing to `0`,
@@ -590,7 +602,7 @@ export function runSpawn<T extends string | Buffer>(
 			// zero exit — `code` cannot be null here. (The optional typing exists for the `exitCodeOnly`
 			// branch, which is where a codeless result can genuinely surface.)
 			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
-		});
+		}
 
 		// Only a host spawner can leave these out; reading no output as empty would pass for a clean answer
 		if (proc.stdout == null || proc.stderr == null) {
