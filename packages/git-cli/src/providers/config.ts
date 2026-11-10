@@ -536,7 +536,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				user.email = configMap.get('user.email');
 			} else {
 				user.name =
-					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
+					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || getOsUsername() || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
 					setCachedUser(null);
@@ -564,13 +564,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			setCachedUser(user);
 			return user;
 		} catch (ex) {
-			// A refusal says nothing about the user, so nothing is kept: the next call reads again once the host trusts it
+			// A failed read says nothing about the user, so nothing is kept: the next call reads again (for a refusal,
+			// once the host trusts the workspace)
 			if (ex instanceof WorkspaceUntrustedError) return undefined;
 
 			scope?.error(ex);
-
-			// Mark it so we won't bother trying again
-			setCachedUser(null);
 			return undefined;
 		}
 	}
@@ -1554,6 +1552,18 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		this.cache.clearCaches(repoPath, 'config', 'gkConfig');
 
 		this._migratedRepos.add(repoPath);
+	}
+}
+
+/**
+ * The OS account's name; `undefined` when the OS has none for the process's uid (a container run under a bare uid),
+ * where `userInfo` throws: that is no user data, not a read that failed
+ */
+function getOsUsername(): string | undefined {
+	try {
+		return userInfo().username || undefined;
+	} catch {
+		return undefined;
 	}
 }
 

@@ -75,6 +75,8 @@ const reflogCommands = ['merge', 'pull'];
 /** Keeps `filterUnpublishedShas` well inside Windows' ~32K command-line cap (40 hex chars + separator each). */
 const maxShasPerRevListSpawn = 500;
 const fullShaRegex = /^[0-9a-f]{40}$/;
+// What `rev-list HEAD` reports before the first commit exists (git runs with `LC_ALL=C`)
+const unbornHeadRegex = /bad revision 'HEAD'|ambiguous argument 'HEAD': unknown revision/;
 /** Bounds the diff text held in memory, and piped to `patch-id`, per `diff-tree` spawn. */
 const maxCommitsPerPatchIdSpawn = 250;
 
@@ -985,10 +987,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({ quiet: true, exit: true })
-	getInitialCommitSha(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
-		// Initial commit SHA is shared across all worktrees
-		return this.cache.getInitialCommitSha(repoPath, async commonPath => {
-			try {
+	async getInitialCommitSha(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
+		try {
+			// Initial commit SHA is shared across all worktrees
+			return await this.cache.getInitialCommitSha(repoPath, async commonPath => {
 				const result = await this.git.run(
 					{ cwd: commonPath, cancellation: cancellation, errors: 'ignore' },
 					'rev-list',
@@ -1000,13 +1002,21 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					throw new CancellationError();
 				}
 
-				return result.stdout.trim().split('\n')?.[0];
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
+				if (result.completion.status === 'exited') {
+					if (result.exitCode === 0) return result.stdout.trim().split('\n')[0] || undefined;
 
-				return undefined;
-			}
-		});
+					// A HEAD with no commits yet is a real answer
+					if (unbornHeadRegex.test(result.stderr ?? '')) return undefined;
+				}
+
+				// Rejects any other failure, which the cache never keeps
+				throw new Error('Unable to read the initial commit');
+			});
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			return undefined;
+		}
 	}
 
 	@debug({ quiet: true })

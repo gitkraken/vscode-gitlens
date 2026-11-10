@@ -149,8 +149,14 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		// for different subsets share one cache entry.
 		const all = await this.cache.getRefTips(
 			repoPath,
-			async (_commonPath, _cacheable, signal) => {
+			async (_commonPath, cacheable, signal) => {
 				const records = await this.getRefs(repoPath, signal);
+				if (!records.length) {
+					// Empty also means the listing failed; the listing's own cached answer covers a
+					// repository that truly has no refs without another git run
+					cacheable.invalidate();
+					return [];
+				}
 
 				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
@@ -548,8 +554,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		// Why: a SHA-only validation (no path suffix) is effectively immutable — 5-min TTL is safe.
-		// Otherwise the resolved SHA can shift on ref move (or working-tree change for path-scoped
-		// validation); rely on gitResults being cleared on 'head'/'heads'/'remotes' events, with 60s
+		// Otherwise the resolved SHA can shift on ref move (a path-scoped validation reads the ref's tree, not
+		// the working tree); rely on gitResults being cleared on 'head'/'heads'/'remotes' events, with 60s
 		// TTL as the failsafe for watcher latency / web.
 		const stable = relativePath == null && isSha(ref);
 		const result = await this.git.run(

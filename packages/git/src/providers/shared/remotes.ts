@@ -73,10 +73,17 @@ export abstract class RemotesGitProviderBase implements GitRemotesSubProvider {
 
 		const remotes = this.cache.bestRemotes.getOrCreate(
 			repoPath,
-			async (_cacheable, aggregateSignal) => {
-				const remotes = await this.getRemotesWithProviders(repoPath, { sort: true }, aggregateSignal);
-				if (remotes.length === 0) return [];
-				if (remotes.length === 1) return [...remotes];
+			async (cacheable, aggregateSignal) => {
+				const all = await this.getRemotes(repoPath, { sort: true }, aggregateSignal);
+				if (all.length === 0) {
+					// No remotes at all also means their listing failed, which isn't kept; the listing's own cached
+					// answer covers a repository that truly has none without another git run
+					cacheable.invalidate();
+					return [];
+				}
+
+				const remotes = all.filter((r): r is GitRemote<RemoteProvider> => r.provider != null);
+				if (remotes.length <= 1) return remotes;
 
 				if (this.context.remotes?.sort != null) {
 					return this.context.remotes.sort(remotes, aggregateSignal);
