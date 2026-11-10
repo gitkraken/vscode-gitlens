@@ -197,6 +197,47 @@ suite('Cache.clearCaches — branchMergedStatus', () => {
 	});
 });
 
+suite('Cache.clearCaches — gitResults', () => {
+	const repoPath = '/test/repo';
+	const command = 'git merge-base main feature';
+	const result: GitResult = {
+		stdout: 'abc',
+		stderr: undefined,
+		exitCode: 0,
+		completion: { status: 'exited', code: 0 },
+	};
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('an index or file change keeps cached git results', async () => {
+		await cache.gitResults.getOrCreate(repoPath, command, () => Promise.resolve(result));
+		cache.clearCaches(repoPath, 'blame', 'diff', 'fileLog', 'tracking');
+		assert.ok(cache.gitResults.get(repoPath, command) != null);
+	});
+
+	test('a fetch that moves no ref keeps cached git results', async () => {
+		await cache.gitResults.getOrCreate(repoPath, command, () => Promise.resolve(result));
+		cache.clearCaches(repoPath, 'lastFetched');
+		assert.ok(cache.gitResults.get(repoPath, command) != null);
+	});
+
+	test('a full clear, a status change, or a ref change alongside a file or fetch change drops them', async () => {
+		const cases: CachedGitTypes[][] = [[], ['status'], ['tracking', 'branches'], ['lastFetched', 'remotes']];
+		for (const types of cases) {
+			await cache.gitResults.getOrCreate(repoPath, command, () => Promise.resolve(result));
+			cache.clearCaches(repoPath, ...types);
+			assert.strictEqual(cache.gitResults.get(repoPath, command), undefined, `[${types.join(', ')}]`);
+		}
+	});
+});
+
 suite('Cache.evictCaches vs clearCaches — in-flight shared entries', () => {
 	let cache: Cache;
 

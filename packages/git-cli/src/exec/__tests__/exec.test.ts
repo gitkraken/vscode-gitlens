@@ -353,6 +353,36 @@ suite('Shell Test Suite', () => {
 			assert.deepStrictEqual(calls, ['delete:/repo:git status', 'getOrCreate:/repo:git status']);
 		});
 
+		test('a run that names FETCH_HEAD is never cached', async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			const calls: string[] = [];
+			const fakeCache: GitResultCache = {
+				delete: (repoPath, key) => {
+					calls.push(`delete:${repoPath}:${key}`);
+				},
+				getOrCreate: (repoPath, key, factory) => {
+					calls.push(`getOrCreate:${repoPath}:${key}`);
+					return factory(new CacheController());
+				},
+			};
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', caching: { cache: fakeCache } },
+				'rev-parse',
+				'--verify',
+				'FETCH_HEAD^{commit}',
+			);
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', caching: { cache: fakeCache } },
+				'rev-parse',
+				'--verify',
+				'main',
+			);
+
+			assert.deepStrictEqual(calls, ['getOrCreate:/repo:git rev-parse --verify main']);
+		});
+
 		// Identical argv is not an identical command when the environment differs (`GIT_INDEX_FILE` for a
 		// temporary index, a credential helper, config injected through `GIT_CONFIG_*`).
 		test('concurrent runs with the same argv but a different per-call env are not shared', async () => {
