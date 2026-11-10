@@ -780,6 +780,10 @@ treat a short page as the last; only `hasMore`/`cursor` say that. Facets that ov
 page of this search: a pull request two facets share (authored and assigned, say) can come back once per facet, on
 different pages, so dedupe the accumulated rows by `url`.
 
+Pass `cancellation` to abort the read: the request in flight, a retry waiting to be sent, and any page a
+page-number walk still has to read. The read then rejects with a `CancellationError` rather than resolving, so a
+cancelled read is never mistaken for a failed or an empty one.
+
 ### 5.1 The filtered issue search and its count probe
 
 `searchIssuesPage` answers "every issue in this scope matching X", which no other issue read can: the

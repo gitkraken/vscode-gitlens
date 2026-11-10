@@ -841,13 +841,15 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		// own, bounded like every other read's and only for a row that names someone. Per page rather than per drain,
 		// so a continuation asks again rather than serving the answer its first page got.
 		const viewerFor = this.getOrganizationViewers(session);
-		const viewers = await Promise.all(
+		// The viewer lookups are shared, so they take no signal; a cancelled page stops waiting for them instead.
+		const lookups = Promise.all(
 			slice.map(r =>
 				r.currentAccount == null && pullRequestNamesPeople(r.pr)
 					? viewerFor(r.collection)
 					: Promise.resolve(r.currentAccount),
 			),
 		);
+		const viewers = await (cancellation != null ? raceWithSignal(lookups, cancellation) : lookups);
 		return {
 			values: slice.map((r, i) =>
 				fromProviderPullRequest(r.pr, this, {
