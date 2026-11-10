@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { CommitsWithFilesLogParser, GraphLogParser } from '../logParser.js';
-import { getCommitsLogParser, getGraphParser } from '../logParser.js';
+import { getCommitsLogParser, getGraphParser, getShaAndFileSummaryLogParser } from '../logParser.js';
 
 /**
  * Tests for the log parser's file parsing logic with --raw and --numstat output.
@@ -511,5 +511,76 @@ suite('Log Parser - Truncated Record Guard', () => {
 		const entries = await collect(parser.parseAsync(streamOf([completeCommit + truncatedCommit])));
 		assert.strictEqual(entries.length, 1, 'Truncated commit must be dropped');
 		assert.strictEqual(entries[0].sha, 'sha1');
+	});
+});
+
+suite('Log Parser - Commit With Very Many Files Test Suite', () => {
+	const fileCount = 200_000;
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	function buildRawAndNumstat(): string {
+		const raw: string[] = [];
+		const numstat: string[] = [];
+		for (let i = 0; i < fileCount; i++) {
+			raw.push(`:000000 100644 0000000 abc1234 A\tdir/file${i}.txt`);
+			numstat.push(`1\t0\tdir/file${i}.txt`);
+		}
+		return [...raw, ...numstat].join('\n');
+	}
+
+	function buildCommitsRecord(): string {
+		const parser = getCommitsLogParser(true);
+		const fields = [
+			'abc123',
+			'Test Author',
+			'test@example.com',
+			'1234567890',
+			'Test Committer',
+			'committer@example.com',
+			'1234567890',
+			'',
+			'',
+			'Test commit message',
+			buildRawAndNumstat(),
+		];
+		return parser.separators.record + fields.join(parser.separators.field);
+	}
+
+	test('parse keeps every file of a commit touching 200k files', () => {
+		const parser = getCommitsLogParser(true);
+		const entries = [...parser.parse(buildCommitsRecord())];
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files?.length, fileCount);
+		assert.strictEqual(entries[0].files?.[fileCount - 1].path, `dir/file${fileCount - 1}.txt`);
+	});
+
+	test('parseAsync keeps every file of a commit touching 200k files', async () => {
+		const parser = getCommitsLogParser(true);
+		const entries = [];
+		for await (const e of parser.parseAsync(streamOf([buildCommitsRecord()]))) {
+			entries.push(e);
+		}
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files?.length, fileCount);
+	});
+
+	test('file-summary parse keeps every file of a commit touching 200k files', () => {
+		const parser = getShaAndFileSummaryLogParser();
+		const lines: string[] = [];
+		for (let i = 0; i < fileCount; i++) {
+			lines.push(` create mode 100644 dir/file${i}.txt`);
+		}
+		const data = `${parser.separators.record}abc123${parser.separators.field}\n${lines.join('\n')}`;
+		const entries = [...parser.parse(data)];
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files.length, fileCount);
 	});
 });

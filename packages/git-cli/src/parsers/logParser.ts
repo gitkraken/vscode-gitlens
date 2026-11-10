@@ -298,6 +298,13 @@ const recordFormatSep = '%x1E';
 const fieldSep = '\x1D'; // ASCII Group Separator character
 const fieldFormatSep = '%x1D';
 
+// `push(...items)` throws a RangeError once `items` is large enough to overflow the call stack
+function appendAll<T>(target: T[], items: readonly T[]): void {
+	for (const item of items) {
+		target.push(item);
+	}
+}
+
 // A complete record terminates every mapped field with a field separator — a cancelled/early-closed
 // stream resolves cleanly with a truncated tail missing at least the final terminator.
 function isCompleteRecord(record: string, requiredFields: number): boolean {
@@ -651,7 +658,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 						: field.value.startsWith('\n')
 							? field.value.substring(1)
 							: field.value;
-					files.push(...parseFilesAndStats(summary));
+					appendAll(files, parseFilesAndStats(summary));
 				} else {
 					debugger;
 				}
@@ -719,7 +726,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 						: field.value.startsWith('\n')
 							? field.value.substring(1)
 							: field.value;
-					files.push(...parseFilesAndStats(summary));
+					appendAll(files, parseFilesAndStats(summary));
 				} else {
 					debugger;
 				}
@@ -858,7 +865,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 						: field.value.startsWith('\n')
 							? field.value.substring(1)
 							: field.value;
-					files.push(...parseFileSummary(summary));
+					appendAll(files, parseFileSummary(summary));
 				} else {
 					debugger;
 				}
