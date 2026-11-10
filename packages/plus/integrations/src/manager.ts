@@ -504,6 +504,16 @@ export interface IntegrationManager {
 	 * pre-ceiling facet count, not the reachable or returned row count; this mirrors the per-search ceiling's own
 	 * unit.
 	 *
+	 * **On GitHub/GHE a page is bounded by how long GitHub takes to build it**, not only by `itemsPerPage`: past about
+	 * 11 seconds its gateway gives up with a 502/504. So a page holds at most 20 pull requests across all its facets
+	 * in the full shape and 100 in the `summary` shape, split evenly across the active facets (a 3-facet full search
+	 * gets 6 per facet), and `itemsPerPage` can only lower a facet's share. When the gateway gives up anyway, the
+	 * page is asked for once more at half its size and the rest of the walk keeps that size; a page that still fails
+	 * fails the read (warning + `fetchFailed`), after two attempts rather than three identical ones. A smaller page is
+	 * not a failure and carries no warning: it reports its real size in `page.itemsPerPage`, and its `cursor` resumes
+	 * every facet exactly after the last row it served, so walking on neither skips nor repeats a pull request.
+	 * Never read a page shorter than requested as the last one; only `hasMore`/`cursor` say that.
+	 *
 	 * **Azure DevOps Server** differs in how it gets there, because its pull request API can't filter by text, date or
 	 * draft: the first page drains every facet (up to 1,000 rows each) and later pages are served from that drain,
 	 * so a first page can cost many requests and a continuation none. A continuation whose drain expired is refused;
@@ -546,8 +556,9 @@ export interface IntegrationManager {
 		 * 2-state search returns up to `6 × itemsPerPage` items before deduplication, and fewer than that where
 		 * the facets overlap. Deduplication does NOT bring the page back to this size: it removes only the rows the
 		 * facets share. `page.itemsPerPage` reports what actually came back, so size the UI off that rather than
-		 * off this. A provider may also cap it below what is asked for. Azure DevOps Server is the exception: it
-		 * serves one merged page, so there this is the page size (at most 100).
+		 * off this. A provider may also cap it below what is asked for, as GitHub/GHE do to keep a page within the
+		 * time GitHub allows (see above), so omit it unless you need FEWER rows than the default. Azure DevOps Server
+		 * is the exception: it serves one merged page, so there this is the page size (at most 100).
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
@@ -556,9 +567,8 @@ export interface IntegrationManager {
 		domain?: string;
 		/**
 		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
-		 * without review, check or diff statistics. It also replaces the flat per-facet default page size with a
-		 * fixed budget shared across the search's ACTIVE facets, so with up to three of them it raises the page
-		 * and from four on it LOWERS it — measured against GitHub, a 100-row budget versus a flat 30 each.
+		 * without review, check or diff statistics. On GitHub/GHE it also raises the page budget shared across the
+		 * search's ACTIVE facets from 20 rows to 100, since the lite rows take GitHub a fraction of the time to build.
 		 *
 		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
 		 * rather than a contract about which fields are present.

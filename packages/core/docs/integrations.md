@@ -451,8 +451,9 @@ The cells that aren't obvious from the projection names:
   summed, divided by 100 and rounded, minimum 1) that is one more request per pull request read: a 30-row full search
   page goes from 121 requests (1 point) to 151 (2 points), a 100-row lite page from 1 to 101 (1 point either way), a
   25-target batch read from 100 to 125 (1 point), and the cheap check's 25 targets from 0 or 25 (with `'checks'`) to 25
-  or 50 (1 point either way). The filtered search's worst case, 15 facets of 30 rows, goes from 1,815 requests (18
-  points) to 2,265 (23).
+  or 50 (1 point either way). The filtered search's pages are bounded per document (20 full rows, 100 lite rows,
+  across all facets), so every page of it costs 1 point either way: its costliest, ten facets of 2 full rows or of 10
+  lite rows, goes from 90 requests to 110 and from 10 to 110.
 
 #### Every other provider
 
@@ -742,8 +743,9 @@ relationship is mandatory. This is deliberately not `involves:@me`: that GitHub 
 `review-requested` but includes `commenter`, so it cannot match the adjacent visible-PR list.
 
 The read is ordered by `criteria.sort`, most-recently-updated-first when omitted; the keys a provider accepts are
-`getSupportedFilters().pullRequestSearch.sorts`. On GitHub/GHE a threaded `cursor` is exactly one upstream request,
-since every active relationship × state facet travels as an alias in one GraphQL document; Bitbucket Data Center
+`getSupportedFilters().pullRequestSearch.sorts`. On GitHub/GHE a threaded `cursor` is one upstream request (two when
+GitHub's gateway times out, see below), since every active relationship × state facet travels as an alias in one
+GraphQL document; Bitbucket Data Center
 has no such batching and spends one request per repository × relationship facet still being read. A page number
 without a cursor walks from page 1. At GitHub's 1,000-result-per-facet ceiling, `page.truncated` is true and
 the warning's `omission` carries `totalCount`, `limit`, and `recovery: 'none'`. `totalCount` is the largest
@@ -763,6 +765,20 @@ per-relationship fan-out, since each facet is its own aliased provider query. A 
 overlap; deduplication does **not** bring the page back to the requested size, since it removes only the rows
 the facets share. As in §5.1: size the list off `page.itemsPerPage`, not off the value you sent; a provider
 may cap the `itemsPerPage` it honors below what you asked for.
+
+On GitHub/GHE what caps it is time. GitHub gives up on a page it can't build in about 11 seconds and answers
+502/504 with an HTML gateway page, and the time grows with how many pull requests the page selects and how much
+each carries. So a page holds at most **20** pull requests across all of its facets in the full shape and
+**100** in the `summary` shape, split evenly across the active facets (a 3-relationship full search gets 6 per
+facet), and `itemsPerPage` can only lower a facet's share. If the gateway gives up anyway, the page is asked for
+once more at half its size (unchanged once it is one row per facet), and the rest of the walk keeps that size; if
+that fails at the gateway too, the read fails (warning + `fetchFailed`) rather than sending the third identical
+request that made a failure take about 35 seconds. Other transient failures (503, a network failure) are retried
+unchanged as before. A smaller page is a successful one: no warning, `page.itemsPerPage` says how many came back,
+and its `cursor` resumes every facet right after the last row it served, so no facet skips or repeats a row. Never
+treat a short page as the last; only `hasMore`/`cursor` say that. Facets that overlap are another matter, on every
+page of this search: a pull request two facets share (authored and assigned, say) can come back once per facet, on
+different pages, so dedupe the accumulated rows by `url`.
 
 ### 5.1 The filtered issue search and its count probe
 
@@ -1304,8 +1320,9 @@ both: only the full projection populates it.
 
 The paginated read that does carry the full projection is `searchPullRequestsPage` with
 `criteria.relationships` on GitHub/GHE (Bitbucket Data Center also exposes the search, with its native row shape):
-its results always include the review projection with `commitOid`, it honors `itemsPerPage`, and one threaded
-cursor page is exactly one upstream request — every relationship × state facet travels in the same query,
+its results always include the review projection with `commitOid`, it honors `itemsPerPage` up to its page budget,
+and one threaded cursor page is one upstream request (two after a gateway timeout) — every relationship × state facet
+travels in the same query,
 unlike the account-wide read, which spends one request per facet per page. So a surface that pages
 incrementally should ask the search read for `Reviewed` (and `ReviewRequested` as its own read) rather than
 reach for `includeReviews`, which only exists on the all-at-once sweep.
