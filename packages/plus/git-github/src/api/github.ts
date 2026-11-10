@@ -128,15 +128,22 @@ const requestRetryMaxDelay = 2000; // ms
 /** How many email->login user searches to alias into a single GraphQL request (keeps query cost within limits). */
 const accountResolveBatchSize = 25;
 
-// Pull-request search selects the full PR fragment (reviews, requests, refs, commits, etc.),
-// which makes GitHub reject broad 100-node searches with `Resource limits for this query
-// exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget;
-// the 100-node maximum the connection accepts is for the lite shape, whose per-node cost is a
-// fraction of it. The budget is per DOCUMENT, and one document holds every relationship × state
-// facet, so the worst case scales with the facet count (five relationships × three states = 15;
-// `all` subsumes the concrete states).
+// The account-wide "my pull requests" search (`searchMyPullRequestsPage`) selects the full PR
+// fragment (reviews, requests, refs, commits, etc.), which makes GitHub reject broad 100-node
+// searches with `Resource limits for this query exceeded` on large repositories. Thirty keeps
+// its page within that GraphQL cost budget; the 100-node maximum the connection accepts is for
+// the lite shape, whose per-node cost is a fraction of it. The filtered search is bounded by
+// time rather than cost, per document; see `fullPullRequestSearchPageBudget`.
 const defaultPullRequestSearchPageSize = 30;
 const maxPullRequestSearchPageSize = 100;
+// How many pull requests one page of the filtered search (`searchPullRequestsPage`) may select, across ALL of its
+// relationship × state facets, since they travel in one document. What bounds that page is time, not GraphQL cost:
+// GitHub gives up on a request after ~11s and answers 502/504 with an HTML gateway page, and the time grows with the
+// nodes a document selects (and swings by ~2s from run to run). Measured against `org:microsoft is:pr is:open` on
+// 2026-11-10: 20 full nodes took 5.0–7.2s, 25 up to 8.8s, 30 up to 10.5s with failures, 40 and 50 failed in most
+// runs, and two facets of 30 failed every time; 100 lite nodes took 3.7–4.2s and three facets of 100 lite 7.3–8.5s.
+const fullPullRequestSearchPageBudget = 20;
+const summaryPullRequestSearchPageBudget = maxPullRequestSearchPageSize;
 // Pages `searchMyPullRequests` drains for a caller that wants a whole list rather than a page.
 // Four reduced pages cover more than the single 100-node page this read served before it paged,
 // so the smaller page costs coverage nowhere; it bounds an unbounded drain on a read whose
@@ -159,6 +166,11 @@ function isRetryableTransientError(ex: unknown): ex is RequestError {
 		default:
 			return false;
 	}
+}
+
+/** A gateway that gave up waiting for GitHub to build the response, which an identical request mostly repeats. */
+function isGatewayTimeoutError(ex: unknown): ex is RequestError {
+	return ex instanceof RequestError && (ex.status === 502 || ex.status === 504);
 }
 
 /**
@@ -3604,20 +3616,25 @@ export class GitHubApi {
 
 	// Runs `execute`, retrying transient gateway/network failures with backoff. `retryable` gates
 	// retries to idempotent reads; `signal` lets an in-flight cancellation abort the backoff wait.
+	// `noGatewayRetry` fails a 502/504 at once, for a read that answers it with a cheaper request
+	// rather than the same one again (see `searchPullRequestsPage`).
 	private async requestWithRetries<T>(
 		execute: () => Promise<T>,
 		retryable: boolean,
 		signal: AbortSignal | undefined,
 		scope: ScopedLogger | undefined,
+		noGatewayRetry?: boolean,
 	): Promise<T> {
 		let attempt = 0;
 		while (true) {
 			try {
 				return await execute();
 			} catch (ex) {
-				if (!retryable || attempt >= maxRequestRetries || signal?.aborted || !isRetryableTransientError(ex)) {
-					throw ex;
-				}
+				// A server failure that lands after the caller gave up reports the cancellation, not the failure: classified
+				// as a server error it would spend a strike against the connection and notify for a read nobody wants.
+				if (signal?.aborted && isRetryableTransientError(ex)) throw new CancellationError(ex);
+				if (!retryable || attempt >= maxRequestRetries || !isRetryableTransientError(ex)) throw ex;
+				if (noGatewayRetry && isGatewayTimeoutError(ex)) throw ex;
 
 				attempt++;
 				const delay = getRequestRetryDelay(attempt);
@@ -3671,6 +3688,8 @@ export class GitHubApi {
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		allowPartialNotFound?: undefined,
+		gatewayFailures?: 'caller' | 'final',
 	): Promise<T | undefined>;
 	private async graphql<T>(
 		provider: Provider | undefined,
@@ -3693,6 +3712,14 @@ export class GitHubApi {
 		 * counts them once for the whole call (see `reportRequestFailure`).
 		 */
 		allowPartialNotFound?: 'aliased',
+		/**
+		 * Fails a 502/504 at once instead of retrying it unchanged, for a read that answers it with a cheaper request.
+		 * `'caller'` also leaves it unclassified (no strike, no notice), since the caller may yet recover; `'final'`
+		 * classifies it like any failure, for the request the caller gives up after. Classified here rather than by
+		 * the caller, so identical concurrent requests sharing this one report its failure once. Every other failure is
+		 * retried and classified as usual.
+		 */
+		gatewayFailures?: 'caller' | 'final',
 	): Promise<T | AliasedGraphqlResult<T> | undefined> {
 		const { accessToken, ...tokenInfo } = token;
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
@@ -3701,8 +3728,9 @@ export class GitHubApi {
 		let dedupeKey: string | undefined;
 		if (dedupable) {
 			try {
-				// The mode is part of the key: `'aliased'` resolves to a different shape than a plain read.
-				dedupeKey = `${token.microHash}|${provider?.id ?? ''}|${allowPartialNotFound ?? ''}|${query}|${JSON.stringify(variables ?? null)}`;
+				// The modes are part of the key: `'aliased'` resolves to a different shape than a plain read, and a read
+				// that fails its gateway failures at once rejects where another would retry.
+				dedupeKey = `${token.microHash}|${provider?.id ?? ''}|${allowPartialNotFound ?? ''}|${gatewayFailures ?? ''}|${query}|${JSON.stringify(variables ?? null)}`;
 			} catch {
 				// Non-serializable variable (BigInt, function, circular ref) — fall through to direct exec.
 				dedupeKey = undefined;
@@ -3735,6 +3763,7 @@ export class GitHubApi {
 					retryable,
 					cancellation,
 					scope,
+					gatewayFailures != null,
 				);
 
 				// `'aliased'` always returns the {data, errors} shape, even on a clean response with no errors,
@@ -3785,6 +3814,9 @@ export class GitHubApi {
 					if (Logger.isDebugging) {
 						this.config.onDebugError?.(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`);
 					}
+				} else if (gatewayFailures === 'caller' && isGatewayTimeoutError(ex)) {
+					// The caller's to answer; classified here, it would count against the connection and notify for a
+					// failure the caller may yet recover from.
 				} else if (ex instanceof RequestError || ex.name === 'AbortError') {
 					this.handleRequestError(provider, token, ex, scope, allowPartialNotFound === 'aliased');
 				} else if (Logger.isDebugging) {
@@ -5746,6 +5778,15 @@ export class GitHubApi {
 	 * union of facets and no per-facet server order describes it. The sort is part of the cursor fingerprint, so
 	 * changing it invalidates a threaded cursor exactly as changing the text or the scope does. User text is
 	 * sanitized before it reaches the provider query. See {@link toGitHubPullRequestSearchFacets}.
+	 *
+	 * A page selects at most {@link fullPullRequestSearchPageBudget} pull requests across its facets with the full
+	 * fragment, and {@link summaryPullRequestSearchPageBudget} with the lite one, whatever `pageSize` asks for: past
+	 * that GitHub's gateway times out building the page (502/504 after ~11s). When it times out anyway, the page is
+	 * requested once more at half its size (unchanged when it is already one row per facet) rather than twice more
+	 * unchanged, and a second gateway failure fails the read. A page that recovers is smaller but no facet skips or
+	 * repeats a row, since each resumes from the cursor of the last row it served; the halved size is kept in the
+	 * cursor for the rest of the walk, so later pages don't time out again first. Other transient failures (503, a
+	 * network failure) are retried unchanged on each of those two requests, as on any read.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchPullRequestsPage(
@@ -5758,12 +5799,14 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			cursor?: string;
+			/**
+			 * Pull requests per facet. Capped so the page stays within its budget (see above); defaults to the
+			 * budget split evenly across the active facets.
+			 */
 			pageSize?: number;
 			/**
 			 * Uses the lightweight PR fragment, retaining identity, body, author, repository, branch refs, and stack
-			 * info while omitting review, check, and diff statistics. It also replaces the flat per-facet default with
-			 * a budget multi-facet searches share across their active facets, so it raises the page with up to three of
-			 * them and LOWERS it from four on.
+			 * info while omitting review, check, and diff statistics. Its page budget is five times the full one's.
 			 */
 			summary?: boolean;
 			/**
@@ -5805,12 +5848,15 @@ export class GitHubApi {
 			facets: Record<string, string | null>;
 			truncated?: boolean;
 			totalCount?: number;
+			/** The page budget a gateway timeout reduced this walk to; absent until one did. */
+			budget?: number;
 		}
 
 		let cursor: SearchCursor | undefined;
 		if (options?.cursor != null) {
 			try {
 				const parsed = JSON.parse(options.cursor) as Partial<SearchCursor>;
+				const parsedBudget = cursorNumber(parsed, 'budget');
 				const parsedFacets = parsed.facets;
 				if (parsedFacets != null && typeof parsedFacets === 'object' && !Array.isArray(parsedFacets)) {
 					const parsedAliases = Object.keys(parsedFacets).sort();
@@ -5833,6 +5879,7 @@ export class GitHubApi {
 								typeof parsed.totalCount === 'number' && Number.isFinite(parsed.totalCount)
 									? Math.max(0, Math.trunc(parsed.totalCount))
 									: undefined,
+							budget: parsedBudget != null && parsedBudget >= 1 ? Math.trunc(parsedBudget) : undefined,
 						};
 					}
 				}
@@ -5851,16 +5898,14 @@ export class GitHubApi {
 			};
 		}
 
-		// Each active facet selects its own page in the same GraphQL document. Share the lite projection's
-		// 100-node default across those selections; an explicit page size remains a per-facet request.
-		const defaultSize =
-			options?.summary === true
-				? Math.max(1, Math.floor(maxPullRequestSearchPageSize / activeFacets.length))
-				: defaultPullRequestSearchPageSize;
-		const pageSize = Math.min(
-			maxPullRequestSearchPageSize,
-			Math.max(1, Math.trunc(options?.pageSize ?? defaultSize)),
+		// Each active facet selects its own page in the same GraphQL document, so the budget is split across them. An
+		// explicit size can only lower a facet's share, and so can a budget an earlier page of this walk was reduced to.
+		const budget = Math.min(
+			options?.summary === true ? summaryPullRequestSearchPageBudget : fullPullRequestSearchPageBudget,
+			cursor?.budget ?? Number.POSITIVE_INFINITY,
 		);
+		const facetBudget = Math.max(1, Math.floor(budget / activeFacets.length));
+		const requestedPageSize = Math.min(facetBudget, Math.max(1, Math.trunc(options?.pageSize ?? facetBudget)));
 
 		const includeVar = (alias: string): string => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
 		const stackFragment = gqlPullRequestStackFragmentFor(options);
@@ -5870,8 +5915,9 @@ export class GitHubApi {
 			`$${f.alias}Cursor: String`,
 			`$${includeVar(f.alias)}: Boolean!`,
 		]);
-		const fields = facets.map(
-			f => `${f.alias}: search(first: ${pageSize}, after: $${f.alias}Cursor, query: $${f.alias}Search, type: ISSUE)
+		const toQuery = (size: number): string => {
+			const fields = facets.map(
+				f => `${f.alias}: search(first: ${size}, after: $${f.alias}Cursor, query: $${f.alias}Search, type: ISSUE)
 				@include(if: $${includeVar(f.alias)}) {
 				issueCount
 				pageInfo {
@@ -5886,14 +5932,14 @@ export class GitHubApi {
 					}
 				}
 			}`,
-		);
-		const query = `query searchPullRequestsPage(
+			);
+			return `query searchPullRequestsPage(
 			${params.join('\n\t\t\t')}
 			$avatarSize: Int
 		) {
 			${fields.join('\n\t\t\t')}
 		}`;
-
+		};
 		const variables: Record<string, unknown> = {
 			baseUrl: options?.baseUrl,
 			avatarSize: options?.avatarSize,
@@ -5904,15 +5950,36 @@ export class GitHubApi {
 			variables[includeVar(facet.alias)] = isActive(facet.alias);
 		}
 
-		try {
-			const rsp = await this.graphql<Record<string, SearchCategory | undefined>>(
+		const read = (size: number, gatewayFailures: 'caller' | 'final') =>
+			this.graphql<Record<string, SearchCategory | undefined>>(
 				provider,
 				token,
-				query,
+				toQuery(size),
 				variables,
 				scope,
 				cancellation,
+				undefined,
+				gatewayFailures,
 			);
+
+		try {
+			let pageSize = requestedPageSize;
+			let rsp: Record<string, SearchCategory | undefined> | undefined;
+			try {
+				rsp = await read(pageSize, 'caller');
+			} catch (ex) {
+				if (!isGatewayTimeoutError(ex)) throw ex;
+
+				// The same page can't be served by asking again: GitHub times out on what the page holds, so an
+				// identical retry mostly costs another ~11s to fail the same way (#5978). Ask once for half instead; the
+				// facets resume from the last row each served, so the rest comes on the next page. A page already at one
+				// row per facet can't shrink, so it gets its one retry unchanged, and that retry's failure is reported.
+				pageSize = Math.max(1, Math.floor(pageSize / 2));
+				scope?.warn(
+					`Gateway failure (status ${ex.status}) building the page; retrying at ${pageSize} per facet`,
+				);
+				rsp = await read(pageSize, 'final');
+			}
 			if (rsp == null) return { values: [], hasMore: false, page: page, truncated: false };
 
 			const pullRequests: PullRequestShape[] = [];
@@ -5987,6 +6054,8 @@ export class GitHubApi {
 				facets: nextFacets,
 				truncated: truncated || undefined,
 				totalCount: totalCount,
+				// The document this page was served at, once a gateway failure reduced it below what was asked for.
+				budget: pageSize < requestedPageSize ? pageSize * activeFacets.length : cursor?.budget,
 			};
 
 			return {
