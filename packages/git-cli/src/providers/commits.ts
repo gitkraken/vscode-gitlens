@@ -544,8 +544,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 				for (const sha of batch) {
 					const id = batchIds?.get(sha);
-					// `getOrCreate` rather than `set`, since only it enforces the cache's capacity and expiry
-					void this.cache.patchIds.getOrCreate(repoPath, `${sha}${keySuffix}`, () => Promise.resolve(id));
+					this.cache.patchIds.set(repoPath, `${sha}${keySuffix}`, Promise.resolve(id));
 					if (id != null) {
 						ids.set(sha, id);
 					}

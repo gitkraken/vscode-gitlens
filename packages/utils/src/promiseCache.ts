@@ -51,6 +51,7 @@ export class PromiseCache<K, V> {
 	private readonly aborts = new Map<K, AbortAggregate>();
 	private readonly controllers = new Map<K, CacheController>();
 	private readonly options: PromiseCacheOptions;
+	private cleanupQueued = false;
 
 	constructor(options?: PromiseCacheOptions) {
 		this.options = { expireOnError: true, ...options };
@@ -309,12 +310,20 @@ export class PromiseCache<K, V> {
 				.catch(() => {});
 		}
 
-		// Clean up expired entries and enforce capacity limit in one pass
-		if (this.cache.size > 1) {
-			queueMicrotask(() => this.cleanup());
-		}
+		this.queueCleanup();
 
 		return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
+	}
+
+	/** Queues one pass that drops expired entries and enforces the capacity; writes before it runs share it */
+	private queueCleanup(): void {
+		if (this.cleanupQueued || this.cache.size <= 1) return;
+
+		this.cleanupQueued = true;
+		queueMicrotask(() => {
+			this.cleanupQueued = false;
+			this.cleanup();
+		});
 	}
 
 	private attachCallerLifecycle(
@@ -397,6 +406,8 @@ export class PromiseCache<K, V> {
 		if (this.options.expireOnError ?? true) {
 			promise.catch(() => deleteIfOwned(this.cache, key, entry));
 		}
+
+		this.queueCleanup();
 	}
 }
 
@@ -732,7 +743,18 @@ export class RepoPromiseCacheMap<K, V> {
 		if (repoCache == null) return false;
 
 		repoCache.delete(key);
+		this.dropIfEmpty(repoPath, repoCache);
 		return true;
+	}
+
+	/**
+	 * Drops `repoPath`'s cache once it holds nothing, so a removed worktree leaves no cache behind. One that still holds
+	 * an in-flight entry `invalidate` only marked stays, so a new caller still joins that entry.
+	 */
+	private dropIfEmpty(repoPath: string, repoCache: PromiseCache<K, V>): void {
+		if (repoCache.size === 0) {
+			this.cache.delete(repoPath);
+		}
 	}
 
 	/**
@@ -752,6 +774,7 @@ export class RepoPromiseCacheMap<K, V> {
 		} else {
 			repoCache.invalidate(key);
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 	}
 
 	/**
@@ -771,6 +794,7 @@ export class RepoPromiseCacheMap<K, V> {
 				deleted = true;
 			}
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 		return deleted;
 	}
 
@@ -794,6 +818,7 @@ export class RepoPromiseCacheMap<K, V> {
 				invalidated = true;
 			}
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 		return invalidated;
 	}
 
