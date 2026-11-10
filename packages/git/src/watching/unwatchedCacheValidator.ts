@@ -71,6 +71,13 @@ const validationWindowMs = defaultRepoDelay;
 const unresolvableRetryMs = 30_000;
 /** Targets kept per kind; one dropped just takes a new baseline */
 const maxTargets = 512;
+/**
+ * Other worktrees' first baselines one validation takes with its own. Their stats run one at a time per repository
+ * inside the read that triggered them, so the batch is kept small enough that a slow file system doesn't push that read
+ * past its timeout; the worktrees left out batch the rest at their own first validation. Never more than fit under
+ * {@link maxTargets}, as a target dropped for them would clear the shared entries again
+ */
+const maxSiblingBaselines = 64;
 /** Polls one validation runs to take the baselines of the directories it finds; the next validation resumes from there */
 const maxDiscoveryPolls = 16;
 /**
@@ -354,6 +361,10 @@ export class UnwatchedCacheValidator {
 
 		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		const root = this.getTarget(this.roots, repoPath, 'root', gitDir.uri.fsPath, commonPath, commonGitDir);
+		// A root never validated reports everything its git dir could have moved, which clears the repository's shared
+		// entries; the other worktrees never validated take their first baselines with it, so each clears only its own
+		// entries rather than the shared ones again
+		const siblings = root.runs === 0 ? this.getSiblingTargets(repoPath, commonPath, commonGitDir) : [];
 		// Read even while another worktree's watcher covers it: that watcher clears the shared entries, never this
 		// worktree's own
 		const common = this.getTarget(this.commons, commonPath, 'common', commonGitDir, commonPath, commonGitDir);
@@ -383,14 +394,18 @@ export class UnwatchedCacheValidator {
 		const startedCommon = start(common);
 
 		if (startedRoot != null || startedCommon != null) {
-			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, previous);
+			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, siblings, previous);
 			if (startedRoot != null) {
 				startedRoot.running = job;
 			}
 			if (startedCommon != null) {
 				startedCommon.running = job;
 			}
-			for (const state of [startedRoot, startedCommon]) {
+			// So a read of one joins this validation rather than starting its own
+			for (const [, state] of siblings) {
+				state.running = job;
+			}
+			for (const state of [startedRoot, startedCommon, ...siblings.map(([, s]) => s)]) {
 				if (state != null) {
 					waits.push([state, job]);
 				}
@@ -553,15 +568,45 @@ export class UnwatchedCacheValidator {
 		return state;
 	}
 
+	/**
+	 * The root targets, new, of `repoPath`'s registered sibling worktrees that never had one: unwatched (a watcher covers
+	 * its own git dir, and validates it as it attaches), with a git dir the cache resolved in the same common git dir
+	 */
+	private getSiblingTargets(
+		repoPath: string,
+		commonPath: string,
+		commonGitDir: string,
+	): (readonly [string, TargetState])[] {
+		const siblings: (readonly [string, TargetState])[] = [];
+		const room = Math.min(maxSiblingBaselines, maxTargets - this.roots.size);
+		for (const path of this.cache.getWorktreePaths(commonPath)) {
+			if (siblings.length >= room) break;
+			// One that failed and was reset still has its target, as does one in flight
+			if (path === repoPath || this.roots.has(path) || this.isWatched(path)) continue;
+			if (this.cache.getCommonPath(path) !== commonPath) continue;
+
+			const gitDir = this.cache.gitDir.get(path);
+			if (gitDir == null || (gitDir.commonUri ?? gitDir.uri).fsPath !== commonGitDir) continue;
+
+			siblings.push([
+				path,
+				this.getTarget(this.roots, path, 'root', gitDir.uri.fsPath, commonPath, commonGitDir),
+			]);
+		}
+		return siblings;
+	}
+
 	private async runTargets(
 		repoPath: string,
 		commonPath: string,
 		root: TargetState | undefined,
 		common: TargetState | undefined,
+		siblings: readonly (readonly [string, TargetState])[],
 		previous: readonly Promise<void>[],
 	): Promise<void> {
 		const rootRun = root != null ? ++root.runs : 0;
 		const commonRun = common != null ? ++common.runs : 0;
+		const siblingRuns = siblings.map(([, state]) => ++state.runs);
 		// Before anything is awaited: a watcher that attaches from here on reports only what changes after it attached,
 		// and its own validation reads the common git dir after this one, from the baseline this one advances
 		const watchedAtStart = new Set(this.getCommonWatchers(repoPath, commonPath));
@@ -574,17 +619,29 @@ export class UnwatchedCacheValidator {
 			// The root and common git dirs of one validation can share paths: a main checkout's are the same, and a
 			// linked worktree's root is an admin entry of the common one
 			const memo: StatMemo = new Map();
-			const [rootResult, commonResult] = await Promise.all([
+			const [rootResult, commonResult, siblingResults] = await Promise.all([
 				root?.dir.validate(memo, repoPath),
 				common?.dir.validate(memo, repoPath),
+				Promise.all(siblings.map(([path, state]) => state.dir.validate(memo, path))),
 			]);
 			this.counts.validations++;
 			if (rootResult?.changes.size || commonResult?.changes.size) {
 				this.counts.validationsApplied++;
 			}
-			this.apply(repoPath, commonPath, rootResult, commonResult, watchedAtStart);
+			this.apply(
+				repoPath,
+				commonPath,
+				rootResult,
+				commonResult,
+				siblings.map(([path, state], i) => [path, state, siblingResults[i]] as const),
+				watchedAtStart,
+			);
 		} catch {
-			// `validate` never rejects, so only applying can have thrown; whatever it did apply stands
+			// `validate` never rejects, so only applying can have thrown; whatever it did apply stands, but a sibling
+			// may have been left baselined with nothing cleared, so each reports everything again at its next validation
+			for (const [, state] of siblings) {
+				state.dir.reset();
+			}
 		} finally {
 			// Before the validation settles, so a read it gated finds the window open and runs no other
 			const settledAt = this.now();
@@ -600,6 +657,12 @@ export class UnwatchedCacheValidator {
 					common.running = undefined;
 				}
 			}
+			// Never stamped as validated: a sibling's own first read still validates, from the baseline taken here
+			for (const [i, [, state]] of siblings.entries()) {
+				if (state.runs === siblingRuns[i]) {
+					state.running = undefined;
+				}
+			}
 		}
 	}
 
@@ -607,13 +670,15 @@ export class UnwatchedCacheValidator {
 	 * Applies what moved to `repoPath`, and what moved in the common git dir to its other unwatched registered worktrees
 	 * too, as the common watcher would have told each of them. While another worktree's watcher covers the common git
 	 * dir, it already cleared the shared entries, so only the worktrees' own are. A watcher covers it only if it watched
-	 * since before the stats began (`watchedAtStart`)
+	 * since before the stats began (`watchedAtStart`). What each sibling whose first baseline was taken with it reports
+	 * clears that sibling's own entries, as `repoPath`'s report cleared the shared ones
 	 */
 	private apply(
 		repoPath: string,
 		commonPath: string,
 		root: ValidationResult | undefined,
 		common: ValidationResult | undefined,
+		siblings: readonly (readonly [string, TargetState, ValidationResult])[],
 		watchedAtStart: ReadonlySet<string>,
 	): void {
 		const watchers = this.getCommonWatchers(repoPath, commonPath).filter(p => watchedAtStart.has(p));
@@ -630,6 +695,24 @@ export class UnwatchedCacheValidator {
 			this.cache.onRepositoryChanged(repoPath, changes, {
 				movedWorktrees: changes.has('worktreeHead') ? common?.movedWorktrees : undefined,
 			});
+		}
+
+		// `repoPath`'s report cleared the shared entries of the worktrees registered under its common path as of now, so
+		// it covers a sibling's only while `repoPath` is still under that path and reported all the sibling did
+		const shared = this.cache.getCommonPath(repoPath) === commonPath;
+		for (const [path, state, result] of siblings) {
+			if (!this.cache.isRegistered(path) || this.cache.getCommonPath(path) !== commonPath) {
+				// Nothing was cleared for it, so its baseline goes too
+				state.dir.reset();
+				continue;
+			}
+
+			if (shared && [...result.changes].every(c => changes.has(c))) {
+				this.cache.applyRepositoryChanges(path, result.changes, 'share', { worktreeOnly: true });
+			} else {
+				// As its own first validation would have
+				this.cache.onRepositoryChanged(path, result.changes);
+			}
 		}
 
 		if (!common?.changes.size) return;
@@ -868,15 +951,7 @@ class ProbedGitDir {
 
 		if (failed || !this.baselined) {
 			if (failed) {
-				this.target = this.createTarget(() => this.getProbes());
-				this.gated.clear();
-				this.addGated(gitDirGatePath, this.kind === 'root' ? rootGatedProbes : commonGatedProbes);
-				this.baselined = false;
-				this.refDirs.clear();
-				this.worktrees.clear();
-				this.pendingDirs.clear();
-				this.pendingEntries.clear();
-				this.reftable = false;
+				this.reset();
 			} else {
 				this.baselined = true;
 			}
@@ -887,6 +962,19 @@ class ProbedGitDir {
 		}
 
 		return this.classify();
+	}
+
+	/** Drops every reading, so the next validation has no baseline and reports everything it can */
+	reset(): void {
+		this.target = this.createTarget(() => this.getProbes());
+		this.gated.clear();
+		this.addGated(gitDirGatePath, this.kind === 'root' ? rootGatedProbes : commonGatedProbes);
+		this.baselined = false;
+		this.refDirs.clear();
+		this.worktrees.clear();
+		this.pendingDirs.clear();
+		this.pendingEntries.clear();
+		this.reftable = false;
 	}
 
 	private createTarget(getProbes: () => Iterable<GitDirProbe>): GitDirProbeTarget {
