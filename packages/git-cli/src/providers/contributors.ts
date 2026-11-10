@@ -303,7 +303,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const getCore = async (
 			commonPath: string,
-			_cacheable?: CacheController,
+			cacheable?: CacheController,
 			signal?: AbortSignal,
 		): Promise<GitContributorsStats | undefined> => {
 			try {
@@ -331,6 +331,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 				return { count: contributions.length, contributions: contributions } satisfies GitContributorsStats;
 			} catch (ex) {
+				cacheable?.invalidate();
 				scope?.error(ex);
 
 				return undefined;
@@ -353,7 +354,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 		}
 
 		return this.cache.getContributorsStats(repoPath, cacheKey, getCore, {
-			accessTTL: customCacheTTL,
+			...(customCacheTTL ? { accessTTL: customCacheTTL } : undefined),
 			cancellation: cancellation,
 		});
 	}
