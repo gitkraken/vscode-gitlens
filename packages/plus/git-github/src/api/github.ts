@@ -6071,6 +6071,10 @@ export class GitHubApi {
 		}
 	}
 
+	/**
+	 * The exact opened + merged state set is ordered newest-created first, overriding unquoted `sort:` qualifiers
+	 * in the search text. Other state sets keep GitHub's order, including any caller-supplied sort.
+	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchPullRequests(
 		provider: Provider,
@@ -6092,7 +6096,8 @@ export class GitHubApi {
 		const scope = getScopedLogger();
 		const pageSize = 10;
 		const include = options?.include?.length ? options.include : undefined;
-		const stateSearches = requiresGitHubPullRequestStateFacets(include)
+		const splitStates = requiresGitHubPullRequestStateFacets(include);
+		const stateSearches = splitStates
 			? [
 					{ alias: 'opened', qualifier: 'is:open' },
 					{ alias: 'merged', qualifier: 'is:merged' },
@@ -6134,6 +6139,14 @@ export class GitHubApi {
 }`;
 
 			let search = options?.search?.trim() ?? '';
+			if (splitStates) {
+				// Independent relevance ranks cannot be merged. Both capped facets must select by the same key,
+				// overriding unquoted caller sorts while preserving quoted text and other search qualifiers.
+				search = search.replace(/"(?:\\.|[^"\\])*"|(?:^|\s)sort:(?:"(?:\\.|[^"\\])*"|[^\s"]*)/gi, match =>
+					match.startsWith('"') ? match : '',
+				);
+				search = `${search.trim()} sort:created-desc`.trim();
+			}
 
 			if (options?.user) {
 				search += ` user:${options.user}`;
@@ -6161,6 +6174,10 @@ export class GitHubApi {
 				for (const node of rsp[alias]?.nodes ?? []) {
 					results.push(fromGitHubPullRequest(node, provider, 'text-search'));
 				}
+			}
+
+			if (splitStates) {
+				results.sort(getPullRequestComparator('created:desc'));
 			}
 
 			return [
