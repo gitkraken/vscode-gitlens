@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- **Breaking (git)** — `shouldIgnoreWorkingTreePath` (`git/watching/watcherPatterns.js`) takes a path relative to the checkout's root rather than an absolute one, and matches only whole `.git` and `node_modules` segments and a segment starting `.watchman-cookie-`: given an absolute path it would again judge the folders above the checkout. Adds `createWorkingTreeNoiseFilter(repoPath)`, which returns the check for absolute event paths under that checkout
 - Changes a git run that is given no input to start with stdin closed (`stdio[0]` is `'ignore'`) rather than with a pipe it never wrote to, which saves a pipe for every git process. A host `spawn` (`GitOptions.spawn`) now sees `'ignore'` for those runs, as it already did for streamed ones (utils, git-cli)
 
 ### Fixed
@@ -16,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Jira Cloud and Linear autolinks re-reading, and waiting on, the provider on every call while the sites, a site's projects, the Linear organization or its teams can't be read whole; that set is now kept, with the last prefixes of a site that failed, and retried in the background after a minute ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183)) (plus/integrations)
 - Fixes Jira Cloud and Linear autolinks after a newer read replaces a site's project list or the team list while an autolink build is in flight: a render no longer joins the build started before the replacement, an older read landing last no longer puts its list back for the discovery TTL nor answers with it, a later build's empty fallback no longer blocks the set the retired build kept, a Jira site whose projects keep failing keeps the prefixes of its last list stored once the replacement dropped the set, and the same list read again no longer drops a complete set nor retires the build in flight ([#6184](https://github.com/gitkraken/vscode-gitlens/issues/6184)) (plus/integrations)
 - Fixes a git run never settling when its output could not be decoded: output longer than the engine's longest string, a non-UTF-8 `encoding` with no `decode` configured, or a `decode` that throws. The run now rejects with that error. Before, its caller waited for good, identical runs joined it, and it kept one of the queue's process slots (utils, git-cli)
+- Fixes working-tree changes never being reported for a checkout under a folder whose name ends in `.git` (a bare repository with its worktrees inside it, `app.git/feature`) or under a `node_modules` folder: the watch service matched its `.git` and `node_modules` noise filter against the whole path, so every change in such a checkout was dropped. It now judges only the path inside the checkout, and only whole `.git` and `node_modules` segments, so a tracked folder such as `fixtures/repo.git/` is reported too. `shouldIgnoreWorkingTreePath` (`git/watching/watcherPatterns.js`) follows, see Changed (git)
 
 ## [0.37.1] - 2026-11-10
 

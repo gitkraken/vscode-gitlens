@@ -803,6 +803,119 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 
+	describe('working-tree noise filter', () => {
+		/** Delivers one working-tree event per path and returns the paths the service reported */
+		async function deliveredFor(repoPath: string, eventPaths: string[]): Promise<string[]> {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				defaultWorkingTreeDelayMs: 30,
+			});
+
+			const handle = service.watch(repoPath, standardGitDir(`${repoPath}/.git`));
+			assertHandle(handle);
+
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			const received: string[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(...e.paths));
+
+			const wtWatcher = watchers.find(w => w.basePath === repoPath);
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+
+			for (const path of eventPaths) {
+				wtWatcher.fire({ path: path, reason: 'change' });
+			}
+			await delay(60);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+			return received.sort();
+		}
+
+		it('delivers changes in a worktree whose ancestor folder ends in .git', async () => {
+			const root = '/home/u/src/app.git/feature';
+			assert.deepStrictEqual(await deliveredFor(root, [`${root}/src/a.ts`]), [`${root}/src/a.ts`]);
+		});
+
+		it('delivers changes in a repository under a node_modules ancestor', async () => {
+			const root = '/x/node_modules/pkg/repo';
+			assert.deepStrictEqual(await deliveredFor(root, [`${root}/src/a.ts`]), [`${root}/src/a.ts`]);
+		});
+
+		it('still drops node_modules, nested .git and watchman cookies inside the tree', async () => {
+			const root = '/home/u/src/app.git/feature';
+			assert.deepStrictEqual(
+				await deliveredFor(root, [
+					`${root}/node_modules/x/index.js`,
+					`${root}/packages/a/node_modules/x/index.js`,
+					`${root}/vendor/lib/.git/HEAD`,
+					`${root}/vendor/lib/.git/index.lock`,
+					`${root}/.watchman-cookie-host-1-2`,
+					`${root}/src/a.ts`,
+				]),
+				[`${root}/src/a.ts`],
+			);
+		});
+
+		it('delivers a tracked folder inside the tree whose name merely ends in .git', async () => {
+			const root = '/repo';
+			assert.deepStrictEqual(
+				await deliveredFor(root, [`${root}/fixtures/repo.git/HEAD`, `${root}/my.github.io/x`]),
+				[`${root}/fixtures/repo.git/HEAD`, `${root}/my.github.io/x`],
+			);
+		});
+
+		it('keeps judging a path outside the root as a whole, and delivers it unfiltered otherwise', async () => {
+			const root = '/repo';
+			assert.deepStrictEqual(await deliveredFor(root, ['/elsewhere/node_modules/a', '/elsewhere/b.ts']), [
+				'/elsewhere/b.ts',
+			]);
+		});
+
+		it('buffers and replays with the same answer while the gitignore filter loads', async () => {
+			const root = '/home/u/src/app.git/feature';
+			const { factory, watchers } = createMockFactory();
+			let load!: () => void;
+			const filter = {
+				ready: () =>
+					new Promise<void>(resolve => {
+						load = resolve;
+					}),
+				isIgnored: () => false,
+				refresh: () => Promise.resolve(),
+				revalidate: () => Promise.resolve(false),
+			} as unknown as GitIgnoreFilter;
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			const handle = service.watch(root, standardGitDir(`${root}/.git`));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: string[][] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push([...e.paths].sort()));
+
+			const wtWatcher = watchers.find(w => w.basePath === root);
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+			for (const path of [`${root}/src/a.ts`, `${root}/node_modules/x/i.js`, `${root}/vendor/.git/HEAD`]) {
+				wtWatcher.fire({ path: path, reason: 'change' });
+			}
+			await delay(60);
+			assert.deepStrictEqual(received, [], 'held back until the filter settles');
+
+			load();
+			await delay(60);
+			assert.deepStrictEqual(received, [[`${root}/src/a.ts`]]);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+	});
+
 	describe('repo keys', () => {
 		it('keys a Windows-shaped path the way status reads do, so every event lands on the cache key', async () => {
 			const { factory, watchers } = createMockFactory();
