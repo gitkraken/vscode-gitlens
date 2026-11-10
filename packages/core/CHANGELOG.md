@@ -6,11 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes a git run that is given no input to start with stdin closed (`stdio[0]` is `'ignore'`) rather than with a pipe it never wrote to, which saves a pipe for every git process. A host `spawn` (`GitOptions.spawn`) now sees `'ignore'` for those runs, as it already did for streamed ones (utils, git-cli)
+
 ### Fixed
 
 - Fixes Linear autolinks keeping an incomplete team list cached for the whole discovery TTL instead of retrying discovery ([#6177](https://github.com/gitkraken/vscode-gitlens/issues/6177)) (plus/integrations)
 - Fixes Jira Cloud and Linear autolinks re-reading, and waiting on, the provider on every call while the sites, a site's projects, the Linear organization or its teams can't be read whole; that set is now kept, with the last prefixes of a site that failed, and retried in the background after a minute ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183)) (plus/integrations)
 - Fixes Jira Cloud and Linear autolinks after a newer read replaces a site's project list or the team list while an autolink build is in flight: a render no longer joins the build started before the replacement, an older read landing last no longer puts its list back for the discovery TTL nor answers with it, a later build's empty fallback no longer blocks the set the retired build kept, a Jira site whose projects keep failing keeps the prefixes of its last list stored once the replacement dropped the set, and the same list read again no longer drops a complete set nor retires the build in flight ([#6184](https://github.com/gitkraken/vscode-gitlens/issues/6184)) (plus/integrations)
+- Fixes a git run never settling when its output could not be decoded: output longer than the engine's longest string, a non-UTF-8 `encoding` with no `decode` configured, or a `decode` that throws. The run now rejects with that error. Before, its caller waited for good, identical runs joined it, and it kept one of the queue's process slots (utils, git-cli)
 
 ## [0.37.1] - 2026-11-10
 
