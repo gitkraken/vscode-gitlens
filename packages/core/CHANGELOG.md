@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - **Breaking (git)** — `shouldIgnoreWorkingTreePath` (`git/watching/watcherPatterns.js`) takes a path relative to the checkout's root rather than an absolute one, and matches only whole `.git` and `node_modules` segments and a segment starting `.watchman-cookie-`: given an absolute path it would again judge the folders above the checkout. Adds `createWorkingTreeNoiseFilter(repoPath)`, which returns the check for absolute event paths under that checkout
 - Changes a git run that is given no input to start with stdin closed (`stdio[0]` is `'ignore'`) rather than with a pipe it never wrote to, which saves a pipe for every git process. A host `spawn` (`GitOptions.spawn`) now sees `'ignore'` for those runs, as it already did for streamed ones (utils, git-cli)
+- Speeds up the untracked half of `status.hasWorkingChanges`, which worktree summaries read `dirty` from, on a checkout with a large untracked folder: git reports an untracked folder as one entry (`ls-files --directory --no-empty-directory`) rather than listing every file in it before the first one is read. The answer is the same. It applies on git 2.27 or later, where git's directory walk was reworked; older git lists every file as before. Adds the `git:ls-files:directory` feature (git, git-cli)
 
 ### Fixed
 

@@ -534,12 +534,17 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	private async hasUntrackedFiles(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
+		// An untracked directory is reported as one entry without walking it, and one with nothing reportable
+		// inside is omitted; both keep the answer the same while a huge untracked folder is no longer enumerated
+		// in full. Only where git's directory walk is the reworked one: an older git keeps the full listing
+		const collapseDirectories = await this.git.supports('git:ls-files:directory');
 		const stream = this.git.stream(
 			{ cwd: repoPath, cancellation: cancellation },
 			'ls-files',
 			// '-z', // Unneeded since we are only looking for presence
 			'--others',
 			'--exclude-standard',
+			...(collapseDirectories ? ['--directory', '--no-empty-directory'] : []),
 		);
 		using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
