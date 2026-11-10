@@ -32,6 +32,7 @@ function createDeferredGit(gitTimeout = 60000) {
 	const git = {
 		options: { gitTimeout: gitTimeout },
 		supports: () => Promise.resolve(true),
+		getDiffReadConfigs: () => Promise.resolve([]),
 		run: (options: { correlationKey?: string; cancellation?: AbortSignal }) =>
 			new Promise((resolve, reject) => {
 				correlationKeys.push(options?.correlationKey);
@@ -319,6 +320,7 @@ suite('StatusGitSubProvider — generation-stamped dedup', () => {
 		const git = {
 			options: { gitTimeout: 60000 },
 			supports: () => Promise.resolve(true),
+			getDiffReadConfigs: () => Promise.resolve([]),
 			run: () => Promise.reject(failure),
 		};
 		const provider = createProvider(cache, git as unknown as Git);
@@ -374,6 +376,7 @@ function createArgvRecordingGit(stdout: string = porcelainV2('main')) {
 	const git = {
 		options: { gitTimeout: 60000 },
 		supports: () => Promise.resolve(true),
+		getDiffReadConfigs: () => Promise.resolve([]),
 		run: (options: Record<string, unknown>, ...args: string[]) => {
 			calls.push({ options: options, args: args });
 			return Promise.resolve({
