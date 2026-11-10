@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import { CancellationError, isCancellationError } from '../cancellation.js';
 import type { CacheController } from '../promiseCache.js';
 import { PromiseCache, PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../promiseCache.js';
@@ -478,6 +479,53 @@ suite('PromiseCache Test Suite', () => {
 		});
 	});
 
+	suite('limits', () => {
+		test('entries written with set are held to the capacity', async () => {
+			const cache = new PromiseCache<string, number>({ capacity: 2 });
+			cache.set('a', Promise.resolve(1));
+			cache.set('b', Promise.resolve(2));
+			cache.set('c', Promise.resolve(3));
+
+			await flush();
+			assert.strictEqual(cache.size, 2);
+		});
+
+		test('expired entries written with set are dropped by a later set', async () => {
+			const clock = sinon.useFakeTimers({ now: Date.now(), toFake: ['Date'] });
+			try {
+				const cache = new PromiseCache<string, number>({ createTTL: 1000 });
+				cache.set('a', Promise.resolve(1));
+				cache.set('b', Promise.resolve(2));
+
+				clock.tick(1000);
+				cache.set('c', Promise.resolve(3));
+
+				await flush();
+				assert.deepStrictEqual([...cache.keys()], ['c']);
+			} finally {
+				clock.restore();
+			}
+		});
+
+		test('misses in one tick queue one cleanup, and a later miss queues another', async () => {
+			const cache = new PromiseCache<string, number>({ capacity: 3 });
+			const cleanup = sinon.spy(cache as unknown as { cleanup: () => void }, 'cleanup');
+
+			for (let i = 0; i < 10; i++) {
+				void cache.getOrCreate(`k${i}`, () => Promise.resolve(i));
+			}
+			await flush();
+			assert.strictEqual(cleanup.callCount, 1);
+			assert.strictEqual(cache.size, 3);
+
+			void cache.getOrCreate('later', () => Promise.resolve(10));
+			cache.set('set-later', Promise.resolve(11));
+			await flush();
+			assert.strictEqual(cleanup.callCount, 2);
+			assert.strictEqual(cache.size, 3);
+		});
+	});
+
 	suite('factory rejection', () => {
 		test('rejected factory does not surface an unhandled rejection (cleanup chain is guarded)', async () => {
 			const cache = new PromiseCache<string, number>();
@@ -910,5 +958,75 @@ suite('RepoPromiseCacheMap Test Suite', () => {
 		dB.resolve(2);
 		assert.strictEqual(await pA, 1);
 		assert.strictEqual(await pB, 2);
+	});
+
+	test('invalidate(repoPath) of settled entries drops the repository', async () => {
+		const cache = new RepoPromiseCacheMap<string, number>();
+		await cache.getOrCreate('/repo', 'a', () => Promise.resolve(1));
+		await cache.getOrCreate('/repo', 'b', () => Promise.resolve(2));
+		await flush();
+
+		cache.invalidate('/repo');
+		assert.strictEqual(cache.size, 0);
+		assert.strictEqual(cache.entryCount, 0);
+	});
+
+	test('emptying a repository by key or prefix drops it, and one with entries left stays', async () => {
+		const cache = new RepoPromiseCacheMap<string, number>();
+		for (const repo of ['/invalidate', '/delete', '/delete-prefix', '/invalidate-prefix', '/kept']) {
+			await cache.getOrCreate(repo, 'file:a', () => Promise.resolve(1));
+			await cache.getOrCreate(repo, 'file:b', () => Promise.resolve(2));
+		}
+		await flush();
+
+		cache.invalidate('/invalidate', 'file:a');
+		cache.invalidate('/invalidate', 'file:b');
+		cache.delete('/delete', 'file:a');
+		cache.delete('/delete', 'file:b');
+		cache.deleteByKeyPrefix('/delete-prefix', 'file:');
+		cache.invalidateByKeyPrefix('/invalidate-prefix', 'file:');
+		cache.delete('/kept', 'file:a');
+
+		assert.strictEqual(cache.size, 1);
+		assert.strictEqual(cache.entryCount, 1);
+		assert.strictEqual(await cache.get('/kept', 'file:b'), 2);
+	});
+
+	test('a repository holding an in-flight entry keeps it, and a later caller joins that entry', async () => {
+		const cache = new RepoPromiseCacheMap<string, number>();
+		const d = deferred<number>();
+		let calls = 0;
+		const factory = () => {
+			calls++;
+			return d.promise;
+		};
+
+		const first = cache.getOrCreate('/repo', 'k', factory);
+		cache.invalidate('/repo');
+		assert.strictEqual(cache.size, 1);
+
+		const joined = cache.getOrCreate('/repo', 'k', factory);
+		d.resolve(7);
+		assert.strictEqual(await first, 7);
+		assert.strictEqual(await joined, 7);
+		assert.strictEqual(calls, 1);
+	});
+
+	test('an entry deleted in flight does not touch its successor when it settles, even with an error fallback', async () => {
+		const cache = new RepoPromiseCacheMap<string, number | undefined>();
+		const old = deferred<number | undefined>();
+
+		const first = cache.getOrCreate('/repo', 'k', () => old.promise, { errorTTL: 60_000 });
+		cache.delete('/repo', 'k');
+		assert.strictEqual(cache.size, 0);
+
+		const successor = cache.getOrCreate('/repo', 'k', () => Promise.resolve(2));
+		assert.strictEqual(await successor, 2);
+
+		old.reject(new Error('late failure'));
+		await assert.rejects(first);
+		await flush();
+		assert.strictEqual(await cache.get('/repo', 'k'), 2);
+		assert.strictEqual(cache.entryCount, 1);
 	});
 });
