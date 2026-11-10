@@ -110,6 +110,24 @@ suite('Chord Test Suite', () => {
 			assert.throws(() => parseChord('foo+c', false), /unknown modifier 'foo'/);
 		});
 
+		test('unknown key throws', () => {
+			assert.throws(() => parseChord('alt+Bogus', false), /unknown key 'Bogus'/);
+			// Named keys are case-sensitive `KeyboardEvent.key` values; `Space` is not one (the key is ' ').
+			assert.throws(() => parseChord('alt+arrowup', false), /unknown key 'arrowup'/);
+			assert.throws(() => parseChord('alt+Space', false), /unknown key 'Space'/);
+		});
+
+		test('function keys stop at F24', () => {
+			assert.doesNotThrow(() => parseChord('F24', false));
+			assert.throws(() => parseChord('F25', false), /unknown key 'F25'/);
+		});
+
+		test('named keys and single characters parse', () => {
+			for (const input of ['F3', 'shift+F12', 'Delete', ' ', '?', 'alt+[']) {
+				assert.doesNotThrow(() => parseChord(input, false), input);
+			}
+		});
+
 		test('thrown messages name the bad input', () => {
 			assert.throws(() => parseChord('bogus+c', false), /bogus\+c/);
 		});

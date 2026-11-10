@@ -215,6 +215,24 @@ suite('Keybinding Test Suite', () => {
 			assert.match(warnings[0], /bogus\+j/);
 		});
 
+		test('an override naming an unknown key warns, then falls back to the defaults', () => {
+			const overrides: KeyBindingOverrides = { 'rows.stepNext': ['alt+Bogus'] };
+			const warnings: string[] = [];
+			const binding = registerBinding<TestScope>(
+				{ id: 'rows.stepNext', keys: ['ArrowDown'], scope: 'row', run: () => true, sheet: 'hidden' },
+				false,
+				overrides,
+				message => warnings.push(message),
+			);
+
+			assert.ok(binding);
+			assert.strictEqual(binding.overridden, false);
+			assert.deepStrictEqual(binding.keys, ['ArrowDown']);
+			assert.strictEqual(warnings.length, 1);
+			assert.match(warnings[0], /rows\.stepNext/);
+			assert.match(warnings[0], /Bogus/);
+		});
+
 		test('malformed default keys still throw when no override applies', () => {
 			assert.throws(
 				() =>

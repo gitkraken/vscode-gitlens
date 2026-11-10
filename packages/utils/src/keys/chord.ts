@@ -29,6 +29,32 @@ export type Chord = {
 
 const codeTokenPattern = /^(?:Key[A-Z]|Digit[0-9])$/;
 
+/** Multi-character `KeyboardEvent.key` values a chord token may name; anything else could never match. */
+const namedKeyTokens = new Set<string>([
+	'ArrowUp',
+	'ArrowDown',
+	'ArrowLeft',
+	'ArrowRight',
+	'Backspace',
+	'BrowserBack',
+	'BrowserForward',
+	'Clear',
+	'ContextMenu',
+	'Delete',
+	'End',
+	'Enter',
+	'Escape',
+	'Help',
+	'Home',
+	'Insert',
+	'PageDown',
+	'PageUp',
+	'Pause',
+	'ScrollLock',
+	'Tab',
+	...Array.from({ length: 24 }, (_, i) => `F${i + 1}`),
+]);
+
 const readableTokens = new Map<string, string>([
 	['ArrowUp', '↑'],
 	['ArrowDown', '↓'],
@@ -49,8 +75,8 @@ export function parseChord(input: string, isMac: boolean): Chord {
 
 	const parts = input.split('+');
 
-	// A trailing/leading '+' (literal plus as the token) produces an empty part adjacent to a
-	// non-empty one; a lone '+' would split to ['', ''] and is handled by the empty-token check below.
+	// A literal '+' can't be a token: it splits to an empty last part, so a lone '+' and 'ctrl++' are
+	// both rejected here as a trailing '+'.
 	if (parts.length > 1 && parts.at(-1) === '') {
 		throw new Error(`Invalid key chord '${input}': trailing '+'`);
 	}
@@ -111,11 +137,16 @@ export function parseChord(input: string, isMac: boolean): Chord {
 	}
 
 	const matchOn: Chord['matchOn'] = codeTokenPattern.test(token) ? 'code' : 'key';
+	const isSingleChar = [...token].length === 1;
+
+	if (matchOn === 'key' && !isSingleChar && !namedKeyTokens.has(token)) {
+		throw new Error(`Invalid key chord '${input}': unknown key '${token}'`);
+	}
 
 	let resolvedShift: Chord['shift'];
 	if (matchOn === 'code') {
 		resolvedShift = shift;
-	} else if ([...token].length === 1) {
+	} else if (isSingleChar) {
 		if (shift) {
 			throw new Error(`Invalid key chord '${input}': 'shift' cannot combine with a single-character token`);
 		}

@@ -1562,7 +1562,7 @@
 	"config.graph.searchAutocompleteOnFocus.markdownDescription": "指定在 _認可圖_ 中搜索框獲得焦點時是否自動顯示搜尋自動補全建議。停用時，建議只會在你開始輸入後出現",
 	"config.graph.searchItemLimit.markdownDescription": "指定在 _認可圖_ 中搜索時要收集的結果數。使用 0 表示不設上限",
 	"config.graph.shortcuts.enabled.markdownDescription": "指定 _認可圖_ 的可自訂鍵盤快捷鍵（使用 `Ctrl`、`Alt` 或 `⌘` 的快捷鍵，例如 `Alt+M` 或 `Ctrl+↑`）是否啟用。方向鍵、`Enter` 和 `Esc` 等導航鍵始終有效。使用 `#gitlens.graph.shortcuts.overrides#` 可變更或停用單個快捷鍵",
-	"config.graph.shortcuts.overrides.markdownDescription": "指定對 _認可圖_ 鍵盤快捷鍵的變更，以快捷鍵 id 為鍵（在 _認可圖_ 中按 `?` 並懸停在某個快捷鍵上可檢視其 id——只有顯示 id 的快捷鍵才能變更）。將某個 id 設定為鍵組合、鍵組合清單，或設定為 `false` 以停用它。以 `.*` 結尾的鍵在設定為 `false` 時會停用具有該字首的所有快捷鍵（例如 `\"panels.*\": false`），而 `\"*\": false` 會停用全部；萬用字元不能用於重新繫結。鍵組合將修飾鍵（`ctrl`、`alt`、`shift`、`meta`，或表示 Ctrl 的 `mod`，macOS 上為 ⌘）用 `+` 連線在按鍵之前，例如 `\"mod+shift+ArrowUp\"`；字母和數字使用物理鍵名（`KeyA`–`KeyZ`、`Digit0`–`Digit9`），其他按鍵使用其 `KeyboardEvent.key` 值（`ArrowUp`、`Enter`、`/`）",
+	"config.graph.shortcuts.overrides.markdownDescription": "指定對 _認可圖_ 鍵盤快捷鍵的變更，以快捷鍵 id 為鍵（在 _認可圖_ 中按 `?` 並懸停在某個快捷鍵上可檢視其 id——只有顯示 id 的快捷鍵才能變更）。將某個 id 設定為鍵組合、鍵組合清單，或設定為 `false` 以停用它。以 `.*` 結尾的鍵在設定為 `false` 時會停用具有該字首的所有快捷鍵（例如 `\"panels.*\": false`），而 `\"*\": false` 會停用全部；萬用字元不能用於重新繫結。鍵組合將修飾鍵（`ctrl`、`alt`、`shift`、`meta`，或表示 Ctrl 的 `mod`，macOS 上為 ⌘）用 `+` 連線在按鍵之前，例如 `\"mod+shift+ArrowUp\"`；字母和數字使用物理鍵名（`KeyA`–`KeyZ`、`Digit0`–`Digit9`），其他按鍵使用其 `KeyboardEvent.key` 值（`ArrowUp`、`Enter`、`/`，空白鍵為 `\" \"`）。包含未知修飾鍵或鍵名的組合會被忽略，該快捷鍵保留其預設按鍵",
 	"config.graph.showGhostRefsOnRowHover.markdownDescription": "指定在 _認可圖_ 中懸停或選中某行時是否顯示幽靈分支/標籤",
 	"config.graph.showRemoteNames.markdownDescription": "指定是否在 _認可圖_ 中的遠端分支上顯示遠端名稱",
 	"config.graph.showUpstreamStatus.markdownDescription": "指定是否在 _認可圖_ 中顯示本地分支的上游狀態",
