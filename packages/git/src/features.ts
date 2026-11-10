@@ -12,6 +12,7 @@ export type GitFeatures =
 	| 'git:fsmonitor:linux'
 	| 'git:ignoreRevsFile'
 	| 'git:index:skipHash'
+	| 'git:ls-files:directory'
 	| 'git:maintenance'
 	| 'git:maintenance:pack-refs'
 	| 'git:maintenance:start'
@@ -77,6 +78,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:ignoreRevsFile', '2.23'],
 	// `index.skipHash` (skip the trailing index checksum for faster writes); part of `feature.manyFiles`.
 	['git:index:skipHash', '2.40'],
+	// `ls-files --others --directory --no-empty-directory` answers from the directory walk as reworked in 2.27;
+	// the flags themselves are older
+	['git:ls-files:directory', '2.27'],
 	// `git maintenance run --task=…`. The `maintenance` builtin + `commit-graph`/`gc` tasks are 2.29, but
 	// the loose-objects + incremental-repack tasks the auto tier uses landed in 2.30 (and `core.multiPackIndex`
 	// is default-on from 2.30, so no separate midx config write is needed) — 2.30 is the safe floor.
