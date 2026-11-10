@@ -3,6 +3,7 @@ export type GitFeatures =
 	| 'git:checkout:pathspec-from-file'
 	| 'git:commit-graph'
 	| 'git:commit-graph:changed-paths'
+	| 'git:diff:autoRefreshIndex:off'
 	| 'git:fetch:all-config'
 	| 'git:fetch:follow-remote-head'
 	| 'git:fetch:no-write-fetch-head'
@@ -60,6 +61,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// Changed-path Bloom filters (`--changed-paths`), the v2 filter format — pre-2.31 shipped Bloom filters
 	// with real correctness bugs (bad results for merge commits), so 2.31 is the safe floor to write them.
 	['git:commit-graph:changed-paths', '2.31'],
+	// From 2.46 `diff --quiet` compares contents, so with auto-refresh off a file whose timestamps moved but whose
+	// content did not still reads as unchanged; before it, such a file reads as changed.
+	['git:diff:autoRefreshIndex:off', '2.46'],
 	// A bare `fetch` reads every remote when `fetch.all` is set
 	['git:fetch:all-config', '2.44'],
 	// A fetch using a remote's configured refspecs creates its missing `refs/remotes/<remote>/HEAD`

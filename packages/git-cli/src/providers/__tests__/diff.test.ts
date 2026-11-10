@@ -11,6 +11,7 @@ const repoPath = '/test/repo';
 /** A diff provider whose `git diff` succeeds with `diffStdout` and whose untracked listing rejects with `failure` */
 function createProvider(cache: Cache, failure: Error, diffStdout = ''): DiffGitSubProvider {
 	const git = {
+		getDiffReadConfigs: () => Promise.resolve([]),
 		run: () =>
 			Promise.resolve({ stdout: diffStdout, stderr: '', exitCode: 0, completion: { status: 'exited', code: 0 } }),
 	};

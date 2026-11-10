@@ -80,7 +80,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			// A default run swallows a failure matching a git warning (not a repository, say) into empty output
 			const result = await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: options?.errors === 'throw' ? 'throw' : undefined },
+				{
+					cwd: repoPath,
+					configs: await this.git.getDiffReadConfigs(),
+					errors: options?.errors === 'throw' ? 'throw' : undefined,
+				},
 				'diff',
 				'--shortstat',
 				'--no-ext-diff',
@@ -155,7 +159,12 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		let result;
 		try {
 			result = await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: 'throw', env: options?.index?.env },
+				{
+					cwd: repoPath,
+					configs: await this.git.getDiffReadConfigs(),
+					errors: 'throw',
+					env: options?.index?.env,
+				},
 				'diff',
 				...args,
 				args.includes('--') ? undefined : '--',
@@ -243,10 +252,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			const similarityThreshold =
 				options?.similarityThreshold ?? this.context.config?.commits.similarityThreshold;
+			const diffConfigs = await this.git.getDiffReadConfigs();
 			const configs =
 				options?.renameLimit != null
-					? [...gitConfigsDiff, '-c', `diff.renameLimit=${options.renameLimit}`]
-					: gitConfigsDiff;
+					? [...diffConfigs, '-c', `diff.renameLimit=${options.renameLimit}`]
+					: diffConfigs;
 			const result = await this.git.run(
 				{ cwd: repoPath, configs: configs, errors: options?.errors === 'throw' ? 'throw' : undefined },
 				'diff',
@@ -855,7 +865,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		try {
 			return await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, encoding: options?.encoding },
+				{ cwd: repoPath, configs: await this.git.getDiffReadConfigs(), encoding: options?.encoding },
 				...params,
 				'--',
 				fileName,
