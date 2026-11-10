@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-10
+
 ### Added
 
 - Adds `getBranchReflogWork` to `utils/branch.utils.js`: from a local branch's reflog (newest first, as `refs.getReflogEntries` reads it), whether the branch has work authored on it (`'work'`), was created here and never had any (`'none'`), or can't be told (`'unknown'`: an empty or expired reflog, or a branch created from the same-named remote branch). Every entry counts as work except a move that adds none: the branch's creation, a reset or rename, a fast-forward merge or pull, a fetch, a clone, or a rebase that replayed nothing. It tells a branch whose work was fast-forward merged apart from a new one, which `getBranchMergedStatus` reports alike, as merged (git)
@@ -1218,7 +1220,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...HEAD
+[0.37.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...gitkraken:releases/core/v0.37.0
 [0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
 [0.35.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.34.0...gitkraken:releases/core/v0.35.0
 [0.34.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.33.0...gitkraken:releases/core/v0.34.0
