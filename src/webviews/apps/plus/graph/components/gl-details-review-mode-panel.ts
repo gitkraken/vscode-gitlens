@@ -1003,6 +1003,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								class="review-orient__button"
 								appearance="toolbar"
 								density="compact"
+								truncate
 								tooltip=${l10n.t(
 									'Orient: group and order the files with one line of context each — a map for your own read, not findings',
 								)}
@@ -1017,6 +1018,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								class="review-deep__button"
 								appearance="toolbar"
 								density="compact"
+								truncate
 								tooltip=${
 									this.deepReviewUnavailableReason ??
 									l10n.t(

@@ -468,6 +468,18 @@ export const reviewModePanelStyles = css`
 		gap: var(--gl-space-4);
 	}
 
+	/* The review input's footer holds the model chip plus Orient and Review in Repo: the chip keeps a
+	   floor and the buttons wrap whole (labels on one line) rather than squeezing into equal thirds. */
+	.review-action-input > gl-ai-model-chip {
+		flex: 1 1 10rem;
+	}
+
+	.review-action-input > gl-button[slot='footer'] {
+		flex: none;
+		max-width: 100%;
+		white-space: nowrap;
+	}
+
 	.review-orient__error {
 		padding: var(--gl-space-4) var(--gl-space-8);
 		font-size: var(--gl-font-sm);

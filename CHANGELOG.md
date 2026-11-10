@@ -92,6 +92,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes screen readers announcing popover panels with controls, such as the _Commit Graph_'s account and _Launchpad_ panels, as tooltips &mdash; they're now announced as named dialogs you can Tab into
 - Fixes screen readers not announcing copy buttons by a stable name or what a copy did &mdash; they now announce "Copied!" or why a copy failed
 - Fixes the _Commit Graph_'s scope popover and other tall popovers running past the edge of a narrow or short view
+- Fixes the AI instructions box in the _Commit Graph_'s _Review Changes_ and _Compose_ modes and the _Explain_ inputs shrinking to a sliver in a narrow view &mdash; the submit button now moves below the box, and _Orient_ and _Review in Repo_ wrap instead of overlapping ([#6168](https://github.com/gitkraken/vscode-gitlens/issues/6168))
 - Fixes theme colors across GitLens webviews and the _Commit Graph_ ([#5400](https://github.com/gitkraken/vscode-gitlens/issues/5400))
   - Fixes buttons, action icons, chips, breadcrumbs and search result navigation showing no hover feedback in high contrast themes, including across the _Commit Graph_ and the icon buttons in _GitLens Settings_
   - Fixes the selected suggestion in autocomplete dropdowns (e.g. the _Commit Graph_ search) being invisible in high contrast themes

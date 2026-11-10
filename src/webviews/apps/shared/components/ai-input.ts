@@ -41,11 +41,14 @@ export class GlAiInput extends LitElement {
 				background var(--gl-duration-x-slow);
 		}
 
-		/* The textarea/input + action button row, sitting inside the unified panel (the host). */
+		/* The textarea/input + action button row, sitting inside the unified panel (the host).
+   Wraps so a narrow panel drops the button below the input instead of crushing the input —
+   driven by the input's flex-basis and the button's real (localized) width, not a breakpoint. */
 		.ai-input__row {
 			position: relative;
 			z-index: 1;
 			display: flex;
+			flex-wrap: wrap;
 			align-items: stretch;
 			min-width: 0;
 		}
@@ -73,6 +76,8 @@ export class GlAiInput extends LitElement {
 		.ai-input__footer slot {
 			display: flex;
 			flex: 1;
+			flex-wrap: wrap;
+			row-gap: var(--gl-space-2);
 			min-width: 0;
 		}
 
@@ -169,10 +174,10 @@ export class GlAiInput extends LitElement {
 			}
 		}
 
+		/* 12rem is the narrowest the input shares a line with the button; below it the button wraps. */
 		input,
 		textarea {
-			flex: 1;
-			width: 0;
+			flex: 1 1 12rem;
 			min-width: 0;
 			max-width: none;
 			padding: 0.4rem 0.7rem;
@@ -245,8 +250,12 @@ export class GlAiInput extends LitElement {
 			gap: 0.5rem;
 			align-items: center;
 			align-self: center;
+			min-width: 0;
+			max-width: calc(100% - 0.3rem);
 			padding: 0.3rem 1rem 0.3rem 0.8rem;
 			margin: 0.3rem;
+			/* Right-aligns the pill once it wraps under the input; inert while they share a line. */
+			margin-inline-start: auto;
 			font-family: inherit;
 			font-size: var(--vscode-font-size);
 			font-weight: 500;
@@ -398,7 +407,11 @@ export class GlAiInput extends LitElement {
 			transform: translateX(100%);
 		}
 
+		/* Safety valve for a localized label wider than the whole input. */
 		.action-label {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			line-height: 1;
 		}
 
