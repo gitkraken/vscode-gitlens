@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-11-10
+
 ### Fixed
 
 - Fixes GitHub/GHE pull request text searches for exactly open and merged matches filling their ten-result limit with open pull requests before considering merged ones. This combination now selects and combines matches newest-created first, overriding unquoted `sort:` qualifiers in the search text. Other state combinations and the filtered, paged search keep their existing behavior ([#5980](https://github.com/gitkraken/vscode-gitlens/issues/5980)) (plus/git-github)
@@ -1224,7 +1226,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...HEAD
+[0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
 [0.37.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...gitkraken:releases/core/v0.37.0
 [0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
 [0.35.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.34.0...gitkraken:releases/core/v0.35.0
