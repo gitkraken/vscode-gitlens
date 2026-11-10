@@ -401,7 +401,14 @@ suite('MaintenanceSubProvider', () => {
 			addCommit(splitRepo.path, 'b.txt', 'b', 'add b');
 			execFileSync('git', ['update-index', '--split-index'], { cwd: splitRepo.path, stdio: 'pipe' });
 			writeFileSync(join(splitRepo.path, 'c.txt'), 'c');
-			execFileSync('git', ['add', 'c.txt'], { cwd: splitRepo.path, stdio: 'pipe' });
+			// Without this, whether the mutable layer keeps entries depends on the clock: within the same
+			// second git keeps racily-clean entries there, but once a second boundary passes (a slow CI
+			// runner) the default 20% threshold folds everything into a new shared index and the layer is
+			// empty. Passed per-command so `core.splitIndex`/`splitIndex.*` stay unset in the repo config.
+			execFileSync('git', ['-c', 'splitIndex.maxPercentChange=100', 'add', 'c.txt'], {
+				cwd: splitRepo.path,
+				stdio: 'pipe',
+			});
 
 			assert.strictEqual(localConfig(splitRepo.path, 'core.splitIndex'), undefined, 'config hint is unset');
 			assert.ok(rawIndexEntryCount(splitRepo.path) > 0, 'raw mutable-layer header has an entry count');
