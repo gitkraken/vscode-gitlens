@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import {
+	createWorkingTreeNoiseFilter,
 	dotGitGlobCombined,
 	dotGitGlobCommon,
 	dotGitGlobRoot,
@@ -28,25 +29,105 @@ describe('shouldIgnoreRepoPath', () => {
 });
 
 describe('shouldIgnoreWorkingTreePath', () => {
-	it('rejects node_modules paths', () => {
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/node_modules/foo'), true);
+	it('rejects node_modules at any depth', () => {
+		assert.strictEqual(shouldIgnoreWorkingTreePath('node_modules'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('node_modules/foo'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('packages/a/node_modules/foo'), true);
 	});
 
-	it('rejects .git paths', () => {
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/.git/HEAD'), true);
-	});
-
-	it('rejects .git/index.lock', () => {
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/.git/index.lock'), true);
+	it('rejects .git paths, including nested repositories', () => {
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.git'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.git/HEAD'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.git/index.lock'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('vendor/lib/.git/HEAD'), true);
 	});
 
 	it('rejects .watchman-cookie paths', () => {
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/.watchman-cookie-abc'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.watchman-cookie-abc'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('src/.watchman-cookie-abc-1'), true);
+	});
+
+	it('rejects the same paths spelled with Windows separators', () => {
+		assert.strictEqual(shouldIgnoreWorkingTreePath('packages\\a\\node_modules\\foo'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('vendor\\lib\\.git\\HEAD'), true);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('src\\.watchman-cookie-abc'), true);
 	});
 
 	it('accepts normal working tree paths', () => {
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/src/index.ts'), false);
-		assert.strictEqual(shouldIgnoreWorkingTreePath('/repo/package.json'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('src/index.ts'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('package.json'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath(''), false);
+	});
+
+	it('accepts a segment that only contains or ends in the noisy name', () => {
+		assert.strictEqual(shouldIgnoreWorkingTreePath('fixtures/repo.git/HEAD'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('my.github.io/x'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('foo.git'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.github/workflows/ci.yml'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('.gitignore'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('src/my_node_modules/x'), false);
+		assert.strictEqual(shouldIgnoreWorkingTreePath('src/node_modules_backup/x'), false);
+	});
+});
+
+describe('createWorkingTreeNoiseFilter', () => {
+	it('judges only the part of the path inside the repository root', () => {
+		const ignored = createWorkingTreeNoiseFilter('/repo');
+		assert.strictEqual(ignored('/repo/node_modules/foo'), true);
+		assert.strictEqual(ignored('/repo/.git/HEAD'), true);
+		assert.strictEqual(ignored('/repo/.git/index.lock'), true);
+		assert.strictEqual(ignored('/repo/.watchman-cookie-abc'), true);
+		assert.strictEqual(ignored('/repo/src/index.ts'), false);
+		assert.strictEqual(ignored('/repo/fixtures/repo.git/HEAD'), false);
+	});
+
+	it('ignores segments above the root', () => {
+		const underBareLayout = createWorkingTreeNoiseFilter('/home/u/src/app.git/feature');
+		assert.strictEqual(underBareLayout('/home/u/src/app.git/feature/src/a.ts'), false);
+		assert.strictEqual(underBareLayout('/home/u/src/app.git/feature/node_modules/x'), true);
+		assert.strictEqual(underBareLayout('/home/u/src/app.git/feature/.git/HEAD'), true);
+
+		const underNodeModules = createWorkingTreeNoiseFilter('/x/node_modules/pkg/repo');
+		assert.strictEqual(underNodeModules('/x/node_modules/pkg/repo/src/a.ts'), false);
+		assert.strictEqual(underNodeModules('/x/node_modules/pkg/repo/node_modules/y'), true);
+
+		const underDotGit = createWorkingTreeNoiseFilter('/x/.git/worktrees-live/repo');
+		assert.strictEqual(underDotGit('/x/.git/worktrees-live/repo/src/a.ts'), false);
+	});
+
+	it('does not match a sibling that merely shares the root as a prefix', () => {
+		const ignored = createWorkingTreeNoiseFilter('/repo');
+		// Not under the root, so the whole path is judged
+		assert.strictEqual(ignored('/repo2/src/a.ts'), false);
+		assert.strictEqual(ignored('/repo2/node_modules/a'), true);
+	});
+
+	it('keeps an event on the root itself', () => {
+		assert.strictEqual(createWorkingTreeNoiseFilter('/x/node_modules/pkg/repo')('/x/node_modules/pkg/repo'), false);
+	});
+
+	it('judges the whole path when it is not under the root', () => {
+		const ignored = createWorkingTreeNoiseFilter('/repo');
+		assert.strictEqual(ignored('/elsewhere/node_modules/a'), true);
+		assert.strictEqual(ignored('/elsewhere/a.ts'), false);
+	});
+
+	it('handles Windows separators in the event path and the root', () => {
+		const ignored = createWorkingTreeNoiseFilter('/repo');
+		assert.strictEqual(ignored('\\repo\\node_modules\\foo'), true);
+		assert.strictEqual(ignored('\\repo\\src\\a.ts'), false);
+
+		const windowsRoot = createWorkingTreeNoiseFilter('c:\\x\\app.git\\feature');
+		assert.strictEqual(windowsRoot('c:\\x\\app.git\\feature\\src\\a.ts'), false);
+		assert.strictEqual(windowsRoot('c:\\x\\app.git\\feature\\.git\\HEAD'), true);
+	});
+
+	it('is reusable across calls with the same answers', () => {
+		const ignored = createWorkingTreeNoiseFilter('/repo');
+		for (let i = 0; i < 3; i++) {
+			assert.strictEqual(ignored('/repo/src/a.ts'), false);
+			assert.strictEqual(ignored('/repo/node_modules/a'), true);
+		}
 	});
 });
 

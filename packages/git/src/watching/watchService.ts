@@ -16,7 +16,7 @@ import type {
 	FileWatchEvent,
 	FileWatchingProvider,
 } from './provider.js';
-import { shouldIgnoreWorkingTreePath, workingTreeExcludes } from './watcherPatterns.js';
+import { createWorkingTreeNoiseFilter, workingTreeExcludes } from './watcherPatterns.js';
 import type { WatchGroupHooks } from './watchGroup.js';
 import { WatchGroup } from './watchGroup.js';
 import { RepositoryWatchSession } from './watchSession.js';
@@ -714,6 +714,9 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			session.pushUnfencedRepoChanges(['ignores']);
 		};
 
+		// Compiled once per watcher: the check runs on every raw event, ahead of anything else
+		const isNoise = createWorkingTreeNoiseFilter(repoPath);
+
 		const onEvent = (event: FileWatchEvent): void => {
 			// Dropped events: nothing to filter or buffer, the whole tree needs a re-read. A `.gitignore` edit may be
 			// among them, and a filter left on the old rules would keep dropping changes they used to ignore
@@ -723,8 +726,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				return;
 			}
 
-			// Fast noise check (node_modules, .git, .watchman-cookie-)
-			if (shouldIgnoreWorkingTreePath(event.path)) return;
+			// Fast noise check (node_modules, .git, .watchman-cookie-) of the part of the path inside the repository
+			if (isNoise(event.path)) return;
 
 			// Detect .gitignore changes (nested ones too, unless git skips them for sitting in an ignored directory).
 			// The root .gitignore is only an ignore change; a nested one is also an ordinary working-tree change.

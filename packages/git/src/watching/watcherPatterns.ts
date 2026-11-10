@@ -1,4 +1,6 @@
-import { isAbsolute } from '@gitlens/utils/path.js';
+import { getBestPath, isAbsolute } from '@gitlens/utils/path.js';
+import { isLinux } from '@gitlens/utils/platform.js';
+import { escapeRegex } from '@gitlens/utils/string.js';
 import type { GitDirProbe } from './gitDirPoller.js';
 
 // Glob patterns for watching files inside the .git directory.
@@ -210,13 +212,46 @@ export function shouldIgnoreRepoPath(relativePath: string): boolean {
 	return ignoredRepoPathRegex.test(relativePath);
 }
 
-const ignoredWorkingTreePathRegex =
-	/(?:(?:\/|\\)node_modules(?:\/|\\|$)|\.git(?:\/index\.lock)?(?:\/|\\|$)|\.watchman-cookie-)/;
+// Anchored to a whole path segment (the lookbehind accepts the start or a separator, which also lets a scan begin
+// mid-string at the first segment after a root), so `repo.git/` or `my_node_modules/` don't match. Global so
+// `lastIndex` can start the scan past the root.
+const ignoredWorkingTreePathRegex = /(?<![^\\/])(?:(?:node_modules|\.git)(?:[\\/]|$)|\.watchman-cookie-)/g;
+
+function isIgnoredWorkingTreePathFrom(path: string, from: number): boolean {
+	ignoredWorkingTreePathRegex.lastIndex = from;
+	return ignoredWorkingTreePathRegex.test(path);
+}
 
 /**
- * Returns true if the working tree path should be ignored
- * (node_modules, .git internals, watchman cookies).
+ * Returns true if the working tree path, relative to the repository root, should be ignored
+ * (node_modules, .git internals, watchman cookies). Only whole segments match.
  */
-export function shouldIgnoreWorkingTreePath(absolutePath: string): boolean {
-	return ignoredWorkingTreePathRegex.test(absolutePath);
+export function shouldIgnoreWorkingTreePath(relativePath: string): boolean {
+	return isIgnoredWorkingTreePathFrom(relativePath, 0);
+}
+
+/**
+ * Creates the per-event noise check for a working-tree watcher. It judges only the part of an absolute event path
+ * inside `repoPath`, so folders above the root (`app.git/feature`, a `node_modules` ancestor) never count. The root is
+ * compiled once here, so an event costs one anchored match and a scan of its tail, with no path normalization. The
+ * match is tolerant of either separator and, off Linux, of case, as `isDescendant` is.
+ *
+ * A path not under the root is judged whole.
+ */
+export function createWorkingTreeNoiseFilter(repoPath: string): (absoluteEventPath: string) => boolean {
+	const root = getBestPath(repoPath);
+	const source = root.split('/').map(escapeRegex).join('[\\\\/]');
+	// Sticky: the match must start at `lastIndex` (0), so it is a prefix test with no scan
+	const rootRegex = new RegExp(
+		`${root.startsWith('/') ? '' : '[\\\\/]?'}${source}(?:[\\\\/]|$)`,
+		isLinux ? 'y' : 'iy',
+	);
+
+	return (absoluteEventPath: string): boolean => {
+		rootRegex.lastIndex = 0;
+		return isIgnoredWorkingTreePathFrom(
+			absoluteEventPath,
+			rootRegex.test(absoluteEventPath) ? rootRegex.lastIndex : 0,
+		);
+	};
 }
