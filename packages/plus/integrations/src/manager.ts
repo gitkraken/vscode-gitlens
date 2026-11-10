@@ -508,11 +508,14 @@ export interface IntegrationManager {
 	 * 11 seconds its gateway gives up with a 502/504. So a page holds at most 20 pull requests across all its facets
 	 * in the full shape and 100 in the `summary` shape, split evenly across the active facets (a 3-facet full search
 	 * gets 6 per facet), and `itemsPerPage` can only lower a facet's share. When the gateway gives up anyway, the
-	 * page is asked for once more at half its size and the rest of the walk keeps that size; a page that still fails
-	 * fails the read (warning + `fetchFailed`), after two attempts rather than three identical ones. A smaller page is
-	 * not a failure and carries no warning: it reports its real size in `page.itemsPerPage`, and its `cursor` resumes
-	 * every facet exactly after the last row it served, so walking on neither skips nor repeats a pull request.
-	 * Never read a page shorter than requested as the last one; only `hasMore`/`cursor` say that.
+	 * page is asked for once more at half its size (unchanged once it is one row per facet) and the rest of the walk
+	 * keeps that size; if that fails at the gateway too, the read fails (warning + `fetchFailed`) rather than asking
+	 * a third time. Other transient failures (503, a network failure) are retried unchanged, as on any read. A smaller
+	 * page is not a failure and carries no warning: it reports its real size in
+	 * `page.itemsPerPage`, and its `cursor` resumes every facet exactly after the last row it served, so no facet
+	 * skips or repeats a row. Never read a page shorter than requested as the last one; only `hasMore`/`cursor` say
+	 * that. As on every page of this search, a pull request two facets share (authored AND assigned, say) can come back
+	 * on two different pages, once per facet; dedupe across pages by `url`.
 	 *
 	 * **Azure DevOps Server** differs in how it gets there, because its pull request API can't filter by text, date or
 	 * draft: the first page drains every facet (up to 1,000 rows each) and later pages are served from that drain,
@@ -581,6 +584,12 @@ export interface IntegrationManager {
 		 * rate-limit request per row.
 		 */
 		mergeQueue?: boolean;
+		/**
+		 * Aborts the read: the request in flight, a retry waiting to be sent, and any page a page-number walk still
+		 * has to read. The read then rejects with a `CancellationError` instead of resolving, so a cancelled read is
+		 * never mistaken for a failed or an empty one.
+		 */
+		cancellation?: AbortSignal;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
 		state?: IssueStateFilter;

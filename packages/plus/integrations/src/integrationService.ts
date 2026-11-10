@@ -1252,6 +1252,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		summary?: boolean;
 		/** See {@link IntegrationManager.searchPullRequestsPage}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		cancellation?: AbortSignal;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return searchPullRequestsPage(this, options);
 	}
