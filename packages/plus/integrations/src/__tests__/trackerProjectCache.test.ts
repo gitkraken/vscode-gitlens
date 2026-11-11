@@ -942,6 +942,61 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('an autolink read after a forced refresh does not join a rebuild started before it (#6170)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA exists, waits on the project list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+			state.projectsGate = undefined;
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+
+			// The drop every forced refresh begins with, while the earlier rebuild is still pending.
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await flush();
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+
+			service.dispose();
+		});
+
+		test('a rebuild started before a forced refresh does not retire the one started after it (#6170)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			integration.invalidateDiscoveryCaches();
+			let reads = state.projectReads;
+			let releaseEarlier!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+
+			let releaseLater!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 2, 'the later render read the projects');
+
+			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
+			releaseEarlier();
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			reads = state.projectReads;
+			const joined = prefixesOf(integration);
+			await flush();
+			assert.equal(state.projectReads, reads, 'the render joined the later rebuild');
+			releaseLater();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(await joined, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
 		test('a deleted project reads as empty instead of failing the provider', async () => {
 			const { service, state, read } = await jiraCloud();
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
@@ -1572,6 +1627,77 @@ suite('Tracker project cache (#5907)', () => {
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the expired set, without waiting');
 			await flush();
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
+		test('concurrent autolink reads share one rebuild', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.teamReads;
+
+			const all = await Promise.all([prefixesOf(integration), prefixesOf(integration), prefixesOf(integration)]);
+			assert.deepEqual(all, [
+				['ALPHA-', 'ALPHA_'],
+				['ALPHA-', 'ALPHA_'],
+				['ALPHA-', 'ALPHA_'],
+			]);
+			assert.equal(state.teamReads, reads + 1);
+
+			service.dispose();
+		});
+
+		test('an autolink read after a forced refresh does not join a rebuild started before it (#6170)', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA exists, waits on the team list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
+			state.teamsGate = undefined;
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+
+			// The drop every forced refresh begins with, while the earlier rebuild is still pending.
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await flush();
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+
+			service.dispose();
+		});
+
+		test('a rebuild started before a forced refresh does not retire the one started after it (#6170)', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			let reads = state.teamReads;
+			let releaseEarlier!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
+
+			let releaseLater!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 2, 'the later render read the teams');
+
+			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
+			releaseEarlier();
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			reads = state.teamReads;
+			const joined = prefixesOf(integration);
+			await flush();
+			assert.equal(state.teamReads, reads, 'the render joined the later rebuild');
+			releaseLater();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(await joined, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
 
 			service.dispose();
 		});

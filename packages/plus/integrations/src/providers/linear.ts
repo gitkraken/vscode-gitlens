@@ -129,14 +129,22 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return cached.autolinks;
 	}
 
-	/** One build per token at a time: concurrent renders share it rather than each re-reading the teams. */
+	/**
+	 * One build per token at a time: concurrent renders share it rather than each re-reading the teams. A drop retires
+	 * it, so a render after a forced refresh doesn't join a build reading the teams as they were before (#6170).
+	 */
 	private buildAutolinks(
 		session: ProviderAuthenticationSession,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
-			build = this.buildAutolinksCore(session).finally(() => this._autolinksBuilds.delete(accessToken));
+			build = this.buildAutolinksCore(session).finally(() => {
+				// A drop meanwhile retired this build, and the entry may be a later one's now.
+				if (this._autolinksBuilds.get(accessToken) === build) {
+					this._autolinksBuilds.delete(accessToken);
+				}
+			});
 			this._autolinksBuilds.set(accessToken, build);
 		}
 		return build;
@@ -427,6 +435,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		this._workspaceProjects.clear();
 		this._workspaceProjectsReads.clear();
 		this._autolinks.clear();
+		this._autolinksBuilds.clear();
 		this._recentAccounts.clear();
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
