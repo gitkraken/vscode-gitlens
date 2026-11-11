@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Linear autolinks keeping an incomplete team list cached instead of retrying discovery on the next render ([#6177](https://github.com/gitkraken/vscode-gitlens/issues/6177)) (plus/integrations)
+
 ## [0.37.1] - 2026-11-10
 
 ### Fixed
