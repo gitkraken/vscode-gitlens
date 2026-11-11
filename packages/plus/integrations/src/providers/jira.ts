@@ -115,14 +115,22 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return cached.autolinks;
 	}
 
-	/** One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. */
+	/**
+	 * One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. A drop
+	 * retires it, so a render after a forced refresh doesn't join a build reading the lists as they were before (#6170).
+	 */
 	private buildAutolinks(
 		session: ProviderAuthenticationSession,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
-			build = this.buildAutolinksCore(session).finally(() => this._autolinksBuilds.delete(accessToken));
+			build = this.buildAutolinksCore(session).finally(() => {
+				// A drop meanwhile retired this build, and the entry may be a later one's now.
+				if (this._autolinksBuilds.get(accessToken) === build) {
+					this._autolinksBuilds.delete(accessToken);
+				}
+			});
 			this._autolinksBuilds.set(accessToken, build);
 		}
 		return build;
@@ -828,6 +836,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		this._organizations.clear();
 		this._projects.clear();
 		this._autolinks.clear();
+		this._autolinksBuilds.clear();
 	}
 
 	protected override providerOnDisconnect(): void {
