@@ -186,7 +186,10 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 	service.watchService?.onDidChangeRepository(e => {
 		const changes = e.getUnannouncedChanges();
 		if (changes.length) {
-			provider.cache.onRepositoryChanged(e.repoPath, changes, { movedWorktrees: e.movedWorktrees });
+			provider.cache.onRepositoryChanged(e.repoPath, changes, {
+				movedWorktrees: e.movedWorktrees,
+				observedAt: e.observedAt,
+			});
 		}
 	});
 	// FETCH_HEAD maps to no session change, and there's no `Repository` model here to force-fire `lastFetched` (as

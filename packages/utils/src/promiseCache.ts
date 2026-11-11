@@ -748,6 +748,14 @@ export class RepoPromiseCacheMap<K, V> {
 	}
 
 	/**
+	 * Whether any entry is kept for `repoPath`, settled or in flight. Right after `invalidate(repoPath)`, only an entry
+	 * in flight is, which a new caller still joins.
+	 */
+	has(repoPath: string): boolean {
+		return (this.cache.get(repoPath)?.size ?? 0) > 0;
+	}
+
+	/**
 	 * Drops `repoPath`'s cache once it holds nothing, so a removed worktree leaves no cache behind. One that still holds
 	 * an in-flight entry `invalidate` only marked stays, so a new caller still joins that entry.
 	 */

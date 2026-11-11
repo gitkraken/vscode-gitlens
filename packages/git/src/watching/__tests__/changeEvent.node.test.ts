@@ -207,6 +207,28 @@ describe('WatcherRepoChangeEvent', () => {
 		});
 	});
 
+	describe('observedAt', () => {
+		it('is unknown unless given', () => {
+			assert.strictEqual(new WatcherRepoChangeEvent('/repo', ['heads']).observedAt, undefined);
+			assert.strictEqual(
+				new WatcherRepoChangeEvent('/repo', ['heads'], undefined, undefined, undefined, 7).observedAt,
+				7,
+			);
+		});
+
+		it('with() takes the newer of both stamps, and a side without one leaves the result without one', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads'], undefined, undefined, undefined, 7);
+
+			assert.strictEqual(e.with(['tags'], undefined, undefined, 9).observedAt, 9);
+			assert.strictEqual(e.with(['tags'], undefined, undefined, 3).observedAt, 7);
+			assert.strictEqual(e.with(['tags']).observedAt, undefined);
+			assert.strictEqual(
+				new WatcherRepoChangeEvent('/repo', ['heads']).with(['tags'], undefined, undefined, 9).observedAt,
+				undefined,
+			);
+		});
+	});
+
 	describe('toString()', () => {
 		it('includes repoPath and changes by default', () => {
 			const e = new WatcherRepoChangeEvent('/repo', ['head']);
