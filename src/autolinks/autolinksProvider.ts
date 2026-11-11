@@ -92,12 +92,9 @@ function getIssueStatusDescription(issue: IssueOrPullRequest, link?: string): st
 export class AutolinksProvider implements Disposable {
 	private _disposable: Disposable | undefined;
 	private _references: GlCacheableAutolinkReference[] = [];
-	private _refsetCache = new PromiseCache<string | undefined, RefSet[]>({ accessTTL: 1000 * 60 * 60 });
-	// Caches enriched autolinks keyed by commit message (or joined messages) — despite the name, this is not
-	// inflight-only: settled entries are retained until evicted. Bounded here because keys can be large (the
-	// compare-range path joins every message in the range into a single key) and unbounded growth was retaining
-	// one entry per unique viewed message for the life of the session.
-	private _enrichedAutolinksCache = new PromiseCache<string, Map<string, EnrichedAutolink> | undefined>({
+	// Keyed by the remote and the autolinks enriched, not the message: a tracker's autolinks change under the same
+	// message (#6183). Bounded, since settled entries are kept until evicted.
+	private _enrichedAutolinksCache = new PromiseCache<string, Map<string, EnrichedAutolink>>({
 		createTTL: 1000 * 60 * 30, // 30 minutes
 		capacity: 50,
 	});
@@ -120,20 +117,17 @@ export class AutolinksProvider implements Disposable {
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
 			this.setAutolinksFromConfig();
-			this._refsetCache.clear();
 			this._enrichedAutolinksCache.clear();
 		}
 	}
 
 	private onIntegrationsChanged() {
-		this._refsetCache.clear();
 		this._enrichedAutolinksCache.clear();
 	}
 
 	/** Resource usage retained by autolink caches and configuration. */
 	getResourceUsage(): ResourceUsage {
 		return {
-			'refsets.entries.count': this._refsetCache.size,
 			'enriched.entries.count': this._enrichedAutolinksCache.size,
 			'configured.references.count': this._references.length,
 		};
@@ -209,16 +203,18 @@ export class AutolinksProvider implements Disposable {
 		}
 	}
 
-	private async getRefSets(remote?: GitRemote, forBranch?: boolean) {
-		return this._refsetCache.getOrCreate(`${remote?.remoteKey}${forBranch ? ':branch' : ''}`, async () => {
-			const refsets: RefSet[] = [];
+	/**
+	 * Not cached: Jira and Linear own their autolinks' freshness (expiry, forced-refresh drops, missing-project
+	 * evictions, retrying incomplete sets), so a cache here would serve a set they already replaced (#6183).
+	 */
+	private async getRefSets(remote?: GitRemote, forBranch?: boolean): Promise<RefSet[]> {
+		const refsets: RefSet[] = [];
 
-			await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);
-			this.collectRemoteAutolinks(remote, refsets, forBranch);
-			this.collectCustomAutolinks(refsets);
+		await this.collectIntegrationAutolinks(forBranch ? undefined : remote, refsets);
+		this.collectRemoteAutolinks(remote, refsets, forBranch);
+		this.collectCustomAutolinks(refsets);
 
-			return refsets;
-		});
+		return refsets;
 	}
 
 	/** @returns A sorted list of autolinks. the first match is the most relevant */
@@ -258,23 +254,41 @@ export class AutolinksProvider implements Disposable {
 			remote: remote?.remoteKey,
 		}),
 	})
-	getEnrichedAutolinks(
+	async getEnrichedAutolinks(
 		messageOrAutolinks: string | Map<string, Autolink>,
 		remote: GitRemote | undefined,
 		options?: { cached?: boolean },
 	): Promise<Map<string, EnrichedAutolink> | undefined> {
-		const remoteKey = remote?.remoteKey ?? '';
-		const key =
+		const autolinks =
 			typeof messageOrAutolinks === 'string'
-				? `m:${remoteKey}:${messageOrAutolinks}`
-				: `a:${remoteKey}:${[...messageOrAutolinks.keys()].sort().join('|')}`;
-		if (options?.cached) {
-			return this._enrichedAutolinksCache.get(key) ?? Promise.resolve(undefined);
-		}
+				? await this.getAutolinks(messageOrAutolinks, remote)
+				: messageOrAutolinks;
+		if (!autolinks.size) return undefined;
+
+		// Every field the cached links render or are looked up with; their descriptor and domain follow from the url
+		// and the remote. Neither the id (`PROJ-2` and `NEW-2` both parse to `2`) nor the url (`#12` and `gh-12` share
+		// one) tells two links apart on its own
+		const links = Array.from(autolinks, ([id, link]) =>
+			JSON.stringify([
+				id,
+				link.provider?.id,
+				link.prefix,
+				link.url,
+				link.type,
+				link.alphanumeric,
+				link.ignoreCase,
+				link.title,
+				link.description,
+			]),
+		);
+		const key = `${remote?.remoteKey ?? ''}:${links.sort().join(',')}`;
+		// A peek never starts an issue lookup; parsing a message above waits on a tracker's discovery build only while it
+		// holds no set for its token (first use, or after a forced refresh, an eviction or a project or team list change)
+		if (options?.cached) return this._enrichedAutolinksCache.get(key);
 
 		// Trace-gated (noisy — fires on every cache miss): tracks retained cache state over time — entry count
 		// (pinned at capacity means evictions are active) and total retained key bytes, since keys can be large
-		// (compare ranges join every message into one key).
+		// (compare ranges enrich every link in the range as one set).
 		if (Logger.enabled('trace')) {
 			let keyBytes = 0;
 			for (const cachedKey of this._enrichedAutolinksCache.keys()) {
@@ -289,22 +303,17 @@ export class AutolinksProvider implements Disposable {
 		const failures: Promise<boolean>[] = [];
 		return this._enrichedAutolinksCache.getOrCreate(
 			key,
-			() => this.enrichAutolinksCore(messageOrAutolinks, remote, failures),
+			() => this.enrichAutolinksCore(autolinks, remote, failures),
 			// A failed lookup resolves to `undefined` for callers, but must not be retained as the answer
 			{ evictWhen: async () => (await Promise.all(failures)).some(Boolean) },
 		);
 	}
 
 	private async enrichAutolinksCore(
-		messageOrAutolinks: string | Map<string, Autolink>,
+		autolinks: Map<string, Autolink>,
 		remote: GitRemote | undefined,
 		failures: Promise<boolean>[],
-	): Promise<Map<string, EnrichedAutolink> | undefined> {
-		if (typeof messageOrAutolinks === 'string') {
-			messageOrAutolinks = await this.getAutolinks(messageOrAutolinks, remote);
-		}
-		if (!messageOrAutolinks.size) return undefined;
-
+	): Promise<Map<string, EnrichedAutolink>> {
 		let integration = remote != null ? await getRemoteIntegration(remote) : undefined;
 		if (integration != null) {
 			const connected = integration.maybeConnected ?? (await integration.isConnected());
@@ -314,7 +323,7 @@ export class AutolinksProvider implements Disposable {
 		}
 
 		const enrichedAutolinks = new Map<string, EnrichedAutolink>();
-		for (const [id, link] of messageOrAutolinks) {
+		for (const [id, link] of autolinks) {
 			let integrationId: IntegrationIds | undefined;
 			let linkIntegration: Integration | undefined;
 			if (link.provider != null) {
