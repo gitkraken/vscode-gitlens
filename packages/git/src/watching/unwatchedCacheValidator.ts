@@ -78,6 +78,14 @@ const maxTargets = 512;
  * {@link maxTargets}, as a target dropped for them would clear the shared entries again
  */
 const maxSiblingBaselines = 64;
+/**
+ * Linked worktrees' first baselines one validation clears only their own entries for, when the common git dir vouches
+ * for each one's HEAD; past it, they clear the shared entries too, once. Clearing the shared entries costs a ref listing,
+ * a default branch read and the reader's current branch, and that listing seeds every worktree's current branch again;
+ * clearing a worktree's own entries costs it a read of its own current branch. So past a few worktrees, one clear of the
+ * shared entries is the cheaper
+ */
+const maxOwnBaselines = 3;
 /** Polls one validation runs to take the baselines of the directories it finds; the next validation resumes from there */
 const maxDiscoveryPolls = 16;
 /**
@@ -167,6 +175,11 @@ interface ValidationResult {
 	readonly changes: ReadonlySet<RepositoryChange>;
 	/** With a `'worktreeHead'` among `changes`, the admin ids of the linked worktrees whose HEAD moved; `undefined` when any may have */
 	readonly movedWorktrees: ReadonlySet<string> | undefined;
+	/**
+	 * Read without a baseline (a first validation, or one after a failure or a reset dropped it), so `changes` is all its
+	 * git dir can report rather than what moved
+	 */
+	readonly noBaseline: boolean;
 }
 
 /** Something reads wait for, at most until their timeout */
@@ -197,7 +210,8 @@ interface ResolutionState extends Waitable {
  * files a watcher would have reported (see {@link UnwatchedCacheValidatorOptions.stat}) and applies what moved to the
  * cache as a watcher event would have. Both a worktree's own git dir and the common one are validated while that
  * worktree is unwatched; while another worktree's watcher covers the common one, what moved there clears only the
- * unwatched worktrees' own entries. A repository whose git dir nothing resolved yet is validated once
+ * unwatched worktrees' own entries, but for a linked worktree's HEAD moving, which is applied as that worktree's own
+ * report would be (see {@link apply}). A repository whose git dir nothing resolved yet is validated once
  * {@link UnwatchedCacheValidatorOptions.resolveGitDir} resolves one; a repository whose files can't show it is looked at
  * again rarely, and one whose resolution failed within the validation window. A read waits at most
  * {@link UnwatchedCacheValidatorOptions.timeoutMs} for a validation (and a resolution before it); one that outlasts it
@@ -226,10 +240,13 @@ export class UnwatchedCacheValidator {
 	private readonly resolutions = new Map<string, ResolutionState>();
 	/** The validation {@link onWatched} ran as a watcher attached, by repo path, which reads wait for while it runs */
 	private readonly handoffs = new Map<string, Promise<void>>();
-	/** By the repo path of a watched worktree, what moved in its common git dir that its watcher was left to clear */
+	/**
+	 * By the repo path of a watched worktree, what moved in its common git dir that its watcher was left to clear, and
+	 * whether its own HEAD's move, which the common git dir saw, was left to it to report (see {@link applyMovedHeads})
+	 */
 	private readonly deferred = new Map<
 		string,
-		{ readonly commonPath: string; readonly changes: Set<RepositoryChange> }
+		{ readonly commonPath: string; readonly changes: Set<RepositoryChange>; headMoved: boolean }
 	>();
 
 	constructor(options: UnwatchedCacheValidatorOptions) {
@@ -320,19 +337,27 @@ export class UnwatchedCacheValidator {
 
 	/**
 	 * A watcher left `repoPath`, dropping what it held back unreported. What moved in its common git dir that an
-	 * unwatched sibling's validation left to it is applied now, since that validation took the shared baseline past it;
-	 * whatever else it dropped is still ahead of its own baselines.
+	 * unwatched sibling's validation left to it is applied now, since that validation took the shared baseline past it,
+	 * and so is its own HEAD's move that the common git dir saw, as its watcher would have reported it; whatever else it
+	 * dropped is still ahead of its own baselines.
 	 */
 	onUnwatched(repoPath: string): void {
 		const deferred = this.deferred.get(repoPath);
 		if (deferred == null) return;
 
 		this.deferred.delete(repoPath);
-		// To the common path, which keys the shared entries, as `repoPath` may already be unregistered
-		this.cache.onRepositoryChanged(deferred.commonPath, deferred.changes);
-		// And to a linked worktree's own entries while it is still registered, which its watcher would have cleared too
-		if (repoPath !== deferred.commonPath && this.cache.isRegistered(repoPath)) {
-			this.cache.applyRepositoryChanges(repoPath, deferred.changes, 'share', { worktreeOnly: true });
+		if (deferred.changes.size) {
+			// To the common path, which keys the shared entries, as `repoPath` may already be unregistered
+			this.cache.onRepositoryChanged(deferred.commonPath, deferred.changes);
+			// And to a linked worktree's own entries while it is still registered, which its watcher would have cleared too
+			if (repoPath !== deferred.commonPath && this.cache.isRegistered(repoPath)) {
+				this.cache.applyRepositoryChanges(repoPath, deferred.changes, 'share', { worktreeOnly: true });
+			}
+		}
+		if (deferred.headMoved) {
+			// Not added to the changes, which would clear the main checkout's own entries along with the shared ones
+			const registered = this.cache.getCommonPath(repoPath) === deferred.commonPath;
+			this.cache.onRepositoryChanged(registered ? repoPath : deferred.commonPath, ['head', 'heads']);
 		}
 	}
 
@@ -362,8 +387,8 @@ export class UnwatchedCacheValidator {
 		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		const root = this.getTarget(this.roots, repoPath, 'root', gitDir.uri.fsPath, commonPath, commonGitDir);
 		// A root never validated reports everything its git dir could have moved, which clears the repository's shared
-		// entries; the other worktrees never validated take their first baselines with it, so each clears only its own
-		// entries rather than the shared ones again
+		// entries unless the common git dir vouches for its HEAD (see `apply`); the other worktrees never validated take
+		// their first baselines with it, so each clears only its own entries rather than the shared ones again
 		const siblings = root.runs === 0 ? this.getSiblingTargets(repoPath, commonPath, commonGitDir) : [];
 		// Read even while another worktree's watcher covers it: that watcher clears the shared entries, never this
 		// worktree's own
@@ -394,7 +419,7 @@ export class UnwatchedCacheValidator {
 		const startedCommon = start(common);
 
 		if (startedRoot != null || startedCommon != null) {
-			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, siblings, previous);
+			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, common, siblings, previous);
 			if (startedRoot != null) {
 				startedRoot.running = job;
 			}
@@ -601,6 +626,8 @@ export class UnwatchedCacheValidator {
 		commonPath: string,
 		root: TargetState | undefined,
 		common: TargetState | undefined,
+		/** The repository's common target, whether or not this validation started it */
+		commonTarget: TargetState,
 		siblings: readonly (readonly [string, TargetState])[],
 		previous: readonly Promise<void>[],
 	): Promise<void> {
@@ -633,6 +660,7 @@ export class UnwatchedCacheValidator {
 				commonPath,
 				rootResult,
 				commonResult,
+				commonTarget.dir,
 				siblings.map(([path, state], i) => [path, state, siblingResults[i]] as const),
 				watchedAtStart,
 			);
@@ -671,31 +699,50 @@ export class UnwatchedCacheValidator {
 	 * too, as the common watcher would have told each of them. While another worktree's watcher covers the common git
 	 * dir, it already cleared the shared entries, so only the worktrees' own are. A watcher covers it only if it watched
 	 * since before the stats began (`watchedAtStart`). What each sibling whose first baseline was taken with it reports
-	 * clears that sibling's own entries, as `repoPath`'s report cleared the shared ones
+	 * clears that sibling's own entries, as `repoPath`'s report cleared the shared ones.
+	 *
+	 * Once the common git dir (`commonDir`) holds a reading of a linked worktree's HEAD, it reports that HEAD's every
+	 * move, and a commit on its branch as a ref directory moving. Each such move clears the shared entries, as that
+	 * worktree's own report would (see {@link applyMovedHeads}), or is left to its watcher, which reports it or has it
+	 * applied as it leaves. So nothing the shared entries hold of that worktree can go stale unseen: its first report (or
+	 * its first after a reset) clears only its own entries, for up to {@link maxOwnBaselines} of them
 	 */
 	private apply(
 		repoPath: string,
 		commonPath: string,
 		root: ValidationResult | undefined,
 		common: ValidationResult | undefined,
+		commonDir: ProbedGitDir,
 		siblings: readonly (readonly [string, TargetState, ValidationResult])[],
 		watchedAtStart: ReadonlySet<string>,
 	): void {
 		const watchers = this.getCommonWatchers(repoPath, commonPath).filter(p => watchedAtStart.has(p));
 		const commonWatched = watchers.length !== 0;
-		const changes = new Set<RepositoryChange>(root?.changes);
+
+		const own = this.getVouchedBaselines(repoPath, commonPath, root, commonDir, siblings);
+		// A common git dir without a baseline before this validation saw none of those HEADs move before now
+		if (common?.noBaseline || own.size > maxOwnBaselines) {
+			own.clear();
+		}
+
+		// What `repoPath`'s report applies in full, which is what clears the shared entries
+		const changes = new Set<RepositoryChange>(own.has(repoPath) ? undefined : root?.changes);
 		if (!commonWatched) {
 			for (const change of common?.changes ?? []) {
 				changes.add(change);
 			}
 		}
 
+		if (root != null && own.has(repoPath)) {
+			this.cache.applyLinkedWorktreeChanges(repoPath, root.changes, 'share');
+		}
 		if (changes.size) {
 			// Only the common git dir reports a `'worktreeHead'`
 			this.cache.onRepositoryChanged(repoPath, changes, {
 				movedWorktrees: changes.has('worktreeHead') ? common?.movedWorktrees : undefined,
 			});
 		}
+		this.applyMovedHeads(repoPath, commonPath, common, watchers, changes.has('head'));
 
 		// `repoPath`'s report cleared the shared entries of the worktrees registered under its common path as of now, so
 		// it covers a sibling's only while `repoPath` is still under that path and reported all the sibling did
@@ -707,7 +754,9 @@ export class UnwatchedCacheValidator {
 				continue;
 			}
 
-			if (shared && [...result.changes].every(c => changes.has(c))) {
+			if (own.has(path)) {
+				this.cache.applyLinkedWorktreeChanges(path, result.changes, 'share');
+			} else if (shared && [...result.changes].every(c => changes.has(c))) {
 				this.cache.applyRepositoryChanges(path, result.changes, 'share', { worktreeOnly: true });
 			} else {
 				// As its own first validation would have
@@ -722,11 +771,7 @@ export class UnwatchedCacheValidator {
 
 			// Kept for each watcher until it leaves (see `onUnwatched`), since one that leaves first drops what it held back
 			for (const path of watchers) {
-				let deferred = this.deferred.get(path);
-				if (deferred?.commonPath !== commonPath) {
-					deferred = { commonPath: commonPath, changes: new Set() };
-					this.deferred.set(path, deferred);
-				}
+				const deferred = this.getDeferred(path, commonPath);
 				for (const change of common.changes) {
 					deferred.changes.add(change);
 				}
@@ -736,6 +781,95 @@ export class UnwatchedCacheValidator {
 			if (path === repoPath || watchers.includes(path)) continue;
 
 			this.cache.applyRepositoryChanges(path, common.changes, 'share', { worktreeOnly: true });
+		}
+	}
+
+	/** What is left to the watcher of `path` until it leaves (see {@link onUnwatched}) */
+	private getDeferred(
+		path: string,
+		commonPath: string,
+	): { readonly commonPath: string; readonly changes: Set<RepositoryChange>; headMoved: boolean } {
+		let deferred = this.deferred.get(path);
+		if (deferred?.commonPath !== commonPath) {
+			deferred = { commonPath: commonPath, changes: new Set(), headMoved: false };
+			this.deferred.set(path, deferred);
+		}
+		return deferred;
+	}
+
+	/**
+	 * The worktrees, of `repoPath` and the `siblings`, whose report without a baseline the common git dir vouches for as
+	 * of now: each a linked worktree registered under `commonPath` whose HEAD `commonDir` holds a reading of
+	 */
+	private getVouchedBaselines(
+		repoPath: string,
+		commonPath: string,
+		root: ValidationResult | undefined,
+		commonDir: ProbedGitDir,
+		siblings: readonly (readonly [string, TargetState, ValidationResult])[],
+	): Set<string> {
+		const vouched = (path: string): boolean => {
+			if (this.cache.getCommonPath(path) !== commonPath) return false;
+
+			const id = this.cache.getLinkedWorktreeId(path);
+			return id != null && commonDir.holdsWorktreeHead(id);
+		};
+
+		const paths = new Set<string>();
+		if (root?.noBaseline && vouched(repoPath)) {
+			paths.add(repoPath);
+		}
+		for (const [path, , result] of siblings) {
+			if (result.noBaseline && vouched(path)) {
+				paths.add(path);
+			}
+		}
+		return paths;
+	}
+
+	/**
+	 * Applies the common git dir's sighting of linked worktrees' HEADs moving as each worktree's own report would be:
+	 * the shared entries hold each one's HEAD too (where the branch list places its branch, what a checkout's reflog
+	 * says a branch was based on), which a `'worktreeHead'` clears nothing of. One whose own watcher covered the common
+	 * git dir reports it itself, or, should that watcher leave first, has it applied as it leaves. A move not attributed to a registered worktree is applied to `repoPath`, as is a report
+	 * without a baseline (whose shared entries a watcher of the common git dir cleared, if not `repoPath`'s report),
+	 * unless what `repoPath`'s report applied in full saw its own HEAD move (`appliedHead`)
+	 */
+	private applyMovedHeads(
+		repoPath: string,
+		commonPath: string,
+		common: ValidationResult | undefined,
+		watchers: readonly string[],
+		appliedHead: boolean,
+	): void {
+		if (common == null) return;
+
+		const paths = new Set<string>();
+		if (common.noBaseline || (common.changes.has('worktreeHead') && common.movedWorktrees == null)) {
+			paths.add(repoPath);
+		} else if (common.changes.has('worktreeHead')) {
+			const pathsById = new Map<string, string>();
+			for (const path of this.cache.getWorktreePaths(commonPath)) {
+				const id = this.cache.getLinkedWorktreeId(path);
+				if (id != null) {
+					pathsById.set(id, path);
+				}
+			}
+			for (const id of common.movedWorktrees ?? []) {
+				const path = pathsById.get(id) ?? repoPath;
+				if (watchers.includes(path)) {
+					this.getDeferred(path, commonPath).headMoved = true;
+				} else {
+					paths.add(path);
+				}
+			}
+		}
+		if (appliedHead) {
+			paths.delete(repoPath);
+		}
+
+		for (const path of paths) {
+			this.cache.onRepositoryChanged(path, ['head', 'heads']);
 		}
 	}
 }
@@ -958,10 +1092,22 @@ class ProbedGitDir {
 			return {
 				changes: new Set(this.kind === 'root' ? rootReportableChanges : allWatchedRepositoryChanges),
 				movedWorktrees: undefined,
+				noBaseline: true,
 			};
 		}
 
 		return this.classify();
+	}
+
+	/**
+	 * Whether it holds a reading of the HEAD of the linked worktree with the admin id `id`, so it reports that HEAD's
+	 * every move from here on: a common git dir with a baseline, probing that worktree's admin entry (not ignored), whose
+	 * files it read behind it
+	 */
+	holdsWorktreeHead(id: string): boolean {
+		if (this.kind !== 'common' || !this.baselined || this.worktrees.get(id)?.ignored !== false) return false;
+
+		return this.gated.get(`worktrees/${id}`)?.read === true;
 	}
 
 	/** Drops every reading, so the next validation has no baseline and reports everything it can */
@@ -1328,7 +1474,7 @@ class ProbedGitDir {
 			movedWorktrees.add(id);
 		}
 
-		return { changes: changes, movedWorktrees: anyWorktreeMoved ? undefined : movedWorktrees };
+		return { changes: changes, movedWorktrees: anyWorktreeMoved ? undefined : movedWorktrees, noBaseline: false };
 	}
 }
 

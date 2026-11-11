@@ -2634,6 +2634,62 @@ suite("Cache — a linked worktree's HEAD change reported elsewhere", () => {
 			assert.ok(hasCurrentBranch(cache, otherWorktree), "another repository's worktree");
 		});
 
+		suite("a linked worktree's own changes", () => {
+			const command = 'git rev-parse HEAD';
+			const result: GitResult = {
+				stdout: 'abc123',
+				stderr: undefined,
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+
+			/** {@link setUpNamed}, with each registered worktree holding a git result */
+			async function setUpWithResults(cache: Cache): Promise<void> {
+				await setUpNamed(cache);
+				for (const path of [repoPath, reporter, sibling, sibling2]) {
+					await cache.gitResults.getOrCreate(path, command, () => Promise.resolve(result));
+				}
+			}
+
+			test('a HEAD move clears its own entries and its copies of the shared ones, and nothing else', async () => {
+				using cache = new Cache();
+				await setUpWithResults(cache);
+				const generations = new Map(
+					[repoPath, reporter, sibling, sibling2].map(p => [p, cache.getStatusGeneration(p)]),
+				);
+
+				cache.applyLinkedWorktreeChanges(sibling, ['head', 'heads'], 'share');
+
+				assert.ok(hasNoCurrentBranch(cache, sibling), 'its current branch and mapped list');
+				assert.ok(!hasHeadEntries(cache, sibling), 'what its HEAD resolved to');
+				assert.strictEqual(cache.gitResults.get(sibling, command), undefined, 'its git results');
+				assert.strictEqual(
+					cache.getStatusGeneration(sibling),
+					generations.get(sibling)! + 1,
+					'its status clock',
+				);
+				for (const path of [reporter, sibling2, repoPath]) {
+					assert.ok(hasCurrentBranch(cache, path), path);
+					assert.ok(hasHeadEntries(cache, path), path);
+					assert.ok(cache.gitResults.get(path, command) != null, path);
+					assert.strictEqual(cache.getStatusGeneration(path), generations.get(path), path);
+				}
+				assert.ok(hasCurrentBranch(cache, unregistered), 'a worktree seeded from the listing');
+				assert.ok(cache.refs.has(repoPath), 'the shared entries');
+			});
+
+			test('a change without a HEAD move keeps its copies of the shared ones', async () => {
+				using cache = new Cache();
+				await setUpWithResults(cache);
+
+				cache.applyLinkedWorktreeChanges(sibling, ['heads'], 'share');
+
+				assert.ok(cache.branches.has(sibling), 'its mapped list');
+				assert.ok(cache.gitResults.get(sibling, command) != null, 'its git results');
+				assert.ok(cache.refs.has(repoPath), 'the shared entries');
+			});
+		});
+
 		test('an id the reporter has, or that is named announced or for a sibling only, drops nothing', async () => {
 			using cache = new Cache();
 			await setUpNamed(cache);
