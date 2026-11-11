@@ -1,3 +1,15 @@
+// A color that has to read against the graph background — lane-colored text, or a role fill whose text is
+// knocked out in the background — with its OKLab lightness capped at `--gl-graph-on-background-max-lightness`.
+// The package can't tell which theme kind it is in, so the host sets the cap for light themes; unset, it is 1
+// and the color passes through unchanged. `a`/`b` are scaled down by the same ratio as the lightness: that
+// keeps the hue angle exact and the result inside sRGB, where capping lightness alone left saturated lanes
+// out of gamut and the browser's clip pulled them toward red (orange became indistinguishable from red).
+@function on-background($color) {
+	$cap: 'var(--gl-graph-on-background-max-lightness, 1)';
+
+	@return #{'oklab(from #{$color} min(l, #{$cap}) calc(a * min(1, #{$cap} / l)) calc(b * min(1, #{$cap} / l)))'};
+}
+
 gl-commit-graph {
 	// Column layout: the viewport takes all available space. The results bar (when shown) lives INSIDE it,
 	// as a flex sibling after the row tree, so it trails the last row rather than docking to the panel foot.
@@ -1288,6 +1300,11 @@ gl-commit-graph {
 		align-items: center;
 		padding: 0 0.6rem;
 		color: var(--gl-graph-background);
+
+		// The knockout only holds while the role fill is darker than the background: in light themes the head
+		// green (#1e9f4d) and the focus amber left white text near 3:1, so the fill goes through
+		// `on-background()`. The swatch bar keeps the raw role colors — it is a graphic, not a text backdrop.
+		background-color: on-background('var(--rail-seg-fill)');
 	}
 
 	// Divider between grouped segments — a translucent knockout hairline so it reads on any role fill.
@@ -1312,19 +1329,19 @@ gl-commit-graph {
 	}
 
 	.gl-graph__row-marker-rail-seg--head {
-		background-color: var(--gl-row-marker-head);
+		--rail-seg-fill: var(--gl-row-marker-head);
 	}
 
 	.gl-graph__row-marker-rail-seg--upstream {
-		background-color: var(--gl-row-marker-upstream);
+		--rail-seg-fill: var(--gl-row-marker-upstream);
 	}
 
 	.gl-graph__row-marker-rail-seg--target {
-		background-color: var(--gl-row-marker-target);
+		--rail-seg-fill: var(--gl-row-marker-target);
 	}
 
 	.gl-graph__row-marker-rail-seg--focal {
-		background-color: var(--gl-row-marker-focal);
+		--rail-seg-fill: var(--gl-row-marker-focal);
 	}
 
 	.gl-graph__row-marker-rail-seg--base {
@@ -3202,7 +3219,14 @@ gl-commit-graph {
 		font-size: 1rem;
 		font-weight: 500;
 		line-height: 1;
-		color: var(--ref-color, hsl(var(--foreground)));
+
+		// The lane color as TEXT. Light lanes (gold, lime, teal) are drawn to read as lines, not glyphs — as
+		// text on a light editor they fell to 1.6:1 — so it goes through `on-background()`. Declared HERE because
+		// `--ref-color` is set inline on the pill and a derived property substitutes on the element that
+		// declares it. Rings, tints and fills keep the raw `--ref-color`.
+		--ref-text: #{on-background('var(--ref-color)')};
+
+		color: var(--ref-text, hsl(var(--foreground)));
 		white-space: nowrap;
 		cursor: pointer;
 		background-color: var(--ref-bg, transparent);
@@ -3259,12 +3283,13 @@ gl-commit-graph {
 	// `--pill-on-fill`, however, are NOT set inline anywhere, so re-pointing them here is enough — no rule
 	// downstream needs its own re-assertion just to outrank an inline value.
 	// The role fill, per role — everything below reads `--pill-fill`, so the two roles differ by ONE line.
+	// Through `on-background()` for the same reason as the rail segments (see `.gl-graph__row-marker-rail-seg`).
 	.gl-graph__ref-pill--row-marker-head {
-		--pill-fill: var(--gl-row-marker-head);
+		--pill-fill: #{on-background('var(--gl-row-marker-head)')};
 	}
 
 	.gl-graph__ref-pill--row-marker-upstream {
-		--pill-fill: var(--gl-row-marker-upstream);
+		--pill-fill: #{on-background('var(--gl-row-marker-upstream)')};
 	}
 
 	// ROLE FILL INSIDE, LANE RING AROUND: the role color owns the pill's interior and the lane color becomes
@@ -3533,7 +3558,7 @@ gl-commit-graph {
 		font-size: 0.9rem;
 		font-weight: 600;
 		line-height: 1;
-		color: var(--ref-color);
+		color: var(--ref-text);
 	}
 
 	// Tag-overflow badge: the tag glyph + count, sitting right on its own count so it reads as "N tags"
@@ -3833,9 +3858,9 @@ gl-commit-graph {
 	// where a role pill sets it, so it's still a single source of truth, just under a name that role pills
 	// alone define).
 	.gl-graph__row.is-selected .gl-graph__ref-pill-tracking {
-		--gl-tracking-ahead: var(--row-marker-on-fill, var(--ref-color));
-		--gl-tracking-behind: var(--row-marker-on-fill, var(--ref-color));
-		--gl-pill-foreground: var(--row-marker-on-fill, var(--ref-color));
+		--gl-tracking-ahead: var(--row-marker-on-fill, var(--ref-text));
+		--gl-tracking-behind: var(--row-marker-on-fill, var(--ref-text));
+		--gl-pill-foreground: var(--row-marker-on-fill, var(--ref-text));
 	}
 
 	// ...but once the pill FILLS — hover/focus-within, click-pinned, context-pinned, or a find hit — that lane
@@ -4281,7 +4306,7 @@ gl-commit-graph {
 	// a ghost stays hollow: the expand overlay supplies the hover surface, and the filled pill
 	// bleeding past the overlay's edge (plus its shadow) reads as a real pill underneath.
 	.gl-graph__ref-pill--ghost:hover {
-		color: var(--ref-color);
+		color: var(--ref-text);
 		background-color: transparent;
 		box-shadow: none;
 		opacity: 1;
@@ -4301,7 +4326,7 @@ gl-commit-graph {
 		// The base overlay is borderless (its 0.9rem padding lands the glyphs exactly on the pill's);
 		// this one has a real 1px border, so give that 1px back or the name jumps right on expand.
 		padding: 0 0.8rem;
-		color: var(--ref-color);
+		color: var(--ref-text);
 		background-color: hsl(var(--background));
 		border: 1px dashed var(--ref-border, currentColor);
 		border-radius: 0.4rem;
@@ -4385,7 +4410,12 @@ gl-commit-graph {
 		padding: 0.4rem 0.8rem;
 		font-size: 1rem;
 		font-weight: 500;
-		color: var(--ref-color, hsl(var(--foreground)));
+
+		// Same capped lane text as the inline pill (see `.gl-graph__ref-pill`) — declared again because this
+		// row carries its own inline `--ref-color`.
+		--ref-text: #{on-background('var(--ref-color)')};
+
+		color: var(--ref-text, hsl(var(--foreground)));
 		white-space: nowrap;
 		cursor: pointer;
 

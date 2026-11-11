@@ -223,6 +223,14 @@ gl-commit-graph {
 
 @include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	--graph-theme-opacity-factor: '0.5';
+
+	// Caps lane-colored text and the knocked-out role fills so they read on a light background (#4548).
+	// 0.47 keeps every default lane at 4.5:1 or better on a selected row, not just on bare white.
+	--gl-graph-on-background-max-lightness: 0.47;
+}
+
+:root:has(.vscode-high-contrast-light) {
+	--gl-graph-on-background-max-lightness: 0.43;
 }
 
 // Light DOM

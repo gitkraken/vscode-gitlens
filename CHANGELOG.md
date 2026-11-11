@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes _Launchpad_ showing "needs reviewers" for GitHub pull requests on repositories that don't require a review ([#5863](https://github.com/gitkraken/vscode-gitlens/issues/5863))
+- Fixes hard-to-read branch and tag names in the _Commit Graph_ with light themes &mdash; lane-colored names are darkened just enough to stay legible while keeping their lane's hue, and the current branch's pill and marker no longer put white text on a light green ([#4548](https://github.com/gitkraken/vscode-gitlens/issues/4548))
 
 ## [19.6.0] - 2026-11-10
 

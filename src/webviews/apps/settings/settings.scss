@@ -22,6 +22,16 @@ html {
 	font-size: 62.5%;
 }
 
+// The Commit Graph preview draws its ref pills the way the Graph does, so it takes the Graph's light-theme
+// cap on lane-colored text too (see `src/webviews/apps/plus/graph/graph.scss`).
+@include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
+	--gl-graph-on-background-max-lightness: 0.47;
+}
+
+:root:has(.vscode-high-contrast-light) {
+	--gl-graph-on-background-max-lightness: 0.43;
+}
+
 body {
 	height: 100%;
 	padding: 0;

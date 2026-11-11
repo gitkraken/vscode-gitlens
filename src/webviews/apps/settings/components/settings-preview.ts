@@ -516,6 +516,12 @@ transparent background, so the pill's padding box is its visual box. */
 				font-size: 1rem;
 				font-weight: 500;
 				line-height: 1;
+				/* The Graph's on-background() lane text: lightness capped by the host's light-theme value. */
+				color: oklab(
+					from var(--ref-color) min(l, var(--gl-graph-on-background-max-lightness, 1))
+						calc(a * min(1, var(--gl-graph-on-background-max-lightness, 1) / l))
+						calc(b * min(1, var(--gl-graph-on-background-max-lightness, 1) / l))
+				);
 				white-space: nowrap;
 				background-color: transparent;
 				border-radius: var(--gl-radius-sm);
@@ -1031,8 +1037,8 @@ transparent background, so the pill's padding box is its visual box. */
 
 	private renderGraphRow(row: (typeof graphRows)[number], index: number, dimMerges: boolean) {
 		const lane = laneColors[row.lane];
-		// The lane color IS the pill's label color (`--ref-color`) and, at 60%, its ring
-		// (`--ref-border` = `withAlpha(color, 0.6)`) — the same derivation `refStyle()` uses.
+		// The lane color is the pill's label color (`--ref-color`, lightness-capped in light themes) and, at
+		// 60%, its ring (`--ref-border` = `withAlpha(color, 0.6)`) — the same derivation `refStyle()` uses.
 		const ring = `color-mix(in srgb, ${lane} 60%, transparent)`;
 
 		return html`<div
@@ -1043,7 +1049,7 @@ transparent background, so the pill's padding box is its visual box. */
 				row.ref
 					? html`<span
 							class="graph-ref-pill"
-							style=${cspStyleMap({ color: lane, boxShadow: `inset 0 0 0 1px ${ring}` })}
+							style=${cspStyleMap({ '--ref-color': lane, boxShadow: `inset 0 0 0 1px ${ring}` })}
 							><span class="graph-ref-pill__icon"
 								><code-icon icon=${row.ref.icon} aria-hidden="true"></code-icon></span
 							>${row.ref.label}${
