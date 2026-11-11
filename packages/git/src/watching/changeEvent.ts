@@ -50,6 +50,7 @@ export class WatcherRepoChangeEvent {
 	private readonly _announced: Set<RepositoryChange>;
 	private readonly _configBranches: Set<string> | undefined;
 	private readonly _movedWorktrees: Set<string> | undefined;
+	private readonly _observedAt: number | undefined;
 
 	constructor(
 		/** The repository path this event is for */
@@ -61,6 +62,8 @@ export class WatcherRepoChangeEvent {
 		announced?: Iterable<RepositoryChange>,
 		/** For a `worktreeHead` among `changes`, the worktrees moved outside core's writes (see {@link movedWorktrees}) */
 		movedWorktrees?: Iterable<string>,
+		/** When the newest of `changes` was observed (see {@link observedAt}) */
+		observedAt?: number,
 	) {
 		this._changes = new Set(changes);
 		if (refs == null) {
@@ -75,6 +78,7 @@ export class WatcherRepoChangeEvent {
 		this._announced = announced != null ? new Set(filter(announced, c => this._changes.has(c))) : new Set();
 		this._movedWorktrees =
 			movedWorktrees != null && this._changes.has('worktreeHead') ? new Set(movedWorktrees) : undefined;
+		this._observedAt = observedAt;
 	}
 
 	get changes(): ReadonlySet<RepositoryChange> {
@@ -121,6 +125,15 @@ export class WatcherRepoChangeEvent {
 	 */
 	get movedWorktrees(): ReadonlySet<string> | undefined {
 		return this._movedWorktrees;
+	}
+
+	/**
+	 * The change ordinal (see `nextChangeOrdinal`) taken when the watch session received the newest report among
+	 * {@link changes}, each of which was on disk by then; `undefined` when that isn't known, as for a change injected by
+	 * a caller. A cache can keep what it evicted whole after this, since that was read after every change here.
+	 */
+	get observedAt(): number | undefined {
+		return this._observedAt;
 	}
 
 	/** Whether `config` changed only in the sections of {@link configBranches} */
@@ -221,12 +234,14 @@ export class WatcherRepoChangeEvent {
 	 * Coalesce: return a new event with all changes and refs from both this and the given set. When `refs` is omitted,
 	 * every ref kind in `changes` counts as unnamed. A kind in `changes` is no longer {@link announced}. `config` stays
 	 * {@link configConfined}, to the branches of both, only when each side that changed it was confined, and
-	 * `worktreeHead` keeps {@link movedWorktrees}, those of both, only when each side that changed it named them.
+	 * `worktreeHead` keeps {@link movedWorktrees}, those of both, only when each side that changed it named them. The
+	 * result was observed when the newer side was, and isn't known to have been when either side isn't.
 	 */
 	with(
 		changes: RepositoryChange[],
 		refs?: WatcherRefChanges,
 		movedWorktrees?: Iterable<string>,
+		observedAt?: number,
 	): WatcherRepoChangeEvent {
 		const names = [...this._refs];
 		const unnamed = [...this._unnamedRefKinds];
@@ -261,6 +276,7 @@ export class WatcherRepoChangeEvent {
 			{ names: names, unnamed: unnamed, configBranches: configBranches },
 			filter(this._announced, c => !changes.includes(c)),
 			moved,
+			this._observedAt != null && observedAt != null ? Math.max(this._observedAt, observedAt) : undefined,
 		);
 	}
 }

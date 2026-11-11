@@ -359,7 +359,10 @@ export class GitProviderService implements UnifiedDisposable {
 			this._watchService.onDidChangeRepository(e => {
 				const changes = e.getUnannouncedChanges();
 				if (changes.length) {
-					this._cache.onRepositoryChanged(e.repoPath, changes, { movedWorktrees: e.movedWorktrees });
+					this._cache.onRepositoryChanged(e.repoPath, changes, {
+						movedWorktrees: e.movedWorktrees,
+						observedAt: e.observedAt,
+					});
 				}
 			}),
 			this._repositoryInitWatcher,

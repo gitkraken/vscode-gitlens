@@ -5,6 +5,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import type { RepositoryChange } from '../models/repository.js';
 import type { RefChangeKind, WorkingTreeChangeEvent } from './changeEvent.js';
 import { findCoveringRefName, getRefChangeKind, isRefChangeKind, WatcherRepoChangeEvent } from './changeEvent.js';
+import { nextChangeOrdinal } from './changeOrdinal.js';
 import { allWatchedRepositoryChanges } from './classifyChange.js';
 
 export interface RepositorySubscription extends UnifiedDisposable {
@@ -265,6 +266,13 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * announcement, may have been any linked worktree's
 	 */
 	private pendingRepoMovedWorktrees: Set<string> | undefined;
+	/** The change ordinal taken when the newest report among {@link pendingRepoChanges} arrived */
+	private pendingRepoObservedAt: number | undefined;
+	/**
+	 * Whether {@link pendingRepoChanges} hold an injected or unfenced change, which may be told before it is on disk, so
+	 * the window can't say when its changes were observed
+	 */
+	private pendingRepoUnstamped = false;
 	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
 	private effectiveRepoMaxWaitMs: number;
@@ -536,11 +544,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	/**
 	 * Inject changes (e.g., after a git operation the caller performed). Goes through debounce + suspend. Ref kinds
-	 * among them are unnamed — any ref of that kind may have moved.
+	 * among them are unnamed — any ref of that kind may have moved — and the event they fire in has no `observedAt`.
 	 */
 	fireChange(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
 
+		this.pendingRepoUnstamped = true;
 		this.coalesceRepo(changes, undefined, 'unfenced');
 	}
 
@@ -585,11 +594,13 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/**
 	 * Push watcher-observed repo changes that no write of core's can account for — an overflow's rescan, or an ignore
 	 * rule changed in the working tree — so {@link noteSelfWrite} never replaces them or takes them for its echo. Ref
-	 * kinds are unnamed.
+	 * kinds are unnamed, and the event they fire in has no `observedAt`: a host's watcher may say it dropped events
+	 * without their changes having all landed by then.
 	 */
 	pushUnfencedRepoChanges(changes: RepositoryChange[]): void {
 		if (this._disposed) return;
 
+		this.pendingRepoUnstamped = true;
 		this.coalesceRepo(changes, undefined, 'unfenced');
 	}
 
@@ -801,6 +812,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			},
 			this.pendingRepoAnnounced.keys(),
 			this.pendingRepoMovedWorktrees,
+			this.pendingRepoUnstamped ? undefined : this.pendingRepoObservedAt,
 		);
 		this.clearPendingRepoChanges();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
@@ -826,6 +838,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	): void {
 		if (changes.length === 0) return;
 
+		this.pendingRepoObservedAt = nextChangeOrdinal();
 		const now = performance.now();
 		const refKind = typeof ref === 'string' ? getRefChangeKind(ref) : undefined;
 		for (const change of changes) {
@@ -966,6 +979,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.pendingRepoAnnouncedRefs.clear();
 		this.pendingRepoConfigBranches = undefined;
 		this.pendingRepoMovedWorktrees = undefined;
+		this.pendingRepoObservedAt = undefined;
+		this.pendingRepoUnstamped = false;
 	}
 
 	private flushWorkingTree(): void {
@@ -1195,5 +1210,6 @@ function narrowToRelevantRefs(
 		{ names: keptNames, unnamed: e.unnamedRefKinds, configBranches: configBranches },
 		e.announced,
 		e.movedWorktrees,
+		e.observedAt,
 	);
 }

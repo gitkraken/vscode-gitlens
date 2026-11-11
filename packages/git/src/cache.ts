@@ -36,6 +36,7 @@ import type { GitResult } from './run.types.js';
 import { parseBranchMetadataGkConfigKey, setBranchMetadataValue } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
 import { getCommonRepositoryPath, getRepositoryOrWorktreePath, getWorktreeAdminId } from './utils/repository.utils.js';
+import { nextChangeOrdinal } from './watching/changeOrdinal.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
 
 type RepoPath = string;
@@ -138,6 +139,9 @@ const maxCachedBlameLines = 5000;
 
 /** Per drop-stamped cache, paths whose last drop is tracked; the oldest beyond this folds into the all-paths floor */
 const dropsTracked = 128;
+
+/** Repositories whose shared evictions are tracked (see {@link sharedCacheSources}); the oldest beyond this are forgotten */
+const sharedEvictionsTracked = 128;
 
 /**
  * Per-path caches whose drops are stamped, so a read can tell its entry was dropped mid-flight
@@ -334,6 +338,48 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	]),
 );
 
+function isSharedCacheKey(key: keyof AllCaches): key is keyof SharedCaches {
+	return sharedCacheKeys.has(key);
+}
+
+/**
+ * What each shared cache's entries are read from, which decides whether a watcher's report of a change may skip evicting
+ * it once an eviction after the change already did (see {@link Cache.applyRepositoryChanges}): `[]` for git alone, the
+ * caches an entry is built from, or `undefined` where that isn't known. A cache built from a checkout's own cache (one
+ * no shared eviction drops whole), from one not known, or from such a cache in turn, is evicted by every report.
+ */
+const sharedCacheSources: Record<keyof SharedCaches, readonly (keyof AllCaches)[] | undefined> = {
+	aheadOfBaseConfigListing: undefined,
+	baseBranchName: undefined,
+	branchMergedStatus: undefined,
+	branchMetadataMap: ['gkConfigMap'],
+	branchOverviews: undefined,
+	// Each checkout's list marks the branch current there, from its own current branch
+	branches: ['sharedBranches', 'currentBranchReference', 'branchMetadataMap'],
+	configKeys: undefined,
+	configPatterns: undefined,
+	contributors: undefined,
+	contributorsLite: undefined,
+	contributorsStats: undefined,
+	defaultBranchName: [],
+	emptyTreeSha: undefined,
+	gitResults: [],
+	gkConfigMap: undefined,
+	ignoreConfigListing: undefined,
+	initialCommitSha: undefined,
+	lastFetched: undefined,
+	logShas: undefined,
+	mergeTargets: undefined,
+	refs: [],
+	refTips: ['refs'],
+	remotes: undefined,
+	// The remotes split an upstream's name where git can't name its remote
+	sharedBranches: ['refs', 'branchMetadataMap', 'remotes'],
+	stashes: ['currentUser'],
+	tags: ['refs'],
+	worktrees: ['branches'],
+};
+
 function createEmptyCaches(): AllCaches {
 	return {
 		aheadOfBaseConfigKey: undefined,
@@ -433,6 +479,11 @@ export class Cache implements Disposable {
 	 * `'worktreeHead'` report says moved (see {@link applyRepositoryChanges})
 	 */
 	private _worktreeAdminIds = new Map<RepoPath, string>();
+	/**
+	 * Per common path, oldest first, the change ordinal (see `nextChangeOrdinal`) taken when each shared cache was last
+	 * evicted whole for the repository with nothing read before left to serve or join (see {@link sharedCacheSources})
+	 */
+	private _sharedEvictions = new Map<string, Map<keyof SharedCaches, number>>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -545,6 +596,7 @@ export class Cache implements Disposable {
 		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
 		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
 		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
+		usage['cache.sharedEvictions.entries.count'] = this._sharedEvictions.size;
 		if (this._readValidatorUsage != null) {
 			Object.assign(usage, this._readValidatorUsage());
 		}
@@ -1058,12 +1110,16 @@ export class Cache implements Disposable {
 		this.clearCachesCore('evict', repoPath, types);
 	}
 
-	/** `worktreeOnly` leaves the shared (commonPath-keyed) entries alone (see {@link applyRepositoryChanges}) */
+	/**
+	 * `worktreeOnly` leaves the shared (commonPath-keyed) entries alone, and `observedAt` skips those an eviction after
+	 * it already dropped (see {@link applyRepositoryChanges})
+	 */
 	private clearCachesCore(
 		inFlight: 'share' | 'evict',
 		repoPath: string | undefined,
 		types: readonly CachedGitTypes[],
 		worktreeOnly: boolean = false,
+		observedAt?: number,
 	): void {
 		const keysToClear = new Set<keyof AllCaches>();
 
@@ -1255,28 +1311,42 @@ export class Cache implements Disposable {
 			dropStampedCacheKeys.filter(k => keysToClear.has(k)),
 		);
 
+		if (repoPath == null) {
+			this._sharedEvictions.clear();
+		}
+
+		const cleared = new Set<keyof SharedCaches>();
 		for (const key of keysToClear) {
 			const cache = this._caches[key];
-			if (cache == null) continue;
+			if (cache == null) {
+				// Nothing read to serve or join
+				if (repoPath != null && !worktreeOnly && isSharedCacheKey(key)) {
+					cleared.add(key);
+				}
+				continue;
+			}
 
 			if (repoPath == null || key === 'superprojects') {
 				cache.clear();
 			} else if (key === 'aheadOfBaseConfigKey' && !worktreeOnly && (!types.length || types.includes('config'))) {
 				// Config reports don't distinguish a common config write from a checkout-specific one.
 				this.evictShared(key, repoPath, 'evict');
-			} else if (sharedCacheKeys.has(key)) {
-				if (!worktreeOnly) {
+			} else if (isSharedCacheKey(key)) {
+				if (!worktreeOnly && (observedAt == null || !this.isSharedEvictedSince(key, repoPath, observedAt))) {
 					// A fresh config fingerprint must never be paired with a pre-change base command, nor taken from a
 					// listing read before the change
 					const hardEvict =
 						key === 'aheadOfBaseConfigListing' ||
 						key === 'ignoreConfigListing' ||
 						(key === 'gitResults' && (types.includes('config') || types.includes('branch')));
-					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight);
+					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight, cleared);
 				}
 			} else {
 				cache.delete(repoPath);
 			}
+		}
+		if (repoPath != null && cleared.size) {
+			this.recordSharedEvictions(repoPath, cleared);
 		}
 
 		// The checkout's own mapped list marks its old branch current. Not through `keysToClear`: `branches` is shared,
@@ -1303,29 +1373,103 @@ export class Cache implements Disposable {
 	 *
 	 * When `inFlight` is `'evict'`, always hard-deletes regardless of `invalidate` support — a new caller
 	 * must never join a read that started before this eviction (see {@link evictCaches}).
+	 *
+	 * A shared `key` left with nothing read before to serve or join is added to `cleared`, for the caller to record
+	 * with the rest of its eviction; without `cleared`, it is recorded alone (see {@link recordSharedEvictions}).
 	 */
-	private evictShared(key: keyof AllCaches, repoPath: string, inFlight: 'share' | 'evict' = 'share'): void {
+	private evictShared(
+		key: keyof AllCaches,
+		repoPath: string,
+		inFlight: 'share' | 'evict' = 'share',
+		cleared?: Set<keyof SharedCaches>,
+	): void {
 		const cache = this._caches[key];
 		if (cache == null) return;
 
 		const commonPath = this.getCommonPath(repoPath);
+		const paths = [commonPath, ...this.getWorktreePaths(commonPath).filter(p => p !== commonPath)];
 		const invalidate =
 			inFlight === 'share' ? (cache as { invalidate?: (k: string) => void }).invalidate : undefined;
 		if (typeof invalidate === 'function') {
-			invalidate.call(cache, commonPath);
-			for (const worktreePath of this.getWorktreePaths(commonPath)) {
-				if (worktreePath === commonPath) continue;
-
-				invalidate.call(cache, worktreePath);
+			for (const path of paths) {
+				invalidate.call(cache, path);
 			}
 		} else {
-			cache.delete(commonPath);
-			for (const worktreePath of this.getWorktreePaths(commonPath)) {
-				if (worktreePath === commonPath) continue;
-
-				cache.delete(worktreePath);
+			for (const path of paths) {
+				cache.delete(path);
 			}
 		}
+
+		if (!isSharedCacheKey(key)) return;
+
+		// A soft invalidate leaves only a read in flight, which a new caller still joins
+		if (typeof invalidate === 'function') {
+			const has = (cache as { has?: (k: string) => boolean }).has;
+			if (typeof has !== 'function' || paths.some(p => has.call(cache, p))) return;
+		}
+
+		if (cleared != null) {
+			cleared.add(key);
+		} else {
+			this.recordSharedEvictions(repoPath, new Set([key]));
+		}
+	}
+
+	/**
+	 * Records that the shared caches in `cleared` were just evicted whole for `repoPath`'s repository, leaving nothing
+	 * read before to serve or join: each read from git alone, and each built from others only when all of them are
+	 * recorded here too (see {@link sharedCacheSources})
+	 */
+	private recordSharedEvictions(repoPath: string, cleared: ReadonlySet<keyof SharedCaches>): void {
+		const recorded = new Set<keyof AllCaches>();
+		let added = true;
+		while (added) {
+			added = false;
+			for (const key of cleared) {
+				if (recorded.has(key)) continue;
+
+				const sources = sharedCacheSources[key];
+				if (sources == null || !sources.every(s => recorded.has(s))) continue;
+
+				recorded.add(key);
+				added = true;
+			}
+		}
+		if (!recorded.size) return;
+
+		const commonPath = this.getCommonPath(repoPath);
+		const evictions = this._sharedEvictions.get(commonPath) ?? new Map<keyof SharedCaches, number>();
+		// Re-inserted so the map stays ordered oldest first
+		this._sharedEvictions.delete(commonPath);
+		this._sharedEvictions.set(commonPath, evictions);
+		if (this._sharedEvictions.size > sharedEvictionsTracked) {
+			this._sharedEvictions.delete(this._sharedEvictions.keys().next().value!);
+		}
+
+		const at = nextChangeOrdinal();
+		for (const key of recorded) {
+			if (isSharedCacheKey(key)) {
+				evictions.set(key, at);
+			}
+		}
+	}
+
+	/**
+	 * Whether `key`, and every cache it is built from, was evicted whole for `repoPath`'s repository after `observedAt`,
+	 * with nothing read before left to serve or join: all they hold since was read after a change observed then
+	 */
+	private isSharedEvictedSince(key: keyof AllCaches, repoPath: string, observedAt: number): boolean {
+		const evictions = this._sharedEvictions.get(this.getCommonPath(repoPath));
+		if (evictions == null) return false;
+
+		const isEvictedSince = (k: keyof AllCaches): boolean => {
+			if (!isSharedCacheKey(k)) return false;
+
+			const sources = sharedCacheSources[k];
+			const at = evictions.get(k);
+			return sources != null && at != null && at > observedAt && sources.every(isEvictedSince);
+		};
+		return isEvictedSince(key);
 	}
 
 	/**
@@ -1434,6 +1578,9 @@ export class Cache implements Disposable {
 			this.unregisterRepoPath(normalizedPath);
 		}
 		if (previousCommonPath !== commonPath) {
+			// What was evicted whole didn't include this checkout's own entries
+			this._sharedEvictions.delete(commonPath);
+			this._sharedEvictions.delete(normalizedPath);
 			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
 			if (normalizedPath === commonPath) {
 				this._caches.aheadOfBaseConfigListing?.delete(commonPath);
@@ -1520,6 +1667,8 @@ export class Cache implements Disposable {
 		this.onDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
+		this._sharedEvictions.delete(commonPath);
+		this._sharedEvictions.delete(repoPath);
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
 		// After removing repoPath, would the commonPath have any worktrees left?
 		const isLastWorktree = worktrees == null || worktrees.size <= 1;
@@ -1609,6 +1758,7 @@ export class Cache implements Disposable {
 		this._seededWorktrees.clear();
 		this._seededWorktreesByCommonPath.clear();
 		this._worktreeAdminIds.clear();
+		this._sharedEvictions.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
 		this.onDropped(undefined);
@@ -1616,13 +1766,13 @@ export class Cache implements Disposable {
 
 	/**
 	 * Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}).
-	 * `options.movedWorktrees` is the event's `movedWorktrees`.
+	 * `options.movedWorktrees` and `options.observedAt` are the event's `movedWorktrees` and `observedAt`.
 	 */
 	@debug({ onlyExit: true })
 	onRepositoryChanged(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
-		options?: { movedWorktrees?: ReadonlySet<string> },
+		options?: { movedWorktrees?: ReadonlySet<string>; observedAt?: number },
 	): void {
 		const changesSet = new Set(changes);
 		if (changesSet.has('unknown') || changesSet.has('closed')) {
@@ -1630,7 +1780,10 @@ export class Cache implements Disposable {
 			return;
 		}
 
-		this.applyRepositoryChanges(repoPath, changesSet, 'share', { movedWorktrees: options?.movedWorktrees });
+		this.applyRepositoryChanges(repoPath, changesSet, 'share', {
+			movedWorktrees: options?.movedWorktrees,
+			observedAt: options?.observedAt,
+		});
 	}
 
 	/**
@@ -1651,13 +1804,23 @@ export class Cache implements Disposable {
 	 * moved, which are all that a `'worktreeHead'` among `changes` reports: each registered one is cleared as for its
 	 * own `'head'` change, and no other registered worktree with an admin id of its own is touched. Without it, any
 	 * linked worktree's HEAD may have moved, so each one but `repoPath` loses its current branch.
+	 *
+	 * `options.observedAt` is the change ordinal (see `nextChangeOrdinal`) taken when the watcher observed the newest of
+	 * `changes`. Each checkout of a repository reports a change to what they share, so the shared entries that an eviction
+	 * after it already dropped whole, leaving nothing read before to serve or join, are kept: what they hold since was
+	 * read after the change. Only those shared entries are kept; everything else is cleared as without it.
 	 */
 	@debug({ onlyExit: true })
 	applyRepositoryChanges(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
 		inFlight: 'share' | 'evict',
-		options?: { announced?: boolean; worktreeOnly?: boolean; movedWorktrees?: ReadonlySet<string> },
+		options?: {
+			announced?: boolean;
+			worktreeOnly?: boolean;
+			movedWorktrees?: ReadonlySet<string>;
+			observedAt?: number;
+		},
 	): CachedGitTypes[] {
 		const worktreeOnly = options?.worktreeOnly ?? false;
 		const changesSet = new Set(changes);
@@ -1759,7 +1922,7 @@ export class Cache implements Disposable {
 		}
 
 		if (types.size) {
-			this.clearCachesCore(inFlight, repoPath, [...types], worktreeOnly);
+			this.clearCachesCore(inFlight, repoPath, [...types], worktreeOnly, options?.observedAt);
 		}
 		return [...types];
 	}
