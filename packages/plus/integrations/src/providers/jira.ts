@@ -97,6 +97,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number }
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
+	/**
+	 * Moves, by token, on every missing-project eviction, which drops one site's list without clearing the caches: a
+	 * build or project read that started before it puts neither the list it read back in `_projects` nor what it built
+	 * from it in `_autolinks` (#6176). Cleared with `_projects`, whose generation then refuses those same writes.
+	 */
+	private readonly _projectEvictions = new Map<string, number>();
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -117,7 +123,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	/**
 	 * One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. A drop
-	 * retires it, so a render after a forced refresh doesn't join a build reading the lists as they were before (#6170).
+	 * or a missing-project eviction retires it, so a render after one doesn't join a build reading the lists as they
+	 * were before (#6170, #6176).
 	 */
 	private buildAutolinks(
 		session: ProviderAuthenticationSession,
@@ -126,7 +133,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
 			build = this.buildAutolinksCore(session).finally(() => {
-				// A drop meanwhile retired this build, and the entry may be a later one's now.
+				// A drop or an eviction meanwhile retired this build, and the entry may be a later one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
 					this._autolinksBuilds.delete(accessToken);
 				}
@@ -141,6 +148,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		const generation = this._projects.generation;
+		const evictions = this._projectEvictions.get(accessToken);
 		try {
 			const organizations = await this.getProviderResourcesForUser(session);
 			if (!organizations?.length) return [];
@@ -166,9 +174,13 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			}
 
 			// A set missing a site's projects is served but not kept, so the next call tries that site again; one
-			// built from projects read before the caches were dropped is not kept either.
+			// built from projects read before the caches were dropped, or a site's list evicted, is not kept either.
 			const complete = metadata == null || metadata.completeness === 'complete';
-			if (complete && this._projects.generation === generation) {
+			if (
+				complete &&
+				this._projects.generation === generation &&
+				this._projectEvictions.get(accessToken) === evictions
+			) {
 				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now() });
 			}
 			return autolinks;
@@ -274,6 +286,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const { accessToken } = session;
 		const projectsCache = this._projects;
 		const generation = projectsCache.generation;
+		const evictions = this._projectEvictions.get(accessToken);
 
 		// Taken before the read, so a clear while it is in flight can't empty what was cached when it started. A forced
 		// read reads every resource, and still keeps a cached list for one it can't read completely.
@@ -291,9 +304,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const read = await this.readProjects(session, resourcesWithoutProjects);
 		const values = [...read.partial];
 		for (const [resourceId, projects] of read.complete) {
-			// Returned either way; not stored when the cache was dropped while this read was in flight: it is what this
-			// read found, only no longer trusted for the next one.
-			if (projectsCache.set(`${accessToken}:${resourceId}`, projects, { generation: generation })) {
+			// Returned either way; not stored when the cache was dropped, or a list evicted, while this read was in
+			// flight: it is what this read found, only no longer trusted for the next one.
+			if (
+				this._projectEvictions.get(accessToken) === evictions &&
+				projectsCache.set(`${accessToken}:${resourceId}`, projects, { generation: generation })
+			) {
 				this._autolinks.delete(accessToken);
 			}
 		}
@@ -422,8 +438,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				if (!isJiraMissingProjectError(ex)) return false;
 
 				Logger.warn(`Jira project '${project.key}' no longer exists or is not visible`);
-				this._projects.delete(`${session.accessToken}:${project.resourceId}`);
-				this._autolinks.delete(session.accessToken);
+				const { accessToken } = session;
+				this._projects.delete(`${accessToken}:${project.resourceId}`);
+				// A build or project read in flight may hold the list just dropped; see `_projectEvictions`.
+				this._projectEvictions.set(accessToken, (this._projectEvictions.get(accessToken) ?? 0) + 1);
+				this._autolinks.delete(accessToken);
+				this._autolinksBuilds.delete(accessToken);
 				return true;
 			},
 		};
@@ -835,6 +855,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		this._discoveryInvalidatedAt = Date.now();
 		this._organizations.clear();
 		this._projects.clear();
+		this._projectEvictions.clear();
 		this._autolinks.clear();
 		this._autolinksBuilds.clear();
 	}
@@ -842,6 +863,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override providerOnDisconnect(): void {
 		this._organizations.clear();
 		this._projects.clear();
+		this._projectEvictions.clear();
 		this._autolinks.clear();
 	}
 }
