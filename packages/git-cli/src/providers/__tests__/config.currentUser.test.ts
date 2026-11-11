@@ -9,7 +9,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
-import { ConfigGitSubProvider } from '../config.js';
+import { ConfigGitSubProvider, currentUserReadClock } from '../config.js';
 
 /** A read held open until the test settles it, which signals once it has been started */
 function holdRead<T>(): { started: Promise<void>; start: () => Promise<T>; settle: (value: T) => void } {
@@ -45,6 +45,19 @@ function configOf(user: GitUser): Map<string, string> {
 /** The `os` module object the named `os` imports re-sync from (see `syncBuiltinESMExports`) */
 const os = createRequire(import.meta.url)('os') as typeof osModule;
 
+const failedReadWait = 60 * 1000;
+
+/** Makes the clock a failed read's wait is measured on settable by the test */
+function controlClock(): { advance: (ms: number) => void } {
+	let now = 0;
+	sinon.stub(currentUserReadClock, 'now').callsFake(() => now);
+	return {
+		advance: ms => {
+			now += ms;
+		},
+	};
+}
+
 const userEnvKeys = ['GIT_AUTHOR_NAME', 'GIT_COMMITTER_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_EMAIL', 'EMAIL'];
 
 /**
@@ -64,7 +77,10 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 		Promise<Map<string, string>>
 	>;
 
+	let clock: ReturnType<typeof controlClock>;
+
 	setup(() => {
+		clock = controlClock();
 		cache = new Cache();
 		run = sinon.stub<[options: unknown, ...args: string[]], Promise<GitResult>>();
 		run.callsFake((_options, ...args) => Promise.resolve(exited(args.at(-1) ?? '')));
@@ -204,6 +220,7 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 				assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
 				assert.strictEqual(cache.currentUser.get(repoPath), undefined);
 
+				clock.advance(failedReadWait);
 				assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 			});
 
@@ -315,8 +332,72 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
 		assert.strictEqual(cache.currentUser.get(repoPath), undefined);
 
+		clock.advance(failedReadWait);
 		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 		assert.strictEqual(getConfigRegex.callCount, 2);
+	});
+
+	test('a read that keeps failing runs git once within the wait, and again after it', async () => {
+		getConfigRegex.rejects(new Error('config read failed'));
+
+		for (let i = 0; i < 3; i++) {
+			assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		}
+		assert.strictEqual(getConfigRegex.callCount, 1);
+
+		clock.advance(failedReadWait - 1);
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(getConfigRegex.callCount, 1);
+
+		clock.advance(1);
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(getConfigRegex.callCount, 2);
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(getConfigRegex.callCount, 2, 'a failure after the wait waits again');
+	});
+
+	test('a success after a failure is kept and clears the wait', async () => {
+		getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+
+		clock.advance(failedReadWait);
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
+		assert.deepStrictEqual(cache.currentUser.get(repoPath), newUser);
+
+		cache.currentUser.delete(repoPath);
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser, 'no wait is left from the failure');
+		assert.strictEqual(getConfigRegex.callCount, 3);
+	});
+
+	test('a config change ends the wait at once', async () => {
+		getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(getConfigRegex.callCount, 1);
+
+		cache.clearCaches(repoPath, 'config');
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
+		assert.strictEqual(getConfigRegex.callCount, 2);
+	});
+
+	test('a config change of another path leaves the wait', async () => {
+		getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		cache.clearCaches('/repos/b', 'config');
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(getConfigRegex.callCount, 1);
+	});
+
+	test('a read that throws is not waited on for another path', async () => {
+		getConfigRegex.onFirstCall().rejects(new Error('config read failed'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.deepStrictEqual(await provider.getCurrentUser('/repos/b'), newUser);
 	});
 
 	test('a read with no drop caches the user', async () => {
@@ -325,5 +406,69 @@ suite('ConfigGitSubProvider.getCurrentUser across a drop', () => {
 
 		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), newUser);
 		assert.strictEqual(getConfigRegex.callCount, 1);
+	});
+});
+
+/** Through the real config read, so a failed `git config` run is what reaches `getCurrentUser` */
+suite('ConfigGitSubProvider.getCurrentUser with a failed config read', () => {
+	const repoPath = '/repos/a';
+
+	let cache: Cache;
+	let provider: ConfigGitSubProvider;
+	let configRuns: sinon.SinonStub<[], Promise<GitResult>>;
+	let savedEnv: Record<string, string | undefined>;
+	let clock: ReturnType<typeof controlClock>;
+
+	setup(() => {
+		clock = controlClock();
+		savedEnv = Object.fromEntries(userEnvKeys.map(k => [k, process_env[k]]));
+		process_env.GIT_AUTHOR_NAME = 'Env User';
+		process_env.GIT_AUTHOR_EMAIL = 'env@example.com';
+
+		cache = new Cache();
+		configRuns = sinon.stub<[], Promise<GitResult>>();
+		const run = (_options: unknown, ...args: string[]): Promise<GitResult> =>
+			args[0] === 'config' ? configRuns() : Promise.resolve(exited(''));
+		provider = new ConfigGitSubProvider(
+			{ hooks: {} } as unknown as GitServiceContext,
+			{ run: run } as unknown as Git,
+			cache,
+			{} as unknown as CliGitProviderInternal,
+		);
+	});
+
+	teardown(() => {
+		sinon.restore();
+		cache.dispose();
+		for (const [key, value] of Object.entries(savedEnv)) {
+			if (value == null) {
+				Reflect.deleteProperty(process_env, key);
+			} else {
+				process_env[key] = value;
+			}
+		}
+	});
+
+	test('answers no user rather than the environment user, and is read again once the wait has passed', async () => {
+		configRuns
+			.onFirstCall()
+			.resolves({ ...exited(''), exitCode: 128, completion: { status: 'exited', code: 128 } });
+		configRuns.onSecondCall().resolves(exited('user.name Alice\nuser.email alice@example.com\n'));
+
+		assert.strictEqual(await provider.getCurrentUser(repoPath), undefined);
+		assert.strictEqual(cache.currentUser.get(repoPath), undefined);
+
+		clock.advance(failedReadWait);
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), { name: 'Alice', email: 'alice@example.com' });
+		assert.strictEqual(configRuns.callCount, 2);
+	});
+
+	test('a read that matched no user key still answers the environment user, kept', async () => {
+		configRuns.resolves({ ...exited(''), exitCode: 1, completion: { status: 'exited', code: 1 } });
+
+		const envUser = { name: 'Env User', email: 'env@example.com' };
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), envUser);
+		assert.deepStrictEqual(await provider.getCurrentUser(repoPath), envUser);
+		assert.strictEqual(configRuns.callCount, 1);
 	});
 });

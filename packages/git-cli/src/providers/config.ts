@@ -18,6 +18,7 @@ import { parseBranchMetadataGkConfigKey } from '@gitlens/git/utils/branch.utils.
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { HoldOffMap } from '@gitlens/utils/holdOffMap.js';
 import { first, some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -35,6 +36,12 @@ import { KeyedSequencer } from '../exec/indexLock.js';
 
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyArray: readonly never[] = Object.freeze([]);
+
+/** How long after a failed read of the current user git isn't run again to read it */
+const failedCurrentUserReadWait = 60 * 1000;
+
+/** The clock a failed current-user read's wait is measured on, exported for testing */
+export const currentUserReadClock = { now: (): number => Date.now() };
 
 /** Catch-all pattern matching every key in `.git/gk/config` for the one-shot bulk read. */
 const gkConfigAllPattern = '.';
@@ -258,6 +265,16 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	/**
+	 * Failed reads of the current user by repository path, each with the drop stamp taken before it. Not a cached answer:
+	 * it only holds git off for a while, and a drop of the path's user (a config change, close or reset) ends it
+	 */
+	private readonly failedUserReads = new HoldOffMap<string, number>(
+		failedCurrentUserReadWait,
+		256,
+		currentUserReadClock,
+	);
+
+	/**
 	 * In-flight gk-config reconciles keyed by commonPath. `pending` records that another `'gkConfig'`
 	 * event landed mid-pass, so one trailing pass runs after the current one settles. `paths` holds every
 	 * worktree path that reported the change, mapped to its close generation at that moment — the pass
@@ -370,6 +387,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return result.stdout;
 	}
 
+	/** Rejects when git couldn't read the configuration; a read that matched no key is an empty map */
 	@trace({ quiet: true })
 	getConfigRegex(
 		repoPath: string | undefined,
@@ -430,6 +448,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
 			...args,
 		);
+		// 1 is git's exit code for no key matching; anything else is a read that never answered
+		if (result.completion.status !== 'exited' || (result.exitCode !== 0 && result.exitCode !== 1)) {
+			throw new Error(`Unable to read the config keys matching '${pattern}'`);
+		}
+
 		// Deliberately NOT `.trim()`-ed: an explicit-empty value's LAST line ends in a meaningful trailing
 		// space, and `.trim()`-ing the whole (possibly multi-line) buffer strips it — `parseConfigRegexOutput`
 		// already skips the blank line a trailing newline produces, so no trim is needed.
@@ -510,6 +533,13 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// A config change, close or reset mid-read drops what this read would cache, so it mustn't put its answer back.
 		// The path's own stamp keys the shared read, so a call made after a drop of its user reads again rather than
 		// joining it, and a drop of anything else splits no shared read
+		const failedDropStamp = this.failedUserReads.get(repoPath);
+		if (failedDropStamp != null) {
+			if (!this.cache.isDroppedSince('currentUser', repoPath, failedDropStamp)) return undefined;
+
+			this.failedUserReads.release(repoPath);
+		}
+
 		return this.readCurrentUser(repoPath, this.cache.getDropStamp('currentUser', repoPath), scope);
 	}
 
@@ -531,6 +561,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			const configMap = await this.getConfigRegex(repoPath, '^user\\.(name|email)$', {
 				runGitLocally: true,
 			});
+			this.failedUserReads.release(repoPath);
 			if (configMap.size) {
 				user.name = configMap.get('user.name');
 				user.email = configMap.get('user.email');
@@ -564,9 +595,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			setCachedUser(user);
 			return user;
 		} catch (ex) {
-			// A failed read says nothing about the user, so nothing is kept: the next call reads again (for a refusal,
-			// once the host trusts the workspace)
+			// A failed read says nothing about the user, so no answer is kept: calls within the wait answer no user
+			// without running git, and then it is read again (a refusal isn't waited on, so it reads again once the
+			// host trusts the workspace)
 			if (ex instanceof WorkspaceUntrustedError) return undefined;
+
+			if (!this.cache.isDroppedSince('currentUser', repoPath, dropStamp)) {
+				this.failedUserReads.hold(repoPath, dropStamp);
+			}
 
 			scope?.error(ex);
 			return undefined;
@@ -1201,11 +1237,22 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@debug({ quiet: true })
 	async getSigningConfig(repoPath: string): Promise<SigningConfig> {
+		const scope = getScopedLogger();
+
 		// Fetch all signing-related config in one call
-		const configMap = await this.getConfigRegex(
-			repoPath,
-			'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
-		);
+		let configMap: Map<string, string>;
+		try {
+			configMap = await this.getConfigRegex(
+				repoPath,
+				'^(commit\\.gpgsign|gpg\\.format|user\\.signingkey|gpg\\.program|gpg\\.ssh\\.program|gpg\\.ssh\\.allowedsignersfile)$',
+			);
+		} catch (ex) {
+			if (ex instanceof WorkspaceUntrustedError) throw ex;
+
+			// Not every caller can take a rejection, so a failed read answers the defaults, which nothing keeps
+			scope?.error(ex);
+			configMap = new Map();
+		}
 
 		// Extract values (keys are lowercase in git output)
 		const enabledRaw = configMap.get('commit.gpgsign');

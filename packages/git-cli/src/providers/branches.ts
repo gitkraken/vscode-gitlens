@@ -1168,7 +1168,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<GitBranchReference | undefined> {
 		return this.cache.currentBranchReference.getOrCreate(
 			repoPath,
-			async (_cacheable, signal) => {
+			async (cacheable, signal) => {
 				const commitOrdering = ordering;
 
 				// `upstream` is the full ref (`refs/heads/…` or `refs/remotes/…`) so a local upstream
@@ -1228,11 +1228,19 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							if (data == null) {
 								const defaultBranch =
 									(await this.provider.config.getConfig(repoPath, 'init.defaultBranch')) ?? 'main';
-								const configMap = await this.provider.config.getConfigRegex(
-									repoPath,
-									`branch\\.${defaultBranch}\\.+`,
-									{ runGitLocally: true },
-								);
+								let configMap: Map<string, string>;
+								try {
+									configMap = await this.provider.config.getConfigRegex(
+										repoPath,
+										`branch\\.${defaultBranch}\\.+`,
+										{ runGitLocally: true },
+									);
+								} catch {
+									// The branch name below is still a fair guess, but the upstream it would
+									// otherwise take from this config is unknown, so don't keep the answer
+									cacheable.invalidate();
+									configMap = new Map();
+								}
 
 								const remote = configMap.get(`branch.${defaultBranch}.remote`);
 								const merge = configMap.get(`branch.${defaultBranch}.merge`);

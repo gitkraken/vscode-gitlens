@@ -411,7 +411,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	 * Writes the missing `refs/remotes/<remote>/HEAD` (the default branch the base reads) of each remote a fetch just
 	 * read with its configured refspecs, once per remote, on git < 2.48 — newer git's fetch creates it itself. A bare
 	 * fetch/pull reads every remote when `fetch.all` is set (git 2.44+), else its default remote. Right after the
-	 * fetch, so the credentials it used are still cached. Never awaited; never rejects, failures not retried.
+	 * fetch, so the credentials it used are still cached. Never awaited; never rejects. A write that fails is not
+	 * retried, but a config read that fails marks nothing, so a later fetch tries again.
 	 */
 	private async followRemoteHeads(repoPath: string, fetched: FetchedRemotes): Promise<void> {
 		try {
