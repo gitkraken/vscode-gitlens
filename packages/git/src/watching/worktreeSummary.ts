@@ -77,8 +77,10 @@ export interface WorktreeSummary {
 	readonly baseDependsOn: readonly string[];
 	/**
 	 * The latest recompute failed (worktree gone, lock contention, git past its time limit); the other fields hold the
-	 * last values read. Also set when only the base read failed: the other fields are fresh, and `base` and
-	 * `baseDependsOn` are their last values, or `undefined` and empty if the branch changed.
+	 * last values read. Also set while only the base read failed, until a read of the base succeeds: the other fields
+	 * are fresh, and `base` and `baseDependsOn` are their last values, or `undefined` and empty if the branch changed.
+	 * Such a base is read again at once when something it depends on changes, and otherwise with the next change only
+	 * once a wait since the failure is over, which doubles with each failure in a row.
 	 */
 	readonly stale: boolean;
 }
@@ -189,6 +191,14 @@ const maxUnwatchedReads = 256;
 // it, the flag is read without the rescan, so a provider that promised a start that never comes can't leave it
 // unconfirmed
 const maxDeferredDirtyMs = 10_000;
+// How long after a base read fails the next change of any group reads it again, doubling with each failure in a row up
+// to the cap, so a failure that lasts (a count past git's time limit) isn't rerun, holding a read slot, with every file
+// save; a change to what the base depends on retries it at once. No timer retries it on its own
+const minBaseRetryDelayMs = 5_000;
+const maxBaseRetryDelayMs = 5 * 60_000;
+
+/** The clock a failed base read's wait is read from, exported for testing */
+export const baseRetryClock = { now: (): number => Date.now() };
 
 const emptyRefs: readonly string[] = Object.freeze([]);
 const noRemotes: ReadonlySet<string> = new Set();
@@ -243,10 +253,16 @@ type ReadProbe = (
  */
 interface ReadTips {
 	/**
-	 * What each ref the base depends on was as of the last base read (see {@link getBaseInput}); `undefined` when
-	 * unknown (a base read no probe came before)
+	 * What each ref the base depends on was as of the last base read, failed or not (see {@link getBaseInput});
+	 * `undefined` when unknown (a base read no probe came before)
 	 */
 	readonly base: ReadonlyMap<string, string | null | undefined> | undefined;
+}
+
+/** When a base whose read failed is next read with a change of any group, and the wait that led there */
+interface BaseRetry {
+	readonly at: number;
+	readonly delay: number;
 }
 
 /**
@@ -283,6 +299,8 @@ interface UnwatchedRead {
 	readonly inputs: UnwatchedInputs;
 	/** Read groups due on the next read whatever the inputs say: core's own write of the branch's merge target or base */
 	due: number;
+	/** When its base, if stale, is read again whatever the inputs say (see {@link isBaseRetryDue}) */
+	readonly baseRetry: BaseRetry | undefined;
 }
 
 /** What a probe finds of the refs (see {@link probeRefs}) */
@@ -368,6 +386,14 @@ interface SummaryEntry {
 	tips: ReadTips | undefined;
 	/** Why the latest read failed while there was no value to keep */
 	error: Error | undefined;
+	/**
+	 * The read groups of the value (or the saved read) that aren't fresh: every one after a failed read, which the next
+	 * run reads in full, and only {@link baseField} after a failed base read, which the next run reads only when due
+	 * (see {@link isBaseRetryDue})
+	 */
+	staleFields: number;
+	/** When a stale base is read again whatever the run's groups; `undefined` when the last base read succeeded */
+	baseRetry: BaseRetry | undefined;
 	/** Read groups due on the next run */
 	pending: number;
 	/** The refs the base depends on that moved, by name, for a pending {@link baseMoveField} */
@@ -476,8 +502,12 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
  * silent, so a consumer can re-render on every event without diffing. A failed recompute keeps the last values and
- * sets `stale` (firing once); the next successful one clears it. A summary still showing the dirty flag of a read
- * without a subscription fires again, unchanged, once that flag is read again (its `dirtyReadAt` cleared).
+ * sets `stale` (firing once); the next successful one clears it, reading every group. A failed read of only the base
+ * keeps the rest and leaves the next events to read what they map to: the base again at once when what it depends on
+ * changed (a ref, HEAD, its stored values or config inputs), and else only once a wait since the failure is over,
+ * doubling with each failure in a row; until a base read succeeds, `stale` stays set. A summary still showing the
+ * dirty flag of a read without a subscription fires again, unchanged, once that flag is read again (its `dirtyReadAt`
+ * cleared).
  *
  * **Worktrees without a subscription.** {@link getSummary} and {@link getSummarySnapshot} answer one from its last read
  * (kept for the {@link maxUnwatchedReads} most recently asked), re-reading only the groups whose inputs moved since:
@@ -617,7 +647,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	 * {@link getSummary} does, with `dirtyReadAt` `undefined` once its summary follows its working tree, and until then
 	 * the saved read's (see {@link WorktreeSummarySubscription.dirtyReadAt}), which `probeDirty` reads again. Any other
 	 * answers from its last read, re-reading only the groups whose inputs moved since (no git when none did), and in
-	 * full the first time, or after a failed or stale read. Its working tree is unwatched, so the dirty flag is re-read
+	 * full the first time, or after a failed read; a base that failed to read is read again as a subscribed worktree's
+	 * is (see {@link WorktreeSummary.stale}). Its working tree is unwatched, so the dirty flag is re-read
 	 * only when the index file moved, or with `probeDirty`; a rejection drops the last read, unless the read was cut
 	 * short, which says nothing against it. Its inputs are core's cached answers, which only a `.git` watch of the
 	 * worktree (or core's own writes) keeps current.
@@ -763,11 +794,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		const signal = flight.abort.signal;
 		if (flight.disposed) throw new CancellationError();
 
-		// A stale read's fields can't be trusted (see `queue`), so it is read again in full
-		let last = this.unwatchedReads.get(key);
-		if (last?.result.summary.stale) {
-			last = undefined;
-		}
+		// A failed read isn't kept, so a stale one is stale only for its base, which is read again by the same rule as a
+		// subscribed worktree's (see `run`)
+		const last = this.unwatchedReads.get(key);
 
 		try {
 			const repo = this.getRepository(key);
@@ -788,6 +817,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				({ fields, baseMoves } = await getMovedFields(repo, last, probe, flight.probeDirty, signal));
 				if (flight.disposed) throw new CancellationError();
 
+				if (last.result.summary.stale && isBaseRetryDue(last.baseRetry)) {
+					fields |= baseField;
+				}
 				if (fields === 0) {
 					this.unwatchedReads.touch(key);
 					return last;
@@ -827,6 +859,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				dirtyReadAt: result.dirtyReadAt ?? last?.dirtyReadAt ?? Date.now(),
 				inputs: toUnwatchedInputs(probe, result.summary),
 				due: flight.due,
+				baseRetry: getBaseRetry(last?.baseRetry, result),
 			};
 			if (this.unwatchedFlights.get(key) === flight && !this.entries.has(key)) {
 				this.unwatchedReads.set(key, read);
@@ -958,14 +991,16 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		}
 
 		// Taken only now: until the watch is placed, core's write of a merge target or base skips the entry but still
-		// makes the stored values due on the saved read. A stale one's fields can't be trusted (see `queue`)
-		let last = this.unwatchedReads.get(entry.key);
+		// makes the stored values due on the saved read
+		const last = this.unwatchedReads.get(entry.key);
 		this.unwatchedReads.delete(entry.key);
-		if (last?.result.summary.stale) {
-			last = undefined;
-		}
 		if (last != null) {
 			entry.seed = last.result.summary;
+			// A failed read isn't kept, so a stale one is stale only for its base
+			if (entry.seed.stale) {
+				entry.staleFields = baseField;
+				entry.baseRetry = last.baseRetry;
+			}
 			// The values its base read consulted, or the first `gk` config or config change would read the base again
 			entry.baseKeys = last.result.baseKeys;
 			entry.baseConfigKey = last.result.baseConfigKey;
@@ -1034,6 +1069,11 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			dropSeed(entry);
 			entry.pending |= allFields | baseConfigField;
 			return;
+		}
+
+		// Queued here, not left to the run, so a saved read with nothing else to read isn't published as it is
+		if ((entry.staleFields & baseField) !== 0 && isBaseRetryDue(entry.baseRetry)) {
+			moved.fields |= baseField;
 		}
 
 		if (deferDirty) {
@@ -1165,10 +1205,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private queue(entry: SummaryEntry, fields: number, baseMoves?: readonly string[]): void {
 		if (entry.disposed || fields === 0) return;
 
-		// Without a value (or a saved read to start from) a partial read has nothing to merge into, and a stale value's
-		// fields can't be trusted: a partial read would clear `stale` while vouching for groups it never re-read
+		// Without a value (or a saved read to start from) a partial read has nothing to merge into, and the fields of a
+		// value whose read failed can't be trusted: a partial read would clear `stale` while vouching for groups it never
+		// re-read. A stale base alone is the run's to add (see `run`)
 		const value = entry.value ?? entry.seed;
-		entry.pending |= value == null || value.stale ? fields | allFields | baseConfigField : fields;
+		entry.pending |=
+			value == null || (entry.staleFields & ~baseField) !== 0 ? fields | allFields | baseConfigField : fields;
 		if (baseMoves != null) {
 			entry.baseMoves ??= new Set();
 			for (const ref of baseMoves) {
@@ -1257,9 +1299,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		const { value, seed, tips } = entry;
 		const previous = value ?? seed;
 		// Fields queued during the run that left the value stale were queued against one whose groups could be trusted;
-		// read partially now, they'd clear `stale` while vouching for groups never re-read (see `queue`)
-		if (previous?.stale) {
+		// read partially now, they'd clear `stale` while vouching for groups never re-read (see `queue`). A stale base
+		// alone is read only when due; `readSummary` keeps the value stale until it is
+		if ((entry.staleFields & ~baseField) !== 0) {
 			fields |= allFields | baseConfigField;
+		} else if ((entry.staleFields & baseField) !== 0 && isBaseRetryDue(entry.baseRetry)) {
+			fields |= baseField;
 		}
 
 		const probed: { refs?: ProbedRefs } = {};
@@ -1304,6 +1349,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.baseKeys = result.baseKeys;
 		entry.baseConfigKey = entry.pending & baseConfigField ? undefined : result.baseConfigKey;
 		entry.baseDefaultBranch = result.baseDefaultBranch;
+		entry.staleFields = result.summary.stale ? baseField : 0;
+		entry.baseRetry = getBaseRetry(entry.baseRetry, result);
 		// Any read of the dirty flag ends showing the saved one, even one a branch read adds on finding another branch
 		const dirtyConfirmed = result.dirtyReadAt != null && entry.dirtyReadAt != null;
 		if (dirtyConfirmed) {
@@ -1339,6 +1386,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			entry.error = ex instanceof Error ? ex : new Error(String(ex));
 			return;
 		}
+
+		// Even for a value already stale for its base alone: the groups this read failed on can't be trusted either
+		entry.staleFields = allFields;
 		if (previous.stale) return;
 
 		Logger.warn(`WorktreeSummaryService: refreshing '${entry.key}' failed: ${String(ex)}`);
@@ -1381,6 +1431,8 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.baseConfigKey = undefined;
 		entry.baseDefaultBranch = undefined;
 		entry.tips = undefined;
+		entry.staleFields = 0;
+		entry.baseRetry = undefined;
 		entry.pending = 0;
 		entry.baseMoves = undefined;
 		entry.running = undefined;
@@ -1413,6 +1465,8 @@ function dropSeed(entry: SummaryEntry): void {
 	entry.baseConfigKey = undefined;
 	entry.baseDefaultBranch = undefined;
 	entry.tips = undefined;
+	entry.staleFields = 0;
+	entry.baseRetry = undefined;
 }
 
 function clearDeferredDirty(entry: SummaryEntry): void {
@@ -1438,6 +1492,8 @@ function createEntry(key: string): SummaryEntry {
 		baseDefaultBranch: undefined,
 		tips: undefined,
 		error: undefined,
+		staleFields: 0,
+		baseRetry: undefined,
 		pending: 0,
 		baseMoves: undefined,
 		running: undefined,
@@ -1453,7 +1509,8 @@ function createEntry(key: string): SummaryEntry {
  * values and the config inputs as before, is first re-measured from `previous` and the default branch its read
  * resolved, `previousBaseDefaultBranch` (see `getAheadOfBaseAfterBaseMove`), and read in full only when that can't
  * answer. A failed base read doesn't fail the rest: the summary comes back stale, keeping the previous
- * base and `baseDependsOn` only while the branch is the same.
+ * base and `baseDependsOn` only while the branch is the same. A stale `previous` stays stale unless the base is read,
+ * and its base is read in full, never re-measured.
  */
 async function readSummary(
 	repo: RepositoryService,
@@ -1563,12 +1620,14 @@ async function readSummary(
 				let aheadOfBase: AheadOfBase | undefined;
 				// The config inputs too, though no config change is due: a write can land between the last read and its
 				// event (core evicts its own write's caches before the event fires), and the re-measure reads no config,
-				// so the key kept with it would vouch for config the base never saw
+				// so the key kept with it would vouch for config the base never saw. A stale base kept from before its
+				// failed read may answer for other stored values or config than the ones kept with it
 				if (
 					!(fields & baseField) &&
 					baseMoves != null &&
 					baseMoves.size !== 0 &&
 					previous?.base != null &&
+					!previous.stale &&
 					sha != null &&
 					sha === previous.sha &&
 					baseKeys != null &&
@@ -1608,13 +1667,12 @@ async function readSummary(
 
 				baseFailed = true;
 				baseError = ex;
-				// Keep `baseDependsOn` for the same branch: a fetch moving one of its refs is what retries the base
+				// Keep `baseDependsOn` for the same branch, so a move of one of its refs retries the base at once, and
+				// the stored values and config inputs read for this attempt, so only a change to them since does: else
+				// the next `gk` config bookkeeping write would retry it, its wait or not (see `isBaseRetryDue`)
 				const sameBranch = previous != null && branch === previous.branch && detached === previous.detached;
 				base = sameBranch ? previous.base : undefined;
 				dependsOn = sameBranch ? previous.baseDependsOn : emptyRefs;
-				baseKeys = undefined;
-				baseConfigRead = false;
-				baseConfigKey = undefined;
 				baseDefaultBranch = undefined;
 			}
 		}
@@ -1633,7 +1691,7 @@ async function readSummary(
 		dirty: dirty,
 		base: base,
 		baseDependsOn: dependsOn,
-		stale: baseFailed,
+		stale: baseFailed || (previous?.stale === true && (fields & (baseField | baseMoveField)) === 0),
 	};
 	// Keyed on what this run's base read (or the one it kept) consulted, from the inputs read before it
 	if (baseConfigRead) {
@@ -1728,7 +1786,7 @@ async function getMovedFields(
 		} else if (getUpstreamTips(probe.tips, probe.upstream) !== inputs.upstreamTips) {
 			fields |= branchField;
 		}
-		baseMoves = getMovedBaseRefs(probe, previous.baseDependsOn, inputs.baseTips);
+		baseMoves = getMovedBaseRefs(probe, previous.baseDependsOn, inputs.baseTips, previous.stale);
 		if (baseMoves != null) {
 			fields |= baseMoveField;
 		}
@@ -1768,7 +1826,7 @@ function getTipCheckFields(
 	}
 
 	let fields = getUpstreamFields(probe.current, previous);
-	const baseMoves = getMovedBaseRefs(probe, previous.baseDependsOn, tips?.base);
+	const baseMoves = getMovedBaseRefs(probe, previous.baseDependsOn, tips?.base, previous.stale);
 	if (baseMoves != null) {
 		fields |= baseMoveField;
 	}
@@ -1798,18 +1856,21 @@ function getUpstreamFields(current: GitBranch | undefined, previous: WorktreeSum
 
 /**
  * The refs of `baseDependsOn` that `probe` finds moved since `baseTips`; `undefined` when none did. A tip that's unknown
- * (`null`, or not kept) moved.
+ * (`null`, or not kept) moved, except for a `stale` base: it would then be retried by every check, its wait or not
+ * (see {@link isBaseRetryDue}), while a move named exactly still retries it at once.
  */
 function getMovedBaseRefs(
 	probe: ProbedRefs,
 	baseDependsOn: readonly string[],
 	baseTips: ReadonlyMap<string, string | null | undefined> | undefined,
+	stale: boolean,
 ): Set<string> | undefined {
 	let baseMoves: Set<string> | undefined;
 	for (const ref of baseDependsOn) {
-		// An unreadable value is unknown, so it moved
 		const value = getBaseInput(probe, ref);
-		if (value !== null && baseTips?.has(ref) && value === baseTips.get(ref)) continue;
+		const kept = baseTips?.get(ref);
+		const known = value !== null && kept !== null && baseTips?.has(ref) === true;
+		if (known ? value === kept : stale) continue;
 
 		baseMoves ??= new Set();
 		baseMoves.add(ref);
@@ -1825,11 +1886,35 @@ function getReadTips(last: ReadTips | undefined, refs: ProbedRefs | undefined, r
 	const { summary, fields } = result;
 
 	let base = last?.base;
-	// A base that failed to read is stale, which reads everything next time
+	// Taken for a base that failed to read too, so a tip check retries it at once only for a ref that moved since
 	if (fields & (baseField | baseMoveField)) {
-		base = refs != null && !summary.stale ? getBaseTips(refs, summary.baseDependsOn) : undefined;
+		base = refs != null ? getBaseTips(refs, summary.baseDependsOn) : undefined;
 	}
 	return { base: base };
+}
+
+/**
+ * Whether a stale base whose read failed is due to be read again with any change: once the wait `retry` set since its
+ * last failure is over, or with no wait set
+ */
+function isBaseRetryDue(retry: BaseRetry | undefined): boolean {
+	if (retry == null) return true;
+
+	// More left to wait than the wait itself is a clock that went back, which would otherwise stretch it without bound
+	const remaining = retry.at - baseRetryClock.now();
+	return remaining <= 0 || remaining > retry.delay;
+}
+
+/**
+ * The wait a read leaves its base with: `last` when it didn't read the base, none when the base read succeeded, and,
+ * when it failed, double `last`'s, from {@link minBaseRetryDelayMs} up to {@link maxBaseRetryDelayMs}
+ */
+function getBaseRetry(last: BaseRetry | undefined, result: ReadResult): BaseRetry | undefined {
+	if ((result.fields & (baseField | baseMoveField)) === 0) return last;
+	if (!result.summary.stale) return undefined;
+
+	const delay = last != null ? Math.min(last.delay * 2, maxBaseRetryDelayMs) : minBaseRetryDelayMs;
+	return { at: baseRetryClock.now() + delay, delay: delay };
 }
 
 /** The upstream's tips as a remote-tracking and as a local branch, since its short name doesn't say which */
