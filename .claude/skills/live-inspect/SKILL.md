@@ -401,6 +401,25 @@ sign_in {}
 
 The session's VS Code user data lives under `.vscode-test/agent-sessions/<name>/` and survives teardown, so later `launch { session: "dev" }` calls start already signed in. `sign_in` is human-in-the-loop and needs a visible window: it opens a browser, and because the `vscode://` callback resolves against the default user-data-dir it usually lands in the user's main VS Code, leaving GitLens' "paste the authorization code" input box as the way to finish. Ask the user to complete it, then wait. It refuses on a throwaway session, where the account would be discarded on teardown.
 
+A GitKraken sign-in is also the only way to get real GitHub data (Launchpad, PRs). The inspector runs VS Code in test mode, which refuses modal dialogs, so VS Code's own GitHub auth (`authentication.getSession('github', …, { createIfNone: true })`) fails with `DialogService: refused to show dialog in tests`.
+
+#### When sign-in fails
+
+**A named-session `launch` dies with `electronApplication.firstWindow: Target page, context or browser has been closed`.** The session profile lives at `<extension_path>/.vscode-test/agent-sessions/<name>/user-data`. From a long worktree path, that pushes VS Code's IPC socket path past macOS's ~103-character Unix-socket limit, and VS Code exits immediately. This is the same cause as `vscode-test`'s `listen EINVAL`. Throwaway sessions are unaffected because their profile is under a short `/tmp` path. Launch through a short symlink instead:
+
+```
+# in the shell, from the worktree root
+ln -sfn "$PWD" /tmp/gl-short
+
+launch { session: "dev", extension_path: "/tmp/gl-short", vscode_path: "<path to the VS Code build>" }
+```
+
+**`sign_in` never opens a browser and times out after ~5 minutes.** `read_logs` shows `DialogService: refused to show dialog in tests. Contents: Do you want Code to open the external website?`. The login calls `openExternal`, and link protection asks for confirmation because gitkraken.dev isn't a trusted domain. Test mode refuses that dialog, so from the user's side nothing happens. Disabling workspace trust doesn't help, and test mode keeps no `state.vscdb` to seed trusted domains into. Trust the domains in the running instance before calling `sign_in`:
+
+1. `execute_command { command: "workbench.action.manageTrustedDomain" }` opens the virtual Trusted Domains JSON editor.
+2. Use `evaluate` to replace the editor's text with `["https://gitkraken.dev","https://*.gitkraken.dev","https://gitkraken.com","https://*.gitkraken.com"]`, then save.
+3. `sign_in {}`. The browser now opens.
+
 ## Exercising AI features
 
 GitLens AI features (Generate Commit Message, Explain \*, Generate Changelog, Composer, Review Changes, Generate Search Query) cannot use real provider calls during automated inspection — they cost money, require keys, and produce non-deterministic outputs you can't assert against. The extension ships a **deterministic AI simulator** in DEBUG builds that you control via VS Code commands.
