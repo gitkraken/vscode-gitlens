@@ -4,7 +4,12 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { PullRequest, PullRequestMergeQueueEntry, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeQueueEntry,
+	PullRequestReviewDecision,
+	PullRequestStackInfo,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
@@ -62,6 +67,10 @@ import {
 	launchpadCategoryToGroupMap,
 	launchpadPriorityGroups,
 } from '../../../plus/launchpad/models/launchpad.js';
+import {
+	getReviewNotRequiredActionCategory,
+	isReviewDecisionReportingProvider,
+} from '../../../plus/launchpad/utils/reviewRequirement.utils.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -1038,6 +1047,12 @@ export class GraphPanelsService {
 					item => ({ item: item, viewerless: true }),
 				),
 			];
+			const reviewDecisions = await this.getSidebarReviewDecisions(
+				categorized,
+				prsByUuid,
+				integration,
+				mergeQueueByNumber,
+			);
 			for (const { item, viewerless: isViewerless } of categorized) {
 				const pr = prsByUuid.get(item.uuid);
 				if (pr == null) continue;
@@ -1050,6 +1065,14 @@ export class GraphPanelsService {
 				if (getMergeQueueActionCategory(queueable) == null) {
 					if (mergeableUnverifiable && category === 'mergeable') {
 						category = 'other';
+					}
+
+					// Matches Launchpad: "needs reviewers" only where the host may require a review. Viewer-less
+					// rows drop `unassigned-reviewers` below regardless.
+					if (!isViewerless) {
+						category =
+							getReviewNotRequiredActionCategory(category, item, pr, reviewDecisions?.get(pr)) ??
+							category;
 					}
 
 					if (isViewerless) {
@@ -1088,6 +1111,87 @@ export class GraphPanelsService {
 			return launchpadByPr;
 		} catch (ex) {
 			Logger.warn(`Unable to categorize pull requests: ${ex}`, 'getSidebarPullRequests');
+			return undefined;
+		}
+	}
+
+	/**
+	 * GitHub's own review decision for the rows the shared cascade calls "needs reviewers", keyed by the pull request
+	 * itself. This panel's GitHub rows come from provider-apis' fragment, which doesn't select the decision, so
+	 * without it none of them could be judged the way Launchpad judges its own (see
+	 * `getReviewNotRequiredActionCategory`). Only rows with a real viewer — viewer-less ones drop the category anyway —
+	 * and only when one needs it: ONE batched read for the integration, none at all when no row is a candidate.
+	 * Best-effort: any failure is logged and yields `undefined` (a target that couldn't be checked yields no entry),
+	 * so those rows keep their category.
+	 */
+	private async getSidebarReviewDecisions(
+		categorized: readonly { item: { uuid: string; suggestedActionCategory: string }; viewerless: boolean }[],
+		prsByUuid: ReadonlyMap<string, PullRequest>,
+		integration: GitHostIntegration,
+		mergeQueueByNumber: Map<number, PullRequestMergeQueueEntry> | undefined,
+	): Promise<Map<PullRequest, { reviewDecision: PullRequestReviewDecision | undefined }> | undefined> {
+		if (!isReviewDecisionReportingProvider(integration.id)) return undefined;
+
+		const candidates: PullRequest[] = [];
+		for (const { item, viewerless } of categorized) {
+			if (viewerless) continue;
+
+			const pr = prsByUuid.get(item.uuid);
+			// A row whose own read selected the decision is judged from it directly.
+			if (pr == null || getPullRequestFieldPresence(pr)?.reviewDecision === 'fetched') continue;
+
+			const category = getLaunchpadActionCategory(
+				item.suggestedActionCategory,
+				joinPullRequestMergeQueue(pr, mergeQueueByNumber),
+			);
+			if (category === 'unassigned-reviewers') {
+				candidates.push(pr);
+			}
+		}
+		if (!candidates.length) return undefined;
+
+		try {
+			// The public batch read resolves each pull request by coordinate (aliased, up to 25 per request on
+			// GitHub/GHE), and its rows select the decision. Keys are the candidates' positions.
+			const result = await this.container.integrations.getPullRequestsBatch({
+				providerId: integration.id,
+				// The integration the remote resolved to, as the panel's own read uses.
+				domain: integration.domain,
+				targets: candidates.map((pr, i) => ({
+					key: String(i),
+					owner: pr.repository.owner,
+					repo: pr.repository.repo,
+					number: this.getPullRequestNumber(pr),
+				})),
+				// Only the decision is used, so the merge-queue selection would be spent on nothing.
+				mergeQueue: false,
+			});
+			if (result.warnings.length) {
+				Logger.warn(
+					`Unable to resolve review decisions: ${result.warnings.map(w => w.message).join('; ')}`,
+					'getSidebarPullRequests',
+				);
+			}
+
+			const decisions = new Map<PullRequest, { reviewDecision: PullRequestReviewDecision | undefined }>();
+			for (const row of result.items) {
+				// A target the read couldn't check has no row, and a row without a pull request is one it couldn't
+				// find — neither says anything about its decision, nor does a row whose read didn't select it.
+				if (
+					row.pullRequest == null ||
+					getPullRequestFieldPresence(row.pullRequest)?.reviewDecision !== 'fetched'
+				) {
+					continue;
+				}
+
+				const candidate = candidates[Number(row.key)];
+				if (candidate == null) continue;
+
+				decisions.set(candidate, { reviewDecision: row.pullRequest.reviewDecision });
+			}
+			return decisions;
+		} catch (ex) {
+			Logger.warn(`Unable to resolve review decisions: ${ex}`, 'getSidebarPullRequests');
 			return undefined;
 		}
 	}

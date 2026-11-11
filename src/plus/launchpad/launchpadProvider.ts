@@ -92,6 +92,7 @@ import {
 	launchpadGroups,
 	prActionsMap,
 } from './models/launchpad.js';
+import { getReviewNotRequiredActionCategory } from './utils/reviewRequirement.utils.js';
 
 /**
  * Whether a pull request has gone stale. One still in a merge queue is moving, so never stale. One its queue run
@@ -1075,6 +1076,17 @@ export class LaunchpadProvider implements Disposable {
 						item.suggestedActionCategory,
 						item.underlyingPullRequest,
 					);
+					// A pull request nobody has been asked to review isn't blocked on it when its host reports that
+					// no review is required
+					const reviewNotRequiredCategory = getReviewNotRequiredActionCategory(
+						actionableCategory,
+						item,
+						item.underlyingPullRequest,
+					);
+					if (reviewNotRequiredCategory != null) {
+						actionableCategory = reviewNotRequiredCategory;
+						item.viewer.shouldAssignReviewer = false;
+					}
 					// category override — a pull request still in a merge queue is moving whether or not it's stale, and
 					// one removed from its queue is judged by the removal (it doesn't move its update date)
 					if (
