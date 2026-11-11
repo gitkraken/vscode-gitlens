@@ -1133,6 +1133,39 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
+		test('a site that fails after a read cut short keeps the prefixes that read served, not those of its older list (#6183, #6184)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				const reads = state.projectReads;
+
+				// Past the TTL, the site lists BETA and no longer ALPHA, and its list comes back cut short.
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				state.deletedOnSite.add('site-1:ALPHA');
+				state.truncatedSites.add('site-1');
+				advanceClock(discoveryCacheTtl);
+				await prefixesOf(integration);
+				await until(() => state.projectReads === reads + 1, 'the background rebuild read the projects');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['BETA-', 'BETA_']);
+
+				// Then its read fails at the retry.
+				state.truncatedSites.clear();
+				state.failingSites.add('site-1');
+				advanceClock(incompleteAutolinksRetryDelay);
+				await prefixesOf(integration);
+				await until(() => state.projectReads === reads + 2, 'the retry read the projects');
+				await flush();
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['BETA-', 'BETA_'],
+					'what it served last, not the deleted ALPHA of its list stored before',
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
 		test('a site whose later page fails keeps the prefixes it held beyond the pages read', async () => {
 			const { service, integration, state } = await jiraCloud();
 			try {
@@ -1371,38 +1404,49 @@ suite('Tracker project cache (#5907)', () => {
 
 		type JiraCloudInternals = {
 			_session: ProviderAuthenticationSession;
+			_autolinksResets: number;
+			getProviderResourcesForUser: (session: ProviderAuthenticationSession, force?: boolean) => Promise<unknown>;
 			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
-			_autolinksBuilds: Map<string, Promise<unknown>>;
+			_autolinksBuilds: Map<string, Promise<{ prefix?: string }[]>>;
 			_projects: DiscoveryCache<{ key: string }[]>;
 			_projectEvictions: Map<string, number>;
 			buildAutolinks: (session: ProviderAuthenticationSession) => Promise<{ prefix?: string }[]>;
+			buildAutolinksCore: (session: ProviderAuthenticationSession) => Promise<{ prefix?: string }[]>;
+			getProviderProjectsForResourcesWithMetadata: (
+				session: ProviderAuthenticationSession,
+				resources: unknown[],
+				force?: boolean,
+			) => Promise<unknown>;
 		};
 
 		/**
-		 * A rebuild holding the site's project list, BETA included, when an issue read finds BETA gone and evicts that
-		 * list (#6176). BETA is then unlisted too, so any read after the eviction no longer names it.
+		 * A background rebuild, the autolinks and the project list having expired, holding the site's list, BETA
+		 * included, when an issue read lists the same projects again and then finds BETA gone and evicts that list
+		 * (#6176). The issue read stores the list unchanged, so the eviction alone fences and retires the rebuild. BETA
+		 * is then unlisted too, so any read after the eviction no longer names it.
 		 */
 		async function evictBetaDuringRebuild() {
 			const jira = await jiraCloud();
 			const { integration, state, read } = jira;
+			const internals = integration as unknown as JiraCloudInternals;
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 			integration.invalidateDiscoveryCaches();
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			advanceClock(discoveryCacheTtl);
 			const reads = state.projectReads;
 			let release!: () => void;
 			state.projectsGate = new Promise<void>(resolve => (release = resolve));
-			const earlier = prefixesOf(integration);
-			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+			await prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			const earlier = internals._autolinksBuilds.get('tok-1')!;
 			state.projectsGate = undefined;
 
 			state.deleted.add('BETA');
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1'], 'the read evicted the list that named BETA');
+			assert.equal(state.projectReads, reads + 2, 'the issue read listed the projects again');
 			state.projects = state.projects.filter(p => p.key !== 'BETA');
-			return {
-				...jira,
-				internals: integration as unknown as JiraCloudInternals,
-				earlier: earlier,
-				release: release,
-			};
+			return { ...jira, internals: internals, earlier: earlier, release: release };
 		}
 
 		test('a rebuild holding a project list evicted meanwhile does not cache it (#6176)', async () => {
@@ -1410,9 +1454,9 @@ suite('Tracker project cache (#5907)', () => {
 
 			release();
 			assert.deepEqual(
-				await earlier,
+				(await earlier).map(a => a.prefix).sort(),
 				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
-				'the earlier render answers what it read',
+				'the earlier rebuild answers what it read',
 			);
 			assert.ok(
 				!internals._autolinks.get('tok-1')?.autolinks.some(a => a.prefix?.startsWith('BETA')),
@@ -1434,7 +1478,7 @@ suite('Tracker project cache (#5907)', () => {
 			release();
 
 			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_'], 'the later render rebuilt');
-			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual((await earlier).map(a => a.prefix).sort(), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the later rebuild is the one kept');
 
 			service.dispose();
@@ -1486,6 +1530,718 @@ suite('Tracker project cache (#5907)', () => {
 			assert.deepEqual(
 				internals._projects.get('tok-2:site-1')?.map(p => p.key),
 				['ALPHA', 'BETA'],
+				"the other token's list is kept",
+			);
+
+			service.dispose();
+		});
+
+		/**
+		 * A background rebuild, the autolinks and the project list having expired, reading the list again while ALPHA
+		 * alone is listed, when BETA is created and an issue read lists the projects again, replacing the list the
+		 * rebuild holds (#6184). With `identical`, BETA isn't created, so the issue read stores the same list again.
+		 */
+		async function replaceListDuringRebuild(options?: { identical?: boolean }) {
+			const jira = await jiraCloud();
+			const { integration, state, read } = jira;
+			const internals = integration as unknown as JiraCloudInternals;
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the expired set, without waiting');
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			const earlier = internals._autolinksBuilds.get('tok-1')!;
+			state.projectsGate = undefined;
+
+			if (!options?.identical) {
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			}
+			await read();
+			assert.equal(state.projectReads, reads + 2, 'the issue read listed the projects again');
+			return { ...jira, internals: internals, earlier: earlier, release: release };
+		}
+
+		test('a rebuild holding a project list replaced meanwhile keeps the newer list, not the one it read (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+
+			release();
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier rebuild builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-1')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the older set is not kept',
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+				'nor does the older read put its list back',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the next render');
+
+			service.dispose();
+		});
+
+		test("a rebuild holding a cached site's project list replaced meanwhile keeps the newer list (#6184)", async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			state.sites.push({ ...site, id: 'site-2', name: 'Site 2', url: 'https://site-2.atlassian.net' });
+			integration.invalidateDiscoveryCaches();
+			await read();
+			const site1 = (await integration.getResourcesForUserResult())?.value?.find(s => s.id === 'site-1');
+			assert.ok(site1 != null);
+
+			// Site 2's list is due for a re-read, so the rebuild takes site 1's from the cache and reads site 2's.
+			internals._projects.delete('tok-1:site-2');
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, "the rebuild read site 2's projects");
+			const rebuild = internals._autolinksBuilds.get('tok-1');
+			state.projectsGate = undefined;
+
+			// BETA is created, and a forced read replaces site 1's list, the one the rebuild took from the cache.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site1], true);
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), rebuild, 'the replacement retired the rebuild');
+			release();
+
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the rebuild builds each site from its list stored when it settles (#6183)',
+			);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-1')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the older set is not kept',
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-2')?.map(p => p.key),
+				['ALPHA'],
+				"the rebuild's read of site 2, the latest of that site, is kept",
+			);
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the next render',
+			);
+
+			service.dispose();
+		});
+
+		test('an autolink read after a project list replacement does not join a rebuild started before it (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), earlier, 'the replacement retired the rebuild');
+
+			let settled = false;
+			const later = prefixesOf(integration).finally(() => (settled = true));
+			await until(() => settled, 'the later render did not wait on the earlier rebuild');
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier rebuild builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the later rebuild is the one kept',
+			);
+
+			service.dispose();
+		});
+
+		test('a rebuild retired by a project list replacement does not replace the set a later rebuild kept (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+			// A later render rebuilds from the newer list and keeps that set.
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			const newer = internals._autolinks.get('tok-1');
+			assert.ok(newer != null);
+
+			// The retired rebuild settles once that list expired: its own, older read is refused, so it builds from
+			// the newer list, but no longer as stored fresh, and so incomplete.
+			advanceClock(discoveryCacheTtl);
+			release();
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the retired rebuild answers the newer list, not its own older read, even once that list expired',
+			);
+			assert.equal(internals._autolinks.get('tok-1'), newer, 'the set the later rebuild kept stays');
+
+			service.dispose();
+		});
+
+		test('a rebuild retired by a project list replacement that settles once that list expired keeps the newer list, incomplete (#6184)', async () => {
+			const { service, integration, internals, earlier, release, read } = await replaceListDuringRebuild();
+
+			// No render meanwhile: the rebuild settles once the newer list expired, its own, older read refused.
+			advanceClock(discoveryCacheTtl);
+			release();
+			const newer = ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'];
+			assert.deepEqual((await earlier).map(a => a.prefix).sort(), newer, 'built from the newer list');
+			const kept = internals._autolinks.get('tok-1');
+			assert.equal(kept?.complete, false, 'kept to be retried after the delay');
+
+			// The same list stored again drops that incomplete set, so the next render builds it again from the list.
+			await read();
+			assert.notEqual(internals._autolinks.get('tok-1'), kept, 'the incomplete set is dropped');
+			assert.deepEqual(await prefixesOf(integration), newer);
+			assert.equal(internals._autolinks.get('tok-1')?.complete, true);
+
+			service.dispose();
+		});
+
+		test("a site that keeps failing keeps its prefixes when another site's list change retires the rebuild holding them (#6184)", async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			integration.invalidateDiscoveryCaches();
+			state.sites = [site, otherSite];
+			const both = ['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_'];
+			assert.deepEqual(await prefixesOf(integration), both);
+			const site1 = (await integration.getResourcesForUserResult())?.value?.find(s => s.id === 'site-1');
+			assert.ok(site1 != null);
+
+			// Past the TTL, site 2's projects fail to re-read, and a background rebuild holding the set waits on both
+			// sites' projects.
+			state.failingSites.add('site-2');
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			assert.deepEqual(await prefixesOf(integration), both, 'the expired set, without waiting');
+			await until(() => state.projectReads === reads + 2, 'the rebuild read both sites');
+			const retired = internals._autolinksBuilds.get('tok-1');
+			state.projectsGate = undefined;
+
+			// BETA is created, and a forced read replaces site 1's list, retiring that rebuild and dropping the set. A
+			// later render rebuilds, site 2 still failing, and settles first.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site1], true);
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), retired, 'the replacement retired the rebuild');
+			const expected = ['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'];
+			assert.deepEqual(
+				await prefixesOf(integration),
+				expected,
+				"the later rebuild keeps site 2's prefixes from its last list stored, not from the set dropped",
+			);
+
+			release();
+			await retired;
+			assert.deepEqual(await prefixesOf(integration), expected, 'and they stay once the retired rebuild settles');
+
+			service.dispose();
+		});
+
+		/**
+		 * A background rebuild holding ALPHA alone is retired when an issue read stores ALPHA and BETA, and a later
+		 * render, once the sites expired but not that list, starts another rebuild whose site read fails. `settleFirst`
+		 * says which of the two settles first: the retired one keeps a set built from the lists now cached, and the
+		 * later one the fallback it held, none. With `incomplete`, a second site's projects fail throughout, so the
+		 * retired rebuild's set is incomplete.
+		 */
+		async function retireThenFailLaterRebuild(settleFirst: 'retired' | 'later', incomplete: boolean) {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			if (incomplete) {
+				integration.invalidateDiscoveryCaches();
+				state.sites = [site, otherSite];
+				state.failingSites.add('site-2');
+			}
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let releaseRetired!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseRetired = resolve));
+			await prefixesOf(integration);
+			await until(
+				() => state.projectReads === reads + state.sites.length,
+				'the rebuild read the sites, then the projects',
+			);
+			const retired = internals._autolinksBuilds.get('tok-1')!;
+			state.projectsGate = undefined;
+
+			advanceClock(1000);
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await read();
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), retired, 'the replacement retired the rebuild');
+
+			// The sites the retired rebuild stored expire; the project list stored after them doesn't.
+			advanceClock(discoveryCacheTtl - 500);
+			let releaseSites!: () => void;
+			state.sitesGate = new Promise<void>(resolve => (releaseSites = resolve));
+			state.sitesError = new Error('(503) Service Unavailable.');
+			const siteReads = state.siteReads;
+			const later = prefixesOf(integration);
+			await until(() => state.siteReads === siteReads + 1, 'the later rebuild read the sites');
+			const settleRetired = async () => {
+				releaseRetired();
+				await retired;
+			};
+			const settleLater = async () => {
+				releaseSites();
+				assert.deepEqual(await later, [], 'the later rebuild answers the fallback it held');
+			};
+			if (settleFirst === 'retired') {
+				await settleRetired();
+				await settleLater();
+			} else {
+				await settleLater();
+				await settleRetired();
+			}
+			state.sitesGate = undefined;
+			state.sitesError = undefined;
+			return { service: service, internals: internals };
+		}
+
+		for (const incomplete of [false, true]) {
+			for (const settleFirst of ['retired', 'later'] as const) {
+				test(`a later rebuild's failed fallback and a retired rebuild's ${incomplete ? 'incomplete' : 'complete'} set built from the cached lists: the set is kept, whichever settles first (#6184, ${settleFirst} first)`, async () => {
+					const { service, internals } = await retireThenFailLaterRebuild(settleFirst, incomplete);
+					const kept = internals._autolinks.get('tok-1');
+					assert.deepEqual(
+						kept?.autolinks.map(a => a.prefix).sort(),
+						['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+						'the set built from the lists cached when it settled',
+					);
+					assert.equal(kept?.complete, !incomplete);
+
+					service.dispose();
+				});
+			}
+		}
+
+		test('a rebuild retired while holding a site list since replaced does not replace the set a later rebuild kept (#6184)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			// A background rebuild reads the one site, then waits on its projects.
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			await prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			const retired = internals._autolinksBuilds.get('tok-1')!;
+			state.projectsGate = undefined;
+
+			// A second site appears; once the site list expired an issue read lists both, retiring the rebuild, and a
+			// later render keeps the set for both sites.
+			state.sites = [site, otherSite];
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			advanceClock(discoveryCacheTtl);
+			await read();
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), retired, 'the replacement retired the rebuild');
+			await prefixesOf(integration);
+			const sitesOf = () =>
+				[
+					...new Set(
+						(
+							internals._autolinks.get('tok-1')?.autolinks as
+								| { descriptor?: { key?: string } }[]
+								| undefined
+						)?.map(a => a.descriptor?.key),
+					),
+				].sort();
+			assert.deepEqual(sitesOf(), ['site-1', 'site-2']);
+
+			// The retired rebuild settles with every site it listed cached, but from the site list it read.
+			release();
+			await retired;
+			assert.deepEqual(sitesOf(), ['site-1', 'site-2'], 'the set for both sites stays');
+
+			service.dispose();
+		});
+
+		test('a rebuild retired while holding a site list since replaced keeps its set incomplete when it settles first (#6184)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			await prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			const retired = internals._autolinksBuilds.get('tok-1')!;
+			state.projectsGate = undefined;
+
+			// A second site appears, and an issue read lists both, retiring the rebuild; no render keeps a set meanwhile.
+			state.sites = [site, otherSite];
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			advanceClock(discoveryCacheTtl);
+			await read();
+			release();
+			await retired;
+			assert.equal(
+				internals._autolinks.get('tok-1')?.complete,
+				false,
+				'built from the site list it read, not the stored one: retried after the delay',
+			);
+
+			advanceClock(incompleteAutolinksRetryDelay);
+			await prefixesOf(integration);
+			await until(() => internals._autolinksBuilds.get('tok-1') == null, 'the retry settled');
+			const kept = internals._autolinks.get('tok-1');
+			assert.deepEqual(
+				[
+					...new Set(
+						(kept?.autolinks as { descriptor?: { key?: string } }[] | undefined)?.map(
+							a => a.descriptor?.key,
+						),
+					),
+				].sort(),
+				['site-1', 'site-2'],
+			);
+			assert.equal(kept?.complete, true);
+
+			service.dispose();
+		});
+
+		test("a project list stored again with no set kept still fences a failing build's fallback (#6183, #6184)", async () => {
+			const { service, integration, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			await prefixesOf(integration);
+			internals._autolinks.delete('tok-1');
+			const resets = internals._autolinksResets;
+
+			advanceClock(discoveryCacheTtl);
+			await read();
+			assert.equal(internals._autolinksResets, resets + 1);
+
+			service.dispose();
+		});
+
+		test('a build whose site list another read stores again, the same, keeps its set complete (#6184)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			await prefixesOf(integration);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			await prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			const rebuild = internals._autolinksBuilds.get('tok-1')!;
+			state.projectsGate = undefined;
+
+			// Another reader reads the same sites again, storing them anew while the rebuild waits.
+			await internals.getProviderResourcesForUser(internals._session, true);
+			release();
+			await rebuild;
+			assert.equal(internals._autolinks.get('tok-1')?.complete, true, 'not retried for an identical site list');
+
+			service.dispose();
+		});
+
+		test("a site that keeps failing keeps its last list's prefixes through the empty fallback a build kept after a list change (#6184)", async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			integration.invalidateDiscoveryCaches();
+			state.sites = [site, otherSite];
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_']);
+			const site1 = (await integration.getResourcesForUserResult())?.value?.find(s => s.id === 'site-1');
+			assert.ok(site1 != null);
+
+			// Past the TTL, site 2's projects fail to re-read; BETA is created, and a forced read replaces site 1's list,
+			// dropping the set.
+			state.failingSites.add('site-2');
+			advanceClock(discoveryCacheTtl);
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site1], true);
+			assert.equal(internals._autolinks.get('tok-1'), undefined, 'the replacement dropped the set');
+
+			// The next render's build fails to read the sites, and keeps the fallback it held, none.
+			state.sitesError = new Error('(503) Service Unavailable.');
+			assert.deepEqual(await prefixesOf(integration), []);
+			state.sitesError = undefined;
+
+			// At the retry the sites read again, site 2 still failing.
+			advanceClock(incompleteAutolinksRetryDelay);
+			await prefixesOf(integration);
+			await until(() => internals._autolinksBuilds.get('tok-1') == null, 'the retry settled');
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'],
+				"site 2 keeps the prefixes of its last list stored, not the empty fallback's none",
+			);
+
+			service.dispose();
+		});
+
+		test('a project list stored again drops an incomplete set, so the next render builds it again (#6183, #6184)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			integration.invalidateDiscoveryCaches();
+			state.sites = [site, otherSite];
+			state.failingSites.add('site-2');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			assert.equal(internals._autolinks.get('tok-1')?.complete, false, 'the set is kept incomplete');
+
+			// Once the lists expired, an issue read stores the same list for the site that read, the other still failing.
+			advanceClock(discoveryCacheTtl);
+			await read();
+			assert.equal(internals._autolinks.get('tok-1'), undefined, 'the incomplete set is dropped');
+
+			service.dispose();
+		});
+
+		test('a project list replaced with an identical one keeps the built set and the rebuild (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild({
+				identical: true,
+			});
+			const served = internals._autolinks.get('tok-1');
+			let rebuilds = 0;
+			const buildAutolinksCore = internals.buildAutolinksCore.bind(integration);
+			internals.buildAutolinksCore = session => {
+				rebuilds++;
+				return buildAutolinksCore(session);
+			};
+
+			assert.ok(served != null, 'the set served while rebuilding is kept');
+			assert.equal(internals._autolinksBuilds.get('tok-1'), earlier, 'the rebuild is not retired');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			release();
+			await earlier;
+
+			assert.notEqual(internals._autolinks.get('tok-1'), served, 'the rebuild cached its set');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			await flush();
+			assert.equal(rebuilds, 0, 'no rebuild beyond the one in flight');
+
+			service.dispose();
+		});
+
+		test('a project read that started later stores its list even when an earlier one changed it first (#6184)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			const sites = (await integration.getResourcesForUserResult())?.value ?? [];
+			const reads = state.projectReads;
+
+			// An earlier read lists BETA, created since the list was stored, and a later one also lists GAMMA, created
+			// after the earlier one was answered.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			let releaseEarlier!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+			await until(() => state.projectReads === reads + 1, 'the earlier read listed the projects');
+			state.projects.push({ id: 'p3', key: 'GAMMA', name: 'Gamma' });
+			let releaseLater!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			const later = internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+			await until(() => state.projectReads === reads + 2, 'the later read listed the projects');
+			state.projectsGate = undefined;
+
+			// The earlier read is answered first and changes the stored list; the later one, answered last, replaces it.
+			releaseEarlier();
+			await earlier;
+			releaseLater();
+			await later;
+
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA', 'GAMMA'],
+				'the later read is the one kept',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_', 'GAMMA-', 'GAMMA_']);
+
+			service.dispose();
+		});
+
+		test('a project read that started earlier does not put back a list a later one found unchanged (#6184)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			const sites = (await integration.getResourcesForUserResult())?.value ?? [];
+			const reads = state.projectReads;
+
+			// An earlier read lists BETA, which is deleted again before a later read lists the projects as stored.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const earlier = internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+			await until(() => state.projectReads === reads + 1, 'the earlier read listed the projects');
+			state.projectsGate = undefined;
+			state.projects = state.projects.filter(p => p.key !== 'BETA');
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+
+			release();
+			assert.deepEqual(
+				((await earlier) as { values: { key: string }[] }).values.map(p => p.key),
+				['ALPHA'],
+				'the earlier read answers with the list the later one stored, not its own',
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA'],
+				'the earlier read does not put BETA back',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			service.dispose();
+		});
+
+		test('an autolink read after a first project list store does not join a rebuild started before it (#6184)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA exists, rebuilds and waits on the project list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+			state.projectsGate = undefined;
+
+			// BETA is created, and an issue read stores the site's list, the first one since the drop.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await read();
+			let settled = false;
+			const later = prefixesOf(integration).finally(() => (settled = true));
+			await until(() => settled, 'the later render did not wait on the earlier rebuild');
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier render builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the later rebuild is the one kept',
+			);
+
+			service.dispose();
+		});
+
+		/**
+		 * Persists the connect's site and project lists again as if just read, so the next connect seeds them, with
+		 * `projects` added to the site's.
+		 */
+		async function persistFreshDiscovery(
+			runtime: ReturnType<typeof createCloudService>['runtime'],
+			projects: { id: string; key: string; name: string }[] = [],
+		) {
+			advanceClock(1);
+			type Persisted = { v: number; timestamp: number; data: { id: string; key: string; name: string }[] };
+			const organizations = runtime.storage.get<Persisted>('jira:tok-1:organizations')!;
+			await runtime.storage.store('jira:tok-1:organizations', { ...organizations, timestamp: Date.now() });
+			const persisted = runtime.storage.get<Persisted>('jira:tok-1:projects')!;
+			await runtime.storage.store('jira:tok-1:projects', {
+				...persisted,
+				timestamp: Date.now(),
+				data: [...persisted.data, ...projects.map(p => ({ ...persisted.data[0], ...p }))],
+			});
+		}
+
+		test('a connect seeding a different project list retires a rebuild started before it (#6184)', async () => {
+			const { service, runtime, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			await persistFreshDiscovery(runtime, [{ id: 'p2', key: 'BETA', name: 'Beta' }]);
+
+			// A rebuild, the site's list being due for a re-read, holds ALPHA alone when the connect seeds.
+			internals._projects.delete('tok-1:site-1');
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const earlier = internals.buildAutolinks(internals._session);
+			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
+			state.projectsGate = undefined;
+
+			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+				'the connect seeded the list',
+			);
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), earlier, 'the seeding retired the rebuild');
+			release();
+			await earlier;
+
+			service.dispose();
+		});
+
+		test('a connect does not seed a persisted project list over one read since (#6184)', async () => {
+			const { service, runtime, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			await persistFreshDiscovery(runtime);
+
+			// BETA is created, and a read lists it before the connect seeds the persisted list, ALPHA alone.
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			const sites = (await integration.getResourcesForUserResult())?.value ?? [];
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
+
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+				'the list read since is kept',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
+		test("a project list replacement leaves another token's rebuild and caches alone (#6184)", async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			await read();
+			const sites = (await integration.getResourcesForUserResult())?.value ?? [];
+
+			// Another token's rebuild holds its own list, ALPHA alone, while this token's list is replaced.
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			await until(() => state.projectReads === reads + 1, "the other token's rebuild read the projects");
+			state.projectsGate = undefined;
+
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
+			assert.deepEqual(
+				internals._projects.get('tok-1:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+				"this token's list was replaced",
+			);
+			assert.equal(internals._autolinksBuilds.get('tok-2'), other, "the other token's rebuild is still joined");
+			release();
+
+			assert.deepEqual((await other).map(a => a.prefix).sort(), ['ALPHA-', 'ALPHA_']);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-2')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA_'],
+				"the other token's set is kept",
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-2:site-1')?.map(p => p.key),
+				['ALPHA'],
 				"the other token's list is kept",
 			);
 
@@ -2545,6 +3301,355 @@ suite('Tracker project cache (#5907)', () => {
 
 			service.dispose();
 		});
+
+		type LinearInternals = {
+			_session: ProviderAuthenticationSession;
+			_autolinksResets: number;
+			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
+			_autolinksBuilds: Map<string, Promise<{ prefix?: string }[]>>;
+			_teams: DiscoveryCache<{ key: string }[]>;
+			buildAutolinks: (session: ProviderAuthenticationSession) => Promise<{ prefix?: string }[]>;
+			buildAutolinksCore: (session: ProviderAuthenticationSession) => Promise<{ prefix?: string }[]>;
+			getTeamsWithMetadata: (session: ProviderAuthenticationSession, force?: boolean) => Promise<unknown>;
+		};
+
+		/**
+		 * A background rebuild, the autolinks and the team list having expired, reading the teams again while ALPHA
+		 * alone is listed, when BETA is created and an issue read lists the teams again, replacing the list the rebuild
+		 * holds (#6184). With `identical`, BETA isn't created, so the issue read stores the same list again.
+		 */
+		async function replaceListDuringRebuild(options?: { identical?: boolean }) {
+			const ctx = await linear();
+			const { integration, state, read } = ctx;
+			const internals = integration as unknown as LinearInternals;
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the expired set, without waiting');
+			await until(() => state.teamReads === reads + 1, 'the rebuild read the teams');
+			const earlier = internals._autolinksBuilds.get('tok-1')!;
+			state.teamsGate = undefined;
+
+			if (!options?.identical) {
+				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			}
+			await read();
+			assert.equal(state.teamReads, reads + 2, 'the issue read listed the teams again');
+			return { ...ctx, internals: internals, earlier: earlier, release: release };
+		}
+
+		test('a rebuild holding a team list replaced meanwhile keeps the newer list, not the one it read (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+
+			release();
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier rebuild builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-1')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the older set is not kept',
+			);
+			assert.deepEqual(
+				internals._teams.get('tok-1')?.map(t => t.key),
+				['ALPHA', 'BETA'],
+				'nor does the older read put its list back',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the next render');
+
+			service.dispose();
+		});
+
+		test('an autolink read after a team list replacement does not join a rebuild started before it (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+			assert.notEqual(internals._autolinksBuilds.get('tok-1'), earlier, 'the replacement retired the rebuild');
+
+			let settled = false;
+			const later = prefixesOf(integration).finally(() => (settled = true));
+			await until(() => settled, 'the later render did not wait on the earlier rebuild');
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier rebuild builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the later rebuild is the one kept',
+			);
+
+			service.dispose();
+		});
+
+		test('a rebuild retired by a team list replacement does not replace the set a later rebuild kept (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild();
+			// A later render rebuilds from the newer list and keeps that set.
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			const newer = internals._autolinks.get('tok-1');
+			assert.ok(newer != null);
+
+			// The retired rebuild settles once that list expired: its own, older read is refused, so it builds from
+			// the newer list, but no longer as stored fresh, and so incomplete.
+			advanceClock(discoveryCacheTtl);
+			release();
+			assert.deepEqual(
+				(await earlier).map(a => a.prefix).sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the retired rebuild answers the newer list, not its own older read, even once that list expired',
+			);
+			assert.equal(internals._autolinks.get('tok-1'), newer, 'the set the later rebuild kept stays');
+
+			service.dispose();
+		});
+
+		test('a rebuild retired by a team list replacement that settles once that list expired keeps the newer list, incomplete (#6184)', async () => {
+			const { service, integration, internals, earlier, release, read } = await replaceListDuringRebuild();
+
+			// No render meanwhile: the rebuild settles once the newer list expired, its own, older read refused.
+			advanceClock(discoveryCacheTtl);
+			release();
+			const newer = ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'];
+			assert.deepEqual((await earlier).map(a => a.prefix).sort(), newer, 'built from the newer list');
+			const kept = internals._autolinks.get('tok-1');
+			assert.equal(kept?.complete, false, 'kept to be retried after the delay');
+
+			// The same list stored again drops that incomplete set, so the next render builds it again from the list.
+			await read();
+			assert.notEqual(internals._autolinks.get('tok-1'), kept, 'the incomplete set is dropped');
+			assert.deepEqual(await prefixesOf(integration), newer);
+			assert.equal(internals._autolinks.get('tok-1')?.complete, true);
+
+			service.dispose();
+		});
+
+		test('a rebuild retired by a team list replacement replaces the empty fallback a later failing rebuild kept (#6184)', async () => {
+			const { service, integration, internals, state, earlier, release } = await replaceListDuringRebuild();
+
+			// Once that list expired, a render's rebuild fails to read the teams, and keeps the fallback it held, none.
+			advanceClock(discoveryCacheTtl);
+			state.teamsError = new Error('(503) Service Unavailable.');
+			assert.deepEqual(await prefixesOf(integration), []);
+			state.teamsError = undefined;
+
+			// The retired rebuild settles with the newer list its own read was refused for, and replaces that fallback.
+			release();
+			await earlier;
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
+		test('a rebuild retired while holding an organization since re-read does not replace the set a later rebuild kept (#6184)', async () => {
+			const { service, integration, internals, state, earlier, release } = await replaceListDuringRebuild();
+
+			// The workspace url changes and a forced lookup reads it; a later render keeps links to it.
+			state.organization = { ...state.organization, key: 'acme-2', url: 'https://linear.app/acme-2' };
+			await integration.getProviderResourceForSession(internals._session);
+			const urlsOf = () => [
+				...new Set(
+					(internals._autolinks.get('tok-1')?.autolinks as { url?: string }[] | undefined)?.map(a =>
+						a.url?.replace(/\/issue\/.*$/, ''),
+					),
+				),
+			];
+			await prefixesOf(integration);
+			assert.deepEqual(urlsOf(), ['https://linear.app/acme-2']);
+
+			// The retired rebuild settles from the team list as cached, but with the organization it read.
+			release();
+			await earlier;
+			assert.deepEqual(urlsOf(), ['https://linear.app/acme-2'], 'the links to the new url stay');
+
+			service.dispose();
+		});
+
+		test("a team list stored again with no set kept still fences a failing build's fallback (#6183, #6184)", async () => {
+			const { service, integration, read } = await linear();
+			const internals = integration as unknown as LinearInternals;
+			await prefixesOf(integration);
+			internals._autolinks.delete('tok-1');
+			const resets = internals._autolinksResets;
+
+			advanceClock(discoveryCacheTtl);
+			await read();
+			assert.equal(internals._autolinksResets, resets + 1);
+
+			service.dispose();
+		});
+
+		test('a build whose organization a forced lookup reads again, the same, keeps its set complete (#6184)', async () => {
+			const { service, integration, state } = await linear();
+			const internals = integration as unknown as LinearInternals;
+			await prefixesOf(integration);
+
+			advanceClock(discoveryCacheTtl);
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			await prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the rebuild read the teams');
+			const rebuild = internals._autolinksBuilds.get('tok-1')!;
+			state.teamsGate = undefined;
+
+			await integration.getProviderResourceForSession(internals._session);
+			release();
+			await rebuild;
+			assert.equal(
+				internals._autolinks.get('tok-1')?.complete,
+				true,
+				'not retried for an identical organization',
+			);
+
+			service.dispose();
+		});
+
+		test('a team list replaced with an identical one keeps the built set and the rebuild (#6184)', async () => {
+			const { service, integration, internals, earlier, release } = await replaceListDuringRebuild({
+				identical: true,
+			});
+			const served = internals._autolinks.get('tok-1');
+			let rebuilds = 0;
+			const buildAutolinksCore = internals.buildAutolinksCore.bind(integration);
+			internals.buildAutolinksCore = session => {
+				rebuilds++;
+				return buildAutolinksCore(session);
+			};
+
+			assert.ok(served != null, 'the set served while rebuilding is kept');
+			assert.equal(internals._autolinksBuilds.get('tok-1'), earlier, 'the rebuild is not retired');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			release();
+			await earlier;
+
+			assert.notEqual(internals._autolinks.get('tok-1'), served, 'the rebuild cached its set');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			await flush();
+			assert.equal(rebuilds, 0, 'no rebuild beyond the one in flight');
+
+			service.dispose();
+		});
+
+		test('a team read that started later stores its list even when an earlier one changed it first (#6184)', async () => {
+			const { service, integration, state } = await linear();
+			const internals = integration as unknown as LinearInternals;
+			const reads = state.teamReads;
+
+			// An earlier read lists BETA, joined since the list was stored, and a later one also lists GAMMA, joined
+			// after the earlier one was answered.
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			let releaseEarlier!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = internals.getTeamsWithMetadata(internals._session, true);
+			await until(() => state.teamReads === reads + 1, 'the earlier read listed the teams');
+			state.teams.push({ id: 't3', key: 'GAMMA', name: 'Gamma', iconUrl: null });
+			let releaseLater!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			const later = internals.getTeamsWithMetadata(internals._session, true);
+			await until(() => state.teamReads === reads + 2, 'the later read listed the teams');
+			state.teamsGate = undefined;
+
+			// The earlier read is answered first and changes the stored list; the later one, answered last, replaces it.
+			releaseEarlier();
+			await earlier;
+			releaseLater();
+			await later;
+
+			assert.deepEqual(
+				internals._teams.get('tok-1')?.map(t => t.key),
+				['ALPHA', 'BETA', 'GAMMA'],
+				'the later read is the one kept',
+			);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_', 'GAMMA-', 'GAMMA_']);
+
+			service.dispose();
+		});
+
+		test('an autolink read after a first team list store does not join a rebuild started before it (#6184)', async () => {
+			const { service, integration, state, read } = await linear();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA is joined, rebuilds and waits on the team list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
+			state.teamsGate = undefined;
+
+			// BETA is joined, and an issue read stores the team list, the first one since the drop.
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			await read();
+			let settled = false;
+			const later = prefixesOf(integration).finally(() => (settled = true));
+			await until(() => settled, 'the later render did not wait on the earlier rebuild');
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier render builds from the list stored when it settles (#6183), not the one it read',
+			);
+			assert.deepEqual(
+				await prefixesOf(integration),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the later rebuild is the one kept',
+			);
+
+			service.dispose();
+		});
+
+		test("a team list replacement leaves another token's rebuild and caches alone (#6184)", async () => {
+			const { service, integration, state, read } = await linear();
+			const internals = integration as unknown as LinearInternals;
+			await read();
+			advanceClock(discoveryCacheTtl);
+
+			// Another token's rebuild holds its own list, ALPHA alone, while this token's expired list is replaced.
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			await until(() => state.teamReads === reads + 1, "the other token's rebuild read the teams");
+			state.teamsGate = undefined;
+
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			await read();
+			assert.deepEqual(
+				internals._teams.get('tok-1')?.map(t => t.key),
+				['ALPHA', 'BETA'],
+				"this token's list was replaced",
+			);
+			assert.equal(internals._autolinksBuilds.get('tok-2'), other, "the other token's rebuild is still joined");
+			release();
+
+			assert.deepEqual((await other).map(a => a.prefix).sort(), ['ALPHA-', 'ALPHA_']);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-2')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA_'],
+				"the other token's set is kept",
+			);
+			assert.deepEqual(
+				internals._teams.get('tok-2')?.map(t => t.key),
+				['ALPHA'],
+				"the other token's list is kept",
+			);
+
+			service.dispose();
+		});
 	});
 
 	suite('Trello', () => {
@@ -2747,8 +3852,33 @@ suite('Tracker project cache (#5907)', () => {
 
 			assert.equal(cache.set('a', 1, { generation: before }), false);
 			assert.equal(cache.get('a'), undefined);
-			assert.equal(cache.set('a', 2, { generation: cache.generation }), true);
+			assert.equal(cache.set('a', 2, { generation: cache.generation }), 'changed');
 			assert.equal(cache.get('a'), 2);
+		});
+
+		test('refuses a value from a read that started before the one stored (#6184)', () => {
+			const cache = new DiscoveryCache<number>();
+			const earlier = cache.startRead();
+			const later = cache.startRead();
+
+			assert.equal(cache.set('a', 2, { read: later }), 'changed');
+			assert.equal(cache.set('a', 1, { read: earlier }), false, 'the earlier read, answered last');
+			assert.equal(cache.set('b', 1, { read: earlier }), 'changed', 'another key is ordered on its own');
+			assert.equal(cache.set('a', 3), 'changed', 'a value stored without a read');
+			assert.equal(cache.set('a', 1, { read: earlier }), false, 'keeps the order of the one it replaced');
+			assert.equal(cache.get('a'), 3);
+		});
+
+		test('tells an unchanged value apart, even from an expired one (#6184)', () => {
+			advanceClock(0);
+			const cache = new DiscoveryCache<{ key: string }[]>(1000);
+			assert.equal(cache.set('a', [{ key: 'ALPHA' }]), 'changed', 'nothing stored before');
+
+			advanceClock(1000);
+			assert.equal(cache.get('a'), undefined);
+			assert.deepEqual(cache.peek('a'), [{ key: 'ALPHA' }], 'kept until replaced');
+			assert.equal(cache.set('a', [{ key: 'ALPHA' }]), 'unchanged');
+			assert.equal(cache.set('a', [{ key: 'ALPHA' }, { key: 'BETA' }]), 'changed');
 		});
 	});
 });
