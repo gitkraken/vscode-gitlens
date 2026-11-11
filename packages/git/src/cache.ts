@@ -2738,9 +2738,16 @@ export class Cache implements Disposable {
 
 	getInitialCommitSha(
 		repoPath: string,
-		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.readValidated(repoPath, () => this.getSharedSimple(this.initialCommitSha, repoPath, factory));
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.initialCommitSha, repoPath, factory, cancellation),
+		);
 	}
 
 	/** A rejected factory is never cached (`PromiseMap` evicts on rejection) — a failed read retries next time. */

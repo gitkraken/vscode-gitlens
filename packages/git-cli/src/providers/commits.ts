@@ -828,11 +828,11 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (cacheable?: CacheController) => {
+		const getCore = async (cacheable?: CacheController, signal?: AbortSignal) => {
 			try {
 				// Use for-each-ref with %(HEAD) to mark current branch with *
 				const result = await this.git.run(
-					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+					{ cwd: repoPath, cancellation: signal ?? cancellation, errors: 'ignore' },
 					'for-each-ref',
 					'--contains',
 					rev,
@@ -844,7 +844,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					'refs/remotes/',
 					'refs/tags/',
 				);
-				if (cancellation?.aborted) throw new CancellationError();
+				if ((signal ?? cancellation)?.aborted) throw new CancellationError();
 
 				const refs: GitCommitReachability['refs'] = [];
 
@@ -898,7 +898,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			}
 		};
 
-		return this.cache.reachability.getOrCreate(repoPath, rev, getCore);
+		return this.cache.reachability.getOrCreate(repoPath, rev, getCore, { cancellation: cancellation });
 	}
 
 	@debug({ quiet: true })
@@ -990,28 +990,34 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	async getInitialCommitSha(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
 		try {
 			// Initial commit SHA is shared across all worktrees
-			return await this.cache.getInitialCommitSha(repoPath, async commonPath => {
-				const result = await this.git.run(
-					{ cwd: commonPath, cancellation: cancellation, errors: 'ignore' },
-					'rev-list',
-					`--max-parents=0`,
-					'HEAD',
-					'--',
-				);
-				if (result.completion.status === 'cancelled' || cancellation?.aborted) {
-					throw new CancellationError();
-				}
+			return await this.cache.getInitialCommitSha(
+				repoPath,
+				async (commonPath, _cacheable, signal) => {
+					// `signal` aborts only once every caller sharing this read has, so one caller's abort can't
+					// fail the others
+					const result = await this.git.run(
+						{ cwd: commonPath, cancellation: signal ?? cancellation, errors: 'ignore' },
+						'rev-list',
+						`--max-parents=0`,
+						'HEAD',
+						'--',
+					);
+					if (result.completion.status === 'cancelled' || signal?.aborted) {
+						throw new CancellationError();
+					}
 
-				if (result.completion.status === 'exited') {
-					if (result.exitCode === 0) return result.stdout.trim().split('\n')[0] || undefined;
+					if (result.completion.status === 'exited') {
+						if (result.exitCode === 0) return result.stdout.trim().split('\n')[0] || undefined;
 
-					// A HEAD with no commits yet is a real answer
-					if (unbornHeadRegex.test(result.stderr ?? '')) return undefined;
-				}
+						// A HEAD with no commits yet is a real answer
+						if (unbornHeadRegex.test(result.stderr ?? '')) return undefined;
+					}
 
-				// Rejects any other failure, which the cache never keeps
-				throw new Error('Unable to read the initial commit');
-			});
+					// Rejects any other failure, which the cache never keeps
+					throw new Error('Unable to read the initial commit');
+				},
+				cancellation,
+			);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
@@ -1030,9 +1036,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			? options.authors.map(a => `--author=^${escapeRegex(a.name ?? '')} <${escapeRegex(a.email ?? '')}>$`)
 			: [];
 
-		const run = async (): Promise<LeftRightCommitCountResult | undefined> => {
+		const run = async (signal?: AbortSignal): Promise<LeftRightCommitCountResult | undefined> => {
 			const result = await this.git.run(
-				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+				{ cwd: repoPath, cancellation: signal ?? cancellation, errors: 'ignore' },
 				'rev-list',
 				'--left-right',
 				'--count',
@@ -1041,7 +1047,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				range,
 				'--',
 			);
-			if (result.completion.status === 'cancelled' || cancellation?.aborted) {
+			if (result.completion.status === 'cancelled' || (signal ?? cancellation)?.aborted) {
 				throw new CancellationError();
 			}
 			if (!result.stdout) return undefined;
@@ -1067,7 +1073,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		// Cache key: range + excludeMerges. RepositoryChange events affecting branches/remotes
 		// invalidate this cache via clearCaches('branches').
 		const cacheKey = `${range}\x1f${options?.excludeMerges ? 'no-merges' : ''}`;
-		return this.cache.leftRightCommitCount.getOrCreate(repoPath, cacheKey, run);
+		return this.cache.leftRightCommitCount.getOrCreate(repoPath, cacheKey, (_cacheable, signal) => run(signal), {
+			cancellation: cancellation,
+		});
 	}
 
 	@debug({ quiet: true })
@@ -1686,7 +1694,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		options.similarityThreshold ??= cfg?.commits.similarityThreshold;
 		options.merges ??= true;
 
-		const getCore = async (): Promise<string[]> => {
+		const getCore = async (signal?: AbortSignal): Promise<string[]> => {
 			try {
 				const parser = getShaLogParser();
 				const args = [...parser.arguments];
@@ -1751,7 +1759,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				}
 
 				const result = await this.git.run(
-					{ cwd: repoPath, cancellation: cancellation, configs: gitConfigsLog },
+					{ cwd: repoPath, cancellation: signal ?? cancellation, configs: gitConfigsLog },
 					'log',
 					...args,
 				);
@@ -1773,7 +1781,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			return this.cache.logShas.getOrCreate(
 				repoPath,
 				`${rev ?? ''}:${options.ordering ?? ''}:${options.limit}:${options.merges}:${options.since ?? ''}${options.excluding == null ? '' : `:${getRefExclusionsKey(options.excluding)}`}`,
-				() => getCore(),
+				(_cacheable, signal) => getCore(signal),
+				{ cancellation: cancellation },
 			);
 		}
 
