@@ -997,6 +997,129 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		type JiraCloudInternals = {
+			_session: ProviderAuthenticationSession;
+			_autolinks: Map<string, { autolinks: { prefix?: string }[] }>;
+			_autolinksBuilds: Map<string, Promise<unknown>>;
+			_projects: DiscoveryCache<{ key: string }[]>;
+			_projectEvictions: Map<string, number>;
+			buildAutolinks: (session: ProviderAuthenticationSession) => Promise<{ prefix?: string }[]>;
+		};
+
+		/**
+		 * A rebuild holding the site's project list, BETA included, when an issue read finds BETA gone and evicts that
+		 * list (#6176). BETA is then unlisted too, so any read after the eviction no longer names it.
+		 */
+		async function evictBetaDuringRebuild() {
+			const jira = await jiraCloud();
+			const { integration, state, read } = jira;
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			integration.invalidateDiscoveryCaches();
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+			state.projectsGate = undefined;
+
+			state.deleted.add('BETA');
+			assert.deepEqual(titles(await read()), ['Issue ALPHA-1'], 'the read evicted the list that named BETA');
+			state.projects = state.projects.filter(p => p.key !== 'BETA');
+			return {
+				...jira,
+				internals: integration as unknown as JiraCloudInternals,
+				earlier: earlier,
+				release: release,
+			};
+		}
+
+		test('a rebuild holding a project list evicted meanwhile does not cache it (#6176)', async () => {
+			const { service, integration, internals, earlier, release } = await evictBetaDuringRebuild();
+
+			release();
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				'the earlier render answers what it read',
+			);
+			assert.ok(
+				!internals._autolinks.get('tok-1')?.autolinks.some(a => a.prefix?.startsWith('BETA')),
+				'the evicted project is not kept in the built set',
+			);
+			assert.equal(internals._projects.get('tok-1:site-1'), undefined, 'nor is the evicted list put back');
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the next render rebuilt without it');
+
+			service.dispose();
+		});
+
+		test('an autolink read after a missing-project eviction does not join a rebuild started before it (#6176)', async () => {
+			const { service, integration, state, earlier, release } = await evictBetaDuringRebuild();
+			const reads = state.projectReads;
+
+			const later = prefixesOf(integration);
+			await flush();
+			assert.equal(state.projectReads, reads + 1, 'the later render read the projects again');
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_'], 'the later render rebuilt');
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the later rebuild is the one kept');
+
+			service.dispose();
+		});
+
+		test('a drop forgets the eviction counts along with the lists they fenced (#6176)', async () => {
+			const { service, integration, internals, earlier, release } = await evictBetaDuringRebuild();
+			release();
+			await earlier;
+			assert.equal(internals._projectEvictions.get('tok-1'), 1, 'the eviction moved the count');
+
+			integration.invalidateDiscoveryCaches();
+			assert.equal(internals._projectEvictions.size, 0, 'no token is kept past the drop');
+
+			service.dispose();
+		});
+
+		test("a missing-project eviction leaves another token's rebuild and caches alone (#6176)", async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals;
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await service.refreshConnections();
+			await flush();
+			assert.deepEqual(titles(await read()), ['Issue ALPHA-1', 'Issue BETA-1']);
+
+			// Another token's rebuild holds its own list, BETA included, while this token's read evicts BETA.
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			await until(() => state.projectReads === reads + 1, "the other token's rebuild read the projects");
+			state.projectsGate = undefined;
+
+			state.deleted.add('BETA');
+			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
+			assert.equal(internals._projects.get('tok-1:site-1'), undefined, "this token's list was evicted");
+			assert.equal(internals._autolinksBuilds.get('tok-2'), other, "the other token's rebuild is still joined");
+			release();
+
+			assert.deepEqual((await other).map(a => a.prefix).sort(), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-2')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+				"the other token's set is kept",
+			);
+			assert.deepEqual(
+				internals._projects.get('tok-2:site-1')?.map(p => p.key),
+				['ALPHA', 'BETA'],
+				"the other token's list is kept",
+			);
+
+			service.dispose();
+		});
+
 		test('a deleted project reads as empty instead of failing the provider', async () => {
 			const { service, state, read } = await jiraCloud();
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
