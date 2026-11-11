@@ -755,17 +755,33 @@ export class Cache implements Disposable {
 			found.add(id);
 			if (path === repoPath) continue;
 
-			// Its own entries and status clock; the shared ones are for `repoPath`'s `'worktreeHead'` to clear
-			this.applyRepositoryChanges(path, ['head'], inFlight, { worktreeOnly: true });
-			// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current,
-			// and its git results may have read the HEAD it left
-			this._caches.branches?.delete(path);
-			this._caches.gitResults?.delete(path);
+			// The shared entries are for `repoPath`'s `'worktreeHead'` to clear
+			this.applyLinkedWorktreeChanges(path, ['head'], inFlight);
 		}
 
 		if (found.size < ids.size) {
 			this.dropLinkedCurrentBranches(repoPath, true);
 		}
+	}
+
+	/**
+	 * Clears what `changes` can have made stale in the linked worktree at `repoPath`'s own entries and status clock,
+	 * leaving the shared (commonPath-keyed) ones alone, for a change that can't have moved what they hold. `inFlight` is
+	 * as {@link applyRepositoryChanges}
+	 */
+	applyLinkedWorktreeChanges(
+		repoPath: string,
+		changes: Iterable<RepositoryChange>,
+		inFlight: 'share' | 'evict',
+	): void {
+		const changesSet = new Set(changes);
+		this.applyRepositoryChanges(repoPath, changesSet, inFlight, { worktreeOnly: true });
+		if (!changesSet.has('head')) return;
+
+		// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current, and
+		// its git results may have read the HEAD it left
+		this._caches.branches?.delete(repoPath);
+		this._caches.gitResults?.delete(repoPath);
 	}
 
 	/** Drops what a `'branch'` eviction of `worktreePath` drops of its current branch, and nothing shared */
