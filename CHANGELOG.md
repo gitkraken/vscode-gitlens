@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Jira and Linear autolinks not picking up projects or teams added or removed on the tracker for as long as you keep viewing commits, and up to an hour after ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183))
+
 ## [19.6.0] - 2026-11-10
 
 ### Added
