@@ -9,6 +9,7 @@ import { chunk } from '@gitlens/utils/array.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -41,7 +42,7 @@ import type {
 	ProviderLinearProject,
 } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
-import { DiscoveryCache, isAutolinkSetExpired } from './utils/discoveryCache.js';
+import { DiscoveryCache, isAutolinkSetExpired, isEmptyAutolinkFallback } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -111,10 +112,12 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
 	/**
-	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback over
-	 * a list it didn't read; the next render builds from it instead (#6183). Rule: every writer that stores a team list
-	 * must bump it, today only `getTeamsWithMetadata`'s store. The organization map deliberately doesn't: it only changes
-	 * the links' url, on a forced read. Drops need no bump: they move `_teams.generation`, which fails the build.
+	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback
+	 * over a list it didn't read; the next render builds from it instead (#6183). Rule: every writer that stores a
+	 * different team list must bump it and retire the token's build, through {@link onTeamListStored}, today only
+	 * `getTeamsWithMetadata`'s store; the same list stored again does neither while a complete set is kept (#6184). The
+	 * organization map deliberately doesn't: it only changes the links' url, on a forced read. Drops need no bump: they
+	 * move `_teams.generation`, which fails the build.
 	 */
 	private _autolinksResets = 0;
 
@@ -138,8 +141,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	}
 
 	/**
-	 * One build per token at a time: concurrent renders share it rather than each re-reading the teams. A drop retires
-	 * it, so a render after a forced refresh doesn't join a build reading the teams as they were before (#6170).
+	 * One build per token at a time: concurrent renders share it rather than each re-reading the teams. A drop or a
+	 * change to the team list retires it, so a render after one doesn't join a build reading the teams as they were
+	 * before (#6170, #6184).
 	 */
 	private buildAutolinks(
 		session: ProviderAuthenticationSession,
@@ -148,7 +152,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
 			build = this.buildAutolinksCore(session).finally(() => {
-				// A drop meanwhile retired this build, and the entry may be a later one's now.
+				// A drop or a list change meanwhile retired this build, and the entry may be a later one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
 					this._autolinksBuilds.delete(accessToken);
 				}
@@ -166,14 +170,27 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const resets = this._autolinksResets;
 		// What this build falls back on when it can't read the organization or the teams
 		const held = this._autolinks.get(accessToken);
-		// Kept even when incomplete, to be retried sooner rather than by every render (#6183); not when built from teams
-		// read before the caches were dropped.
+		// Kept even when incomplete, to be retried sooner rather than by every render (#6183); not when built from
+		// teams read before the caches were dropped. Complete only when built from the team list and the organization
+		// as stored now. Once a list change retired this build, another may have kept a set meanwhile: a complete set
+		// still replaces it, and any replaces an empty incomplete one, the fallback of a build that read none;
+		// otherwise, as it also rests on what only this build read (an organization since read again and changed, a
+		// read cut short) or held, it only replaces the set it held, or none (#6184). Refused, it still answers the
+		// renders waiting on it with its own result, a known limit.
 		const keep = (
 			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
 			complete: boolean,
 		): (AutolinkReference | DynamicAutolinkReference)[] => {
-			if (this._teams.generation === generation) {
-				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now(), complete: complete });
+			const kept = this._autolinks.get(accessToken);
+			if (
+				this._teams.generation === generation &&
+				(complete || kept == null || kept === held || isEmptyAutolinkFallback(kept))
+			) {
+				this._autolinks.set(accessToken, {
+					autolinks: autolinks,
+					builtAt: Date.now(),
+					complete: complete,
+				});
 			}
 			return autolinks;
 		};
@@ -200,11 +217,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				);
 			}
 
-			// An incomplete team list is served, and read again after the retry delay
-			return keep(
-				autolinks,
-				cached != null || teams.metadata == null || teams.metadata.completeness === 'complete',
-			);
+			// Built from teams not cached now, an incomplete read or a newer list since expired, or with an organization
+			// that differs from the one stored now, the set is served, and read again after the retry delay
+			return keep(autolinks, cached != null && areEqual(this._organizations?.get(accessToken), organization));
 		} catch (ex) {
 			// Autolinks are decoration: don't fail the render that asked
 			Logger.error(ex, 'LinearIntegration.autolinks');
@@ -290,15 +305,45 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (cachedResources != null && !force) return { values: cachedResources };
 
 		const generation = this._teams.generation;
+		const started = this._teams.startRead();
 		const read = await this.readTeams(session);
-		if (read?.metadata != null) return read;
+		if (read == null || read.metadata != null) return read;
 
-		if (read != null && this._teams.set(accessToken, read.values, { generation: generation })) {
-			// Built from the teams; a new set means new prefixes.
-			this._autolinks.delete(accessToken);
-			this._autolinksResets++;
+		// Not stored when the cache was dropped, or a read started after this one stored the teams, while this read
+		// was in flight.
+		const stored = this._teams.set(accessToken, read.values, { generation: generation, read: started });
+		if (stored !== false) {
+			this.onTeamListStored(accessToken, stored);
+		} else if (this._teams.generation === generation) {
+			// Refused for a read started after it: answers with that read's newer list, which this older one must not
+			// stand in for, not even once expired (#6184).
+			return { values: this._teams.peek(accessToken) ?? read.values };
 		}
 		return read;
+	}
+
+	/**
+	 * The team list was stored, and the autolinks are built from it. A different one drops them, so a build that then
+	 * fails keeps no fallback, and retires the build in flight, which may hold the list as it was. The same one again
+	 * keeps a complete set and the build in flight; otherwise it drops the incomplete set kept, if any, so the next
+	 * render builds from the list again, and still fences a failing build's fallback (#6183, #6184). Other tokens' sets
+	 * and builds stay; only `_autolinksResets`, shared by all tokens, also stops their failing builds' fallback.
+	 *
+	 * A known limit: a build whose own read stores a different list, or the first one (with nothing stored since a start
+	 * or a clear, every first store reads as different), retires itself too. A render in the microtasks before that
+	 * build resumes then starts a second one rather than joining it; that one builds from the team list just stored and
+	 * the organization cached, without reading the network. A loss of the sharing core had, with no effect on what is
+	 * kept, and none on an identical list, which retires nothing.
+	 */
+	private onTeamListStored(accessToken: string, stored: 'changed' | 'unchanged'): void {
+		if (stored === 'changed') {
+			this._autolinksBuilds.delete(accessToken);
+		} else if (this._autolinks.get(accessToken)?.complete === true) {
+			return;
+		}
+
+		this._autolinks.delete(accessToken);
+		this._autolinksResets++;
 	}
 
 	private async readTeams(

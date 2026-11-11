@@ -7,6 +7,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { chunk } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -28,7 +29,12 @@ import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js
 import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
-import { DiscoveryCache, discoveryCacheTtl, isAutolinkSetExpired } from './utils/discoveryCache.js';
+import {
+	DiscoveryCache,
+	discoveryCacheTtl,
+	isAutolinkSetExpired,
+	isEmptyAutolinkFallback,
+} from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
@@ -105,11 +111,13 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 */
 	private readonly _projectEvictions = new Map<string, number>();
 	/**
-	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback over
-	 * lists it didn't read; the next render builds from them instead (#6183). Rule: every writer that stores a site's
-	 * project list must bump it, today the read's store in `getProviderProjectsForResourcesWithMetadata` and the seeding
-	 * in `providerOnConnect`, and so does the connect's clear. Site-list stores deliberately don't: a build's own site
-	 * store would then refuse its own fallback. Drops and evictions need no bump: they fail a build's `isCurrent`.
+	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback
+	 * over lists it didn't read; the next render builds from them instead (#6183). Rule: every writer that stores a
+	 * different project list for a site must bump it and retire the token's build, through {@link onProjectListStored}:
+	 * today the read's store in `getProviderProjectsForResourcesWithMetadata` and the seeding in `providerOnConnect`;
+	 * the same list stored again does neither while a complete set is kept (#6184). The connect's clear bumps it too.
+	 * Site-list stores deliberately don't: a build's own site store would then refuse its own fallback. Drops and
+	 * evictions need no bump: they fail a build's `isCurrent`.
 	 */
 	private _autolinksResets = 0;
 
@@ -131,9 +139,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	/**
-	 * One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. A drop
-	 * or a missing-project eviction retires it, so a render after one doesn't join a build reading the lists as they
-	 * were before (#6170, #6176).
+	 * One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. A
+	 * drop, a missing-project eviction or a change to a site's project list retires it, so a render after one doesn't
+	 * join a build reading the lists as they were before (#6170, #6176, #6184).
 	 */
 	private buildAutolinks(
 		session: ProviderAuthenticationSession,
@@ -142,7 +150,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
 			build = this.buildAutolinksCore(session).finally(() => {
-				// A drop or an eviction meanwhile retired this build, and the entry may be a later one's now.
+				// A drop, an eviction or a list change meanwhile retired this build, and the entry may be a later
+				// one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
 					this._autolinksBuilds.delete(accessToken);
 				}
@@ -165,13 +174,23 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		// only an answer for the render that waited on it.
 		const isCurrent = (): boolean =>
 			this._projects.generation === generation && this._projectEvictions.get(accessToken) === evictions;
-		// Kept even when incomplete, to be retried sooner rather than by every render (#6183)
+		// Kept even when incomplete, to be retried sooner rather than by every render (#6183). Complete only when built
+		// wholly from the lists as stored now, the site list and every site's projects. Once a list change retired this
+		// build, another may have kept a set meanwhile: a complete set still replaces it, and any replaces an empty
+		// incomplete one, the fallback of a build that read none; otherwise, as it also rests on what only this build
+		// read (its site list, a site cut short) or held, it only replaces the set it held, or none (#6184). Refused, it
+		// still answers the renders waiting on it with its own result, a known limit.
 		const keep = (
 			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
 			complete: boolean,
 		): (AutolinkReference | DynamicAutolinkReference)[] => {
-			if (isCurrent()) {
-				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now(), complete: complete });
+			const kept = this._autolinks.get(accessToken);
+			if (isCurrent() && (complete || kept == null || kept === held || isEmptyAutolinkFallback(kept))) {
+				this._autolinks.set(accessToken, {
+					autolinks: autolinks,
+					builtAt: Date.now(),
+					complete: complete,
+				});
 			}
 			return autolinks;
 		};
@@ -181,7 +200,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		try {
 			const organizations = await this.getProviderResourcesForUser(session);
 			if (organizations == null) return keepHeld();
-			if (!organizations.length) return keep([], true);
+
+			// Whether the site list is still the one stored, expired or not: a read storing a different one since
+			// replaced it
+			const sitesCached = (): boolean => areEqual(this._organizations.peek(accessToken), organizations);
+			if (!organizations.length) return keep([], sitesCached());
 
 			// Served from the cache for every site whose projects are still fresh; only the rest are read.
 			const { values: projects, metadata } = await this.getProviderProjectsForResourcesWithMetadata(
@@ -190,44 +213,88 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			);
 
 			// Each site's projects as cached now, which any read during this build may have refreshed. A site with none
-			// cached wasn't read whole: it serves what this read got of it and, where that read failed or got nothing,
-			// the prefixes it had, rather than losing its links until the retry.
+			// cached fresh serves what the read answered for it, its newest list stored when read whole, and, where that
+			// read failed or got nothing, the prefixes it had, rather than losing its links until the retry.
 			const current = isCurrent();
+			// No set held, as once a list change dropped it, or only the empty fallback a build that read none kept
+			const heldNone = held == null || isEmptyAutolinkFallback(held);
 			const failedSites = new Set(metadata?.failures?.map(f => f.scope?.resourceId));
-			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-			let complete = true;
-			for (const organization of organizations) {
-				const cachedProjects = current ? this._projects.get(`${accessToken}:${organization.id}`) : undefined;
-				const siteProjects = cachedProjects ?? projects.filter(p => p.resourceId === organization.id);
-				const refs = siteProjects.flatMap(project =>
+			const refsOf = (
+				organization: JiraOrganizationDescriptor,
+				siteProjects: JiraProjectDescriptor[],
+			): AutolinkReference[] =>
+				siteProjects.flatMap(project =>
 					createIssueAutolinkReferences(
 						project.key,
 						`${organization.url}/browse/${project.key}-<num>`,
 						organization,
 					),
 				);
+			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+			let complete = true;
+			for (const organization of organizations) {
+				const key = `${accessToken}:${organization.id}`;
+				const cachedProjects = current ? this._projects.get(key) : undefined;
+				const siteProjects = cachedProjects ?? projects.filter(p => p.resourceId === organization.id);
+				const refs = refsOf(organization, siteProjects);
 				autolinks.push(...refs);
 				if (cachedProjects != null) continue;
 
 				complete = false;
 				// A site whose read failed, or got nothing, keeps the prefixes it had; one only cut short has none missing
 				const failed = failedSites.has(organization.id) || !siteProjects.length;
-				if (held == null || !failed) continue;
+				if (!failed) continue;
 
-				// A site's descriptor is keyed by its id
+				// Those of the set held, keyed by the site's id (#6183); with none, those of the site's last list stored,
+				// expired or not, which a list change dropping the set leaves in place (#6184). Known limits, until the
+				// carry moves into the cache: that list is the last one read whole, so a site read cut short since can
+				// carry prefixes that read no longer lists; and a site never read whole carries none once the set it was
+				// carried in is dropped.
+				const stored = heldNone && current ? this._projects.peek(key) : undefined;
+				const had =
+					stored != null
+						? refsOf(organization, stored)
+						: (held?.autolinks.filter(
+								(ref): ref is AutolinkReference =>
+									'prefix' in ref && ref.descriptor?.key === organization.id,
+							) ?? []);
 				const prefixes = new Set(refs.map(r => r.prefix));
-				for (const ref of held.autolinks) {
-					if ('prefix' in ref && ref.descriptor?.key === organization.id && !prefixes.has(ref.prefix)) {
+				for (const ref of had) {
+					if (!prefixes.has(ref.prefix)) {
 						autolinks.push(ref);
 					}
 				}
 			}
-			return keep(autolinks, complete);
+			return keep(autolinks, complete && sitesCached());
 		} catch (ex) {
 			// Autolinks are decoration: don't fail the render that asked
 			Logger.error(ex, 'JiraIntegration.autolinks');
 			return keepHeld();
 		}
+	}
+
+	/**
+	 * A site's project list was stored. A different one drops the autolinks built from the lists, so a build that then
+	 * fails keeps no fallback, and retires the build in flight, which may hold the list as it was. The same one again
+	 * keeps a complete set and the build in flight; otherwise it drops the incomplete set kept, if any, so the next
+	 * render builds from the lists again, and still fences a failing build's fallback (#6183, #6184). Other tokens' sets
+	 * and builds stay; only `_autolinksResets`, shared by all tokens, also stops their failing builds' fallback.
+	 *
+	 * A known limit: a build whose own read stores a different list, or a site's first one (with nothing seeded since a
+	 * start, a clear or an eviction, every first store reads as different), retires itself too. A render in the
+	 * microtasks before that build resumes then starts a second one rather than joining it; that one builds from the
+	 * cache, reading again only the sites the first couldn't read whole. A loss of the sharing core had, with no effect
+	 * on what is kept, and none on an identical list, which retires nothing.
+	 */
+	private onProjectListStored(accessToken: string, stored: 'changed' | 'unchanged'): void {
+		if (stored === 'changed') {
+			this._autolinksBuilds.delete(accessToken);
+		} else if (this._autolinks.get(accessToken)?.complete === true) {
+			return;
+		}
+
+		this._autolinks.delete(accessToken);
+		this._autolinksResets++;
 	}
 
 	protected override async getProviderAccountForResource(
@@ -326,6 +393,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const projectsCache = this._projects;
 		const generation = projectsCache.generation;
 		const evictions = this._projectEvictions.get(accessToken);
+		const started = projectsCache.startRead();
 
 		// Taken before the read, so a clear while it is in flight can't empty what was cached when it started. A forced
 		// read reads every resource, and still keeps a cached list for one it can't read completely.
@@ -343,21 +411,29 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const read = await this.readProjects(session, resourcesWithoutProjects);
 		const values = [...read.partial];
 		for (const [resourceId, projects] of read.complete) {
-			// Returned either way; not stored when the cache was dropped, or a list evicted, while this read was in
-			// flight: it is what this read found, only no longer trusted for the next one.
-			if (
-				this._projectEvictions.get(accessToken) === evictions &&
-				projectsCache.set(`${accessToken}:${resourceId}`, projects, { generation: generation })
-			) {
-				this._autolinks.delete(accessToken);
-				this._autolinksResets++;
+			// Not stored when the cache was dropped, a list evicted, or a read started after this one stored it, while
+			// this read was in flight: what it found is then no longer trusted for the next read.
+			if (this._projectEvictions.get(accessToken) !== evictions) continue;
+
+			const stored = projectsCache.set(`${accessToken}:${resourceId}`, projects, {
+				generation: generation,
+				read: started,
+			});
+			if (stored !== false) {
+				this.onProjectListStored(accessToken, stored);
 			}
 		}
+		// A site read whole, or served from the cache, answers with its newest list stored: this read's own, or the one
+		// a read started after it stored, which this older read must not stand in for, not even once expired (#6184).
+		// Once the cache was dropped or a list evicted meanwhile, only what it found itself.
+		const current =
+			projectsCache.generation === generation && this._projectEvictions.get(accessToken) === evictions;
 		for (const resource of resources) {
 			const resourceProjects = read.complete.get(resource.id) ?? cachedProjects.get(resource.id);
-			if (resourceProjects != null) {
-				values.push(...resourceProjects);
-			}
+			if (resourceProjects == null) continue;
+
+			const stored = current ? projectsCache.peek(`${accessToken}:${resource.id}`) : undefined;
+			values.push(...(stored ?? resourceProjects));
 		}
 		return { values: uniqueProjects(values), metadata: read.metadata };
 	}
@@ -872,19 +948,23 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					projects.push({ ...project });
 				}
 			}
-			let seeded = false;
 			for (const [resourceId, projects] of projectsByResource) {
-				seeded =
-					this._projects.set(`${accessToken}:${resourceId}`, projects, {
-						generation: projectsGeneration,
-						storedAt: storedProjects.timestamp,
-					}) || seeded;
-			}
-			// Like any store of a site's list: a build started since the connect, after a stale site list made it wait,
-			// must not keep a set, or a fallback, built without these lists.
-			if (seeded) {
-				this._autolinks.delete(accessToken);
-				this._autolinksResets++;
+				const key = `${accessToken}:${resourceId}`;
+				// A list still fresh here, read or seeded since the caches were last dropped, is kept over the persisted
+				// one; a newer one another window persisted since, storage being global, is taken up only once it
+				// expires (#6184).
+				if (this._projects.get(key) != null) continue;
+
+				// Like any store of a site's list: a build started since the connect, after a stale site list made it
+				// wait, must not keep a set, or a fallback, built without these lists, nor be joined by a render after
+				// it.
+				const stored = this._projects.set(key, projects, {
+					generation: projectsGeneration,
+					storedAt: storedProjects.timestamp,
+				});
+				if (stored !== false) {
+					this.onProjectListStored(accessToken, stored);
+				}
 			}
 		} else if (organizations?.length) {
 			const readAt = Date.now();

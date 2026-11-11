@@ -261,7 +261,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		const descriptors = await this.readProjects(session);
 		if (descriptors == null) return undefined;
 
-		if (this._projects.set(cacheKey, descriptors, { generation: generation })) {
+		if (this._projects.set(cacheKey, descriptors, { generation: generation }) !== false) {
 			this._autolinks.delete(cacheKey);
 		}
 
