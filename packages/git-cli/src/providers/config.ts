@@ -1541,15 +1541,6 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// file doesn't exist, proceed with migration
 		}
 
-		// If .git/gk/config doesn't exist, create an empty file to prevent multiple migration attempts in future sessions
-		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
-
-		try {
-			await fs.writeFile(gkConfigPath, new Uint8Array());
-		} catch (ex) {
-			scope?.error(ex, `Failed to create '${gkConfigPath}' file`);
-		}
-
 		// Read legacy gk-* keys from regular git config
 		let migrateConfig: Map<string, string>;
 		try {
@@ -1558,6 +1549,16 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			scope?.error(ex, 'Failed to read legacy GK config entries');
 			this._migratedRepos.add(repoPath);
 			return;
+		}
+
+		// Create the file only once the legacy keys have been read: an existing file marks the repo migrated for good,
+		// so a failed read must leave none and let the next session try again
+		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
+
+		try {
+			await fs.writeFile(gkConfigPath, new Uint8Array());
+		} catch (ex) {
+			scope?.error(ex, `Failed to create '${gkConfigPath}' file`);
 		}
 
 		if (!migrateConfig.size) {
