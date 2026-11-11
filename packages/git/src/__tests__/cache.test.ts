@@ -11,12 +11,13 @@ import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
-import type { GitBranchReference, RefRecord } from '../models/reference.js';
+import type { GitBranchReference, GitRefTip, RefRecord } from '../models/reference.js';
 import type { RepositoryChange } from '../models/repository.js';
 import type { GitTag } from '../models/tag.js';
 import { GitWorktree } from '../models/worktree.js';
 import type { GitResult } from '../run.types.js';
 import { createReference } from '../utils/reference.utils.js';
+import { nextChangeOrdinal } from '../watching/changeOrdinal.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
 	const blame: GitBlame = {
@@ -3906,4 +3907,378 @@ suite('Cache git results read validation', () => {
 			cache.dispose();
 		}
 	});
+});
+
+suite('Cache — a change every checkout of a repository reports evicts what they share once', () => {
+	const repoPath = '/test/repo';
+	const linked = '/test/repo-a';
+	const added = '/test/repo-b';
+	const result: GitResult = {
+		stdout: 'abc',
+		stderr: undefined,
+		exitCode: 0,
+		completion: { status: 'exited', code: 0 },
+	};
+
+	function record(name: string): RefRecord {
+		return {
+			current: '',
+			name: name,
+			objectname: '',
+			peeledObjectname: '',
+			upstream: '',
+			upstreamTracking: '',
+			committerDate: '',
+			creatorDate: '',
+			authorDate: '',
+			subject: '',
+			worktreePath: '',
+			push: '',
+		};
+	}
+
+	function tipsOf(records: readonly RefRecord[]): GitRefTip[] {
+		return records.map(r => ({ type: 'branch', name: r.name.substring(11), fullName: r.name, sha: '' }));
+	}
+
+	function list(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', false, undefined, undefined, 'abc123')] };
+	}
+
+	function registerLinked(cache: Cache, path: string): void {
+		cache.registerRepoPath(fileUri(path), {
+			uri: fileUri(`${repoPath}/.git/worktrees/${path.substring(path.lastIndexOf('/') + 1)}`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	}
+
+	function createCache(): Cache {
+		const cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		registerLinked(cache, linked);
+		return cache;
+	}
+
+	/** Reads the shared ref listing as `path` would, each run of its factory listing a ref of its own */
+	function refsReader(cache: Cache): { read: (path?: string) => Promise<RefRecord[]>; readonly listings: number } {
+		let listings = 0;
+		return {
+			read: (path = linked) =>
+				cache.getRefs(path, () => {
+					listings++;
+					return [record(`refs/heads/listing-${listings}`)];
+				}),
+			get listings() {
+				return listings;
+			},
+		};
+	}
+
+	test('the same change, stamped where each checkout observed it, evicts the ref listing and what is built from it once', async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		let tipReads = 0;
+		let tagReads = 0;
+		const readTips = () =>
+			cache.getRefTips(linked, async () => {
+				tipReads++;
+				return tipsOf(await refs.read());
+			});
+		const readTags = () =>
+			cache.getTags(linked, async () => {
+				tagReads++;
+				await refs.read();
+				return { values: [] };
+			});
+		await refs.read();
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+
+		cache.onRepositoryChanged(repoPath, ['heads', 'tags'], { observedAt: observedInMain });
+		const between = await refs.read();
+		await readTips();
+		await readTags();
+		assert.deepStrictEqual([refs.listings, tipReads, tagReads], [2, 1, 1]);
+
+		cache.onRepositoryChanged(linked, ['heads', 'tags'], { observedAt: observedInLinked });
+
+		assert.strictEqual(await refs.read(), between, 'the listing read between the two reports is kept');
+		await readTips();
+		await readTags();
+		assert.deepStrictEqual([refs.listings, tipReads, tagReads], [2, 1, 1], 'nothing is read again');
+	});
+
+	test('the default branch is evicted once as well', async () => {
+		using cache = createCache();
+		let reads = 0;
+		const read = () =>
+			cache.getDefaultBranchName(linked, 'origin', () => {
+				reads++;
+				return 'origin/main';
+			});
+		await read();
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await read();
+		assert.strictEqual(reads, 2);
+
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+		await read();
+		assert.strictEqual(reads, 2, 'the read made between the two reports is kept');
+
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+		await read();
+		assert.strictEqual(reads, 3, 'a change observed since evicts again');
+	});
+
+	test('a change observed after that eviction evicts again', async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await refs.read();
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+		await refs.read();
+		assert.strictEqual(refs.listings, 2);
+
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+
+		await refs.read();
+		assert.strictEqual(refs.listings, 3);
+	});
+
+	test('a report flushed late, observed before an eviction that came after it, is skipped', async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		// A suspended session holds what it observed while the others flush
+		const observedWhileSuspended = nextChangeOrdinal();
+
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+		const between = await refs.read();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+		const later = await refs.read();
+		assert.notStrictEqual(later, between);
+
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedWhileSuspended });
+
+		assert.strictEqual(await refs.read(), later);
+		assert.strictEqual(refs.listings, 3);
+	});
+
+	test('a report with no stamp always evicts', async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+		await refs.read();
+
+		cache.onRepositoryChanged(linked, ['heads']);
+
+		await refs.read();
+		assert.strictEqual(refs.listings, 3);
+	});
+
+	test('an eviction that left a read in flight is not taken as one, so the next report evicts again what was built from that read', async () => {
+		using cache = createCache();
+		const blocked = defer<RefRecord[]>();
+		const stale = [record('refs/heads/before')];
+		const fresh = [record('refs/heads/after')];
+		// Started before the change
+		const inFlight = cache.getRefs(repoPath, () => blocked.promise);
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		// Joins the listing still in flight, as a soft eviction lets it
+		const tips = cache.getRefTips(linked, async () => tipsOf(await cache.getRefs(linked, () => fresh)));
+		blocked.fulfill(stale);
+		await inFlight;
+		assert.deepStrictEqual(await tips, tipsOf(stale));
+
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+
+		let listings = 0;
+		const readFresh = () => {
+			listings++;
+			return fresh;
+		};
+		assert.deepStrictEqual(
+			await cache.getRefTips(linked, async () => tipsOf(await cache.getRefs(linked, readFresh))),
+			tipsOf(fresh),
+			'the tips built from the listing begun before the change are not kept',
+		);
+		assert.strictEqual(listings, 1);
+	});
+
+	test('git results are evicted once as well, unless a run was in flight when the first report evicted them', async () => {
+		using cache = createCache();
+		let runs = 0;
+		const run = () =>
+			cache.gitResults.getOrCreate(repoPath, 'git rev-parse main', () => {
+				runs++;
+				return Promise.resolve(result);
+			});
+		await run();
+		let observedInMain = nextChangeOrdinal();
+		let observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await run();
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+		await run();
+		assert.strictEqual(runs, 2, 'skipped with nothing in flight');
+
+		const blocked = defer<GitResult>();
+		const pending = cache.gitResults.getOrCreate(linked, 'git rev-parse feature', () => blocked.promise);
+		observedInMain = nextChangeOrdinal();
+		observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await run();
+		blocked.fulfill(result);
+		await pending;
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+		await run();
+		assert.strictEqual(runs, 4, 'evicted again after a run was left in flight');
+	});
+
+	test('the shared branch list and each mapped one, built from sources a report does not evict whole, are evicted by every report', async () => {
+		using cache = createCache();
+		let shared = 0;
+		let mapped = 0;
+		const read = () =>
+			cache.getBranches(
+				linked,
+				path => {
+					shared++;
+					return list(path);
+				},
+				branches => {
+					mapped++;
+					return branches;
+				},
+			);
+		await read();
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await read();
+		assert.deepStrictEqual([shared, mapped], [2, 2]);
+
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+
+		await read();
+		assert.deepStrictEqual([shared, mapped], [3, 3]);
+	});
+
+	test("a checkout's own HEAD change drops its mapped branch list even when the ref listing's eviction is skipped", async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		// `git checkout -b` in the main checkout: a sibling flushes the new branch first
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+		await refs.read();
+		// Mapped against the main checkout's current branch, which only its own report drops
+		await cache.getBranches(repoPath, list, branches => branches);
+		assert.ok(cache.branches.has(repoPath));
+
+		cache.onRepositoryChanged(repoPath, ['head', 'heads'], { observedAt: observedInMain });
+
+		assert.ok(!cache.branches.has(repoPath), 'the list that marked the old branch current');
+		await refs.read();
+		assert.strictEqual(refs.listings, 2, 'the listing read after the change is kept');
+	});
+
+	test("a skipped eviction leaves the checkout's own entries, drop stamps, status clock and cleared types as an unstamped report does", async () => {
+		const changes: RepositoryChange[] = ['head', 'heads'];
+		const reference = createReference('main', linked, { refType: 'branch', name: 'main', remote: false });
+		using unstamped = createCache();
+		const expectedTypes = unstamped.applyRepositoryChanges(linked, changes, 'share');
+
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		const observedInMain = nextChangeOrdinal();
+		const observedInLinked = nextChangeOrdinal();
+		cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+		await refs.read();
+		cache.currentBranchReference.set(linked, Promise.resolve(reference));
+		cache.branch.set(linked, Promise.resolve(list(linked).values[0]));
+		const generation = cache.getStatusGeneration(linked);
+		const stamp = cache.getDropStamp();
+
+		const types = cache.applyRepositoryChanges(linked, changes, 'share', { observedAt: observedInLinked });
+
+		await refs.read();
+		assert.strictEqual(refs.listings, 2, 'the ref listing is kept');
+		assert.deepStrictEqual([...types].sort(), [...expectedTypes].sort());
+		assert.strictEqual(cache.currentBranchReference.get(linked), undefined);
+		assert.ok(!cache.branch.has(linked));
+		assert.ok(cache.isDroppedSince('currentBranchReference', linked, stamp));
+		assert.ok(cache.getStatusGeneration(linked) > generation);
+	});
+
+	test('an eviction core makes for its own write is taken as one, so a report observed before it is skipped', async () => {
+		using cache = createCache();
+		const refs = refsReader(cache);
+		await refs.read();
+		const observedEcho = nextChangeOrdinal();
+
+		cache.applyRepositoryChanges(repoPath, ['heads'], 'evict', { announced: true });
+		const between = await refs.read();
+		cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedEcho });
+
+		assert.strictEqual(await refs.read(), between);
+		assert.strictEqual(refs.listings, 2);
+	});
+
+	test('the evictions of only so many repositories are kept, and a report for one forgotten evicts', async () => {
+		const tracked = 128;
+		for (const others of [tracked - 1, tracked]) {
+			using cache = createCache();
+			const refs = refsReader(cache);
+			await refs.read();
+			const observedInLinked = nextChangeOrdinal();
+			cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: nextChangeOrdinal() });
+			await refs.read();
+			for (let i = 0; i < others; i++) {
+				cache.applyRepositoryChanges(`/test/other-${i}`, ['heads'], 'evict');
+			}
+			assert.strictEqual(
+				cache.getResourceUsage()['cache.sharedEvictions.entries.count'],
+				Math.min(others + 1, tracked),
+			);
+
+			cache.onRepositoryChanged(linked, ['heads'], { observedAt: observedInLinked });
+
+			await refs.read();
+			assert.strictEqual(refs.listings, others < tracked ? 2 : 3, `with ${others} others`);
+		}
+	});
+
+	for (const [name, change] of [
+		['registering', (cache: Cache) => registerLinked(cache, added)],
+		['unregistering', (cache: Cache) => cache.unregisterRepoPath(linked)],
+	] as const) {
+		test(`${name} a checkout of the repository forgets the evictions taken`, async () => {
+			using cache = createCache();
+			const refs = refsReader(cache);
+			await refs.read(repoPath);
+			const observedInMain = nextChangeOrdinal();
+			const observedInLinked = nextChangeOrdinal();
+			cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInMain });
+			await refs.read(repoPath);
+
+			change(cache);
+			cache.onRepositoryChanged(repoPath, ['heads'], { observedAt: observedInLinked });
+
+			await refs.read(repoPath);
+			assert.strictEqual(refs.listings, 3);
+		});
+	}
 });

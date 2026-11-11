@@ -960,6 +960,26 @@ suite('RepoPromiseCacheMap Test Suite', () => {
 		assert.strictEqual(await pB, 2);
 	});
 
+	test('has(repoPath) tells whether any entry is kept for the repository, so after invalidate only one in flight', async () => {
+		const cache = new RepoPromiseCacheMap<string, number>();
+		const d = deferred<number>();
+		assert.strictEqual(cache.has('/repo'), false);
+
+		await cache.getOrCreate('/repo', 'settled', () => Promise.resolve(1));
+		await flush();
+		assert.strictEqual(cache.has('/repo'), true);
+		cache.invalidate('/repo');
+		assert.strictEqual(cache.has('/repo'), false, 'a settled entry is dropped');
+
+		const p = cache.getOrCreate('/repo', 'pending', () => d.promise);
+		cache.invalidate('/repo');
+		assert.strictEqual(cache.has('/repo'), true, 'one in flight stays, to be joined');
+		d.resolve(2);
+		await p;
+		await flush();
+		assert.strictEqual(cache.has('/repo'), false, 'and goes once it settles');
+	});
+
 	test('invalidate(repoPath) of settled entries drops the repository', async () => {
 		const cache = new RepoPromiseCacheMap<string, number>();
 		await cache.getOrCreate('/repo', 'a', () => Promise.resolve(1));

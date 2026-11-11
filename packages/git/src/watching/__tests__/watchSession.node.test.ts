@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
 import type { WorkingTreeChangeEvent } from '../changeEvent.js';
 import { WatcherRepoChangeEvent } from '../changeEvent.js';
+import { nextChangeOrdinal } from '../changeOrdinal.js';
 import { allWatchedRepositoryChanges } from '../classifyChange.js';
 import type { WatchSessionLifecycle } from '../watchSession.js';
 import { RepositoryWatchSession } from '../watchSession.js';
@@ -2875,5 +2876,151 @@ describe('WatchSession', () => {
 				}
 			});
 		});
+	});
+});
+
+describe('WatchSession — when a repository change was observed', () => {
+	function createSession(options?: { relevantRefs?: string[] }): {
+		session: RepositoryWatchSession;
+		received: WatcherRepoChangeEvent[];
+		forwarded: WatcherRepoChangeEvent[];
+		narrowed: WatcherRepoChangeEvent[];
+	} {
+		const forwarded: WatcherRepoChangeEvent[] = [];
+		const session = new RepositoryWatchSession({
+			repoPath: '/repo',
+			defaultRepoDelayMs: 20,
+			onDidFireRepoChange: e => forwarded.push(e),
+		});
+		const received: WatcherRepoChangeEvent[] = [];
+		session.subscribe().onDidChange(e => received.push(e));
+		const narrowed: WatcherRepoChangeEvent[] = [];
+		if (options?.relevantRefs != null) {
+			const relevantRefs = options.relevantRefs;
+			session.subscribe({ relevantRefs: () => relevantRefs }).onDidChange(e => narrowed.push(e));
+		}
+		return { session: session, received: received, forwarded: forwarded, narrowed: narrowed };
+	}
+
+	/** Asserts `observedAt` was taken after `after` and before `before` */
+	function assertObservedBetween(observedAt: number | undefined, after: number, before: number): void {
+		assert.ok(observedAt != null, 'stamped');
+		assert.ok(observedAt > after && observedAt < before, `${after} < ${observedAt} < ${before}`);
+	}
+
+	it('stamps a raw report with when the newest report of the window arrived, and the global forwarder sees it', async () => {
+		const { session, received, forwarded } = createSession();
+
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		const between = nextChangeOrdinal();
+		session.pushRepoChanges(['tags'], 'refs/tags/v1');
+		const after = nextChangeOrdinal();
+		await delay(50);
+
+		assert.strictEqual(received.length, 1);
+		assertObservedBetween(received[0].observedAt, between, after);
+		assert.strictEqual(forwarded[0].observedAt, received[0].observedAt);
+		session.dispose();
+	});
+
+	it('leaves a window holding an unfenced report, as an overflow or an ignore rule change pushes it, unstamped', async () => {
+		const { session, received } = createSession();
+
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		session.pushUnfencedRepoChanges([...allWatchedRepositoryChanges]);
+		await delay(50);
+
+		assert.strictEqual(received.length, 1);
+		assert.strictEqual(received[0].observedAt, undefined);
+		session.dispose();
+	});
+
+	it("stamps core's announced write with when it was announced, which is after the write", async () => {
+		const { session, received } = createSession();
+
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		const before = nextChangeOrdinal();
+		session.noteSelfWrite(['heads'], ['refs/heads/main']);
+		const after = nextChangeOrdinal();
+		await delay(50);
+
+		assert.strictEqual(received.length, 1);
+		assert.deepStrictEqual([...received[0].announced], ['heads']);
+		assertObservedBetween(received[0].observedAt, before, after);
+		session.dispose();
+	});
+
+	it('leaves a window holding an injected change unstamped, whichever came first', async () => {
+		const { session, received } = createSession();
+
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		session.fireChange('remotes');
+		await delay(50);
+		session.fireChange('remotes');
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		await delay(50);
+
+		assert.strictEqual(received.length, 2);
+		assert.strictEqual(received[0].observedAt, undefined);
+		assert.strictEqual(received[1].observedAt, undefined);
+		session.dispose();
+	});
+
+	it('starts each window unstamped by the last, so a raw report after an injected one is stamped afresh', async () => {
+		const { session, received } = createSession();
+
+		session.fireChange('remotes');
+		await delay(50);
+		const before = nextChangeOrdinal();
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		const after = nextChangeOrdinal();
+		await delay(50);
+
+		assert.strictEqual(received.length, 2);
+		assert.strictEqual(received[0].observedAt, undefined);
+		assertObservedBetween(received[1].observedAt, before, after);
+		session.dispose();
+	});
+
+	it('leaves an immediate event unstamped', () => {
+		const { session, received } = createSession();
+
+		session.fireChangeImmediate('closed');
+
+		assert.strictEqual(received.length, 1);
+		assert.strictEqual(received[0].observedAt, undefined);
+		session.dispose();
+	});
+
+	it('keeps when the reports arrived through a suspension, so a resumed window carries the older stamp', async () => {
+		const { session, received } = createSession();
+		session.suspend();
+
+		const before = nextChangeOrdinal();
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		const after = nextChangeOrdinal();
+		await delay(50);
+		assert.strictEqual(received.length, 0);
+		session.resume(0);
+		await delay(30);
+
+		assert.strictEqual(received.length, 1);
+		assertObservedBetween(received[0].observedAt, before, after);
+		session.dispose();
+	});
+
+	it("keeps the stamp on an event narrowed to a subscriber's relevant refs", async () => {
+		const { session, received, narrowed } = createSession({ relevantRefs: ['refs/heads/main'] });
+
+		session.pushRepoChanges(['heads'], 'refs/heads/main');
+		session.pushRepoChanges(['tags'], 'refs/tags/v1');
+		await delay(50);
+
+		assert.strictEqual(narrowed.length, 1);
+		assert.notStrictEqual(narrowed[0], received[0], 'a narrowed copy');
+		assert.ok(!narrowed[0].changes.has('tags'));
+		assert.strictEqual(narrowed[0].observedAt, received[0].observedAt);
+		assert.ok(narrowed[0].observedAt != null);
+		session.dispose();
 	});
 });
