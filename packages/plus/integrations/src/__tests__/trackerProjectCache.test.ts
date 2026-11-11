@@ -1475,6 +1475,173 @@ suite('Tracker project cache (#5907)', () => {
 			return { service: service, integration: integration, state: state, read: read, runtime: runtime };
 		}
 
+		test('autolinks from a full implicit teams page are served but retried on the next render', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.teams = Array.from({ length: 50 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				const reads = state.teamReads;
+				const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+
+				assert.deepEqual(await prefixesOf(integration), expected, 'the useful first-page prefixes are served');
+				assert.equal(state.teamReads, reads + 1);
+				assert.deepEqual(await prefixesOf(integration), expected);
+				assert.equal(state.teamReads, reads + 2, 'the second render retries the incomplete teams read');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		for (const count of [0, 49, 51]) {
+			test(`autolinks cache only complete team lists (${count} teams)`, async () => {
+				const { service, integration, state } = await linear();
+				try {
+					integration.invalidateDiscoveryCaches();
+					state.teams = Array.from({ length: count }, (_, index) => ({
+						id: `t${index}`,
+						key: `T${index}`,
+						name: `Team ${index}`,
+						iconUrl: null,
+					}));
+					const reads = state.teamReads;
+					const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+
+					assert.deepEqual(await prefixesOf(integration), expected);
+					assert.deepEqual(await prefixesOf(integration), expected);
+					assert.equal(state.teamReads, reads + (count < 50 ? 1 : 2));
+				} finally {
+					service.dispose();
+				}
+			});
+		}
+
+		test('concurrent incomplete autolink renders share a build and cache a later complete read', async () => {
+			const { service, integration, state } = await linear();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.teams = Array.from({ length: 50 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				state.teamsGate = new Promise<void>(resolve => (release = resolve));
+				const reads = state.teamReads;
+				const first = prefixesOf(integration);
+				await until(() => state.teamReads === reads + 1, 'the first render read the teams');
+				const second = prefixesOf(integration);
+				await flush();
+				assert.equal(state.teamReads, reads + 1, 'the concurrent render joins the incomplete build');
+				release();
+				const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+				assert.deepEqual(await first, expected);
+				assert.deepEqual(await second, expected);
+
+				state.teamsGate = undefined;
+				state.teams.pop();
+				const complete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+				assert.deepEqual(await prefixesOf(integration), complete, 'a later render retries discovery');
+				assert.equal(state.teamReads, reads + 2);
+				assert.deepEqual(await prefixesOf(integration), complete);
+				assert.equal(state.teamReads, reads + 2, 'the complete result is cached');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('an incomplete background rebuild retires the previously complete autolinks', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.teams = Array.from({ length: 49 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				const complete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+				assert.deepEqual(await prefixesOf(integration), complete);
+				const reads = state.teamReads;
+				state.teams.push({ id: 'new', key: 'NEW', name: 'New', iconUrl: null });
+				const incomplete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(await prefixesOf(integration), complete, 'the expired render does not wait');
+				await flush();
+				assert.equal(state.teamReads, reads + 1, 'the background rebuild read the incomplete list');
+				assert.deepEqual(await prefixesOf(integration), incomplete, 'the next render exposes the new team');
+				assert.deepEqual(await prefixesOf(integration), incomplete);
+				assert.equal(state.teamReads, reads + 3, 'each settled incomplete render retries discovery');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a retired incomplete rebuild cannot remove newer complete autolinks', async () => {
+			const { service, integration, state } = await linear();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.teams = Array.from({ length: 50 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				state.teamsGate = new Promise<void>(resolve => (release = resolve));
+				const reads = state.teamReads;
+				const earlier = prefixesOf(integration);
+				await until(() => state.teamReads === reads + 1, 'the earlier render read the incomplete list');
+				integration.beginForcedRefresh();
+				state.teamsGate = undefined;
+				state.teams = [{ id: 'new', key: 'NEW', name: 'New', iconUrl: null }];
+				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
+				release();
+				assert.equal((await earlier).length, 100);
+				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
+				assert.equal(state.teamReads, reads + 2, 'the newer complete set remains cached');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a background rebuild with no team data preserves the complete fallback', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				state.noTeamData = true;
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				await flush();
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('autolinks retry a team read that returned no data', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.noTeamData = true;
+				const reads = state.teamReads;
+				assert.deepEqual(await prefixesOf(integration), []);
+				state.noTeamData = false;
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				assert.equal(state.teamReads, reads + 2);
+			} finally {
+				service.dispose();
+			}
+		});
+
 		test('autolinks are not rebuilt with a session kept through a failed refresh (kepler#3546)', async () => {
 			const { service, runtime, integration, state } = await linear();
 			const built = await prefixesOf(integration);

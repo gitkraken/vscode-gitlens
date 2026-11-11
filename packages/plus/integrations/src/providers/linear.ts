@@ -159,16 +159,21 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
 
-		const teams = await this.getTeams(session);
-		for (const team of teams ?? []) {
+		const teams = await this.getTeamsWithMetadata(session);
+		for (const team of teams?.values ?? []) {
 			autolinks.push(
 				...createIssueAutolinkReferences(team.key, `${organization.url}/issue/${team.key}-<num>`, organization),
 			);
 		}
 
-		// Not kept when built from teams read before the caches were dropped.
+		// An incomplete team list is useful for this render, but the next render must retry it.
+		const complete = teams != null && (teams.metadata == null || teams.metadata.completeness === 'complete');
 		if (this._teams.generation === generation) {
-			this._autolinks.set(session.accessToken, { autolinks: autolinks, builtAt: Date.now() });
+			if (complete) {
+				this._autolinks.set(session.accessToken, { autolinks: autolinks, builtAt: Date.now() });
+			} else if (teams != null) {
+				this._autolinks.delete(session.accessToken);
+			}
 		}
 		return autolinks;
 	}
