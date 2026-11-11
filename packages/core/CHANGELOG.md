@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes Linear autolinks keeping an incomplete team list cached instead of retrying discovery on the next render ([#6177](https://github.com/gitkraken/vscode-gitlens/issues/6177)) (plus/integrations)
+- Fixes Linear autolinks keeping an incomplete team list cached for the whole discovery TTL instead of retrying discovery ([#6177](https://github.com/gitkraken/vscode-gitlens/issues/6177)) (plus/integrations)
+- Fixes Jira Cloud and Linear autolinks re-reading, and waiting on, the provider on every call while the sites, a site's projects, the Linear organization or its teams can't be read whole; that set is now kept, with the last prefixes of a site that failed, and retried in the background after a minute ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183)) (plus/integrations)
 
 ## [0.37.1] - 2026-11-10
 

@@ -28,7 +28,7 @@ import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js
 import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
-import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
+import { DiscoveryCache, discoveryCacheTtl, isAutolinkSetExpired } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
@@ -88,13 +88,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	/**
 	 * Built from the sites and their projects, so it follows them: rebuilt when a site's project list changes or the
-	 * caches are dropped, and once older than {@link discoveryCacheTtl}. An expired set is still served while it is
-	 * rebuilt in the background, because autolinks are read on every render of a commit message and must not wait
-	 * on the network, nor go empty just because nothing read the projects for a while (#5907).
+	 * caches are dropped, and once {@link isAutolinkSetExpired}: older than the TTL, or than a shorter retry delay when
+	 * the sites or a site's projects couldn't be read whole. An expired set is still served while it is rebuilt in the
+	 * background, because autolinks are read on every render of a commit message and must not wait on the network,
+	 * nor go empty just because nothing read the projects for a while (#5907, #6183).
 	 */
 	private readonly _autolinks = new Map<
 		string,
-		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number }
+		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number; complete: boolean }
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
 	/**
@@ -103,6 +104,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 * from it in `_autolinks` (#6176). Cleared with `_projects`, whose generation then refuses those same writes.
 	 */
 	private readonly _projectEvictions = new Map<string, number>();
+	/**
+	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback over
+	 * lists it didn't read; the next render builds from them instead (#6183). Rule: every writer that stores a site's
+	 * project list must bump it, today the read's store in `getProviderProjectsForResourcesWithMetadata` and the seeding
+	 * in `providerOnConnect`, and so does the connect's clear. Site-list stores deliberately don't: a build's own site
+	 * store would then refuse its own fallback. Drops and evictions need no bump: they fail a build's `isCurrent`.
+	 */
+	private _autolinksResets = 0;
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -115,7 +124,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (this.connectionExpired === true) return cached?.autolinks ?? [];
 		if (cached == null) return this.buildAutolinks(session);
 
-		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {
+		if (isAutolinkSetExpired(cached)) {
 			void this.buildAutolinks(session);
 		}
 		return cached.autolinks;
@@ -149,9 +158,30 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const { accessToken } = session;
 		const generation = this._projects.generation;
 		const evictions = this._projectEvictions.get(accessToken);
+		const resets = this._autolinksResets;
+		// What this build falls back on, and carries over for the sites it couldn't read
+		const held = this._autolinks.get(accessToken);
+		// False once the caches were dropped, or a site's list evicted, since this build started: what it read then is
+		// only an answer for the render that waited on it.
+		const isCurrent = (): boolean =>
+			this._projects.generation === generation && this._projectEvictions.get(accessToken) === evictions;
+		// Kept even when incomplete, to be retried sooner rather than by every render (#6183)
+		const keep = (
+			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
+			complete: boolean,
+		): (AutolinkReference | DynamicAutolinkReference)[] => {
+			if (isCurrent()) {
+				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now(), complete: complete });
+			}
+			return autolinks;
+		};
+		// Serves the held set until the retry, unless a list was stored meanwhile
+		const keepHeld = (): (AutolinkReference | DynamicAutolinkReference)[] =>
+			this._autolinksResets === resets ? keep(held?.autolinks ?? [], false) : (held?.autolinks ?? []);
 		try {
 			const organizations = await this.getProviderResourcesForUser(session);
-			if (!organizations?.length) return [];
+			if (organizations == null) return keepHeld();
+			if (!organizations.length) return keep([], true);
 
 			// Served from the cache for every site whose projects are still fresh; only the rest are read.
 			const { values: projects, metadata } = await this.getProviderProjectsForResourcesWithMetadata(
@@ -159,35 +189,44 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				organizations,
 			);
 
+			// Each site's projects as cached now, which any read during this build may have refreshed. A site with none
+			// cached wasn't read whole: it serves what this read got of it and, where that read failed or got nothing,
+			// the prefixes it had, rather than losing its links until the retry.
+			const current = isCurrent();
+			const failedSites = new Set(metadata?.failures?.map(f => f.scope?.resourceId));
 			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-			for (const project of projects) {
-				const organization = organizations.find(o => o.id === project.resourceId);
-				if (organization == null) continue;
-
-				autolinks.push(
-					...createIssueAutolinkReferences(
+			let complete = true;
+			for (const organization of organizations) {
+				const cachedProjects = current ? this._projects.get(`${accessToken}:${organization.id}`) : undefined;
+				const siteProjects = cachedProjects ?? projects.filter(p => p.resourceId === organization.id);
+				const refs = siteProjects.flatMap(project =>
+					createIssueAutolinkReferences(
 						project.key,
 						`${organization.url}/browse/${project.key}-<num>`,
 						organization,
 					),
 				);
-			}
+				autolinks.push(...refs);
+				if (cachedProjects != null) continue;
 
-			// A set missing a site's projects is served but not kept, so the next call tries that site again; one
-			// built from projects read before the caches were dropped, or a site's list evicted, is not kept either.
-			const complete = metadata == null || metadata.completeness === 'complete';
-			if (
-				complete &&
-				this._projects.generation === generation &&
-				this._projectEvictions.get(accessToken) === evictions
-			) {
-				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now() });
+				complete = false;
+				// A site whose read failed, or got nothing, keeps the prefixes it had; one only cut short has none missing
+				const failed = failedSites.has(organization.id) || !siteProjects.length;
+				if (held == null || !failed) continue;
+
+				// A site's descriptor is keyed by its id
+				const prefixes = new Set(refs.map(r => r.prefix));
+				for (const ref of held.autolinks) {
+					if ('prefix' in ref && ref.descriptor?.key === organization.id && !prefixes.has(ref.prefix)) {
+						autolinks.push(ref);
+					}
+				}
 			}
-			return autolinks;
+			return keep(autolinks, complete);
 		} catch (ex) {
-			// Autolinks are decoration: keep serving the last set rather than failing the render that asked.
+			// Autolinks are decoration: don't fail the render that asked
 			Logger.error(ex, 'JiraIntegration.autolinks');
-			return this._autolinks.get(accessToken)?.autolinks ?? [];
+			return keepHeld();
 		}
 	}
 
@@ -311,6 +350,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				projectsCache.set(`${accessToken}:${resourceId}`, projects, { generation: generation })
 			) {
 				this._autolinks.delete(accessToken);
+				this._autolinksResets++;
 			}
 		}
 		for (const resource of resources) {
@@ -774,6 +814,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	protected override async providerOnConnect(): Promise<void> {
 		this._autolinks.clear();
+		this._autolinksResets++;
 		if (this._session == null) return;
 
 		const session = this._session;
@@ -831,11 +872,19 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					projects.push({ ...project });
 				}
 			}
+			let seeded = false;
 			for (const [resourceId, projects] of projectsByResource) {
-				this._projects.set(`${accessToken}:${resourceId}`, projects, {
-					generation: projectsGeneration,
-					storedAt: storedProjects.timestamp,
-				});
+				seeded =
+					this._projects.set(`${accessToken}:${resourceId}`, projects, {
+						generation: projectsGeneration,
+						storedAt: storedProjects.timestamp,
+					}) || seeded;
+			}
+			// Like any store of a site's list: a build started since the connect, after a stale site list made it wait,
+			// must not keep a set, or a fallback, built without these lists.
+			if (seeded) {
+				this._autolinks.delete(accessToken);
+				this._autolinksResets++;
 			}
 		} else if (organizations?.length) {
 			const readAt = Date.now();

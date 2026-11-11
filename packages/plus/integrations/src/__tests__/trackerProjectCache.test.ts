@@ -11,7 +11,7 @@ import type { IntegrationService } from '../integrationService.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import { isJiraMissingProjectError, isJiraServerMissingProjectError } from '../providers/providerErrors.js';
-import { DiscoveryCache, discoveryCacheTtl } from '../providers/utils/discoveryCache.js';
+import { DiscoveryCache, discoveryCacheTtl, incompleteAutolinksRetryDelay } from '../providers/utils/discoveryCache.js';
 import { toSelectionAction } from '../reads/selectionConfirmation.js';
 import type { ProviderPagedResult } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -627,6 +627,7 @@ suite('Tracker project cache (#5907)', () => {
 
 	suite('Jira Cloud', () => {
 		const site = { id: 'site-1', name: 'Site', url: 'https://site.atlassian.net', avatarUrl: '' };
+		const otherSite = { id: 'site-2', name: 'Other', url: 'https://other.atlassian.net', avatarUrl: '' };
 
 		async function jiraCloud() {
 			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Jira);
@@ -636,6 +637,8 @@ suite('Tracker project cache (#5907)', () => {
 				siteReads: 0,
 				/** When set, the site list waits on it, answering with the sites listed when it was asked. */
 				sitesGate: undefined as Promise<void> | undefined,
+				/** When set, the site list read fails, after `sitesGate`. */
+				sitesError: undefined as Error | undefined,
 				projects: [{ id: 'p1', key: 'ALPHA', name: 'Alpha' }],
 				deleted: new Set<string>(),
 				/** `site:key` pairs deleted on that site alone: unlisted there, and its searches refused. */
@@ -643,6 +646,12 @@ suite('Tracker project cache (#5907)', () => {
 				projectReads: 0,
 				/** When set, the project list waits on it, so a test can act while the read is in flight. */
 				projectsGate: undefined as Promise<void> | undefined,
+				/** Sites whose project list read fails, after `projectsGate`. */
+				failingSites: new Set<string>(),
+				/** Sites whose project list comes back cut short. */
+				truncatedSites: new Set<string>(),
+				/** Sites whose project list reads its first page and fails on the second. */
+				secondPageFailingSites: new Set<string>(),
 				searchError: undefined as Error | undefined,
 				/** The sites the issue searches were made on. */
 				searchedSites: new Set<string>(),
@@ -653,16 +662,29 @@ suite('Tracker project cache (#5907)', () => {
 					state.siteReads++;
 					const snapshot = state.sites.map(s => ({ ...s }));
 					await state.sitesGate;
+					if (state.sitesError != null) throw state.sitesError;
+
 					return snapshot;
 				},
 				// Every site lists the same projects.
-				getJiraProjectsForResource: async (_t: unknown, resourceId: string) => {
+				getJiraProjectsForResource: async (_t: unknown, resourceId: string, options?: { cursor?: string }) => {
 					state.projectReads++;
 					const values = state.projects
 						.filter(p => !state.deletedOnSite.has(`${resourceId}:${p.key}`))
 						.map(p => ({ ...p, resourceId: resourceId, resourceName: site.name }));
 					await state.projectsGate;
-					return { values: values, paging: undefined };
+					if (state.failingSites.has(resourceId)) throw new Error('(503) Service Unavailable.');
+
+					// The first project on its own page, and a second page, with the rest, that fails.
+					if (state.secondPageFailingSites.has(resourceId)) {
+						if (options?.cursor === 'p2') throw new Error('(503) Service Unavailable.');
+
+						return { values: values.slice(0, 1), paging: { more: true, cursor: 'p2' } };
+					}
+
+					// A truncated site's list advertises a continuation that leads nowhere, so the drain stops short.
+					const truncated = state.truncatedSites.has(resourceId);
+					return { values: values, paging: truncated ? { more: true, cursor: '{}' } : undefined };
 				},
 				// Addressed by key; the names differ from the keys so a read by name finds nothing.
 				getIssuesForProjectPaged: (_t: unknown, projectKey: string, resourceId: string) => {
@@ -853,6 +875,356 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test("autolinks keep a set missing a site's projects, and retry that site in the background after the delay", async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.sites = [site, otherSite];
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				state.deletedOnSite.add('site-1:BETA');
+				state.deletedOnSite.add('site-2:ALPHA');
+				state.failingSites.add('site-2');
+				const reads = state.projectReads;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the first render gets what was read',
+				);
+				assert.equal(state.projectReads, reads + 2);
+				state.failingSites.clear();
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				await flush();
+				assert.equal(state.projectReads, reads + 2, 'a render within the retry delay reads nothing');
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the render after the delay does not wait',
+				);
+				await until(() => state.projectReads === reads + 3, 'only the site that failed was read again');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+				await flush();
+				assert.equal(state.projectReads, reads + 3, 'the complete set is kept past the retry delay');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a failed autolink rebuild keeps serving the last set, and is retried after the delay', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				const siteReads = state.siteReads;
+				state.sitesError = new Error('(503) Service Unavailable.');
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+
+				// Past the TTL of the autolinks and of the sites, so the rebuild reads the sites, and fails.
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.siteReads === siteReads + 1, 'the background rebuild read the sites');
+				await flush();
+				state.sitesError = undefined;
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the failed rebuild kept the last set',
+				);
+				await flush();
+				assert.equal(state.siteReads, siteReads + 1, 'a render within the retry delay reads nothing');
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the render after the delay does not wait',
+				);
+				await until(() => state.siteReads === siteReads + 2, 'the render after the delay retried the build');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a site whose projects fail to re-read keeps its prefixes until it reads again', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.sites = [site, otherSite];
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' }, { id: 'p3', key: 'GAMMA', name: 'Gamma' });
+				for (const hidden of ['site-1:BETA', 'site-1:GAMMA', 'site-2:ALPHA', 'site-2:GAMMA']) {
+					state.deletedOnSite.add(hidden);
+				}
+				const before = ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'];
+				assert.deepEqual(await prefixesOf(integration), before);
+				const reads = state.projectReads;
+
+				// Past the TTL, the other site's projects fail to re-read, while this site has lost ALPHA and gained GAMMA.
+				state.failingSites.add('site-2');
+				state.deletedOnSite.add('site-1:ALPHA');
+				state.deletedOnSite.delete('site-1:GAMMA');
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(await prefixesOf(integration), before, 'the expired set, without waiting');
+				await until(() => state.projectReads === reads + 2, 'the background rebuild read both sites');
+				await flush();
+				const after = ['BETA-', 'BETA_', 'GAMMA-', 'GAMMA_'];
+				assert.deepEqual(
+					await prefixesOf(integration),
+					after,
+					'only the failed site keeps the prefixes it had',
+				);
+
+				state.failingSites.clear();
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), after);
+				await until(
+					() => state.projectReads === reads + 3,
+					'the render after the delay re-read the failed site',
+				);
+				await flush();
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), after);
+				await flush();
+				assert.equal(state.projectReads, reads + 3, 'the complete set is kept past the retry delay');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a failed rebuild does not keep its fallback over a project list stored meanwhile', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			let release!: () => void;
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				const siteReads = state.siteReads;
+				state.sitesGate = new Promise<void>(resolve => (release = resolve));
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.siteReads === siteReads + 1, 'the background rebuild is reading the sites');
+
+				// An issue read stores the sites and the project list, BETA included, while the rebuild still waits.
+				state.sitesGate = undefined;
+				await read();
+				const projectReads = state.projectReads;
+				state.sitesError = new Error('(503) Service Unavailable.');
+				release();
+				await flush();
+				state.sitesError = undefined;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+					'the next render rebuilt from the stored list',
+				);
+				assert.equal(state.projectReads, projectReads, 'without reading the projects again');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a rebuild whose read of a site fails builds it from the list another read stored meanwhile', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			let release!: () => void;
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				const reads = state.projectReads;
+				state.projectsGate = new Promise<void>(resolve => (release = resolve));
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.projectReads === reads + 1, 'the background rebuild is reading the projects');
+
+				// An issue read stores the site's list, BETA included, and then the rebuild's own read of it fails.
+				state.projectsGate = undefined;
+				await read();
+				const projectReads = state.projectReads;
+				state.failingSites.add('site-1');
+				release();
+				await flush();
+				state.failingSites.clear();
+
+				const stored = ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'];
+				assert.deepEqual(await prefixesOf(integration), stored, 'the rebuild kept the stored list');
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), stored);
+				await flush();
+				assert.equal(state.projectReads, projectReads, 'kept as complete, with no read since');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a first build that fails keeps no fallback over lists another read stored meanwhile', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				const siteReads = state.siteReads;
+				state.sitesGate = new Promise<void>(resolve => (release = resolve));
+				const first = prefixesOf(integration);
+				await until(() => state.siteReads === siteReads + 1, 'the first build is reading the sites');
+
+				// An issue read stores the sites and their projects, and then the build's own site read fails.
+				state.sitesGate = undefined;
+				await read();
+				const reads = { sites: state.siteReads, projects: state.projectReads };
+				state.sitesError = new Error('(503) Service Unavailable.');
+				release();
+				assert.deepEqual(await first, [], 'the render that waited on the failed build gets none');
+				state.sitesError = undefined;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the next render built from the stored lists',
+				);
+				assert.deepEqual(
+					{ sites: state.siteReads, projects: state.projectReads },
+					reads,
+					'without reading them',
+				);
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a truncated site serves what was read of it, without carrying prefixes it no longer lists', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				const reads = state.projectReads;
+
+				// Past the TTL, the site lists BETA and no longer ALPHA, and its list now comes back cut short.
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				state.deletedOnSite.add('site-1:ALPHA');
+				state.truncatedSites.add('site-1');
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.projectReads === reads + 1, 'the background rebuild read the projects');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['BETA-', 'BETA_']);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a site whose later page fails keeps the prefixes it held beyond the pages read', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+				integration.invalidateDiscoveryCaches();
+				const before = ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'];
+				assert.deepEqual(await prefixesOf(integration), before);
+				const reads = state.projectReads;
+
+				// Past the TTL, the site's first page, ALPHA's, reads, but its second, BETA's, fails.
+				state.secondPageFailingSites.add('site-1');
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(await prefixesOf(integration), before, 'the expired set, without waiting');
+				await until(() => state.projectReads === reads + 2, 'the background rebuild read both pages');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), before, 'BETA is kept from the set it had');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a connect that seeds project lists drops a fallback a build kept without them', async () => {
+			const { service, runtime, integration, state } = await jiraCloud();
+			const internals = integration as unknown as JiraCloudInternals & {
+				_organizations: DiscoveryCache<unknown>;
+				providerOnConnect(): Promise<void>;
+			};
+			let releaseConnect!: () => void;
+			let releaseBuild!: () => void;
+			try {
+				// A start with fresh persisted projects but stale persisted sites, and nothing cached yet. The clock moves
+				// on so the projects' timestamp is after the caches were last dropped, which is what makes them fresh.
+				advanceClock(1);
+				const storedSites = runtime.storage.get<{ timestamp: number }>('jira:tok-1:organizations')!;
+				await runtime.storage.store('jira:tok-1:organizations', {
+					...storedSites,
+					timestamp: Date.now() - discoveryCacheTtl - 1,
+				});
+				const storedProjects = runtime.storage.get<{ timestamp: number }>('jira:tok-1:projects')!;
+				await runtime.storage.store('jira:tok-1:projects', { ...storedProjects, timestamp: Date.now() });
+				internals._organizations.clear();
+				internals._projects.clear();
+				const siteReads = state.siteReads;
+				const projectReads = state.projectReads;
+
+				// The connect re-reads the stale sites, and a render meanwhile starts a build that reads them too.
+				state.sitesGate = new Promise<void>(resolve => (releaseConnect = resolve));
+				const connecting = internals.providerOnConnect();
+				await until(() => state.siteReads === siteReads + 1, 'the connect is reading the sites');
+				state.sitesGate = new Promise<void>(resolve => (releaseBuild = resolve));
+				const render = prefixesOf(integration);
+				await until(() => state.siteReads === siteReads + 2, 'the build is reading the sites');
+
+				// The connect's read succeeds and it seeds the persisted projects; then the build's own read fails.
+				releaseConnect();
+				await connecting;
+				state.sitesError = new Error('(503) Service Unavailable.');
+				releaseBuild();
+				assert.deepEqual(await render, [], 'the render that waited on the failed build gets none');
+				state.sitesError = undefined;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the next render built from the seeded lists',
+				);
+				assert.deepEqual(
+					{ sites: state.siteReads, projects: state.projectReads },
+					{ sites: siteReads + 2, projects: projectReads },
+					'without reading them',
+				);
+			} finally {
+				releaseConnect?.();
+				releaseBuild?.();
+				service.dispose();
+			}
+		});
+
+		test('autolinks for an account with no sites are kept as complete', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.sites = [];
+				assert.deepEqual(await prefixesOf(integration), []);
+				const kept = (integration as unknown as JiraCloudInternals)._autolinks.get('tok-1');
+				assert.deepEqual(kept?.autolinks, []);
+				assert.equal(kept?.complete, true, 'no sites is a complete answer, kept for the TTL');
+			} finally {
+				service.dispose();
+			}
+		});
+
 		test('autolinks are not rebuilt with a session kept through a failed refresh (kepler#3546)', async () => {
 			const { service, runtime, integration, state } = await jiraCloud();
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
@@ -999,7 +1371,7 @@ suite('Tracker project cache (#5907)', () => {
 
 		type JiraCloudInternals = {
 			_session: ProviderAuthenticationSession;
-			_autolinks: Map<string, { autolinks: { prefix?: string }[] }>;
+			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
 			_autolinksBuilds: Map<string, Promise<unknown>>;
 			_projects: DiscoveryCache<{ key: string }[]>;
 			_projectEvictions: Map<string, number>;
@@ -1550,6 +1922,8 @@ suite('Tracker project cache (#5907)', () => {
 				noOrganizationData: false,
 				/** When set, the team list waits on it, answering with the teams listed when it was asked. */
 				teamsGate: undefined as Promise<void> | undefined,
+				/** When set, the team list read fails, after `teamsGate`. */
+				teamsError: undefined as Error | undefined,
 				organization: { id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' },
 				organizationReads: 0,
 				/** When set, the organization lookup waits on it, answering with the organization when it was asked. */
@@ -1568,6 +1942,8 @@ suite('Tracker project cache (#5907)', () => {
 					state.teamReads++;
 					const snapshot = state.noTeamData ? undefined : state.teams.map(t => ({ ...t }));
 					await state.teamsGate;
+					if (state.teamsError != null) throw state.teamsError;
+
 					return snapshot;
 				},
 				getLinearIssues: (_t: unknown, input: { teams?: string[] }) => {
@@ -1598,7 +1974,7 @@ suite('Tracker project cache (#5907)', () => {
 			return { service: service, integration: integration, state: state, read: read, runtime: runtime };
 		}
 
-		test('autolinks from a full implicit teams page are served but retried on the next render', async () => {
+		test('autolinks from a full implicit teams page are served, and retried in the background after the delay', async () => {
 			const { service, integration, state } = await linear();
 			try {
 				integration.invalidateDiscoveryCaches();
@@ -1614,14 +1990,22 @@ suite('Tracker project cache (#5907)', () => {
 				assert.deepEqual(await prefixesOf(integration), expected, 'the useful first-page prefixes are served');
 				assert.equal(state.teamReads, reads + 1);
 				assert.deepEqual(await prefixesOf(integration), expected);
-				assert.equal(state.teamReads, reads + 2, 'the second render retries the incomplete teams read');
+				await flush();
+				assert.equal(state.teamReads, reads + 1, 'a render within the retry delay reads nothing');
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), expected, 'the render after the delay does not wait');
+				await until(() => state.teamReads === reads + 2, 'the render after the delay retried the teams read');
+				assert.deepEqual(await prefixesOf(integration), expected);
+				await flush();
+				assert.equal(state.teamReads, reads + 2, 'the retried incomplete set waits out another delay');
 			} finally {
 				service.dispose();
 			}
 		});
 
 		for (const count of [0, 49, 51]) {
-			test(`autolinks cache only complete team lists (${count} teams)`, async () => {
+			test(`autolinks keep complete team lists past the retry delay, and retry incomplete ones (${count} teams)`, async () => {
 				const { service, integration, state } = await linear();
 				try {
 					integration.invalidateDiscoveryCaches();
@@ -1635,7 +2019,9 @@ suite('Tracker project cache (#5907)', () => {
 					const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
 
 					assert.deepEqual(await prefixesOf(integration), expected);
+					advanceClock(incompleteAutolinksRetryDelay);
 					assert.deepEqual(await prefixesOf(integration), expected);
+					await flush();
 					assert.equal(state.teamReads, reads + (count < 50 ? 1 : 2));
 				} finally {
 					service.dispose();
@@ -1643,7 +2029,7 @@ suite('Tracker project cache (#5907)', () => {
 			});
 		}
 
-		test('concurrent incomplete autolink renders share a build and cache a later complete read', async () => {
+		test('concurrent incomplete autolink renders share a build, and its retry caches a later complete read', async () => {
 			const { service, integration, state } = await linear();
 			let release!: () => void;
 			try {
@@ -1669,10 +2055,22 @@ suite('Tracker project cache (#5907)', () => {
 				state.teamsGate = undefined;
 				state.teams.pop();
 				const complete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
-				assert.deepEqual(await prefixesOf(integration), complete, 'a later render retries discovery');
-				assert.equal(state.teamReads, reads + 2);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					expected,
+					'a render within the retry delay reads nothing',
+				);
+				assert.equal(state.teamReads, reads + 1);
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), expected, 'the render after the delay does not wait');
+				await until(() => state.teamReads === reads + 2, 'the render after the delay retried discovery');
+				await flush();
 				assert.deepEqual(await prefixesOf(integration), complete);
-				assert.equal(state.teamReads, reads + 2, 'the complete result is cached');
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), complete);
+				await flush();
+				assert.equal(state.teamReads, reads + 2, 'the complete result is cached past the retry delay');
 			} finally {
 				release?.();
 				service.dispose();
@@ -1700,7 +2098,12 @@ suite('Tracker project cache (#5907)', () => {
 				assert.equal(state.teamReads, reads + 1, 'the background rebuild read the incomplete list');
 				assert.deepEqual(await prefixesOf(integration), incomplete, 'the next render exposes the new team');
 				assert.deepEqual(await prefixesOf(integration), incomplete);
-				assert.equal(state.teamReads, reads + 3, 'each settled incomplete render retries discovery');
+				await flush();
+				assert.equal(state.teamReads, reads + 1, 'renders within the retry delay read nothing');
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), incomplete, 'the render after the delay does not wait');
+				await until(() => state.teamReads === reads + 2, 'the render after the delay retried discovery');
 			} finally {
 				service.dispose();
 			}
@@ -1750,7 +2153,7 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
-		test('autolinks retry a team read that returned no data', async () => {
+		test('autolinks retry a team read that returned no data after the retry delay', async () => {
 			const { service, integration, state } = await linear();
 			try {
 				integration.invalidateDiscoveryCaches();
@@ -1758,9 +2161,160 @@ suite('Tracker project cache (#5907)', () => {
 				const reads = state.teamReads;
 				assert.deepEqual(await prefixesOf(integration), []);
 				state.noTeamData = false;
+				assert.deepEqual(await prefixesOf(integration), [], 'a render within the retry delay reads nothing');
+				assert.equal(state.teamReads, reads + 1);
+
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), [], 'the render after the delay does not wait');
+				await until(() => state.teamReads === reads + 2, 'the render after the delay retried the teams read');
+				await flush();
 				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
-				assert.equal(state.teamReads, reads + 2);
 			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a team read that throws serves the held set, or none on a first build, and is retried after the delay', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				const reads = state.teamReads;
+				state.teamsError = new Error('(503) Service Unavailable.');
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.teamReads === reads + 1, 'the background rebuild read the teams');
+				await flush();
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the failed rebuild kept the held set',
+				);
+				await flush();
+				assert.equal(state.teamReads, reads + 1, 'a render within the retry delay reads nothing');
+
+				integration.invalidateDiscoveryCaches();
+				assert.deepEqual(
+					await prefixesOf(integration),
+					[],
+					'a first build that fails serves none, without throwing',
+				);
+				assert.equal(state.teamReads, reads + 2);
+
+				state.teamsError = undefined;
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), []);
+				await until(() => state.teamReads === reads + 3, 'the render after the delay retried the teams read');
+				await flush();
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a failed rebuild does not keep its fallback over a team list stored meanwhile', async () => {
+			const { service, integration, state, read } = await linear();
+			let release!: () => void;
+			try {
+				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+				const reads = state.teamReads;
+				state.teamsGate = new Promise<void>(resolve => (release = resolve));
+				advanceClock(discoveryCacheTtl);
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the expired set, without waiting',
+				);
+				await until(() => state.teamReads === reads + 1, 'the background rebuild is reading the teams');
+
+				// An issue read stores the team list, BETA included, while the rebuild still waits.
+				state.teamsGate = undefined;
+				await read();
+				const teamReads = state.teamReads;
+				state.teamsError = new Error('(503) Service Unavailable.');
+				release();
+				await flush();
+				state.teamsError = undefined;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+					'the next render rebuilt from the stored list',
+				);
+				assert.equal(state.teamReads, teamReads, 'without reading the teams again');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('an incomplete build publishes a complete team list another read stored meanwhile', async () => {
+			const { service, integration, state, read } = await linear();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				state.teams = Array.from({ length: 50 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				const reads = state.teamReads;
+				state.teamsGate = new Promise<void>(resolve => (release = resolve));
+				const first = prefixesOf(integration);
+				await until(() => state.teamReads === reads + 1, 'the first build is reading the teams');
+
+				// An issue read stores a complete list of 49 teams while the build's own read, a full page, still waits.
+				state.teamsGate = undefined;
+				state.teams.pop();
+				await read();
+				const stored = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
+				const teamReads = state.teamReads;
+				release();
+
+				assert.deepEqual(await first, stored, 'the build published the stored list, not its own full page');
+				assert.deepEqual(await prefixesOf(integration), stored);
+				advanceClock(incompleteAutolinksRetryDelay);
+				assert.deepEqual(await prefixesOf(integration), stored);
+				await flush();
+				assert.equal(state.teamReads, teamReads, 'kept as complete, with no team read since');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a first build that fails keeps no fallback over a team list another read stored meanwhile', async () => {
+			const { service, integration, state, read } = await linear();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				const reads = state.teamReads;
+				state.teamsGate = new Promise<void>(resolve => (release = resolve));
+				const first = prefixesOf(integration);
+				await until(() => state.teamReads === reads + 1, 'the first build is reading the teams');
+
+				// An issue read stores the team list, and then the build's own team read fails.
+				state.teamsGate = undefined;
+				await read();
+				const teamReads = state.teamReads;
+				state.teamsError = new Error('(503) Service Unavailable.');
+				release();
+				assert.deepEqual(await first, [], 'the render that waited on the failed build gets none');
+				state.teamsError = undefined;
+
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the next render built from the stored list',
+				);
+				assert.equal(state.teamReads, teamReads, 'without reading it again');
+			} finally {
+				release?.();
 				service.dispose();
 			}
 		});
