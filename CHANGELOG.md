@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Adds high contrast light defaults for all of GitLens' theme colors &mdash; blame annotations, branch and file decorations, pull request and issue icons, _Commit Graph_ lanes and markers, and _Launchpad_ indicators now meet high contrast levels instead of reusing the light theme's colors ([#2119](https://github.com/gitkraken/vscode-gitlens/issues/2119))
+
 ### Fixed
 
 - Fixes _Launchpad_ showing "needs reviewers" for GitHub pull requests on repositories that don't require a review ([#5863](https://github.com/gitkraken/vscode-gitlens/issues/5863))
