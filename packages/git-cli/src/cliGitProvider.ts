@@ -895,6 +895,8 @@ export class CliGitProvider implements GitProvider {
 
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const filter = this.getIgnoreFilter(repoPath);
+		// Only a watcher refreshes the filter, and nothing may be watching this repository
+		void filter.revalidate();
 		await filter.ready();
 		return uris.filter(uri => {
 			const relativePath = normalizePath(path.relative(repoPath, toFsPath(uri)));
@@ -904,6 +906,7 @@ export class CliGitProvider implements GitProvider {
 
 	async getIgnoredUrisFilter(repoPath: string): Promise<(uri: Uri) => boolean> {
 		const filter = this.getIgnoreFilter(repoPath);
+		void filter.revalidate();
 		await filter.ready();
 		return (uri: Uri) => {
 			const relativePath = normalizePath(path.relative(repoPath, toFsPath(uri)));
