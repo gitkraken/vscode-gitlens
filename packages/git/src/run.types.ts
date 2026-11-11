@@ -173,6 +173,7 @@ export interface GitRunOptions {
 	cwd?: string;
 	readonly env?: Record<string, string | undefined>;
 	readonly encoding?: BufferEncoding | 'buffer' | string;
+	/** The most bytes each of stdout and stderr may produce, else the run is killed and rejects; unlimited if absent */
 	readonly maxBuffer?: number;
 	readonly stdin?: string | Buffer;
 	readonly stdinEncoding?: string;

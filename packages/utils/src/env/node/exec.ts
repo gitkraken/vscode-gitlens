@@ -182,6 +182,8 @@ export interface SpawnedProcess {
 	readonly killed: boolean;
 	readonly exitCode: number | null;
 	readonly spawnargs: string[];
+	/** Used to stop a run that passes its `maxBuffer`; without it the run destroys the output streams instead */
+	kill?(signal?: NodeJS.Signals): boolean;
 	once(event: 'error', listener: (error: Error) => void): this;
 	once(event: 'close', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
 	removeAllListeners(): this;
@@ -269,11 +271,10 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	 */
 	readonly decode?: (data: Uint8Array, options?: { readonly encoding: string }) => string | Promise<string>;
 	/**
-	 * The size the output buffer to allocate to the spawned process. Set this
-	 * if you are anticipating a large amount of output.
+	 * The most bytes each of stdout and stderr may produce; past it the process is killed and the run rejects
+	 * with a `RunError` whose `code` is `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`.
 	 *
-	 * If not specified, this will be 10MB (10485760 bytes) which should be
-	 * enough for most Git operations.
+	 * If not specified, `run` allows 1000MB per stream and `runSpawn` allows unlimited output.
 	 */
 	readonly maxBuffer?: number;
 	readonly cancellation?: AbortSignal;
@@ -485,11 +486,60 @@ export function runSpawn<T extends string | Buffer>(
 		});
 		const errorEncoding = encoding === 'buffer' ? 'utf8' : encoding;
 
+		const maxBuffer = opts.maxBuffer != null && opts.maxBuffer > 0 ? opts.maxBuffer : undefined;
+		let limitHit = false;
+
+		function collector(buffers: Buffer[], name: 'stdout' | 'stderr'): (data: Buffer) => void {
+			let size = 0;
+			return (data: Buffer) => {
+				if (limitHit) return;
+
+				size += data.length;
+				if (maxBuffer != null && size > maxBuffer) {
+					exceedLimit(name);
+					return;
+				}
+
+				buffers.push(data);
+			};
+		}
+
 		const stdoutBuffers: Buffer[] = [];
-		proc.stdout?.on('data', (data: Buffer) => stdoutBuffers.push(data));
+		const collectStdout = collector(stdoutBuffers, 'stdout');
+		proc.stdout?.on('data', collectStdout);
 
 		const stderrBuffers: Buffer[] = [];
-		proc.stderr?.on('data', (data: Buffer) => stderrBuffers.push(data));
+		const collectStderr = collector(stderrBuffers, 'stderr');
+		proc.stderr?.on('data', collectStderr);
+
+		// Settles the run as soon as a stream passes the limit. Destroying the streams ends a spawner whose process
+		// has no `kill`, and the late `'close'` or `'error'` is ignored through `limitHit`
+		function exceedLimit(name: 'stdout' | 'stderr'): void {
+			limitHit = true;
+			stdoutBuffers.length = 0;
+			stderrBuffers.length = 0;
+			proc.stdout?.off('data', collectStdout);
+			proc.stderr?.off('data', collectStderr);
+
+			try {
+				proc.kill?.();
+			} catch {}
+			proc.stdout?.destroy();
+			proc.stderr?.destroy();
+
+			reject(
+				new RunError(
+					{
+						message: `Command output exceeded the allocated ${name} buffer. Set 'options.maxBuffer' to a larger value than ${maxBuffer} bytes`,
+						cmd: `${command} ${args.join(' ')}`,
+						killed: true,
+						code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+					},
+					'',
+					'',
+				),
+			);
+		}
 
 		function getStdio<T>(
 			encoding: BufferEncoding | 'buffer' | string,
@@ -524,6 +574,8 @@ export function runSpawn<T extends string | Buffer>(
 		proc.once('close', (code, signal) => void onClose(code, signal).catch(rejectThrown));
 
 		async function onError(ex: Error): Promise<void> {
+			if (limitHit) return;
+
 			if (ex?.name === 'AbortError') {
 				reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, undefined, undefined, 'aborted'));
 
@@ -542,6 +594,8 @@ export function runSpawn<T extends string | Buffer>(
 		}
 
 		async function onClose(code: number | null, signal: NodeJS.Signals | null): Promise<void> {
+			if (limitHit) return;
+
 			if (options?.exitCodeOnly) {
 				// Resolves unconditionally, so this is the one path that can hand back a signalled run. `code`
 				// is null exactly when the process was killed — report the signal rather than coercing to `0`,
