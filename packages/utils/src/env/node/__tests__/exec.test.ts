@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import { spawn } from 'child_process';
+import { EventEmitter } from 'events';
 import * as process from 'process';
+import { PassThrough } from 'stream';
 import type { ProcessSpawner } from '../exec.js';
 import { CancelledRunError, run, RunError, runSpawn, spawnProcess } from '../exec.js';
 
@@ -262,5 +264,160 @@ suite('spawnProcess Test Suite', () => {
 					ex instanceof RangeError && (ex as RangeError & { code?: string }).code === 'ERR_OUT_OF_RANGE',
 			);
 		}
+	});
+});
+
+suite('runSpawn maxBuffer Test Suite', () => {
+	const maxBufferCode = 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+
+	class FakeProcess extends EventEmitter {
+		readonly stdin = null;
+		readonly stdout = new PassThrough();
+		readonly stderr = new PassThrough();
+		killed = false;
+		exitCode: number | null = null;
+		readonly spawnargs: string[] = [];
+		kills = 0;
+
+		kill(): boolean {
+			this.kills++;
+			this.killed = true;
+			return true;
+		}
+	}
+
+	function fake(): { proc: FakeProcess; spawner: ProcessSpawner } {
+		const proc = new FakeProcess();
+		return { proc: proc, spawner: () => proc };
+	}
+
+	function isMaxBufferError(ex: unknown, stream: string): boolean {
+		return (
+			ex instanceof RunError &&
+			!(ex instanceof CancelledRunError) &&
+			ex.code === maxBufferCode &&
+			ex.message.includes(`allocated ${stream} buffer`) &&
+			ex.message.includes('maxBuffer')
+		);
+	}
+
+	test('runSpawn resolves output within maxBuffer as before', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('12345'));
+		proc.stdout.emit('data', Buffer.from('67890'));
+		proc.stderr.emit('data', Buffer.from('abcdefghij'));
+		proc.emit('close', 0, null);
+
+		const result = await neverHangs(promise);
+		assert.strictEqual(result.stdout, '1234567890');
+		assert.strictEqual(result.stderr, 'abcdefghij');
+		assert.strictEqual(proc.kills, 0);
+	});
+
+	test('runSpawn rejects, kills the process and stops listening when stdout exceeds maxBuffer', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('123456'));
+		proc.stdout.emit('data', Buffer.from('78901'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+		assert.strictEqual(proc.kills, 1);
+		assert.strictEqual(proc.stdout.listenerCount('data'), 0);
+		assert.strictEqual(proc.stderr.listenerCount('data'), 0);
+		assert.ok(proc.stdout.destroyed);
+		assert.ok(proc.stderr.destroyed);
+	});
+
+	test('runSpawn rejects when stderr exceeds maxBuffer, counted apart from stdout', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('1234567890'));
+		proc.stderr.emit('data', Buffer.from('1234567'));
+		proc.stderr.emit('data', Buffer.from('89012'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stderr'));
+		assert.strictEqual(proc.kills, 1);
+	});
+
+	test('runSpawn rejects with the limit error even when the process has no kill', async () => {
+		const { proc, spawner } = fake();
+		(proc as { kill?: unknown }).kill = undefined;
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 2, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('abc'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+		assert.ok(proc.stdout.destroyed);
+	});
+
+	test('runSpawn collects large output without a limit when maxBuffer is absent', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { spawn: spawner });
+		const chunk = Buffer.alloc(1024 * 1024, 'x');
+		for (let i = 0; i < 64; i++) {
+			proc.stdout.emit('data', chunk);
+			proc.stderr.emit('data', chunk);
+		}
+		proc.emit('close', 0, null);
+
+		const result = await neverHangs(promise);
+		assert.strictEqual(result.stdout.length, 64 * chunk.length);
+		assert.strictEqual(result.stderr.length, 64 * chunk.length);
+		assert.strictEqual(proc.kills, 0);
+	});
+
+	test('runSpawn settles once when the limit is hit after the caller already cancelled', async () => {
+		const { proc, spawner } = fake();
+		const controller = new AbortController();
+		const promise = runSpawn<string>('cmd', [], 'utf8', {
+			maxBuffer: 2,
+			cancellation: controller.signal,
+			spawn: spawner,
+		});
+		const abort = Object.assign(new Error('aborted'), { name: 'AbortError' });
+		controller.abort();
+		proc.emit('error', abort);
+		assert.doesNotThrow(() => proc.stdout.emit('data', Buffer.from('abcdef')));
+		proc.emit('close', null, 'SIGTERM');
+
+		await assert.rejects(
+			neverHangs(promise),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('runSpawn ignores a close, with or without a signal, arriving after the limit was hit', async () => {
+		const { proc, spawner } = fake();
+		const outcomes: unknown[] = [];
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 2, spawn: spawner }).then(
+			v => outcomes.push(v),
+			(ex: unknown) => outcomes.push(ex),
+		);
+		proc.stdout.emit('data', Buffer.from('abc'));
+		proc.emit('close', null, 'SIGTERM');
+		proc.emit('close', 0, null);
+		proc.emit('error', new Error('late'));
+		await neverHangs(promise);
+
+		assert.strictEqual(outcomes.length, 1);
+		assert.ok(isMaxBufferError(outcomes[0], 'stdout'));
+		assert.strictEqual(proc.kills, 1);
+	});
+
+	test('runSpawn rejects with the limit error for an exit-code-only run that exceeds maxBuffer', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn('cmd', [], 'utf8', { exitCodeOnly: true, maxBuffer: 2, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('abc'));
+		proc.emit('close', null, 'SIGTERM');
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+	});
+
+	test('runSpawn kills a real process that exceeds maxBuffer', async () => {
+		const args = ['-e', `setInterval(() => process.stdout.write('x'.repeat(4096)), 1)`];
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, args, 'utf8', { maxBuffer: 1024 })),
+			(ex: unknown) => isMaxBufferError(ex, 'stdout'),
+		);
 	});
 });
