@@ -6,6 +6,18 @@
 export const discoveryCacheTtl = 5 * 60 * 1000;
 
 /**
+ * How long an autolink set built from an incomplete or failed discovery read is served before the read is retried.
+ * Short, so what the read missed shows up soon; but autolinks are read on every render of a commit message, and
+ * retrying on each would make every render wait on the provider (#6183).
+ */
+export const incompleteAutolinksRetryDelay = 60 * 1000;
+
+/** Whether a kept autolink set is due a rebuild: once older than the TTL, or the retry delay when incomplete. */
+export function isAutolinkSetExpired(set: { builtAt: number; complete: boolean }): boolean {
+	return Date.now() - set.builtAt >= (set.complete ? discoveryCacheTtl : incompleteAutolinksRetryDelay);
+}
+
+/**
  * A per-key cache of discovery results that expires entries after {@link discoveryCacheTtl} and can be dropped
  * wholesale when the connection is re-synced.
  *

@@ -41,7 +41,7 @@ import type {
 	ProviderLinearProject,
 } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
-import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
+import { DiscoveryCache, isAutolinkSetExpired } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -101,14 +101,22 @@ function viewerScope(viewerId: string, filters: IssueFilter[] | undefined): Line
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
 	/**
 	 * Built from the teams, so it follows them: rebuilt when the team list changes or the caches are dropped, and once
-	 * older than {@link discoveryCacheTtl}. An expired set is still served while it is rebuilt in the background, because
-	 * autolinks are read on every render of a commit message and must not wait on the network (#5907).
+	 * {@link isAutolinkSetExpired}: older than the TTL, or than a shorter retry delay when the organization or the teams
+	 * couldn't be read whole. An expired set is still served while it is rebuilt in the background, because autolinks
+	 * are read on every render of a commit message and must not wait on the network (#5907, #6183).
 	 */
 	private readonly _autolinks = new Map<
 		string,
-		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number }
+		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number; complete: boolean }
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
+	/**
+	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback over
+	 * a list it didn't read; the next render builds from it instead (#6183). Rule: every writer that stores a team list
+	 * must bump it, today only `getTeamsWithMetadata`'s store. The organization map deliberately doesn't: it only changes
+	 * the links' url, on a forced read. Drops need no bump: they move `_teams.generation`, which fails the build.
+	 */
+	private _autolinksResets = 0;
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -123,8 +131,8 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (this.connectionExpired === true) return cached?.autolinks ?? [];
 		if (cached == null) return this.buildAutolinks(session);
 
-		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {
-			void this.buildAutolinks(session).catch(() => {});
+		if (isAutolinkSetExpired(cached)) {
+			void this.buildAutolinks(session);
 		}
 		return cached.autolinks;
 	}
@@ -153,29 +161,55 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	private async buildAutolinksCore(
 		session: ProviderAuthenticationSession,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const { accessToken } = session;
 		const generation = this._teams.generation;
-		const organization = await this.getOrganization(session);
-		if (organization == null) return [];
-
-		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-
-		const teams = await this.getTeamsWithMetadata(session);
-		for (const team of teams?.values ?? []) {
-			autolinks.push(
-				...createIssueAutolinkReferences(team.key, `${organization.url}/issue/${team.key}-<num>`, organization),
-			);
-		}
-
-		// An incomplete team list is useful for this render, but the next render must retry it.
-		const complete = teams != null && (teams.metadata == null || teams.metadata.completeness === 'complete');
-		if (this._teams.generation === generation) {
-			if (complete) {
-				this._autolinks.set(session.accessToken, { autolinks: autolinks, builtAt: Date.now() });
-			} else if (teams != null) {
-				this._autolinks.delete(session.accessToken);
+		const resets = this._autolinksResets;
+		// What this build falls back on when it can't read the organization or the teams
+		const held = this._autolinks.get(accessToken);
+		// Kept even when incomplete, to be retried sooner rather than by every render (#6183); not when built from teams
+		// read before the caches were dropped.
+		const keep = (
+			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
+			complete: boolean,
+		): (AutolinkReference | DynamicAutolinkReference)[] => {
+			if (this._teams.generation === generation) {
+				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now(), complete: complete });
 			}
+			return autolinks;
+		};
+		// Serves the held set until the retry, unless a team list was stored meanwhile
+		const keepHeld = (): (AutolinkReference | DynamicAutolinkReference)[] =>
+			this._autolinksResets === resets ? keep(held?.autolinks ?? [], false) : (held?.autolinks ?? []);
+		try {
+			const organization = await this.getOrganization(session);
+			if (organization == null) return keepHeld();
+
+			const teams = await this.getTeamsWithMetadata(session);
+			if (teams == null) return keepHeld();
+
+			// While this build is current, a team list cached meanwhile outranks its read, as with Jira's sites
+			const cached = this._teams.generation === generation ? this._teams.get(accessToken) : undefined;
+			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+			for (const team of cached ?? teams.values) {
+				autolinks.push(
+					...createIssueAutolinkReferences(
+						team.key,
+						`${organization.url}/issue/${team.key}-<num>`,
+						organization,
+					),
+				);
+			}
+
+			// An incomplete team list is served, and read again after the retry delay
+			return keep(
+				autolinks,
+				cached != null || teams.metadata == null || teams.metadata.completeness === 'complete',
+			);
+		} catch (ex) {
+			// Autolinks are decoration: don't fail the render that asked
+			Logger.error(ex, 'LinearIntegration.autolinks');
+			return keepHeld();
 		}
-		return autolinks;
 	}
 
 	/** The workspace is the token's organization; kept only as a complete, trimmed pair. */
@@ -262,6 +296,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (read != null && this._teams.set(accessToken, read.values, { generation: generation })) {
 			// Built from the teams; a new set means new prefixes.
 			this._autolinks.delete(accessToken);
+			this._autolinksResets++;
 		}
 		return read;
 	}
