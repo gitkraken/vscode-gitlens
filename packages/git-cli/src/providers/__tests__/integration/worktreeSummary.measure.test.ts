@@ -806,3 +806,140 @@ suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', functi
 		}
 	});
 });
+
+/**
+ * A commit in a subscribed linked worktree moves its HEAD, so its summary reads every group. The base used to be read
+ * in full there, with 4 processes (`rev-parse main@{u}`, `merge-base --fork-point` against `main` and against
+ * `origin/main`, and `rev-list --left-right --count`). Now one `rev-list --parents` shows the new HEAD is an ordinary
+ * commit on the last one that no value of a ref the base depends on reaches, and the base is carried forward one commit.
+ */
+suite('WorktreeSummaryService base refresh after a commit (spawn count)', function () {
+	this.timeout(60000);
+
+	const completed: string[] = [];
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	let root: string;
+	let origin: string;
+	let main: TestRepo;
+	let task: { path: string; cleanup: () => void };
+	let service: GitService;
+	let sub: WorktreeSummarySubscription;
+	let watchers: { basePath: string; fire: (e: { path: string; reason: 'change' }) => void }[];
+
+	setup(async () => {
+		root = mkdtempSync(join(tmpdir(), 'gitlens-summary-commit-'));
+		origin = join(root, 'origin.git');
+		git(root, 'init', '--bare', '-b', 'main', origin);
+
+		main = createTestRepo();
+		git(main.path, 'remote', 'add', 'origin', origin);
+		git(main.path, 'push', '-u', 'origin', 'main');
+		git(main.path, 'remote', 'set-head', 'origin', 'main');
+		git(main.path, 'branch', '--no-track', 'task', 'origin/main');
+		task = createWorktree(main.path, 'task');
+		addCommit(task.path, 'task.txt', 'task', 'Work on task');
+
+		watchers = [];
+		// Not the shadow-checked service: its full base reads would add to the process counts measured here. It
+		// validates unwatched caches, which is what has a full read measure from the branch's listed tip
+		service = createCliGitService({
+			context: { fs: fs, config: noCommitGraphWritesConfig },
+			gitOptions: { logger: countingLogger },
+			validateUnwatchedCaches: true,
+			watchingProvider: {
+				createWatcher: (basePath, _pattern, onEvent) => {
+					watchers.push({ basePath: basePath, fire: onEvent });
+					return createDisposable(() => {});
+				},
+			} satisfies FileWatchingProvider,
+		});
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		for (const path of [main.path, task.path]) {
+			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+		}
+		sub = service.summaries!.subscribe(task.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		await service.summaries!.getSummary(task.path);
+		assert.strictEqual(sub.current?.base?.ref, 'origin/main');
+		await settle();
+	});
+
+	teardown(() => {
+		sub.dispose();
+		service.dispose();
+		task.cleanup();
+		main.cleanup();
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	/** Waits until no git process completed for `quietMs` */
+	async function settle(quietMs: number = 300): Promise<void> {
+		let last = completed.length;
+		let lastAt = Date.now();
+		const start = lastAt;
+		while (Date.now() - start < 15000) {
+			await delay(25);
+			if (completed.length !== last) {
+				last = completed.length;
+				lastAt = Date.now();
+			} else if (Date.now() - lastAt >= quietMs) {
+				return;
+			}
+		}
+	}
+
+	/** Commits on the task branch, reports it as the watcher would, and returns the base's git processes it led to */
+	async function commitAndMeasure(name: string): Promise<string[]> {
+		const previous = sub.current!;
+		addCommit(task.path, `${name}.txt`, name, name);
+		const mark = completed.length;
+		const changed = nextChange(sub);
+		// The branch's ref, which the watcher over the common git dir names
+		const commonGitDir = join(main.path, '.git');
+		const fired = watchers.filter(w => w.basePath === commonGitDir);
+		assert.ok(fired.length !== 0, `no watcher on ${commonGitDir}`);
+		for (const watcher of fired) {
+			watcher.fire({ path: join(commonGitDir, 'refs', 'heads', 'task'), reason: 'change' });
+		}
+		const summary = await changed;
+		await settle();
+
+		const key = getRepositoryKey(task.path);
+		const spawned = completed
+			.slice(mark)
+			.filter(m => (m.includes(`[${key}]`) || m.includes(`[${task.path}]`)) && !isSharedRead(m));
+		console.error(`[measure] base refresh after a commit: ${spawned.length} git process(es) in the worktree`);
+		for (const line of spawned) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		assert.strictEqual(summary.sha, git(task.path, 'rev-parse', 'HEAD'));
+		assert.deepStrictEqual(summary.base, { ...previous.base, ahead: previous.base!.ahead + 1 });
+		// The dirty flag's own reads aside
+		return spawned.filter(m => !/\] git (diff --quiet HEAD|ls-files --others)/.test(m));
+	}
+
+	test('a commit costs its worktree one git process for its base, the first after a full read too (was 4)', async () => {
+		// The full read measured from the branch's listed tip, so the first carry knows its count is the last HEAD's
+		const first = await commitAndMeasure('two');
+		assert.strictEqual(first.length, 1, first.join('\n'));
+		assert.ok(first[0].includes('] git rev-list --parents'), first[0]);
+
+		const second = await commitAndMeasure('three');
+		assert.strictEqual(second.length, 1, second.join('\n'));
+		assert.ok(second[0].includes('] git rev-list --parents'), second[0]);
+	});
+});

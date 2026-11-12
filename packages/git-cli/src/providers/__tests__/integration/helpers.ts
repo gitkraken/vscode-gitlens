@@ -201,16 +201,27 @@ export function createTestRepo(options?: {
 
 /**
  * A provider of its own, with cold caches, for any existing repository: a read through it can't be served from what
- * another provider cached. Call `dispose()` when done.
+ * another provider cached. Call `dispose()` when done. `validateReads` gives its cache a read validator that has
+ * nothing to wait for, as a host that keeps its cached lists current wires one (see `Cache.setReadValidator`); without
+ * it a read of the ahead-of-base answer counts from HEAD.
  */
-export function createProvider(options?: { gitOptions?: GitOptions }): CliGitProvider {
+export function createProvider(options?: { gitOptions?: GitOptions; validateReads?: boolean }): CliGitProvider {
 	ensureLogger();
 
-	return new CliGitProvider({
+	const provider = new CliGitProvider({
 		context: createMinimalContext(),
 		locator: getGitLocation,
 		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
 	});
+	if (options?.validateReads) {
+		validateReads(provider);
+	}
+	return provider;
+}
+
+/** Gives `provider`'s cache a read validator that has nothing to wait for (see {@link createProvider}) */
+export function validateReads(provider: CliGitProvider): void {
+	provider.cache.setReadValidator(() => undefined);
 }
 
 /** A service config that keeps the background commit-graph write from running (see {@link createMinimalContext}) */

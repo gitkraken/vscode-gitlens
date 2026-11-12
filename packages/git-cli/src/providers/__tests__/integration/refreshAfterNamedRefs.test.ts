@@ -22,6 +22,7 @@ import {
 	createShadowCheckedGitService,
 	createTestRepo,
 	createWorktree,
+	validateReads,
 } from './helpers.js';
 
 const fs: FileSystemProvider = {
@@ -233,6 +234,9 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			} satisfies FileWatchingProvider,
 		});
 		provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		// A full base read measures from the branch's listed tip only for a host that validates its reads, which the
+		// summary's carried answers are compared with here
+		validateReads(provider);
 
 		// Counted before any repository service binds the methods
 		const branches = provider.branches as unknown as Record<
