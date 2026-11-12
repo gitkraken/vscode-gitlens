@@ -29,12 +29,7 @@ import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js
 import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
-import {
-	DiscoveryCache,
-	discoveryCacheTtl,
-	isAutolinkSetExpired,
-	isEmptyAutolinkFallback,
-} from './utils/discoveryCache.js';
+import { DiscoveryCache, isAutolinkSetExpired, isEmptyAutolinkFallback } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
@@ -113,8 +108,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	/**
 	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback
 	 * over lists it didn't read; the next render builds from them instead (#6183). Rule: every writer that stores a
-	 * different project list for a site must bump it and retire the token's build, through {@link onProjectListStored}:
-	 * today the read's store in `getProviderProjectsForResourcesWithMetadata` and the seeding in `providerOnConnect`;
+	 * different project list for a site must bump it and retire the token's build, through {@link onProjectListStored};
 	 * the same list stored again does neither while a complete set is kept (#6184). The connect's clear bumps it too.
 	 * Site-list stores deliberately don't: a build's own site store would then refuse its own fallback. Drops and
 	 * evictions need no bump: they fail a build's `isCurrent`.
@@ -339,8 +333,6 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 */
 	private readonly _organizations = new DiscoveryCache<JiraOrganizationDescriptor[]>();
 	private readonly _projects = new DiscoveryCache<JiraProjectDescriptor[]>();
-	/** When the caches were last dropped; a persisted discovery read before then is as stale as they were. */
-	private _discoveryInvalidatedAt = 0;
 
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
@@ -894,94 +886,13 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (this._session == null) return;
 
 		const session = this._session;
-		const { accessToken } = session;
-		const organizationsGeneration = this._organizations.generation;
-		const projectsGeneration = this._projects.generation;
-
-		// Persisted discovery seeds the caches only while it would still be fresh in them: read within the TTL, and
-		// after the caches were last dropped. Otherwise a re-sync, which runs this again, would put back the very
-		// project list it just dropped, and a restart would trust one read any time before (#5907).
-		const isFresh = (timestamp: unknown): timestamp is number =>
-			typeof timestamp === 'number' &&
-			timestamp > this._discoveryInvalidatedAt &&
-			Date.now() - timestamp < discoveryCacheTtl;
-
-		const storedOrganizations = this.ctx.storage.get(`jira:${accessToken}:organizations`);
-		// Projects persisted without their sites belong to a session whose sites were cleared below; ignore them.
-		const storedProjects =
-			storedOrganizations != null ? this.ctx.storage.get(`jira:${accessToken}:projects`) : undefined;
-
-		let organizations: JiraOrganizationDescriptor[] | undefined;
-		if (storedOrganizations?.data != null && isFresh(storedOrganizations.timestamp)) {
-			const seeded = storedOrganizations.data.map((o: JiraOrganizationDescriptor) => ({ ...o }));
-			organizations = seeded;
-			this._organizations.set(accessToken, seeded, {
-				generation: organizationsGeneration,
-				storedAt: storedOrganizations.timestamp,
-			});
-		} else {
-			// Stamped with when the read started, so the TTL counts from what it actually saw.
-			const readAt = Date.now();
-			organizations = await this.getProviderResourcesForUser(session, true);
-			if (storedOrganizations == null) {
-				// Clear all other stored organizations and projects when our session changes
-				await this.ctx.storage.deleteWithPrefix('jira');
-			}
-			// Not persisted when the caches were dropped while it was in flight: it is then a read from before the
-			// refresh, and the next start, which knows nothing of that refresh, would take it for fresh.
-			if (this._organizations.generation === organizationsGeneration) {
-				await this.ctx.storage.store(`jira:${accessToken}:organizations`, {
-					v: 1,
-					timestamp: readAt,
-					data: organizations,
-				});
-			}
-		}
-
-		if (storedProjects?.data != null && isFresh(storedProjects.timestamp)) {
-			const projectsByResource = new Map<string, JiraProjectDescriptor[]>();
-			for (const project of storedProjects.data as JiraProjectDescriptor[]) {
-				const projects = projectsByResource.get(project.resourceId);
-				if (projects == null) {
-					projectsByResource.set(project.resourceId, [{ ...project }]);
-				} else if (!projects.some(p => p.id === project.id)) {
-					projects.push({ ...project });
-				}
-			}
-			for (const [resourceId, projects] of projectsByResource) {
-				const key = `${accessToken}:${resourceId}`;
-				// A list still fresh here, read or seeded since the caches were last dropped, is kept over the persisted
-				// one; a newer one another window persisted since, storage being global, is taken up only once it
-				// expires (#6184).
-				if (this._projects.get(key) != null) continue;
-
-				// Like any store of a site's list: a build started since the connect, after a stale site list made it
-				// wait, must not keep a set, or a fallback, built without these lists, nor be joined by a render after
-				// it.
-				const stored = this._projects.set(key, projects, {
-					generation: projectsGeneration,
-					storedAt: storedProjects.timestamp,
-				});
-				if (stored !== false) {
-					this.onProjectListStored(accessToken, stored);
-				}
-			}
-		} else if (organizations?.length) {
-			const readAt = Date.now();
-			const projects = await this.getProviderProjectsForResources(session, organizations, true);
-			// See the organizations above.
-			if (this._projects.generation === projectsGeneration) {
-				await this.ctx.storage.store(`jira:${accessToken}:projects`, {
-					v: 1,
-					timestamp: readAt,
-					data: projects,
-				});
-			}
+		const organizations = await this.getProviderResourcesForUser(session, true);
+		if (organizations?.length) {
+			await this.getProviderProjectsForResources(session, organizations, true);
 		}
 	}
 
 	protected override clearDiscoveryCaches(): void {
-		this._discoveryInvalidatedAt = Date.now();
 		this._organizations.clear();
 		this._projects.clear();
 		this._projectEvictions.clear();
