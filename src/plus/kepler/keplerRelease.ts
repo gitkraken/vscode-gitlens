@@ -307,13 +307,11 @@ export function getKeplerInstallFailureCode(ex: unknown): string | undefined {
 		if (ex instanceof KeplerInstallError) return ex.code;
 
 		const { name, code, signal, reason, cause } = ex as Record<string, unknown>;
-		// Checked before `code`: a DOMException's is a legacy number, and a timed out process has none
 		if (name === 'TimeoutError' || reason === 'timeout') return 'timeout';
-		if (name !== 'AbortError') {
-			if (typeof code === 'number') return `exit:${code}`;
-			if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,40}$/.test(code)) return code;
-			if (typeof signal === 'string' && /^SIG[A-Z0-9]{2,10}$/.test(signal)) return signal;
-		}
+		// A DOMException's `code` is a legacy number that says nothing, not an exit code
+		if (typeof code === 'number' && !(ex instanceof DOMException)) return `exit:${code}`;
+		if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,40}$/.test(code)) return code;
+		if (typeof signal === 'string' && /^SIG[A-Z0-9]{2,10}$/.test(signal)) return signal;
 
 		ex = cause;
 	}

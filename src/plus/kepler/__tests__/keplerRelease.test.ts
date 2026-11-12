@@ -155,13 +155,22 @@ suite('getKeplerInstallFailureCode', () => {
 		['a process exit code', error({ code: 2 }), 'exit:2'],
 		['a signal that ended a process', error({ signal: 'SIGKILL' }), 'SIGKILL'],
 		['a process that timed out', error({ reason: 'timeout', signal: 'SIGTERM' }), 'timeout'],
-		['a request that timed out', error({ name: 'TimeoutError', code: 23 }), 'timeout'],
+		['a request that timed out', new DOMException('timed out', 'TimeoutError'), 'timeout'],
 		[
 			'a network error under "fetch failed"',
 			new TypeError('fetch failed', { cause: error({ code: 'ENOTFOUND' }) }),
 			'ENOTFOUND',
 		],
-		['an abort, which has no cause of its own', error({ name: 'AbortError', code: 20 }), undefined],
+		['an abort, whose own code says nothing', new DOMException('aborted', 'AbortError'), undefined],
+		[
+			'a request a proxy refused, which fetch reports as cancelled',
+			new TypeError('fetch failed', {
+				cause: Object.assign(new DOMException('Request was cancelled.'), {
+					cause: error({ name: 'AbortError', code: 'UND_ERR_ABORTED' }),
+				}),
+			}),
+			'UND_ERR_ABORTED',
+		],
 		['a code that is not code-shaped', error({ code: '/home/jane/kepler' }), undefined],
 		['an error with no code', new Error('/home/jane/secret'), undefined],
 		['not an error', 'ENOENT', undefined],

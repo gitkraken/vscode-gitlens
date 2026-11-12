@@ -678,7 +678,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/install/skipped': KeplerInstallSkippedEvent;
 	/** Sent when the user picks a button in, or dismisses, the notification that ends Install Kepler */
 	'kepler/install/action': KeplerInstallActionEvent;
-	/** Sent when a Kepler call to action — the "Try Kepler" banner or the Welcome card — scrolls into view, once per webview and `source` */
+	/** Sent when a Kepler call to action — the "Try Kepler" banner or the Welcome card — scrolls into view, once per load of its webview */
 	'kepler/cta/shown': KeplerCtaShownEvent;
 	/** Sent when the user picks an action in the "Kepler isn't installed" quick pick, or dismisses it */
 	'kepler/notInstalled/action': KeplerNotInstalledActionEvent;

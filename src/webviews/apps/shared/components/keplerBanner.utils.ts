@@ -39,7 +39,7 @@ const shownSources = new Set<Sources>();
 
 /**
  * Reports `kepler/cta/shown` the first time `el` — a Kepler call to action — is at least half in view,
- * once per webview and `source`. Rendered is not seen: the Welcome card sits in a collapsed step, and a
+ * once per load of the webview and `source`. Rendered is not seen: the Welcome card sits in a collapsed step, and a
  * banner can be below the fold. Returns a function that stops watching.
  */
 export function trackKeplerCtaShown(el: Element, source: Sources, isInstallable: () => boolean): () => void {

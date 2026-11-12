@@ -5810,7 +5810,7 @@ or
 
 ### kepler/cta/shown
 
-> Sent when a Kepler call to action — the "Try Kepler" banner or the Welcome card — scrolls into view, once per webview and `source`
+> Sent when a Kepler call to action — the "Try Kepler" banner or the Welcome card — scrolls into view, once per load of its webview
 
 ```typescript
 {
