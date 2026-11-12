@@ -714,11 +714,61 @@ suite('Tracker project cache (#5907)', () => {
 			return { service: service, runtime: runtime, integration: integration, state: state, read: read };
 		}
 
-		test('the re-sync does not put back the project list it persisted before the refresh', async () => {
-			const { service, runtime, integration, state, read } = await jiraCloud();
+		test('a real unforced connect reads discovery despite fresh persisted lists', async () => {
+			const { service, runtime } = await jiraCloud();
+			service.dispose();
+			const timestamp = Date.now();
+			await runtime.storage.store('jira:tok-1:organizations', { v: 1, timestamp: timestamp, data: [site] });
+			await runtime.storage.store('jira:tok-1:projects', {
+				v: 1,
+				timestamp: timestamp,
+				data: [{ id: 'persisted', key: 'OLD', name: 'Old', resourceId: site.id, resourceName: site.name }],
+			});
+			let writes = 0;
+			const store = runtime.storage.store;
+			runtime.storage.store = async (key, value) => {
+				if (key.startsWith('jira:')) {
+					writes++;
+				}
 
-			// The connect persisted the project list, and a refresh re-runs the connect that seeds from it.
-			assert.ok(runtime.storage.get('jira:tok-1:projects') != null);
+				await store(key, value);
+			};
+			const fresh = createIntegrationService(runtime);
+			try {
+				const integration = await fresh.get(IssuesCloudHostIntegrationId.Jira);
+				let sites = 0;
+				let projects = 0;
+				stubApi(integration, {
+					getJiraResourcesForCurrentUser: async () => {
+						sites++;
+						return [site];
+					},
+					getJiraProjectsForResource: async () => {
+						projects++;
+						return {
+							values: [
+								{ id: 'live', key: 'LIVE', name: 'Live', resourceId: site.id, resourceName: site.name },
+							],
+						};
+					},
+				});
+				await (
+					integration as unknown as {
+						resolveSessionLocked(options: { createIfNeeded: boolean }): Promise<unknown>;
+					}
+				).resolveSessionLocked({ createIfNeeded: false });
+				await flush();
+				assert.equal(sites, 1);
+				assert.equal(projects, 1);
+				assert.deepEqual(await prefixesOf(integration), ['LIVE-', 'LIVE_']);
+				assert.equal(writes, 0, 'discovery stays in memory');
+			} finally {
+				fresh.dispose();
+			}
+		});
+
+		test('the re-sync warms up the current project list', async () => {
+			const { service, integration, state, read } = await jiraCloud();
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
 
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
@@ -758,104 +808,20 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		/**
-		 * How many project-list reads a later, UNFORCED connect on the same storage makes, like the next start of the
-		 * host. Not through `refreshConnections()`: its forced re-sync drops the caches before connecting, so it never
-		 * trusts the persisted list and could not tell a stale one from a fresh one.
-		 */
-		async function projectReadsOnReconnect(runtime: ReturnType<typeof createCloudService>['runtime']) {
-			const fresh = createIntegrationService(runtime);
-			const integration = await fresh.get(IssuesCloudHostIntegrationId.Jira);
-			let projectReads = 0;
-			stubApi(integration, {
-				getJiraResourcesForCurrentUser: () => Promise.resolve([site]),
-				getJiraProjectsForResource: () => {
-					projectReads++;
-					return Promise.resolve({ values: [], paging: undefined });
-				},
-			});
-			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
-				id: 't1',
-				accessToken: 'tok-1',
-				account: { id: 'me', label: 'me' },
-				scopes: [],
-				cloud: true,
-				type: 'oauth',
-				domain: 'atlassian.net',
-			};
-			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
-			fresh.dispose();
-			return projectReads;
-		}
-
-		test('a connect whose project read spans an invalidation does not persist that read', async () => {
-			const { service, runtime, integration, state } = await jiraCloud();
-			// Force the connect to read the projects rather than seed them from storage.
-			await runtime.storage.delete('jira:tok-1:projects');
-
-			let release!: () => void;
-			state.projectsGate = new Promise<void>(resolve => {
-				release = resolve;
-			});
-			const connecting = (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
-			await flush();
-			// A refresh lands while the connect's project read is still waiting on the server.
-			integration.invalidateDiscoveryCaches();
-			state.projectsGate = undefined;
-			release();
-			await connecting;
-
-			assert.equal(await projectReadsOnReconnect(runtime), 1, 'the list read before the refresh is not trusted');
-
-			service.dispose();
-		});
-
-		test('a fresh persisted project list is trusted on connect', async () => {
-			const { service, runtime } = await jiraCloud();
-
-			assert.equal(await projectReadsOnReconnect(runtime), 0);
-
-			service.dispose();
-		});
-
-		test('a persisted project list older than the TTL is re-read on connect', async () => {
-			const { service, runtime, state } = await jiraCloud();
-			const stored = runtime.storage.get<{ timestamp: number }>('jira:tok-1:projects')!;
-			await runtime.storage.store('jira:tok-1:projects', {
-				...stored,
-				timestamp: Date.now() - discoveryCacheTtl - 1,
-			});
-			const reads = state.projectReads;
-
-			assert.equal(await projectReadsOnReconnect(runtime), 1, 'the stale persisted list was not trusted');
-			assert.equal(state.projectReads, reads);
-
-			service.dispose();
-		});
-
-		test('a disconnect makes the next unforced connect re-read the persisted projects', async () => {
+		test('a disconnect makes the next connect re-read projects', async () => {
 			const { service, integration, state, read } = await jiraCloud();
 			await read();
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
-
 			await integration.disconnect({ silent: true, currentSessionOnly: true });
-			// Reconnected with the same token and no forced re-sync, so only the disconnect can have made the list
-			// persisted by the first connect untrusted.
-			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
-				id: 't1',
-				accessToken: 'tok-1',
-				account: { id: 'me', label: 'me' },
-				scopes: [],
-				cloud: true,
-				type: 'oauth',
-				domain: 'atlassian.net',
-			};
 			const reads = state.projectReads;
-			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
-
+			await (
+				integration as unknown as {
+					resolveSessionLocked(options: { createIfNeeded: boolean }): Promise<unknown>;
+				}
+			).resolveSessionLocked({ createIfNeeded: true });
+			await flush();
 			assert.equal(state.projectReads, reads + 1);
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1', 'Issue BETA-1']);
-
 			service.dispose();
 		});
 
@@ -1187,8 +1153,8 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
-		test('a connect that seeds project lists drops a fallback a build kept without them', async () => {
-			const { service, runtime, integration, state } = await jiraCloud();
+		test('a connect warm-up drops a fallback a build kept without project lists', async () => {
+			const { service, integration, state } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals & {
 				_organizations: DiscoveryCache<unknown>;
 				providerOnConnect(): Promise<void>;
@@ -1196,16 +1162,6 @@ suite('Tracker project cache (#5907)', () => {
 			let releaseConnect!: () => void;
 			let releaseBuild!: () => void;
 			try {
-				// A start with fresh persisted projects but stale persisted sites, and nothing cached yet. The clock moves
-				// on so the projects' timestamp is after the caches were last dropped, which is what makes them fresh.
-				advanceClock(1);
-				const storedSites = runtime.storage.get<{ timestamp: number }>('jira:tok-1:organizations')!;
-				await runtime.storage.store('jira:tok-1:organizations', {
-					...storedSites,
-					timestamp: Date.now() - discoveryCacheTtl - 1,
-				});
-				const storedProjects = runtime.storage.get<{ timestamp: number }>('jira:tok-1:projects')!;
-				await runtime.storage.store('jira:tok-1:projects', { ...storedProjects, timestamp: Date.now() });
 				internals._organizations.clear();
 				internals._projects.clear();
 				const siteReads = state.siteReads;
@@ -1219,7 +1175,7 @@ suite('Tracker project cache (#5907)', () => {
 				const render = prefixesOf(integration);
 				await until(() => state.siteReads === siteReads + 2, 'the build is reading the sites');
 
-				// The connect's read succeeds and it seeds the persisted projects; then the build's own read fails.
+				// The warm-up stores the project list while the build's own site read fails.
 				releaseConnect();
 				await connecting;
 				state.sitesError = new Error('(503) Service Unavailable.');
@@ -1230,12 +1186,12 @@ suite('Tracker project cache (#5907)', () => {
 				assert.deepEqual(
 					await prefixesOf(integration),
 					['ALPHA-', 'ALPHA_'],
-					'the next render built from the seeded lists',
+					'the next render built from the warmed lists',
 				);
 				assert.deepEqual(
 					{ sites: state.siteReads, projects: state.projectReads },
-					{ sites: siteReads + 2, projects: projectReads },
-					'without reading them',
+					{ sites: siteReads + 2, projects: projectReads + 1 },
+					'without another project read',
 				);
 			} finally {
 				releaseConnect?.();
@@ -2134,74 +2090,6 @@ suite('Tracker project cache (#5907)', () => {
 				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
 				'the later rebuild is the one kept',
 			);
-
-			service.dispose();
-		});
-
-		/**
-		 * Persists the connect's site and project lists again as if just read, so the next connect seeds them, with
-		 * `projects` added to the site's.
-		 */
-		async function persistFreshDiscovery(
-			runtime: ReturnType<typeof createCloudService>['runtime'],
-			projects: { id: string; key: string; name: string }[] = [],
-		) {
-			advanceClock(1);
-			type Persisted = { v: number; timestamp: number; data: { id: string; key: string; name: string }[] };
-			const organizations = runtime.storage.get<Persisted>('jira:tok-1:organizations')!;
-			await runtime.storage.store('jira:tok-1:organizations', { ...organizations, timestamp: Date.now() });
-			const persisted = runtime.storage.get<Persisted>('jira:tok-1:projects')!;
-			await runtime.storage.store('jira:tok-1:projects', {
-				...persisted,
-				timestamp: Date.now(),
-				data: [...persisted.data, ...projects.map(p => ({ ...persisted.data[0], ...p }))],
-			});
-		}
-
-		test('a connect seeding a different project list retires a rebuild started before it (#6184)', async () => {
-			const { service, runtime, integration, state } = await jiraCloud();
-			const internals = integration as unknown as JiraCloudInternals;
-			await persistFreshDiscovery(runtime, [{ id: 'p2', key: 'BETA', name: 'Beta' }]);
-
-			// A rebuild, the site's list being due for a re-read, holds ALPHA alone when the connect seeds.
-			internals._projects.delete('tok-1:site-1');
-			const reads = state.projectReads;
-			let release!: () => void;
-			state.projectsGate = new Promise<void>(resolve => (release = resolve));
-			const earlier = internals.buildAutolinks(internals._session);
-			await until(() => state.projectReads === reads + 1, 'the rebuild read the projects');
-			state.projectsGate = undefined;
-
-			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
-			assert.deepEqual(
-				internals._projects.get('tok-1:site-1')?.map(p => p.key),
-				['ALPHA', 'BETA'],
-				'the connect seeded the list',
-			);
-			assert.notEqual(internals._autolinksBuilds.get('tok-1'), earlier, 'the seeding retired the rebuild');
-			release();
-			await earlier;
-
-			service.dispose();
-		});
-
-		test('a connect does not seed a persisted project list over one read since (#6184)', async () => {
-			const { service, runtime, integration, state } = await jiraCloud();
-			const internals = integration as unknown as JiraCloudInternals;
-			await persistFreshDiscovery(runtime);
-
-			// BETA is created, and a read lists it before the connect seeds the persisted list, ALPHA alone.
-			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
-			const sites = (await integration.getResourcesForUserResult())?.value ?? [];
-			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, sites, true);
-			await (integration as unknown as { providerOnConnect(): Promise<void> }).providerOnConnect();
-
-			assert.deepEqual(
-				internals._projects.get('tok-1:site-1')?.map(p => p.key),
-				['ALPHA', 'BETA'],
-				'the list read since is kept',
-			);
-			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
 
 			service.dispose();
 		});
