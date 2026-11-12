@@ -10182,6 +10182,7 @@ export class GlCommitGraph extends LitElement {
 				onClick: this.onRefFindClick,
 				onJump: this.onRefFindJump,
 				onClose: this.onRefFindClose,
+				onMiss: this.onRefFindMiss,
 			}) ?? nothing
 		);
 	}
@@ -10195,6 +10196,12 @@ export class GlCommitGraph extends LitElement {
 	 */
 	private refFindRowIndex = (sha: string): number | undefined => {
 		return this.processedIndexBySha.get(sha);
+	};
+
+	private onRefFindMiss = (): void => {
+		if (this._refFindHitKey == null) return;
+
+		this.markRefFindHit(undefined);
 	};
 
 	private onRefFindJump = (

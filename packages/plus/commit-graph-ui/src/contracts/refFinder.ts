@@ -14,6 +14,8 @@ export interface GraphRefFinderRenderContext {
 	onClick: (event: Event) => void;
 	onJump: (event: CustomEvent<{ sha: string; focus: boolean; refKey?: string; handoff?: boolean }>) => void;
 	onClose: () => void;
+	/** The live query has no landable match — drop the find emphasis. */
+	onMiss: () => void;
 }
 
 /** Cold, profile-selected ref finder. Called once per surface render, never per graph row. */

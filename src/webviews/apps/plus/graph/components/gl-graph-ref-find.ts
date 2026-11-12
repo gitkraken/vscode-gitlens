@@ -50,6 +50,7 @@ export function renderGitLensGraphRefFinder(context: GraphRefFinderRenderContext
 		.rowsLoaded=${context.rowsLoaded}
 		@click=${context.onClick}
 		@gl-graph-ref-find-jump=${context.onJump}
+		@gl-graph-ref-find-miss=${context.onMiss}
 		@gl-graph-ref-find-close=${context.onClose}
 	></gl-graph-ref-find>`;
 }
@@ -338,7 +339,12 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	 */
 	private jumpToActive(): void {
 		const match = this.activeMatch;
-		if (match?.rowIndex == null) return;
+		if (match?.rowIndex == null) {
+			// Nothing to land on (no match, or an unloaded one) — tell the graph so the previous match's pill
+			// doesn't keep its find emphasis. The graph no-ops when none is set, so this needn't be deduped.
+			this.dispatchEvent(new CustomEvent('gl-graph-ref-find-miss', { bubbles: true, composed: true }));
+			return;
+		}
 
 		this.emitJump(match, false);
 	}

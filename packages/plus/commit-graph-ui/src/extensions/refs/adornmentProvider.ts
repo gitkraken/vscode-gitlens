@@ -677,17 +677,18 @@ export function renderRefPill(
 	// The head-role emphasis (and its merge-target segment) rides the CURRENT branch's pill when that pill
 	// is visible — a click-pin substitution can only place another ref in the first slot at a cap of 1 (and
 	// a find hit still promotes to the front), and painting THAT pill as HEAD while the real HEAD pill sits
-	// beside it reads as the wrong branch being checked out. Falls back to the first pill when the current
-	// branch is folded or hidden. The upstream role stays on the first pill: on the upstream tip row
+	// beside it reads as the wrong branch being checked out. When the current branch is hidden behind the +N
+	// badge NO pill takes the emphasis (the row-marker rail still shows the row is HEAD), since painting some
+	// other ref as current is the bug. Falls back to the first pill only when no ref on the row is current at
+	// all (e.g. a detached HEAD). The upstream role stays on the first pill: on the upstream tip row
 	// `sortRowRefs` ranks the tracked remote near the top, so the first slot is that remote in every
 	// ordinary layout, and the tips carry no name to match a deeper pill by.
-	const emphasisIndex =
-		role === 'head'
-			? Math.max(
-					0,
-					visible.findIndex(u => u.ref.current === true),
-				)
-			: 0;
+	let emphasisIndex = 0;
+	if (role === 'head') {
+		const currentIndex = visible.findIndex(u => u.ref.current === true);
+		emphasisIndex = currentIndex !== -1 ? currentIndex : rest.some(r => r.current === true) ? -1 : 0;
+	}
+
 	const pills = visible.map((unit, i) =>
 		renderOnePill(unit.ref, color, fromSha, hooks, {
 			upstreamOnRow: unit.upstreamOnRow,
