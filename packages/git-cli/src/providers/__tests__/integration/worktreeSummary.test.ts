@@ -1,6 +1,15 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -8,21 +17,26 @@ import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
+import { RunError } from '../../../exec/exec.errors.js';
+import { GitError } from '../../../exec/git.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
+	addEmptyCommits,
 	cloneTestRepo,
 	createProvider,
 	createShadowCheckedGitService,
 	createTestRepo,
 	createWorktree,
 	noCommitGraphWritesConfig,
+	supportsReftable,
 } from './helpers.js';
 import { verifyBaseRemeasure } from './shadowCheck.js';
 
@@ -87,6 +101,67 @@ suite('WorktreeSummaryService against real git', () => {
 		service.dispose();
 		repo.cleanup();
 	});
+
+	test('reads again for the next reader after git ran past its time limit on the first read', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+		const options = (service.getProvider(repo.path)!.provider as CliGitProvider).git.options as {
+			gitTimeout?: number;
+		};
+		const { gitTimeout } = options;
+		options.gitTimeout = 1;
+
+		const sub = summaries.subscribe(repo.path);
+		await assert.rejects(
+			summaries.getSummary(repo.path),
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'timeout',
+		);
+		assert.strictEqual(sub.current, undefined);
+
+		options.gitTimeout = gitTimeout;
+
+		const summary = await summaries.getSummary(repo.path);
+		assert.strictEqual(summary.branch, 'main');
+		assert.strictEqual(summary.stale, false);
+		assert.deepStrictEqual(sub.current, summary);
+	});
+
+	async function assertWatchesOwnGitDirOnceGitAnswers(error: Error): Promise<void> {
+		// A worktree inside its main checkout's working tree: a layout `getGitDir` asks git about
+		const worktree = join(repo.path, 'nested');
+		execFileSync('git', ['worktree', 'add', '-q', '--detach', worktree], { cwd: repo.path, stdio: 'pipe' });
+
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+		const { git } = service.getProvider(worktree)!.provider as CliGitProvider;
+		const run = git.run;
+		git.run = (...args: Parameters<typeof run>) =>
+			args.includes('--show-superproject-working-tree') ? Promise.reject(error) : run.apply(git, args);
+
+		const sub = summaries.subscribe(worktree);
+		await assert.rejects(summaries.getSummary(worktree), (ex: unknown) => ex === error);
+		assert.strictEqual(sub.current, undefined);
+
+		git.run = run;
+
+		const summary = await summaries.getSummary(worktree);
+		assert.strictEqual(summary.stale, false);
+
+		const gitDir = normalizePath(join(realpathSync(repo.path), '.git', 'worktrees', 'nested'));
+		assert.ok(
+			watchers.some(w => normalizePath(w.basePath) === gitDir),
+			`no watcher on ${gitDir}: ${watchers.map(w => w.basePath).join(', ')}`,
+		);
+		sub.dispose();
+	}
+
+	test("watches a worktree's own git dir once git answers, after it ran past its time limit finding it", () =>
+		assertWatchesOwnGitDirOnceGitAnswers(new CancellationError(undefined, 'timeout')));
+
+	test("watches a worktree's own git dir once git answers, after it was killed finding it", () =>
+		assertWatchesOwnGitDirOnceGitAnswers(
+			new GitError(new RunError({ message: 'killed', cmd: 'git', signal: 'SIGKILL' }, '', '')),
+		));
 
 	test('reads the worktree and follows edits and a branch switch through the cache', async () => {
 		const summaries = service.summaries;
@@ -813,17 +888,20 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		const [own] = startTask('task', 1);
 		const before = await readFresh('task');
 
-		// Both moves land before the summary reads again: the base ends ahead of where it was with the same count,
-		// but its reflog now holds the branch's commit, which `--fork-point` takes as where the branch forked
+		// Both moves land before the summary reads again: the base ends ahead of where it was, but its reflog now holds
+		// the branch's commit, which `--fork-point` takes as where the branch forked. It was moved off to a commit that
+		// doesn't hold it, as a rewritten base is, but the base holds no commit of the same patch, so the commit was
+		// dropped and is the branch's again
 		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
 		git(repo.path, 'fetch', '-q', 'origin');
 		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
 		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
 		git(repo.path, 'fetch', '-q', 'origin');
 
+		assert.strictEqual(git(repo.path, 'merge-base', '--fork-point', originMain, 'HEAD'), own);
 		const fresh = await readFresh('task');
-		assert.strictEqual(fresh.base?.ahead, before.base?.ahead, 'the count is the same');
-		assert.strictEqual(fresh.base?.forkPoint, own, 'the fork point is not');
+		assert.deepStrictEqual(fresh.base, { ...before.base, sha: git(repo.path, 'rev-parse', originMain) });
+		assert.strictEqual(fresh.base?.ahead, 1);
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
 	});
 
@@ -834,7 +912,8 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		assert.ok(oldTip != null);
 
 		// The reflog's entry before the new tip is the old tip again, so only its whole span since the old tip shows
-		// the commit the base held in between
+		// the commit the base held in between. That commit was moved back off, so the fresh read keeps the merge base,
+		// but the re-measure can't tell that from the commits the span reaches and declines
 		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
 		git(repo.path, 'fetch', '-q', 'origin');
 		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
@@ -842,27 +921,235 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		peerPushesMain('one');
 
 		const fresh = await readFresh('task');
-		assert.strictEqual(fresh.base?.ahead, before.base?.ahead, 'the count is the same');
-		assert.strictEqual(fresh.base?.forkPoint, own, 'the fork point is not');
+		assert.strictEqual(fresh.base?.ahead, before.base?.ahead);
+		assert.strictEqual(fresh.base?.forkPoint, oldTip);
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
 	});
 
-	test('a base whose name another listed ref now also answers to is read in full', async () => {
-		const [own] = startTask('task', 1);
+	test("a base moved back off the branch's commit, read at its tip, is read in full once it moves forward", async () => {
+		const [own] = startTask('task', 2);
 		const oldTip = git(repo.path, 'rev-parse', originMain);
-		// The branch's commit landed and was force-pushed away, so the base's reflog puts the fork point there
 		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
 		git(repo.path, 'fetch', '-q', 'origin');
 		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
 		git(repo.path, 'fetch', '-q', 'origin');
+
+		// The branch holds the base's tip, so the tip is the fork point, whatever its reflog remembers
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+		assert.strictEqual(before.base?.ahead, 2);
+
+		// Past the branch's history again, the tip no longer decides it; the reflog moved off the branch's commit back to
+		// an ancestor of it, so the merge base does, though the re-measure declines over the commit the reflog reaches
+		const tip = peerPushesMain('one');
+		const fresh = await readFresh('task');
+		assert.deepStrictEqual(fresh.base, { ...before.base, sha: tip });
+		assert.notStrictEqual(fresh.base?.forkPoint, own);
+		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+	});
+
+	test("a base moved back off the branch's commit right after a clone, read at its tip, is read in full once it moves forward", async () => {
+		// A clone logs nothing for `origin/main`, so the entry at the old tip is the newest one before the move, with the
+		// branch's commit older than it: only the count past the reflog's commits off the new tip's history shows it
+		repo.cleanup();
+		repo = cloneTestRepo(origin);
+		const [own] = startTask('task', 2);
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+
+		const tip = peerPushesMain('one');
+		assert.deepStrictEqual(git(repo.path, 'reflog', 'show', '--format=%H', originMain).split('\n'), [
+			tip,
+			oldTip,
+			own,
+		]);
+		const fresh = await readFresh('task');
+		assert.deepStrictEqual(fresh.base, { ...before.base, sha: tip });
+		assert.notStrictEqual(fresh.base?.forkPoint, own);
+		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+	});
+
+	test("a base moved back off the branch's commit, its entry expired, is re-measured to the fresh answer", async () => {
+		const [own] = startTask('task', 2);
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		git(repo.path, 'reflog', 'expire', '--expire-unreachable=now', originMain);
+
+		// With nothing left to tell the tip from git's reading of the reflog, the two agree and stay agreed
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+
+		peerPushesMain('one');
+		const answer = await assertRemeasured('task', before, fetchedMain);
+		assert.strictEqual(answer.base?.forkPoint, oldTip);
+		assert.strictEqual(answer.base?.ahead, 2);
+	});
+
+	test("a base moved back off the branch's commit since the last read is read in full", async () => {
+		const [own] = startTask('task', 2);
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, own);
+		assert.strictEqual(before.base?.ahead, 1);
+
+		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+		const fresh = await readFresh('task');
+		assert.strictEqual(fresh.base?.forkPoint, oldTip);
+		assert.strictEqual(fresh.base?.ahead, 2);
+	});
+
+	/**
+	 * `origin/main`'s tip, which `task`'s commits sit on, rebased onto a new commit on its parent (or with `'replaced'`,
+	 * dropped for it): a rewritten base
+	 */
+	function rewriteMainUnderTask(commits: number, rewrite: 'rebased' | 'replaced' = 'rebased'): string {
+		peerPushesMain('old');
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		startTask('task', commits);
+		git(peer.path, 'reset', '-q', '--hard', 'HEAD~1');
+		addCommit(peer.path, 'rewritten.txt', 'rewritten', 'Peer rewritten');
+		if (rewrite === 'rebased') {
+			git(peer.path, 'cherry-pick', oldTip);
+		}
+		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
+		git(repo.path, 'fetch', '-q', 'origin');
+		return oldTip;
+	}
+
+	test('a rebased base is re-measured to the fresh answer once it moves forward, its fork point a reflog value off its history', async () => {
+		// The count past the new tip takes in the commit the base replayed, so only the count past the fork point and
+		// settling it again show nothing changed
+		const oldTip = rewriteMainUnderTask(1);
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+		assert.strictEqual(before.base?.ahead, 1);
+
+		const tip = peerPushesMain('one');
+		const answer = await assertRemeasured('task', before, fetchedMain);
+		assert.deepStrictEqual(answer.base, { ...before.base, sha: tip });
+
+		// And again from the re-measured answer
+		peerPushesMain('two');
+		await assertRemeasured('task', answer, fetchedMain);
+	});
+
+	test('a base that dropped the commit under the branch is read in full once it moves forward', async () => {
+		// The merge base is the fork point, and the dropped commit, which the reflog still reaches, is counted past it
+		const oldTip = rewriteMainUnderTask(1, 'replaced');
+		const before = await readFresh('task');
+		assert.notStrictEqual(before.base?.forkPoint, oldTip);
+		assert.strictEqual(before.base?.ahead, 2);
+
+		const tip = peerPushesMain('one');
+		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+		assert.deepStrictEqual((await readFresh('task')).base, { ...before.base, sha: tip });
+	});
+
+	test('a rebased base whose replayed commit falls out of the newest commits compared is read in full once it moves forward', async () => {
+		// Settling it again compares patches against the new tip's newest commits only, which no longer hold the copy,
+		// so the fresh read takes the merge base, and the re-measure, settling it the same way, declines
+		const oldTip = rewriteMainUnderTask(1);
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+
+		addEmptyCommits(peer.path, 300);
+		git(peer.path, 'push', '-q', 'origin', 'main');
+		git(repo.path, 'fetch', '-q', 'origin');
+		const fresh = await readFresh('task');
+		assert.notStrictEqual(fresh.base?.forkPoint, oldTip);
+		assert.strictEqual(fresh.base?.ahead, 2);
+		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+	});
+
+	test('a stacked branch whose parent was rebased is re-measured against the parent once it moves forward', async () => {
+		startTask('parent', 2);
+		const parentTip = git(repo.path, 'rev-parse', 'HEAD');
+		git(repo.path, 'branch', 'child', 'parent');
+		git(repo.path, 'checkout', '-q', 'child');
+		addCommit(repo.path, 'child.txt', 'child', 'Child work');
+		peerPushesMain('one');
+		git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', originMain, 'parent');
+		git(repo.path, 'checkout', '-q', 'child');
+		const before = await readFresh('child');
+		assert.strictEqual(before.base?.ref, 'parent');
+		assert.strictEqual(before.base?.forkPoint, parentTip);
+		assert.strictEqual(before.base?.ahead, 1);
+
+		// The parent moves on in its own checkout, without the child's work
+		const tree = git(repo.path, 'rev-parse', 'parent^{tree}');
+		const moved = git(repo.path, 'commit-tree', '-p', 'parent', '-m', 'Parent work', tree);
+		git(repo.path, 'update-ref', '-m', 'commit: Parent work', 'refs/heads/parent', moved);
+
+		const answer = await assertRemeasured('child', before, ['refs/heads/parent']);
+		assert.strictEqual(answer.base?.forkPoint, parentTip);
+		assert.strictEqual(answer.base?.ahead, 1);
+	});
+
+	test('a rewritten base, read from a detached HEAD, is re-measured to the fresh answer once it moves forward', async () => {
+		// No checked-out branch is at a detached HEAD, so the re-measure counts past the new tip, the fork point and
+		// what the reflog reaches off the new tip's history itself
+		const oldTip = rewriteMainUnderTask(2);
+		git(repo.path, 'checkout', '-q', '--detach');
+		const before = await readFresh(undefined);
+		assert.strictEqual(before.base?.ref, 'origin/main');
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+		assert.strictEqual(before.base?.ahead, 2);
+
+		peerPushesMain('one');
+		const answer = await assertRemeasured(undefined, before, fetchedMain);
+		assert.strictEqual(answer.base?.forkPoint, oldTip);
+		assert.strictEqual(answer.base?.ahead, 2);
+	});
+
+	test('a rewritten base that takes its old tip back in is re-measured to the fresh answer', async () => {
+		const oldTip = rewriteMainUnderTask(1);
+		git(repo.path, 'checkout', '-q', '--detach');
+		const before = await readFresh(undefined);
+		assert.strictEqual(before.base?.forkPoint, oldTip);
+		assert.strictEqual(before.base?.ahead, 1);
+
+		// The fork point is then in the new tip's history, where the merge base counts from it too
+		git(peer.path, 'merge', '-q', '--no-ff', '-m', 'Merge old tip', oldTip);
+		git(peer.path, 'push', '-q', 'origin', 'main');
+		git(repo.path, 'fetch', '-q', 'origin');
+		const answer = await assertRemeasured(undefined, before, fetchedMain);
+		assert.strictEqual(answer.base?.forkPoint, oldTip);
+		assert.strictEqual(answer.base?.ahead, 1);
+	});
+
+	test('a base whose name another listed ref now also answers to is read in full', async () => {
+		const [own] = startTask('task', 1);
+		// The branch's commit landed and the base was then rebased, replaying it onto another commit the branch lacks,
+		// so the base's reflog puts the fork point there
+		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		git(peer.path, 'fetch', '-q', 'origin');
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'cherry-pick', own);
+		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
+		git(repo.path, 'fetch', '-q', 'origin');
+		const tip = git(repo.path, 'rev-parse', originMain);
 		const before = await readFresh('task');
 		assert.strictEqual(before.base?.forkPoint, own);
 
 		// A tag created over the base's name, ahead of it with none of the branch's commits: the name now resolves to
 		// the tag, and git reads it differently elsewhere too (`--fork-point` refuses it, the remote's `HEAD`
 		// shortens to `remotes/origin/main`), so the fresh answer is not the old one at the tag's commit
-		const tree = git(repo.path, 'rev-parse', `${oldTip}^{tree}`);
-		const tagged = git(repo.path, 'commit-tree', '-p', oldTip, '-m', 'Tagged', tree);
+		const tree = git(repo.path, 'rev-parse', `${tip}^{tree}`);
+		const tagged = git(repo.path, 'commit-tree', '-p', tip, '-m', 'Tagged', tree);
 		git(repo.path, 'update-ref', 'refs/tags/origin/main', tagged);
 		assert.notDeepStrictEqual((await readFresh('task')).base, { ...before.base, sha: tagged });
 
@@ -894,6 +1181,51 @@ suite('Re-measuring a base after only its own ref moved', () => {
 
 		const answer = await assertRemeasured('child', before, ['refs/heads/parent']);
 		assert.strictEqual(answer.base?.sha, parentTip);
+	});
+
+	test("a stacked branch's parent, chosen over a default moved back off the branch's commit, is re-measured once it moves forward", async () => {
+		startTask('parent', 1);
+		const parentFork = git(repo.path, 'rev-parse', 'HEAD');
+		git(repo.path, 'branch', 'child', 'parent');
+		git(repo.path, 'checkout', '-q', 'child');
+		addCommit(repo.path, 'child.txt', 'child', 'Child work');
+		const own = git(repo.path, 'rev-parse', 'HEAD');
+		// `main` fast-forwarded onto the child's commit and reset back, so git's fork point from it is that commit
+		const mainTip = git(repo.path, 'rev-parse', 'main');
+		git(repo.path, 'checkout', '-q', 'main');
+		git(repo.path, 'merge', '-q', '--ff-only', own);
+		git(repo.path, 'reset', '-q', '--hard', mainTip);
+		git(repo.path, 'checkout', '-q', 'child');
+		assert.strictEqual(git(repo.path, 'merge-base', '--fork-point', 'main', 'HEAD'), own);
+
+		const before = await readFresh('child');
+		assert.strictEqual(before.base?.ref, 'parent');
+		assert.strictEqual(before.base?.forkPoint, parentFork);
+		assert.strictEqual(before.base?.ahead, 1);
+
+		const tree = git(repo.path, 'rev-parse', 'parent^{tree}');
+		const parentTip = git(repo.path, 'commit-tree', '-p', 'parent', '-m', 'Parent work', tree);
+		git(repo.path, 'update-ref', '-m', 'commit: Parent work', 'refs/heads/parent', parentTip);
+
+		const answer = await assertRemeasured('child', before, ['refs/heads/parent']);
+		assert.strictEqual(answer.base?.ref, 'parent');
+		assert.strictEqual(answer.base?.forkPoint, parentFork);
+	});
+
+	test('a move that makes the tracking ref the nearer candidate is read in full', async () => {
+		addCommit(repo.path, 'unpushed.txt', 'unpushed', 'Unpushed work');
+		git(repo.path, 'checkout', '-q', '-b', 'task', 'main');
+		addCommit(repo.path, 'task.txt', 'task', 'Task work');
+		const before = await readFresh('task');
+		assert.strictEqual(before.base?.ref, 'main');
+		assert.strictEqual(before.base?.ahead, 1);
+
+		// Pushed, the tracking ref ties with the local base, and a tie is the tracking ref's
+		git(repo.path, 'push', '-q', 'origin', 'main');
+		assert.strictEqual(await remeasure('task', before, [originMain]), undefined);
+		const fresh = await readFresh('task');
+		assert.strictEqual(fresh.base?.ref, 'origin/main');
+		assert.strictEqual(fresh.base?.ahead, 1);
 	});
 
 	test('the default branch measured against its own upstream is re-measured once it diverged from it', async () => {
@@ -1020,23 +1352,55 @@ suite('Re-measuring a base after only its own ref moved', () => {
 	test("a fork point the base's reflog no longer holds, once its entry expired, is read in full", async () => {
 		const [own] = startTask('task', 1);
 		const oldTip = git(repo.path, 'rev-parse', originMain);
-		// The branch's commit landed and was force-pushed away, so the base's reflog puts the fork point there
+		// The branch's commit landed and the base was then rebased, replaying it onto another commit the branch lacks,
+		// so the base's reflog puts the fork point there
 		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
 		git(repo.path, 'fetch', '-q', 'origin');
-		git(repo.path, 'push', '-q', '--force', 'origin', `${oldTip}:refs/heads/main`);
+		git(peer.path, 'fetch', '-q', 'origin');
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'cherry-pick', own);
+		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
 		git(repo.path, 'fetch', '-q', 'origin');
 		const before = await readFresh('task');
 		assert.strictEqual(before.base?.forkPoint, own);
+		assert.strictEqual(before.base?.ahead, 0);
 
 		// Expiring the entries the base's tip can't reach (as `gc` does once they age) drops the one that held the
-		// branch's commit, and then the base only fast-forwards: the count stands, the fork point doesn't
+		// branch's commit, and then the base only fast-forwards: the fork point goes back to the merge base
 		git(repo.path, 'reflog', 'expire', '--expire-unreachable=now', originMain);
 		peerPushesMain('one');
 		const fresh = await readFresh('task');
-		assert.strictEqual(fresh.base?.ahead, before.base?.ahead, 'the count is the same');
-		assert.strictEqual(fresh.base?.forkPoint, oldTip, 'the fork point is not');
+		assert.strictEqual(fresh.base?.forkPoint, oldTip);
+		assert.strictEqual(fresh.base?.ahead, 1);
 
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
+	});
+
+	test("a rebased base's fork point, its entries expired since a read from a detached HEAD, is read in full", async () => {
+		const [own] = startTask('task', 1);
+		const oldTip = git(repo.path, 'rev-parse', originMain);
+		git(repo.path, 'push', '-q', 'origin', `${own}:refs/heads/main`);
+		git(repo.path, 'fetch', '-q', 'origin');
+		git(peer.path, 'fetch', '-q', 'origin');
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'cherry-pick', own);
+		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
+		git(repo.path, 'fetch', '-q', 'origin');
+		peerPushesMain('on');
+		git(repo.path, 'checkout', '-q', '--detach');
+		const before = await readFresh(undefined);
+		assert.strictEqual(before.base?.forkPoint, own);
+		assert.strictEqual(before.base?.ahead, 0);
+
+		// The count past the fork point is the previous one, but the fork point is no longer git's reading of the
+		// reflog, and no checked-out branch's shared count shows the commits past the new tip changed
+		git(repo.path, 'reflog', 'expire', '--expire-unreachable=now', originMain);
+		peerPushesMain('one');
+		const fresh = await readFresh(undefined);
+		assert.strictEqual(fresh.base?.forkPoint, oldTip);
+		assert.strictEqual(fresh.base?.ahead, 1);
+
+		assert.strictEqual(await remeasure(undefined, before, fetchedMain), undefined);
 	});
 
 	test("an older reflog entry holding the branch's commit, left after another one expired, is read in full", async () => {
@@ -1064,12 +1428,13 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		assert.strictEqual(before.base?.forkPoint, oldTip);
 
 		// `a`'s entry, the older, expires first (`@{0}` is the tip, `@{1}` the commit before, `@{2}` `b`, `@{3}` the
-		// commit before, `@{4}` `a`), which leaves `b` the fork point, and then the base only fast-forwards
+		// commit before, `@{4}` `a`), which leaves `b` git's fork point, and then the base only fast-forwards. `b` was
+		// moved back off, so the fresh read keeps the merge base, which the re-measure can't tell and declines
 		git(repo.path, 'reflog', 'delete', `${originMain}@{4}`);
-		peerPushesMain('two');
+		const tip = peerPushesMain('two');
+		assert.strictEqual(git(repo.path, 'merge-base', '--fork-point', originMain, 'HEAD'), b);
 		const fresh = await readFresh('task');
-		assert.strictEqual(fresh.base?.ahead, before.base?.ahead, 'the count is the same');
-		assert.strictEqual(fresh.base?.forkPoint, b, 'the fork point is not');
+		assert.deepStrictEqual(fresh.base, { ...before.base, sha: tip });
 
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
 	});
@@ -1086,11 +1451,13 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		git(repo.path, 'checkout', '-q', 'task');
 		git(repo.path, 'merge', '-q', '--no-ff', '-m', 'Merge b', 'side');
 
-		// `a` landed, `b` was force-pushed over it, and another user's work was force-pushed over that: the reflog holds
-		// both, neither is the one fork point, and the merge base stands
+		// `a` landed, `b` was force-pushed over it, and the base was then rebased onto another user's work, replaying `b`:
+		// the reflog holds both, neither is the one fork point, and the merge base stands
 		git(repo.path, 'push', '-q', 'origin', `${a}:refs/heads/main`);
 		git(repo.path, 'push', '-q', '--force', 'origin', `${b}:refs/heads/main`);
+		git(peer.path, 'fetch', '-q', 'origin');
 		addCommit(peer.path, 'one.txt', 'one', 'Peer one');
+		git(peer.path, 'cherry-pick', b);
 		git(peer.path, 'push', '-q', '--force', 'origin', 'main');
 		git(repo.path, 'fetch', '-q', 'origin');
 		const before = await readFresh('task');
@@ -1104,8 +1471,9 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		}
 		peerPushesMain('two');
 		const fresh = await readFresh('task');
-		assert.strictEqual(fresh.base?.ahead, before.base?.ahead, 'the count is the same');
-		assert.strictEqual(fresh.base?.forkPoint, b, 'the fork point is not');
+		// Moved off to a commit that doesn't hold it but replays it, `b` stays the fork point, counted past
+		assert.strictEqual(fresh.base?.forkPoint, b, 'the fork point moved');
+		assert.strictEqual(fresh.base?.ahead, 2, 'and the count with it');
 
 		assert.strictEqual(await remeasure('task', before, fetchedMain), undefined);
 	});
@@ -1202,6 +1570,8 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			moved: readonly string[],
 			options?: {
 				aheadBehind?: false;
+				/** Runs before the re-measures, on the provider they share */
+				prepare?: (provider: CliGitProvider) => void;
 				/** Runs after the first checkout's re-measure and before the others', which then run together */
 				between?: (provider: CliGitProvider) => Promise<void>;
 			},
@@ -1217,6 +1587,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 					target.supports = feature =>
 						feature === 'git:for-each-ref:ahead-behind' ? false : supports.call(target, feature);
 				}
+				options?.prepare?.(provider);
 				const hinted: string[] = [];
 				provider.maintenance!.request = (_path, task) => {
 					hinted.push(task);
@@ -1275,9 +1646,17 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			await provider.refs.getRefs(repo.path, undefined, { force: true });
 		}
 
-		/** The reads of whether the base only moved forward, each of which starts with the base's reflog */
+		/**
+		 * The reads of whether the base only moved forward, each of which reads the base's reflog from its file and then
+		 * spawns one walk of what it reaches off the new tip's history
+		 */
 		function movedForwardReads(spawned: readonly string[]): string[] {
-			return spawned.filter(m => m.includes(' reflog show '));
+			return spawned.filter(m => m.includes(' rev-list --max-count=') && m.includes(' --stdin'));
+		}
+
+		/** The reflog reads that spawn, which a reflog file leaves out */
+		function reflogSpawns(spawned: readonly string[]): string[] {
+			return spawned.filter(m => m.includes(' reflog show ') || /@\{\d+\}/.test(m));
 		}
 
 		/** Three checkouts `a`, `b` and `c` based on `origin/main`, with 1, 2 and 3 commits of their own, and their answers */
@@ -1297,7 +1676,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 		/** The count `path`'s HEAD ran of its own */
 		function ownCounts(spawned: readonly string[], path: string): string[] {
 			const head = git(path, 'rev-parse', 'HEAD');
-			return spawned.filter(m => m.includes(` rev-list --count ${head} --not `));
+			return spawned.filter(m => m.includes(' rev-list --max-count=') && m.includes(` ${head} --not `));
 		}
 
 		test('a base that moved forward under several worktrees is re-measured for all of them from one count', async () => {
@@ -1320,6 +1699,8 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			for (const { path } of checkouts) {
 				assert.deepStrictEqual(ownCounts(spawned, path), []);
 			}
+			assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+			assert.deepStrictEqual(reflogSpawns(spawned), [], 'the reflog is read from its file');
 			assert.deepStrictEqual(hinted, ['commit-graph'], 'the shared count asks for a commit-graph');
 
 			// And again from the re-measured answers, whose fork point is now an older entry of the base's reflog
@@ -1332,6 +1713,60 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			for (const { path } of checkouts) {
 				assert.deepStrictEqual(ownCounts(spawned, path), []);
 			}
+		});
+
+		test('a reflog file that cannot be read is read from git, to the same answers', async () => {
+			const { checkouts, before } = await threeCheckouts();
+			const oldest = git(repo.path, 'rev-parse', originMain);
+			peerPushesMain('one');
+			peerPushesMain('two');
+			// No entry is left at the old tip, which only the value before the oldest one now names, from git too
+			git(repo.path, 'reflog', 'delete', `${originMain}@{2}`);
+
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain, {
+				prepare: provider => {
+					const fs = provider.context.fs;
+					const readFile = fs.readFile.bind(fs);
+					fs.readFile = async uri => {
+						if (toFsPath(uri).includes(join('logs', 'refs'))) throw new Error('unreadable');
+						return readFile(uri);
+					};
+				},
+			});
+			assert.deepStrictEqual(
+				answers.map(a => a?.base?.ahead),
+				[1, 2, 3],
+			);
+			assert.ok(answers.every(a => a?.base?.forkPoint === oldest));
+			assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+			assert.strictEqual(reflogSpawns(spawned).length, 2, 'the reflog and the value before its oldest entry');
+		});
+
+		test('a base in a reftable repository is read from git once for every worktree, to the same answers', async function () {
+			if (!supportsReftable()) {
+				this.skip();
+			}
+
+			repo.cleanup();
+			repo = cloneTestRepo(origin, { refFormat: 'reftable' });
+			assert.ok(existsSync(join(repo.path, '.git', 'reftable', 'tables.list')));
+			const { checkouts, before } = await threeCheckouts();
+			const oldest = git(repo.path, 'rev-parse', originMain);
+			peerPushesMain('one');
+			peerPushesMain('two');
+
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.deepStrictEqual(
+				answers.map(a => a?.base?.ahead),
+				[1, 2, 3],
+			);
+			assert.ok(answers.every(a => a?.base?.forkPoint === oldest));
+			assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+			assert.strictEqual(
+				spawned.filter(m => m.includes(' reflog show ')).length,
+				1,
+				'one read of the reflog for every worktree',
+			);
 		});
 
 		test("a branch created between two worktrees' re-measures shares the moved base's reads", async () => {
@@ -1485,6 +1920,57 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			for (const { path } of checkouts) {
 				assert.strictEqual(ownCounts(spawned, path).length, 1, spawned.join('\n'));
 			}
+		});
+
+		test('worktrees on a rebased base each count past their fork point and settle it again, in fewer processes than a full read', async () => {
+			const oldTip = peerPushesMain('old');
+			const checkouts = ['a', 'b'].map((name, i) => ({ path: startWorktreeTask(name, i + 1), branch: name }));
+			git(peer.path, 'reset', '-q', '--hard', 'HEAD~1');
+			addCommit(peer.path, 'rewritten.txt', 'rewritten', 'Peer rewritten');
+			git(peer.path, 'cherry-pick', oldTip);
+			git(peer.path, 'push', '-q', '--force', 'origin', 'main');
+			git(repo.path, 'fetch', '-q', 'origin');
+			const before = await readAll(checkouts);
+			for (const answer of before) {
+				assert.strictEqual(answer.base?.forkPoint, oldTip);
+			}
+
+			peerPushesMain('one');
+			const { answers, spawned } = await remeasureAll(checkouts, before, fetchedMain);
+			assert.ok(answers.every(a => a != null));
+
+			// The full read each re-measure stands in for, through a provider as cold as the re-measure's
+			const full = createProvider({ gitOptions: { logger: logger } });
+			const mark = completed.length;
+			try {
+				for (const { path } of [repo, ...checkouts]) {
+					full.cache.registerRepoPath(fileUri(path), await full.config.getGitDir(path));
+				}
+				for (const { path, branch } of checkouts) {
+					await full.branches.getAheadOfBase(path, branch);
+				}
+			} finally {
+				full.dispose();
+			}
+			const fullReads = completed.slice(mark);
+
+			// The shared walk of what the reflog reaches off the new tip, then each worktree's count past it and the fork
+			// point, and the fork point settled again: the move off it checked and its patches compared, both shared, and
+			// each worktree's count past it
+			const shared = (m: string) => m.includes(' merge-base ') || m.includes(' --cherry-mark ');
+			const pastForkPoint = (m: string) => m.includes(` rev-list --left-right --count ${oldTip}...HEAD `);
+			assert.strictEqual(movedForwardReads(spawned).length, 1, spawned.join('\n'));
+			assert.deepStrictEqual(sharedCounts(spawned), [], 'no count past the new tip alone is of use');
+			for (const { path } of checkouts) {
+				assert.strictEqual(ownCounts(spawned, path).length, 1, spawned.join('\n'));
+			}
+			assert.strictEqual(spawned.filter(shared).length, 2, spawned.join('\n'));
+			assert.strictEqual(spawned.filter(pastForkPoint).length, 2, spawned.join('\n'));
+			assert.deepStrictEqual(reflogSpawns(spawned), []);
+			// The ref list, the remotes, the default branch's symref and the gk config, read by both, then 3 shared
+			// processes and 2 for each worktree, where a full read shares the 2 settling the fork point and takes 7 for each
+			assert.strictEqual(spawned.length, 4 + 3 + 2 * 2, spawned.join('\n'));
+			assert.strictEqual(fullReads.length, 4 + 2 + 7 * 2, fullReads.join('\n'));
 		});
 
 		test("a fork point the base's reflog no longer holds makes the worktree count its own", async () => {
@@ -1711,7 +2197,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			assert.deepStrictEqual(summary.baseDependsOn, fresh.dependsOn);
 		});
 
-		test('a packed-refs rewrite that moved the base reads it in full', async () => {
+		test('a packed-refs rewrite that moved the base re-measures it, to the fresh answer', async () => {
 			const sub = await subscribeTask();
 			addCommit(peer.path, 'one.txt', 'one', 'Peer one');
 			git(peer.path, 'push', '-q', 'origin', 'main');
@@ -1724,8 +2210,8 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			watchers.find(w => w.basePath === gitDir)!.fire({ path: join(gitDir, 'packed-refs'), reason: 'change' });
 			const summary = await changed;
 
-			assert.strictEqual(calls.remeasured, 0, 'an unnamed ref change is not re-measured');
-			assert.ok(calls.full >= 1);
+			// The rewrite names no ref, but the tips the base was read from show which one moved
+			assert.deepStrictEqual(calls, { full: 0, remeasured: 1, answered: 1 });
 			assert.deepStrictEqual(summary.base, (await readFresh('task')).base);
 			sub.dispose();
 		});

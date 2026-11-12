@@ -218,7 +218,80 @@ A scope-picker change re-fetches `resources.scopeFiles` for the new `ScopeSelect
 `state.review` itself is not a signal — `resources.review` (a `Resource`) plus the running-operation
 registry entry are the source of truth; `RunningOperationExecState` (`'generating' | 'complete' |
 'backed' | 'error' | 'orphaned'`) drives which of idle/loading/results/error the review panel
-renders. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
+renders. The entry also carries the **review session** (`entry.session`, `reviewSession.ts`): the
+reader's viewed marks (each remembering the `ScopeFile.contentId` it was made against — a blob id
+for working-tree/index files, the anchor sha for committed ones — so a file that changes underneath
+reads as re-queued rather than still viewed), files set aside from the review, and finding states
+(`dismissed`). The panel never owns a copy: the file checkbox is the Viewed mark, and
+every edit is an event (`review-files-viewed`, `review-file-excluded`, `review-finding-state`) that
+`DetailsWorkflowController.review.set*` applies to the entry — creating a backed-no-result entry
+when the reader marks files before any run. The session is carried across `dispatchOperation` and
+dropped with the entry (Discard, repo switch). The AI run's exclusion list is the session's
+set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus-area detail runs
+are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
+`abortRunningOperation`).
+
+**Reading** is host-driven but editor-anchored: `gl-graph-details-panel.syncReviewFiles()` sends the
+review's files in reading order (`getReviewReadingOrder`: the plan's order first, then the checklist
+top to bottom as its `gl-file-tree-pane`s render it — each pane announces its order with
+`tree-order-changed`, the panel folds them into `review-reading-order` — minus set-aside files) over `graphInspect.setReviewFiles` whenever an input changes, and clears them
+on leaving the mode. The host (`reviewReading.ts` owner registry, `gitlens:review:reading` /
+`gitlens:review:files` context keys) lights the diff title buttons and keybindings on those documents,
+follows the active tab to name the file being read, and steps from the file a command was invoked on —
+so several open diffs each step from their own. A step goes to the nearest file not yet viewed, looping
+(`getReviewStepTarget`); Alt+click on Next/Previous (the `…InListOrder` title-bar `alt` commands, or
+`altKey` on the panel's buttons) and a review with every other file viewed step in list order. Viewed
+means the panel's `viewed` list, sent with the files (marks still current, `getReviewFileProgress`),
+plus the marks made in the editor since — only a send from the panel moves that point (`marksSynced`):
+the host's own re-applies of the panel's last files (a reclaim, a learned diff side) don't, as the
+panel can't re-send while hidden. Its `onReviewReading` event carries the active file
+and an append-only list of editor-made viewed marks; `review.applyReadingState` folds the marks past
+`entry.reading.marksApplied` into the session and keeps the active file on the entry for the panel's
+strip and for the checklist, which selects and scrolls to its row (`gl-file-tree-pane.revealPath` →
+`gl-tree-view.focusedPath`, opening collapsed folders above it). There is no cursor: the panel's own buttons pass the active file explicitly.
+
+**History rewrites** (an amend, a rebase) move what a review is on. `DetailsActions.applyWipPayload` notices the
+branch tip move (a paused operation's landing included, matched from the tip before the pause) whether a mode is
+open or not. For a wip scope in an open mode it pins the scope (`_scopeBeforeTipMove`) and refetches the branch
+commits; `remapScopeRange` carries the range over (patch id, then subject, then place; a range holding the tip or
+working changes takes in commits added on top), and while that is pending a picker selection is held
+(`holdScopeForRemap`) so its fallback for a vanished working-changes row never loads, and the files load once after.
+When the repo has commit or comparison reviews (`hasCommitReviews`), the host lists the old and new history from
+where they part (`getRewrittenHistory`, with patch ids) and `DetailsWorkflowController.followRewrittenHistory` maps
+each review's commits (`mapRewrittenCommit`) and re-keys what moved (`rekeyCommitReview`): the registry entry, the
+remembered mode, and — through `graphInspect.moveReview` — the host's opened diffs, files, threads, thread actions
+and the deep review channel. The engaged review also moves its view (scope, details) and asks the graph to select the
+new commit, again once the graph's rows hold it. While anything runs on a commit review in the repo
+(`commitReviewsBusy`), the move waits (`_deferredAnchorRewrite`, from the earliest tip) and is retried on the
+panel's next update once nothing does.
+
+The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
+manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
+`entry.orientRun` like a focus-area run; as it lands, its order is written into `session.order`, which
+`getReviewReadingOrder` puts ahead of tree order, and the panel regroups the checklist by its groups —
+the plan _is_ the reading order, with one button to dismiss it. Like the session, the plan is carried across AI runs.
+
+The **deep** depth (`graphInspect.startDeepReview`) opens a report channel on the IPC server
+(`review/findings`, `deepReview.ts` parses the agent's POSTs) and dispatches the `deep-review` prompt
+— which carries the channel's address and token — through `gitlens.runPromptInAgent`. Reported
+findings fire `onDeepReview` as an append-only, sequenced list; `review.applyDeepReviewState` folds
+the new ones into the result as the `agent` focus area (`withAgentFindings`), creating a complete
+entry when no run ever happened, so the panel, the threads and the counts take them like any other.
+`entry.deepReview` carries the channel's status for the panel's strip.
+
+The review's findings are mirrored into the diff editors as **comment threads** (`reviewThreads.ts`,
+one `CommentController` for the extension): `gl-graph-details-panel.syncReviewThreads()` projects
+the engaged result plus the session's finding states (`getReviewThreadItems`) and sends it over
+`graphInspect.setReviewThreads` whenever one of its inputs changes, clearing it once the review is
+gone. The thread's title-bar commands (`gitlens.review.dismissFinding` …) hand the finding back to
+the owning graph instance, which logs them with a sequence and fires `onReviewThreadActions`; the
+workflow controller applies only the actions past `entry.threadActionsApplied`, so a panel hidden
+behind the diff catches up on all of them when it next renders. A thread's Ask Reviewer shows only
+under `gitlens:review:canAsk`, which the host keeps to Review in Repo's availability; once the question
+is handed to the agent (`startDeepReview` with `focus`), the finding's threads are titled as waiting
+until a newer agent comment on it arrives in a sync, the hand-off fails, or the channel closes. A thread
+with a comment open for editing holds the latest sync's item until the edit is saved or cancelled —
+rebuilding its comments would close the edit and lose what was typed. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
 the AI (`_reviewBackSnapshot` is the engaged projection). Before hiding, the anchor's registry
 entry captures Resume eligibility, unsubmitted instructions, selected scope and file/commit exclusions, and prior-result error
 recovery. Re-entry restores that projection; typing or changing scope invalidates Resume, and
@@ -228,7 +301,8 @@ result or an in-flight run. Discard explicitly destroys it via `destroyEngagedOp
 ### What's different from WIP normal
 
 - `state.scope`, `state.aiExcludedFiles`, `state.branchCommits*`, `state.reviewForwardAvailable`,
-  `state.reviewBackPreview`, `state.reviewPreErrorValue` are populated/relevant.
+  `state.reviewBackPreview`, `state.reviewPreErrorValue` are populated/relevant. `state.wipStale`
+  is not consulted — staleness is per file, from the session's content ids.
 - Files render from `resources.scopeFiles.value`, re-fetched on every scope-picker change.
 - Selection is locked to entry-time WIP: `willUpdate` skips `fetchDetails` while `activeMode !=
 null`; a different-anchor click hides (not destroys) the mode's registry entry and re-attaches

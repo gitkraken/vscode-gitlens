@@ -7,8 +7,26 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type MistralModel = AIModel<typeof provider.id>;
 const models: MistralModel[] = [
 	{
+		id: 'mistral-large-4',
+		name: 'Mistral Large 4',
+		maxTokens: { input: 1000000, output: 4096 },
+		provider: provider,
+	},
+	{
+		id: 'zai-glm-5-3',
+		name: 'GLM 5.3',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'zai-glm-5-3-flash',
+		name: 'GLM 5.3 Flash',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+	},
+	{
 		id: 'mistral-medium-latest',
-		name: 'Mistral Medium 3.5',
+		name: 'Mistral Medium (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -20,21 +38,8 @@ const models: MistralModel[] = [
 		hidden: true,
 	},
 	{
-		id: 'mistral-medium-2505',
-		name: 'Mistral Medium',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'zai-glm-5-2',
-		name: 'GLM 5.2',
-		maxTokens: { input: 1000000, output: 128000 },
-		provider: provider,
-	},
-	{
 		id: 'mistral-small-latest',
-		name: 'Mistral Small 4',
+		name: 'Mistral Small (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 		default: true,
@@ -47,15 +52,8 @@ const models: MistralModel[] = [
 		hidden: true,
 	},
 	{
-		id: 'mistral-small-2503',
-		name: 'Mistral Small',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
 		id: 'mistral-large-latest',
-		name: 'Mistral Large 3',
+		name: 'Mistral Large (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -67,15 +65,8 @@ const models: MistralModel[] = [
 		hidden: true,
 	},
 	{
-		id: 'mistral-large-2411',
-		name: 'Mistral Large',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
 		id: 'ministral-14b-latest',
-		name: 'Ministral 3 14B',
+		name: 'Ministral 14B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -88,7 +79,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'ministral-8b-latest',
-		name: 'Ministral 3 8B',
+		name: 'Ministral 8B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -101,7 +92,7 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'ministral-3b-latest',
-		name: 'Ministral 3 3B',
+		name: 'Ministral 3B (latest)',
 		maxTokens: { input: 262144, output: 4096 },
 		provider: provider,
 	},
@@ -114,34 +105,13 @@ const models: MistralModel[] = [
 	},
 	{
 		id: 'codestral-latest',
-		name: 'Codestral',
+		name: 'Codestral (latest)',
 		maxTokens: { input: 131072, output: 4096 },
 		provider: provider,
 	},
 	{
 		id: 'codestral-2508',
 		name: 'Codestral',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'codestral-2501',
-		name: 'Codestral',
-		maxTokens: { input: 262144, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'devstral-small-latest',
-		name: 'Devstral Small',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'devstral-small-2505',
-		name: 'Devstral Small',
 		maxTokens: { input: 131072, output: 4096 },
 		provider: provider,
 		hidden: true,
@@ -189,7 +159,8 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 		body?: string,
 		sentTools?: boolean,
 	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
-		if (rsp.status !== 404 && rsp.status !== 429) {
+		// 401/403 fall through to the base, which maps them to `AIError(Unauthorized)`
+		if (rsp.status !== 404 && rsp.status !== 429 && rsp.status !== 401 && rsp.status !== 403) {
 			let json;
 			try {
 				json = (body != null ? JSON.parse(body) : await rsp.json()) as MistralError | undefined;

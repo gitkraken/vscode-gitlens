@@ -41,11 +41,14 @@ export class GlAiInput extends LitElement {
 				background var(--gl-duration-x-slow);
 		}
 
-		/* The textarea/input + action button row, sitting inside the unified panel (the host). */
+		/* The textarea/input + action button row, sitting inside the unified panel (the host).
+   Wraps so a narrow panel drops the button below the input instead of crushing the input —
+   driven by the input's flex-basis and the button's real (localized) width, not a breakpoint. */
 		.ai-input__row {
 			position: relative;
 			z-index: 1;
 			display: flex;
+			flex-wrap: wrap;
 			align-items: stretch;
 			min-width: 0;
 		}
@@ -73,6 +76,8 @@ export class GlAiInput extends LitElement {
 		.ai-input__footer slot {
 			display: flex;
 			flex: 1;
+			flex-wrap: wrap;
+			row-gap: var(--gl-space-2);
 			min-width: 0;
 		}
 
@@ -169,10 +174,10 @@ export class GlAiInput extends LitElement {
 			}
 		}
 
+		/* 12rem is the narrowest the input shares a line with the button; below it the button wraps. */
 		input,
 		textarea {
-			flex: 1;
-			width: 0;
+			flex: 1 1 12rem;
 			min-width: 0;
 			max-width: none;
 			padding: 0.4rem 0.7rem;
@@ -231,7 +236,7 @@ export class GlAiInput extends LitElement {
 			height: 16px;
 			-webkit-appearance: none;
 			cursor: pointer;
-			background-color: var(--vscode-foreground);
+			background-color: var(--gl-color-action-quiet-fg);
 			-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z'/%3E%3C/svg%3E");
 			-webkit-mask-size: contain;
 		}
@@ -245,12 +250,16 @@ export class GlAiInput extends LitElement {
 			gap: 0.5rem;
 			align-items: center;
 			align-self: center;
+			min-width: 0;
+			max-width: calc(100% - 0.3rem);
 			padding: 0.3rem 1rem 0.3rem 0.8rem;
 			margin: 0.3rem;
+			/* Right-aligns the pill once it wraps under the input; inert while they share a line. */
+			margin-inline-start: auto;
 			font-family: inherit;
 			font-size: var(--vscode-font-size);
 			font-weight: 500;
-			color: var(--vscode-foreground);
+			color: var(--gl-color-action-quiet-fg);
 			white-space: nowrap;
 			cursor: pointer;
 			background: transparent;
@@ -278,13 +287,13 @@ export class GlAiInput extends LitElement {
   one cohesive surface (the row's conic border already reacts to :host(:hover)). */
 		.action-btn:hover:not(:disabled),
 		:host(:hover) .action-btn:not(:disabled) {
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			background: var(--ai-action-fill);
 		}
 
 		.action-btn:hover:not(:disabled) .icon-sparkle,
 		:host(:hover) .action-btn:not(:disabled) .icon-sparkle {
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 		}
 
 		/* Keyboard-visible focus ring on the button (fill + sparkle→send morph handled above). */
@@ -306,7 +315,7 @@ export class GlAiInput extends LitElement {
 		:host(:not([busy])) .action-btn[aria-disabled='true'] {
 			flex-direction: row;
 			padding: 0.3rem 1rem 0.3rem 0.8rem;
-			color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+			color: var(--vscode-disabledForeground);
 			cursor: default;
 			background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
 			box-shadow: none;
@@ -325,7 +334,7 @@ export class GlAiInput extends LitElement {
 		}
 
 		.action-btn[aria-busy='true'] {
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			background: var(--ai-action-fill);
 		}
 
@@ -339,18 +348,18 @@ export class GlAiInput extends LitElement {
 			gap: 0.5rem;
 			padding-right: var(--gl-space-8);
 			padding-left: var(--gl-space-10);
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			background: var(--ai-action-fill);
 		}
 
 		/* Active mode: border glow + button always active (for review/compose) */
 		:host([active]) .action-btn {
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			background: var(--ai-action-fill);
 		}
 
 		:host([active]) .action-btn .icon-sparkle {
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 		}
 
 		:host([focused]) .action-btn .icon-sparkle,
@@ -398,7 +407,11 @@ export class GlAiInput extends LitElement {
 			transform: translateX(100%);
 		}
 
+		/* Safety valve for a localized label wider than the whole input. */
 		.action-label {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			line-height: 1;
 		}
 
@@ -431,7 +444,7 @@ export class GlAiInput extends LitElement {
 		}
 
 		:host([appearance='detached']) .ai-input__box:focus-within {
-			border-color: var(--vscode-focusBorder);
+			border-color: var(--gl-color-border-focus);
 		}
 
 		/* Footer → a tab clipped to the box's top-right edge. The chip keeps its own look;
@@ -475,20 +488,17 @@ export class GlAiInput extends LitElement {
 			font-size: var(--vscode-font-size);
 			font-weight: 500;
 			line-height: 1.35;
-			color: var(--vscode-button-foreground);
+			color: var(--gl-color-action-primary-fg);
 			white-space: nowrap;
 			cursor: pointer;
-			background: var(--gl-ai-submit-bg, var(--vscode-button-background));
+			background: var(--gl-ai-submit-bg, var(--gl-color-action-primary-bg));
 			border: none;
 			border-radius: var(--gl-radius-sm);
 			transition: background var(--gl-duration-fast);
 		}
 
 		.detached-btn:hover:not([aria-disabled='true']) {
-			background: var(
-				--gl-ai-submit-hover-bg,
-				var(--vscode-button-hoverBackground, var(--vscode-button-background))
-			);
+			background: var(--gl-ai-submit-hover-bg, var(--gl-color-action-primary-bg-hover));
 		}
 
 		.detached-btn:focus-visible {

@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import { AIError, AIErrorReason } from '../../errors.js';
+import type { AIModel } from '../../models/model.js';
 import type { AIChatMessage, AIChatMessageRole, AIToolDefinition } from '../../models/provider.js';
 import { AnthropicProvider } from '../anthropicProvider.js';
 import { createStubProviderContext } from './fixtures.js';
@@ -11,6 +13,22 @@ class TestAnthropicProvider extends AnthropicProvider {
 		system?: string;
 	} {
 		return this.extractSystemPrompt(messages);
+	}
+
+	fail(status: number, envelope: unknown): Promise<unknown> {
+		const model: AIModel<'anthropic'> = {
+			id: 'test-model',
+			name: 'Test Model',
+			maxTokens: { input: 1024, output: undefined },
+			provider: { id: 'anthropic', name: 'Anthropic' },
+		};
+		return this.handleFetchFailure(
+			new Response(JSON.stringify(envelope), { status: status }),
+			'conflict-resolution',
+			model,
+			0,
+			1024,
+		);
 	}
 }
 
@@ -129,4 +147,23 @@ suite('AnthropicProvider tool serialization', () => {
 		assert.strictEqual(out.length, 2);
 		assert.deepStrictEqual(out[0], { role: 'user', content: 'hello' });
 	});
+});
+
+suite('AnthropicProvider unauthorized responses', () => {
+	for (const status of [401, 403]) {
+		test(`maps a ${status} to AIError(Unauthorized)`, async () => {
+			await assert.rejects(
+				() =>
+					new TestAnthropicProvider(context).fail(status, {
+						type: 'error',
+						error: { type: 'authentication_error', message: 'invalid x-api-key' },
+					}),
+				(ex: unknown) => {
+					assert.ok(ex instanceof AIError);
+					assert.strictEqual(ex.reason, AIErrorReason.Unauthorized);
+					return true;
+				},
+			);
+		});
+	}
 });

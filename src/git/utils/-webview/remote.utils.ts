@@ -6,13 +6,13 @@ import type { ParsedRemoteFileUri, RemoteProvider, RemoteProviderId } from '@git
 import type { CreatePullRequestRemoteResource, RemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import type { GitHostIntegration } from '@gitlens/integrations/index.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationConnectedKey,
 	getIntegrationIdForRemote,
 	isGitHostIntegration,
-} from '@gitlens/integrations/utils/integration.utils.js';
+} from '@gitlens/integrations/index.js';
 import { ensureArray } from '@gitlens/utils/array.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { Container } from '../../../container.js';

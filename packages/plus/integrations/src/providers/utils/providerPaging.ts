@@ -16,9 +16,11 @@ import {
 	throwIfCallerContractError,
 	toCollectionScopeFailure,
 } from '../../collectionMetadata.js';
-import { providerFanOutConcurrency } from '../../constants.js';
 import { collectionScopeKey, mergeUnreadableItems } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
+
+/** Upper bound on concurrent provider requests when a read fans out across repos, orgs or batches. */
+export const providerFanOutConcurrency = 6;
 
 /**
  * Encodes an opaque numeric paging token as the `{ value, type: 'page' }` cursor the paging layer uses.

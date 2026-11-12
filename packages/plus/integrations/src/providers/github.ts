@@ -2,6 +2,8 @@ import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api
 import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
 	fromGitHubIssueOrPullRequestState,
+	fromGitHubMergeQueueEntryState,
+	fromGitHubMergeQueueRemoval,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
@@ -13,6 +15,8 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeQueueActionResult,
+	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStackInfo,
@@ -34,25 +38,28 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
-	IssueEtagFields,
-	IssueEtagInclude,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
-	PullRequestEtagFields,
-	PullRequestEtagInclude,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type {
+	IssueEtagFields,
+	IssueEtagInclude,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiPagedResult,
 	ProviderHierarchyResult,
@@ -60,15 +67,9 @@ import type {
 	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
-import {
-	getProviderPullRequestIdentity,
-	IssueFilter,
-	providersMetadata,
-	PullRequestFilter,
-	stampNativePullRequest,
-} from './models.js';
+import { getProviderPullRequestIdentity, IssueFilter, PullRequestFilter, stampNativePullRequest } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { resolveBranchPullRequests } from './utils/providerPaging.js';
+import { providerFanOutConcurrency, resolveBranchPullRequests } from './utils/providerPaging.js';
 
 type GitHubPullRequestFacetCursor = Record<string, string>;
 
@@ -183,6 +184,23 @@ function toPullRequestEtagFields(
 		updatedDate: new Date(node.updatedAt),
 		headSha: node.headRefOid,
 	};
+
+	if (node.mergeQueueEntry != null) {
+		fields.mergeQueue = {
+			state: fromGitHubMergeQueueEntryState(node.mergeQueueEntry.state),
+			enqueuedAt: new Date(node.mergeQueueEntry.enqueuedAt),
+		};
+	}
+
+	const mergeQueueRemoval = fromGitHubMergeQueueRemoval(node.mergeQueueEvents);
+	if (mergeQueueRemoval != null) {
+		fields.mergeQueueRemovedAt = mergeQueueRemoval.removedAt;
+	}
+
+	// Only the merge-queue selection carries it, and only its presence is read, never its value.
+	if (node.isMergeQueueEnabled != null) {
+		fields.mergeQueueRead = true;
+	}
 
 	if (etagIncludes.includes('mergeable')) {
 		fields.mergeableState =
@@ -606,6 +624,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			includeReviewRequested?: boolean;
 			filters?: PullRequestFilter[];
 			summary?: boolean;
+			mergeQueue?: boolean;
 		},
 	): Promise<ProviderApiPagedResult<PullRequest> | undefined> {
 		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
@@ -666,6 +685,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					state: facet.state,
 					cursor: cursors[facet.key],
 					summary: options?.summary,
+					mergeQueue: options?.mergeQueue,
 					...(facet.search != null ? { search: facet.search, includeDefaultInvolvement: false } : undefined),
 				}),
 			})),
@@ -802,6 +822,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			cursor?: string;
 			pageSize?: number;
 			summary?: boolean;
+			mergeQueue?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined> {
@@ -816,6 +837,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				cursor: options.cursor,
 				pageSize: options.pageSize,
 				summary: options.summary,
+				mergeQueue: options.mergeQueue,
 			},
 			cancellation,
 		);
@@ -919,13 +941,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
 		const currentAccount = options?.currentAccount;
+		const mergeQueue = options?.mergeQueue;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -934,7 +957,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session) },
+					{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: mergeQueue },
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
@@ -982,13 +1005,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
 		const etagIncludes = options.etagIncludes ?? [];
+		const mergeQueue = options.mergeQueue;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -997,7 +1021,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes },
+					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes, mergeQueue: mergeQueue },
 					cancellation,
 				),
 			(node): PullRequestEtagFields | undefined =>
@@ -1006,9 +1030,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
-	 * Finds each branch's pull requests by aliasing a head-ref-name query per target — see
-	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted exactly as
-	 * {@link getProviderPullRequestsBatch} is, with the same per-target and per-chunk failure isolation.
+	 * Finds each branch's pull requests by aliasing a head-ref-name query per distinct repository and branch — see
+	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted as {@link getProviderPullRequestsBatch} is.
+	 * Failures are isolated per query rather than per target: a chunk that throws rejects only its own targets, and a
+	 * query that fails, or whose rows can't be converted, rejects every target that shares it, and only those.
 	 *
 	 * That query matches the branch NAME across every fork and filters by head repository afterwards, so a name
 	 * many forks share (`main`, `patch-1`) comes back `truncated` whether or not anything it left out could match.
@@ -1024,7 +1049,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsForBranches(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1033,24 +1058,59 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const baseUrl = this.apiBaseUrlFor(session);
 		const currentAccount = options.currentAccount;
-		const slots = await readChunked(
-			targets,
+		// Targets that differ only by `headOwner` send the same query, since the owner filter runs on the
+		// returned rows, so each distinct query is chunked and sent once and answers every target in its group.
+		const groups = new Map<string, { owner: string; repo: string; branch: string; indices: number[] }>();
+		targets.forEach((t, i) => {
+			// GitHub resolves an owner and repository case-insensitively, but matches the head ref name exactly.
+			const key = `${t.owner.toLowerCase()}/${t.repo.toLowerCase()}\0${t.branch}`;
+			const group = groups.get(key);
+			if (group != null) {
+				group.indices.push(i);
+			} else {
+				groups.set(key, { owner: t.owner, repo: t.repo, branch: t.branch, indices: [i] });
+			}
+		});
+
+		const queries = [...groups.values()];
+		const groupSlots = await readChunked(
+			queries,
 			pullRequestsBatchChunkSize,
-			chunkTargets =>
+			chunkGroups =>
 				github.getPullRequestsForBranches(
 					this,
 					tokenWithInfo,
-					chunkTargets.map(t => ({ owner: t.owner, repo: t.repo, branch: t.branch, headOwner: t.headOwner })),
-					{ baseUrl: baseUrl, limit: options.limit },
+					chunkGroups.map(g => ({
+						owner: g.owner,
+						repo: g.repo,
+						branch: g.branch,
+						headOwners: g.indices.map(i => targets[i].headOwner),
+					})),
+					{ baseUrl: baseUrl, limit: options.limit, mergeQueue: options.mergeQueue },
 					cancellation,
 				),
-			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
-				pullRequests: found.pullRequests.map(pr =>
-					stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' }),
+			(found): { pullRequests: PullRequestShape[][]; truncated: boolean } => ({
+				pullRequests: found.pullRequests.map(prs =>
+					prs.map(pr => stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' })),
 				),
 				truncated: found.truncated,
 			}),
 		);
+
+		// Back to one slot per target. A rejected group rejects each of its targets, and only those.
+		const slots: PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] = [];
+		queries.forEach((g, gi) => {
+			const slot = groupSlots[gi];
+			g.indices.forEach((targetIndex, j) => {
+				slots[targetIndex] =
+					slot.status === 'rejected'
+						? slot
+						: {
+								status: 'fulfilled',
+								value: { pullRequests: slot.value.pullRequests[j], truncated: slot.value.truncated },
+							};
+			});
+		});
 
 		const ambiguous = slots.flatMap((slot, i) =>
 			slot.status === 'fulfilled' && slot.value.truncated ? [{ index: i, found: slot.value.pullRequests }] : [],
@@ -1078,7 +1138,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				this.getProviderPullRequestsBatch(
 					session,
 					coordinates,
-					{ currentAccount: currentAccount },
+					{ currentAccount: currentAccount, mergeQueue: options.mergeQueue },
 					cancellation,
 				),
 		);
@@ -1154,8 +1214,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	/**
 	 * Stack membership for every stacked pull request in the repository, keyed by pull request number.
 	 *
-	 * List surfaces get their pull requests from the shared providers API, whose type carries no stack
-	 * membership, so the `stack`/`stackEntry` fields selected on the native per-pull-request reads never
+	 * List surfaces get their pull requests from the shared providers API, and our mapping of those drops the
+	 * `stack` it reports, so the `stack`/`stackEntry` fields selected on the native per-pull-request reads never
 	 * reach them. This fills that gap in a single request for the whole repository, rather than a
 	 * per-pull-request enrichment that would scale with the list.
 	 *
@@ -1207,6 +1267,34 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		}
 
 		return byNumber;
+	}
+
+	/**
+	 * Merge-queue entries for the given base branches, keyed by pull request number — the same gap as
+	 * {@link getStacksByPullRequestNumber}: the repository-scoped list read comes from provider-apis, which selects no
+	 * merge queue. One request for every branch. `undefined` means unavailable (GitHub Enterprise Server, a repository
+	 * not found, or not connected); an empty map means nothing is queued.
+	 *
+	 * INTERIM: remove once provider-apis carries the merge-queue entry on its pull requests (goals S6).
+	 */
+	override async getMergeQueueEntriesByPullRequestNumber(
+		owner: string,
+		repo: string,
+		branches: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
+		if (session == null) return undefined;
+
+		return (await this.authenticationService.apis.github)?.getMergeQueueEntriesForBranches(
+			this,
+			toTokenWithInfo(this.id, session),
+			owner,
+			repo,
+			branches,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
 	}
 
 	/**
@@ -1328,6 +1416,54 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	/**
+	 * Adds the pull request to its merge queue, expecting the head it was read with. A pull request without a node id
+	 * or head (a row from a read that didn't select them) can't be queued safely, so it fails as `unknown`.
+	 */
+	protected override async enqueueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		const headRefSha = pr.refs?.head?.sha;
+		if (id == null || headRefSha == null) {
+			return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id or head' };
+		}
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.enqueuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			headRefSha,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
+	}
+
+	protected override async dequeueProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const id = pr.nodeId;
+		if (id == null) return { status: 'failed', reason: 'unknown', message: 'Missing the pull request node id' };
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return { status: 'failed', reason: 'unsupported' };
+
+		return api.dequeuePullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			id,
+			{ baseUrl: this.apiBaseUrlFor(session) },
+			cancellation,
+		);
+	}
+
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 		options?: { avatarSize?: number },
@@ -1357,13 +1493,8 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	}
 
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {
-		// Undefined on purpose, NOT 'https://api.github.com'. `@gitkraken/provider-apis` treats this value as an
-		// *enterprise* base and derives both endpoints from it by appending GitHub Enterprise's paths:
-		// `getRESTBaseUrl` appends `/api/v3` and `getGraphQLEndpoint` appends `/api/graphql` (githubHelpers.ts).
-		// Handing it the cloud host therefore built `https://api.github.com/api/graphql`, which GitHub answers
-		// 404 — every cloud GraphQL read (orgs, repos, PR/issue search) failed as `not-found`. Omitting it is
-		// what selects the cloud endpoints (`GITHUB_API_URL` / `GITHUB_GRAPHQL_API_URL`), so cloud must pass
-		// nothing and only GHE passes its instance base.
+		// Undefined on purpose: omitting it is what selects `@gitkraken/provider-apis`' cloud endpoints, so cloud
+		// passes nothing and only GHE passes its instance base.
 		return undefined;
 	}
 

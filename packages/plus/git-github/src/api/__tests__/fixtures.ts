@@ -71,6 +71,7 @@ export function gitHubPullRequestLite(
 		repository: { ...repository, viewerPermission: 'WRITE' },
 		isCrossRepository: false,
 		isDraft: false,
+		milestone: null,
 		...overrides,
 	};
 }

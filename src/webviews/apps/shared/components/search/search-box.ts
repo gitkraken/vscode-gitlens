@@ -81,7 +81,7 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.count.error {
-			color: var(--vscode-errorForeground);
+			color: var(--gl-color-feedback-danger-quiet-fg);
 		}
 
 		.button {
@@ -100,9 +100,9 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.button:focus {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: -1px;
-			background-color: var(--vscode-toolbar-activeBackground);
+			background-color: var(--gl-color-action-quiet-bg-active);
 		}
 
 		.button:not([disabled]) {
@@ -110,8 +110,14 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.button:hover:not([disabled]) {
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-toolbar-hoverBackground);
+			color: var(--gl-color-action-quiet-fg);
+			background-color: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		.button:hover:not([disabled], :focus) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		.button > code-icon[icon='arrow-up'] {
@@ -149,7 +155,7 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.sr-hidden {
-			color: var(--vscode-errorForeground);
+			color: var(--gl-color-feedback-danger-quiet-fg);
 		}
 
 		.sr-only {

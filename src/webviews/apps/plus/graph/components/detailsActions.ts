@@ -22,7 +22,6 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -52,6 +51,7 @@ import { defaultViewFilesConfig } from '../../../../commitDetails/protocol.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	AutoRebaseSummaryResult,
+	BranchCommitEntry,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	BranchComparisonOptions,
@@ -60,10 +60,22 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphServices,
+	OrientInRepoArgs,
 	ReresolveFileResult,
 	ResolveResult,
+	ReviewFilesArgs,
+	ReviewOpenFileArgs,
+	ReviewOrientResult,
+	ReviewReadingAction,
+	ReviewReadingState,
 	ReviewResult,
+	ReviewThreadActionsState,
+	ReviewThreadsArgs,
+	RewrittenHistory,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -96,10 +108,16 @@ import {
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { Resource } from '../../../shared/state/resource.js';
+import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import type { AppState } from '../context.js';
 import { compareSides } from './detailsState.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
+import {
+	getQueuedPullRequestRefreshOutcome,
+	PausableRecheckTimer,
+	queuedPullRequestRecheckMs,
+} from './queuedPullRequestRecheck.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
 /** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
@@ -141,31 +159,130 @@ export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelec
 	return false;
 }
 
-export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs: string; rhs: string } | undefined {
-	if (scope == null) return undefined;
-	if (scope.type === 'commit') return { lhs: `${scope.sha}^`, rhs: scope.sha };
-	if (scope.type === 'compare') return { lhs: scope.fromSha, rhs: scope.toSha };
+type MergeBases = { prev?: string; next?: string };
 
-	// wip — match scope inputs as closely as possible with a single range
-	const hasShas = (scope.includeShas?.length ?? 0) > 0;
-	if (!hasShas) {
-		if (scope.includeUnstaged && !scope.includeStaged) {
-			return { lhs: uncommittedStaged, rhs: uncommitted };
-		}
-		if (!scope.includeUnstaged && scope.includeStaged) {
-			return { lhs: 'HEAD', rhs: uncommittedStaged };
-		}
-		return { lhs: 'HEAD', rhs: uncommitted };
+type HistoryCommit = Pick<BranchCommitEntry, 'sha' | 'message'>;
+
+function findRewrite(
+	prev: readonly HistoryCommit[],
+	next: readonly HistoryCommit[],
+	mergeBases: MergeBases | undefined,
+): { nextIndexes: Map<string, number>; prevForkIndex: number; rewritten: readonly HistoryCommit[] } {
+	const nextIndexes = new Map(next.map((c, i) => [c.sha, i]));
+	// A branch window leaves out its merge base, where the old and new history can still meet (a first commit, an undo)
+	if (mergeBases?.next != null && !nextIndexes.has(mergeBases.next)) {
+		nextIndexes.set(mergeBases.next, next.length);
+	}
+	const prevShas = mergeBases?.prev != null ? [...prev.map(c => c.sha), mergeBases.prev] : prev.map(c => c.sha);
+	const prevForkIndex = prevShas.findIndex(sha => nextIndexes.has(sha));
+	return prevForkIndex < 0
+		? { nextIndexes: nextIndexes, prevForkIndex: prev.length, rewritten: next }
+		: {
+				nextIndexes: nextIndexes,
+				prevForkIndex: prevForkIndex,
+				rewritten: next.slice(0, nextIndexes.get(prevShas[prevForkIndex])),
+			};
+}
+
+/** The scope's commits a rewrite replaced, plus the rewritten ones they may map to — the ones worth a patch id */
+export function getRewrittenScopeShas(
+	shas: readonly string[],
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
+): string[] {
+	if (!prev?.length) return [];
+
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
+	const replaced = shas.filter(sha => {
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		return !nextIndexes.has(sha) && prevIndex >= 0 && prevIndex < prevForkIndex;
+	});
+	return replaced.length && rewritten.length ? [...replaced, ...rewritten.map(c => c.sha)] : [];
+}
+
+function createRewriteMapper(
+	prev: readonly HistoryCommit[],
+	next: readonly HistoryCommit[],
+	mergeBases: MergeBases | undefined,
+	patchIds: Readonly<Record<string, string>> | undefined,
+): { rewritten: readonly HistoryCommit[]; mapOne: (sha: string) => number | 'belowRewriteUnloaded' | undefined } {
+	const { nextIndexes, prevForkIndex, rewritten } = findRewrite(prev, next, mergeBases);
+	const mapOne = (sha: string): number | 'belowRewriteUnloaded' | undefined => {
+		const index = nextIndexes.get(sha);
+		if (index != null) return index;
+
+		const prevIndex = prev.findIndex(c => c.sha === sha);
+		if (prevIndex < 0 || prevIndex >= prevForkIndex) return 'belowRewriteUnloaded';
+
+		const patchId = patchIds?.[sha];
+		const subject = getCommitSubject(prev[prevIndex].message);
+		const samePatch = patchId != null ? rewritten.filter(c => patchIds?.[c.sha] === patchId) : [];
+		const sameSubject = rewritten.filter(c => getCommitSubject(c.message) === subject);
+		const match =
+			samePatch.length === 1
+				? samePatch[0]
+				: sameSubject.length === 1
+					? sameSubject[0]
+					: rewritten.length === prevForkIndex
+						? rewritten[prevIndex]
+						: undefined;
+		return match != null ? nextIndexes.get(match.sha) : undefined;
+	};
+	return { rewritten: rewritten, mapOne: mapOne };
+}
+
+/** The commit `sha` became in a rewrite of the branch from `history.mergeBase` — itself when the rewrite didn't
+ *  touch it, `undefined` when nothing in the new history matches it. */
+export function mapRewrittenCommit(sha: string, history: RewrittenHistory): string | undefined {
+	const { mergeBase, previous, next, patchIds } = history;
+	const index = createRewriteMapper(previous, next, { prev: mergeBase, next: mergeBase }, patchIds).mapOne(sha);
+	if (index === 'belowRewriteUnloaded') return sha;
+	if (index == null) return undefined;
+
+	return index < next.length ? next[index].sha : mergeBase;
+}
+
+/** Carries a scope's commit range, whole, across a history change: a rewritten commit maps by patch id, subject, or —
+ *  at an unchanged count — place; a range holding the tip (or working changes) takes in commits added on top. */
+export function remapScopeRange(
+	scope: { includeShas: readonly string[]; includesWip: boolean },
+	prev: readonly BranchCommitEntry[] | undefined,
+	next: readonly BranchCommitEntry[],
+	mergeBases?: MergeBases,
+	patchIds?: Readonly<Record<string, string>>,
+): string[] | undefined {
+	const shas = scope.includeShas;
+	if (!prev?.length || !next.length) return undefined;
+
+	const { rewritten, mapOne } = createRewriteMapper(prev, next, mergeBases, patchIds);
+
+	if (!shas.length) {
+		if (!scope.includesWip) return undefined;
+
+		const tip = mapOne(prev[0].sha);
+		return typeof tip === 'number' && tip > 0 ? next.slice(0, tip).map(c => c.sha) : undefined;
 	}
 
-	// Seeded scopes guarantee the range-base boundary commit last and the tip first (see
-	// GraphComposeScopeSeed); picker-driven scopes are in pane row order (newest-first), where the
-	// bottom row is the visible range base. Commits-only ranges diff to the selection's own tip —
-	// an interior range ends below HEAD, so 'HEAD' would fold newer commits into the diff.
-	const lhs = `${scope.includeShas.at(-1)}^`;
-	if (scope.includeUnstaged) return { lhs: lhs, rhs: uncommitted };
-	if (scope.includeStaged) return { lhs: lhs, rhs: uncommittedStaged };
-	return { lhs: lhs, rhs: scope.includeShas[0] };
+	const mapped = shas.map(sha => ({ sha: sha, index: mapOne(sha) }));
+	const indexes = mapped.map(m => m.index).filter(i => typeof i === 'number');
+	const unloaded = mapped.filter(m => m.index === 'belowRewriteUnloaded').map(m => m.sha);
+
+	const holdsTip = scope.includesWip || shas[0] === prev[0].sha;
+	const top = holdsTip ? 0 : indexes.length ? Math.min(...indexes) : undefined;
+	let bottom = unloaded.length ? next.length - 1 : indexes.length ? Math.max(...indexes) : undefined;
+	const oldestLost = mapped.at(-1)!.index == null;
+	if (oldestLost && rewritten.length) {
+		bottom = Math.max(bottom ?? 0, rewritten.length - 1);
+	}
+	if (top == null || bottom == null) return undefined;
+
+	const remapped = [...next.slice(top, bottom + 1).map(c => c.sha), ...unloaded];
+	return !remapped.length || areEqual(remapped, shas) ? undefined : remapped;
+}
+
+function getCommitSubject(message: string): string {
+	return message.split('\n', 1)[0].trim();
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -285,6 +402,7 @@ export class DetailsActions {
 	private _branchCommitsController?: AbortController;
 	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
+	private readonly _queuedPullRequestRecheck = new PausableRecheckTimer(queuedPullRequestRecheckMs);
 	private _branchCompareEnrichmentControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	private _branchCompareContributorsControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	/** Per-(tab,sha) abort controllers for lazy commit-file fetches in branch-compare. New selection
@@ -293,6 +411,8 @@ export class DetailsActions {
 	private _aiExcludedFilesGeneration = 0;
 	/** Latest-fetch-wins guard for overlapping `fetchPreferences` re-fetches. */
 	private _preferencesGeneration = 0;
+	/** Latest-answer-wins guard between Review in Repo availability fetches and the host's pushes. */
+	private _deepReviewAvailabilityGeneration = 0;
 
 	/** Branch-keyed cache of WIP enrichment (autolinks/issues/mergeTarget). Populated on first
 	 *  successful fetch; consulted on subsequent visits to hydrate state synchronously and avoid
@@ -400,6 +520,7 @@ export class DetailsActions {
 
 	dispose(): void {
 		this._disposed = true;
+		this._queuedPullRequestRecheck.dispose();
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 		this._enrichmentController?.abort();
@@ -576,9 +697,27 @@ export class DetailsActions {
 		this.state.hasAccount.set(getSettledValue(hasAccountRes) ?? false);
 		this.state.orgSettings.set(getSettledValue(orgSettingsRes) ?? { ai: false, drafts: false });
 		this.state.aiModel.set(getSettledValue(aiModelRes));
+		// Waits on agent detection, so it settles on its own rather than holding the capabilities up
+		void this.refreshDeepReviewAvailability();
 
 		// Subscribe to AI model + config changes so the chips and preferences stay in sync.
 		void this.subscribeEvents();
+	}
+
+	/** Asks again whether Review in Repo can run — on mount and whenever review mode is entered; the host also
+	 *  pushes the answer when it changes (`onDeepReviewAvailability`). Entering review mode is also what notices
+	 *  an agent CLI installed since: once the agents list's cache has expired, this read refreshes it, and a list
+	 *  that changed comes back as a push. */
+	async refreshDeepReviewAvailability(): Promise<void> {
+		const generation = ++this._deepReviewAvailabilityGeneration;
+		try {
+			const availability = await this.services.graphInspect.getDeepReviewAvailability();
+			if (this._disposed || generation !== this._deepReviewAvailabilityGeneration) return;
+
+			this.state.deepReviewAvailability.set(availability);
+		} catch {
+			// Unknown stays unknown — the depth remains offered and a click reports the reason
+		}
 	}
 
 	/** Publishes the fast, config/storage-derived {@link Preferences}. Run up front by
@@ -599,6 +738,7 @@ export class DetailsActions {
 				'views.commitDetails.files',
 				'signing.showSignatureBadges',
 				'sortWorkingChangesBy',
+				'keymap',
 			),
 			s.config.getManyCore(
 				'workbench.tree.renderIndentGuides',
@@ -613,8 +753,16 @@ export class DetailsActions {
 		if (this._preferencesGeneration !== generation) return;
 
 		const pullRequestExpanded = getSettledValue(pullRequestExpandedRes);
-		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, workingChangesSortBy] =
-			getSettledValue(filesPrefsRes) ?? [];
+		const [
+			avatars,
+			currentUserNameStyle,
+			dateFormat,
+			dateStyle,
+			files,
+			showSignatureBadges,
+			workingChangesSortBy,
+			keymap,
+		] = getSettledValue(filesPrefsRes) ?? [];
 		const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] = getSettledValue(treePrefsRes) ?? [];
 		const aiEnabled = getSettledValue(aiEnabledRes);
 
@@ -630,6 +778,7 @@ export class DetailsActions {
 			workingFilesOrderBy: workingFilesOrderBy ?? 'path',
 			workingChangesSortBy: workingChangesSortBy ?? 'stage',
 			aiEnabled: aiEnabled ?? false,
+			keymap: keymap ?? 'chorded',
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges ?? true,
 			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`
@@ -652,6 +801,16 @@ export class DetailsActions {
 			() =>
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
+				}),
+			// The active review file and editor-made marks are host-owned; the workflow controller folds them into the session.
+			() => this.services.graphInspect.onReviewReading(state => this.reviewReadingHandler?.(state)),
+			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
+			() => this.services.graphInspect.onDeepReview(state => this.deepReviewHandler?.(state)),
+			() =>
+				this.services.graphInspect.onDeepReviewAvailability(availability => {
+					// Newer than any fetch still in flight
+					this._deepReviewAvailabilityGeneration++;
+					this.state.deepReviewAvailability.set(availability);
 				}),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
@@ -717,19 +876,15 @@ export class DetailsActions {
 	/** Direct-RPC review run. Bypasses {@link resources.review} so the run is owned by the
 	 *  caller's `AbortController` (held on the registry entry), not the single-instance
 	 *  `Resource` — letting the in-flight generation survive an anchor switch. The caller is
-	 *  responsible for updating the registry entry on resolve/reject.
-	 *
-	 *  `options.mode: 'refine'` makes the run a follow-up on the host-cached review conversation
-	 *  (prior exchanges replayed to the AI) instead of a fresh run. */
+	 *  responsible for updating the registry entry on resolve/reject. */
 	startReview(
 		repoPath: string,
 		scope: ScopeSelection,
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
 		signal: AbortSignal,
-		options?: { mode?: 'refine' },
 	): Promise<ReviewResult> {
-		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal, options);
+		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal);
 	}
 
 	/** Direct-RPC compose run. See {@link startReview} for rationale.
@@ -1330,6 +1485,20 @@ export class DetailsActions {
 		return reachable ? true : undefined;
 	}
 
+	/** Sets the WIP merge target and mirrors its landed verdict (stamped with the branch tip sha) onto the graph
+	 *  state so the header can hide Publish for a branch that landed per git evidence. */
+	private setWipMergeTarget(status: BranchMergeTargetStatus | undefined): void {
+		this.state.wipMergeTarget.set(status);
+
+		if (this.graphState == null) return;
+
+		const sha = status?.branch.reference.sha;
+		this.graphState.wipLanded =
+			status?.mergeTarget?.landed != null && sha != null
+				? { repoPath: status.branch.repoPath, sha: sha }
+				: undefined;
+	}
+
 	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {
 		const s = this.services;
 		const cacheKey = `${branchName}:${repoPath}`;
@@ -1346,10 +1515,10 @@ export class DetailsActions {
 			this.state.wipIssues.set(cached.issues);
 			// MergeTarget — undefined is a valid resolved value, so use the sentinel to distinguish.
 			if (cached.hasMergeTarget) {
-				this.state.wipMergeTarget.set(cached.mergeTarget);
+				this.setWipMergeTarget(cached.mergeTarget);
 				this.state.wipMergeTargetLoading.set(false);
 			} else {
-				this.state.wipMergeTarget.set(undefined);
+				this.setWipMergeTarget(undefined);
 				this.state.wipMergeTargetLoading.set(true);
 			}
 			// PullRequest — same sentinel convention as mergeTarget.
@@ -1364,7 +1533,7 @@ export class DetailsActions {
 			// First visit to this branch — clear any prior-branch values and show loading.
 			this.state.wipAutolinks.set(undefined);
 			this.state.wipIssues.set(undefined);
-			this.state.wipMergeTarget.set(undefined);
+			this.setWipMergeTarget(undefined);
 			this.state.wipMergeTargetLoading.set(true);
 			this.state.wipPullRequest.set(undefined);
 			this.state.wipPullRequestLoading.set(true);
@@ -1390,6 +1559,7 @@ export class DetailsActions {
 					clearTimeout(maxWaitTimer);
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 					return;
 				}
 
@@ -1426,7 +1596,7 @@ export class DetailsActions {
 								mergeTarget: status,
 								hasMergeTarget: true,
 							});
-							this.state.wipMergeTarget.set(status);
+							this.setWipMergeTarget(status);
 						}),
 						noopUnlessReal,
 					)
@@ -1451,8 +1621,12 @@ export class DetailsActions {
 								hasPullRequest: true,
 							});
 							this.state.wipPullRequest.set(pr);
+							this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
 						}),
-						noopUnlessReal,
+						(e: unknown) => {
+							this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
+							noopUnlessReal(e);
+						},
 					)
 					.finally(() => {
 						if (signal.aborted) return;
@@ -1465,10 +1639,115 @@ export class DetailsActions {
 				if (!signal.aborted) {
 					this.state.wipMergeTargetLoading.set(false);
 					this.state.wipPullRequestLoading.set(false);
+					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 				}
 				noopUnlessReal(e);
 			},
 		);
+	}
+
+	/**
+	 * A pull request leaves its merge queue (merged, or removed) on the provider, with nothing local to notice it —
+	 * and the enrichment above only re-runs on a selection or branch change. Left alone, a WIP pane open on a queued
+	 * pull request would keep withholding branch actions indefinitely. So while it's queued, ask again once the
+	 * host's cached copy has expired, for as long as this selection's enrichment stays current (`signal`). The wait
+	 * only counts while the Graph is visible (see {@link PausableRecheckTimer}).
+	 */
+	private scheduleQueuedPullRequestRecheck(
+		repoPath: string,
+		branchName: string,
+		pr: OverviewBranchPullRequest | undefined,
+		signal: AbortSignal,
+	): void {
+		if (signal.aborted || this._disposed || !isPullRequestQueued(pr)) {
+			this._queuedPullRequestRecheck.cancel();
+			return;
+		}
+
+		this._queuedPullRequestRecheck.schedule(
+			() => this.refreshQueuedPullRequest(repoPath, branchName, signal),
+			signal,
+		);
+	}
+
+	/** After a failed or empty fetch, keep the recheck going if what's on screen (e.g. hydrated from cache) is still
+	 *  a queued pull request — otherwise it would stay on screen, holding branch actions, with nothing to clear it. */
+	private keepCheckingShownQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted) return;
+
+		this.scheduleQueuedPullRequestRecheck(repoPath, branchName, this.state.wipPullRequest.get(), signal);
+	}
+
+	/** Re-asks for just the branch's pull request — not the whole enrichment, whose merge-target leg (ahead/behind,
+	 *  merged status, conflict simulation), autolinks and issues don't change while the queue holds the branch. */
+	private refreshQueuedPullRequest(repoPath: string, branchName: string, signal: AbortSignal): void {
+		if (signal.aborted || this._disposed) return;
+
+		const cacheKey = `${branchName}:${repoPath}`;
+		const settle = (refreshed: PromiseSettledResult<OverviewBranchPullRequest | undefined>): void => {
+			if (signal.aborted || this._disposed) return;
+
+			const shown = this.state.wipPullRequest.get();
+			const pr = refreshed.status === 'fulfilled' ? refreshed.value : undefined;
+			switch (getQueuedPullRequestRefreshOutcome(shown, refreshed)) {
+				case 'still-queued':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
+					break;
+				case 'left-queue':
+					this._wipEnrichmentCache.update(cacheKey, { pullRequest: pr, hasPullRequest: true });
+					this.state.wipPullRequest.set(pr);
+					// Leaving the queue usually means the branch merged, so the merge-target status (and the actions
+					// it drives) is stale too — run the full enrichment once to catch it up. It hydrates from the
+					// cache entry just updated, so nothing flashes back to loading.
+					this.fetchWipBranchEnrichment(repoPath, branchName, signal);
+					break;
+				case 'retry':
+					this.scheduleQueuedPullRequestRecheck(repoPath, branchName, shown, signal);
+					break;
+				case 'stop':
+					break;
+			}
+		};
+
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(
+			pr => settle({ status: 'fulfilled', value: pr }),
+			(e: unknown) => {
+				noopUnlessReal(e);
+				settle({ status: 'rejected', reason: e });
+			},
+		);
+	}
+
+	/**
+	 * Re-reads the WIP branch's pull request after a Graph action changed it on the provider — adding it to or
+	 * removing it from its merge queue, or merging it. Nothing local changes, so the enrichment wouldn't re-run on its
+	 * own, and the queued recheck only runs for a pull request already shown as queued: without this, a pull request
+	 * just queued from its sheet keeps offering Rebase, Merge and Recompose here. A no-op unless it's the one shown.
+	 */
+	refreshWipPullRequest(number: string): void {
+		if (this._disposed || this.state.wipPullRequest.get()?.number !== number) return;
+
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		const signal = this._enrichmentController?.signal;
+		if (!branchName || !repoPath || signal == null || signal.aborted) return;
+
+		void this.services.branches.getBranchPullRequest(repoPath, branchName, signal, { fresh: true }).then(pr => {
+			if (signal.aborted || this._disposed) return;
+
+			this._wipEnrichmentCache.update(`${branchName}:${repoPath}`, { pullRequest: pr, hasPullRequest: true });
+			this.state.wipPullRequest.set(pr);
+			if (pr?.state === 'opened') {
+				this.scheduleQueuedPullRequestRecheck(repoPath, branchName, pr, signal);
+				return;
+			}
+
+			// Merged (or gone with its head branch): the merge-target status and the actions it drives are stale too
+			this.fetchWipBranchEnrichment(repoPath, branchName, signal);
+		}, noopUnlessReal);
 	}
 
 	/**
@@ -2617,6 +2896,69 @@ export class DetailsActions {
 		return this._branchCommitsFetchedRepoPath;
 	}
 
+	/** The scope as it was when the tip moved, before the picker's fallback for vanished working-change rows replaced it */
+	private _scopeBeforeTipMove: ScopeSelection | undefined;
+	/** The branch tip when a rebase or other operation paused — what its commits are matched against once it lands */
+	private _tipBeforePause: string | undefined;
+	private _branchBeforePause: string | undefined;
+
+	/** Set by the workflow controller — moves the reviews on commits a rewrite replaced onto the new ones */
+	anchorRewrittenHandler?: (history: RewrittenHistory, repoPath: string) => void;
+	/** Set by the workflow controller — whether a run on a commit review in the repo would report under its old anchor */
+	anchorBusyHandler?: (repoPath: string) => boolean;
+	/** Set by the workflow controller — whether any review on a commit in the repo could have been rewritten */
+	commitReviewsHandler?: (repoPath: string) => boolean;
+	/** The tip before a rewrite that came while the anchor was busy — the move it calls for waits for the run */
+	private _deferredAnchorRewrite: { repoPath: string; previousTip: string } | undefined;
+
+	get hasDeferredAnchorRewrite(): boolean {
+		return this._deferredAnchorRewrite != null;
+	}
+
+	retryDeferredAnchorRewrite(): void {
+		const deferred = this._deferredAnchorRewrite;
+		if (deferred == null || this.anchorBusyHandler?.(deferred.repoPath)) return;
+
+		void this.followRewrittenReviews(deferred.repoPath, deferred.previousTip);
+	}
+
+	/** Reads what a rewrite of the branch made of the commits the repo's commit reviews are on */
+	private async followRewrittenReviews(repoPath: string, previousTip: string): Promise<void> {
+		if (!this.commitReviewsHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = undefined;
+			return;
+		}
+
+		// From the earliest tip a deferred move still holds: the history since then takes in every rewrite
+		const tip =
+			this._deferredAnchorRewrite?.repoPath === repoPath ? this._deferredAnchorRewrite.previousTip : previousTip;
+		if (this.anchorBusyHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
+
+		this._deferredAnchorRewrite = undefined;
+		const history = await this.services.graphInspect.getRewrittenHistory(repoPath, tip).catch(() => undefined);
+		if (history == null) return;
+		if (this.anchorBusyHandler?.(repoPath)) {
+			this._deferredAnchorRewrite = { repoPath: repoPath, previousTip: tip };
+			return;
+		}
+
+		this.anchorRewrittenHandler?.(history, repoPath);
+	}
+
+	/** A picker selection that came in while the tip-move remap was pending — applied only if the remap doesn't */
+	private _scopeHeldForRemap: ScopeSelection | undefined;
+
+	/** Holds `scope` back while a tip-move remap is pending, so the picker's fallback doesn't flash its files */
+	holdScopeForRemap(scope: ScopeSelection): boolean {
+		if (this._scopeBeforeTipMove == null) return false;
+
+		this._scopeHeldForRemap = scope;
+		return true;
+	}
+
 	async fetchBranchCommits(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
@@ -2625,15 +2967,58 @@ export class DetailsActions {
 		this._branchCommitsController = controller;
 
 		this.state.branchCommitsFetching.set(true);
+		const tipMoved = this._scopeBeforeTipMove != null;
+		let scopeReplaced = false;
+		let prevCommits: readonly BranchCommitEntry[] | undefined;
 		try {
 			const result = await this.services.graphInspect.getBranchCommits(repoPath, undefined, controller.signal);
+			if (controller.signal.aborted) return;
+
+			prevCommits =
+				this._branchCommitsFetchedRepoPath != null &&
+				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath)
+					? this.state.branchCommits.get()
+					: undefined;
+			const scopeBeforeTipMove = this._scopeBeforeTipMove;
+			const scope = scopeBeforeTipMove ?? this.state.scope.get();
+			const remapped = await this.remapScope(
+				repoPath,
+				scope,
+				prevCommits,
+				result.commits,
+				{
+					prev: this.state.branchMergeBase.get()?.sha,
+					next: result.mergeBase?.sha,
+				},
+				controller.signal,
+			);
 			if (controller.signal.aborted) return;
 
 			this.state.branchCommits.set(result.commits);
 			this.state.branchMergeBase.set(result.mergeBase);
 			this.state.branchCommitsHasMore.set(result.hasMore);
 			this._branchCommitsFetchedRepoPath = repoPath;
+			if (remapped != null && (scopeBeforeTipMove != null || this.state.scope.get() === scope)) {
+				this._scopeHeldForRemap = undefined;
+				this.state.scope.set(remapped);
+				void this.resources.scopeFiles.fetch(repoPath, remapped);
+				scopeReplaced = true;
+			}
 		} finally {
+			if (!controller.signal.aborted) {
+				this._scopeBeforeTipMove = undefined;
+				const held = this._scopeHeldForRemap;
+				this._scopeHeldForRemap = undefined;
+				if (held != null) {
+					this.state.scope.set(held);
+					void this.resources.scopeFiles.fetch(repoPath, held);
+				} else if (tipMoved && !scopeReplaced) {
+					const scope = this.state.scope.get();
+					if (scope?.type === 'wip') {
+						void this.resources.scopeFiles.fetch(repoPath, scope);
+					}
+				}
+			}
 			if (this._branchCommitsController === controller) {
 				this._branchCommitsController = undefined;
 				this.state.branchCommitsFetching.set(false);
@@ -2641,6 +3026,7 @@ export class DetailsActions {
 		}
 
 		this.rederiveDeferredDefaultScope(repoPath);
+		this.reloadScopeCommitsPagedOut(repoPath, prevCommits);
 	}
 
 	/**
@@ -2695,6 +3081,46 @@ export class DetailsActions {
 
 		this.state.scope.set(refreshedScope);
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
+	}
+
+	private async remapScope(
+		repoPath: string,
+		scope: ScopeSelection | undefined,
+		prevCommits: readonly BranchCommitEntry[] | undefined,
+		nextCommits: readonly BranchCommitEntry[],
+		mergeBases: MergeBases,
+		signal: AbortSignal,
+	): Promise<ScopeSelection | undefined> {
+		if (scope?.type !== 'wip') return undefined;
+
+		const rewrittenShas = getRewrittenScopeShas(scope.includeShas, prevCommits, nextCommits, mergeBases);
+		const patchIds = rewrittenShas.length
+			? await this.services.graphInspect.getCommitPatchIds(repoPath, rewrittenShas, signal).catch(() => undefined)
+			: undefined;
+		const includeShas = remapScopeRange(
+			{ includeShas: scope.includeShas, includesWip: scope.includeStaged || scope.includeUnstaged },
+			prevCommits,
+			nextCommits,
+			mergeBases,
+			patchIds,
+		);
+		return includeShas != null ? { ...scope, includeShas: includeShas } : undefined;
+	}
+
+	/** A refetch lists the first page again: pages back while the scope holds commits that were listed before it */
+	private reloadScopeCommitsPagedOut(repoPath: string, prevCommits: readonly BranchCommitEntry[] | undefined): void {
+		const scope = this.state.scope.get();
+		if (scope?.type !== 'wip' || prevCommits == null) return;
+
+		const listed = new Set(this.state.branchCommits.get()?.map(c => c.sha));
+		const newestUntouched = prevCommits.findIndex(c => listed.has(c.sha));
+		if (newestUntouched < 0) return;
+
+		const pagedOut = (sha: string) =>
+			!listed.has(sha) && prevCommits.findIndex(c => c.sha === sha) > newestUntouched;
+		if (scope.includeShas.some(pagedOut)) {
+			void this.ensureBranchCommitsCover(repoPath, scope.includeShas);
+		}
 	}
 
 	/**
@@ -2923,6 +3349,52 @@ export class DetailsActions {
 			};
 		}
 		return current;
+	}
+
+	/** Set by the panel once its workflow controller exists — `onReviewReading` updates land here. */
+	reviewReadingHandler?: (state: ReviewReadingState | undefined) => void;
+	/** Likewise for thread actions taken in the editor. */
+	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+	/** And for what a delegated deep review reports. */
+	deepReviewHandler?: (state: DeepReviewState | undefined) => void;
+
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		return this.services.graphInspect.startDeepReview(args);
+	}
+
+	stopDeepReview(): void {
+		void this.services.graphInspect.stopDeepReview();
+	}
+
+	warnReviewHandOffDropped(to: 'reviewer' | 'agent'): void {
+		void this.services.graphInspect.warnReviewHandOffDropped(to);
+	}
+
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt: string | undefined,
+		excludedFiles: string[] | undefined,
+		inRepo: OrientInRepoArgs | undefined,
+		signal: AbortSignal,
+	): Promise<ReviewOrientResult> {
+		return this.services.graphInspect.orientChanges(repoPath, scope, prompt, excludedFiles, inRepo, signal);
+	}
+
+	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
+		void this.services.graphInspect.setReviewThreads(args);
+	}
+
+	setReviewFiles(args: ReviewFilesArgs | undefined): void {
+		void this.services.graphInspect.setReviewFiles(args);
+	}
+
+	stepReviewReading(action: ReviewReadingAction, path?: string, inListOrder?: boolean): void {
+		void this.services.graphInspect.reviewStep(action, path, inListOrder);
+	}
+
+	openReviewFile(args: ReviewOpenFileArgs): void {
+		void this.services.graphInspect.openReviewFile(args);
 	}
 
 	openFileByPath(
@@ -3419,8 +3891,26 @@ export class DetailsActions {
 
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
+
+		// A rewrite moves the tip without shifting ahead/behind (all the branch-state refetch watches); mid-rebase it
+		// waits, and a paused rebase can land with the tip it already had (an `edit` stop on the last commit)
+		const tipBefore = prev?.branch?.reference?.sha;
+		const rewritten = tipBefore !== wip.branch?.reference?.sha || prev?.changes?.pausedOpStatus != null;
+		if (wip.changes?.pausedOpStatus != null && prev?.changes?.pausedOpStatus == null) {
+			this._tipBeforePause = tipBefore;
+			this._branchBeforePause = prev?.branch?.name;
+		}
+		// A checkout moves the tip too, onto another branch's commits — not a rewrite of these
+		const branchBefore = prev?.changes?.pausedOpStatus != null ? this._branchBeforePause : prev?.branch?.name;
+		const tipMovedHere =
+			prev?.repo.path === repoPath &&
+			rewritten &&
+			wip.changes?.pausedOpStatus == null &&
+			branchBefore === wip.branch?.name;
+
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
+			const tipMoved = tipMovedHere && repoPath === this.state.activeModeRepoPath.get();
 
 			// A working-tree change can move the files inside the current wip scope (or drop a
 			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
@@ -3430,9 +3920,30 @@ export class DetailsActions {
 			// separately re-emits scope-change when its selection can no longer be honored, which
 			// reconciles the stored scope *identity*; this covers identity-stable ticks whose file
 			// set moved.)
+			// A tip move's remap reloads them itself, for the scope that replaces this one
 			const scope = this.state.scope.get();
-			if (scope?.type === 'wip' && repoPath === this.state.activeModeRepoPath.get()) {
+			if (
+				scope?.type === 'wip' &&
+				repoPath === this.state.activeModeRepoPath.get() &&
+				!tipMoved &&
+				this._scopeBeforeTipMove == null
+			) {
 				void this.resources.scopeFiles.fetch(repoPath, scope);
+			}
+
+			if (tipMoved) {
+				this._scopeBeforeTipMove ??= this.state.scope.get();
+				void this.fetchBranchCommits(repoPath);
+			}
+		}
+
+		// Commit reviews follow a rewrite whether engaged or kept for later
+		if (tipMovedHere) {
+			const previousTip = prev?.changes?.pausedOpStatus != null ? this._tipBeforePause : tipBefore;
+			this._tipBeforePause = undefined;
+			this._branchBeforePause = undefined;
+			if (previousTip != null) {
+				void this.followRewrittenReviews(repoPath, previousTip);
 			}
 		}
 		const branchName = wip.branch?.name;

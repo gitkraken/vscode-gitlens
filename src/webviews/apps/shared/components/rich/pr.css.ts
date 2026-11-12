@@ -13,6 +13,10 @@ export const prIconStyles = css`
 		color: var(--vscode-gitlens-mergedPullRequestIconColor);
 	}
 
+	.pr-icon--queued {
+		color: var(--vscode-gitlens-queuedPullRequestIconColor);
+	}
+
 	.pr-icon--draft {
 		color: var(--vscode-descriptionForeground);
 	}

@@ -46,14 +46,14 @@ export class GlProgressRing extends LitElement {
 			stroke-width: var(--gl-progress-ring-thickness, 3.6px);
 		}
 
-		/* Match the walkthrough progress bar tokens:
-		   track = --color-alert-neutralBackground, value = --vscode-progressBar-background. */
+		/* Match the walkthrough progress bar: a neutral foreground tint for the track,
+		   --vscode-progressBar-background for the value. */
 		.track {
-			stroke: var(--color-alert-neutralBackground);
+			stroke: color-mix(in srgb, var(--color-foreground) 12%, transparent);
 		}
 
 		.arc {
-			stroke: var(--vscode-progressBar-background, blue);
+			stroke: var(--vscode-progressBar-background);
 			stroke-linecap: round;
 			/* SVG circles start their path at 3 o'clock and draw clockwise; rotating -90deg moves the
 	   start to 12 o'clock so progress reads like a clock face. */

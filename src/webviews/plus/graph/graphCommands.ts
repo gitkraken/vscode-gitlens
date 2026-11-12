@@ -111,7 +111,7 @@ import { createCommandDecorator } from '../../../system/decorators/command.js';
 import type { WebviewItemContext } from '../../../system/webview.js';
 import { isWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
-import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
+import type { BranchAndTargetRefs, BranchRef, DeleteBranchOrWorktreeRefs } from '../../shared/branchRefs.js';
 import type { Change } from '../patchDetails/protocol.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { DetailsItemTypedContext } from './detailsProtocol.js';
@@ -411,8 +411,13 @@ export class GraphCommands {
 
 	@command('gitlens.deleteBranchOrWorktree:')
 	@debug()
-	private async deleteBranchOrWorktree(ref: BranchRef, mergeTarget?: BranchRef) {
-		await branchRefCommands.deleteBranchOrWorktree(this.container, ref, mergeTarget);
+	private async deleteBranchOrWorktree(args: DeleteBranchOrWorktreeRefs) {
+		await branchRefCommands.deleteBranchOrWorktree(
+			this.container,
+			args,
+			args.mergeTarget,
+			args.mergedPullRequest != null ? { mergedPullRequest: args.mergedPullRequest } : undefined,
+		);
 	}
 
 	@command('gitlens.fetchRemote:')

@@ -1,12 +1,23 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import { PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeQueueState, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../api/config.js';
 import { GitHubApi } from '../api/github.js';
 import type { GitHubTokenInfo } from '../api/token.js';
-import type { GitHubIssue, GitHubPullRequest, GitHubPullRequestLite } from '../models.js';
-import { fromGitHubIssue, fromGitHubPullRequest, fromGitHubPullRequestLite } from '../models.js';
+import type {
+	GitHubIssue,
+	GitHubMergeQueueEntryState,
+	GitHubMergeQueueEvent,
+	GitHubPullRequest,
+	GitHubPullRequestLite,
+} from '../models.js';
+import {
+	fromGitHubIssue,
+	fromGitHubMergeQueueRemoval,
+	fromGitHubPullRequest,
+	fromGitHubPullRequestLite,
+} from '../models.js';
 
 /**
  * GitHub's GraphQL `Issue.author` is an `Actor` and is nullable — it comes back `null` once the
@@ -31,7 +42,11 @@ const token: GitHubTokenInfo = {
 	type: 'pat',
 };
 
-function createIssue(number: number, author: GitHubIssue['author']): GitHubIssue {
+function createIssue(
+	number: number,
+	author: GitHubIssue['author'],
+	milestone: GitHubIssue['milestone'] = null,
+): GitHubIssue {
 	return {
 		id: `issue-${number}`,
 		number: number,
@@ -50,6 +65,7 @@ function createIssue(number: number, author: GitHubIssue['author']): GitHubIssue
 			viewerPermission: 'ADMIN',
 			url: 'https://github.com/gitkraken/vscode-gitlens',
 		},
+		milestone: milestone,
 		body: '',
 	} as unknown as GitHubIssue;
 }
@@ -83,7 +99,13 @@ suite('fromGitHubIssue', () => {
  * reject the fields — so the mapper sees them absent (Enterprise), `null` (github.com, unstacked), or
  * populated. Only the last case may produce stack info.
  */
-function createPullRequestLite(stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry'>): GitHubPullRequestLite {
+function createPullRequestLite(
+	stack?: Pick<
+		GitHubPullRequestLite,
+		'stack' | 'stackEntry' | 'mergeQueueEntry' | 'isMergeQueueEnabled' | 'mergeQueueEvents'
+	>,
+	milestone: GitHubPullRequestLite['milestone'] = null,
+): GitHubPullRequestLite {
 	return {
 		id: 'pr-5702',
 		number: 5702,
@@ -119,6 +141,7 @@ function createPullRequestLite(stack?: Pick<GitHubPullRequestLite, 'stack' | 'st
 			url: 'https://github.com/gitkraken/vscode-gitlens',
 			viewerPermission: 'ADMIN',
 		},
+		milestone: milestone,
 		...stack,
 	};
 }
@@ -175,62 +198,226 @@ suite('fromGitHubPullRequestLite stack mapping', () => {
 	});
 });
 
+function createFullPullRequest(
+	latestReviews: GitHubPullRequest['latestReviews']['nodes'],
+	viewerLatestReview: GitHubPullRequest['viewerLatestReview'],
+	milestone: GitHubPullRequest['milestone'] = null,
+): GitHubPullRequest {
+	const repository = {
+		isFork: false,
+		name: 'vscode-gitlens',
+		owner: { login: 'gitkraken' },
+		sshUrl: 'git@github.com:gitkraken/vscode-gitlens.git',
+		url: 'https://github.com/gitkraken/vscode-gitlens',
+	};
+
+	return {
+		id: 'pr-1',
+		number: 1,
+		title: 'PR 1',
+		url: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
+		permalink: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
+		state: 'OPEN',
+		createdAt: '2026-01-01T00:00:00Z',
+		updatedAt: '2026-01-02T00:00:00Z',
+		closed: false,
+		closedAt: null,
+		mergedAt: null,
+		author: member,
+		body: null,
+		baseRefName: 'main',
+		baseRefOid: 'base-sha',
+		headRefName: 'feature',
+		headRefOid: 'head-sha',
+		headRepository: repository,
+		repository: { ...repository, viewerPermission: 'WRITE' },
+		isCrossRepository: false,
+		isDraft: false,
+		additions: 1,
+		deletions: 0,
+		changedFiles: 1,
+		assignees: { nodes: [] },
+		checksUrl: 'https://github.com/gitkraken/vscode-gitlens/pull/1/checks',
+		mergeable: 'MERGEABLE',
+		reviewDecision: 'REVIEW_REQUIRED',
+		latestReviews: { nodes: latestReviews },
+		viewerLatestReview: viewerLatestReview,
+		reviewRequests: { nodes: [] },
+		commits: { totalCount: 0, nodes: [] },
+		totalCommentsCount: 0,
+		viewerCanUpdate: true,
+		milestone: milestone,
+	};
+}
+
+/**
+ * `mergeQueueEntry` is selected only against github.com, like the stack fields, and only for a host that opts in, so
+ * the mapper sees it absent (Enterprise, or no opt-in), `null` (not queued), or populated. Only the last may produce a
+ * queue entry.
+ */
+suite('fromGitHubPullRequestLite merge queue mapping', () => {
+	const queued = {
+		state: 'AWAITING_CHECKS' as GitHubMergeQueueEntryState,
+		enqueuedAt: '2026-07-30T02:00:00Z',
+		estimatedTimeToMerge: 900,
+		mergeQueue: { url: 'https://github.com/gitkraken/vscode-gitlens/queue/main' },
+		position: 2,
+	};
+
+	test('maps a queued pull request to its entry', () => {
+		const before = Date.now();
+		const pr = fromGitHubPullRequestLite(createPullRequestLite({ mergeQueueEntry: queued }), provider);
+		const after = Date.now();
+
+		// GitHub's estimate is seconds from now, fixed to a date at read time so a held entry counts down.
+		const estimatedMergeAt = pr.mergeQueue?.estimatedMergeAt?.getTime();
+		assert.ok(
+			estimatedMergeAt != null && estimatedMergeAt >= before + 900_000 && estimatedMergeAt <= after + 900_000,
+			`expected an estimate 900s after the read, got ${estimatedMergeAt}`,
+		);
+		assert.deepEqual(pr.mergeQueue, {
+			state: PullRequestMergeQueueState.AwaitingChecks,
+			enqueuedAt: new Date('2026-07-30T02:00:00Z'),
+			estimatedMergeAt: new Date(estimatedMergeAt),
+			url: 'https://github.com/gitkraken/vscode-gitlens/queue/main',
+			position: 2,
+		});
+		// Queue membership is extra data, never a state of its own.
+		assert.equal(pr.state, 'opened');
+	});
+
+	test('leaves a pull request that is not queued without an entry', () => {
+		const pr = fromGitHubPullRequestLite(createPullRequestLite({ mergeQueueEntry: null }), provider);
+
+		assert.equal(pr.mergeQueue, undefined);
+	});
+
+	test('leaves the entry off when the field was never selected (Enterprise)', () => {
+		const pr = fromGitHubPullRequestLite(createPullRequestLite(), provider);
+
+		assert.equal(pr.mergeQueue, undefined);
+	});
+
+	test('reports no estimate when GitHub has none, rather than zero', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({ mergeQueueEntry: { ...queued, estimatedTimeToMerge: null } }),
+			provider,
+		);
+
+		assert.notEqual(pr.mergeQueue, undefined);
+		assert.equal(pr.mergeQueue?.estimatedMergeAt, undefined);
+	});
+
+	test('keeps a pull request in a state GitHub adds later in the queue, as Queued', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({
+				mergeQueueEntry: { ...queued, state: 'SOMETHING_NEW' as GitHubMergeQueueEntryState },
+			}),
+			provider,
+		);
+
+		assert.equal(pr.mergeQueue?.state, PullRequestMergeQueueState.Queued);
+	});
+
+	test('reports no position when GitHub gives none', () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({ mergeQueueEntry: { ...queued, position: null } }),
+			provider,
+		);
+
+		assert.notEqual(pr.mergeQueue, undefined);
+		assert.equal(pr.mergeQueue?.position, undefined);
+	});
+
+	test('maps whether the base branch requires a merge queue, and leaves it unread when never selected', () => {
+		const required = fromGitHubPullRequestLite(createPullRequestLite({ isMergeQueueEnabled: true }), provider);
+		const notRequired = fromGitHubPullRequestLite(createPullRequestLite({ isMergeQueueEnabled: false }), provider);
+		const enterprise = fromGitHubPullRequestLite(createPullRequestLite(), provider);
+
+		assert.equal(required.mergeQueueRequired, true);
+		// `false` is a read answer, not a missing one.
+		assert.equal(notRequired.mergeQueueRequired, false);
+		assert.equal(enterprise.mergeQueueRequired, undefined);
+	});
+});
+
+/**
+ * The latest merge-queue event decides the removal: only a removal that is the latest event (no rejoin since) and
+ * didn't merge the pull request is one.
+ */
+suite('fromGitHubMergeQueueRemoval', () => {
+	function removed(reason: string | null, createdAt = '2026-07-30T03:00:00Z'): GitHubMergeQueueEvent {
+		return {
+			__typename: 'RemovedFromMergeQueueEvent',
+			createdAt: createdAt,
+			reason: reason,
+		};
+	}
+
+	test("maps a latest removal, keeping GitHub's raw reason", () => {
+		const pr = fromGitHubPullRequestLite(
+			createPullRequestLite({
+				mergeQueueEntry: null,
+				mergeQueueEvents: { nodes: [removed('failed_checks')] },
+			}),
+			provider,
+		);
+
+		assert.deepEqual(pr.mergeQueueRemoval, {
+			reason: 'failed_checks',
+			removedAt: new Date('2026-07-30T03:00:00Z'),
+		});
+	});
+
+	test('passes an unrecognized reason through, and a missing one as empty', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('something_new')] })?.reason, 'something_new');
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed(null)] })?.reason, '');
+	});
+
+	test('a removal that merged the pull request is no removal', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('merged')] }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [removed('MERGED')] }), undefined);
+	});
+
+	test('a later rejoin clears the removal', () => {
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [{ __typename: 'AddedToMergeQueueEvent' }],
+			}),
+			undefined,
+		);
+	});
+
+	test('only the latest event counts', () => {
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [removed('failed_checks'), { __typename: 'AddedToMergeQueueEvent' }],
+			}),
+			undefined,
+		);
+		assert.equal(
+			fromGitHubMergeQueueRemoval({
+				nodes: [{ __typename: 'AddedToMergeQueueEvent' }, removed('manual')],
+			})?.reason,
+			'manual',
+		);
+	});
+
+	test('no events, or none selected (Enterprise), is no removal', () => {
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: [] }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval({ nodes: null }), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval(null), undefined);
+		assert.equal(fromGitHubMergeQueueRemoval(undefined), undefined);
+		assert.equal(fromGitHubPullRequestLite(createPullRequestLite(), provider).mergeQueueRemoval, undefined);
+	});
+});
+
 /**
  * `latestReviews` is capped at 25 and `viewerLatestReview` is the escape hatch for the row a "needs my review"
  * surface is actually asking about, so the union of the two is the delicate part of the full projection: it can
  * lose the viewer's review, duplicate it, or invent one that was never submitted.
  */
 suite('fromGitHubPullRequest review projection', () => {
-	function createFullPullRequest(
-		latestReviews: GitHubPullRequest['latestReviews']['nodes'],
-		viewerLatestReview: GitHubPullRequest['viewerLatestReview'],
-	): GitHubPullRequest {
-		const repository = {
-			isFork: false,
-			name: 'vscode-gitlens',
-			owner: { login: 'gitkraken' },
-			sshUrl: 'git@github.com:gitkraken/vscode-gitlens.git',
-			url: 'https://github.com/gitkraken/vscode-gitlens',
-		};
-
-		return {
-			id: 'pr-1',
-			number: 1,
-			title: 'PR 1',
-			url: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
-			permalink: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
-			state: 'OPEN',
-			createdAt: '2026-01-01T00:00:00Z',
-			updatedAt: '2026-01-02T00:00:00Z',
-			closed: false,
-			closedAt: null,
-			mergedAt: null,
-			author: member,
-			body: null,
-			baseRefName: 'main',
-			baseRefOid: 'base-sha',
-			headRefName: 'feature',
-			headRefOid: 'head-sha',
-			headRepository: repository,
-			repository: { ...repository, viewerPermission: 'WRITE' },
-			isCrossRepository: false,
-			isDraft: false,
-			additions: 1,
-			deletions: 0,
-			changedFiles: 1,
-			assignees: { nodes: [] },
-			checksUrl: 'https://github.com/gitkraken/vscode-gitlens/pull/1/checks',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'REVIEW_REQUIRED',
-			latestReviews: { nodes: latestReviews },
-			viewerLatestReview: viewerLatestReview,
-			reviewRequests: { nodes: [] },
-			commits: { totalCount: 0, nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
-		};
-	}
-
 	const otherReview = {
 		id: 'review-other',
 		author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
@@ -298,6 +485,68 @@ suite('fromGitHubPullRequest review projection', () => {
 
 		assert.equal(pr.latestReviews?.length, 1);
 		assert.equal(pr.latestReviews?.[0]?.commitOid, undefined, 'a review without a commit maps to no oid');
+	});
+});
+
+/**
+ * A milestone comes back `null` when the item has none, which must stay apart from `undefined` (a selection that left
+ * it out), so a consumer can tell "no milestone" from "not read".
+ */
+suite('GitHub milestone mapping', () => {
+	const open = {
+		id: 'MI_open',
+		title: 'v1.0',
+		state: 'OPEN',
+		dueOn: '2026-12-01T00:00:00Z',
+		url: 'https://github.com/gitkraken/vscode-gitlens/milestone/1',
+	} as const;
+	const closed = {
+		id: 'MI_closed',
+		title: 'v0.9',
+		state: 'CLOSED',
+		dueOn: null,
+		url: 'https://github.com/gitkraken/vscode-gitlens/milestone/2',
+	} as const;
+
+	test('maps an open milestone with a due date on every projection', () => {
+		const expected = {
+			id: 'MI_open',
+			title: 'v1.0',
+			state: 'open',
+			dueDate: new Date('2026-12-01T00:00:00Z'),
+			url: 'https://github.com/gitkraken/vscode-gitlens/milestone/1',
+		};
+
+		assert.deepEqual(fromGitHubIssue(createIssue(1, member, open), provider).milestone, expected);
+		assert.deepEqual(
+			fromGitHubPullRequestLite(createPullRequestLite(undefined, open), provider).milestone,
+			expected,
+		);
+		assert.deepEqual(fromGitHubPullRequest(createFullPullRequest([], null, open), provider).milestone, expected);
+	});
+
+	test('maps a closed milestone and leaves an unset due date off', () => {
+		const milestone = fromGitHubIssue(createIssue(1, member, closed), provider).milestone;
+
+		assert.deepEqual(milestone, {
+			id: 'MI_closed',
+			title: 'v0.9',
+			state: 'closed',
+			url: 'https://github.com/gitkraken/vscode-gitlens/milestone/2',
+		});
+		assert.ok(milestone != null && !('dueDate' in milestone));
+	});
+
+	test('keeps none as null', () => {
+		assert.equal(fromGitHubIssue(createIssue(1, member, null), provider).milestone, null);
+		assert.equal(fromGitHubPullRequestLite(createPullRequestLite(undefined, null), provider).milestone, null);
+		assert.equal(fromGitHubPullRequest(createFullPullRequest([], null, null), provider).milestone, null);
+	});
+
+	test('leaves a milestone the selection left out undefined', () => {
+		const { milestone: _, ...unselected } = createPullRequestLite();
+
+		assert.equal(fromGitHubPullRequestLite(unselected as GitHubPullRequestLite, provider).milestone, undefined);
 	});
 });
 

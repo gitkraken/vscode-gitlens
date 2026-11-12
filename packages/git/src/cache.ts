@@ -35,7 +35,7 @@ import type { ResolvedRevision } from './providers/revision.js';
 import type { GitResult } from './run.types.js';
 import { parseBranchMetadataGkConfigKey, setBranchMetadataValue } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
-import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from './utils/repository.utils.js';
+import { getCommonRepositoryPath, getRepositoryOrWorktreePath, getWorktreeAdminId } from './utils/repository.utils.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
 
 type RepoPath = string;
@@ -116,6 +116,16 @@ const baseBranchNameTTL = 5 * 60 * 1000; // 5 minutes
  * documents be owned by their active tracked-document snapshot instead of retaining a second long-lived owner.
  */
 const maxCachedBlameLines = 5000;
+
+/** Per drop-stamped cache, paths whose last drop is tracked; the oldest beyond this folds into the all-paths floor */
+const dropsTracked = 128;
+
+/**
+ * Per-path caches whose drops are stamped, so a read can tell its entry was dropped mid-flight
+ * (see {@link Cache.isDroppedSince})
+ */
+export type DropStampedCacheKey = 'currentBranchReference' | 'currentUser';
+const dropStampedCacheKeys = exhaustiveArray<DropStampedCacheKey>()(['currentBranchReference', 'currentUser']);
 
 export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlame | undefined): Promise<boolean> {
 	if (progressive == null) return false;
@@ -225,6 +235,7 @@ interface Caches {
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	resolvedRevisions: RepoPromiseCacheMap<string, ResolvedRevision> | undefined;
+	superprojects: PromiseCache<string, boolean> | undefined;
 	trackedPaths: RepoPromiseCacheMap<string, [string, string] | false> | undefined;
 }
 
@@ -352,6 +363,7 @@ function createEmptyCaches(): AllCaches {
 		remotes: undefined,
 		sharedBranches: undefined,
 		stashes: undefined,
+		superprojects: undefined,
 		tags: undefined,
 		trackedPaths: undefined,
 		worktrees: undefined,
@@ -367,12 +379,41 @@ export class Cache implements Disposable {
 	private _statusGenerations = new Map<RepoPath, number>();
 	/** Monotonic per-path "close clock" — see {@link getCloseGeneration}. */
 	private _closeGenerations = new Map<RepoPath, number>();
+	/** Advanced by {@link reset}, which moves every path's close clock, those it never saw included */
+	private _resetGeneration = 0;
 	/** Per commonPath, the `mergeTargets` keys a checkout evicts (see {@link CachedMergeTarget.evictOnCheckout}) */
 	private _mergeTargetsEvictedOnCheckout = new Map<string, Set<string>>();
 	/** Bumped on each checkout eviction, so a merge target resolved across one isn't kept for the next */
 	private _mergeTargetCheckoutGeneration = 0;
 	/** Each merge target answer's entry as `mergeTargets` stored it, so dropping a stale answer can't drop its successor */
 	private _mergeTargetStored = new WeakMap<CachedMergeTarget, Promise<CachedMergeTarget>>();
+	/** Advanced each time a drop-stamped cache's entries are dropped (see {@link getDropStamp}) */
+	private _drops = 0;
+	/**
+	 * Per drop-stamped cache, the value of {@link _drops} when each path's entry was last dropped (`byPath`) and when
+	 * every path's entry was (`all`)
+	 */
+	private readonly _droppedAt: Record<DropStampedCacheKey, { byPath: Map<RepoPath, number>; all: number }> = {
+		currentBranchReference: { byPath: new Map(), all: 0 },
+		currentUser: { byPath: new Map(), all: 0 },
+	};
+	/**
+	 * Each ref listing's records checked out in a worktree, with the value of {@link _drops} when the listing started
+	 * and the common path it listed
+	 */
+	private _refsRead = new WeakMap<RefRecord, { readonly at: number; readonly commonPath: string }>();
+	/**
+	 * Unregistered linked worktrees a ref listing reported, whether or not it seeded their current branch, with the
+	 * common path of the listing (see {@link dropLinkedCurrentBranches})
+	 */
+	private _seededWorktrees = new Map<RepoPath, string>();
+	/** {@link _seededWorktrees} by common path */
+	private _seededWorktreesByCommonPath = new Map<RepoPath, Set<RepoPath>>();
+	/**
+	 * Registered linked worktrees' admin ids (the `<id>` of `.git/worktrees/<id>`), which name the worktree a
+	 * `'worktreeHead'` report says moved (see {@link applyRepositoryChanges})
+	 */
+	private _worktreeAdminIds = new Map<RepoPath, string>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -410,13 +451,61 @@ export class Cache implements Disposable {
 		  ) => PromiseOrValue<GkReconcileOutcome>)
 		| undefined;
 
+	/** Run before each read of a cache with no expiry (see {@link setReadValidator}) */
+	private _readValidator: ((repoPath: string) => Promise<void> | undefined) | undefined;
+	/** What the read validator reports among {@link getResourceUsage}'s */
+	private _readValidatorUsage: (() => ResourceUsage) | undefined;
+
 	[Symbol.dispose](): void {
 		this.dispose();
 	}
 
 	dispose(): void {
 		this.reset();
+		this._readValidator = undefined;
+		this._readValidatorUsage = undefined;
 		this._onDidChangeMergeTargets.dispose();
+	}
+
+	/**
+	 * Registers what runs before each read of the caches that only a change report, core's own writes or an explicit
+	 * clear drop in time (the branches, current branch and its reference, refs and their tips, tags, remotes, worktrees,
+	 * stashes, gk config, paused operation, and what is derived from them: default and base branch names, merge
+	 * targets, branch metadata, the initial commit, resolved revisions, commit counts, reachability, branch overviews,
+	 * contributors, the current user, the ahead-of-base and gitignore config listings, and the cached git runs). It
+	 * answers `undefined` when the read can go ahead at once, or a promise that settles, never rejecting, once it
+	 * applied whatever changed (as {@link onRepositoryChanged}), after which the read runs. A host that watches only
+	 * some repositories registers one that checks the others' git dirs (see `UnwatchedCacheValidator`); `undefined`
+	 * removes it. Kept across {@link reset}: it is host wiring, not cached state. `getResourceUsage` reports what it
+	 * costs among {@link getResourceUsage}'s.
+	 */
+	setReadValidator(
+		validator: ((repoPath: string) => Promise<void> | undefined) | undefined,
+		getResourceUsage?: () => ResourceUsage,
+	): void {
+		this._readValidator = validator;
+		this._readValidatorUsage = validator != null ? getResourceUsage : undefined;
+	}
+
+	/**
+	 * Runs the read validator (see {@link setReadValidator}) for a read of one of its caches made without the wrappers
+	 * here: `undefined` when the read can go ahead at once, or a promise (that never rejects) to read after
+	 */
+	validateBeforeRead(repoPath: string): Promise<void> | undefined {
+		return this._readValidator?.(repoPath);
+	}
+
+	/** Runs `read` once the read validator let `repoPath` be read, at once when it has nothing to wait for */
+	private readValidated<T>(repoPath: string, read: () => Promise<T>): Promise<T> {
+		const validation = this._readValidator?.(repoPath);
+		return validation != null ? validation.then(read) : read();
+	}
+
+	/** A map read directly by the providers, whose every `getOrCreate` is validated as the cache's own reads are */
+	private createValidatedRepoPromiseCacheMap<K, V>(
+		options: ConstructorParameters<typeof RepoPromiseCacheMap>[0],
+	): RepoPromiseCacheMap<K, V> {
+		return new ValidatedRepoPromiseCacheMap<K, V>(repoPath => this._readValidator?.(repoPath), options);
 	}
 
 	/** Resource usage retained by instantiated sub-caches and their bookkeeping maps. */
@@ -433,6 +522,13 @@ export class Cache implements Disposable {
 		usage['cache.statusGenerations.entries.count'] = this._statusGenerations.size;
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
 		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
+		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
+		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
+		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
+		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
+		if (this._readValidatorUsage != null) {
+			Object.assign(usage, this._readValidatorUsage());
+		}
 		return usage;
 	}
 
@@ -534,9 +630,172 @@ export class Cache implements Disposable {
 		return (this._caches.currentBranchReference ??= new PromiseCache<RepoPath, GitBranchReference | undefined>());
 	}
 
-	setCurrentBranchReferenceIfAbsent(worktreePath: string, reference: GitBranchReference | undefined): void {
-		if (this.currentBranchReference.get(worktreePath) == null) {
-			this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
+	/**
+	 * Seeds `worktreePath`'s current branch reference from a ref listing's `%(worktreepath)`, unless the reference was
+	 * dropped after the listing started: the listing may predate the checkout that dropped it, so the seed would bring
+	 * the old branch back until the next HEAD change. `record` must be the record of a listing {@link getRefs} returned
+	 * that `reference` was read from; any other seeds nothing
+	 */
+	setCurrentBranchReferenceIfAbsent(
+		worktreePath: string,
+		reference: GitBranchReference | undefined,
+		record: RefRecord,
+	): void {
+		const read = this._refsRead.get(record);
+		if (read == null || this.isDroppedSince('currentBranchReference', worktreePath, read.at)) return;
+
+		// Tracked even when the seed isn't taken: a reference a direct read cached goes as stale with a checkout there
+		if (worktreePath !== read.commonPath && !this._commonPathRegistry.has(worktreePath)) {
+			this.trackSeededWorktree(worktreePath, read.commonPath);
+		}
+		if (this.currentBranchReference.get(worktreePath) != null) return;
+
+		this.currentBranchReference.set(worktreePath, Promise.resolve(reference));
+	}
+
+	private trackSeededWorktree(worktreePath: string, commonPath: string): void {
+		const previous = this._seededWorktrees.get(worktreePath);
+		if (previous === commonPath) return;
+
+		if (previous != null) {
+			this.untrackSeededWorktree(worktreePath);
+		}
+
+		this._seededWorktrees.set(worktreePath, commonPath);
+		let paths = this._seededWorktreesByCommonPath.get(commonPath);
+		if (paths == null) {
+			paths = new Set();
+			this._seededWorktreesByCommonPath.set(commonPath, paths);
+		}
+		paths.add(worktreePath);
+	}
+
+	private untrackSeededWorktree(worktreePath: string): void {
+		const commonPath = this._seededWorktrees.get(worktreePath);
+		if (commonPath == null) return;
+
+		this._seededWorktrees.delete(worktreePath);
+		const paths = this._seededWorktreesByCommonPath.get(commonPath);
+		paths?.delete(worktreePath);
+		if (paths?.size === 0) {
+			this._seededWorktreesByCommonPath.delete(commonPath);
+		}
+	}
+
+	/**
+	 * Tracks exactly `reported` for `commonPath`. A path the listing no longer reports isn't tracked any more, so a
+	 * HEAD change could no longer find it to drop its current branch: it goes with it
+	 */
+	private replaceSeededWorktrees(commonPath: string, reported: ReadonlySet<string>): void {
+		for (const path of [...(this._seededWorktreesByCommonPath.get(commonPath) ?? [])]) {
+			if (reported.has(path)) continue;
+
+			this.untrackSeededWorktree(path);
+			this.dropCurrentBranch(path);
+		}
+		for (const path of reported) {
+			this.trackSeededWorktree(path, commonPath);
+		}
+	}
+
+	/**
+	 * A `'worktreeHead'` report that doesn't say which linked worktree's HEAD moved, so each one but `repoPath` loses its
+	 * current branch: those registered, and those its repository's ref listings seeded. Never the main checkout: its
+	 * HEAD is the common `HEAD`, which is reported as `'head'`. With `unidentifiedOnly`, the report named a worktree that
+	 * isn't registered, so a registered one with an admin id of its own keeps its current branch
+	 */
+	private dropLinkedCurrentBranches(repoPath: string, unidentifiedOnly: boolean = false): void {
+		const commonPath = this.getCommonPath(repoPath);
+		const paths = new Set(
+			unidentifiedOnly
+				? this.getWorktreePaths(commonPath).filter(p => !this._worktreeAdminIds.has(p))
+				: this.getWorktreePaths(commonPath),
+		);
+		for (const path of this._seededWorktreesByCommonPath.get(commonPath) ?? []) {
+			paths.add(path);
+		}
+		paths.delete(repoPath);
+		paths.delete(commonPath);
+
+		for (const path of paths) {
+			this.dropCurrentBranch(path);
+		}
+	}
+
+	/**
+	 * A `'worktreeHead'` report naming, by admin id, the linked worktrees whose HEAD moved: each registered one but
+	 * `repoPath` is cleared as for its own `'head'` change, and an id no registered worktree has is an unregistered
+	 * worktree's (see {@link dropLinkedCurrentBranches})
+	 */
+	private applyLinkedHeadsMoved(repoPath: string, ids: ReadonlySet<string>, inFlight: 'share' | 'evict'): void {
+		const found = new Set<string>();
+		for (const path of this.getWorktreePaths(this.getCommonPath(repoPath))) {
+			const id = this._worktreeAdminIds.get(path);
+			if (id == null || !ids.has(id)) continue;
+
+			found.add(id);
+			if (path === repoPath) continue;
+
+			// Its own entries and status clock; the shared ones are for `repoPath`'s `'worktreeHead'` to clear
+			this.applyRepositoryChanges(path, ['head'], inFlight, { worktreeOnly: true });
+			// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current,
+			// and its git results may have read the HEAD it left
+			this._caches.branches?.delete(path);
+			this._caches.gitResults?.delete(path);
+		}
+
+		if (found.size < ids.size) {
+			this.dropLinkedCurrentBranches(repoPath, true);
+		}
+	}
+
+	/** Drops what a `'branch'` eviction of `worktreePath` drops of its current branch, and nothing shared */
+	private dropCurrentBranch(worktreePath: string): void {
+		this.onDropped(worktreePath, ['currentBranchReference']);
+		this._caches.currentBranchReference?.delete(worktreePath);
+		this._caches.branch?.delete(worktreePath);
+		this._caches.branches?.delete(worktreePath);
+	}
+
+	/**
+	 * A stamp to take before a read, to later ask {@link isDroppedSince} whether the read's entry was dropped mid-flight.
+	 * With `key` and `repoPath`, the stamp of that entry's last drop, which only a drop of it advances, so it can key a
+	 * read that calls with no drop between them share
+	 */
+	getDropStamp(key?: DropStampedCacheKey, repoPath?: string): number {
+		if (key == null || repoPath == null) return this._drops;
+
+		const droppedAt = this._droppedAt[key];
+		return Math.max(droppedAt.all, droppedAt.byPath.get(repoPath) ?? 0);
+	}
+
+	/** Whether `key`'s entry for `repoPath` was dropped after `stamp` was taken by {@link getDropStamp} */
+	isDroppedSince(key: DropStampedCacheKey, repoPath: string, stamp: number): boolean {
+		const droppedAt = this._droppedAt[key];
+		return stamp < droppedAt.all || stamp < (droppedAt.byPath.get(repoPath) ?? 0);
+	}
+
+	/** Stamps a drop of `keys`' entries for `repoPath`, or for every path when `undefined` */
+	private onDropped(repoPath: string | undefined, keys: readonly DropStampedCacheKey[] = dropStampedCacheKeys): void {
+		if (!keys.length) return;
+
+		this._drops++;
+		for (const key of keys) {
+			const droppedAt = this._droppedAt[key];
+			if (repoPath == null) {
+				droppedAt.all = this._drops;
+				droppedAt.byPath.clear();
+				continue;
+			}
+
+			// Re-inserted so the map stays ordered oldest drop first
+			droppedAt.byPath.delete(repoPath);
+			droppedAt.byPath.set(repoPath, this._drops);
+			if (droppedAt.byPath.size > dropsTracked) {
+				const [oldestPath, oldestAt] = droppedAt.byPath.entries().next().value!;
+				droppedAt.byPath.delete(oldestPath);
+				droppedAt.all = Math.max(droppedAt.all, oldestAt);
+			}
 		}
 	}
 
@@ -588,7 +847,10 @@ export class Cache implements Disposable {
 	}
 
 	get gitResults(): RepoPromiseCacheMap<RepoPath, GitResult> {
-		return (this._caches.gitResults ??= new RepoPromiseCacheMap<RepoPath, GitResult>({ capacity: 200 }));
+		// Many of its runs are keyed by ref names (a merge base of two branches, `rev-parse --verify <ref>`)
+		return (this._caches.gitResults ??= this.createValidatedRepoPromiseCacheMap<RepoPath, GitResult>({
+			capacity: 200,
+		}));
 	}
 
 	get ignoreConfigListing(): PromiseMap<RepoPath, string | undefined> {
@@ -623,7 +885,7 @@ export class Cache implements Disposable {
 	}
 
 	get commitCount(): RepoPromiseCacheMap<string, number | undefined> {
-		return (this._caches.commitCount ??= new RepoPromiseCacheMap<string, number | undefined>({
+		return (this._caches.commitCount ??= this.createValidatedRepoPromiseCacheMap<string, number | undefined>({
 			accessTTL: 1000 * 60 * 60, // 60 minutes
 			capacity: 50,
 		}));
@@ -680,7 +942,10 @@ export class Cache implements Disposable {
 	}
 
 	get reachability(): RepoPromiseCacheMap<string, GitCommitReachability | undefined> {
-		return (this._caches.reachability ??= new RepoPromiseCacheMap<string, GitCommitReachability | undefined>({
+		return (this._caches.reachability ??= this.createValidatedRepoPromiseCacheMap<
+			string,
+			GitCommitReachability | undefined
+		>({
 			accessTTL: 1000 * 60 * 60, // 60 minutes
 			capacity: 25, // Limit to 25 commits per repo
 		}));
@@ -714,6 +979,19 @@ export class Cache implements Disposable {
 		return (this._caches.ignoreRevsFile ??= new PromiseCache<string, boolean>({
 			accessTTL: 1000 * 60 * 60 * 2, // 2 hours
 			expireOnError: true,
+		}));
+	}
+
+	/**
+	 * Keyed by a checkout's parent folder, not a repository path: whether a repository above it could track checkouts
+	 * there as submodules. Short-lived, so a checkout resolved within a few seconds of a sibling reuses its walk, and one
+	 * resolved later walks again. It only bounds how old a reused answer can be: `gitDir` keeps each checkout's answer
+	 * until it is unregistered. Cleared whole wherever `gitDir` is, since a per-path clear can't find its keys.
+	 */
+	get superprojects(): PromiseCache<string, boolean> {
+		return (this._caches.superprojects ??= new PromiseCache<string, boolean>({
+			createTTL: 1000 * 5, // 5 seconds
+			capacity: 64,
 		}));
 	}
 
@@ -919,6 +1197,8 @@ export class Cache implements Disposable {
 				// Keyed by ref names too, so a count or fork point taken against a tag-named base would outlive its move
 				keysToClear.add('leftRightCommitCount');
 				keysToClear.add('mergeBase');
+				// Lists the tags a commit is reachable from, which a tag created or deleted changes
+				keysToClear.add('reachability');
 			}
 
 			if (types.includes('tracking')) {
@@ -936,11 +1216,16 @@ export class Cache implements Disposable {
 			}
 		}
 
+		this.onDropped(
+			repoPath,
+			dropStampedCacheKeys.filter(k => keysToClear.has(k)),
+		);
+
 		for (const key of keysToClear) {
 			const cache = this._caches[key];
 			if (cache == null) continue;
 
-			if (repoPath == null) {
+			if (repoPath == null || key === 'superprojects') {
 				cache.clear();
 			} else if (key === 'aheadOfBaseConfigKey' && !worktreeOnly && (!types.length || types.includes('config'))) {
 				// Config reports don't distinguish a common config write from a checkout-specific one.
@@ -957,6 +1242,18 @@ export class Cache implements Disposable {
 				}
 			} else {
 				cache.delete(repoPath);
+			}
+		}
+
+		// The checkout's own mapped list marks its old branch current. Not through `keysToClear`: `branches` is shared,
+		// so the loop would drop every sibling's list and the shared one too. Deleted even when sharing reads in flight:
+		// a read issued after this must not join a mapper that read the old current branch, and `delete` leaves that
+		// mapper's existing waiters alone
+		if (types.includes('branch') && !types.includes('branches')) {
+			if (repoPath == null) {
+				this._caches.branches?.clear();
+			} else {
+				this._caches.branches?.delete(repoPath);
 			}
 		}
 	}
@@ -1063,14 +1360,22 @@ export class Cache implements Disposable {
 	}
 
 	/**
+	 * The admin id (the `<id>` of `.git/worktrees/<id>`) of the registered linked worktree at `repoPath`; `undefined`
+	 * for the main checkout, or a path not registered
+	 */
+	getLinkedWorktreeId(repoPath: string): string | undefined {
+		return this._worktreeAdminIds.get(repoPath);
+	}
+
+	/**
 	 * Monotonic per-path counter advanced whenever `repoPath` is unregistered (repo closed, worktree
-	 * removed). Lets an async post-read step — e.g. the gk-config reconcile — detect that its target was
-	 * closed (and possibly reopened) mid-flight and bail. Unlike an `isRegistered` check it doesn't
-	 * require the caller to have registered in the first place, so it stays correct for consumers of
-	 * this package that don't wire up the host's repo lifecycle.
+	 * removed) or the cache is {@link reset}. Lets an async post-read step — e.g. the gk-config reconcile —
+	 * detect that its target was closed (and possibly reopened) mid-flight and bail. Unlike an `isRegistered`
+	 * check it doesn't require the caller to have registered in the first place, so it stays correct for
+	 * consumers of this package that don't wire up the host's repo lifecycle.
 	 */
 	getCloseGeneration(repoPath: string): number {
-		return this._closeGenerations.get(repoPath) ?? 0;
+		return (this._closeGenerations.get(repoPath) ?? 0) + this._resetGeneration;
 	}
 
 	/** Clears file-scoped caches (blame, diff, fileLog) for a specific path within a repo */
@@ -1102,7 +1407,21 @@ export class Cache implements Disposable {
 			}
 			this._caches.gitResults?.delete(normalizedPath);
 		}
+		if (previousCommonPath == null && normalizedPath !== commonPath) {
+			this.evictReadsBeforeRegistration(normalizedPath);
+		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
+		// Found as registered from here on
+		this.untrackSeededWorktree(normalizedPath);
+		const adminId =
+			gitDir.commonUri != null && normalizedPath !== commonPath
+				? getWorktreeAdminId(gitDir.uri.path, gitDir.commonUri.path)
+				: undefined;
+		if (adminId != null) {
+			this._worktreeAdminIds.set(normalizedPath, adminId);
+		} else {
+			this._worktreeAdminIds.delete(normalizedPath);
+		}
 
 		let worktrees = this._worktreesByCommonPath.get(commonPath);
 		if (worktrees == null) {
@@ -1110,6 +1429,31 @@ export class Cache implements Disposable {
 			this._worktreesByCommonPath.set(commonPath, worktrees);
 		}
 		worktrees.add(normalizedPath);
+	}
+
+	/**
+	 * A checkout read before it was registered was its own common path, so it holds its own copy of what its
+	 * repository's checkouts share, and reads from here on go by the common path. Config stays: it is kept by checkout.
+	 * Its gk config baseline and merge target tracking go too, or a read after it is unregistered would reconcile
+	 * against a baseline from before it was registered.
+	 */
+	private evictReadsBeforeRegistration(repoPath: string): void {
+		this._gkConfigSnapshots.delete(repoPath);
+		this._mergeTargetsEvictedOnCheckout.delete(repoPath);
+
+		for (const key of sharedCacheKeys) {
+			if (key === 'configKeys' || key === 'configPatterns') continue;
+
+			const cache = this._caches[key];
+			if (cache == null) continue;
+
+			const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+			if (typeof invalidate === 'function') {
+				invalidate.call(cache, repoPath);
+			} else {
+				cache.delete(repoPath);
+			}
+		}
 	}
 
 	/**
@@ -1138,7 +1482,8 @@ export class Cache implements Disposable {
 		this.incrementStatusGeneration(repoPath);
 		// Advance the close clock so an async step that captured it before its read (see `getCloseGeneration`)
 		// can tell its target went away mid-flight.
-		this._closeGenerations.set(repoPath, this.getCloseGeneration(repoPath) + 1);
+		this._closeGenerations.set(repoPath, (this._closeGenerations.get(repoPath) ?? 0) + 1);
+		this.onDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
@@ -1153,6 +1498,10 @@ export class Cache implements Disposable {
 			const cache = this._caches[key];
 			if (cache == null) continue;
 
+			if (key === 'superprojects') {
+				cache.clear();
+				continue;
+			}
 			if (key === 'aheadOfBaseConfigKey' || key === 'gitResults') {
 				cache.delete(repoPath);
 				if (key === 'gitResults' && isLastWorktree && repoPath !== commonPath) {
@@ -1192,7 +1541,14 @@ export class Cache implements Disposable {
 		if (isLastWorktree) {
 			this._gkConfigSnapshots.delete(commonPath);
 			this._mergeTargetsEvictedOnCheckout.delete(commonPath);
+			// Dropped as well as forgotten: once kept untracked, a reopen's listing wouldn't seed it, so it couldn't be found
+			for (const path of [...(this._seededWorktreesByCommonPath.get(commonPath) ?? [])]) {
+				this.untrackSeededWorktree(path);
+				this.dropCurrentBranch(path);
+			}
 		}
+		this.untrackSeededWorktree(repoPath);
+		this._worktreeAdminIds.delete(repoPath);
 
 		this._commonPathRegistry.delete(repoPath);
 
@@ -1206,34 +1562,41 @@ export class Cache implements Disposable {
 
 	@debug({ onlyExit: true })
 	reset(): void {
-		// Advance the close clock BEFORE dropping the registry it reads from. Advancing rather than
-		// clearing is the point: an async step that captured a generation must see a mismatch and bail,
-		// where a cleared map would hand it a fresh `0` that matches and let it repopulate what was just
-		// torn down. Union of registered paths and any already carrying a generation, mirroring
-		// `incrementStatusGenerations`.
-		for (const path of new Set([...this._commonPathRegistry.keys(), ...this._closeGenerations.keys()])) {
-			this._closeGenerations.set(path, this.getCloseGeneration(path) + 1);
-		}
+		// Advancing rather than clearing is the point: an async step that captured a generation must see a mismatch
+		// and bail, where a cleared map would hand it a fresh `0` that matches and let it repopulate what was just torn
+		// down. Every path's clock, since a step may have captured one for a path never registered
+		this._resetGeneration++;
 
 		this._commonPathRegistry.clear();
 		this._worktreesByCommonPath.clear();
 		this._statusGenerations.clear();
 		this._gkConfigSnapshots.clear();
 		this._mergeTargetsEvictedOnCheckout.clear();
+		this._seededWorktrees.clear();
+		this._seededWorktreesByCommonPath.clear();
+		this._worktreeAdminIds.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
+		this.onDropped(undefined);
 	}
 
-	/** Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}). */
+	/**
+	 * Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}).
+	 * `options.movedWorktrees` is the event's `movedWorktrees`.
+	 */
 	@debug({ onlyExit: true })
-	onRepositoryChanged(repoPath: string, changes: Iterable<RepositoryChange>): void {
+	onRepositoryChanged(
+		repoPath: string,
+		changes: Iterable<RepositoryChange>,
+		options?: { movedWorktrees?: ReadonlySet<string> },
+	): void {
 		const changesSet = new Set(changes);
 		if (changesSet.has('unknown') || changesSet.has('closed')) {
 			this.unregisterRepoPath(repoPath);
 			return;
 		}
 
-		this.applyRepositoryChanges(repoPath, changesSet, 'share');
+		this.applyRepositoryChanges(repoPath, changesSet, 'share', { movedWorktrees: options?.movedWorktrees });
 	}
 
 	/**
@@ -1245,13 +1608,22 @@ export class Cache implements Disposable {
 	 * `options.worktreeOnly` clears only `repoPath`'s own entries and status clock, leaving the shared
 	 * (commonPath-keyed) ones alone — for a sibling worktree once the change was applied to the worktree it ran in,
 	 * which already cleared them for every worktree of the repository.
+	 *
+	 * `options.announced` says `changes` are core's announcement of its own write for `repoPath`, whose `'worktreeHead'`
+	 * is that write's own: its rewrite of `repoPath`'s HEAD, which its `'head'` clears, or a worktree it added or
+	 * removed. Other worktrees' watchers report it, so no other worktree loses its current branch for it.
+	 *
+	 * `options.movedWorktrees` names, by admin id (the `<id>` of `.git/worktrees/<id>`), the linked worktrees whose HEAD
+	 * moved, which are all that a `'worktreeHead'` among `changes` reports: each registered one is cleared as for its
+	 * own `'head'` change, and no other registered worktree with an admin id of its own is touched. Without it, any
+	 * linked worktree's HEAD may have moved, so each one but `repoPath` loses its current branch.
 	 */
 	@debug({ onlyExit: true })
 	applyRepositoryChanges(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
 		inFlight: 'share' | 'evict',
-		options?: { worktreeOnly?: boolean },
+		options?: { announced?: boolean; worktreeOnly?: boolean; movedWorktrees?: ReadonlySet<string> },
 	): CachedGitTypes[] {
 		const worktreeOnly = options?.worktreeOnly ?? false;
 		const changesSet = new Set(changes);
@@ -1341,6 +1713,13 @@ export class Cache implements Disposable {
 		// added, removed, locked, unlocked or moved changes only the list
 		if (hasAny('worktreeHead')) {
 			types.add('worktrees');
+			if (!worktreeOnly && !options?.announced) {
+				if (options?.movedWorktrees != null) {
+					this.applyLinkedHeadsMoved(repoPath, options.movedWorktrees, inFlight);
+				} else {
+					this.dropLinkedCurrentBranches(repoPath);
+				}
+			}
 		} else if (hasAny('worktrees')) {
 			types.add('worktreeList');
 		}
@@ -1429,7 +1808,82 @@ export class Cache implements Disposable {
 		return this._gkConfigSnapshots.get(this.getCommonPath(repoPath));
 	}
 
+	/**
+	 * The raw branch list shared by `repoPath`'s worktrees. It holds entries for the common path, so a caller maps what
+	 * it needs for `repoPath`; {@link getBranches} keeps a mapped copy per worktree.
+	 */
+	getSharedBranches(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		return this.readValidated(repoPath, () => this.getSharedBranchesCore(repoPath, factory, cancellation));
+	}
+
+	private getSharedBranchesCore(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		const commonPath = this.getCommonPath(repoPath);
+
+		return this.sharedBranches.getOrCreate(
+			commonPath,
+			(cacheable, signal) => {
+				const p = Promise.resolve(factory(commonPath, cacheable, signal));
+				// On factory invalidation, propagate to the derived per-worktree mapper entries via soft-invalidate —
+				// existing waiters complete, and each entry self-evicts on settle so the next callers build fresh
+				// derived entries. A `getBranch` answer decides for itself, through `isSharedBranchesKept`
+				void p
+					.finally(() => {
+						if (cacheable.invalidated) {
+							this.branches.invalidate(commonPath);
+							for (const worktreePath of this.getWorktreePaths(commonPath)) {
+								this.branches.invalidate(worktreePath);
+							}
+						}
+					})
+					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
+					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
+					.catch(() => {});
+				return p;
+			},
+			cancellation,
+		);
+	}
+
+	/** Whether `result`, from {@link getSharedBranches}, is still the list kept for `repoPath`: not refused, replaced or evicted */
+	isSharedBranchesKept(repoPath: string, result: PagedResult<GitBranch>): boolean {
+		return this._caches.sharedBranches?.getSettled(this.getCommonPath(repoPath))?.value === result;
+	}
+
 	getBranches(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		mapper: (
+			branches: PagedResult<GitBranch>,
+			targetRepoPath: string,
+			commonPath: string,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitBranch>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		return this.readValidated(repoPath, () => this.getBranchesCore(repoPath, factory, mapper, cancellation));
+	}
+
+	private getBranchesCore(
 		repoPath: string,
 		factory: (
 			commonPath: string,
@@ -1452,29 +1906,7 @@ export class Cache implements Disposable {
 		// below to build the mapped entry. Swallow any rejection on this dangling reference so
 		// it doesn't surface as an unhandled rejection; the real caller-facing promise (via
 		// `branches.getOrCreate` below) is where caller cancellation flows to.
-		const registration = this.sharedBranches.getOrCreate(
-			commonPath,
-			(cacheable, signal) => {
-				const p = Promise.resolve(factory(commonPath, cacheable, signal));
-				// On factory invalidation, propagate to the derived per-worktree mapper entries
-				// via soft-invalidate — existing waiters on the mapper complete, and the entry
-				// self-evicts on mapper settle so the next callers build fresh derived entries.
-				void p
-					.finally(() => {
-						if (cacheable.invalidated) {
-							this.branches.invalidate(commonPath);
-							for (const worktreePath of this.getWorktreePaths(commonPath)) {
-								this.branches.invalidate(worktreePath);
-							}
-						}
-					})
-					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
-					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
-					.catch(() => {});
-				return p;
-			},
-			cancellation,
-		);
+		const registration = this.getSharedBranchesCore(repoPath, factory, cancellation);
 		void registration.catch(() => {});
 
 		// Build the per-`repoPath` mapped entry through `getOrCreate` so mapper internal git
@@ -1558,18 +1990,26 @@ export class Cache implements Disposable {
 		repoPath: string,
 		factory: (cacheable: CacheController) => PromiseOrValue<Map<string, string>>,
 	): Promise<Map<string, string>> {
-		return this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
-			const map = await factory(cacheable);
-			// Seed the reconcile baseline on first observation only. Refreshes belong to
-			// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
-			// an incidental read that happens to land between an external write and the watcher event
-			// would otherwise advance the baseline to the post-change value, so the reconcile would diff
-			// that value against itself and silently drop the change.
-			if (!this._gkConfigSnapshots.has(commonPath)) {
-				this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
-			}
-			return map;
-		});
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
+				const closeGeneration = this.getCloseGeneration(commonPath);
+				const map = await factory(cacheable);
+				// Seed the reconcile baseline on first observation only. Refreshes belong to
+				// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
+				// an incidental read that happens to land between an external write and the watcher event
+				// would otherwise advance the baseline to the post-change value, so the reconcile would diff
+				// that value against itself and silently drop the change.
+				if (!this._gkConfigSnapshots.has(commonPath) && this.isReadPathCurrent(commonPath, closeGeneration)) {
+					this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
+				}
+				return map;
+			}),
+		);
+	}
+
+	/** Whether a read that started under the common path `path` may still seed state for it: not registered or closed since */
+	private isReadPathCurrent(path: string, closeGeneration: number): boolean {
+		return this.getCommonPath(path) === path && this.getCloseGeneration(path) === closeGeneration;
 	}
 
 	/** Extracts the subset of a gk config map that the reconcile baseline tracks (see {@link _gkConfigSnapshots}). */
@@ -1822,20 +2262,22 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<BranchContributionsOverview | undefined>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<BranchContributionsOverview | undefined> {
-		return this.getSharedOrCreateWithKey(
-			this.branchOverviews,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) =>
-				data == null
-					? data
-					: {
-							...data,
-							repoPath: newRepoPath,
-							contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
-						},
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.branchOverviews,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) =>
+					data == null
+						? data
+						: {
+								...data,
+								repoPath: newRepoPath,
+								contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
+							},
+				options,
+			),
 		);
 	}
 
@@ -1849,16 +2291,18 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributorsResult>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsResult> {
-		return this.getSharedOrCreateWithKey(
-			this.contributors,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => ({
-				...data,
-				contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
-			}),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.contributors,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => ({
+					...data,
+					contributors: data.contributors.map(c => c.withRepoPath(newRepoPath)),
+				}),
+				options,
+			),
 		);
 	}
 
@@ -1872,13 +2316,15 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributor[]>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributor[]> {
-		return this.getSharedOrCreateWithKey(
-			this.contributorsLite,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => data.map(c => c.withRepoPath(newRepoPath)),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.contributorsLite,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => data.map(c => c.withRepoPath(newRepoPath)),
+				options,
+			),
 		);
 	}
 
@@ -1892,10 +2338,25 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitContributorsStats | undefined>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsStats | undefined> {
-		return this.getSharedSimpleWithKey(this.contributorsStats, repoPath, cacheKey, factory, options);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimpleWithKey(this.contributorsStats, repoPath, cacheKey, factory, options),
+		);
 	}
 
 	getBaseBranchName(
+		repoPath: string,
+		ref: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.readValidated(repoPath, () => this.getBaseBranchNameCore(repoPath, ref, factory, cancellation));
+	}
+
+	private getBaseBranchNameCore(
 		repoPath: string,
 		ref: string,
 		factory: (
@@ -2065,10 +2526,12 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.aheadOfBaseConfigKey.getOrCreate(
-			repoPath,
-			(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.aheadOfBaseConfigKey.getOrCreate(
+				repoPath,
+				(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
+				cancellation,
+			),
 		);
 	}
 
@@ -2086,7 +2549,9 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation),
+		);
 	}
 
 	/**
@@ -2103,14 +2568,16 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.ignoreConfigListing, repoPath, factory, cancellation);
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.ignoreConfigListing, repoPath, factory, cancellation),
+		);
 	}
 
 	getBranchMetadataMap(
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<Map<string, BranchMetadata>>,
 	): Promise<Map<string, BranchMetadata>> {
-		return this.getSharedSimple(this.branchMetadataMap, repoPath, factory);
+		return this.readValidated(repoPath, () => this.getSharedSimple(this.branchMetadataMap, repoPath, factory));
 	}
 
 	getDefaultBranchName(
@@ -2123,9 +2590,11 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
-			cancellation: cancellation,
-		});
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
+				cancellation: cancellation,
+			}),
+		);
 	}
 
 	/** The cached default branch for one `remote` key, without reading it; `undefined` when none is cached */
@@ -2147,16 +2616,33 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<CachedMergeTarget>,
 		cancellation?: AbortSignal,
 	): Promise<CachedMergeTarget> {
+		return this.readValidated(repoPath, () => this.getMergeTargetCore(repoPath, cacheKey, factory, cancellation));
+	}
+
+	private getMergeTargetCore(
+		repoPath: string,
+		cacheKey: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<CachedMergeTarget>,
+		cancellation?: AbortSignal,
+	): Promise<CachedMergeTarget> {
 		const pending = this.getSharedSimpleWithKey(
 			this.mergeTargets,
 			repoPath,
 			cacheKey,
 			async (commonPath, cacheable, signal) => {
 				const generation = this._mergeTargetCheckoutGeneration;
+				const closeGeneration = this.getCloseGeneration(commonPath);
 				const entry = await factory(commonPath, cacheable, signal);
 				if (entry.evictOnCheckout) {
 					// A checkout while the reflog was read may have written the entry it found missing
-					if (this._mergeTargetCheckoutGeneration !== generation) {
+					if (
+						this._mergeTargetCheckoutGeneration !== generation ||
+						!this.isReadPathCurrent(commonPath, closeGeneration)
+					) {
 						cacheable.invalidate();
 						return entry;
 					}
@@ -2220,7 +2706,7 @@ export class Cache implements Disposable {
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.initialCommitSha, repoPath, factory);
+		return this.readValidated(repoPath, () => this.getSharedSimple(this.initialCommitSha, repoPath, factory));
 	}
 
 	/** A rejected factory is never cached (`PromiseMap` evicts on rejection) — a failed read retries next time. */
@@ -2244,12 +2730,50 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<RefRecord[]>,
 		cancellation?: AbortSignal,
 	): Promise<RefRecord[]> {
+		return this.readValidated(repoPath, () => this.getRefsCore(repoPath, factory, cancellation));
+	}
+
+	private getRefsCore(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<RefRecord[]>,
+		cancellation?: AbortSignal,
+	): Promise<RefRecord[]> {
 		// Raw ref records are repoPath-agnostic (no per-worktree binding to remap), so we key only
 		// by commonPath and skip the per-worktree mapper that `getBranches`/`getTags` need.
 		const commonPath = this.getCommonPath(repoPath);
 		return this.refs.getOrCreate(
 			commonPath,
-			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+			async (cacheable, signal) => {
+				const read = { at: this.getDropStamp(), commonPath: commonPath };
+				const closeGeneration = this.getCloseGeneration(commonPath);
+				const records = await factory(commonPath, cacheable, signal);
+
+				const unregistered = new Set<string>();
+				for (const record of records) {
+					if (!record.worktreePath) continue;
+
+					this._refsRead.set(record, read);
+					// Spelled as the seeds and the registry spell it
+					const worktreePath = normalizePath(record.worktreePath);
+					if (worktreePath !== commonPath && !this._commonPathRegistry.has(worktreePath)) {
+						unregistered.add(worktreePath);
+					}
+				}
+				// A failed or cancelled listing answers empty, which says nothing about the worktrees; a close or reset
+				// since it started tore down what it would track
+				if (
+					!cacheable.invalidated &&
+					!signal?.aborted &&
+					this.getCloseGeneration(commonPath) === closeGeneration
+				) {
+					this.replaceSeededWorktrees(commonPath, unregistered);
+				}
+				return records;
+			},
 			cancellation,
 		);
 	}
@@ -2263,12 +2787,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitRefTip[]>,
 		cancellation?: AbortSignal,
 	): Promise<GitRefTip[]> {
-		const commonPath = this.getCommonPath(repoPath);
-		return this.refTips.getOrCreate(
-			commonPath,
-			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
-			cancellation,
-		);
+		return this.readValidated(repoPath, () => {
+			const commonPath = this.getCommonPath(repoPath);
+			return this.refTips.getOrCreate(
+				commonPath,
+				(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+				cancellation,
+			);
+		});
 	}
 
 	async getRemotes(
@@ -2280,12 +2806,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitRemote[]>,
 		cancellation?: AbortSignal,
 	): Promise<GitRemote[]> {
-		return this.getSharedOrCreate(
-			this.remotes,
-			repoPath,
-			factory,
-			(data, newRepoPath) => data.map(r => r.withRepoPath(newRepoPath)),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreate(
+				this.remotes,
+				repoPath,
+				factory,
+				(data, newRepoPath) => data.map(r => r.withRepoPath(newRepoPath)),
+				cancellation,
+			),
 		);
 	}
 
@@ -2299,21 +2827,23 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<GitStash>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitStash> {
-		return this.getSharedOrCreateWithKey(
-			this.stashes,
-			repoPath,
-			cacheKey,
-			factory,
-			(data, newRepoPath) => ({
-				repoPath: newRepoPath,
-				stashes: new Map(
-					Array.from(data.stashes.entries(), ([sha, s]) => [
-						sha,
-						s.withRepoPath<GitStashCommit>(newRepoPath),
-					]),
-				),
-			}),
-			options,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreateWithKey(
+				this.stashes,
+				repoPath,
+				cacheKey,
+				factory,
+				(data, newRepoPath) => ({
+					repoPath: newRepoPath,
+					stashes: new Map(
+						Array.from(data.stashes.entries(), ([sha, s]) => [
+							sha,
+							s.withRepoPath<GitStashCommit>(newRepoPath),
+						]),
+					),
+				}),
+				options,
+			),
 		);
 	}
 
@@ -2326,12 +2856,14 @@ export class Cache implements Disposable {
 		) => PromiseOrValue<PagedResult<GitTag>>,
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitTag>> {
-		return this.getSharedOrCreate(
-			this.tags,
-			repoPath,
-			factory,
-			(data, newRepoPath) => ({ ...data, values: data.values.map(t => t.withRepoPath(newRepoPath)) }),
-			cancellation,
+		return this.readValidated(repoPath, () =>
+			this.getSharedOrCreate(
+				this.tags,
+				repoPath,
+				factory,
+				(data, newRepoPath) => ({ ...data, values: data.values.map(t => t.withRepoPath(newRepoPath)) }),
+				cancellation,
+			),
 		);
 	}
 
@@ -2345,20 +2877,23 @@ export class Cache implements Disposable {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitWorktree[]> {
-		if (options?.force) {
-			// An aborted call must not cost every other caller the shared list
-			if (cancellation?.aborted) throw new CancellationError();
+		// Evicts right before the read, after the validation, so the forced read starts after both
+		return this.readValidated(repoPath, () => {
+			if (options?.force) {
+				// An aborted call must not cost every other caller the shared list
+				if (cancellation?.aborted) throw new CancellationError();
 
-			this.evictCaches(repoPath, 'worktreeList');
-		}
+				this.evictCaches(repoPath, 'worktreeList');
+			}
 
-		return this.getSharedOrCreate(
-			this.worktrees,
-			repoPath,
-			factory,
-			(data, newRepoPath) => data.map(w => w.withRepoPath(newRepoPath)),
-			cancellation,
-		);
+			return this.getSharedOrCreate(
+				this.worktrees,
+				repoPath,
+				factory,
+				(data, newRepoPath) => data.map(w => w.withRepoPath(newRepoPath)),
+				cancellation,
+			);
+		});
 	}
 
 	private async getSharedOrCreate<T>(
@@ -2520,5 +3055,20 @@ export class Cache implements Disposable {
 			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
 			options,
 		);
+	}
+}
+
+/** A {@link RepoPromiseCacheMap} whose `getOrCreate` waits for `validate` first (see {@link Cache.setReadValidator}) */
+class ValidatedRepoPromiseCacheMap<K, V> extends RepoPromiseCacheMap<K, V> {
+	constructor(
+		private readonly validate: (repoPath: string) => Promise<void> | undefined,
+		options: ConstructorParameters<typeof RepoPromiseCacheMap>[0],
+	) {
+		super(options);
+	}
+
+	override getOrCreate(...args: Parameters<RepoPromiseCacheMap<K, V>['getOrCreate']>): Promise<V> {
+		const validation = this.validate(args[0]);
+		return validation != null ? validation.then(() => super.getOrCreate(...args)) : super.getOrCreate(...args);
 	}
 }

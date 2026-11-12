@@ -1,8 +1,9 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { some } from '@gitlens/utils/iterable.js';
-import { dirname, isAbsolute, isDescendant, joinPaths, normalizePath, relative } from '@gitlens/utils/path.js';
+import { isDescendant, joinPaths, normalizePath, relative } from '@gitlens/utils/path.js';
 import { FileType } from '../context.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
+import { getWorktreeAdminId, isIgnoredWorktreeEntry, parseWorktreeAdminPath } from '../utils/repository.utils.js';
 import { allWatchedRepositoryChanges, classifyGitDirChange } from './classifyChange.js';
 import type { GitConfigSections, GitConfigSectionsChange } from './configSections.js';
 import { diffGitConfigSections, parseGitConfigBytes } from './configSections.js';
@@ -60,7 +61,9 @@ export interface WatchGroupHooks {
 	 * is unknown. `overflow` marks the every-kind rescan of a watcher that dropped events, which no single write can
 	 * account for. `configBranches`, with a `config` change, are the local branches (full ref names) whose
 	 * `branch.<name>` sections are all that changed in the shared `.git/config`; without it, the config change may be
-	 * anywhere.
+	 * anywhere. `movedWorktree`, with a `worktreeHead` change, is the admin id (the `<id>` of `worktrees/<id>`) of the
+	 * linked worktree whose `HEAD` file changed, or whose admin entry was created or removed; without it, any linked
+	 * worktree's HEAD may have moved.
 	 */
 	readonly onRepoChanged: (
 		repoPath: string,
@@ -68,6 +71,7 @@ export interface WatchGroupHooks {
 		ref?: string | false,
 		overflow?: boolean,
 		configBranches?: ReadonlySet<string>,
+		movedWorktree?: string,
 	) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
@@ -365,13 +369,7 @@ export class WatchGroup implements UnifiedDisposable {
 	}
 
 	private getWorktreeId(gitDirPath: string): string | undefined {
-		if (!isDescendant(gitDirPath, this.commonGitDir)) return undefined;
-
-		const rel = relative(this.commonGitDir, gitDirPath);
-		if (!rel.startsWith('worktrees/')) return undefined;
-
-		const id = rel.substring(10);
-		return id.length > 0 && !id.includes('/') ? id : undefined;
+		return getWorktreeAdminId(gitDirPath, this.commonGitDir);
 	}
 
 	private ensureCommonWatcher(): void {
@@ -600,13 +598,8 @@ export class WatchGroup implements UnifiedDisposable {
 
 		// `worktrees/<n>/HEAD`: the owner hears its own HEAD from its root watcher. Its `locked` and `gitdir` aren't in
 		// the root glob, so the owner hears those only from here
-		let ownerId: string | undefined;
-		if (changes != null && relativePath.length > 10 && relativePath.startsWith('worktrees/')) {
-			const idEnd = relativePath.indexOf('/', 10);
-			if (idEnd !== -1 && relativePath.substring(idEnd + 1) === 'HEAD') {
-				ownerId = relativePath.substring(10, idEnd);
-			}
-		}
+		const ownerId = changes != null ? getMovedWorktreeId(relativePath) : undefined;
+		const movedWorktree = getReportedWorktreeId(relativePath, changes);
 
 		if (changes != null && this.isWorktreesReport(changes)) {
 			const sessions = [...this._sessions.values()].filter(
@@ -616,7 +609,7 @@ export class WatchGroup implements UnifiedDisposable {
 				for (const entry of sessions) {
 					if (this._disposed || this._sessions.get(entry.repoPath) !== entry) continue;
 
-					entry.hooks.onRepoChanged(entry.repoPath, changes, ref);
+					deliverRepoChanged(entry, changes, ref, movedWorktree);
 				}
 			});
 			return;
@@ -634,7 +627,7 @@ export class WatchGroup implements UnifiedDisposable {
 			}
 
 			if (changes != null && (ownerId == null || entry.worktreeId !== ownerId)) {
-				entry.hooks.onRepoChanged(entry.repoPath, changes, ref);
+				deliverRepoChanged(entry, changes, ref, movedWorktree);
 			}
 
 			if (isExclude) {
@@ -678,14 +671,15 @@ export class WatchGroup implements UnifiedDisposable {
 
 		const changes = withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, event.reason);
 		// A linked worktree's git dir isn't the common one, so no path there is a worktree's admin entry
+		const movedWorktree = entry.coversCommon ? getReportedWorktreeId(relativePath, changes) : undefined;
 		if (changes != null && entry.coversCommon && this.isWorktreesReport(changes)) {
 			this.onWorktreesReported(relativePath, event.reason, () => {
 				if (this._disposed || this._sessions.get(entry.repoPath) !== entry) return;
 
-				entry.hooks.onRepoChanged(entry.repoPath, changes, getChangedRef(relativePath));
+				deliverRepoChanged(entry, changes, getChangedRef(relativePath), movedWorktree);
 			});
 		} else if (changes != null) {
-			entry.hooks.onRepoChanged(entry.repoPath, changes, getChangedRef(relativePath));
+			deliverRepoChanged(entry, changes, getChangedRef(relativePath), movedWorktree);
 		}
 
 		if (relativePath === 'info/exclude') {
@@ -727,9 +721,13 @@ export class WatchGroup implements UnifiedDisposable {
 			return;
 		}
 
-		const idEnd = relativePath.indexOf('/', 10);
-		const id = idEnd === -1 ? relativePath.substring(10) : relativePath.substring(10, idEnd);
-		const file = idEnd === -1 ? undefined : relativePath.substring(idEnd + 1);
+		const entry = parseWorktreeAdminPath(relativePath);
+		if (entry == null) {
+			deliver();
+			return;
+		}
+
+		const { id, file } = entry;
 
 		// Only the entry or its `gitdir` going is a removal: an unlock deletes `locked` from an entry that stays, and a
 		// watcher may report git's lock file renamed over `HEAD` as `HEAD` deleted and created again
@@ -942,13 +940,7 @@ export class WatchGroup implements UnifiedDisposable {
 	private async readIgnoredWorktree(id: string): Promise<boolean | undefined> {
 		const adminDir = joinPaths(this.commonGitDir, 'worktrees', id);
 		const content = await this.readWithTimeout(joinPaths(adminDir, 'gitdir'));
-		// Git writes the path of the worktree's `.git` file, relative to the entry under `worktree.useRelativePaths`
-		const dotGit = content != null ? new TextDecoder().decode(content).trim() : '';
-		const dotGitPath = dotGit ? normalizePath(isAbsolute(dotGit) ? dotGit : joinPaths(adminDir, dotGit)) : '';
-		if (!dotGitPath.endsWith('/.git')) return undefined;
-
-		const worktreePath = dirname(dotGitPath);
-		return this._ignoredWorktreeRoots.some(root => isDescendant(worktreePath, root));
+		return isIgnoredWorktreeEntry(adminDir, content, this._ignoredWorktreeRoots);
 	}
 
 	private queueWorktreesBaseline(take: () => Promise<void>): void {
@@ -1216,8 +1208,39 @@ function withWorktreeEntryHead(
 		: changes;
 }
 
+/** The admin id of the linked worktree whose `HEAD` file `relativePath` (relative to the common git dir) is */
+function getMovedWorktreeId(relativePath: string): string | undefined {
+	const entry = parseWorktreeAdminPath(relativePath);
+	return entry?.file === 'HEAD' ? entry.id : undefined;
+}
+
+/**
+ * The admin id of the linked worktree a `worktreeHead` among `changes` is for: the entry `relativePath` (relative to the
+ * common git dir) is, or is a file of
+ */
+function getReportedWorktreeId(
+	relativePath: string,
+	changes: readonly RepositoryChange[] | undefined,
+): string | undefined {
+	return changes?.includes('worktreeHead') ? parseWorktreeAdminPath(relativePath)?.id : undefined;
+}
+
+/** Tells `entry` of `changes`, naming the linked worktree whose HEAD moved only when the report knows it */
+function deliverRepoChanged(
+	entry: SessionEntry,
+	changes: RepositoryChange[],
+	ref: string | false | undefined,
+	movedWorktree: string | undefined,
+): void {
+	if (movedWorktree != null) {
+		entry.hooks.onRepoChanged(entry.repoPath, changes, ref, undefined, undefined, movedWorktree);
+	} else {
+		entry.hooks.onRepoChanged(entry.repoPath, changes, ref);
+	}
+}
+
 /** The path doesn't exist: Node's error, or the one VS Code's file system raises */
-function isNotFound(ex: unknown): boolean {
+export function isNotFound(ex: unknown): boolean {
 	const code = (ex as { code?: unknown } | undefined)?.code;
 	return code === 'ENOENT' || code === 'FileNotFound';
 }

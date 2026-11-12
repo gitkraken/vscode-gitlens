@@ -10,13 +10,22 @@ import type { GitHubTokenInfo } from '../token.js';
 import { gitHubPullRequest } from './fixtures.js';
 
 /** Serves `data` to one GraphQL request and captures the query document it was asked for. */
-function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () => string } {
+function captureQuery(data: unknown): {
+	config: GitHubApiConfig;
+	getQuery: () => string;
+	getVariables: () => Record<string, unknown>;
+} {
 	let query = '';
+	let variables: Record<string, unknown> = {};
 	const config: GitHubApiConfig = {
 		isWeb: false,
 		fetch: async (_url, init) => {
-			const body = JSON.parse(String(init?.body ?? '{}')) as { query?: string };
+			const body = JSON.parse(String(init?.body ?? '{}')) as {
+				query?: string;
+				variables?: Record<string, unknown>;
+			};
 			query = body.query ?? '';
+			variables = body.variables ?? {};
 			return new Response(JSON.stringify({ data: data }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
@@ -24,7 +33,7 @@ function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () =>
 		},
 		wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
 	};
-	return { config: config, getQuery: () => query };
+	return { config: config, getQuery: () => query, getVariables: () => variables };
 }
 
 /** An empty search page, for tests that only assert the query document the read builds. */
@@ -168,13 +177,145 @@ suite('GitHubApi.searchPullRequests', () => {
 		assert.equal(requestCount, 1);
 		assert.match(query, /opened: search\(first: 10, query: \$openedSearchQuery/);
 		assert.match(query, /merged: search\(first: 10, query: \$mergedSearchQuery/);
-		assert.equal(variables.openedSearchQuery, 'is:pr is:open archived:false fix user:octo repo:octo/repo');
-		assert.equal(variables.mergedSearchQuery, 'is:pr is:merged archived:false fix user:octo repo:octo/repo');
+		assert.equal(
+			variables.openedSearchQuery,
+			'is:pr is:open archived:false fix sort:created-desc user:octo repo:octo/repo',
+		);
+		assert.equal(
+			variables.mergedSearchQuery,
+			'is:pr is:merged archived:false fix sort:created-desc user:octo repo:octo/repo',
+		);
 		assert.deepEqual(
 			results.map(pr => pr.id),
 			['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
 		);
 	});
+
+	test('includes a newer merged match ahead of ten older open matches', async () => {
+		const opened = Array.from({ length: 10 }, (_, i) => prNode(i + 1, 'OPEN'));
+		const merged = prNode(11, 'MERGED');
+		merged.createdAt = '2024-02-01T00:00:00Z';
+		merged.updatedAt = '2024-02-02T00:00:00Z';
+		const { config } = captureQuery({ opened: { nodes: opened }, merged: { nodes: [merged] } });
+
+		const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+			include: ['opened', 'merged'],
+		});
+
+		assert.equal(results.length, 10);
+		assert.equal(results[0].id, '11');
+		assert.equal(new Set(results.map(pr => pr.url)).size, 10);
+	});
+
+	for (const search of [
+		'sort:updated-asc fix sort:comments-desc',
+		'fix\nSORT:relevance\tsort:created-asc',
+		'sort:"updated-asc" fix',
+	]) {
+		test(`overrides unquoted caller sorts only for mixed states: ${search}`, async () => {
+			const { config, getVariables } = captureQuery({});
+			await new GitHubApi(config).searchPullRequests(provider, token, {
+				search: search,
+				include: ['merged', 'opened', 'opened'],
+			});
+
+			for (const alias of ['opened', 'merged']) {
+				assert.equal(
+					String(getVariables()[`${alias}SearchQuery`]).replace(/\s+/g, ' '),
+					`is:pr is:${alias === 'opened' ? 'open' : 'merged'} archived:false fix sort:created-desc`,
+				);
+			}
+		});
+	}
+
+	test('preserves quoted sort text and other qualifiers in mixed searches', async () => {
+		const search = String.raw`"sort:updated" title:"fix \"sort:comments\" now" label:bug sort:updated-asc`;
+		const { config, getVariables } = captureQuery({});
+		await new GitHubApi(config).searchPullRequests(provider, token, {
+			search: search,
+			include: ['opened', 'merged'],
+		});
+
+		assert.equal(
+			getVariables().openedSearchQuery,
+			String.raw`is:pr is:open archived:false "sort:updated" title:"fix \"sort:comments\" now" label:bug sort:created-desc`,
+		);
+	});
+
+	test('orders both full facets before deduplication and the final cap, keeping ties stable', async () => {
+		const opened = Array.from({ length: 10 }, (_, i) => prNode(i + 1, 'OPEN'));
+		const merged = Array.from({ length: 9 }, (_, i) => prNode(i + 11, 'MERGED'));
+		for (const [i, node] of [...opened, ...merged].entries()) {
+			node.createdAt = new Date(Date.UTC(2024, 0, 20 - i)).toISOString();
+		}
+		merged[0].createdAt = opened[0].createdAt;
+		merged[1].createdAt = '2024-02-01T00:00:00Z';
+		const duplicate = { ...opened[0], state: 'MERGED' as const };
+		const { config } = captureQuery({
+			opened: { nodes: opened },
+			merged: { nodes: [duplicate, ...merged] },
+		});
+
+		const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+			include: ['opened', 'merged'],
+		});
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['12', '1', '11', '2', '3', '4', '5', '6', '7', '8'],
+		);
+		assert.equal(new Set(results.map(pr => pr.url)).size, 10);
+	});
+
+	for (const missing of ['opened', 'merged']) {
+		test(`returns the available facet when ${missing} is absent`, async () => {
+			const alias = missing === 'opened' ? 'merged' : 'opened';
+			const { config } = captureQuery({
+				[alias]: { nodes: [prNode(1, alias === 'opened' ? 'OPEN' : 'MERGED')] },
+			});
+			const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+				include: ['opened', 'merged'],
+			});
+			assert.deepEqual(
+				results.map(pr => pr.id),
+				['1'],
+			);
+		});
+	}
+
+	const unchanged: [PullRequestState[] | undefined, string][] = [
+		[undefined, 'is:open'],
+		[[], 'is:open'],
+		[['opened'], 'is:open'],
+		[['merged'], 'is:merged'],
+		[['closed'], 'is:closed is:unmerged'],
+		[['opened', 'closed'], 'is:unmerged'],
+		[['closed', 'merged'], 'is:closed'],
+		[['opened', 'closed', 'merged'], ''],
+	];
+	for (const [include, qualifier] of unchanged) {
+		test(`preserves query and result order for ${JSON.stringify(include)}`, async () => {
+			const state = include?.[0] ?? 'opened';
+			const nodeState = state === 'opened' ? 'OPEN' : state === 'merged' ? 'MERGED' : 'CLOSED';
+			const older = prNode(1, nodeState);
+			const newer = prNode(2, nodeState);
+			newer.createdAt = '2024-02-01T00:00:00Z';
+			const { config, getQuery, getVariables } = captureQuery({ search: { nodes: [older, newer] } });
+			const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+				search: 'fix sort:updated-asc',
+				include: include,
+			});
+			assert.deepEqual(
+				results.map(pr => pr.id),
+				['1', '2'],
+			);
+			assert.equal(
+				getVariables().searchQuery,
+				['is:pr', qualifier, 'archived:false fix sort:updated-asc'].filter(Boolean).join(' '),
+			);
+			assert.doesNotMatch(getQuery(), /opened: search|merged: search/);
+		});
+	}
 
 	test('keeps exact state combinations on one unaliased search', async () => {
 		let query = '';

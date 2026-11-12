@@ -27,6 +27,10 @@ export class GlAutolinkChip extends LitElement {
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
 
+		.chip--pr-queued::part(icon) {
+			color: var(--vscode-gitlens-queuedPullRequestIconColor);
+		}
+
 		.chip--pr-draft::part(icon) {
 			color: var(--vscode-descriptionForeground);
 		}
@@ -84,8 +88,14 @@ export class GlAutolinkChip extends LitElement {
 	@property()
 	dateStyle?: string;
 
+	/** `queued` is an open pull request waiting in a merge queue — pair it with {@link queueStatus}. */
 	@property()
-	status: 'opened' | 'closed' | 'merged' | undefined = 'merged';
+	status: 'opened' | 'closed' | 'merged' | 'queued' | undefined = 'merged';
+
+	/** Where a `queued` pull request stands in its merge queue — shown on the hover card and read in the chip's
+	 *  accessible label, so the queued state isn't carried by the icon's tint alone. */
+	@property({ attribute: false })
+	queueStatus?: string;
 
 	@property()
 	type: 'autolink' | 'issue' | 'pr' = 'autolink';
@@ -158,6 +168,7 @@ export class GlAutolinkChip extends LitElement {
 					url="${this.url}"
 					identifier=${this.identifier}
 					.status=${this.status}
+					.queueStatus=${this.queueStatus}
 					.dateLabel=${this.dateLabel}
 					.date=${this.date}
 					.dateFormat=${this.dateFormat}
@@ -190,9 +201,10 @@ export class GlAutolinkChip extends LitElement {
 		const typeLabel =
 			this.type === 'pr' ? l10n.t('Pull request') : this.type === 'issue' ? l10n.t('Issue') : l10n.t('Autolink');
 		const layer = this.stack != null ? `, layer ${this.stack.position} of ${this.stack.size}` : '';
+		const queue = this.status === 'queued' ? `, ${this.queueStatus ?? l10n.t('Queued to merge')}` : '';
 
 		return this.name
-			? `${typeLabel} ${this.identifier} - ${this.name}${layer}`
-			: `${typeLabel} ${this.identifier}${layer}`;
+			? `${typeLabel} ${this.identifier} - ${this.name}${layer}${queue}`
+			: `${typeLabel} ${this.identifier}${layer}${queue}`;
 	}
 }

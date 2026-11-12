@@ -6,12 +6,15 @@ import type {
 	PullRequestShape,
 	PullRequestSorting,
 } from '@gitlens/git/models/pullRequest.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { PullRequestFilter } from '../providerFilters.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
+import type { ProviderReadContext } from '../reads/context.js';
 import { resolvePullRequestSearchCriteria } from '../reads/filters.js';
+import { searchPullRequestsPage } from '../reads/searchPullRequests.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 function primarySession(token: string): ProviderAuthenticationSession {
@@ -37,7 +40,11 @@ type SearchPageResponse = {
 
 async function stubGitHubSearch(
 	manager: ReturnType<typeof createIntegrationManager>,
-	respond: (options: Record<string, unknown>, call: number) => SearchPageResponse | undefined,
+	respond: (
+		options: Record<string, unknown>,
+		call: number,
+		cancellation: AbortSignal | undefined,
+	) => SearchPageResponse | undefined | Promise<SearchPageResponse | undefined>,
 ): Promise<Record<string, unknown>[]> {
 	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 	assert.ok(gh != null);
@@ -51,9 +58,14 @@ async function stubGitHubSearch(
 	assert.ok(githubApi != null);
 
 	const calls: Record<string, unknown>[] = [];
-	githubApi.searchPullRequestsPage = (_provider: unknown, _token: unknown, options: Record<string, unknown>) => {
-		calls.push(options);
-		return Promise.resolve(respond(options, calls.length));
+	githubApi.searchPullRequestsPage = (
+		_provider: unknown,
+		_token: unknown,
+		options: Record<string, unknown>,
+		cancellation?: AbortSignal,
+	) => {
+		calls.push({ ...options, cancellation: cancellation });
+		return Promise.resolve(respond(options, calls.length, cancellation));
 	};
 	return calls;
 }
@@ -680,6 +692,132 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 			assert.deepEqual(result.items, []);
 			assert.equal(result.fetchFailed, true);
 			assert.equal(result.warnings.length, 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a page smaller than requested is a clean page that continues, not the end or a failure', async () => {
+		// What a GitHub page reduced to stay within its time budget looks like here (#5978): fewer rows than asked for,
+		// with a cursor. A consumer that fails a block on any warning without an omission must see none.
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const rows = [1, 2, 3].map(n => ({ id: `pr-${n}`, url: `https://github.com/o/a/pull/${n}` }));
+			await stubGitHubSearch(manager, () =>
+				emptyPage({ values: rows as unknown as PullRequestShape[], hasMore: true, cursor: 'next' }),
+			);
+			const result = await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				repos: [{ namespace: 'o', name: 'a' }],
+				itemsPerPage: 100,
+			});
+
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(result.hasMore, true);
+			assert.equal(result.cursor, 'next');
+			assert.equal(result.page.itemsPerPage, 3, 'reports what came back, not what was asked for');
+			assert.equal(result.page.truncated, undefined);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('forwards the caller’s cancellation to the provider read', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubSearch(manager, () => emptyPage());
+			const controller = new AbortController();
+			await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				criteria: { relationships: [PullRequestFilter.Author] },
+				cancellation: controller.signal,
+			});
+
+			assert.equal(calls[0].cancellation, controller.signal);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('rejects with a cancellation, never a failed or empty page, once cancelled', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const controller = new AbortController();
+			const calls = await stubGitHubSearch(manager, (_options, _call, cancellation) => {
+				controller.abort();
+				// What the GitHub client does with an aborted request.
+				if (cancellation?.aborted) return Promise.reject(new CancellationError());
+				return emptyPage();
+			});
+
+			await assert.rejects(
+				manager.searchPullRequestsPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					criteria: { relationships: [PullRequestFilter.Author] },
+					cancellation: controller.signal,
+				}),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(calls.length, 1);
+
+			await assert.rejects(
+				manager.searchPullRequestsPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					criteria: { relationships: [PullRequestFilter.Author] },
+					cancellation: controller.signal,
+				}),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(calls.length, 1, 'an already-cancelled read makes no request');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('rejects a read cancelled while it resolves its connection, rather than refusing it as a failure', async () => {
+		// No connection resolves, which on its own refuses the read with a warning and `fetchFailed`; cancelled meanwhile,
+		// the caller is owed the cancellation instead.
+		const controller = new AbortController();
+		const ctx = {
+			getIntegrationForRead: () => {
+				controller.abort();
+				return Promise.resolve(undefined);
+			},
+			earlyReturnConnectionWarnings: () => ({ warnings: [], fetchFailed: true }),
+		} as unknown as ProviderReadContext;
+
+		await assert.rejects(
+			searchPullRequestsPage(ctx, {
+				providerId: GitCloudHostIntegrationId.GitHub,
+				criteria: { relationships: [PullRequestFilter.Author] },
+				cancellation: controller.signal,
+			}),
+			(ex: Error) => isCancellationError(ex),
+		);
+	});
+
+	test('stops a page-number walk at the page it was cancelled on', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const controller = new AbortController();
+			const calls = await stubGitHubSearch(manager, (_options, call) => {
+				if (call === 2) {
+					controller.abort();
+				}
+				return emptyPage({ page: call, hasMore: true, cursor: `c${call}` });
+			});
+
+			await assert.rejects(
+				manager.searchPullRequestsPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					criteria: { relationships: [PullRequestFilter.Author] },
+					page: 5,
+					cancellation: controller.signal,
+				}),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(calls.length, 2);
 		} finally {
 			manager.dispose();
 		}

@@ -1,6 +1,5 @@
 import { isIntegrationId } from '@gitlens/integrations/constants.js';
-import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
-import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+import { hostFromDomain, isSelfManagedHostIntegrationId } from '@gitlens/integrations/index.js';
 import type { LaunchpadItem } from './launchpadProvider.js';
 
 export function getViewerAccountKey(provider: { readonly id: string; readonly domain?: string }): string {

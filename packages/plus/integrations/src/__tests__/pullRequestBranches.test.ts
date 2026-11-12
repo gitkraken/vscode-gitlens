@@ -12,7 +12,7 @@ import {
 import { getPullRequestFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { createAzureForkSource, createAzurePullRequest } from '../providers/azure/__tests__/fixtures.js';
 import type { AzurePullRequest } from '../providers/azure/models.js';
 import type { GetPullRequestForRepoFn } from '../providers/models.js';
@@ -44,6 +44,8 @@ import {
  */
 
 type Target = { owner: string; repo: string; project?: string; branch: string; headOwner?: string };
+/** A query as the GitHub API client receives it: one per repository and branch, with every head owner it answers. */
+type Query = { owner: string; repo: string; branch: string; headOwners: (string | undefined)[] };
 type Answer = { pullRequests: PullRequestShape[]; truncated: boolean };
 type Slot = PromiseSettledResult<Answer>;
 type BranchesResultFn = (
@@ -231,9 +233,11 @@ function gitLabMergeRequest(
 		updatedAt?: string;
 		forkNamespace?: string;
 		branch?: string;
+		fullPath?: string;
 	},
 ): Record<string, unknown> {
-	const project = { id: 'gid://gitlab/Project/1', fullPath: 'group/r', webUrl: 'https://gitlab.com/group/r' };
+	const fullPath = options?.fullPath ?? 'group/r';
+	const project = { id: 'gid://gitlab/Project/1', fullPath: fullPath, webUrl: `https://gitlab.com/${fullPath}` };
 	const sourceProject =
 		options?.forkNamespace != null
 			? {
@@ -251,7 +255,7 @@ function gitLabMergeRequest(
 		diffRefs: { baseSha: 'base', headSha: 'head' },
 		title: `MR ${iid}`,
 		description: null,
-		webUrl: `https://gitlab.com/group/r/-/merge_requests/${iid}`,
+		webUrl: `https://gitlab.com/${fullPath}/-/merge_requests/${iid}`,
 		createdAt: '2026-01-01T00:00:00Z',
 		updatedAt: updatedAt,
 		mergedAt: options?.state === 'merged' ? updatedAt : null,
@@ -686,12 +690,12 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		const account = stubCurrentAccount(gh, 'me');
 		const github = await apiClient(gh, 'github');
 		const tokens: string[] = [];
-		github.getPullRequestsForBranches = (provider: ProviderReference, token: TokenWithInfo, targets: Target[]) => {
+		github.getPullRequestsForBranches = (provider: ProviderReference, token: TokenWithInfo, queries: Query[]) => {
 			tokens.push(token.accessToken);
 			return Promise.resolve(
-				targets.map(() => ({
+				queries.map(() => ({
 					status: 'fulfilled',
-					value: { pullRequests: [pullRequest(provider, 1)], truncated: false },
+					value: { pullRequests: [[pullRequest(provider, 1)]], truncated: false },
 				})),
 			);
 		};
@@ -722,22 +726,25 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			const github = await apiClient(gh, 'github');
 			const sizes: number[] = [];
 			const limits: number[] = [];
-			const forwarded: Target[] = [];
+			const forwarded: Query[] = [];
 			// The truncated target takes the REST step, which confirms more match than were returned.
 			github.getPullRequestNumbersForBranch = () => Promise.resolve({ numbers: [1], truncated: true });
 			github.getPullRequestsForBranches = (
 				provider: ProviderReference,
 				_t: unknown,
-				targets: Target[],
+				queries: Query[],
 				options: { limit: number },
 			) => {
-				sizes.push(targets.length);
+				sizes.push(queries.length);
 				limits.push(options.limit);
-				forwarded.push(...targets);
+				forwarded.push(...queries);
 				return Promise.resolve(
-					targets.map((_, i) => ({
+					queries.map((q, i) => ({
 						status: 'fulfilled',
-						value: { pullRequests: [pullRequest(provider, i + 1, 'me')], truncated: i === 0 },
+						value: {
+							pullRequests: q.headOwners.map(() => [pullRequest(provider, i + 1, 'me')]),
+							truncated: i === 0,
+						},
 					})),
 				);
 			};
@@ -755,7 +762,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 
 			assert.deepEqual(sizes, [25, 1]);
 			assert.deepEqual(limits, [10, 10], 'the per-target cap is 10');
-			assert.equal(forwarded[1].headOwner, 'forker');
+			assert.deepEqual(forwarded[1].headOwners, ['forker']);
 			assert.equal(account.connectionIds.length, 1, 'the account is read once per call, not per chunk');
 			assert.equal(result.items.length, 26);
 			assert.equal(result.items[0].truncated, true);
@@ -773,14 +780,14 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			const { manager, gh } = await connectedGitHub(createFakeRuntime());
 			stubCurrentAccount(gh, 'me');
 			const github = await apiClient(gh, 'github');
-			github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, targets: Target[]) =>
+			github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, queries: Query[]) =>
 				Promise.resolve(
-					targets.map((_, i) =>
+					queries.map((_, i) =>
 						i === 1
 							? { status: 'rejected', reason: new Error(samlForbiddenMessage) }
 							: {
 									status: 'fulfilled',
-									value: { pullRequests: [pullRequest(provider, 1)], truncated: false },
+									value: { pullRequests: [[pullRequest(provider, 1)]], truncated: false },
 								},
 					),
 				);
@@ -813,13 +820,13 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			const { manager, gh } = await connectedGitHub(createFakeRuntime());
 			stubCurrentAccount(gh, 'me');
 			const github = await apiClient(gh, 'github');
-			github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, targets: Target[]) => {
-				if (targets.length === 1) return Promise.reject(new Error('second chunk exploded'));
+			github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, queries: Query[]) => {
+				if (queries.length === 1) return Promise.reject(new Error('second chunk exploded'));
 
 				return Promise.resolve(
-					targets.map(() => ({
+					queries.map(() => ({
 						status: 'fulfilled',
-						value: { pullRequests: [pullRequest(provider, 1)], truncated: false },
+						value: { pullRequests: [[pullRequest(provider, 1)]], truncated: false },
 					})),
 				);
 			};
@@ -843,6 +850,221 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			assert.deepEqual(result.warnings[0].targetKeys, ['k26']);
 
 			manager.dispose();
+		});
+
+		suite('targets that differ only by head owner', () => {
+			test("send one alias, and each target keeps only its own owner's rows", async () => {
+				const runtime = createFakeRuntime();
+				const forks = Array.from({ length: 12 }, (_, i) => `fork${i}`);
+				const requests = serve(runtime, () =>
+					json(200, {
+						data: {
+							b0: {
+								pullRequests: {
+									totalCount: 13,
+									nodes: [
+										gitHubPullRequestNode(1),
+										...forks.map((f, i) => gitHubPullRequestNode(10 + i, f)),
+									],
+								},
+							},
+						},
+					}),
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'base', owner: 'o', repo: 'a', branch: 'feature' },
+						// Owner and repository resolve case-insensitively, so this is the same query too.
+						...forks.map((f, i) => ({
+							key: f,
+							owner: i % 2 ? 'O' : 'o',
+							repo: i % 2 ? 'A' : 'a',
+							branch: 'feature',
+							headOwner: f,
+						})),
+					],
+				});
+
+				assert.equal(requests.bodies.length, 1);
+				const { query, variables } = JSON.parse(requests.bodies[0]) as {
+					query: string;
+					variables: Record<string, unknown>;
+				};
+				assert.equal(query.match(/repository\(/g)?.length, 1, 'one alias for thirteen targets');
+				assert.equal(variables.h0, 'feature');
+				assert.equal(variables.h1, undefined);
+				assert.deepEqual(
+					result.items.map(i => [i.key, ids(i)]),
+					[['base', ['1']], ...forks.map((f, i) => [f, [String(10 + i)]])],
+				);
+				assert.equal(result.fetchFailed, undefined);
+
+				manager.dispose();
+			});
+
+			test('a branch name that differs only by case is a different query', async () => {
+				const { manager, gh } = await connectedGitHub(createFakeRuntime());
+				stubCurrentAccount(gh, 'me');
+				const github = await apiClient(gh, 'github');
+				const forwarded: Query[] = [];
+				github.getPullRequestsForBranches = (_p: unknown, _t: unknown, queries: Query[]) => {
+					forwarded.push(...queries);
+					return Promise.resolve(
+						queries.map(q => ({
+							status: 'fulfilled',
+							value: { pullRequests: q.headOwners.map(() => []), truncated: false },
+						})),
+					);
+				};
+
+				await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'a', owner: 'o', repo: 'r', branch: 'Feature' },
+						{ key: 'b', owner: 'o', repo: 'r', branch: 'feature' },
+					],
+				});
+
+				assert.deepEqual(
+					forwarded.map(q => q.branch),
+					['Feature', 'feature'],
+				);
+
+				manager.dispose();
+			});
+
+			test('a group that straddles the 25-query chunk boundary still shares one alias', async () => {
+				const { manager, gh } = await connectedGitHub(createFakeRuntime());
+				stubCurrentAccount(gh, 'me');
+				const github = await apiClient(gh, 'github');
+				const sizes: number[] = [];
+				const forwarded: Query[] = [];
+				github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, queries: Query[]) => {
+					sizes.push(queries.length);
+					forwarded.push(...queries);
+					return Promise.resolve(
+						queries.map(q => ({
+							status: 'fulfilled',
+							value: {
+								pullRequests: q.headOwners.map(() => [pullRequest(provider, 1)]),
+								truncated: false,
+							},
+						})),
+					);
+				};
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						...Array.from({ length: 25 }, (_, i) => ({
+							key: `k${i}`,
+							owner: 'o',
+							repo: 'r',
+							branch: `b${i}`,
+						})),
+						// Repeats the first query, which a positional chunker would send in a second request.
+						{ key: 'dup', owner: 'o', repo: 'r', branch: 'b0', headOwner: 'forker' },
+					],
+				});
+
+				assert.deepEqual(sizes, [25]);
+				assert.deepEqual(forwarded[0].headOwners, [undefined, 'forker']);
+				assert.equal(result.items.length, 26);
+				assert.equal(result.fetchFailed, undefined);
+
+				manager.dispose();
+			});
+
+			test('a failed alias drops every target of its group, and only those', async () => {
+				const { manager, gh } = await connectedGitHub(createFakeRuntime());
+				stubCurrentAccount(gh, 'me');
+				const github = await apiClient(gh, 'github');
+				github.getPullRequestsForBranches = (provider: ProviderReference, _t: unknown, queries: Query[]) =>
+					Promise.resolve(
+						queries.map(q =>
+							q.branch === 'bad'
+								? { status: 'rejected', reason: new Error(samlForbiddenMessage) }
+								: {
+										status: 'fulfilled',
+										value: {
+											pullRequests: q.headOwners.map(() => [pullRequest(provider, 1)]),
+											truncated: false,
+										},
+									},
+						),
+					);
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'bad-base', owner: 'o', repo: 'r', branch: 'bad' },
+						{ key: 'good-base', owner: 'o', repo: 'r', branch: 'good' },
+						{ key: 'bad-fork', owner: 'o', repo: 'r', branch: 'bad', headOwner: 'forker' },
+						{ key: 'good-fork', owner: 'o', repo: 'r', branch: 'good', headOwner: 'forker' },
+					],
+				});
+
+				assert.deepEqual(
+					result.items.map(i => i.key),
+					['good-base', 'good-fork'],
+				);
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(result.warnings[0]?.targetKeys, ['bad-base', 'bad-fork']);
+
+				manager.dispose();
+			});
+
+			test('truncation is shared by the group, and each target takes its own REST step', async () => {
+				const { manager, gh } = await connectedGitHub(createFakeRuntime());
+				stubCurrentAccount(gh, 'me');
+				const github = await apiClient(gh, 'github');
+				github.getPullRequestsForBranches = (_p: unknown, _t: unknown, queries: Query[]) =>
+					Promise.resolve(
+						queries.map(q => ({
+							status: 'fulfilled',
+							value: { pullRequests: q.headOwners.map(() => []), truncated: true },
+						})),
+					);
+				const rest: (string | undefined)[] = [];
+				github.getPullRequestNumbersForBranch = (
+					_p: unknown,
+					_t: unknown,
+					_o: string,
+					_r: string,
+					_b: string,
+					options: { headOwner?: string },
+				) => {
+					rest.push(options.headOwner);
+					return Promise.resolve({ numbers: [], truncated: false });
+				};
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'base', owner: 'o', repo: 'r', branch: 'feature' },
+						{ key: 'one', owner: 'o', repo: 'r', branch: 'feature', headOwner: 'one' },
+						{ key: 'two', owner: 'o', repo: 'r', branch: 'feature', headOwner: 'two' },
+					],
+				});
+
+				assert.equal(rest.length, 3, 'one REST step per target, not per query');
+				assert.deepEqual(new Set(rest), new Set([undefined, 'one', 'two']));
+				assert.deepEqual(
+					result.items.map(i => [i.key, ids(i)]),
+					[
+						['base', []],
+						['one', []],
+						['two', []],
+					],
+				);
+				assert.equal(result.fetchFailed, undefined);
+
+				manager.dispose();
+			});
 		});
 
 		test('a headOwner equal to the owner, in any case, means the base repository', async () => {
@@ -1281,6 +1503,42 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			});
 
 			assert.deepEqual(ids(result.items[0]), ['gid-1']);
+
+			manager.dispose();
+		});
+
+		test('in a nested group, a headOwner equal to the whole namespace means the base repository', async () => {
+			const runtime = createFakeRuntime();
+			const fullPath = 'acme/platform/r';
+			const requests = branchQuery(runtime, () =>
+				json(
+					200,
+					gitLabConnection([
+						gitLabMergeRequest(1, { fullPath: fullPath }),
+						gitLabMergeRequest(3, { fullPath: fullPath, forkNamespace: 'contrib/team' }),
+					]),
+				),
+			);
+			const { manager, gl } = await connectedGitLab(runtime);
+			stubCurrentAccount(gl, 'me');
+			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.GitLab, input =>
+				Promise.resolve(sdkPullRequest(input.number)),
+			);
+
+			const target = { owner: 'acme/platform', repo: 'r', branch: 'feature' };
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: [
+					{ key: 'base', ...target, headOwner: 'ACME/Platform' },
+					{ key: 'fork', ...target, headOwner: 'contrib/team' },
+				],
+			});
+
+			assert.deepEqual(ids(result.items[0]), ['gid-1']);
+			assert.deepEqual(ids(result.items[1]), ['gid-3']);
+
+			const request = JSON.parse(requests.bodies[0]) as { variables: Record<string, unknown> };
+			assert.equal(request.variables.fullPath, fullPath);
 
 			manager.dispose();
 		});

@@ -25,14 +25,15 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../reads/etag.js';
 import { getBitbucketPullRequestIdentityFromMaybeUrl } from './bitbucket/bitbucket.utils.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import { bitbucketEtagFieldsMaxIds, toBitbucketPullRequestEtagFields } from './bitbucket/models.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
@@ -44,7 +45,6 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
-	providersMetadata,
 	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
@@ -53,6 +53,7 @@ import {
 	flatSettledOrThrow,
 	mergeCollectionMetadata,
 	parsePageCursor,
+	providerFanOutConcurrency,
 	readEtagFieldsByRepository,
 	toPageCursor,
 } from './utils/providerPaging.js';

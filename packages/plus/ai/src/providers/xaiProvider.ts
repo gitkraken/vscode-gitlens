@@ -5,6 +5,12 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type XAIModel = AIModel<typeof provider.id>;
 const models: XAIModel[] = [
 	{
+		id: 'grok-4.7',
+		name: 'Grok 4.7',
+		maxTokens: { input: 500000, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'grok-4.6',
 		name: 'Grok 4.6',
 		maxTokens: { input: 500000, output: 65536 }, // xAI publishes no output cap; mirrors Grok 4.5 to bound cost
@@ -22,15 +28,6 @@ const models: XAIModel[] = [
 		maxTokens: { input: 1000000, output: 65536 },
 		provider: provider,
 		default: true,
-	},
-	{
-		id: 'grok-beta',
-		name: 'Grok Beta',
-		maxTokens: { input: 131072, output: 4096 },
-		provider: provider,
-		hidden: true,
-		// Structured outputs require grok-2-1212 or newer; grok-beta predates that floor
-		supportsStructuredOutputs: false,
 	},
 ];
 

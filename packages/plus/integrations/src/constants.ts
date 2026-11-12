@@ -1,6 +1,5 @@
+// Webviews import this module directly, so it must stay free of runtime imports (type-only imports are fine).
 import type { CloudIntegrationAuthType } from './authentication/models.js';
-
-export const providerFanOutConcurrency = 6;
 
 export enum GitCloudHostIntegrationId {
 	GitHub = 'github',
@@ -20,6 +19,7 @@ export enum IssuesCloudHostIntegrationId {
 	Jira = 'jira',
 	Linear = 'linear',
 	Trello = 'trello',
+	Asana = 'asana',
 }
 
 /**
@@ -65,6 +65,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
+	IssuesCloudHostIntegrationId.Asana,
 ];
 
 /**
@@ -93,6 +94,7 @@ export const integrationIds = [
 	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
+	IssuesCloudHostIntegrationId.Asana,
 ];
 
 export type SupportedCloudIntegrationIds = (typeof supportedOrderedCloudIntegrationIds)[number];
@@ -103,16 +105,6 @@ export function isSupportedCloudIntegrationId(id: IntegrationIds): id is Support
 
 export function isIntegrationId(id: string): id is IntegrationIds {
 	return integrationIds.includes(id as IntegrationIds);
-}
-
-export type IntegrationFeatures = 'prs' | 'issues';
-
-export interface IntegrationDescriptor {
-	id: SupportedCloudIntegrationIds;
-	name: string;
-	icon: string;
-	supports: IntegrationFeatures[];
-	requiresPro: boolean;
 }
 
 /** Stored shape of a configured-integration descriptor in workspace state. */
@@ -146,90 +138,3 @@ export type StoredIntegrationConfigurations = Record<
 	IntegrationIds,
 	StoredConfiguredIntegrationDescriptor[] | undefined
 >;
-
-export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
-	{
-		id: GitCloudHostIntegrationId.GitHub,
-		name: 'GitHub',
-		icon: 'gl-provider-github',
-		supports: ['prs', 'issues'],
-		requiresPro: false,
-	},
-	{
-		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
-		name: 'GitHub Enterprise',
-		icon: 'gl-provider-github',
-		supports: ['prs', 'issues'],
-		requiresPro: true,
-	},
-	{
-		id: GitCloudHostIntegrationId.GitLab,
-		name: 'GitLab',
-		icon: 'gl-provider-gitlab',
-		supports: ['prs', 'issues'],
-		requiresPro: false,
-	},
-	{
-		id: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
-		name: 'GitLab Self-Hosted',
-		icon: 'gl-provider-gitlab',
-		supports: ['prs', 'issues'],
-		requiresPro: true,
-	},
-	{
-		id: GitCloudHostIntegrationId.AzureDevOps,
-		name: 'Azure DevOps',
-		icon: 'gl-provider-azdo',
-		supports: ['prs', 'issues'],
-		requiresPro: true,
-	},
-	{
-		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-		name: 'Azure DevOps Server',
-		icon: 'gl-provider-azdo',
-		supports: ['prs', 'issues'],
-		requiresPro: true,
-	},
-	{
-		id: GitCloudHostIntegrationId.Bitbucket,
-		name: 'Bitbucket',
-		icon: 'gl-provider-bitbucket',
-		supports: ['prs', 'issues'],
-		requiresPro: false,
-	},
-	{
-		id: GitSelfManagedHostIntegrationId.BitbucketServer,
-		name: 'Bitbucket Data Center',
-		icon: 'gl-provider-bitbucket',
-		supports: ['prs'],
-		requiresPro: true,
-	},
-	{
-		id: IssuesCloudHostIntegrationId.Jira,
-		name: 'Jira',
-		icon: 'gl-provider-jira',
-		supports: ['issues'],
-		requiresPro: true,
-	},
-	{
-		id: IssuesSelfManagedHostIntegrationId.JiraServer,
-		name: 'Jira Data Center',
-		icon: 'gl-provider-jira',
-		supports: ['issues'],
-		requiresPro: true,
-	},
-	{
-		id: IssuesCloudHostIntegrationId.Linear,
-		name: 'Linear',
-		icon: 'gl-provider-linear',
-		supports: ['issues'],
-		requiresPro: true,
-	},
-	{
-		id: IssuesCloudHostIntegrationId.Trello,
-		name: 'Trello',
-		icon: 'gl-provider-trello',
-		supports: ['issues'],
-		requiresPro: true,
-	},
-];

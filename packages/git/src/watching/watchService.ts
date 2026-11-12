@@ -225,6 +225,18 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		return this._onDidChangeWatchMode.event;
 	}
 
+	private readonly _onDidChangeRepoWatched = new Emitter<{ repoPath: string; watched: boolean }>();
+	/**
+	 * Fires as a repository's `.git` directory starts being watched (its session's first repo subscriber connected it
+	 * to its watch group) and as it stops (its last one left, or its session was disposed); see {@link isRepoWatched}.
+	 * `repoPath` is the session's key ({@link getRepositoryKey}). Never fires as the service itself is disposed, nor as
+	 * the session suspends or resumes: a suspended session still reports what it held once it resumes, so there is
+	 * nothing to hand off, and {@link isRepoWatched} answers `false` meanwhile without announcing it.
+	 */
+	get onDidChangeRepoWatched(): Event<{ repoPath: string; watched: boolean }> {
+		return this._onDidChangeRepoWatched.event;
+	}
+
 	private readonly defaultRepoDelayMs?: number;
 	private readonly defaultWorkingTreeDelayMs?: number;
 	private readonly defaultRepoMaxWaitMs?: number;
@@ -296,6 +308,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this._onDidChangeWorkingTree.dispose();
 		this._onDidChangeFetchHead.dispose();
 		this._onDidChangeWatchMode.dispose();
+		this._onDidChangeRepoWatched.dispose();
 	}
 
 	/**
@@ -408,17 +421,31 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	 * Core announced one of its own writes for `repoPath`; the session watching it fires the announcement in place of
 	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}); `refs` are the full ref names it
 	 * moved, when it knows them, and `options.configConfinedToRefs` confines its `config` change to the sections of the
-	 * local branches among them (see `GitServiceHooks.repository.onChanged`). A path no session watches is ignored.
+	 * local branches among them (see `GitServiceHooks.repository.onChanged`); `options.movedWorktrees` confines its
+	 * `worktreeHead` change to those linked worktrees (see `AnnouncedRepositoryChanges.movedWorktrees`). A path no session
+	 * watches is ignored.
 	 */
 	noteSelfWrite(
 		repoPath: string,
 		changes: readonly RepositoryChange[],
 		refs?: readonly string[],
-		options?: { readonly configConfinedToRefs?: boolean },
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
 	): void {
 		if (this._disposed) return;
 
 		this.sessionMap.get(getRepositoryKey(repoPath))?.session.noteSelfWrite(changes, refs, options);
+	}
+
+	/**
+	 * Whether `repoPath`'s `.git` directory is watched: its session has a repo subscriber, so it is connected to its
+	 * watch group (natively, or polled in place of a watcher that can't be trusted). A session with only working-tree
+	 * subscribers, or none, doesn't count, nor does a suspended one: it holds what its watcher hears until it resumes,
+	 * and the poller doesn't poll meanwhile, so a read is served stale. Suspending or resuming announces nothing (see
+	 * {@link onDidChangeRepoWatched}).
+	 */
+	isRepoWatched(repoPath: string): boolean {
+		const record = this.sessionMap.get(getRepositoryKey(repoPath));
+		return record != null && this.isConnected(record) && !record.session.suspended;
 	}
 
 	/** Get an existing session by repo path */
@@ -520,11 +547,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				ref?: string | false,
 				overflow?: boolean,
 				configBranches?: ReadonlySet<string>,
+				movedWorktree?: string,
 			): void => {
 				if (overflow) {
 					session.pushUnfencedRepoChanges(changes);
 				} else {
-					session.pushRepoChanges(changes, ref, configBranches);
+					session.pushRepoChanges(changes, ref, configBranches, movedWorktree);
 				}
 
 				// A working tree nothing watches is read again whenever the index or HEAD says it may have moved
@@ -562,8 +590,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			onUnwatchableChanged: (): void => this.updateWatchMode(record),
 		};
 
+		const wasConnected = group.sessions.has(session.repoPath);
 		group.addSession(session.repoPath, gitDir, hooks);
 		this.updateWatchMode(record);
+		if (!wasConnected) {
+			this.fireRepoWatchedIfConnected(record, true);
+		}
 	}
 
 	private disconnectFromWatchGroup(record: SessionRecord): void {
@@ -572,9 +604,25 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const group = this.watchGroups.get(commonGitDir);
 		if (group == null) return;
 
+		const wasConnected = group.sessions.has(session.repoPath);
 		group.removeSession(session.repoPath);
 		this.maybeDisposeWatchGroup(commonGitDir);
 		this.updateWatchMode(record);
+		if (wasConnected) {
+			this.fireRepoWatchedIfConnected(record, false);
+		}
+	}
+
+	private isConnected(record: SessionRecord): boolean {
+		const group = this.watchGroups.get((record.gitDir.commonUri ?? record.gitDir.uri).fsPath);
+		return group?.sessions.has(record.session.repoPath) ?? false;
+	}
+
+	/** Announces that `record` was just connected (`watched`) or disconnected, once that is what it is */
+	private fireRepoWatchedIfConnected(record: SessionRecord, watched: boolean): void {
+		if (this._disposed || this.isConnected(record) !== watched) return;
+
+		this._onDidChangeRepoWatched.fire({ repoPath: record.session.repoPath, watched: watched });
 	}
 
 	private computeWatchMode(record: SessionRecord): 'events' | 'poll' | undefined {
@@ -623,23 +671,26 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		// Ahead of `ready()`, so the replay below waits for rules that may have changed while nothing watched them
 		const revalidated = filter?.revalidate();
 		if (filter != null) {
+			const replay = (): void => {
+				const pending = buffered;
+				const incomplete = bufferIncomplete;
+				filterReady = true;
+				buffered = undefined;
+				bufferIncomplete = false;
+
+				if (!pending?.length) return;
+
+				const paths = filterWorkingTreePaths(pending, repoPath, filter);
+				if (paths.length > 0 || incomplete) {
+					session.pushWorkingTreeChanges(paths, incomplete);
+				}
+			};
+			// A failed load still replays: the filter keeps the rules it had (none before its first load) and errs
+			// toward "not ignored", so an extra refresh is the worst case, where dropping the buffer loses real changes
 			void filter
 				.ready()
-				.then(() => {
-					filterReady = true;
-					if (buffered?.length) {
-						const paths = filterWorkingTreePaths(buffered, repoPath, filter);
-						if (paths.length > 0 || bufferIncomplete) {
-							session.pushWorkingTreeChanges(paths, bufferIncomplete);
-						}
-					}
-					buffered = undefined;
-					bufferIncomplete = false;
-				})
-				.catch(() => {
-					filterReady = true;
-					buffered = undefined;
-				});
+				.then(replay, replay)
+				.catch(() => {});
 		}
 
 		// An ignore rule changed (or may have): refresh the filter (unless it already reloaded) and the pruned set, and

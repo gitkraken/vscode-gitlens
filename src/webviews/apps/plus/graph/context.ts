@@ -50,6 +50,9 @@ export interface AppState extends State {
 	/** Composed with `loading` at the `gl-graph` render boundary — true while a scope-anchor
 	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
 	scopeLoading: boolean;
+	/** Webview-local: the checked-out branch's tip sha + repo when the WIP merge target says it landed (PR or git
+	 *  evidence). Written by the details panel's enrichment; read by the header to hide Publish. */
+	wipLanded: { repoPath: string; sha: string } | undefined;
 	agentsBannerCollapsed?: boolean | undefined;
 	mcpCanAutoRegister?: boolean | undefined;
 	canInstallHooks?: boolean | undefined;

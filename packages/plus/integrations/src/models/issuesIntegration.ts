@@ -6,22 +6,19 @@ import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, SessionPublication } from '../authentication/models.js';
 import { failsEveryScope } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
+import type { LinearIntegration } from '../providers/linear.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
-import type {
-	BatchSlot,
-	Integration,
-	IntegrationResult,
-	IntegrationType,
-	IssueEtagFields,
-	IssueEtagInclude,
-} from './integration.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
+import type { IssueEtagFields, IssueEtagInclude } from '../reads/etag.js';
+import type { BatchSlot, Integration } from './integration.js';
 import { IntegrationBase, isReadSessionFailure } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from './issueReads.js';
+import type { IntegrationResult, IssuesIntegration as IssuesIntegrationView } from './publicIntegration.js';
 
 /**
  * Groups requests into searches of at most `maxPerSearch` projects sharing `searchKey`. Undefined, reading
@@ -75,15 +72,160 @@ export function splitProjectIssuesSearch<I>(
 	return split;
 }
 
-export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
-	return integration.type === 'issues';
+/** By id: the provider class is loaded lazily, so it can't be checked with `instanceof` here. */
+export function isLinearIntegration(integration: Integration): integration is LinearIntegration {
+	return integration.id === IssuesCloudHostIntegrationId.Linear;
+}
+
+function sessionPublicationKey(id: string, cloud: boolean | undefined): string {
+	return JSON.stringify([id, cloud]);
 }
 
 export abstract class IssuesIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
-> extends IntegrationBase<ID> {
-	readonly type: IntegrationType = 'issues';
+>
+	extends IntegrationBase<ID>
+	implements IssuesIntegrationView
+{
+	readonly type = 'issues';
+	private _discoverySequence = 0;
+	private _globalRetirement = 0;
+	private _primaryPublication = 0;
+	private readonly _actualPublications = new Map<string, number>();
+	private readonly _selectorPublications = new Map<string, number>();
+	private readonly _selectorSessions = new Map<string, { id: string; cloud?: boolean }>();
+	private readonly _sessionPublications = new WeakMap<
+		ProviderAuthenticationSession,
+		Map<string, { beforeGeneration: number; afterGeneration: number }>
+	>();
+
+	override get discoveryGeneration(): number {
+		return this._discoverySequence;
+	}
+
+	override getSessionDiscoveryGeneration(sessionId?: string, connectionId?: string, cloud?: boolean): number {
+		const actual =
+			sessionId == null
+				? 0
+				: Math.max(
+						this._actualPublications.get(sessionPublicationKey(sessionId, undefined)) ?? 0,
+						...(cloud == null ? [true, false] : [cloud]).map(
+							variant => this._actualPublications.get(sessionPublicationKey(sessionId, variant)) ?? 0,
+						),
+					);
+		return Math.max(
+			this._globalRetirement,
+			actual,
+			connectionId != null ? (this._selectorPublications.get(connectionId) ?? 0) : this._primaryPublication,
+		);
+	}
+
+	override invalidateDiscoveryCaches(): void {
+		this._globalRetirement = ++this._discoverySequence;
+		this.clearDiscoveryCaches();
+	}
+
+	override invalidateDiscoveryForConnection(connectionId?: string): void {
+		const stamp = ++this._discoverySequence;
+		if (connectionId != null) {
+			this._selectorPublications.set(connectionId, stamp);
+			const session = this._selectorSessions.get(connectionId);
+			this._actualPublications.set(
+				sessionPublicationKey(session?.id ?? connectionId, session == null ? true : session.cloud),
+				stamp,
+			);
+		} else {
+			this._primaryPublication = stamp;
+			if (this._session != null) {
+				this._actualPublications.set(sessionPublicationKey(this._session.id, this._session.cloud), stamp);
+			}
+		}
+		this.clearDiscoveryCaches();
+	}
+
+	protected clearDiscoveryCaches(): void {}
+
+	protected override invalidatePublishedSession(publication: SessionPublication, affectsPrimary: boolean): void {
+		const stamp = ++this._discoverySequence;
+		const cloud = publication.session != null ? publication.session.cloud : publication.cloud;
+		for (const id of [publication.session?.id, publication.previousSessionId]) {
+			if (id != null) {
+				this._actualPublications.set(sessionPublicationKey(id, cloud), stamp);
+			}
+		}
+		if (publication.connectionId != null) {
+			this._selectorPublications.set(publication.connectionId, stamp);
+			if (publication.session != null) {
+				this._selectorSessions.set(publication.connectionId, {
+					id: publication.session.id,
+					cloud: publication.session.cloud,
+				});
+			}
+		}
+		if (affectsPrimary) {
+			this._primaryPublication = stamp;
+			this.clearDiscoveryCaches();
+		}
+	}
+
+	override onSessionPublishing(publication: SessionPublication): void {
+		const session = publication.session;
+		const transitions = session != null ? (this._sessionPublications.get(session) ?? new Map()) : undefined;
+		const selectors = new Set([
+			...(transitions?.keys() ?? []),
+			'',
+			publication.connectionId ?? '',
+			session?.id ?? '',
+		]);
+		const before = new Map(
+			Array.from(selectors, selector => [
+				selector,
+				this.getSessionDiscoveryGeneration(session?.id, selector || undefined, session?.cloud),
+			]),
+		);
+		super.onSessionPublishing(publication);
+		if (session == null || transitions == null) return;
+
+		for (const selector of selectors) {
+			const beforeGeneration = before.get(selector)!;
+			const previous = transitions.get(selector);
+			transitions.set(selector, {
+				beforeGeneration:
+					previous?.afterGeneration === beforeGeneration ? previous.beforeGeneration : beforeGeneration,
+				afterGeneration: this.getSessionDiscoveryGeneration(session.id, selector || undefined, session.cloud),
+			});
+		}
+		this._sessionPublications.set(session, transitions);
+	}
+
+	private isResolvedDiscoverySessionCurrent(
+		session: ProviderAuthenticationSession,
+		startingGeneration: number,
+		connectionId: string | undefined,
+	): boolean {
+		if (!connectionId && session !== this._session) return false;
+		return this.isResolvedSessionCurrent(session, startingGeneration, connectionId);
+	}
+
+	protected override isResolvedSessionCurrent(
+		session: ProviderAuthenticationSession | undefined,
+		startingGeneration: number,
+		connectionId?: string,
+	): boolean {
+		if (session == null) return startingGeneration === this.discoveryGeneration;
+
+		const current = this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud);
+		if (current <= startingGeneration) return true;
+
+		// Only this resolution's publications may bridge a retirement boundary.
+		const publication = this._sessionPublications.get(session)?.get(connectionId ?? '');
+		return (
+			publication != null &&
+			publication.beforeGeneration <= startingGeneration &&
+			publication.afterGeneration === current
+		);
+	}
 
 	get supportsIssueLookupByResourceId(): boolean {
 		return this.getProviderIssueByResourceId != null;
@@ -134,7 +276,7 @@ export abstract class IssuesIntegration<
 
 			const settled = await this.settleBatchRefusals(session, targets, slots);
 
-			this.resetRequestExceptionCount('getIssue');
+			this.resetRequestExceptionCount('getIssue', connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssue', ex, { scope: scope, connectionId: connectionId });
@@ -179,7 +321,7 @@ export abstract class IssuesIntegration<
 			const settled = await this.settleBatchRefusals(session, targets, slots, { keepOtherFailures: true });
 
 			if (slots.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields');
+				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
 			}
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -226,7 +368,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const account = await this.getProviderAccountForResource(session, resource);
-			this.resetRequestExceptionCount('getAccountForResource');
+			this.resetRequestExceptionCount('getAccountForResource', connectionId);
 			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
@@ -246,11 +388,21 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Result-returning core of {@link getResourcesForUser}. Recovers thrown errors into `{ error }` so callers
-	 * can surface them as warnings rather than silently swallowing them to `undefined`. Gated here (not on the
+	 * can surface them as warnings rather than silently swallowing them to `undefined`. Deduped here (not on the
 	 * wrapper) so direct callers such as the ProviderBackend facade share the same dedup as `getResourcesForUser`.
 	 */
+	getResourcesForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+		// Joined only within a discovery generation: a read started after a drop (a forced refresh) must not take the
+		// lookup a read made before it, which answers with the resources as they were then (#6162). An empty
+		// connectionId reads the primary, so it shares the primary's lookup.
+		return this.getResourcesForUserResultCore(connectionId || undefined, this.discoveryGeneration);
+	}
+
 	@gate()
-	async getResourcesForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+	private async getResourcesForUserResultCore(
+		connectionId: string | undefined,
+		_discoveryGeneration: number,
+	): Promise<IntegrationResult<T[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -258,7 +410,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const resources = await this.getProviderResourcesForUser(session);
-			this.resetRequestExceptionCount('getResourcesForUser');
+			this.resetRequestExceptionCount('getResourcesForUser', connectionId);
 			return { value: resources };
 		} catch (ex) {
 			this.handleProviderException('getResourcesForUser', ex, { connectionId: connectionId });
@@ -280,16 +432,36 @@ export abstract class IssuesIntegration<
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiCollectionResult<T> | undefined>> {
 		const scope = getScopedLogger();
+		const startingGeneration = this.discoveryGeneration;
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+		// Primary resolution can refresh its own session before discovery starts.
+		if (!this.isResolvedDiscoverySessionCurrent(session, startingGeneration, connectionId)) {
+			return undefined;
+		}
+
+		const generation = this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud);
 
 		try {
 			const projects = await this.getProviderProjectsForResourcesWithMetadata(session, resources);
+			// Existing cached readers keep their snapshot after invalidation without changing the replacement session.
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return { value: projects };
+			}
+
 			await this.confirmScopedAuthFailures(session, projects.metadata);
-			this.resetRequestExceptionCount('getProjectsForResources');
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return { value: projects };
+			}
+
+			this.resetRequestExceptionCount('getProjectsForResources', connectionId);
 			return { value: projects };
 		} catch (ex) {
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return undefined;
+			}
+
 			this.handleProviderException('getProjectsForResources', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
@@ -325,26 +497,74 @@ export abstract class IssuesIntegration<
 		projectsOf: (resource: T) => boolean,
 		connectionId?: string,
 	): Promise<
-		IntegrationResult<{ resources: T[] | undefined; projects?: ProviderApiCollectionResult<T> } | undefined>
+		IntegrationResult<
+			| {
+					resources: T[] | undefined;
+					projects?: ProviderApiCollectionResult<T>;
+					generation: number;
+					sessionId: string;
+					sessionCloud?: boolean;
+			  }
+			| undefined
+		>
 	> {
 		const scope = getScopedLogger();
+		const startingGeneration = this.discoveryGeneration;
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+		if (!this.isResolvedDiscoverySessionCurrent(session, startingGeneration, connectionId)) {
+			return undefined;
+		}
+
+		const generation = this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud);
 
 		try {
 			// Reset on success as the cached reads are, so a refusal a re-sync healed doesn't count toward a disconnect.
 			const resources = await this.getProviderUncachedResourcesForUser(session);
-			this.resetRequestExceptionCount('getResourcesForUser');
-			if (resources == null) return { value: { resources: undefined } };
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return undefined;
+			}
+
+			this.resetRequestExceptionCount('getResourcesForUser', connectionId);
+			if (resources == null) {
+				return {
+					value: {
+						resources: undefined,
+						generation: generation,
+						sessionId: session.id,
+						sessionCloud: session.cloud,
+					},
+				};
+			}
 
 			const projects = await this.getProviderUncachedProjectsForResourcesWithMetadata(
 				session,
 				resources.filter(projectsOf),
 			);
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return undefined;
+			}
+
 			await this.confirmScopedAuthFailures(session, projects.metadata);
-			this.resetRequestExceptionCount('getProjectsForResources');
-			return { value: { resources: resources, projects: projects } };
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return undefined;
+			}
+
+			this.resetRequestExceptionCount('getProjectsForResources', connectionId);
+			return {
+				value: {
+					resources: resources,
+					projects: projects,
+					generation: generation,
+					sessionId: session.id,
+					sessionCloud: session.cloud,
+				},
+			};
 		} catch (ex) {
+			if (generation !== this.getSessionDiscoveryGeneration(session.id, connectionId, session.cloud)) {
+				return undefined;
+			}
+
 			this.handleProviderException('getProjectsForResources', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
@@ -365,7 +585,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const account = await this.getProviderUncachedAccountForResource(session, resource);
-			this.resetRequestExceptionCount('getAccountForResource');
+			this.resetRequestExceptionCount('getAccountForResource', connectionId);
 			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
@@ -426,7 +646,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const issues = await this.getProviderIssuesForProject(session, project, options);
-			this.resetRequestExceptionCount('getIssuesForProject');
+			this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
@@ -452,7 +672,7 @@ export abstract class IssuesIntegration<
 		try {
 			const result = await this.getProviderIssuesForProjectWithTruncation(session, project, options);
 			await this.confirmScopedAuthFailures(session, result?.metadata);
-			this.resetRequestExceptionCount('getIssuesForProject');
+			this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
@@ -499,7 +719,7 @@ export abstract class IssuesIntegration<
 					return;
 				}
 
-				this.resetRequestExceptionCount('getIssuesForProject');
+				this.resetRequestExceptionCount('getIssuesForProject', connectionId);
 				indices.forEach((index, i) => {
 					results[index] = { value: { values: values[i], truncated: false } };
 				});

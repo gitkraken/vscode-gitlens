@@ -2,6 +2,7 @@ import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
 import type { PageableResult } from '@gitlens/utils/paging.js';
 import type { BranchMetadata, BranchMetadataGkConfigKey, GitBranch, GitTrackingUpstream } from '../models/branch.js';
 import type { GitBranchReference, GitReference } from '../models/reference.js';
+import type { GitReflogEntry } from '../models/reflog.js';
 import { shortenRevision } from './revision.utils.js';
 
 /**
@@ -269,4 +270,67 @@ export function setBranchMetadataValue(
 			}
 			break;
 	}
+}
+
+const mergeFastForwardRegex = /^merge .+: Fast-forward$/;
+const pullFastForwardRegex = /^pull\b.*: Fast-forward$/;
+const rebaseFinishRegex = /^(?:rebase|pull)\b.* \(finish\): .* onto ([0-9a-f]+)$/;
+const branchCreatedRegex = /^branch: Created from (.+)$/;
+
+/**
+ * Classifies whether a local branch's own reflog shows work authored on it. A branch that is 0 commits ahead
+ * of its merge target is either brand new (nothing merged) or had its work fast-forward merged, and only the
+ * reflog tells them apart. Exclusion-based: any entry other than a known no-work move (creation, reset, rename,
+ * fast-forward, fetch, clone, or a rebase that replayed nothing) counts as work.
+ *
+ * - `work`: the branch has its own work, so it was genuinely merged
+ * - `none`: the branch was created here and never had work, so it's just fresh
+ * - `unknown`: can't tell (empty or expired reflog, or created from the same-named remote branch)
+ *
+ * @param entries the branch's reflog, newest first
+ */
+export function getBranchReflogWork(
+	entries: readonly GitReflogEntry[],
+	branchName: string,
+): 'work' | 'none' | 'unknown' {
+	let createdFrom: string | undefined;
+
+	for (const entry of entries) {
+		const { message } = entry;
+
+		const created = branchCreatedRegex.exec(message);
+		if (created != null) {
+			createdFrom = created[1];
+			continue;
+		}
+
+		if (
+			message.startsWith('branch: Reset to ') ||
+			message.startsWith('Branch: renamed ') ||
+			message.startsWith('reset: moving to ') ||
+			mergeFastForwardRegex.test(message) ||
+			pullFastForwardRegex.test(message) ||
+			message.startsWith('fetch') ||
+			message.startsWith('clone: ')
+		) {
+			continue;
+		}
+
+		// A rebase that finishes onto the entry's own sha replayed nothing
+		const finished = rebaseFinishRegex.exec(message);
+		if (finished != null && finished[1] === entry.sha) continue;
+
+		return 'work';
+	}
+
+	if (createdFrom == null) return 'unknown';
+
+	// Strip an optional `refs/remotes/`, then see if what's left is `<remote>/<branchName>` (remote has no `/`)
+	const source = createdFrom.startsWith('refs/remotes/')
+		? createdFrom.substring('refs/remotes/'.length)
+		: createdFrom;
+	const slash = source.indexOf('/');
+	if (slash > 0 && source.substring(slash + 1) === branchName) return 'unknown';
+
+	return 'none';
 }

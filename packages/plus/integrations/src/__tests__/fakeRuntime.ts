@@ -43,7 +43,10 @@ export interface FakeRuntime extends IntegrationServiceContext {
 	fireConfigChange(change: ConfigChangeEvent): void;
 }
 
-export function createFakeRuntime(): FakeRuntime {
+export function createFakeRuntime(options?: {
+	/** Opts the host in to merge-queue data on GitHub.com pull request reads (`getPullRequestReadOptions`). */
+	readonly mergeQueue?: boolean;
+}): FakeRuntime {
 	const emittedEvents: FakeRuntime['emittedEvents'] = [];
 	let deletePullRequestsCalls = 0;
 
@@ -105,6 +108,7 @@ export function createFakeRuntime(): FakeRuntime {
 	const config: ConfigProvider = {
 		isIntegrationsEnabled: () => true,
 		getLaunchpadOptions: () => ({}),
+		getPullRequestReadOptions: () => ({ mergeQueue: options?.mergeQueue }),
 		getRemoteConfigs: () => [],
 		onDidChange: configOnChange.event,
 	};

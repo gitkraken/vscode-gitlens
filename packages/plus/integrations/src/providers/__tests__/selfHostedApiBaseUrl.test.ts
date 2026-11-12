@@ -85,7 +85,7 @@ suite('Self-hosted repo-scoped baseUrl (#5526)', () => {
 			assert.ok(bb != null, 'Bitbucket integration resolves');
 
 			const captured = { baseUrl: undefined as string | undefined, called: false };
-			await captureBaseUrl(bb, integrationId, ['getPullRequestsForReposFn'], captured);
+			await captureBaseUrl(bb, integrationId, ['getPullRequestsForRepoFn'], captured);
 
 			await (bb as any).getMyPullRequestsForRepos([{ namespace: 'proj', name: 'repo' }], undefined, 'bb-tok');
 
@@ -108,7 +108,7 @@ suite('Self-hosted repo-scoped baseUrl (#5526)', () => {
 			assert.ok(bb != null, 'Bitbucket integration resolves');
 
 			const captured = { baseUrl: undefined as string | undefined, called: false };
-			await captureBaseUrl(bb, integrationId, ['getPullRequestsForReposFn'], captured);
+			await captureBaseUrl(bb, integrationId, ['getPullRequestsForRepoFn'], captured);
 
 			await (bb as any).getMyPullRequestsForRepos([{ namespace: 'proj', name: 'repo' }], undefined, 'bb-tok');
 

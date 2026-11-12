@@ -61,7 +61,7 @@ const graphMinimapColors = {
 	remoteBranches: 'var(--vscode-gitlens-graphMinimapMarkerRemoteBranchesColor, var(--vscode-charts-blue))',
 	pullRequests: 'var(--vscode-gitlens-graphMinimapMarkerPullRequestsColor, var(--vscode-charts-orange))',
 	tags: 'var(--vscode-gitlens-graphMinimapMarkerTagsColor, var(--vscode-charts-yellow))',
-	stashes: 'var(--vscode-gitlens-graphMinimapMarkerStashesColor, var(--color-foreground--50))',
+	stashes: 'var(--vscode-gitlens-graphMinimapMarkerStashesColor)',
 } as const;
 
 /*
@@ -191,14 +191,14 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			/* Mimics an autolink/PR link visually without being a focusable,
 clickable anchor (the preview is non-interactive). */
 			.preview-link {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 			}
 
 			.frame {
 				position: relative;
 				overflow: hidden;
 				background-color: var(--vscode-editor-background);
-				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border: var(--gl-border-width) solid var(--gl-color-border-raised);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -208,7 +208,7 @@ clickable anchor (the preview is non-interactive). */
 				align-items: center;
 				padding: var(--gl-space-6) var(--gl-space-12);
 				font-size: 1.15rem;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				background-color: var(--vscode-editor-background);
 				border-top: var(--gl-border-width) solid var(--vscode-button-background);
 			}
@@ -235,7 +235,7 @@ clickable anchor (the preview is non-interactive). */
 			}
 
 			.muted {
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.line {
@@ -256,7 +256,7 @@ clickable anchor (the preview is non-interactive). */
 				flex: none;
 				width: 3.2rem;
 				padding-right: var(--gl-space-12);
-				color: var(--vscode-editorLineNumber-foreground, var(--color-foreground--50));
+				color: var(--vscode-editorLineNumber-foreground);
 				text-align: right;
 				user-select: none;
 			}
@@ -268,7 +268,7 @@ clickable anchor (the preview is non-interactive). */
 				font-family: var(--vscode-font-family);
 				font-size: 1.1rem;
 				font-style: italic;
-				color: var(--vscode-gitlens-trailingLineForegroundColor, var(--color-foreground--50));
+				color: var(--vscode-gitlens-trailingLineForegroundColor);
 				white-space: nowrap;
 			}
 
@@ -279,7 +279,7 @@ clickable anchor (the preview is non-interactive). */
 				height: 2rem;
 				padding-left: 4.4rem;
 				font-size: 1.05rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.codelens--block {
@@ -296,10 +296,6 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				color: var(--vscode-charts-blue);
 			}
 
-			.syntax-fn {
-				color: var(--vscode-charts-yellow);
-			}
-
 			.blame-gutter {
 				display: flex;
 				flex: none;
@@ -309,7 +305,7 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				height: 100%;
 				padding-left: var(--gl-space-8);
 				overflow: hidden;
-				border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-right: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.blame-gutter__heat {
@@ -340,7 +336,7 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				text-overflow: ellipsis;
 				font-family: var(--vscode-font-family);
 				font-size: 1.05rem;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -364,7 +360,7 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				width: 1.2rem;
 				padding-top: var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
-				border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-left: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.overview-ruler__mark {
@@ -400,15 +396,15 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				place-items: center;
 				height: 9rem;
 				font-size: 1.1rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hover-card {
 				max-width: 40rem;
 				margin: var(--gl-space-10) auto;
 				overflow: hidden;
-				background-color: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
-				border: var(--gl-border-width) solid var(--vscode-editorHoverWidget-border, var(--color-foreground--25));
+				background-color: var(--gl-color-surface-overlay);
+				border: var(--gl-border-width) solid var(--gl-color-border-overlay);
 				border-radius: var(--gl-radius-md);
 				box-shadow: 0 0.8rem 2.4rem var(--vscode-widget-shadow);
 			}
@@ -435,15 +431,15 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				padding: 0.7rem 1.3rem;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
-				color: var(--color-link-foreground);
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				color: var(--gl-color-action-link-fg);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.hover-card__diff {
 				padding: 0.8rem 1.3rem;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.diff-removed {
@@ -461,7 +457,7 @@ container-scope lens (both sit at column 0) so they read distinctly. */
 				align-items: stretch;
 				height: 26px;
 				overflow: hidden;
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Rows region: px, not rem, so the HTML rows stay in register with the gutter SVG's
@@ -569,7 +565,7 @@ transparent background, so the pill's padding box is its visual box. */
 				display: grid;
 				place-items: center;
 				font-size: 1.15rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				background-color: color-mix(in srgb, var(--vscode-editor-background) 78%, transparent);
 			}
 

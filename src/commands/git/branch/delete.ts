@@ -57,6 +57,8 @@ interface State<Repo = string | GlRepository, Refs = GitBranchReference | GitBra
 	repo: Repo;
 	references: Refs;
 	flags: Flags[];
+	/** Already-localized reason the delete was suggested, shown as the confirm step's placeholder */
+	reason?: string;
 }
 export type BranchDeleteState = State;
 
@@ -416,7 +418,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 		}
 
 		const confirmTitle = prune ? l10n.t('Confirm Prune Branches') : l10n.t('Confirm Delete Branches');
-		step = createConfirmStep(appendReposToTitle(confirmTitle, state, context), rows, confirmTitle);
+		step = createConfirmStep(appendReposToTitle(confirmTitle, state, context), rows, state.reason ?? confirmTitle);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

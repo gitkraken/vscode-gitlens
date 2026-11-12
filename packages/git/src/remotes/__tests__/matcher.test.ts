@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { RemoteResourceType } from '../../models/remoteResource.js';
 import { parseGitRemoteUrl } from '../../utils/remote.utils.js';
 import type { RemoteProviderConfig } from '../matcher.js';
 import { createRemoteProviderMatcher } from '../matcher.js';
@@ -30,6 +31,48 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			assert.ok(provider);
 			assert.strictEqual(provider.id, 'bitbucket');
 		});
+
+		test('matches Bitbucket SSH URL and uses the web domain', () => {
+			const url = 'git@ssh.bitbucket.org:owner/repo.git';
+			const [scheme, domain, path] = parseGitRemoteUrl(url);
+			const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'bitbucket');
+			assert.strictEqual(provider.domain, 'bitbucket.org');
+			assert.strictEqual(provider.url({ type: RemoteResourceType.Repo }), 'https://bitbucket.org/owner/repo');
+		});
+
+		for (const url of [
+			'ssh://git@ssh.bitbucket.org/owner/repo.git',
+			'ssh://git@ssh.bitbucket.org:22/owner/repo.git',
+			'git@SSH.Bitbucket.org:owner/repo.git',
+		]) {
+			test(`builds Bitbucket web URLs without the SSH host, port, or .git suffix for ${url}`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'bitbucket');
+				assert.strictEqual(provider.domain, 'bitbucket.org');
+				assert.strictEqual(provider.owner, 'owner');
+				assert.strictEqual(provider.repoName, 'repo');
+				assert.strictEqual(
+					provider.url({ type: RemoteResourceType.Commit, sha: 'abc123' }),
+					'https://bitbucket.org/owner/repo/commits/abc123',
+				);
+			});
+		}
+
+		for (const url of [
+			'git@ssh.bitbucket.org.example.com:owner/repo.git',
+			'git@notssh.bitbucket.org:owner/repo.git',
+			'git@example.com:ssh.bitbucket.org/owner/repo.git',
+		]) {
+			test(`does not treat ${url} as Bitbucket`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				assert.strictEqual(provider, undefined);
+			});
+		}
 
 		test('matches Azure DevOps URL', () => {
 			const matcher = createRemoteProviderMatcher();

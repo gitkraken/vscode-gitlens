@@ -89,6 +89,9 @@ export function createFocusTracker(sender: (params: { focused: boolean; inputFoc
 		if (!actualFocused) {
 			params.inputFocused = false;
 		}
+		// What was sent is what the next focusin compares against — or focus coming back after a blur is never sent
+		focused = params.focused;
+		inputFocused = params.inputFocused;
 
 		sender(params);
 	}, 150);

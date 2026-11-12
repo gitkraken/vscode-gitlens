@@ -575,7 +575,9 @@ Now, proceed with your analysis and provide a comprehensive review of the PR. Re
 };
 
 // Shared by the reviewChanges and reviewDetail templates so line-citation rules can't drift apart
-const lineCitationGuidance = `- For "lines", copy the "start" and "end" numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk. If a finding is not tied to specific lines, set "lines" to null; if not tied to a single file, set "file" to null`;
+const lineCitationGuidance = `- A finding that holds in several places — the same mistake repeated, a contract broken on both of its sides — is ONE finding: its first place goes in "file"/"lines" and every place, that one included, in "locations"; a finding with a single place sets "locations" to null
+- An area's "files" are exactly the files its findings point at; never list a file that none of the area's findings concerns
+- For "lines", copy the "start" and "end" numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk. If a finding is not tied to specific lines, set "lines" to null; if not tied to a single file, set "file" to null`;
 
 export const reviewChanges: PromptTemplate<'review-changes'> = {
 	id: 'review-changes_v2',
@@ -615,7 +617,8 @@ Produce a structured review as a single JSON object with this exact structure:
           "title": "Specific issue title",
           "description": "Clear explanation of the problem and how to address it",
           "file": "path/to/file.ts",
-          "lines": { "start": 42, "end": 45 }
+          "lines": { "start": 42, "end": 45 },
+          "locations": [{ "file": "path/to/file.ts", "lines": { "start": 42, "end": 45 } }, { "file": "path/to/other.ts", "lines": { "start": 7, "end": 9 } }]
         }
       ]
     }
@@ -641,7 +644,7 @@ Review the changes and return only the JSON object above — no other text, no c
 const reviewFindingSchema: JSONSchema = {
 	type: 'object',
 	additionalProperties: false,
-	required: ['severity', 'title', 'description', 'file', 'lines'],
+	required: ['severity', 'title', 'description', 'file', 'lines', 'locations'],
 	properties: {
 		severity: { type: 'string', enum: ['critical', 'warning', 'suggestion'] },
 		title: { type: 'string' },
@@ -652,6 +655,23 @@ const reviewFindingSchema: JSONSchema = {
 			additionalProperties: false,
 			required: ['start', 'end'],
 			properties: { start: { type: 'integer' }, end: { type: 'integer' } },
+		},
+		locations: {
+			type: ['array', 'null'],
+			items: {
+				type: 'object',
+				additionalProperties: false,
+				required: ['file', 'lines'],
+				properties: {
+					file: { type: 'string' },
+					lines: {
+						type: ['object', 'null'],
+						additionalProperties: false,
+						required: ['start', 'end'],
+						properties: { start: { type: 'integer' }, end: { type: 'integer' } },
+					},
+				},
+			},
 		},
 	},
 };
@@ -753,6 +773,92 @@ Guidelines:
 Assess the changes and return only the JSON object above — no other text, no code fences.`,
 };
 
+/** Schema counterpart of the {@link reviewOrient} template's output shape */
+export const reviewOrientSchema: AIResponseFormat = {
+	name: 'review_orient',
+	schema: {
+		type: 'object',
+		additionalProperties: false,
+		required: ['overview', 'groups'],
+		properties: {
+			overview: { type: 'string' },
+			groups: {
+				type: 'array',
+				items: {
+					type: 'object',
+					additionalProperties: false,
+					required: ['label', 'kind', 'summary', 'files'],
+					properties: {
+						label: { type: 'string' },
+						kind: { type: 'string', enum: ['core', 'supporting', 'mechanical'] },
+						summary: { type: 'string' },
+						files: {
+							type: 'array',
+							items: {
+								type: 'object',
+								additionalProperties: false,
+								required: ['path', 'note'],
+								properties: {
+									path: { type: 'string' },
+									note: { type: 'string' },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+};
+
+export const reviewOrient: PromptTemplate<'review-orient'> = {
+	id: 'review-orient',
+	variables: ['files', 'message', 'context', 'instructions'],
+	template: `You are an expert code reviewer preparing to read a set of code changes. You are given a file manifest (not full diffs). Your job is not to find problems — it is to lay out the best order to read the files in, so a reader meets the core of the change first and its consequences after.
+
+File manifest (JSON array of changed files):
+<~~files~~>
+\${files}
+</~~files~~>
+
+Author's description of the changes:
+<~~message~~>
+\${message}
+</~~message~~>
+
+Related work items (known pull requests and issues for this change set). Use these for *intent* — what the change is trying to accomplish. May be empty.
+\${context}
+
+Produce a reading plan as a single JSON object with this exact structure:
+
+{
+  "overview": "One or two sentences: what this change is, in the reader's terms.",
+  "groups": [
+    {
+      "label": "Short name for what this group of files is (under 40 chars)",
+      "kind": "core|supporting|mechanical",
+      "summary": "One or two sentences: what this group changes and why these files belong together",
+      "files": [
+        { "path": "path/to/file.ts", "note": "One line: why this file is in the change and what to look for" }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- "core" holds the files everything else follows from — new logic, the engine of the change. Put the core group first, and within it the file to read first
+- "supporting" holds the files that adopt or wire up the core: call sites, configuration, tests
+- "mechanical" holds files a reader only skims: lockfiles, generated output, pure renames, formatting
+- Every file in the manifest appears exactly once, in exactly one group
+- Order groups and the files inside them in the order they should be read
+- The reader sees the label and the summary, not the kind: name the group for what it is ("Refusal state and persistence", "Tests and changelog"), never for how to read it ("Read first", "Skim"), and let the summary make its weight clear
+- Notes are one line each, concrete, and say what to look for — never restate the path or the status
+
+\${instructions}
+
+Return only the JSON object above — no other text, no code fences.`,
+};
+
 export const reviewRefine: PromptTemplate<'review-refine'> = {
 	id: 'review-refine_v2',
 	variables: ['instructions'],
@@ -789,6 +895,112 @@ Guidelines:
 - Prefer minimal, focused edits that don't introduce unrelated changes.
 - If a finding is ambiguous, contradicts the surrounding code's intent, or is already addressed in the current state, say so explicitly rather than fabricating a fix.
 - If a finding is out of scope (touches unrelated systems, requires significant refactoring, or contradicts established patterns), surface that as a tradeoff rather than acting on it.
+
+\${instructions}`,
+};
+
+export const deepReview: PromptTemplate<'deep-review'> = {
+	id: 'deep-review',
+	variables: ['scopeLabel', 'diffCommand', 'files', 'endpoint', 'token', 'priorFindings', 'instructions'],
+	template: `You are an AI coding agent performing a deep code review. Unlike a model that only sees a diff, you can read the whole repository, follow call paths, build the project and run its tests — use that.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+
+Changed files:
+<~~files~~>
+\${files}
+</~~files~~>
+
+Review these changes for real defects — logic errors, unhandled failure paths, broken contracts with callers, missing or misleading tests, security problems. For each file, read the callers and callees the diff touches, not just the diff. If the project builds or has tests, build it and run the relevant tests; a failure is a finding.
+
+Report each finding as soon as you are sure of it, by POSTing JSON to GitLens — do not wait until the end, and do not write a report instead:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"findings":[{"file":"path/relative/to/repo.ts","lines":{"start":12,"end":14},"severity":"critical","title":"Short title","description":"What is wrong, why it matters, and how to address it."}]}'
+
+- "severity" is one of "critical" (will break at runtime, data loss, security), "warning" (likely bug or contract drift), "suggestion" (worth doing, not urgent)
+- "lines" are 1-based line numbers in the file as it is now (the right side of the diff); omit "lines" when the finding is about the file as a whole
+- Report only findings you have verified by reading the code or running it; never speculate about code you did not open
+- Do not change any files — this is a review, not a fix
+- Check every response: GitLens answers {"accepted":N} with N the findings and comments it took. Any other answer — an empty body, 401, 404 — means the review is no longer open; stop reporting and say so plainly, with the status you got
+- The endpoint is on this machine. If your tool sandbox blocks local network access, run the request outside the sandbox; if you cannot, say so and give the findings in your answer instead
+
+\${priorFindings}
+
+When you have finished, POST {"done":true} to the same endpoint, then stop. The reader may ask about a finding while you are still reviewing: answer as that request says, then carry on — the review is not over until you POST {"done":true}.
+
+\${instructions}`,
+};
+
+export const deepReviewFocus: PromptTemplate<'deep-review-focus'> = {
+	id: 'deep-review-focus',
+	variables: ['scopeLabel', 'diffCommand', 'finding', 'question', 'endpoint', 'token'],
+	template: `You are an AI coding agent on a code review. The reader has a question or a remark about one finding and wants you on that — not on the whole change. You can read the repository, follow call paths and run tests; use that where it helps answer.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+
+The finding — its id, severity, state, places, text, and what has been said about it so far:
+<finding>
+\${finding}
+</finding>
+
+The reader's latest word on it: \${question}
+
+Look at the finding's places and the code they touch — the callers and callees, the tests that cover them — and answer in the finding's thread, by POSTing a comment on it to GitLens:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"findings":[{"findingId":"<the finding id>","comment":"Your answer."}]}'
+
+- Answer the reader's point first, plainly; then say what you verified and how, and what you did not
+- If the reader disputes the finding and is right, say so; if they are wrong, show the evidence
+- Report a new finding only when what you found is a defect of its own, beyond this one — as {"file":"path/relative/to/repo.ts","lines":{"start":12,"end":14},"severity":"critical","title":"Short title","description":"What is wrong, why it matters, and how to address it."} in the same "findings" array, with "severity" one of "critical", "warning", "suggestion"; a finding that holds in several places lists them all in "locations" ([{"file":…,"lines":…}, …]) with the first also in "file"/"lines"
+- Check every response: GitLens answers {"accepted":N}; anything else — an empty body, 401, 404 — means the review is no longer open, so stop and say so with the status you got
+- The endpoint is on this machine; if your tool sandbox blocks local network access, run the request outside the sandbox, or say so and give the answer in your reply instead
+- Do not change any files — this is a review, not a fix
+- Do not POST {"done":true} for this answer: the thread stays open for the reader's next question. But if this question came while you were still running a review of these changes, answer it, then finish that review as it asked — its {"done":true} at the end included`,
+};
+
+export const deepReviewOrient: PromptTemplate<'deep-review-orient'> = {
+	id: 'deep-review-orient',
+	variables: ['scopeLabel', 'diffCommand', 'endpoint', 'token', 'instructions'],
+	template: `You are an AI coding agent helping a reader prepare to review a set of code changes. Your job is not to find problems — it is to lay out the best order to read the files in, so the reader meets the core of the change first and its consequences after. You can read the repository; use that to understand what the change is built on and what only adopts it.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+(Start with its \`--stat\` form to see every changed file, then read what you need to place them.)
+
+Produce a reading plan and POST it to GitLens as a single JSON object:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"plan":{"overview":"…","groups":[…]}}'
+
+The plan has this exact structure:
+
+{
+  "overview": "One or two sentences: what this change is, in the reader's terms.",
+  "groups": [
+    {
+      "label": "Short name for what this group of files is (under 40 chars)",
+      "kind": "core|supporting|mechanical",
+      "summary": "One or two sentences: what this group changes and why these files belong together",
+      "files": [
+        { "path": "path/relative/to/repo.ts", "note": "One line: why this file is in the change and what to look for" }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- "core" holds the files everything else follows from — new logic, the engine of the change. Put the core group first, and within it the file to read first
+- "supporting" holds the files that adopt or wire up the core: call sites, configuration, tests
+- "mechanical" holds files a reader only skims: lockfiles, generated output, translations, pure renames, formatting
+- Every changed file appears exactly once, in exactly one group, with its path as the diff shows it
+- Order groups and the files inside them in the order they should be read
+- The reader sees the label and the summary, not the kind: name the group for what it is ("Refusal state and persistence", "Tests and changelog"), never for how to read it ("Read first", "Skim"), and let the summary make its weight clear
+- Notes are one line each, concrete, and say what to look for — never restate the path or the status
+- If the JSON is too long for one command line, write it to a temporary file and POST it with \`--data-binary @file\`
+- Check the response: GitLens answers {"accepted":1}; anything else — an empty body, 401, 404 — means the reader has moved on, so stop and say so with the status you got
+- The endpoint is on this machine; if your tool sandbox blocks local network access, run the request outside the sandbox, or say so and give the plan in your reply instead
+- Do not change any files, and do not review the changes — only plan the reading
 
 \${instructions}`,
 };
@@ -831,7 +1043,8 @@ Produce detailed findings as a single JSON object with this exact structure:
       "title": "Specific issue title",
       "description": "Clear explanation of the problem and how to address it",
       "file": "path/to/file.ts",
-      "lines": { "start": 42, "end": 45 }
+      "lines": { "start": 42, "end": 45 },
+      "locations": [{ "file": "path/to/file.ts", "lines": { "start": 42, "end": 45 } }, { "file": "path/to/other.ts", "lines": { "start": 7, "end": 9 } }]
     }
   ]
 }

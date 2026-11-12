@@ -3,7 +3,7 @@ import { l10n, ProgressLocation, Uri, window } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { millisecondsPerDay } from '@gitlens/git/utils/fetch.utils.js';
-import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
+import { getIntegrationIdForRemote } from '@gitlens/integrations/index.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { map } from '@gitlens/utils/iterable.js';

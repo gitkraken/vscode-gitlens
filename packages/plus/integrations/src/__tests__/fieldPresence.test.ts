@@ -5,6 +5,7 @@ import { suite, test } from 'mocha';
 import type { IssueProjection, IssueShape } from '@gitlens/git/models/issue.js';
 import { RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestProjection, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
 import { serializeIssue } from '@gitlens/git/utils/issue.utils.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
@@ -16,7 +17,7 @@ import {
 import type { FieldPresence, IssueFieldGroup, PullRequestFieldGroup } from '../fieldPresence.js';
 import { getIssueFieldPresence, getPullRequestFieldPresence } from '../fieldPresence.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { PagingMode } from '../providers/models.js';
+import { PagingMode } from '../providers/metadata.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { assertIssuePresence, assertPullRequestPresence } from './fieldPresenceHelpers.js';
@@ -64,8 +65,27 @@ const repository = {
 	url: 'https://github.com/o/r',
 };
 
+/** A milestone as GitLens' own fragment selects it; provider-apis' adds `description` and `number`. */
+const milestone = {
+	id: 'MI_1',
+	title: 'v1.0',
+	state: 'OPEN',
+	dueOn: '2026-12-01T00:00:00Z',
+	url: 'https://github.com/o/r/milestone/1',
+} as const;
+const sdkMilestone = { ...milestone, description: '', number: 1 };
+
+/** The milestone every GitHub row maps {@link milestone} to, whichever client read it. */
+const mappedMilestone = {
+	id: 'MI_1',
+	title: 'v1.0',
+	state: 'open',
+	dueDate: new Date('2026-12-01T00:00:00Z'),
+	url: 'https://github.com/o/r/milestone/1',
+};
+
 /**
- * Every field GitLens' own full and stack fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
+ * Every field GitLens' own full, stack and merge-queue fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
  * values a hardcoded or rebuilt viewer would lose, and the code-owner request is one a lossy conversion would flatten.
  */
 function nativePullRequestNode(): GitHubPullRequestFixture {
@@ -80,6 +100,15 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 			repository: { ...repository, viewerPermission: 'READ' },
 			stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
 			stackEntry: { position: 1 },
+			mergeQueueEntry: {
+				state: 'AWAITING_CHECKS',
+				enqueuedAt: '2026-01-01T00:00:00Z',
+				estimatedTimeToMerge: 600,
+				mergeQueue: { url: 'https://github.com/o/r/queue/main' },
+				position: 1,
+			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
 			additions: 3,
 			assignees: { nodes: [member] },
 			changedFiles: 2,
@@ -90,6 +119,7 @@ function nativePullRequestNode(): GitHubPullRequestFixture {
 			totalCommentsCount: 5,
 			viewerCanUpdate: false,
 			headRepositoryOwner: { login: 'o' },
+			milestone: milestone,
 		},
 		{ owner: 'o', name: 'r' },
 	);
@@ -118,6 +148,7 @@ function selectNativePullRequest(query: string): Node {
 	const unselected = [
 		...(query.includes('totalCommentsCount') ? [] : fullOnlyPullRequestFields),
 		...(query.includes('stackEntry') ? [] : ['stack', 'stackEntry']),
+		...(query.includes('mergeQueueEntry') ? [] : ['mergeQueueEntry', 'isMergeQueueEnabled', 'mergeQueueEvents']),
 	];
 	return Object.fromEntries(Object.entries(nativePullRequestNode()).filter(([field]) => !unselected.includes(field)));
 }
@@ -189,7 +220,7 @@ function selectSdkPullRequest(query: string): Node {
 		changedFiles: 2,
 		mergeable: 'MERGEABLE',
 		mergeStateStatus: 'CLEAN',
-		milestone: null,
+		milestone: sdkMilestone,
 		labels: { nodes: [] },
 		viewerCanMergeAsAdmin: false,
 	};
@@ -217,6 +248,7 @@ function selectNativeIssue(query: string): Node {
 		labels: { nodes: [{ color: 'ff0000', name: 'bug' }] },
 		reactions: { totalCount: 2 },
 		repository: { name: 'r', owner: { login: 'o' }, viewerPermission: 'READ', url: 'https://github.com/o/r' },
+		milestone: milestone,
 		body: 'Body',
 	};
 	if (!/\bbody\b/.test(query)) {
@@ -242,7 +274,7 @@ function sdkIssue(): Node {
 		comments: { totalCount: 5 },
 		assignees: { nodes: [sdkAccount('octo')] },
 		state: 'OPEN',
-		milestone: null,
+		milestone: sdkMilestone,
 		labels: { nodes: [{ color: 'ff0000', description: '', id: 'L_1', name: 'bug' }] },
 	};
 }
@@ -337,12 +369,12 @@ function serveGitHub(runtime: FakeRuntime): string[] {
 	return operations;
 }
 
-async function connected(): Promise<{
+async function connected(mergeQueue = true): Promise<{
 	manager: Awaited<ReturnType<typeof connectedGitHub>>['manager'];
 	gh: GitHostIntegration;
 	operations: string[];
 }> {
-	const runtime = createFakeRuntime();
+	const runtime = createFakeRuntime({ mergeQueue: mergeQueue });
 	const operations = serveGitHub(runtime);
 	const { manager, gh } = await connectedGitHub(runtime);
 	// The account a read resolves `authoredByMe` with; unresolved, as a read is allowed to leave it.
@@ -388,6 +420,42 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			const presence = assertPullRequestRow(pr, 'point');
 			assert.equal(presence.stack, 'fetched');
 			assert.equal(presence.mergeable, 'not-requested');
+			// The lite fragment selects it too.
+			assert.deepEqual(pr?.milestone, mappedMilestone);
+		}
+
+		manager.dispose();
+	});
+
+	test('without the merge-queue opt-in, no read selects the merge-queue data and every row says so', async () => {
+		const { manager, gh } = await connected(false);
+
+		const byNumber = await gh.getPullRequest(repo, '1', { throwOnError: true });
+		const search = await manager.searchPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+		});
+		const summary = await manager.searchPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			summary: true,
+		});
+		const listed = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.GitHub });
+
+		for (const [pr, projection] of [
+			[byNumber, 'point'],
+			[search.items[0], 'search'],
+			[summary.items[0], 'search-summary'],
+			[listed.items[0], 'account-summary'],
+		] as const) {
+			const presence = assertPullRequestRow(pr, projection);
+			const row = pr as PullRequest;
+			assert.equal(presence.mergeQueue, 'not-requested', projection);
+			assert.equal(row.mergeQueue, undefined, projection);
+			assert.equal(row.mergeQueueRequired, undefined, projection);
+			assert.equal(row.mergeQueueRemoval, undefined, projection);
+			// Everything else the read selects is unaffected.
+			assert.equal(presence.stack, 'fetched', projection);
 		}
 
 		manager.dispose();
@@ -480,6 +548,8 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			assert.equal(presence.reviewRequests, 'not-requested');
 			assert.deepEqual(pr.latestReviews, []);
 			assert.equal(presence.reviews, 'not-requested');
+			// Keyed by the node id, as GitLens' own reads key it, not by provider-apis' per-repository number.
+			assert.deepEqual(pr.milestone, mappedMilestone);
 		}
 		const presence = assertPullRequestRow(summary.items[0], 'repos-summary');
 		assert.equal(presence.checks, 'not-requested');
@@ -530,6 +600,9 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 		assert.equal(presence.description, 'not-requested');
 		assert.equal(scoped.items[0].repository?.accessLevel, undefined);
 		assert.equal(presence.access, 'not-requested');
+		// Both clients map it alike.
+		assert.deepEqual(scoped.items[0].milestone, mappedMilestone);
+		assert.deepEqual(point?.milestone, mappedMilestone);
 		assertIssueRow(searched.items[0], 'search');
 		assertIssueRow(broadened.items[0], 'search');
 		assertIssueRow(batch.items[0]?.issue, 'batch');
@@ -557,6 +630,13 @@ function assertFullRow(
 	assert.equal(presence.diffStats, 'fetched');
 	assert.deepEqual(row.stack, { id: 'S_1', number: 7, size: 2, position: 1, baseRef: 'main' });
 	assert.equal(presence.stack, 'fetched');
+	assert.equal(row.mergeQueue?.state, PullRequestMergeQueueState.AwaitingChecks);
+	assert.equal(row.mergeQueue?.url, 'https://github.com/o/r/queue/main');
+	assert.equal(row.mergeQueue?.position, 1);
+	// The same group covers whether the queue is required and the latest removal (none: it rejoined since).
+	assert.equal(row.mergeQueueRequired, true);
+	assert.equal(row.mergeQueueRemoval, undefined);
+	assert.equal(presence.mergeQueue, 'fetched');
 	assert.equal(row.reviewRequests?.length, 1);
 	assert.equal(row.reviewRequests?.[0]?.isCodeOwner, true);
 	// A submitted review says nothing about code ownership.
@@ -567,10 +647,17 @@ function assertFullRow(
 	assert.equal(presence.access, 'fetched');
 	assert.equal(row.thumbsUpCount, undefined);
 	assert.equal(presence.reactions, 'not-requested');
+	assert.deepEqual(row.milestone, mappedMilestone);
+	assert.equal(presence.milestone, 'fetched');
 }
 
+/** A row as an opting-in host reads it: a read that selected the merge-queue data always sets `mergeQueueRequired`. */
 function pullRequestRow(providerId: string, projection: string | undefined): PullRequestShape {
-	return { provider: { id: providerId }, projection: projection } as unknown as PullRequestShape;
+	return {
+		provider: { id: providerId },
+		projection: projection,
+		mergeQueueRequired: true,
+	} as unknown as PullRequestShape;
 }
 
 function issueRow(providerId: string, projection: string | undefined): IssueShape {
@@ -625,7 +712,34 @@ suite('Field presence lookup', () => {
 		manager.dispose();
 	});
 
-	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks', () => {
+	test('a row that carries no `mergeQueueRequired` reads `mergeQueue` as not-requested, and only a fetched one', () => {
+		const providerIds = [
+			GitCloudHostIntegrationId.GitHub,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			GitCloudHostIntegrationId.GitLab,
+		];
+		for (const providerId of providerIds) {
+			for (const projection of pullRequestProjections) {
+				const read = getPullRequestFieldPresence(pullRequestRow(providerId, projection));
+				if (read == null) continue;
+
+				for (const mergeQueueRequired of [undefined, null]) {
+					const row = { ...pullRequestRow(providerId, projection), mergeQueueRequired: mergeQueueRequired };
+					const unread = getPullRequestFieldPresence(row as unknown as PullRequestShape);
+					const label = `${providerId}.${projection}.${mergeQueueRequired}`;
+					assert.ok(unread != null, label);
+					assert.deepEqual(
+						unread,
+						{ ...read, mergeQueue: read.mergeQueue === 'fetched' ? 'not-requested' : read.mergeQueue },
+						label,
+					);
+					assert.ok(Object.isFrozen(unread), label);
+				}
+			}
+		}
+	});
+
+	test('GitHub Enterprise only ever demotes a github.com cell, and has no stacks or merge queues', () => {
 		for (const projection of pullRequestProjections) {
 			const dotCom = getPullRequestFieldPresence(pullRequestRow(GitCloudHostIntegrationId.GitHub, projection));
 			const enterprise = getPullRequestFieldPresence(
@@ -639,6 +753,12 @@ suite('Field presence lookup', () => {
 			}
 			assert.notEqual(enterprise.stack, 'fetched', projection);
 			assert.equal(enterprise.stack, dotCom.stack === 'fetched' ? 'unavailable' : dotCom.stack, projection);
+			assert.notEqual(enterprise.mergeQueue, 'fetched', projection);
+			assert.equal(
+				enterprise.mergeQueue,
+				dotCom.mergeQueue === 'fetched' ? 'unavailable' : dotCom.mergeQueue,
+				projection,
+			);
 		}
 		for (const projection of issueProjections) {
 			assert.deepEqual(
@@ -781,6 +901,7 @@ const issueTables: Record<string, readonly string[]> = {
 	'jira-issues': [IssuesCloudHostIntegrationId.Jira, IssuesSelfManagedHostIntegrationId.JiraServer],
 	'linear-issues': [IssuesCloudHostIntegrationId.Linear],
 	'trello-issues': [IssuesCloudHostIntegrationId.Trello],
+	'asana-issues': [IssuesCloudHostIntegrationId.Asana],
 };
 
 suite('Field presence docs', () => {

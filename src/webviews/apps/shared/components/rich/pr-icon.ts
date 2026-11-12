@@ -12,8 +12,9 @@ import '@gitlens/components/components/overlays/tooltip.js';
 export class PrIcon extends LitElement {
 	static override styles = [prIconStyles];
 
+	/** `queued` is an open pull request waiting in a merge queue. */
 	@property()
-	state?: 'merged' | 'opened' | 'closed' | string;
+	state?: 'merged' | 'opened' | 'closed' | 'queued' | string;
 
 	@property({ type: Boolean })
 	draft = false;
@@ -37,6 +38,10 @@ export class PrIcon extends LitElement {
 	}
 
 	get label(): string {
+		if (this.state === 'queued') {
+			return this.prId ? l10n.t('Pull request #{0} is in the merge queue', this.prId) : l10n.t('In Merge Queue');
+		}
+
 		const type = this.draft ? l10n.t('Draft pull request') : l10n.t('Pull request');
 		if (!this.state) return type;
 
@@ -52,8 +57,13 @@ export class PrIcon extends LitElement {
 			></code-icon>`;
 		}
 
+		// Queued shares the open glyph, so its label — not just its tint — has to say so.
 		return html`<gl-tooltip>
-			<code-icon class=${this.classes} icon=${this.icon} aria-label=${ifDefined(this.state)}></code-icon>
+			<code-icon
+				class=${this.classes}
+				icon=${this.icon}
+				aria-label=${ifDefined(this.state === 'queued' ? this.label : this.state)}
+			></code-icon>
 			<span slot="content">${this.label}</span>
 		</gl-tooltip>`;
 	}

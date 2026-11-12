@@ -36,6 +36,11 @@ export interface IssueTrackerPageCursor {
 	 * were never read.
 	 */
 	state?: 'closed' | 'all';
+	/**
+	 * The Linear Projects the read that minted this cursor was narrowed to, sorted, omitted for none. Recorded for the
+	 * reason `state` is: a team drained under one set of Projects has not been read under another.
+	 */
+	linearProjects?: string[];
 }
 
 /** Positive safe integers only, deduped; `undefined` when nothing survives (so the field is omitted). */
@@ -46,6 +51,14 @@ function positiveIntegers(values: unknown): number[] | undefined {
 		(value): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
 	);
 	return valid.length > 0 ? [...new Set(valid)] : undefined;
+}
+
+/** Non-empty strings only, deduped and sorted; `undefined` when nothing survives (so the field is omitted). */
+export function linearProjectIds(values: unknown): string[] | undefined {
+	if (!Array.isArray(values)) return undefined;
+
+	const valid = values.filter((value): value is string => typeof value === 'string' && value.length > 0);
+	return valid.length > 0 ? [...new Set(valid)].sort() : undefined;
 }
 
 /**
@@ -95,6 +108,7 @@ export function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTr
 		const retryPages = positiveIntegers(parsed.retryPages);
 		const retryProjects = projectKeys(parsed.retryProjects);
 		const completedProjects = projectKeys(parsed.completedProjects);
+		const linearProjects = linearProjectIds(parsed.linearProjects);
 		return {
 			type: 'issue-tracker-page',
 			currentPage: parsed.currentPage,
@@ -106,6 +120,7 @@ export function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTr
 			...(retryProjects != null ? { retryProjects: retryProjects } : {}),
 			...(completedProjects != null ? { completedProjects: completedProjects } : {}),
 			...(parsed.state === 'closed' || parsed.state === 'all' ? { state: parsed.state } : {}),
+			...(linearProjects != null ? { linearProjects: linearProjects } : {}),
 		};
 	} catch {
 		return undefined;
@@ -120,7 +135,9 @@ export function toIssueTrackerPageCursor(options: {
 	retryProjects: readonly string[];
 	completedProjects?: readonly string[];
 	state?: IssueStateFilter;
+	linearProjects?: readonly string[];
 }): string | undefined {
+	const linearProjects = linearProjectIds(options.linearProjects);
 	const retryPages = [...new Set(options.retryPages)].sort((a, b) => a - b);
 	const retryProjects = [...new Set(options.retryProjects)].sort();
 	const completedProjects =
@@ -140,7 +157,8 @@ export function toIssueTrackerPageCursor(options: {
 		options.unpaged !== true &&
 		// A page cursor carries no state, so a narrowed read keeps the composite one: resumed under another state, a
 		// plain cursor would start at its window and skip the earlier projects' issues of that state.
-		(options.state == null || options.state === 'open')
+		(options.state == null || options.state === 'open') &&
+		linearProjects == null
 	) {
 		return toPageCursor(options.nextPage);
 	}
@@ -153,6 +171,7 @@ export function toIssueTrackerPageCursor(options: {
 		...(retryProjects.length > 0 ? { retryProjects: retryProjects } : {}),
 		...(completedProjects.length > 0 ? { completedProjects: completedProjects } : {}),
 		...(options.state === 'closed' || options.state === 'all' ? { state: options.state } : {}),
+		...(linearProjects != null ? { linearProjects: linearProjects } : {}),
 	} satisfies IssueTrackerPageCursor);
 }
 

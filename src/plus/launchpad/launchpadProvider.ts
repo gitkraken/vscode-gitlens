@@ -1,10 +1,17 @@
-import type { EnrichedItemsByUniqueId, PullRequestWithUniqueID } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
 import { Disposable, env, EventEmitter, l10n, Uri } from 'vscode';
+import { isMaybeGitHubPullRequestUrl } from '@gitlens/git-github/api/github.utils.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
-import type { PullRequest, PullRequestMember, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMember,
+	PullRequestRefs,
+	PullRequestRepositoryIdentityDescriptor,
+	PullRequestStackInfo,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -13,6 +20,8 @@ import {
 	getPullRequestIdentityFromMaybeUrl,
 	getRepositoryIdentityForPullRequest,
 	isMaybeNonSpecificPullRequestSearchUrl,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
@@ -20,24 +29,24 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	isIntegrationId,
-	providerFanOutConcurrency,
 } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
-import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
-import { isMaybeGitLabPullRequestUrl } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
 import type {
-	EnrichablePullRequest,
-	ProviderAccount,
-	ProviderActionablePullRequest,
-} from '@gitlens/integrations/providers/models.js';
+	ActionablePullRequest,
+	ActionablePullRequestAccount,
+	ActionablePullRequestEnrichedItems,
+	ActionablePullRequestInput,
+	ConnectionStateChangeEvent,
+	GitHostIntegration,
+	IntegrationResult,
+} from '@gitlens/integrations/index.js';
 import {
 	getActionablePullRequests,
-	toProviderPullRequestWithUniqueId,
-} from '@gitlens/integrations/providers/models.js';
-import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
-import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+	hostFromDomain,
+	isMaybeGitLabPullRequestUrl,
+	isSelfManagedHostIntegrationId,
+	splitOwnerAndRepo,
+	toActionablePullRequestInput,
+} from '@gitlens/integrations/index.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -59,8 +68,8 @@ import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 import {
-	confirmPullRequestMerge,
-	mergePullRequestWithProgress,
+	mergeOrEnqueuePullRequest,
+	removePullRequestFromMergeQueue,
 } from '../integrations/utils/-webview/pullRequest.merge.utils.js';
 import {
 	convertIntegrationIdToEnrichProvider,
@@ -70,29 +79,61 @@ import {
 } from './enrichmentService.js';
 import { getLaunchpadItemKey, getViewerAccountKey } from './launchpadIdentity.js';
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem.js';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
+import type {
+	LaunchpadAction,
+	LaunchpadActionCategory,
+	LaunchpadGroup,
+	LaunchpadMergeQueuePullRequest,
+} from './models/launchpad.js';
 import {
+	getLaunchpadActionCategory,
 	launchpadActionCategories,
 	launchpadCategoryToGroupMap,
 	launchpadGroups,
 	prActionsMap,
-	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad.js';
+
+/**
+ * Whether a pull request has gone stale. One still in a merge queue is moving, so never stale. One its queue run
+ * removed it from (the removal doesn't move its update date) is judged by the removal when that's the latest activity.
+ */
+export function isLaunchpadItemStale(
+	pr: LaunchpadMergeQueuePullRequest,
+	updatedDate: Date,
+	staleDate: Date | undefined,
+): boolean {
+	if (staleDate == null || isPullRequestInMergeQueue(pr)) return false;
+
+	let lastActivity = updatedDate.getTime();
+	if (isPullRequestMergeQueueRemovalCurrent(pr)) {
+		lastActivity = Math.max(lastActivity, new Date(pr.mergeQueueRemoval.removedAt).getTime());
+	}
+
+	return lastActivity < staleDate.getTime();
+}
 
 export function getSuggestedActions(
 	category: LaunchpadActionCategory,
 	isCurrentBranch: boolean,
 	stack: PullRequestStackInfo | undefined,
+	isInMergeQueue: boolean,
 ): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
+
+	// `queue-failing` covers both a pull request still in the queue with a failing entry (which can be removed, like
+	// the Graph sheet offers) and one the queue just removed after a failed run (nothing left to remove)
+	if (category === 'queue-failing' && isInMergeQueue) {
+		actions.splice(actions.indexOf('open') + 1, 0, 'dequeue');
+	}
 
 	// Offer an agent-driven PR review on every item, gated on AI being enabled (org + user setting).
 	if (getContext('gitlens:ai:allowed', true)) {
 		actions.push('start-review');
 	}
 
-	// Stacks are GitHub-only; `stack` is only ever populated for a stacked pull request there.
-	if (stack != null && stack.size > 1) {
+	// Stacks are GitHub-only; `stack` is only ever populated for a stacked pull request there. A queued pull
+	// request is held by the merge queue, so rebasing its stack would eject it (the Graph sheet withholds it too).
+	if (stack != null && stack.size > 1 && category !== 'queued' && category !== 'queue-failing') {
 		actions.push('rebase-stack');
 	}
 
@@ -104,7 +145,25 @@ export function getSuggestedActions(
 	return actions;
 }
 
-export type LaunchpadPullRequest = EnrichablePullRequest & ProviderActionablePullRequest;
+/** How many integrations Launchpad reads from at once. */
+export const launchpadFanOutConcurrency = 6;
+
+/**
+ * A pull request ready for categorization, carrying what Launchpad needs to act on it afterwards. Built on
+ * {@link ActionablePullRequestInput} (not our own {@link PullRequest} model): it is handed to
+ * `getActionablePullRequests`, which categorizes by review state and only knows the provider vocabulary.
+ * {@link toActionablePullRequestInput} is what narrows `reviews` down to it.
+ */
+export type EnrichablePullRequest = ActionablePullRequestInput & {
+	type: 'pullrequest';
+	provider: ProviderReference;
+	enrichable: EnrichableItem;
+	repoIdentity: PullRequestRepositoryIdentityDescriptor;
+	refs?: PullRequestRefs;
+	underlyingPullRequest: PullRequest;
+};
+
+export type LaunchpadPullRequest = EnrichablePullRequest & ActionablePullRequest;
 
 export type LaunchpadItem = LaunchpadPullRequest & {
 	currentViewer: Account;
@@ -135,8 +194,21 @@ type CachedLaunchpadPromise<T> = {
 };
 
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
+// Merge queues move in minutes, so a list holding a queued pull request goes stale far faster than an idle one
+const mergeQueueCacheExpiration = 1000 * 60 * 5; // 5 minutes
 const errorCacheExpiration = 1000 * 60; // 1 minute
 const inFlightReuseWindow = 1000 * 30; // 30 seconds
+
+/** Caps a pull request list's cache expiry while any of its pull requests is waiting in (or failing in) a merge queue */
+export function getPullRequestsCacheExpiresAt(
+	expiresAt: number,
+	pullRequests: readonly Pick<PullRequest, 'state' | 'mergeQueue'>[] | undefined,
+	now: number = Date.now(),
+): number {
+	if (pullRequests == null || !pullRequests.some(pr => isPullRequestInMergeQueue(pr))) return expiresAt;
+
+	return Math.min(expiresAt, now + mergeQueueCacheExpiration);
+}
 
 function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: boolean): CachedLaunchpadPromise<T> {
 	const cached: CachedLaunchpadPromise<T> = {
@@ -168,6 +240,12 @@ function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: bo
 			// and deserves the full cache window.
 			const result = value as { value?: unknown; error?: unknown } | undefined;
 			const hasValue = Array.isArray(result?.value) ? result.value.length > 0 : result?.value != null;
+			if (Array.isArray(result?.value)) {
+				cached.expiresAt = getPullRequestsCacheExpiresAt(
+					cached.expiresAt,
+					result.value as readonly Pick<PullRequest, 'state' | 'mergeQueue'>[],
+				);
+			}
 			settled(result?.error != null && !hasValue ? 'failed' : 'ok');
 		},
 		(ex: unknown) => settled(isCancellationError(ex) ? 'cancelled' : 'failed'),
@@ -226,10 +304,10 @@ export function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLa
  * place both halves — our model for the handles, the account for the id — are in hand.
  */
 export function canonicalizeViewerIdentity(
-	providerPr: PullRequestWithUniqueID,
+	providerPr: ActionablePullRequestInput,
 	pr: PullRequest,
 	account: Account,
-): PullRequestWithUniqueID {
+): ActionablePullRequestInput {
 	// Ids matching the account's need no rewrite; this collects the ones only the handle or the row's viewer identify.
 	const viewerIds = new Set<string>();
 	const viewerId = pr.viewer?.id !== account.id ? pr.viewer?.id : undefined;
@@ -247,7 +325,8 @@ export function canonicalizeViewerIdentity(
 	pr.latestReviews?.forEach(r => collect(r.reviewer));
 	if (!viewerIds.size) return providerPr;
 
-	const rewrite = (person: ProviderAccount) => (viewerIds.has(person.id) ? { ...person, id: account.id } : person);
+	const rewrite = (person: ActionablePullRequestAccount) =>
+		viewerIds.has(person.id) ? { ...person, id: account.id } : person;
 
 	return {
 		...providerPr,
@@ -259,8 +338,8 @@ export function canonicalizeViewerIdentity(
 
 function getEnrichedItemsForHost(
 	provider: { id: string; domain?: string },
-	enrichedItems: EnrichedItemsByUniqueId | undefined,
-): EnrichedItemsByUniqueId | undefined {
+	enrichedItems: ActionablePullRequestEnrichedItems | undefined,
+): ActionablePullRequestEnrichedItems | undefined {
 	if (enrichedItems == null || !isIntegrationId(provider.id) || !isSelfManagedHostIntegrationId(provider.id)) {
 		return enrichedItems;
 	}
@@ -270,7 +349,7 @@ function getEnrichedItemsForHost(
 
 	// Persisted UUIDs can omit the host. Filter before categorizing so the SDK owns pin priority and snooze state.
 	// Compare hosts, not paths: repository renames must not orphan pins. Legacy items without a URL stay usable.
-	const own: EnrichedItemsByUniqueId = {};
+	const own: ActionablePullRequestEnrichedItems = {};
 	for (const [uuid, items] of Object.entries(enrichedItems)) {
 		const matching = items.filter(item => {
 			const url = URL.canParse(item.entityUrl) ? new URL(item.entityUrl) : undefined;
@@ -292,10 +371,10 @@ function getEnrichedItemsForHost(
  *
  *  `options.viewer: 'none'` categorizes with no viewer at all — see below. */
 export function categorizePullRequests(
-	pullRequests: (PullRequestWithUniqueID & { provider: { id: string; domain?: string } })[],
+	pullRequests: (ActionablePullRequestInput & { provider: { id: string; domain?: string } })[],
 	currentUsers: Map<string, Account> | undefined,
-	options?: { enrichedItemsByUniqueId?: EnrichedItemsByUniqueId; viewer?: 'current' | 'none' },
-): ProviderActionablePullRequest[] {
+	options?: { enrichedItemsByUniqueId?: ActionablePullRequestEnrichedItems; viewer?: 'current' | 'none' },
+): ActionablePullRequest[] {
 	// The last resort for a caller that can't resolve an account at all. It gives up every viewer-relative
 	// category (`needsMyReview` becomes unreachable) and, worse, ungates every author-side one, so each fires
 	// for every pull request — a caller asking for it owes its rows the demotions that keeps honest, at
@@ -307,10 +386,10 @@ export function categorizePullRequests(
 
 	const pullRequestsByViewer = groupByMap<
 		string,
-		PullRequestWithUniqueID & { provider: { id: string; domain?: string } }
+		ActionablePullRequestInput & { provider: { id: string; domain?: string } }
 	>(pullRequests, pr => getViewerAccountKey(pr.provider));
 
-	const actionablePullRequests: ProviderActionablePullRequest[] = [];
+	const actionablePullRequests: ActionablePullRequest[] = [];
 	for (const [viewerKey, prs] of pullRequestsByViewer.entries()) {
 		const currentUser = currentUsers?.get(viewerKey);
 		if (currentUser == null) {
@@ -438,12 +517,12 @@ export class LaunchpadProvider implements Disposable {
 		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const { provider, ownerAndRepo, prNumber } = prUrlIdentity ?? {};
 			const providerMatch = provider == null || provider === integration.id;
-			if (providerMatch && prNumber != null && ownerAndRepo != null) {
-				const [owner, repo] = ownerAndRepo.split('/', 2);
+			const ownerAndName = ownerAndRepo != null ? splitOwnerAndRepo(ownerAndRepo) : undefined;
+			if (providerMatch && prNumber != null && ownerAndRepo != null && ownerAndName != null) {
 				const descriptor: RepositoryDescriptor = {
 					key: ownerAndRepo,
-					owner: owner,
-					name: repo,
+					owner: ownerAndName.owner,
+					name: ownerAndName.name,
 				};
 				const pr = await withDurationAndSlowEventOnTimeout(
 					integration?.getPullRequest(descriptor, prNumber),
@@ -473,7 +552,7 @@ export class LaunchpadProvider implements Disposable {
 
 		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
 
-		const results = await mapSettledBounded(integrations, providerFanOutConcurrency, async integration => {
+		const results = await mapSettledBounded(integrations, launchpadFanOutConcurrency, async integration => {
 			const searchResult = await searchIntegrationPRs(integration);
 			const prs = searchResult?.value;
 			if (prs) {
@@ -581,23 +660,68 @@ export class LaunchpadProvider implements Disposable {
 		this._onDidChange.fire();
 	}
 
+	/** Merges the item's pull request, or adds it to its merge queue where its base branch requires one. */
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
 	async merge(item: LaunchpadItem): Promise<void> {
 		if (item.headRef?.oid == null) return;
 
-		const integrationId = item.provider.id;
-		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
+		const resolved = await this.getPullRequestForAction(item, 'merge');
+		if (resolved == null) return;
 
-		if (!(await confirmPullRequestMerge(item.underlyingPullRequest))) return;
+		const outcome = await mergeOrEnqueuePullRequest(resolved.integration, resolved.pr);
+		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
+		if (outcome !== 'declined') {
+			this.refresh();
+		}
+	}
+
+	/** Removes the item's pull request from its merge queue, after confirming (it loses its place there). */
+	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
+	async dequeue(item: LaunchpadItem): Promise<void> {
+		const resolved = await this.getPullRequestForAction(item, 'dequeue');
+		if (resolved == null) return;
+
+		const outcome = await removePullRequestFromMergeQueue(resolved.integration, resolved.pr);
+		if (outcome !== 'declined') {
+			this.refresh();
+		}
+	}
+
+	/**
+	 * The item's integration and a fresh read of its pull request, for an action that must act on its current state —
+	 * the item can be up to 30 minutes old, and its merge-queue and mergeability state may have moved. Falls back to
+	 * the cached pull request if the read fails.
+	 */
+	private async getPullRequestForAction(
+		item: LaunchpadItem,
+		action: string,
+	): Promise<{ integration: GitHostIntegration; pr: PullRequest } | undefined> {
+		const integrationId = item.provider.id;
+		if (!isSupportedLaunchpadIntegrationId(integrationId)) return undefined;
 
 		// By the pull request's own host: a self-managed id spans several, and `get(id)` alone answers with
-		// whichever was cached first, which would send this merge to a different server.
+		// whichever was cached first, which would send this action to a different server.
 		const integration = await this.container.integrations.get(integrationId, item.provider.domain);
-		if (integration == null) return;
+		if (integration == null) return undefined;
 
-		await mergePullRequestWithProgress(integration, item.underlyingPullRequest);
-		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
-		this.refresh();
+		let pr = item.underlyingPullRequest;
+		try {
+			const { number, repository } = pr;
+			if (number != null) {
+				const fresh = await integration.getPullRequest(
+					{ key: `${repository.owner}/${repository.repo}`, owner: repository.owner, name: repository.repo },
+					String(number),
+					{ expiryOverride: true },
+				);
+				if (fresh != null && fresh.id === pr.id) {
+					pr = fresh;
+				}
+			}
+		} catch (ex) {
+			Logger.warn(`Unable to re-read pull request before acting on it; using the cached one: ${ex}`, action);
+		}
+
+		return { integration: integration, pr: pr };
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
@@ -891,7 +1015,7 @@ export class LaunchpadProvider implements Disposable {
 			const myAccounts = await this.getViewerAccounts(filteredPrs);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
-				const providerPr = toProviderPullRequestWithUniqueId(pr);
+				const providerPr = toActionablePullRequestInput(pr);
 
 				const providerId = pr.provider.id;
 
@@ -947,11 +1071,16 @@ export class LaunchpadProvider implements Disposable {
 			// Map from shared category label to local actionable category, and get suggested actions
 			const categorized = await Promise.allSettled(
 				actionableItems.map<Promise<LaunchpadItem>>(async item => {
-					let actionableCategory = sharedCategoryToLaunchpadActionCategoryMap.get(
+					let actionableCategory = getLaunchpadActionCategory(
 						item.suggestedActionCategory,
-					)!;
-					// category overrides
-					if (!options?.search && staleDate != null && item.updatedDate.getTime() < staleDate.getTime()) {
+						item.underlyingPullRequest,
+					);
+					// category override — a pull request still in a merge queue is moving whether or not it's stale, and
+					// one removed from its queue is judged by the removal (it doesn't move its update date)
+					if (
+						!options?.search &&
+						isLaunchpadItemStale(item.underlyingPullRequest, item.updatedDate, staleDate)
+					) {
 						actionableCategory = 'other';
 					}
 
@@ -961,6 +1090,7 @@ export class LaunchpadProvider implements Disposable {
 						actionableCategory,
 						openRepository?.localBranch?.current ?? false,
 						item.underlyingPullRequest.stack,
+						isPullRequestInMergeQueue(item.underlyingPullRequest),
 					);
 
 					return {
@@ -1045,7 +1175,7 @@ export class LaunchpadProvider implements Disposable {
 		}
 
 		const accounts = new Map<string, Account>();
-		await mapSettledBounded([...providers], providerFanOutConcurrency, async ([key, provider]) => {
+		await mapSettledBounded([...providers], launchpadFanOutConcurrency, async ([key, provider]) => {
 			if (!isSupportedLaunchpadIntegrationId(provider.id)) return;
 
 			const integration = await this.container.integrations.get(provider.id, provider.domain);

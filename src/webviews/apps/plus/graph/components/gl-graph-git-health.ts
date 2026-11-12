@@ -236,7 +236,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			min-width: 0;
 			min-height: 3.2rem;
 			padding: var(--gl-space-4) var(--gl-space-6);
-			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.header-row gl-graph-visualizations-switcher {
@@ -303,9 +303,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		.error {
 			padding: var(--gl-space-4) var(--gl-space-6);
 			font-size: var(--gl-font-sm);
-			color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
-			background: var(--vscode-inputValidation-errorBackground);
-			border: var(--gl-border-width) solid var(--vscode-inputValidation-errorBorder, transparent);
+			color: var(--gl-color-feedback-danger-fg);
+			background: var(--gl-color-feedback-danger-bg);
+			border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 			border-radius: var(--gl-radius-xs);
 		}
 
@@ -322,11 +322,11 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.verdict[data-tone='attn'] code-icon {
-			color: var(--vscode-editorWarning-foreground);
+			color: var(--gl-color-feedback-warning-quiet-fg);
 		}
 
 		.verdict[data-tone='ok'] code-icon {
-			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+			color: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.verdict[data-tone='incomplete'] code-icon {
@@ -368,7 +368,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		.verdict-facts .fact.warn,
 		.verdict-facts .fact.warn b {
-			color: var(--vscode-editorWarning-foreground);
+			color: var(--gl-color-feedback-warning-quiet-fg);
 		}
 
 		.verdict-facts .sep {
@@ -395,7 +395,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			min-width: 0;
 			padding: var(--gl-space-12) var(--gl-space-16);
 			background: var(--vscode-editorWidget-background);
-			border: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+			border: var(--gl-border-width) solid var(--gl-color-border-raised);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -430,7 +430,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.twistie:focus-visible {
-			outline: var(--gl-border-width) solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0.2rem;
 		}
 
@@ -459,7 +459,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			max-width: 54rem;
 			font-size: var(--gl-font-md);
 			line-height: 1.5;
-			color: var(--vscode-editorWarning-foreground);
+			color: var(--gl-color-feedback-warning-quiet-fg);
 		}
 
 		.note code-icon {
@@ -497,7 +497,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.lever-details a {
-			color: var(--vscode-textLink-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: none;
 		}
 
@@ -506,7 +506,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.lever-details a:focus-visible {
-			outline: var(--gl-border-width) solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0.2rem;
 		}
 
@@ -536,7 +536,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		.meter-over {
 			position: absolute;
 			inset: 0 auto;
-			background: var(--vscode-editorWarning-foreground);
+			background: var(--gl-color-feedback-warning-quiet-fg);
 		}
 
 		.meter-mark {
@@ -609,7 +609,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.ledger-row + .ledger-row {
-			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.ledger-state {
@@ -618,7 +618,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.ledger-state[data-tone='on'] {
-			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+			color: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.ledger-name {
@@ -670,12 +670,12 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.owner-gl {
-			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+			color: var(--gl-color-feedback-success-quiet-fg);
 		}
 
 		.card:focus-visible,
 		.ledger-row:focus-visible {
-			outline: var(--gl-border-width) solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0.2rem;
 		}
 	`;
@@ -1306,7 +1306,6 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				<gl-button
 					class="card-action"
 					data-health-action=${lever.id}
-					appearance="primary"
 					aria-label=${l10n.t('Enable {label}', { label: copy.label })}
 					?disabled=${busy || this.switching}
 					@click=${() =>

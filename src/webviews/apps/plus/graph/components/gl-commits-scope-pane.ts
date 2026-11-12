@@ -2,10 +2,12 @@ import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
 import {
 	getMinEndIndex,
+	rangeMovedWithRows,
 	resolveEndIndex,
 	resolveSelectionRange,
 	resolveStartIndex,
@@ -74,6 +76,9 @@ export class GlCommitsScopePane extends LitElement {
 	// Non-reactive: set in `syncSelectionRange()` when the controlled `selection` can no longer be
 	// honored, consumed in `updated()` to re-emit `scope-change` (post-render, avoiding re-entrancy).
 	private _pendingScopeReconcile = false;
+	// Non-reactive: the range's edge row IDs as of the last render, so `updated()` can tell a range
+	// the rows carried elsewhere (a rewrite re-pinning the scope) from one that stayed put.
+	private _lastRangeIds: { start: string; end: string } | undefined;
 	private _dragAc: AbortController | undefined;
 	private _scrollAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
@@ -200,12 +205,20 @@ export class GlCommitsScopePane extends LitElement {
 			return;
 		}
 
+		const range = this.rangeIds;
 		if (changedProperties.has('items')) {
 			const prev = changedProperties.get('items') as ScopeItem[] | undefined;
 			if (!prev?.length && this.items.length > 0) {
 				this.scrollEndHandleIntoView();
+			} else if (rangeMovedWithRows(prev, this.items, this._lastRangeIds, range)) {
+				// Synchronously, before the visibility recompute below, so no proxy flashes for the
+				// frame a deferred scroll would take. The end edge first, then the start, so a range
+				// taller than the pane shows its top.
+				this.scrollActiveHandleIntoView('end');
+				this.scrollActiveHandleIntoView('start');
 			}
 		}
+		this._lastRangeIds = range;
 
 		// Consume any pending keyboard/click focus *before* visibility recompute.
 		// Doing the scroll first means recompute sees post-scroll handle positions
@@ -329,6 +342,12 @@ export class GlCommitsScopePane extends LitElement {
 		this._userRangeEndId = this.items[range.end].id;
 	}
 
+	private get rangeIds(): { start: string; end: string } | undefined {
+		const start = this.items[this.rangeStart]?.id;
+		const end = this.items[this.rangeEnd]?.id;
+		return start != null && end != null ? { start: start, end: end } : undefined;
+	}
+
 	/** Effective start: resolves stored ID to index, falls back to default-start. */
 	private get rangeStart(): number {
 		return resolveStartIndex(this.items, this._userRangeStartId);
@@ -396,6 +415,8 @@ export class GlCommitsScopePane extends LitElement {
 		const isFirst = index === 0;
 		const isLast = !this.loading && index === this.items.length - 1;
 		const isMergeBase = item.state === 'merge-base';
+		// A commit row's additions/deletions count lines; a working-changes row's count files.
+		const isCommit = item.state === 'pushed' || item.state === 'unpushed';
 		const hasStats =
 			(item.additions != null && item.additions > 0) ||
 			(item.deletions != null && item.deletions > 0) ||
@@ -436,13 +457,15 @@ export class GlCommitsScopePane extends LitElement {
 			}
 			${
 				hasStats
-					? html`<commit-stats
-							class="scope-row__stats"
-							.added=${item.additions || undefined}
-							.modified=${item.modified || undefined}
-							.removed=${item.deletions || undefined}
-							symbol="icons"
-						></commit-stats>`
+					? isCommit
+						? this.renderCommitLineStats(item)
+						: html`<commit-stats
+								class="scope-row__stats"
+								.added=${item.additions || undefined}
+								.modified=${item.modified || undefined}
+								.removed=${item.deletions || undefined}
+								symbol="icons"
+							></commit-stats>`
 					: item.fileCount != null
 						? html`<commit-stats
 								class="scope-row__stats"
@@ -467,6 +490,43 @@ export class GlCommitsScopePane extends LitElement {
 			}
 			${isMergeBase ? html`<span class="scope-row__base-tag">${l10n.t('Base')}</span>` : nothing}
 		</div>`;
+	}
+
+	/**
+	 * A commit's line counts, shown the way the row has always shown them. `<commit-stats>` reads
+	 * added/removed as FILE counts and its own tooltip would say so ("930 files changed"), so it
+	 * renders without one and this tooltip says what the numbers are, with the file count.
+	 */
+	private renderCommitLineStats(item: ScopeItem) {
+		const lines: string[] = [];
+		if (item.additions) {
+			lines.push(formatPlural(l10n.t('{0, plural, one{{0} addition} other{{0} additions}}'), [item.additions]));
+		}
+		if (item.deletions) {
+			lines.push(formatPlural(l10n.t('{0, plural, one{{0} deletion} other{{0} deletions}}'), [item.deletions]));
+		}
+
+		return html`<gl-tooltip placement="bottom-end"
+			><commit-stats
+				class="scope-row__stats"
+				no-tooltip
+				.added=${item.additions || undefined}
+				.removed=${item.deletions || undefined}
+				symbol="icons"
+			></commit-stats>
+			<div slot="content">
+				${
+					item.fileCount
+						? html`<div>
+								${formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [
+									item.fileCount,
+								])}
+							</div>`
+						: nothing
+				}
+				<div>${lines.join(', ')}</div>
+			</div></gl-tooltip
+		>`;
 	}
 
 	private renderHandle(type: 'start' | 'end', upperState: ScopeItemState | undefined) {

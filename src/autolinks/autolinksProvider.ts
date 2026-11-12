@@ -4,15 +4,18 @@ import type { DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import {
+	formatPullRequestMergeQueueEnqueuedFromNow,
+	formatPullRequestMergeQueueStatus,
+	isPullRequestInMergeQueue,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import type { Integration } from '@gitlens/integrations/models/integration.js';
-import { IntegrationBase } from '@gitlens/integrations/models/integration.js';
-import type { IssuesIntegration } from '@gitlens/integrations/models/issuesIntegration.js';
+import type { GitHostIntegration, Integration, IssuesIntegration } from '@gitlens/integrations/index.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
-} from '@gitlens/integrations/utils/integration.utils.js';
+	isIntegration,
+} from '@gitlens/integrations/index.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { encodeUrl } from '@gitlens/utils/encoding.js';
@@ -64,6 +67,13 @@ function getAutolinkName(ref: GlCacheableAutolinkReference | Autolink, num: stri
 }
 
 function getIssueStatusDescription(issue: IssueOrPullRequest, link?: string): string {
+	if (issue.type === 'pullrequest' && isPullRequestInMergeQueue(issue)) {
+		// Dated by when it joined the queue, since the status reads as what happened then
+		const status = formatPullRequestMergeQueueStatus(issue.mergeQueue);
+		const enqueued = formatPullRequestMergeQueueEnqueuedFromNow(issue.mergeQueue);
+		return link == null ? l10n.t('{0}, {1}', status, enqueued) : l10n.t('{0} {1}, {2}', link, status, enqueued);
+	}
+
 	const date = fromNow(issue.closedDate ?? issue.createdDate);
 	switch (issue.state) {
 		case 'opened':
@@ -307,14 +317,13 @@ export class AutolinksProvider implements Disposable {
 			let linkIntegration: Integration | undefined;
 			if (link.provider != null) {
 				// Try to make a smart choice
-				integrationId =
-					link.provider instanceof IntegrationBase
-						? link.provider.id
-						: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
-							// that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
-							// Either way, this converting/casting hackery needs to go away.
-							(getIntegrationIdForRemote(link.provider as RemoteProvider) ??
-							convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId));
+				integrationId = isIntegration(link.provider)
+					? link.provider.id
+					: // TODO: Tighten the typing on ProviderReference to be specific to a remote provider, and then have a separate "integration" property (on autolinks and elsewhere)
+						// that is of a new type IntegrationReference specific to integrations. Otherwise, make remote provider ids line up directly with integration ids.
+						// Either way, this converting/casting hackery needs to go away.
+						(getIntegrationIdForRemote(link.provider as RemoteProvider) ??
+						convertRemoteProviderIdToIntegrationId(link.provider.id as RemoteProviderId));
 				// Fall back to the old logic assuming that integration id might be saved as provider id.
 				// TODO: it should be removed when we put providers and integrations in order. Conversation: https://github.com/gitkraken/vscode-gitlens/pull/3996#discussion_r1936422826
 				integrationId ??= link.provider.id as IntegrationIds;

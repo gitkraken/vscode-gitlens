@@ -3,7 +3,10 @@ import { commands, l10n, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
+import {
+	ActionablePullRequestBuildStatusState,
+	ActionablePullRequestReviewState,
+} from '@gitlens/integrations/index.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -20,6 +23,7 @@ import type {
 } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import {
+	AddToMergeQueueQuickInputButton,
 	ConnectIntegrationButton,
 	FeedbackQuickInputButton,
 	LaunchpadSettingsQuickInputButton,
@@ -61,6 +65,7 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
+import { getPullRequestMergeRoute } from '../integrations/utils/pullRequest.mergeQueue.utils.js';
 import { findLaunchpadItem, getLaunchpadItemKey } from './launchpadIdentity.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import {
@@ -69,8 +74,19 @@ import {
 	groupAndSortLaunchpadItems,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider.js';
-import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
-import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
+import type {
+	LaunchpadAction,
+	LaunchpadActionCategory,
+	LaunchpadGroup,
+	LaunchpadMergeQueuePullRequest,
+} from './models/launchpad.js';
+import {
+	actionGroupMap,
+	getLaunchpadMergeQueueStatus,
+	launchpadGroupIconMap,
+	launchpadGroupLabelMap,
+	launchpadGroups,
+} from './models/launchpad.js';
 import { startReviewFromLaunchpadItemDetached } from './utils/-webview/startReview.utils.js';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
@@ -432,6 +448,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case 'merge':
 						void this.container.launchpad.merge(state.item);
 						break;
+					case 'dequeue':
+						void this.container.launchpad.dequeue(state.item);
+						break;
 					case 'rebase-stack':
 						this.container.launchpad.rebaseStack(state.item);
 						break;
@@ -579,7 +598,11 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			const buttons = [];
 
 			if (i.actionableCategory === 'mergeable') {
-				buttons.push(MergeQuickInputButton);
+				buttons.push(
+					getPullRequestMergeRoute(i.underlyingPullRequest) === 'enqueue'
+						? AddToMergeQueueQuickInputButton
+						: MergeQuickInputButton,
+				);
 			}
 
 			if (!i.isSearched) {
@@ -596,7 +619,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			}
 
 			const author = i.author?.username;
-			const detail = getLaunchpadItemDetail(i.actionableCategory, fromNow(i.updatedDate), author);
+			const detail = getLaunchpadItemDetail(
+				i.actionableCategory,
+				fromNow(i.updatedDate),
+				author,
+				i.underlyingPullRequest,
+			);
 
 			return {
 				type: 'item',
@@ -976,6 +1004,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						break;
 					}
 					case MergeQuickInputButton:
+					case AddToMergeQueueQuickInputButton:
 						this.sendItemActionTelemetry('merge', item, group, context);
 						await this.container.launchpad.merge(item);
 						break;
@@ -1009,6 +1038,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						detail: actionGroupMap.get(state.item.actionableCategory)![1](
 							state.item.author?.username ?? null,
 							fromNow(state.item.createdDate),
+							state.item.underlyingPullRequest,
 						),
 						iconPath:
 							state.item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
@@ -1059,6 +1089,38 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						const stack = state.item.underlyingPullRequest.stack;
 						const count = getStackedMergeCount(stack);
 						let detail: string;
+						if (getPullRequestMergeRoute(state.item.underlyingPullRequest) === 'enqueue') {
+							// Its base branch merges only through a merge queue, so Merge adds it to the queue
+							if (from == null) {
+								detail =
+									into == null
+										? l10n.t('Will add these changes to the merge queue')
+										: l10n.t('Will add these changes to the merge queue for {target}', {
+												target: into,
+											});
+							} else {
+								detail =
+									into == null
+										? l10n.t('Will add {source} to the merge queue', { source: from })
+										: l10n.t('Will add {source} to the merge queue for {target}', {
+												source: from,
+												target: into,
+											});
+							}
+
+							confirmations.push(
+								createQuickPickItemOfT(
+									{
+										label: l10n.t('Add to Merge Queue...'),
+										detail: detail,
+										buttons: [...gitProviderWebButtons],
+									},
+									action,
+								),
+							);
+							break;
+						}
+
 						if (stack != null && count > 1) {
 							if (from == null) {
 								detail = formatPlural(
@@ -1104,6 +1166,20 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						);
 						break;
 					}
+					case 'dequeue':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: l10n.t('Remove from Merge Queue...'),
+									detail: l10n.t(
+										'Will remove this pull request from the merge queue, losing its place',
+									),
+									buttons: [...gitProviderWebButtons],
+								},
+								action,
+							),
+						);
+						break;
 					case 'rebase-stack': {
 						const stack = state.item.underlyingPullRequest.stack;
 						const count = getStackedMergeCount(stack, { wholeStack: true });
@@ -1429,6 +1505,7 @@ function getLaunchpadItemInformationRows(
 	const information: (QuickPickItemOfT<LaunchpadAction> | DirectiveQuickPickItem)[] = [];
 	switch (item.actionableCategory) {
 		case 'mergeable':
+		case 'queued':
 			information.push(
 				createQuickPickSeparator(l10n.t('Status')),
 				getLaunchpadItemStatusInformation(item),
@@ -1437,6 +1514,7 @@ function getLaunchpadItemInformationRows(
 			break;
 		case 'failed-checks':
 		case 'conflicts':
+		case 'queue-failing':
 			information.push(createQuickPickSeparator(l10n.t('Status')), getLaunchpadItemStatusInformation(item));
 			break;
 		case 'unassigned-reviewers':
@@ -1458,10 +1536,24 @@ function getLaunchpadItemInformationRows(
 }
 
 function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction> {
+	// A queue failure is what puts the item under Blocked, so say that instead of "No conflicts, and passed CI checks"
+	if (item.actionableCategory === 'queue-failing') {
+		const queueStatus = getLaunchpadMergeQueueStatus(item.underlyingPullRequest);
+		if (queueStatus != null) {
+			return createQuickPickItemOfT(
+				{
+					label: l10n.t('$(error) {status}', { status: queueStatus }),
+					buttons: [...getOpenOnGitProviderQuickInputButtons(item.provider.id)],
+				},
+				'soft-open',
+			);
+		}
+	}
+
 	let status: string | undefined;
 	const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : undefined;
 	const ciStatus = item.headCommit?.buildStatuses?.[0].state;
-	if (ciStatus === ProviderBuildStatusState.Success) {
+	if (ciStatus === ActionablePullRequestBuildStatusState.Success) {
 		if (item.hasConflicts) {
 			status =
 				base == null
@@ -1470,7 +1562,7 @@ function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOf
 		} else {
 			status = l10n.t('$(pass) No conflicts, and passed CI checks');
 		}
-	} else if (ciStatus === ProviderBuildStatusState.Failed) {
+	} else if (ciStatus === ActionablePullRequestBuildStatusState.Failed) {
 		if (item.hasConflicts) {
 			status =
 				base == null
@@ -1518,25 +1610,25 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 					? Uri.parse(review.reviewer.avatarUrl)
 					: new ThemeIcon('account');
 		switch (review.state) {
-			case ProviderPullRequestReviewState.Approved:
+			case ActionablePullRequestReviewState.Approved:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer approved these changes')
 						: l10n.t('{reviewer} approved these changes', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.ChangesRequested:
+			case ActionablePullRequestReviewState.ChangesRequested:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer requested changes')
 						: l10n.t('{reviewer} requested changes', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.Commented:
+			case ActionablePullRequestReviewState.Commented:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t('An unknown reviewer left a comment review')
 						: l10n.t('{reviewer} left a comment review', { reviewer: reviewerName });
 				break;
-			case ProviderPullRequestReviewState.ReviewRequested:
+			case ActionablePullRequestReviewState.ReviewRequested:
 				reviewLabel =
 					reviewerName == null
 						? l10n.t("An unknown reviewer hasn't reviewed these changes yet")
@@ -1563,6 +1655,7 @@ function getLaunchpadItemDetail(
 	actionCategory: LaunchpadActionCategory,
 	date: string,
 	author: string | null | undefined,
+	pr: LaunchpadMergeQueuePullRequest,
 ): string {
 	switch (actionCategory) {
 		case 'mergeable':
@@ -1581,6 +1674,19 @@ function getLaunchpadItemDetail(
 			return author == null
 				? l10n.t('Resolve Conflicts • {date} by @unknown', { date: date })
 				: l10n.t('Resolve Conflicts • {date} by @{author}', { date: date, author: author });
+		case 'queue-failing': {
+			// Still in the queue reads as failing there; removed from it by the failed run reads as the removal
+			const removal = pr.mergeQueue == null ? getLaunchpadMergeQueueStatus(pr) : undefined;
+			if (removal != null) {
+				return author == null
+					? l10n.t('{status} • {date} by @unknown', { status: removal, date: date })
+					: l10n.t('{status} • {date} by @{author}', { status: removal, date: date, author: author });
+			}
+
+			return author == null
+				? l10n.t('Failing in Merge Queue • {date} by @unknown', { date: date })
+				: l10n.t('Failing in Merge Queue • {date} by @{author}', { date: date, author: author });
+		}
 		case 'needs-my-review':
 			return author == null
 				? l10n.t('Needs Your Review • {date} by @unknown', { date: date })
@@ -1597,6 +1703,12 @@ function getLaunchpadItemDetail(
 			return author == null
 				? l10n.t('Waiting for Review • {date} by @unknown', { date: date })
 				: l10n.t('Waiting for Review • {date} by @{author}', { date: date, author: author });
+		case 'queued': {
+			const status = getLaunchpadMergeQueueStatus(pr) ?? l10n.t('Queued to merge');
+			return author == null
+				? l10n.t('{status} • {date} by @unknown', { status: status, date: date })
+				: l10n.t('{status} • {date} by @{author}', { status: status, date: date, author: author });
+		}
 		case 'draft':
 			return author == null
 				? l10n.t('Draft • {date} by @unknown', { date: date })

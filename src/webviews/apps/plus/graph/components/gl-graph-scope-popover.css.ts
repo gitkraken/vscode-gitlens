@@ -16,7 +16,7 @@ export const graphScopePopoverStyles = css`
 		max-width: 24rem;
 		padding: 0.2rem 0.3rem 0.2rem 0.4rem;
 		font: inherit;
-		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+		color: var(--gl-color-action-quiet-fg);
 		cursor: pointer;
 		background: transparent;
 		border: var(--gl-border-width) solid transparent;
@@ -24,11 +24,17 @@ export const graphScopePopoverStyles = css`
 	}
 
 	.mode-chip:hover {
-		background: var(--color-graph-actionbar-selectedBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.mode-chip:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.mode-chip:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -1px;
 	}
 
@@ -188,7 +194,7 @@ export const graphScopePopoverStyles = css`
 		flex: 1;
 		font-size: var(--gl-font-micro);
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-menu-foreground, var(--color-foreground));
+		color: var(--vscode-menu-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		opacity: 0.75;
@@ -289,7 +295,7 @@ export const graphScopePopoverStyles = css`
 	.mode-popover__empty {
 		padding: var(--gl-space-8) var(--gl-space-12);
 		font-style: italic;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.mode-popover__empty--retry {

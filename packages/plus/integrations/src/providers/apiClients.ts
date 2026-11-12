@@ -1,3 +1,4 @@
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationServiceContext } from '../context.js';
@@ -5,7 +6,6 @@ import type { AzureDevOpsApi } from './azure/azure.js';
 import { AzureWorkItemDescriptionsCache } from './azure/workItemDescriptions.js';
 import { AzureWorkItemStatesCache } from './azure/workItemStateCategories.js';
 import type { BitbucketApi } from './bitbucket/bitbucket.js';
-import type { GitHubApi } from './github/github.js';
 import type { GitLabApi } from './gitlab/gitlab.js';
 
 /**

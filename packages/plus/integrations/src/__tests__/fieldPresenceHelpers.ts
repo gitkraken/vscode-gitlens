@@ -26,6 +26,8 @@ const pullRequestFields: Record<PullRequestFieldGroup, (pr: PullRequest) => unkn
 	access: pr => [pr.viewerCanUpdate, pr.repository.accessLevel],
 	authoredByMe: pr => [pr.authoredByMe],
 	stack: pr => [pr.stack],
+	milestone: pr => [pr.milestone],
+	mergeQueue: pr => [pr.mergeQueue],
 };
 
 const issueFields: Record<IssueFieldGroup, (issue: IssueShape) => unknown[]> = {
@@ -35,6 +37,7 @@ const issueFields: Record<IssueFieldGroup, (issue: IssueShape) => unknown[]> = {
 	comments: issue => [issue.commentsCount],
 	reactions: issue => [issue.thumbsUpCount],
 	access: issue => [issue.repository?.accessLevel],
+	milestone: issue => [issue.milestone],
 };
 
 function assertFetchedGroupsPresent<G extends string>(

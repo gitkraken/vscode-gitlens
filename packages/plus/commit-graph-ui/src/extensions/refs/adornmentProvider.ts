@@ -1397,6 +1397,9 @@ function describeRef(ref: ParsedRef, hooks?: RefPillHooks, focused = false): str
 			case 'open':
 				pullRequest = l10n.t('pull request #{0} open', pr.id);
 				break;
+			case 'queued':
+				pullRequest = l10n.t('pull request #{0} in the merge queue', pr.id);
+				break;
 			default:
 				pullRequest = pr.state
 					? l10n.t('pull request #{0} {1}', pr.id, pr.state)

@@ -151,35 +151,24 @@ suite('Anthropic response format translation', () => {
 
 	test('supports the 4.5 generation and newer', async () => {
 		for (const id of [
+			'claude-fable-5-2',
+			'claude-haiku-5-5',
+			'claude-sonnet-5-5',
+			'claude-opus-5-5',
+			'claude-fable-5-1',
 			'claude-opus-5',
+			'claude-sonnet-5',
 			'claude-fable-5',
 			'claude-opus-4-8',
-			'claude-sonnet-5',
-			'claude-haiku-4-5',
-			'claude-haiku-4-5-20251001',
 			'claude-opus-4-7',
 			'claude-sonnet-4-6',
 			'claude-opus-4-6',
+			'claude-haiku-4-5',
+			'claude-haiku-4-5-20251001',
 			'claude-sonnet-4-5-20250929',
 			'claude-opus-4-5',
 		]) {
 			assert.strictEqual(provider.supportsResponseFormat(await registryModel(anthropic, id)), true, id);
-		}
-	});
-
-	test('gates off pre-4.5 registry models', async () => {
-		for (const id of [
-			'claude-opus-4-1',
-			'claude-opus-4-1-20250805',
-			'claude-opus-4-0',
-			'claude-opus-4-20250514',
-			'claude-sonnet-4-0',
-			'claude-sonnet-4-20250514',
-			'claude-3-7-sonnet-latest',
-			'claude-3-5-haiku-20241022',
-			'claude-2.1',
-		]) {
-			assert.strictEqual(provider.supportsResponseFormat(await registryModel(anthropic, id)), false, id);
 		}
 	});
 
@@ -244,11 +233,12 @@ suite('capability gates for dynamic and constrained providers', () => {
 		assert.strictEqual(provider.supportsResponseFormat(model('deepseek-v4-pro')), false);
 	});
 
-	test('xAI gates off only the legacy grok-beta', async () => {
+	test('xAI supports every registry model', async () => {
 		const xai = new XAIProvider(context);
 		const provider = hooks(xai);
-		assert.strictEqual(provider.supportsResponseFormat(await registryModel(xai, 'grok-4.3')), true);
-		assert.strictEqual(provider.supportsResponseFormat(await registryModel(xai, 'grok-beta')), false);
+		for (const id of ['grok-4.7', 'grok-4.6', 'grok-4.5', 'grok-4.3']) {
+			assert.strictEqual(provider.supportsResponseFormat(await registryModel(xai, id)), true, id);
+		}
 	});
 });
 

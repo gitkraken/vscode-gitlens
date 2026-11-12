@@ -14,7 +14,7 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isWindows } from '@gitlens/utils/env/node/platform.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { basename, isDescendant, normalizePath } from '@gitlens/utils/path.js';
+import { basename, dirname, isDescendant, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -23,6 +23,9 @@ import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, GitError } from '../exec/git.js';
 import { getGitCommandError, GitErrors, isRunHookFailure } from '../exec/git.js';
+import { parseGitFile } from '../exec/gitDirResolver.js';
+import type { IndexRefresher } from '../exec/indexRefresh.js';
+import { refreshIndexAfter } from '../exec/indexRefresh.js';
 import { parseGitWorktrees } from '../parsers/worktreeParser.js';
 
 /** Extracts the lock reason from Git's `cannot remove a locked working tree` output, when it provides one */
@@ -130,6 +133,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		 * when they can't be read; given only when folders are registered
 		 */
 		private readonly readIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[] | undefined>,
+		/** Refreshes the index of a worktree it just checked out */
+		private readonly indexRefresher?: IndexRefresher,
 	) {}
 
 	/**
@@ -174,8 +179,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		let createdBranch = options?.createBranch;
 		// A cancelled or timed-out run, or a host-rejected retry, leaves no output to name the branch git may have created
 		let mayHaveCreatedBranch = false;
+		// A relative path is the new worktree's location from `repoPath`, where git ran
+		const worktreePath = normalizePath(resolve(repoPath, path));
 		try {
-			const result = await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			const run = () => this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			const result = await refreshIndexAfter(this.indexRefresher, worktreePath, run);
 			createdBranch ??= getNewWorktreeBranch(result.stderr);
 		} catch (ex) {
 			scope?.error(ex);
@@ -205,6 +213,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			// keys (`extensions.relativeWorktrees` under `worktree.useRelativePaths`), so the write can't claim its
 			// config change is confined to the new branch, and an unconfined one would refresh every worktree on each
 			// add. The watcher's report of the file says what changed in it instead.
+			//
+			// Named, so other worktrees' watchers take their reports of the new entry and its HEAD for this add's own
+			const added = await readLinkedWorktreeId(worktreePath);
+			const moved = { movedWorktrees: added != null ? [added] : [] };
 			if (createdBranch) {
 				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
 				this.cache.deleteBaseBranchName(repoPath, createdBranch);
@@ -215,18 +227,19 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						? (['branches', 'config', 'worktrees'] as const)
 						: (['branches', 'worktrees'] as const)),
 				);
-				this.context.hooks?.repository?.onChanged?.(
+				this.provider.announceWrite(
 					repoPath,
 					['worktrees', 'worktreeHead', 'heads'],
 					[`refs/heads/${createdBranch}`],
+					moved,
 				);
 			} else if (mayHaveCreatedBranch) {
 				// Git creates the branch before checking it out, so a run cut short may have left one it never named
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config', 'worktrees');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead', 'heads']);
+				this.provider.announceWrite(repoPath, ['worktrees', 'worktreeHead', 'heads'], undefined, moved);
 			} else {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
+				this.provider.announceWrite(repoPath, ['worktrees', 'worktreeHead'], undefined, moved);
 			}
 		}
 	}
@@ -280,6 +293,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				installedVersion,
 			),
 		);
+
+		// Validated before the check below, so the cache's forced read evicts right after it rather than after a wait
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
+		}
 
 		if (force && this._unspawnedReads.has(this.cache.getCommonPath(repoPath))) {
 			force = false;
@@ -475,6 +494,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 		const pathStr = normalizePath(toFsPath(path));
 		args.push(pathStr);
+		// Read before the removal takes the worktree's `.git` file
+		const removed = this.cache.getLinkedWorktreeId(pathStr) ?? (await readLinkedWorktreeId(pathStr));
 
 		let deleted = false;
 		try {
@@ -557,7 +578,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			}
 			// A failed or cancelled removal may already have taken the worktree's files or admin entry
 			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
+			this.provider.announceWrite(repoPath, ['worktrees', 'worktreeHead'], undefined, {
+				movedWorktrees: removed != null ? [removed] : [],
+			});
 		}
 	}
 
@@ -572,6 +595,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		);
 
 		const before = await this.listWorktreePaths(repoPath);
+		// Those of the pruned worktrees that were registered; the others' are unknown
+		const pruned: string[] = [];
 
 		const args = ['worktree', 'prune'];
 		if (options?.expire) {
@@ -588,13 +613,17 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			if (before != null && after != null) {
 				for (const path of before) {
 					if (!after.has(path)) {
+						const id = this.cache.getLinkedWorktreeId(path);
+						if (id != null) {
+							pruned.push(id);
+						}
 						this.cache.unregisterRepoPath(path);
 					}
 				}
 			}
 		} finally {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'worktreeHead']);
+			this.provider.announceWrite(repoPath, ['worktrees', 'worktreeHead'], undefined, { movedWorktrees: pruned });
 		}
 	}
 
@@ -660,5 +689,21 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'worktreeList');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 		}
+	}
+}
+
+/**
+ * The admin id (the `<id>` of `.git/worktrees/<id>`) of the linked worktree at `worktreePath`, from the admin entry its
+ * `.git` file names; `undefined` when there is none to read
+ */
+async function readLinkedWorktreeId(worktreePath: string): Promise<string | undefined> {
+	try {
+		const dir = parseGitFile(await fs.readFile(join(worktreePath, '.git'), 'utf8'));
+		if (dir == null) return undefined;
+
+		const adminDir = normalizePath(resolve(worktreePath, dir));
+		return basename(dirname(adminDir)) === 'worktrees' ? basename(adminDir) : undefined;
+	} catch {
+		return undefined;
 	}
 }

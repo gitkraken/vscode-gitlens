@@ -1,14 +1,12 @@
 import type { PullRequestSearchCriteria, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolvePullRequestSearchCriteria, resolvePullRequestSearchScope } from './filters.js';
@@ -53,8 +51,15 @@ export async function searchPullRequestsPage(
 		domain?: string;
 		/** See {@link IntegrationManager.searchPullRequestsPage}. */
 		summary?: boolean;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		cancellation?: AbortSignal;
 	},
 ): Promise<ProviderPagedResult<PullRequestShape>> {
+	const cancellation = options.cancellation;
+	if (cancellation?.aborted) throw new CancellationError();
+
 	const page = Math.max(1, Math.trunc(options.page ?? 1));
 	const refused = (warning: ProviderWarning) => refusedPage<PullRequestShape>(1, [warning], true);
 
@@ -70,6 +75,8 @@ export async function searchPullRequestsPage(
 	}
 
 	const integration = await ctx.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
+	// Every refusal below resolves as a failed page, which a cancelled caller must never receive.
+	if (cancellation?.aborted) throw new CancellationError();
 	if (integration == null) {
 		const early = ctx.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
 		return refusedPage(1, early.warnings, early.fetchFailed);
@@ -86,6 +93,7 @@ export async function searchPullRequestsPage(
 	}
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
+	if (cancellation?.aborted) throw new CancellationError();
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 	const warnOnMissingSession = warnOnMissingSessionForDomain(options.providerId, options.domain);
@@ -146,8 +154,8 @@ export async function searchPullRequestsPage(
 			);
 	}
 
-	const readPage = (cursor: string | undefined) =>
-		runCaptured(
+	const readPage = async (cursor: string | undefined) => {
+		const read = await runCaptured(
 			options.providerId,
 			domain,
 			options.connectionId,
@@ -160,12 +168,19 @@ export async function searchPullRequestsPage(
 						cursor: cursor,
 						pageSize: options.itemsPerPage,
 						summary: options.summary,
+						mergeQueue: options.mergeQueue,
 					},
-					undefined,
+					cancellation,
 					options.connectionId,
 				),
 			{ warnOnMissingSession: warnOnMissingSession },
 		);
+		// The aborted request comes back as a failed read; a cancelled caller is owed the cancellation instead, and
+		// a drain walking to a page number must stop here rather than read its next page.
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return read;
+	};
 
 	const first = await readPage(options.cursor);
 	const warnings = first.warning != null ? [first.warning] : [];

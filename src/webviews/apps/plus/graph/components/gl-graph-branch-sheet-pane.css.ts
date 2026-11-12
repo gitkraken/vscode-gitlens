@@ -4,10 +4,7 @@ import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css
 export const graphBranchSheetPaneStyles = css`
 	:host {
 		display: block;
-		--relationship-card-merge-behind: var(
-			--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor,
-			var(--color-foreground--50)
-		);
+		--relationship-card-merge-behind: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 		--relationship-card-merge-conflict: var(
 			--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
 			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
@@ -61,6 +58,16 @@ export const graphBranchSheetPaneStyles = css`
 		min-height: 2.4rem;
 	}
 
+	/* The queue status without a queue URL to open — the Merge Queue chip's footprint, not its affordances. */
+	.merge-queue-status {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 2rem;
+		height: 2rem;
+		padding: var(--gl-space-2);
+	}
+
 	.issues-chips {
 		flex: 1 1 auto;
 		min-width: 0;
@@ -75,7 +82,7 @@ export const graphBranchSheetPaneStyles = css`
 		align-items: center;
 		min-width: 0;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.tip-line__sha {
@@ -93,7 +100,7 @@ export const graphBranchSheetPaneStyles = css`
 
 	.associate-issue {
 		flex-shrink: 0;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Hub — mirrors gl-details-wip-empty-pane's section/next-step layout. */
@@ -114,7 +121,7 @@ export const graphBranchSheetPaneStyles = css`
 		margin: 0;
 		font-size: var(--gl-font-sm);
 		font-weight: 500;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -148,7 +155,7 @@ export const graphBranchSheetPaneStyles = css`
 	   names the subject branch directly above). */
 	.relationship-card__connector {
 		flex-shrink: 0;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Edit token — the counterpart name IS the edit affordance (dashed underline + trailing icon
@@ -168,7 +175,7 @@ export const graphBranchSheetPaneStyles = css`
 		cursor: pointer;
 		background: none;
 		border: none;
-		border-bottom: 0.1rem dashed var(--color-foreground--50);
+		border-bottom: 0.1rem dashed var(--vscode-descriptionForeground);
 		--relationship-card-token-icon-opacity: 0.6;
 	}
 
@@ -184,7 +191,7 @@ export const graphBranchSheetPaneStyles = css`
 
 	.relationship-card__token--muted {
 		font-weight: var(--gl-font-weight-regular);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.relationship-card__token-text {
@@ -210,14 +217,14 @@ export const graphBranchSheetPaneStyles = css`
 	   The gl-tooltip wrapper is display: contents, so the icon itself is the flex item. */
 	.relationship-card__kind-icon {
 		flex: none;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* The word before the counterpart name on the Upstream card ("Upstream ‹name›"), so the card
 	   names its relationship the way the Merge Target card's "Merges into" does. */
 	.relationship-card__label {
 		flex: none;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Merge severity palette — the same values gl-merge-target-status defines, so the card and the
@@ -239,13 +246,13 @@ export const graphBranchSheetPaneStyles = css`
 		display: inline-flex;
 		flex: none;
 		align-items: flex-start;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.relationship-card__mt-indicator {
 		margin-top: 0.7rem;
 		margin-left: -0.5rem;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.relationship-card__mt--clean,
@@ -265,6 +272,8 @@ export const graphBranchSheetPaneStyles = css`
 
 	.relationship-card__mt--merged,
 	.relationship-card__mt--merged .relationship-card__mt-indicator,
+	.relationship-card__mt--merged-pr,
+	.relationship-card__mt--merged-pr .relationship-card__mt-indicator,
 	.relationship-card__mt--likely-merged,
 	.relationship-card__mt--likely-merged .relationship-card__mt-indicator,
 	.relationship-card__mt--merged-local,
@@ -287,7 +296,7 @@ export const graphBranchSheetPaneStyles = css`
 		font-weight: 500;
 		line-height: 1;
 		white-space: nowrap;
-		border: var(--gl-border-width) solid color-mix(in srgb, transparent 80%, var(--color-foreground));
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -297,8 +306,9 @@ export const graphBranchSheetPaneStyles = css`
 		border-color: color-mix(in srgb, transparent 65%, var(--relationship-card-merge-clean));
 	}
 
-	.relationship-card__verdict--unknown {
-		color: var(--color-foreground--65);
+	.relationship-card__verdict--unknown,
+	.relationship-card__verdict--successor {
+		color: var(--vscode-descriptionForeground);
 		background: color-mix(in srgb, transparent 94%, var(--color-foreground));
 	}
 
@@ -311,6 +321,7 @@ export const graphBranchSheetPaneStyles = css`
 	}
 
 	.relationship-card__verdict--merged,
+	.relationship-card__verdict--merged-pr,
 	.relationship-card__verdict--likely-merged {
 		color: var(--relationship-card-merged);
 		background: color-mix(in srgb, transparent 90%, var(--relationship-card-merged));
@@ -339,7 +350,7 @@ export const graphBranchSheetPaneStyles = css`
 		flex: 1 1 auto;
 		min-width: 0;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.relationship-card__actions {
@@ -399,6 +410,6 @@ export const graphBranchSheetPaneStyles = css`
 		gap: var(--gl-space-4);
 		align-items: center;
 		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 `;

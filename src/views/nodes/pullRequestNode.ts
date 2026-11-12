@@ -4,8 +4,11 @@ import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import {
+	formatPullRequestMergeQueueStatus,
 	getComparisonRefsForPullRequest,
 	getRepositoryIdentityForPullRequest,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
@@ -19,6 +22,7 @@ import {
 	ensurePullRequestRemote,
 	getOrOpenPullRequestRepository,
 } from '../../git/utils/-webview/pullRequest.utils.js';
+import { formatMergeQueueRemoval } from '../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
@@ -132,7 +136,10 @@ export class PullRequestNode extends CacheableChildrenViewNode<'pullrequest', Vi
 		if (this.pullRequest.refs?.base != null && this.pullRequest.refs.head != null) {
 			item.contextValue += `+refs`;
 		}
-		item.description = `${this.pullRequest.state}, ${PullRequest.formatDateFromNow(this.pullRequest)}`;
+		// The full queue status is long for a description, so it lives in the tooltip
+		item.description = `${
+			isPullRequestInMergeQueue(this.pullRequest) ? l10n.t('queued') : this.pullRequest.state
+		}, ${PullRequest.formatDateFromNow(this.pullRequest)}`;
 		item.iconPath = getIssueOrPullRequestThemeIcon(this.pullRequest);
 		item.tooltip = getPullRequestTooltip(this.pullRequest, this.context);
 
@@ -286,7 +293,13 @@ export function getPullRequestTooltip(
 						pullRequest.provider.name,
 					)}")`
 				: `@${authorName}`;
-	const status = getPullRequestStatus(pullRequest.state, attribution, PullRequest.formatDateFromNow(pullRequest));
+	let status = getPullRequestStatus(pullRequest.state, attribution, PullRequest.formatDateFromNow(pullRequest));
+	if (isPullRequestInMergeQueue(pullRequest)) {
+		status += ` \\\n${formatPullRequestMergeQueueStatus(pullRequest.mergeQueue)}`;
+	} else if (isPullRequestMergeQueueRemovalCurrent(pullRequest)) {
+		status += ` \\\n${formatMergeQueueRemoval(pullRequest.mergeQueueRemoval)}`;
+	}
+
 	tooltip.appendMarkdown(
 		`${getIssueOrPullRequestMarkdownIcon(pullRequest)} [**${pullRequest.title.trim()}**](${
 			pullRequest.url

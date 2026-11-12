@@ -14,12 +14,31 @@ import type { FileSystemProvider, GitServiceConfig, GitServiceContext, GitServic
 import type { GitService } from '@gitlens/git/service.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
+import type { CliGitProviderOptions } from '../../../cliGitProvider.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
 import type { CliGitServiceOptions } from '../../../service.js';
 import { createCliGitService } from '../../../service.js';
 import { verifyBaseRemeasure } from './shadowCheck.js';
+
+let reftableSupported: boolean | undefined;
+
+/** Whether the installed git can create a repository with `--ref-format=reftable` (git 2.45 and later) */
+export function supportsReftable(): boolean {
+	if (reftableSupported == null) {
+		const dir = mkdtempSync(join(tmpdir(), 'gitlens-reftable-probe-'));
+		try {
+			execFileSync('git', ['init', '--ref-format=reftable'], { cwd: dir, stdio: 'pipe' });
+			reftableSupported = true;
+		} catch {
+			reftableSupported = false;
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+	return reftableSupported;
+}
 
 export interface TestRepo {
 	path: string;
@@ -113,6 +132,8 @@ export function createTestRepo(options?: {
 	hooks?: GitServiceHooks;
 	gitOptions?: GitOptions;
 	config?: GitServiceConfig;
+	indexRefresh?: CliGitProviderOptions['indexRefresh'];
+	refreshIndexAfterWrites?: boolean;
 }): TestRepo {
 	ensureLogger();
 
@@ -160,6 +181,8 @@ export function createTestRepo(options?: {
 			context: context,
 			locator: getGitLocation,
 			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+			indexRefresh: options?.indexRefresh,
+			refreshIndexAfterWrites: options?.refreshIndexAfterWrites,
 		});
 
 		return {
@@ -525,7 +548,16 @@ export function getRefTips(repoPath: string): Map<string, string> {
  */
 export function cloneTestRepo(
 	originPath: string,
-	options?: { hooks?: GitServiceHooks; gitOptions?: GitOptions; config?: GitServiceConfig; depth?: number },
+	options?: {
+		hooks?: GitServiceHooks;
+		gitOptions?: GitOptions;
+		config?: GitServiceConfig;
+		depth?: number;
+		/** The clone's ref storage; `'reftable'` needs a git that supports it (see {@link supportsReftable}) */
+		refFormat?: 'reftable';
+		indexRefresh?: CliGitProviderOptions['indexRefresh'];
+		refreshIndexAfterWrites?: boolean;
+	},
 ): TestRepo {
 	ensureLogger();
 
@@ -533,14 +565,19 @@ export function cloneTestRepo(
 
 	// See `createTestRepo` on why setup runs inside a try/catch: a failure below must not leak `dir`.
 	try {
+		const refFormat = options?.refFormat != null ? [`--ref-format=${options.refFormat}`] : [];
 		if (options?.depth != null) {
 			// A local-path clone with `--depth` needs the `file://` transport (git's plain-path optimization
 			// otherwise ignores depth and hardlinks full history), yielding a genuinely shallow clone.
-			execFileSync('git', ['clone', '--depth', String(options.depth), `file://${originPath}`, dir], {
-				stdio: 'pipe',
-			});
+			execFileSync(
+				'git',
+				['clone', ...refFormat, '--depth', String(options.depth), `file://${originPath}`, dir],
+				{
+					stdio: 'pipe',
+				},
+			);
 		} else {
-			execFileSync('git', ['clone', originPath, dir], { stdio: 'pipe' });
+			execFileSync('git', ['clone', ...refFormat, originPath, dir], { stdio: 'pipe' });
 		}
 		execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
 		execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
@@ -556,6 +593,8 @@ export function cloneTestRepo(
 			context: context,
 			locator: getGitLocation,
 			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+			indexRefresh: options?.indexRefresh,
+			refreshIndexAfterWrites: options?.refreshIndexAfterWrites,
 		});
 
 		return {

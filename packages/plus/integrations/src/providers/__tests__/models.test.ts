@@ -1,8 +1,8 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { isAzureCloudDomain } from '../metadata.js';
 import type { ProviderPullRequest, ProviderRepository } from '../models.js';
 import {
-	isAzureCloudDomain,
 	providerPullRequestMatchesSearch,
 	toProviderPullRequestState,
 	toProviderPullRequestStates,

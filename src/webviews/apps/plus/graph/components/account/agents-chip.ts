@@ -100,7 +100,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	  with the label beside it. */
 			.agent__kind {
 				flex: none;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.agent__label {
@@ -159,12 +159,12 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 			/* Installed but inert until the user does one more thing in the agent's own host — the same
 	  editor-warning tone the settings table uses for this state. */
 			.cell--warning {
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-color-feedback-warning-quiet-fg);
 			}
 
 			/* "Supported, not installed" — dim enough to read as an unlit affordance you could turn on. */
 			.cell--uninstalled {
-				color: var(--color-foreground--25);
+				color: var(--vscode-disabledForeground);
 			}
 
 			/* Same tier as .cell--uninstalled, NOT weaker: the dash carries the "doesn't apply here"
@@ -172,7 +172,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	  It first shipped at 15% of the foreground and measured invisible against the popover ground; a
 	  1px-tall mark needs more contrast than a solid glyph to read at the same weight, not less. */
 			.cell--absent {
-				color: var(--color-foreground--25);
+				color: var(--vscode-disabledForeground);
 			}
 
 			/* Measured correction, not a nudge-to-taste: in the codicon font search-sparkle's ink centre
@@ -202,7 +202,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	  here where it would be wrong for a state glyph: the word "Default" carries the meaning, so a
 	  theme that sets the token to its own background hides an outline, not information. */
 			:host-context(.vscode-high-contrast) .agent__default {
-				border-color: var(--vscode-contrastBorder, currentColor);
+				border-color: var(--gl-color-border-contrast, currentColor);
 			}
 
 			.notes {
@@ -211,7 +211,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-2);
 				margin-top: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Forced colours flattens every foreground to CanvasText, which would collapse three of the four

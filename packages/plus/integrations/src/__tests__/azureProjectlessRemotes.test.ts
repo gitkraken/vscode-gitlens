@@ -1197,6 +1197,7 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 						assert.equal(result.resolution.identity?.owner, 'DefaultCollection');
 						assert.equal(result.resolution.identity?.project, 'repo');
 						assert.equal(result.resolution.identity?.name, 'repo');
+						assert.equal(result.resolution.identity?.renamed, false);
 						assert.ok(
 							server.requests
 								.slice(count)
@@ -1209,6 +1210,48 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				});
 			}
 		}
+
+		test('flags a rename against the collection and project the repository was read at', async () => {
+			for (const { name, project, renamed } of [
+				{ name: 'repo', project: 'repo', renamed: false },
+				{ name: 'new-name', project: 'repo', renamed: true },
+				{ name: 'repo', project: 'new-project', renamed: true },
+			]) {
+				const server = createServer({ installation: '/tfs' });
+				// Azure answers the read at the old names with the repository's current ones.
+				const fetch = server.runtime.http.fetch;
+				server.runtime.http.fetch = async (input, init) => {
+					const response = await fetch(input, init);
+					if (
+						!response.ok ||
+						!new URL(input.toString()).pathname.endsWith('/repo/_apis/git/repositories/repo')
+					) {
+						return response;
+					}
+
+					const body = (await response.json()) as { name: string; project: { name: string } };
+					return json({ ...body, name: name, project: { ...body.project, name: project } });
+				};
+				const { manager } = await connect(server);
+				try {
+					const [configured] = manager.getConfigured(id);
+					const result = await manager.resolveRepository({
+						providerId: id,
+						connectionId: configured.id,
+						domain: configured.domain,
+						remoteUrl: 'https://server.test/tfs/DefaultCollection/_git/repo',
+					});
+					const label = `${name}/${project}`;
+					assert.equal(result.resolution.status, 'resolved', JSON.stringify(result));
+					assert.equal(result.resolution.identity?.owner, 'DefaultCollection', label);
+					assert.equal(result.resolution.identity?.project, project, label);
+					assert.equal(result.resolution.identity?.name, name, label);
+					assert.equal(result.resolution.identity?.renamed, renamed, label);
+				} finally {
+					manager.dispose();
+				}
+			}
+		});
 
 		test('keeps a full path identified as parsed', async () => {
 			const server = createServer({ installation: '/tfs', collections: ['DefaultCollection', 'proj'] });
@@ -1228,6 +1271,7 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 					assert.equal(result.resolution.identity?.owner, 'DefaultCollection', remoteUrl);
 					assert.equal(result.resolution.identity?.project, 'proj', remoteUrl);
 					assert.equal(result.resolution.identity?.name, 'r', remoteUrl);
+					assert.equal(result.resolution.identity?.renamed, false, remoteUrl);
 				}
 			} finally {
 				manager.dispose();

@@ -5,8 +5,9 @@ import {
 	isMaybeGitLabPullRequestUrl,
 	matchesGitLabOrgNamespace,
 	selectGitLabUserForCommit,
+	splitOwnerAndRepo,
 } from '../gitlab.utils.js';
-import type { GitLabUser } from '../models.js';
+import type { GitLabUser } from '../gitlab.utils.js';
 
 suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {
@@ -74,6 +75,39 @@ suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUr
 			'eamodio/vscode-gitlens',
 		);
 		t('numeric repo name', 'sergeibbb/1/-/merge_requests/16/files', '16', 'sergeibbb/1');
+	});
+
+	test('nested groups, owner is the whole namespace', () => {
+		t('full URL', 'https://gitlab.com/acme/platform/kepler/-/merge_requests/12', '12', 'acme/platform/kepler');
+		t(
+			'deeper nesting with suffix',
+			'https://gitlab.com/a/b/c/d/e/-/merge_requests/3/diffs?view=inline#note_1',
+			'3',
+			'a/b/c/d/e',
+		);
+		t(
+			'self-hosted with port',
+			'http://gitlab.local:8080/acme/platform/kepler/-/merge_requests/12',
+			'12',
+			'acme/platform/kepler',
+		);
+		t('no protocol', 'gitlab.com/acme/platform/kepler/-/merge_requests/12', '12', 'acme/platform/kepler');
+		t(
+			'no protocol with leading slash',
+			'/gitlab.com/acme/platform/kepler/-/merge_requests/12',
+			'12',
+			'acme/platform/kepler',
+		);
+		t('self-hosted domain, no protocol', 'gitlab.example.com/acme/kepler/-/merge_requests/12', '12', 'acme/kepler');
+		t('no domain', 'acme/platform/kepler/-/merge_requests/12', '12', 'acme/platform/kepler');
+		t('no domain with leading slash', '/acme/platform/kepler/-/merge_requests/12', '12', 'acme/platform/kepler');
+		t('no domain, dotless group', 'acme/platform/sub/kepler/-/merge_requests/12', '12', 'acme/platform/sub/kepler');
+		t(
+			'a dotted group name with only an owner and repo',
+			'my.group/kepler/-/merge_requests/12',
+			'12',
+			'my.group/kepler',
+		);
 	});
 
 	test('domain vs. no domain', () => {
@@ -202,5 +236,23 @@ suite('Test GitLab repo namespace matching against an org/group: matchesGitLabOr
 
 	test('does not match the org against one of its own subgroups', () => {
 		assert.equal(matchesGitLabOrgNamespace('gitkraken', 'gitkraken/mobile'), false);
+	});
+});
+
+suite('Test splitOwnerAndRepo()', () => {
+	test('splits at the last slash so the owner is the whole namespace', () => {
+		assert.deepStrictEqual(splitOwnerAndRepo('eamodio/vscode-gitlens'), {
+			owner: 'eamodio',
+			name: 'vscode-gitlens',
+		});
+		assert.deepStrictEqual(splitOwnerAndRepo('acme/platform/kepler'), { owner: 'acme/platform', name: 'kepler' });
+		assert.deepStrictEqual(splitOwnerAndRepo('a/b/c/d'), { owner: 'a/b/c', name: 'd' });
+	});
+
+	test('returns undefined without an owner and a repo', () => {
+		assert.equal(splitOwnerAndRepo('kepler'), undefined);
+		assert.equal(splitOwnerAndRepo('/kepler'), undefined);
+		assert.equal(splitOwnerAndRepo('acme/'), undefined);
+		assert.equal(splitOwnerAndRepo(''), undefined);
 	});
 });

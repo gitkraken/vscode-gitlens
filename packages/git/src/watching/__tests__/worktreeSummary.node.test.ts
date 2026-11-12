@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -428,6 +428,11 @@ const onlyDirty: ReadCounts = { dirty: 1, branch: 0, base: 0, remotes: 0 };
 const onlyBranch: ReadCounts = { dirty: 0, branch: 1, base: 0, remotes: 1 };
 const onlyBase: ReadCounts = { dirty: 0, branch: 0, base: 1, remotes: 0 };
 const all: ReadCounts = { dirty: 1, branch: 1, base: 1, remotes: 1 };
+/**
+ * A subscribed read with nothing to start from: everything, and the remotes listed once more by the probe before it,
+ * for the `HEAD` symrefs of any the base read can come to depend on (a cached answer in core)
+ */
+const firstRead: ReadCounts = { ...all, remotes: 2 };
 
 const expectedInitial: WorktreeSummary = {
 	repoPath: key,
@@ -504,7 +509,7 @@ describe('WorktreeSummaryService', () => {
 			const fresh = await summary;
 			assert.strictEqual(fresh.branch, 'queued-feature');
 			assert.strictEqual(fresh.dirty, true);
-			assert.deepStrictEqual(queued.repo.counts, all, 'queued changes merge into one read pass');
+			assert.deepStrictEqual(queued.repo.counts, firstRead, 'queued changes merge into one read pass');
 		});
 
 		it("gives a repository's queued siblings FIFO priority over a busy entry follow-up", async t => {
@@ -609,7 +614,7 @@ describe('WorktreeSummaryService', () => {
 			await waitFor(() => other.counts.branch === 1);
 			const summary = await h.service.getSummary('/other');
 			assert.strictEqual(summary.branch, 'other-main');
-			assert.deepStrictEqual(other.counts, all, "another repository's subscribed read starts at once");
+			assert.deepStrictEqual(other.counts, firstRead, "another repository's subscribed read starts at once");
 			assert.strictEqual(sub.current?.branch, 'other-main');
 
 			other.state.dirty = true;
@@ -670,7 +675,7 @@ describe('WorktreeSummaryService', () => {
 			entries.forEach(e => e.repo.release());
 			for (const e of entries) {
 				assert.strictEqual((await h.service.getSummary(e.path)).stale, false);
-				assert.deepStrictEqual(e.repo.counts, all);
+				assert.deepStrictEqual(e.repo.counts, firstRead);
 			}
 		});
 
@@ -708,7 +713,7 @@ describe('WorktreeSummaryService', () => {
 
 			assert.deepStrictEqual(summary, expectedInitial);
 			assert.deepStrictEqual(sub.current, expectedInitial);
-			assert.deepStrictEqual(h.repo.counts, all);
+			assert.deepStrictEqual(h.repo.counts, firstRead);
 			assert.strictEqual(fired.length, 1, 'the first value is a change from nothing');
 			assert.ok(h.watchService.getSession(key) != null);
 			assert.deepStrictEqual(h.service.getResourceUsage(), { 'worktreeSummary.entries.count': 1 });
@@ -820,7 +825,11 @@ describe('WorktreeSummaryService', () => {
 				branch: 'x',
 				missing: false,
 			});
-			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read when git reported the remote');
+			assert.strictEqual(
+				h.repo.counts.remotes,
+				1,
+				"only the probe's, none for an upstream git reported the remote of",
+			);
 		});
 
 		it('does not split an upstream with nothing after its remote name', async () => {
@@ -862,7 +871,7 @@ describe('WorktreeSummaryService', () => {
 			});
 			assert.deepStrictEqual(summary.baseDependsOn, ['refs/heads/main']);
 			assert.deepStrictEqual(h.repo.baseBranches, [undefined], 'the base is read once, with no branch name');
-			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read without an upstream');
+			assert.strictEqual(h.repo.counts.remotes, 1, "only the probe's, none without an upstream");
 		});
 
 		it('reads no base for an unborn HEAD with no name', async () => {
@@ -898,7 +907,7 @@ describe('WorktreeSummaryService', () => {
 			sub2.onDidChange(e => fired2.push(e));
 			await h.service.getSummary(repoPath);
 
-			assert.deepStrictEqual(h.repo.counts, all);
+			assert.deepStrictEqual(h.repo.counts, firstRead);
 			assert.deepStrictEqual(h.service.getResourceUsage(), { 'worktreeSummary.entries.count': 1 });
 
 			h.repo.state.dirty = true;
@@ -1226,6 +1235,19 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(third.dirtyReadAt, second.dirtyReadAt);
 		});
 
+		it('reads the branch when the counts against the upstream changed, though its tips are as they were read', async () => {
+			const { h } = setup();
+			await h.service.getSummarySnapshot(repoPath);
+
+			h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+			let snapshot: WorktreeSummarySnapshot | undefined;
+			assert.deepStrictEqual(
+				await readsOf(h, async () => (snapshot = await h.service.getSummarySnapshot(repoPath))),
+				{ ...onlyBranch, branch: 2 },
+			);
+			assert.strictEqual(snapshot?.summary.behind, 5);
+		});
+
 		it('reads the dirty flag again when the index moved, or when asked to', async () => {
 			const { h, touchIndex } = setup();
 			const first = await h.service.getSummarySnapshot(repoPath);
@@ -1298,6 +1320,34 @@ describe('WorktreeSummaryService', () => {
 				branch: 2,
 				remotes: 2,
 			});
+		});
+
+		it('rejects with the timeout when git ran out of time, and keeps the last read', async () => {
+			const { h } = setup();
+			const first = await h.service.getSummary(repoPath);
+			h.repo.state.fail = new CancellationError(undefined, 'timeout');
+			await assert.rejects(
+				h.service.getSummarySnapshot(repoPath, { probeDirty: true }),
+				(ex: unknown) => isCancellationError(ex) && ex.reason === 'timeout',
+			);
+			h.repo.state.fail = undefined;
+
+			let summary: WorktreeSummary | undefined;
+			const counts = await readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(counts, probeOnly);
+			assert.strictEqual(summary, first);
+		});
+
+		it('re-reads the dirty flag when finding the index to stat timed out', async () => {
+			const { h } = setup();
+			const first = await h.service.getSummary(repoPath);
+			const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+			config.getGitDir = () => Promise.reject(new CancellationError(undefined, 'timeout'));
+
+			let summary: WorktreeSummary | undefined;
+			const counts = await readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(counts, { ...probeOnly, dirty: 1 }, 'an unknown index, so the dirty flag is read');
+			assert.strictEqual(summary, first);
 		});
 
 		it('shares one read between concurrent callers', async () => {
@@ -1547,7 +1597,7 @@ describe('WorktreeSummaryService', () => {
 					h.service.subscribe(repoPath);
 					summary = await h.service.getSummary(repoPath);
 				});
-				assert.deepStrictEqual(counts, all);
+				assert.deepStrictEqual(counts, firstRead);
 				assert.deepStrictEqual(summary, expectedInitial);
 			});
 
@@ -1566,7 +1616,7 @@ describe('WorktreeSummaryService', () => {
 					h.service.subscribe(repoPath);
 					summary = await h.service.getSummary(repoPath);
 				});
-				assert.deepStrictEqual(counts, { ...all, branch: 2 });
+				assert.deepStrictEqual(counts, { ...firstRead, branch: 2 });
 				assert.deepStrictEqual(summary, expectedInitial);
 			});
 
@@ -1674,7 +1724,7 @@ describe('WorktreeSummaryService', () => {
 				assert.strictEqual(sub.current, undefined, 'the last read is never answered');
 
 				status.hasWorkingChanges = hasWorkingChanges;
-				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), all);
+				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), firstRead);
 				assert.deepStrictEqual(sub.current, expectedInitial);
 			});
 
@@ -1849,7 +1899,7 @@ describe('WorktreeSummaryService', () => {
 					sub = h.service.subscribe(repoPath);
 					await h.service.getSummary(repoPath);
 				});
-				assert.deepStrictEqual(counts, all);
+				assert.deepStrictEqual(counts, firstRead);
 				assert.deepStrictEqual(sub?.current, expectedInitial);
 				assert.strictEqual(sub.dirtyReadAt, undefined);
 			});
@@ -2229,6 +2279,8 @@ describe('WorktreeSummaryService', () => {
 				}),
 				{ ...onlyBranch, base: 1 },
 			);
+			// A namespace directory names no ref, so the tips tell whether the base's moved
+			h.repo.state.tips['refs/remotes/origin/develop'] = 'ddd222';
 			assert.deepStrictEqual(
 				await readsAfter(h, () => {
 					h.fireGitDir('config');
@@ -2799,6 +2851,230 @@ describe('WorktreeSummaryService', () => {
 		});
 	});
 
+	describe('refs that may have moved without a name', () => {
+		/** The tip check probes HEAD through `getBranch` (a cached answer in core), which the fake counts as a branch read */
+		const probeOnly: ReadCounts = { ...none, branch: 1 };
+
+		/** A `packed-refs` rewrite, as the watcher reports one: every ref kind it holds, unnamed */
+		function packedRefs(h: Harness): void {
+			h.fireGitDir('packed-refs');
+		}
+
+		async function setup(): Promise<{ h: Harness; sub: WorktreeSummarySubscription; fired: WorktreeSummary[] }> {
+			const h = createHarness();
+			h.repo.state.tips['refs/heads/other'] = 'eee111';
+			const sub = h.service.subscribe(repoPath);
+			const fired: WorktreeSummary[] = [];
+			await h.service.getSummary(repoPath);
+			sub.onDidChange(e => fired.push(e));
+			return { h: h, sub: sub, fired: fired };
+		}
+
+		it('reads nothing, and fires nothing, when the branch, its upstream and the refs the base depends on stayed', async () => {
+			const { h, sub, fired } = await setup();
+			const before = sub.current;
+			// Another branch went (`git branch -D`), or the refs were packed
+			delete h.repo.state.tips['refs/heads/other'];
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), probeOnly);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'])), probeOnly);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads')), probeOnly);
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+			assert.strictEqual(sub.current, before);
+			assert.deepStrictEqual(fired, []);
+		});
+
+		it('reads everything when the branch moved', async () => {
+			const { h, sub } = await setup();
+			h.repo.state.sha = 'aaa222';
+			h.repo.state.tips['refs/heads/main'] = 'aaa222';
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), all);
+			assert.strictEqual(sub.current?.sha, 'aaa222');
+		});
+
+		it('reads everything when an unborn HEAD gets its first commit', async () => {
+			const h = createHarness();
+			h.repo.state.sha = undefined;
+			delete h.repo.state.tips['refs/heads/main'];
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(sub.current?.sha, undefined);
+
+			h.repo.state.sha = 'aaa111';
+			h.repo.state.tips['refs/heads/main'] = 'aaa111';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'])), all);
+			assert.strictEqual(sub.current?.sha, 'aaa111');
+		});
+
+		it('reads only the branch when the upstream moved', async () => {
+			const { h, sub } = await setup();
+			h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 3 };
+			h.repo.state.tips['refs/remotes/origin/main'] = 'ooo222';
+
+			// The branch read takes HEAD from the probe
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), onlyBranch);
+			assert.strictEqual(sub.current?.behind, 3);
+		});
+
+		it('reads the branch, the config inputs and the base when the upstream is another', async () => {
+			const { h, sub } = await setup();
+			const configKeyReads = h.repo.configKeyReads;
+			h.repo.state.upstream = { name: 'origin/next', missing: false, ahead: 0, behind: 0 };
+
+			// A base read can depend on the upstream's identity
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), { ...onlyBranch, base: 1 });
+			assert.strictEqual(sub.current?.upstream?.name, 'origin/next');
+			assert.strictEqual(h.repo.configKeyReads, configKeyReads + 1);
+		});
+
+		it('re-measures the base for the refs it depends on that moved', async () => {
+			const { h, sub } = await setup();
+			h.repo.state.baseMove = {
+				ref: 'refs/heads/develop',
+				ahead: 4,
+				sha: 'ddd222',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+			h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), probeOnly);
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => m.moved),
+				[['refs/heads/develop']],
+			);
+			assert.strictEqual(sub.current?.base?.sha, 'ddd222');
+		});
+
+		it('reads everything, not just the check, when the run it was queued behind left the value stale', async () => {
+			const { h, sub, fired } = await setup();
+			const status = h.repo.service.status as unknown as {
+				hasWorkingChanges: (options?: unknown, signal?: AbortSignal) => Promise<boolean>;
+			};
+			const hasWorkingChanges = status.hasWorkingChanges;
+			let failRead!: () => void;
+			const failing = new Promise<void>(resolve => (failRead = resolve));
+			// The next dirty read fails, held until a packed-refs rewrite is queued behind it
+			status.hasWorkingChanges = async () => {
+				status.hasWorkingChanges = hasWorkingChanges;
+				await failing;
+				throw new Error('index.lock exists');
+			};
+			h.repo.state.dirty = true;
+			h.push(['index']);
+			await waitFor(() => status.hasWorkingChanges === hasWorkingChanges);
+			packedRefs(h);
+			await delay(30);
+
+			failRead();
+			await delay(30);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(
+				fired.map(e => ({ dirty: e.dirty, stale: e.stale })),
+				[
+					{ dirty: false, stale: true },
+					{ dirty: true, stale: false },
+				],
+				'nothing the check reads moved, but the groups the failed run never read must be read before stale clears',
+			);
+			assert.strictEqual(sub.current?.dirty, true);
+		});
+
+		it('reads the branch as before when it is named', async () => {
+			const { h } = await setup();
+
+			// Named exactly, so known to have moved: no tip check
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/main')), all);
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')),
+				onlyBranch,
+			);
+		});
+
+		it('reads the branch when the counts against the upstream changed, though no ref the summary has moved', async () => {
+			const { h, sub } = await setup();
+			// Core can refresh its ref list without its branches, so a read can keep the upstream's new tip beside
+			// counts from before it moved
+			h.repo.state.upstream = { ...h.repo.state.upstream!, ahead: 0, behind: 4 };
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), onlyBranch);
+			assert.strictEqual(sub.current?.ahead, 0);
+			assert.strictEqual(sub.current?.behind, 4);
+		});
+
+		it('reads the branch when the upstream is gone, and again when it is back', async () => {
+			const { h, sub } = await setup();
+			h.repo.state.upstream = { ...h.repo.state.upstream!, missing: true };
+			delete h.repo.state.tips['refs/remotes/origin/main'];
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), onlyBranch);
+			assert.strictEqual(sub.current?.upstream?.missing, true);
+
+			h.repo.state.upstream = { ...h.repo.state.upstream, missing: false };
+			h.repo.state.tips['refs/remotes/origin/main'] = 'ooo111';
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), onlyBranch);
+			assert.strictEqual(sub.current?.upstream?.missing, false);
+		});
+
+		it('checks against the tips from before the read, so a move landing during it is read next', async t => {
+			const { h, sub } = await setup();
+			t.after(() => h.repo.release());
+
+			// A fetch names the base's move; the read's probe takes the tips, then the re-measure waits
+			h.repo.hold();
+			h.repo.state.baseMove = {
+				ref: 'refs/heads/develop',
+				ahead: 4,
+				sha: 'ddd222',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+			h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+			h.push(['heads'], 'refs/heads/develop');
+			await waitFor(() => h.repo.baseMoves.length === 1);
+			// Moved again, behind the watcher's back, before the re-measure answered
+			h.repo.state.baseMove = { ...h.repo.state.baseMove, ahead: 5, sha: 'ddd333' };
+			h.repo.state.tips['refs/heads/develop'] = 'ddd333';
+			packedRefs(h);
+			await delay(30);
+			h.repo.release();
+			await delay(30);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => m.moved),
+				[['refs/heads/develop'], ['refs/heads/develop']],
+			);
+			assert.strictEqual(sub.current?.base?.sha, 'ddd333');
+			assert.strictEqual(sub.current.base.ahead, 5);
+		});
+
+		it('re-measures every ref the base depends on after a base read no probe came before', async () => {
+			const { h } = await setup();
+			h.repo.state.baseMove = {
+				ref: 'refs/heads/develop',
+				ahead: 3,
+				sha: 'ddd111',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+			// A stored base value changed: the base is read again, with no tips taken for it
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
+
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), probeOnly);
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => m.moved),
+				[['refs/heads/develop']],
+			);
+			// Taken by that check, so known again
+			assert.deepStrictEqual(await readsAfter(h, () => packedRefs(h)), probeOnly);
+			assert.strictEqual(h.repo.baseMoves.length, 1);
+		});
+	});
+
 	describe('change notification', () => {
 		it('fires nothing for an unchanged recompute', async () => {
 			const h = createHarness();
@@ -3077,6 +3353,302 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
 			assert.strictEqual(fired.length, 1);
 		});
+
+		it('leaves a failed first read for a git event to retry, unless git ran out of time', async () => {
+			const h = createHarness();
+			h.repo.state.fail = new Error('not a git repository');
+			h.service.subscribe(repoPath);
+
+			await assert.rejects(h.service.getSummary(repoPath), h.repo.state.fail);
+			const before = h.repo.snapshot();
+			await assert.rejects(h.service.getSummary(repoPath), h.repo.state.fail);
+			assert.deepStrictEqual(h.repo.snapshot(), before);
+		});
+
+		describe('cut short by a timeout', () => {
+			const timedOut = (): CancellationError => new CancellationError(undefined, 'timeout');
+			const isTimeout = (ex: unknown): boolean => isCancellationError(ex) && ex.reason === 'timeout';
+			const isReaderCancellation = (ex: unknown): boolean => isCancellationError(ex) && ex.reason !== 'timeout';
+
+			/** Subscribes with the first read cut short, and waits for it to end with no reader on it */
+			async function subscribeTimedOut(
+				h: Harness,
+				fail: Error = timedOut(),
+			): Promise<WorktreeSummarySubscription> {
+				h.repo.state.fail = fail;
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+				await delay(10);
+				return sub;
+			}
+
+			it('reads again for the next reader after the first read timed out', async () => {
+				const h = createHarness();
+				const sub = await subscribeTimedOut(h);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+				assert.strictEqual(sub.current, undefined);
+
+				h.repo.state.fail = undefined;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(fired.length, 1);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('reads again after git was killed from outside, which is no reader cancelling either', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h, new CancellationError(undefined, 'unknown'));
+
+				h.repo.state.fail = undefined;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+			});
+
+			it('reads again for a new subscriber after the first read timed out', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				h.repo.state.fail = undefined;
+
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => sub.current != null);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('answers a first read whose base read timed out with the other fields and no base, marked stale', async () => {
+				const h = createHarness();
+				h.repo.state.baseFail = timedOut();
+				const sub = h.service.subscribe(repoPath);
+
+				const expected = { ...expectedInitial, base: undefined, baseDependsOn: [], stale: true };
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expected);
+				assert.deepStrictEqual(sub.current, expected);
+				assert.strictEqual(h.repo.counts.base, 1);
+			});
+
+			it('keeps the other fields and the last base, marked stale, when a refresh timed out reading the base', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.baseFail = timedOut();
+				h.repo.state.configKey = 'config-v2';
+				h.repo.state.upstream = { name: 'origin/main', missing: false, ahead: 1, behind: 5 };
+				await readsAfter(h, () => h.push(['config']));
+				assert.deepStrictEqual(fired, [{ ...expectedInitial, behind: 5, stale: true }]);
+			});
+
+			it('answers an unwatched read whose base read timed out with the other fields', async () => {
+				const h = createHarness();
+				h.repo.state.baseFail = timedOut();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), {
+					...expectedInitial,
+					base: undefined,
+					baseDependsOn: [],
+					stale: true,
+				});
+			});
+
+			it('reads the base when reading its config inputs timed out', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.configKeyFail = timedOut();
+				const reads = await readsAfter(h, () => h.push(['config']));
+				assert.strictEqual(reads.base, 1, 'unknown inputs, so the base is read');
+				assert.deepStrictEqual(fired, []);
+			});
+
+			it('reads the base when reading its stored values timed out', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				const branches = h.repo.service.branches as unknown as {
+					getStoredUserMergeTargetBranchName: (branch: string) => Promise<string | undefined>;
+				};
+				branches.getStoredUserMergeTargetBranchName = () => Promise.reject(timedOut());
+				const reads = await readsAfter(h, () => h.push(['gkConfig']));
+				assert.strictEqual(reads.base, 1, 'unknown stored values, so the base is read');
+				assert.deepStrictEqual(fired, []);
+			});
+
+			it('takes a remote HEAD symref whose read timed out as moved', async () => {
+				const h = createHarness();
+				h.repo.state.baseDependsOn = ['refs/remotes/origin/HEAD'];
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				const branches = h.repo.service.branches as unknown as {
+					getDefaultBranchName: () => Promise<string | undefined>;
+				};
+				branches.getDefaultBranchName = () => Promise.reject(timedOut());
+				const reads = await readsAfter(h, () => h.push(['heads']));
+				assert.strictEqual(reads.base, 1, 'unknown, so the base is read');
+				assert.strictEqual((await h.service.getSummary(repoPath)).stale, false);
+			});
+
+			it('rejects with the timeout when the read again times out too, reading once per reader', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 2);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 3);
+			});
+
+			it('gives readers waiting on the timed-out read one more read, which they share', async () => {
+				const h = createHarness();
+				h.repo.state.fail = timedOut();
+				h.service.subscribe(repoPath);
+
+				const reads = [h.service.getSummary(repoPath), h.service.getSummary(repoPath)];
+
+				await assert.rejects(reads[0], isTimeout);
+				await assert.rejects(reads[1], isTimeout);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('answers a reader waiting on the timed-out read once the read again succeeds', async () => {
+				const h = createHarness();
+				const branches = h.repo.service.branches as unknown as {
+					getBranch: (...args: unknown[]) => Promise<unknown>;
+				};
+				const getBranch = branches.getBranch;
+				let reads = 0;
+				branches.getBranch = (...args) => (++reads === 1 ? Promise.reject(timedOut()) : getBranch(...args));
+				h.service.subscribe(repoPath);
+
+				assert.deepStrictEqual(
+					await Promise.all([h.service.getSummary(repoPath), h.service.getSummary(repoPath)]),
+					[expectedInitial, expectedInitial],
+				);
+				assert.strictEqual(reads, 2);
+			});
+
+			it('starts the watch again for the next reader when finding the git directory timed out', async () => {
+				const h = createHarness();
+				const config = h.repo.service.config as unknown as { getGitDir: () => Promise<GitDir> };
+				const getGitDir = config.getGitDir;
+				let finds = 0;
+				config.getGitDir = () => {
+					finds++;
+					return Promise.reject(timedOut());
+				};
+				const sub = h.service.subscribe(repoPath);
+				await delay(10);
+				assert.strictEqual(finds, 1);
+				assert.strictEqual(h.watchService.getSession(key), undefined);
+
+				await assert.rejects(h.service.getSummary(repoPath), isTimeout);
+				assert.strictEqual(finds, 2);
+
+				config.getGitDir = getGitDir;
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.ok(h.watchService.getSession(key) != null);
+			});
+
+			it('marks the value stale once when a refresh times out, and reads everything on the next event', async () => {
+				const h = createHarness();
+				const sub = h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				const fired: WorktreeSummary[] = [];
+				sub.onDidChange(e => fired.push(e));
+
+				h.repo.state.fail = timedOut();
+				await readsAfter(h, () => h.push(['index']));
+				assert.deepStrictEqual(fired, [{ ...expectedInitial, stale: true }]);
+
+				const reads = await readsAfter(h, () => {});
+				assert.deepStrictEqual(reads, none, 'a reader is answered with the stale value, reading nothing');
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), { ...expectedInitial, stale: true });
+
+				await readsAfter(h, () => h.push(['index']));
+				assert.strictEqual(fired.length, 1, 'no refire while it keeps timing out');
+
+				h.repo.state.fail = undefined;
+				h.repo.state.dirty = true;
+				const recovery = await readsAfter(h, () => h.push(['index']));
+				assert.ok(recovery.branch === 1 && recovery.base === 1 && recovery.dirty === 1);
+				assert.deepStrictEqual(fired[1], { ...expectedInitial, dirty: true });
+			});
+
+			it("rejects a reader's own cancellation as a cancellation, without recording it", async () => {
+				const h = createHarness();
+				h.repo.hold();
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+
+				const controller = new AbortController();
+				const read = h.service.getSummary(repoPath, controller.signal);
+				controller.abort();
+				await assert.rejects(read, isReaderCancellation);
+				assert.strictEqual(h.repo.signals.at(-1)?.aborted, false, "a reader's cancellation aborts no read");
+
+				h.repo.release();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 1);
+			});
+
+			it('starts no read for a reader already cancelled, which rejects as a cancellation', async () => {
+				const h = createHarness();
+				await subscribeTimedOut(h);
+
+				await assert.rejects(h.service.getSummary(repoPath, AbortSignal.abort()), isReaderCancellation);
+				assert.strictEqual(h.repo.counts.branch, 1);
+			});
+
+			it('leaves the read again running for later readers when its reader gives up', async () => {
+				const h = createHarness();
+				const sub = await subscribeTimedOut(h);
+				h.repo.state.fail = undefined;
+				h.repo.hold();
+
+				const controller = new AbortController();
+				const read = h.service.getSummary(repoPath, controller.signal);
+				await waitFor(() => h.repo.counts.branch === 2);
+				controller.abort();
+				await assert.rejects(read, isReaderCancellation);
+
+				h.repo.release();
+
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+				assert.deepStrictEqual(sub.current, expectedInitial);
+				assert.strictEqual(h.repo.counts.branch, 2);
+			});
+
+			it('drops a read that was aborted because the last subscriber left', async () => {
+				const h = createHarness();
+				h.repo.hold();
+				const sub = h.service.subscribe(repoPath);
+				await waitFor(() => h.repo.counts.branch === 1);
+				const read = h.service.getSummary(repoPath);
+
+				sub.dispose();
+				h.repo.state.fail = new CancellationError(undefined, 'aborted');
+				h.repo.release();
+
+				await assert.rejects(read, isCancellationError);
+				assert.strictEqual(h.repo.counts.branch, 1, 'nothing reads again for an entry that is gone');
+			});
+		});
 	});
 
 	describe('polled repository', () => {
@@ -3140,6 +3712,7 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(configOnly, onlyBranch);
 
 			// `git remote remove origin`: the remote's directory goes too, so the base's ref may have
+			delete h.repo.state.tips['refs/remotes/origin/main'];
 			const removed = await readsAfter(h, () => {
 				fs.touch(`${repoPath}/.git/config`);
 				fs.remove(`${repoPath}/.git/refs/remotes/origin`);
@@ -3240,6 +3813,24 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, movedBase);
 		});
 
+		it('hands the verifier no full read when that timed out, and keeps the re-measure', async () => {
+			const checked: unknown[] = [];
+			const h = createHarness({ verifyBaseRemeasure: (remeasured, full) => checked.push([remeasured, full]) });
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = dependsOn;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.baseMove = movedBase;
+			h.repo.state.baseFail = new CancellationError(undefined, 'timeout');
+
+			await readsAfter(h, () => fetched(h));
+			assert.deepStrictEqual(checked, [[{ base: movedBase, dependsOn: dependsOn }, undefined]]);
+			const summary = await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(summary.base, movedBase);
+			assert.strictEqual(summary.stale, false);
+		});
+
 		it('does not verify a base read in full', async () => {
 			const checked: unknown[] = [];
 			const h = createHarness({ verifyBaseRemeasure: (remeasured, full) => checked.push([remeasured, full]) });
@@ -3263,23 +3854,35 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, h.repo.state.base);
 		});
 
-		it('reads the base in full, without re-measuring, when the move is not named exactly', async () => {
+		it('re-measures the base for the refs the tips show moved when the move is not named exactly', async () => {
 			const h = await setup();
 			h.repo.state.baseMove = movedBase;
+			/** The tip check probes HEAD through `getBranch` (a cached answer in core), which the fake counts */
+			const probeOnly: ReadCounts = { ...none, branch: 1 };
 
 			// A ref kind with no name: a packed-refs rewrite, an overflow's rescan
-			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'])), onlyBase);
+			h.repo.state.tips[originMain] = 'ooo222';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'])), probeOnly);
 			// A ref directory, as a poll or a remote's removal reports it
-			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin')), onlyBase);
-			// Named and unnamed at once
+			h.repo.state.tips[originMain] = 'ooo333';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin')), probeOnly);
+			// Named and unnamed at once: the kind changed without names, so the tips decide for the named ones too
+			h.repo.state.tips[originMain] = 'ooo444';
 			assert.deepStrictEqual(
 				await readsAfter(h, () => {
 					fetched(h);
 					h.push(['remotes']);
 				}),
-				onlyBase,
+				probeOnly,
 			);
-			assert.deepStrictEqual(h.repo.baseMoves, []);
+			// The symref still points at `origin/main`, so it never moved
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => m.moved),
+				[[originMain], [originMain], [originMain]],
+			);
+			// Nothing moved: nothing read
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'])), probeOnly);
+			assert.strictEqual(h.repo.baseMoves.length, 3);
 		});
 
 		it('reads everything, without re-measuring, when the branch moved along with the base', async () => {

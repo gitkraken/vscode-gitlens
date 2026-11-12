@@ -1,9 +1,9 @@
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { RemoteProviderConfig } from '@gitlens/git/remotes/matcher.js';
-import type { ConfiguredIntegrationDescriptor } from '@gitlens/integrations/authentication/models.js';
 import type { CloudGitSelfManagedHostIntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import { isCloudGitSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
+import type { ConfiguredIntegrationDescriptor } from '@gitlens/integrations/index.js';
+import { isCloudGitSelfManagedHostIntegrationId } from '@gitlens/integrations/index.js';
 
 /**
  * Configuration shape for user-configured custom remotes (from VS Code settings).

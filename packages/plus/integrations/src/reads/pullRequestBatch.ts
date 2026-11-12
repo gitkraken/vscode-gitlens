@@ -1,18 +1,18 @@
-import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from '../constants.js';
-import type { PullRequestEtagInclude } from '../models/integration.js';
-import { pullRequestEtagIncludes } from '../models/integration.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
-import type { ProviderResult, ProviderWarning } from '../results.js';
-import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import type { ProviderResult, ProviderWarning, PullRequestBatchResult, PullRequestBatchTarget } from '../results.js';
+import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import { readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
+import type { PullRequestEtagInclude } from './etag.js';
 import {
 	findInvalidPullRequestEtagInclude,
 	normalizePullRequestEtagIncludes,
 	pullRequestEtag,
 	pullRequestEtagFieldsFromShape,
+	pullRequestEtagIncludes,
 } from './etag.js';
 import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './warnings.js';
@@ -38,58 +38,6 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
  * makes one call.
  */
 
-/** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
-export interface PullRequestBatchTarget {
-	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
-	key: string;
-	/**
-	 * GitHub owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or
-	 * Azure DevOps organization.
-	 */
-	owner: string;
-	/** Repository name or slug. */
-	repo: string;
-	/** Pull request number, GitLab merge request iid, or Azure DevOps pull request id. */
-	number: number;
-	/** Azure DevOps project. Required there, ignored elsewhere. */
-	project?: string;
-	/**
-	 * The {@link PullRequestBatchResult.etag} of the copy the caller holds. When the host can check it cheaply and
-	 * it still matches, the pull request isn't read again and comes back `unchanged`.
-	 */
-	etag?: string;
-}
-
-/**
- * The answer for one {@link PullRequestBatchTarget}, in one of four states:
- * - `{ key, pullRequest, etag }` — read in full, whatever its state. Every fully read row carries an `etag`,
- *   whether or not the caller sent one, so a caller can seed its etags from the reads it already makes.
- * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
- *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
- * - `{ key }` — PROVEN ABSENT: it does not exist, or is not visible to this connection.
- * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
- */
-export interface PullRequestBatchResult {
-	key: string;
-	/**
-	 * The resolved pull request, whatever its state, or `undefined` when it PROVABLY does not exist (or is not
-	 * visible to this connection) — or when it is `unchanged`. A target whose read FAILED is not returned at
-	 * all and sets `fetchFailed`.
-	 */
-	pullRequest?: PullRequestShape;
-	/**
-	 * Opaque: compare for equality only, never parse. Computed by core from the pull request's change state — its
-	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
-	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
-	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
-	 * compares unequal and costs a full read, never a false `unchanged`. Reactions are never an input: a host can add
-	 * one without moving the update time, so an `unchanged` copy's `thumbsUpCount` may be stale.
-	 */
-	etag?: string;
-	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
-	unchanged?: true;
-}
-
 export async function getPullRequestsBatch(
 	ctx: ProviderReadContext,
 	options: {
@@ -108,6 +56,8 @@ export async function getPullRequestsBatch(
 		 * computed; the full read is the same. Calls that differ in this set never match each other's etags.
 		 */
 		etagIncludes?: readonly PullRequestEtagInclude[];
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		mergeQueue?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBatchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBatchResult> => ({
@@ -169,6 +119,9 @@ export async function getPullRequestsBatch(
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 	const etagIncludes = normalizePullRequestEtagIncludes(options.etagIncludes ?? []);
+	// Resolved once, so the cheap check and the full read select the same data and their etags agree even if the host's
+	// setting changes while the call is in flight.
+	const mergeQueue = options.mergeQueue ?? ctx.getPullRequestReadOptions().mergeQueue === true;
 	const toCoordinate = (t: PullRequestBatchTarget) => ({
 		owner: t.owner,
 		repo: t.repo,
@@ -199,6 +152,7 @@ export async function getPullRequestsBatch(
 								integration,
 								options.connectionId,
 							)),
+							mergeQueue: mergeQueue,
 						},
 						undefined,
 						options.connectionId,
@@ -215,7 +169,7 @@ export async function getPullRequestsBatch(
 				() =>
 					integration.getPullRequestsEtagFieldsResult(
 						batch.map(toCoordinate),
-						{ etagIncludes: etagIncludes },
+						{ etagIncludes: etagIncludes, mergeQueue: mergeQueue },
 						undefined,
 						options.connectionId,
 					),

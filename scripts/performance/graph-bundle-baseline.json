@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "020cfc1b7daf29da1f0c6f916a550559b7a552b2",
+	"sourceCommit": "2e2557ef827b6782282f1695c8c418791590e195",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for the GitKraken notifications bell in the Graph header: +14.3 KiB on the entrypoint since the Publish Repository baseline, of which +16.2 KiB is graph.js and -1.9 KiB shared.js (graph.css unchanged). About 3.1 KiB had accumulated within headroom from earlier work; the bell added about 11.2 KiB (+10.5 KiB graph.js: the bell, its unread badge and popover with the newest notifications, quick actions, empty/loading/error states and styles, plus the shared notifications store; +0.7 KiB shared.js: the notifications presentation helpers now shared with Settings) and pushed the entrypoint 2.3 KiB over. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for Review Changes carrying across history rewrites and stepping through files not yet viewed (#116): +17.4 KiB on the entrypoint against the merge-queue pin, all of it graph.js (+20.5 KiB) while shared.js shrank 1.5 KiB and graph.css 1.6 KiB. Of that, +6.6 KiB had already accrued on main since the merge-queue pin (main measured 3,237,665 bytes at 9029768, inside its ceiling; 2e2557e adds no graph bytes) and +10.8 KiB is this change, all graph.js: remapping a review scope onto rewritten commits by patch id, subject and position; holding the scope while the remap runs and scrolling the picker to it after; moving commit and comparison reviews onto their rewritten commits, deferred while the review is busy; re-selecting the moved commit in the graph; the reading controls that skip viewed files, with Alt+click stepping in list order; the scope picker tooltip that tells a commit's line counts from its file count; and their localized messages. Not a new dependency or a module moving between chunks. Before it: GitHub merge-queue support (+11.7 KiB) on top of review mode as a review session (+72.8 KiB, see their commits). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3129912,
-		"graph.js": 1991383,
-		"graph.css": 161447,
-		"shared.js": 977082
+		"entrypoint": 3248764,
+		"graph.js": 2096282,
+		"graph.css": 164171,
+		"shared.js": 988311
 	},
 	"maximumBytes": {
-		"entrypoint": 3142200,
-		"graph.js": 1991383,
-		"graph.css": 168328,
-		"shared.js": 981178
+		"entrypoint": 3261052,
+		"graph.js": 2096282,
+		"graph.css": 171052,
+		"shared.js": 992407
 	}
 }

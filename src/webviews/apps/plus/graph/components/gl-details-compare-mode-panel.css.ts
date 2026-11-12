@@ -43,9 +43,9 @@ export const compareModePanelStyles = css`
 		justify-content: space-between;
 		min-width: 0;
 		padding: 0.5rem 1.2rem;
-		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+		color: var(--vscode-foreground);
 		background: var(--gl-metadata-bar-bg);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.compare-bar__refs {
@@ -175,7 +175,7 @@ export const compareModePanelStyles = css`
 	.compare-tabs {
 		display: flex;
 		flex: none;
-		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: 2px solid var(--gl-color-divider-base);
 	}
 
 	.compare-error {
@@ -185,9 +185,9 @@ export const compareModePanelStyles = css`
 		align-items: center;
 		padding: var(--gl-space-6) var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-editorError-foreground);
-		background: var(--vscode-inputValidation-errorBackground);
-		border-bottom: var(--gl-border-width) solid var(--vscode-inputValidation-errorBorder);
+		color: var(--gl-color-feedback-danger-fg);
+		background: var(--gl-color-feedback-danger-bg);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 	}
 
 	.compare-stale {
@@ -197,9 +197,9 @@ export const compareModePanelStyles = css`
 		align-items: center;
 		padding: var(--gl-space-6) var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-inputValidation-warningForeground);
-		background: var(--vscode-inputValidation-warningBackground);
-		border-bottom: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder);
+		color: var(--gl-color-feedback-warning-fg);
+		background: var(--gl-color-feedback-warning-bg);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 	}
 
 	.compare-stale span {
@@ -248,8 +248,14 @@ export const compareModePanelStyles = css`
 	/* Empty tabs: still dimmed (via base opacity), but NOT italic — keeps direction icon legible. */
 
 	.compare-tab:hover {
-		background: var(--vscode-list-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 		opacity: 0.85;
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.compare-tab:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.compare-tab--active-all,
@@ -324,7 +330,7 @@ export const compareModePanelStyles = css`
 		min-width: 0;
 		padding: var(--gl-space-10) var(--gl-space-12);
 		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-all-notice code-icon {
@@ -372,7 +378,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-split__start {
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	/* Commit list scrollbar is gated to commit-list hover/focus-within (not the host-hover
@@ -451,7 +457,7 @@ export const compareModePanelStyles = css`
 		justify-content: center;
 		padding: var(--gl-space-10) var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-empty--no-commits {
@@ -663,13 +669,19 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-view-trigger:hover {
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.compare-view-trigger:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.compare-view-trigger:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	.compare-view-trigger__label {

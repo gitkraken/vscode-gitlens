@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationManager } from '../index.js';
@@ -96,9 +97,15 @@ function createServer(options: {
 	failIdentityStatus?: number;
 	/** Refuses the current user's server-level connection data, as a transient outage would. */
 	failServerIdentity?: boolean;
+	/**
+	 * The one collection the token is limited to ("Organization" in the token dialog): the server refuses it, 401,
+	 * at the server level and below every other collection.
+	 */
+	tokenCollection?: string;
 }) {
 	const runtime = createFakeRuntime();
 	const requests: Request[] = [];
+	const refused: string[] = [];
 	let failedWiql = false;
 	const accounts = options.accounts ?? [
 		{ tokenId: 'connection', token: 'me-token', baseUrl: options.connectionUrl ?? options.installation },
@@ -148,6 +155,11 @@ function createServer(options: {
 			.slice(installationPath.length + 1)
 			.split('/')
 			.map(decodeURIComponent);
+		if (options.tokenCollection != null && segments[0] !== options.tokenCollection) {
+			refused.push(`${init?.method ?? 'GET'} ${decodeURIComponent(url.pathname)}`);
+			return json({ message: 'TF400813: The user is not authorized to access this resource.' }, 401);
+		}
+
 		// Server-level routes, which Azure also answers below a collection. Like Azure DevOps Server, the same person
 		// has one identity id at the server level and another in each collection, and only the collection's matches
 		// the creator/reviewer filters — the id stored on pull requests and work items there.
@@ -346,7 +358,12 @@ function createServer(options: {
 		return json({ message: `unhandled ${route}` }, 404);
 	};
 
-	return { runtime: runtime, requests: requests, createManager: () => createIntegrationManager(runtime) };
+	return {
+		runtime: runtime,
+		requests: requests,
+		refused: refused,
+		createManager: () => createIntegrationManager(runtime),
+	};
 }
 
 /** Evaluates the handful of WIQL clauses the search emits against a fake work item. */
@@ -566,6 +583,26 @@ suite('Azure DevOps Server filtered search', () => {
 				});
 			});
 		}
+
+		test('searches a collection whose name reads as an escape when it is not encoded', async () => {
+			// The collection name is a path segment the server decodes, so sent as is `R%26D` names the collection `R&D`:
+			// both the WIQL query and the hydration of what it matched have to encode it to reach this one.
+			const escaped: FakeCollection = {
+				name: 'R%26D',
+				projects: ['Lab'],
+				workItems: [
+					{ id: 7, project: 'Lab', title: 'Prototype', createdBy: 'me', assignedTo: 'me' },
+					{ id: 8, project: 'Lab', title: 'Survey' },
+				],
+				pullRequests: [],
+			};
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [escaped] });
+			await withManager(server, async (manager, target) => {
+				const search = await manager.searchIssuesPage({ ...target, org: 'R%26D' });
+				assert.ok(!search.fetchFailed, JSON.stringify(search.warnings));
+				assert.deepEqual(search.items.map(i => i.title).sort(), ['Prototype', 'Survey']);
+			});
+		});
 	});
 
 	suite('page size', () => {
@@ -2761,6 +2798,337 @@ suite('Azure DevOps Server current-account identity (#5916)', () => {
 					JSON.stringify(single.warnings),
 				);
 			});
+		});
+	});
+});
+
+suite('Azure DevOps Server token limited to one collection (#6071)', () => {
+	const installation = 'https://server.test/tfs';
+	const defaultCollection: FakeCollection = { ...collection, name: 'DefaultCollection' };
+	const site = { namespace: 'Default Collection', name: 'site', project: 'Web' };
+
+	function azureServerRemote(owner: string, repo: string): GitRemote {
+		return {
+			name: 'origin',
+			scheme: 'https://',
+			provider: { id: 'azure-devops', domain: 'server.test', owner: owner, repoName: repo, custom: false },
+		} as unknown as GitRemote;
+	}
+
+	type Read = { fetchFailed?: boolean; warnings: { kind: string; message: string }[] };
+
+	function assertRead(name: string, result: Read): void {
+		assert.ok(!result.fetchFailed, `${name}: ${JSON.stringify(result.warnings)}`);
+		assert.deepEqual(result.warnings, [], name);
+	}
+
+	function connectionDataPaths(server: ReturnType<typeof createServer>): string[] {
+		return server.requests
+			.map(r => decodeURIComponent(r.url.pathname))
+			.filter(p => p.toLowerCase().endsWith('/_apis/connectiondata'));
+	}
+
+	test('reads through the collection of an open repository when the server root refuses the token', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [collection],
+			tokenCollection: 'Default Collection',
+		});
+		server.runtime.repositories.getOpenRemotes = () =>
+			Promise.resolve([azureServerRemote('Default Collection', 'Web/_git/site')]);
+		await withManager(server, async (manager, target) => {
+			const account = await manager.getCurrentAccount({ ...target });
+			assertRead('getCurrentAccount', account);
+			assert.equal(account.account?.username, 'me');
+
+			const mine = await manager.listPullRequestsPage({ ...target });
+			assertRead('listPullRequestsPage (account-wide)', mine);
+			assert.ok(mine.items.length > 0, 'the account-wide list reads the collection');
+
+			assertRead(
+				'searchPullRequestsPage',
+				await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { states: ['all'] },
+				}),
+			);
+
+			const issues = await manager.searchIssuesPage({ ...target, org: 'Default Collection' });
+			assertRead('searchIssuesPage', issues);
+			assert.equal(issues.items.length, collection.workItems.length);
+
+			// Issue lists go through the SDK's per-project routes, which this fake doesn't serve: only that the
+			// credential is no longer refused matters here.
+			const list = await manager.listIssuesPage({ ...target, org: 'Default Collection' });
+			assert.deepEqual(
+				list.warnings.filter(w => w.kind === 'auth'),
+				[],
+				'the issue list is not refused',
+			);
+
+			const repo = await manager.listPullRequestsPage({ ...target, repos: [site] });
+			assertRead('listPullRequestsPage (repo)', repo);
+			assert.equal(repo.items.length, 2);
+
+			// Only the server-level account lookup is refused (the connection and the first read each make one):
+			// once the token's collection is known, nothing is asked of the server level again, not even its list.
+			assert.deepEqual([...new Set(server.refused)], ['GET /tfs/_apis/connectionData']);
+			const refusedBefore = server.refused.length;
+			await manager.searchIssuesPage({ ...target, org: 'Default Collection' });
+			assert.equal(server.refused.length, refusedBefore, 'nothing is refused once the collection is known');
+		});
+	});
+
+	test('reads through DefaultCollection, the installer default, with no repository open', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [defaultCollection],
+			tokenCollection: 'DefaultCollection',
+		});
+		await withManager(server, async (manager, target) => {
+			assertRead('getCurrentAccount', await manager.getCurrentAccount({ ...target }));
+
+			const mine = await manager.listPullRequestsPage({ ...target });
+			assertRead('listPullRequestsPage (account-wide)', mine);
+			assert.ok(mine.items.length > 0, 'the account-wide list reads the collection');
+
+			const issues = await manager.searchIssuesPage({ ...target, org: 'DefaultCollection' });
+			assertRead('searchIssuesPage', issues);
+			assert.equal(issues.items.length, defaultCollection.workItems.length);
+		});
+	});
+
+	test('finds the collection when the account comes from an earlier session', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [defaultCollection],
+			tokenCollection: 'DefaultCollection',
+		});
+		// Stored by an earlier session, so this one reads the collections without looking the account up first.
+		await server.runtime.storage.store(`azure:me-token:${installation}:account`, {
+			v: 1,
+			timestamp: Date.now(),
+			data: { id: 'me', name: 'me', username: 'me' },
+		});
+		await withManager(server, async (manager, target) => {
+			const mine = await manager.listPullRequestsPage({ ...target });
+			assertRead('listPullRequestsPage (account-wide)', mine);
+			assert.ok(mine.items.length > 0, 'the account-wide list reads the collection');
+			assert.ok(
+				server.refused.includes('GET /tfs/_apis/projectCollections'),
+				'the collections were read with the stored account',
+			);
+		});
+	});
+
+	test('every read agrees on the collection of the token, whether the session found it or restored it', async () => {
+		const own = azureServerRemote('Default Collection', 'Web/_git/site');
+		const other = azureServerRemote('Team', 'Web/_git/site');
+		const branchInOther = { key: 'b', owner: 'Team', repo: 'site', project: 'Web', branch: 'feature' };
+		for (const { state, stored, remotes } of [
+			{ state: 'found through an open repository', stored: false, remotes: [own, other] },
+			{ state: 'restored from an earlier session', stored: true, remotes: [other] },
+		]) {
+			const server = createServer({
+				installation: installation,
+				collections: [collection],
+				tokenCollection: 'Default Collection',
+			});
+			server.runtime.repositories.getOpenRemotes = () => Promise.resolve(remotes);
+			if (stored) {
+				await server.runtime.storage.store(`azure:me-token:${installation}:account`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: { id: 'me', name: 'me', username: 'me' },
+				});
+				await server.runtime.storage.store(`azure:me-token:${installation}:organizations`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: [{ id: 'Default Collection-id', key: 'Default Collection-id', name: 'Default Collection' }],
+				});
+			}
+			await withManager(server, async (manager, target) => {
+				assertRead(`${state}: getCurrentAccount`, await manager.getCurrentAccount({ ...target }));
+
+				const branch = await manager.getPullRequestsForBranches({ ...target, targets: [branchInOther] });
+				assert.ok(
+					branch.warnings.length > 0 && branch.warnings.every(w => w.scope != null),
+					`${state}: another collection's refusal stays that repository's: ${JSON.stringify(branch.warnings)}`,
+				);
+
+				const mine = await manager.listPullRequestsPage({ ...target });
+				assertRead(`${state}: listPullRequestsPage`, mine);
+				assert.ok(mine.items.length > 0, `${state}: the account-wide list reads the collection`);
+			});
+		}
+	});
+
+	test('a refused read recovers once the session learns the collection of the token', async () => {
+		for (const { learn, tokenCollection, learnCollection } of [
+			{ learn: 'an open repository', tokenCollection: 'Default Collection', learnCollection: undefined },
+			{ learn: 'a read that names it', tokenCollection: 'Team', learnCollection: 'Team' },
+		]) {
+			const server = createServer({
+				installation: installation,
+				collections: [{ ...collection, name: tokenCollection }],
+				tokenCollection: tokenCollection,
+			});
+			let remotes: GitRemote[] = [];
+			server.runtime.repositories.getOpenRemotes = () => Promise.resolve(remotes);
+			await withManager(server, async (manager, target) => {
+				const refused = await manager.listPullRequestsPage({ ...target });
+				assert.equal(refused.fetchFailed, true, `${learn}: refused before the collection is known`);
+
+				if (learnCollection == null) {
+					remotes = [azureServerRemote(tokenCollection, 'Web/_git/site')];
+				} else {
+					assertRead(
+						`${learn}: searchIssuesPage`,
+						await manager.searchIssuesPage({ ...target, org: learnCollection }),
+					);
+				}
+
+				assertRead(`${learn}: getCurrentAccount`, await manager.getCurrentAccount({ ...target }));
+				const mine = await manager.listPullRequestsPage({ ...target });
+				assertRead(`${learn}: listPullRequestsPage`, mine);
+				assert.ok(mine.items.length > 0, `${learn}: the account-wide list reads the collection`);
+			});
+		}
+	});
+
+	test('reads through the collection of a short remote behind the installation virtual directory', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [collection],
+			tokenCollection: 'Default Collection',
+		});
+		server.runtime.repositories.getOpenRemotes = () =>
+			Promise.resolve([azureServerRemote('tfs', 'Default Collection/_git/site')]);
+		await withManager(server, async (manager, target) => {
+			assertRead('getCurrentAccount', await manager.getCurrentAccount({ ...target }));
+			const mine = await manager.listPullRequestsPage({ ...target });
+			assertRead('listPullRequestsPage (account-wide)', mine);
+			assert.ok(mine.items.length > 0, 'the account-wide list reads the collection');
+		});
+	});
+
+	test('reads through the collection a read names, with no repository open', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [collection],
+			tokenCollection: 'Default Collection',
+		});
+		await withManager(server, async (manager, target) => {
+			const issues = await manager.searchIssuesPage({ ...target, org: 'Default Collection' });
+			assertRead('searchIssuesPage', issues);
+			assert.equal(issues.items.length, collection.workItems.length);
+
+			assertRead(
+				'searchPullRequestsPage',
+				await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { states: ['all'] },
+				}),
+			);
+		});
+	});
+
+	test('names a collection-limited token as a possible cause when no collection it tries accepts the token', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [{ ...collection, name: 'Team' }],
+			tokenCollection: 'Team',
+		});
+		await withManager(server, async (manager, target) => {
+			for (const [name, result] of [
+				['getCurrentAccount', await manager.getCurrentAccount({ ...target })],
+				['listPullRequestsPage', await manager.listPullRequestsPage({ ...target })],
+			] as const) {
+				assert.equal(result.fetchFailed, true, name);
+				assert.equal(result.warnings.length, 1, name);
+				const [warning] = result.warnings;
+				assert.equal(warning.kind, 'auth', name);
+				assert.match(warning.message, /limited to a collection that couldn't be found/, name);
+				assert.match(warning.message, /a token for all accessible organizations/, name);
+				assert.match(warning.message, /open a repository from the token's collection/, name);
+				assert.doesNotMatch(
+					warning.message,
+					/server\.test/,
+					`${name}: the server address stays out of the message`,
+				);
+				assert.doesNotMatch(warning.message, /credentials are either invalid or expired/, name);
+			}
+
+			assert.ok(
+				connectionDataPaths(server).includes('/tfs/DefaultCollection/_apis/connectionData'),
+				'the installer default was tried',
+			);
+		});
+	});
+
+	test('an expired token at a collection address keeps its refusal, without trying the other candidates', async () => {
+		const server = createServer({
+			installation: installation,
+			connectionUrl: `${installation}/Default%20Collection`,
+			collections: [collection],
+			tokenCollection: 'Team',
+		});
+		server.runtime.repositories.getOpenRemotes = () =>
+			Promise.resolve([azureServerRemote('Default Collection', 'Web/_git/site')]);
+		await withManager(server, async (manager, target) => {
+			const account = await manager.getCurrentAccount({ ...target });
+			assert.equal(account.fetchFailed, true);
+			assert.match(account.warnings[0]?.message ?? '', /credentials are either invalid or expired/);
+			assert.ok(
+				!connectionDataPaths(server).some(p => p.endsWith('/DefaultCollection/_apis/connectionData')),
+				JSON.stringify(connectionDataPaths(server)),
+			);
+		});
+	});
+
+	test('a token for every collection never looks for a collection to read the account in', async () => {
+		const server = createServer({ installation: installation, collections: [collection] });
+		await withManager(server, async (manager, target) => {
+			assertRead('getCurrentAccount', await manager.getCurrentAccount({ ...target }));
+			assert.deepEqual([...new Set(connectionDataPaths(server))], ['/tfs/_apis/connectionData']);
+
+			const mine = await manager.listPullRequestsPage({ ...target });
+			assertRead('listPullRequestsPage (account-wide)', mine);
+			assert.ok(mine.items.length > 0);
+		});
+	});
+
+	test('a token limited to the collection the connection addresses reads as before', async () => {
+		const server = createServer({
+			installation: installation,
+			connectionUrl: `${installation}/Default%20Collection`,
+			collections: [collection],
+			tokenCollection: 'Default Collection',
+		});
+		await withManager(server, async (manager, target) => {
+			assertRead('getCurrentAccount', await manager.getCurrentAccount({ ...target }));
+			assertRead('listPullRequestsPage (account-wide)', await manager.listPullRequestsPage({ ...target }));
+			assert.deepEqual(server.refused, [], 'nothing is asked above the collection');
+		});
+	});
+
+	test('a server-level failure other than a refusal stays that failure, without looking for a collection', async () => {
+		const server = createServer({
+			installation: installation,
+			collections: [collection],
+			failServerIdentity: true,
+		});
+		await withManager(server, async (manager, target) => {
+			const account = await manager.getCurrentAccount({ ...target });
+			assert.equal(account.fetchFailed, true);
+			assert.doesNotMatch(JSON.stringify(account.warnings), /limited to a collection that couldn't be found/);
+			assert.deepEqual(
+				[...new Set(connectionDataPaths(server))],
+				['/tfs/_apis/connectionData'],
+				'no collection is tried',
+			);
 		});
 	});
 });

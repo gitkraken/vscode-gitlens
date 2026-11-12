@@ -21,6 +21,7 @@ import { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { TokenWithInfo } from './authentication/models.js';
 import { toTokenInfo } from './authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from './constants.js';
@@ -28,7 +29,7 @@ import type { ProviderApiConfig } from './providers/apiConfig.js';
 import { AzureDevOpsApi } from './providers/azure/azure.js';
 import { BitbucketApi } from './providers/bitbucket/bitbucket.js';
 import { GitLabApi } from './providers/gitlab/gitlab.js';
-import { providersMetadata } from './providers/models.js';
+import { providersMetadata } from './providers/metadata.js';
 
 /** The git-hosting integrations that expose a token-scoped read path here. */
 export type TokenScopedGitHostId =
@@ -188,14 +189,12 @@ function createProviderStub(id: TokenScopedGitHostId, domain: string, ignoreSSLE
 
 /** Strips a leading `scheme://` and any trailing slashes; a subpath/collection (e.g. `host/tfs/Col`) is preserved. */
 function stripScheme(domain: string): string {
-	return domain.replace(/^[a-z][\w+.-]*:\/\//i, '').replace(/\/+$/, '');
+	return trimTrailingSlashes(domain.replace(/^[a-z][\w+.-]*:\/\//i, ''));
 }
 
 /**
- * GitHub's base URL, which `@gitkraken/provider-apis` derives BOTH the REST and the GraphQL endpoint from by
- * appending GitHub Enterprise's paths (`/api/v3`, `/api/graphql`). Cloud must therefore pass nothing rather than
- * `https://api.github.com`, which would build `https://api.github.com/api/graphql` and get a 404; omitting it is
- * what selects the cloud endpoints. Mirrors the cloud `GitHubIntegration.apiBaseUrlFor`.
+ * GitHub's base URL, which `@gitkraken/provider-apis` derives BOTH the REST and the GraphQL endpoint from. Omitting it
+ * is what selects the cloud endpoints, so cloud passes nothing. Mirrors the cloud `GitHubIntegration.apiBaseUrlFor`.
  */
 function resolveGitHubApiBaseUrl(
 	id: GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -229,6 +228,6 @@ function resolveApiBaseUrl(
 			return 'https://dev.azure.com';
 		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			// Mirror the session-managed getter, which honors the connection protocol; default to https.
-			return rawDomain.includes('://') ? rawDomain.replace(/\/+$/, '') : `https://${host}`;
+			return rawDomain.includes('://') ? trimTrailingSlashes(rawDomain) : `https://${host}`;
 	}
 }

@@ -75,7 +75,7 @@ export class GlBreadcrumbs extends LitElement {
 		.overflow-menu gl-tooltip hr {
 			margin: var(--gl-space-4) 0;
 			border: none;
-			border-top: var(--gl-border-width) solid var(--color-foreground--25);
+			border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.overflow-menu-item {
@@ -96,10 +96,18 @@ export class GlBreadcrumbs extends LitElement {
 			border-radius: var(--gl-radius-sm);
 		}
 
-		.overflow-menu-item:hover,
+		.overflow-menu-item:hover {
+			background-color: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		.overflow-menu-item:hover:not(:focus-visible) {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
+		}
+
 		.overflow-menu-item:focus-visible {
-			outline: none;
-			background: var(--vscode-list-hoverBackground);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
+			outline-offset: -1px;
 		}
 
 		.overflow-menu-item-label {
@@ -521,8 +529,14 @@ toolbar widget heights so the row stays tight. The inner gl-button's
 
 			:host(:hover) .breadcrumb-item,
 			:host(:focus-within) .breadcrumb-item {
-				color: var(--vscode-foreground);
-				background: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue on interactive crumbs; toolbar.hoverOutline is unset outside HC */
+			:host(:hover) button.breadcrumb-item:not(:focus-within) {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.icon {

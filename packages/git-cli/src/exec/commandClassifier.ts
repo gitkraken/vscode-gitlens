@@ -170,13 +170,17 @@ function isConfigRead(rest: readonly string[]): boolean {
 	return rest.filter(arg => !arg.startsWith('-')).length === 1;
 }
 
-/** Global options whose value is the next argument, so the verb scan must skip both. */
+/**
+ * Global options whose value is the next argument, so the verb scan must skip both. A missing one makes the scan
+ * take its value for the verb and stop there, missing any `-C`, `--git-dir` or `--work-tree` git still reads after it.
+ */
 const globalOptionsWithValue = new Set([
 	'-c',
+	'--attr-source',
 	'--config-env',
-	'--exec-path',
 	'--git-dir',
 	'--namespace',
+	'--shallow-file',
 	'--super-prefix',
 	'--work-tree',
 ]);
@@ -192,43 +196,124 @@ export interface LeadingCommand {
 	pathOverride?: string;
 	/** Each `-c <key>[=<value>]` given before the verb, in order */
 	configs?: readonly string[];
+	/** The last `--git-dir <path>` / `--git-dir=<path>` given before the verb, unresolved */
+	gitDir?: string;
+	/** The last `--work-tree <path>` / `--work-tree=<path>` given before the verb, unresolved */
+	workTree?: string;
+}
+
+/** What {@link scanLeadingOptions} found in the global options git accepts before the verb */
+export interface LeadingOptions {
+	/** The `-C <path>` target, each `-C` joined onto the one before it */
+	pathOverride?: string;
+	/** The last `--git-dir <path>` / `--git-dir=<path>`, unresolved */
+	gitDir?: string;
+	/** The last `--work-tree <path>` / `--work-tree=<path>`, unresolved */
+	workTree?: string;
+	/** Each `-c <key>[=<value>]`, in order; collected only for a classifying scan */
+	configs?: readonly string[];
+	/**
+	 * Where the first non-option token sits in the combined sequence (its length when there is none), except that a
+	 * scan without `classify` that found nothing moving the repository answers -1, so that common run allocates no result
+	 */
+	verbIndex: number;
+}
+
+/** Shared by every scan that found nothing, so the common run allocates no result */
+const noLeadingOptions: LeadingOptions = Object.freeze({ verbIndex: -1 });
+
+/** The index of the first defined token at or after `i` in `first` followed by `second`, or their combined length */
+function nextToken(
+	first: readonly (string | undefined)[] | undefined,
+	second: readonly (string | undefined)[],
+	i: number,
+): number {
+	const firstLength = first?.length ?? 0;
+	const total = firstLength + second.length;
+	while (i < total && (i < firstLength ? first![i] : second[i - firstLength]) == null) {
+		i++;
+	}
+	return i;
 }
 
 /**
- * Skips the global options (`-c key=val`, `-C path`) git accepts before the verb to find it, and notes a
- * `-C` re-scope so notification targets that tree.
+ * Walks the global options (`-c key=val`, `-C path`, `--git-dir`, `--work-tree`) git accepts before the verb,
+ * over `first` then `second` as one sequence with `undefined` tokens skipped, and stops at the first non-option
+ * token. Git honours these only ahead of the verb, so a later `-C 3` (grep's context) or a pathspec named like an
+ * option is never a global option; every consumer shares this one walk so none can drift from how git reads them.
+ *
+ * With `classify` it also collects the `-c` configs and always returns a result carrying the verb's position;
+ * without it the walk allocates nothing unless a global option moves the repository.
  */
-export function leadingCommand(args: readonly string[]): LeadingCommand {
+export function scanLeadingOptions(
+	first: readonly (string | undefined)[] | undefined,
+	second: readonly (string | undefined)[],
+	classify: boolean,
+): LeadingOptions {
+	const firstLength = first?.length ?? 0;
+	const total = firstLength + second.length;
+
 	let pathOverride: string | undefined;
 	let configs: string[] | undefined;
-	let i = 0;
-	while (i < args.length) {
-		const arg = args[i];
+	let gitDir: string | undefined;
+	let workTree: string | undefined;
+
+	let i = nextToken(first, second, 0);
+	while (i < total) {
+		const arg = (i < firstLength ? first![i] : second[i - firstLength])!;
 		if (arg === '-C') {
 			// git applies each `-C` relative to the one before it
-			const path = args[i + 1];
-			if (path != null) {
+			const valueIndex = nextToken(first, second, i + 1);
+			if (valueIndex < total) {
+				const path = (valueIndex < firstLength ? first![valueIndex] : second[valueIndex - firstLength])!;
 				pathOverride = pathOverride == null || isAbsolute(path) ? path : join(pathOverride, path);
 			}
-			i += 2;
+			i = nextToken(first, second, valueIndex + 1);
 
 			continue;
 		}
 		if (globalOptionsWithValue.has(arg)) {
-			if (arg === '-c' && args[i + 1] != null) {
-				(configs ??= []).push(args[i + 1]);
+			const valueIndex = nextToken(first, second, i + 1);
+			if (valueIndex < total) {
+				const value = (valueIndex < firstLength ? first![valueIndex] : second[valueIndex - firstLength])!;
+				if (arg === '-c') {
+					if (classify) {
+						(configs ??= []).push(value);
+					}
+				} else if (arg === '--git-dir') {
+					gitDir = value;
+				} else if (arg === '--work-tree') {
+					workTree = value;
+				}
 			}
-			i += 2;
+			i = nextToken(first, second, valueIndex + 1);
 
 			continue;
 		}
 		if (arg.startsWith('-')) {
-			i += 1;
+			if (arg.startsWith('--git-dir=')) {
+				gitDir = arg.slice('--git-dir='.length);
+			} else if (arg.startsWith('--work-tree=')) {
+				workTree = arg.slice('--work-tree='.length);
+			}
+			i = nextToken(first, second, i + 1);
 
 			continue;
 		}
 		break;
 	}
+
+	if (!classify && pathOverride == null && gitDir == null && workTree == null) return noLeadingOptions;
+
+	return { pathOverride: pathOverride, gitDir: gitDir, workTree: workTree, configs: configs, verbIndex: i };
+}
+
+/**
+ * Skips the global options (`-c key=val`, `-C path`) git accepts before the verb to find it, and notes a
+ * `-C` re-scope so notification targets that tree, and any `--git-dir` / `--work-tree` that moves the repository.
+ */
+export function leadingCommand(args: readonly string[]): LeadingCommand {
+	const { pathOverride, configs, gitDir, workTree, verbIndex: i } = scanLeadingOptions(undefined, args, true);
 	const verb = args[i] ?? '';
 	const rest = args.slice(i + 1);
 	const readOnly =
@@ -253,6 +338,8 @@ export function leadingCommand(args: readonly string[]): LeadingCommand {
 		rest: rest,
 		pathOverride: pathOverride,
 		configs: configs,
+		gitDir: gitDir,
+		workTree: workTree,
 	};
 }
 

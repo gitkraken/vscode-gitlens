@@ -320,7 +320,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				margin: var(--gl-space-4) 0;
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -358,7 +358,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
   where a translator can move it. So the muted tone goes on the whole sentence and the action half is
   lifted back out of it, rather than the halves being separate keys glued together by markup. */
 			.rollup__footer-note {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.rollup__footer-lead {
@@ -369,7 +369,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				width: 100%;
 				margin: 0;
 				border: none;
-				border-top: var(--gl-border-width) solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 		`,
 	];

@@ -2,8 +2,11 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel, IssueProjection } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequestMember,
+	PullRequestMergeQueueEntry,
+	PullRequestMergeQueueRemoval,
 	PullRequestProjection,
 	PullRequestStackInfo,
 	PullRequestState,
@@ -11,6 +14,7 @@ import type {
 import {
 	PullRequest,
 	PullRequestMergeableState,
+	PullRequestMergeQueueState,
 	PullRequestReviewDecision,
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
@@ -135,6 +139,15 @@ export type GitHubIssueState = 'OPEN' | 'CLOSED';
 export type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
 export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequestState;
 
+/** GitHub's `Milestone`, as `gqlMilestoneFragment` selects it. */
+export interface GitHubMilestone {
+	id: string;
+	title: string;
+	state: 'OPEN' | 'CLOSED';
+	dueOn: string | null;
+	url: string;
+}
+
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
 	author: GitHubMember | null;
@@ -158,6 +171,8 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	isCrossRepository: boolean;
 	isDraft: boolean;
 	mergedAt: string | null;
+	/** `null` when the pull request has none. */
+	milestone: GitHubMilestone | null;
 	permalink: string;
 
 	repository: {
@@ -175,6 +190,43 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	stack?: GitHubPullRequestStack | null;
 	/** Only selected against github.com — see `stack`. */
 	stackEntry?: { position: number } | null;
+	/** Only selected against github.com, for a read that asks for it (`mergeQueue`) or, when it doesn't say, a host
+	 *  that opts in (`GitHubApiConfig.getPullRequestReadOptions`) — see `stack`. `null` when the pull request isn't
+	 *  queued. */
+	mergeQueueEntry?: GitHubMergeQueueEntry | null;
+	/** Selected with `mergeQueueEntry`. True whenever the base branch requires a merge queue, whatever the pull
+	 *  request's state. */
+	isMergeQueueEnabled?: boolean;
+	/** Selected with `mergeQueueEntry`. The latest merge-queue event only (`timelineItems(last: 1)`). */
+	mergeQueueEvents?: GitHubMergeQueueEvents | null;
+}
+
+/** The `timelineItems` of a pull request filtered to its merge-queue events, as GitLens selects them. */
+export interface GitHubMergeQueueEvents {
+	nodes: (GitHubMergeQueueEvent | null)[] | null;
+}
+
+/** A merge-queue timeline event. Only a removal's fields are selected: the latest event being an addition is all an
+ *  addition says. */
+export type GitHubMergeQueueEvent =
+	| { __typename: 'AddedToMergeQueueEvent' }
+	| {
+			__typename: 'RemovedFromMergeQueueEvent';
+			createdAt: string;
+			reason: string | null;
+	  };
+
+export type GitHubMergeQueueEntryState = 'QUEUED' | 'AWAITING_CHECKS' | 'MERGEABLE' | 'UNMERGEABLE' | 'LOCKED';
+
+/** GitHub's `MergeQueueEntry`, as GitLens selects it. */
+export interface GitHubMergeQueueEntry {
+	state: GitHubMergeQueueEntryState;
+	enqueuedAt: string;
+	/** Seconds from when it was read. */
+	estimatedTimeToMerge: number | null;
+	mergeQueue: { url: string } | null;
+	/** 1-based, in enqueue order. */
+	position: number | null;
 }
 
 /** GitHub's stacked-pull-request object. Read-only; all stack mutations are REST-only. */
@@ -194,6 +246,8 @@ export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'
 		totalCount: number;
 	};
 	labels?: { nodes: IssueLabel[] };
+	/** `null` when the issue has none. */
+	milestone: GitHubMilestone | null;
 	reactions?: {
 		totalCount: number;
 	};
@@ -283,6 +337,15 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	commits?: {
 		nodes: { commit: { statusCheckRollup: { state: GitHubPullRequestStatusCheckRollupState } | null } }[];
 	};
+	/** Selected when the read selects merge-queue data, like the full read's. `null` when the pull request isn't queued. */
+	mergeQueueEntry?: Pick<GitHubMergeQueueEntry, 'state' | 'enqueuedAt'> | null;
+	/** Selected when the read selects merge-queue data, exactly as the full read selects it. */
+	mergeQueueEvents?: GitHubMergeQueueEvents | null;
+	/**
+	 * Selected with the merge-queue data and nothing else, so its presence says the read selected it. Its value is
+	 * never an etag input: only a change to the base branch's rules moves it.
+	 */
+	isMergeQueueEnabled?: boolean;
 }
 
 /**
@@ -390,7 +453,26 @@ export function fromGitHubPullRequestLite(
 		pr.number,
 		undefined, // authoredByMe
 		projection,
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		fromGitHubMilestone(pr.milestone),
+		fromGitHubPullRequestMergeQueueEntry(pr),
+		pr.isMergeQueueEnabled,
+		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
+}
+
+/** `undefined` only for a node from a selection that left the milestone out, which no fragment does today. */
+function fromGitHubMilestone(milestone: GitHubMilestone | null | undefined): IssueMilestone | null | undefined {
+	if (milestone == null) return milestone;
+
+	return {
+		id: milestone.id,
+		title: milestone.title,
+		state: milestone.state === 'CLOSED' ? 'closed' : 'open',
+		...(milestone.dueOn != null ? { dueDate: new Date(milestone.dueOn) } : {}),
+		...(milestone.url ? { url: milestone.url } : {}),
+	};
 }
 
 /** Both fields are absent on GitHub Enterprise Server (never selected) and `null` when unstacked. */
@@ -404,6 +486,63 @@ function fromGitHubPullRequestStack(pr: GitHubPullRequestLite): PullRequestStack
 		position: pr.stackEntry.position,
 		baseRef: pr.stack.baseRefName,
 	};
+}
+
+/** Absent where never selected (GitHub Enterprise Server, or a host that didn't opt in) and `null` when the pull
+ *  request isn't queued. */
+function fromGitHubPullRequestMergeQueueEntry(pr: GitHubPullRequestLite): PullRequestMergeQueueEntry | undefined {
+	return pr.mergeQueueEntry != null ? fromGitHubMergeQueueEntry(pr.mergeQueueEntry) : undefined;
+}
+
+/**
+ * The one place a GitHub `MergeQueueEntry` becomes a {@link PullRequestMergeQueueEntry}, whichever read selected it.
+ * GitHub's estimate is a duration from the moment it answered, so it's fixed to a date here, at read time, rather
+ * than added to the clock at each render, where a held entry would never count down.
+ */
+export function fromGitHubMergeQueueEntry(entry: GitHubMergeQueueEntry): PullRequestMergeQueueEntry {
+	return {
+		state: fromGitHubMergeQueueEntryState(entry.state),
+		enqueuedAt: new Date(entry.enqueuedAt),
+		estimatedMergeAt:
+			entry.estimatedTimeToMerge != null ? new Date(Date.now() + entry.estimatedTimeToMerge * 1000) : undefined,
+		url: entry.mergeQueue?.url,
+		position: entry.position ?? undefined,
+	};
+}
+
+/**
+ * The pull request's latest removal from its merge queue, from its latest merge-queue event: set only when that
+ * event is a removal (so it hasn't rejoined since) whose reason isn't `merged` (GitHub removes every merged entry
+ * with that reason). Absent where never selected (GitHub Enterprise Server, or a host that didn't opt in). Shared by
+ * the full read and the etag's cheap check, so both derive the same removal.
+ */
+export function fromGitHubMergeQueueRemoval(
+	events: GitHubMergeQueueEvents | null | undefined,
+): PullRequestMergeQueueRemoval | undefined {
+	const latest = events?.nodes?.at(-1);
+	if (latest?.__typename !== 'RemovedFromMergeQueueEvent') return undefined;
+
+	const reason = latest.reason ?? '';
+	if (reason.toLowerCase() === 'merged') return undefined;
+
+	return { reason: reason, removedAt: new Date(latest.createdAt) };
+}
+
+/** A state GitHub adds later still means the pull request is in the queue, so it reads as Queued rather than
+ *  dropping the entry, which would report a queued pull request as not queued. */
+export function fromGitHubMergeQueueEntryState(state: GitHubMergeQueueEntryState): PullRequestMergeQueueState {
+	switch (state) {
+		case 'AWAITING_CHECKS':
+			return PullRequestMergeQueueState.AwaitingChecks;
+		case 'MERGEABLE':
+			return PullRequestMergeQueueState.Mergeable;
+		case 'UNMERGEABLE':
+			return PullRequestMergeQueueState.Unmergeable;
+		case 'LOCKED':
+			return PullRequestMergeQueueState.Locked;
+		default:
+			return PullRequestMergeQueueState.Queued;
+	}
 }
 
 export function fromGitHubIssueOrPullRequestState(state: GitHubPullRequestState): PullRequestState {
@@ -610,6 +749,12 @@ export function fromGitHubPullRequest(
 		pr.number,
 		undefined, // authoredByMe
 		projection,
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		fromGitHubMilestone(pr.milestone),
+		fromGitHubPullRequestMergeQueueEntry(pr),
+		pr.isMergeQueueEnabled,
+		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
 }
 
@@ -668,6 +813,11 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projecti
 		undefined, // bodyFormat
 		undefined, // iterations
 		projection,
+		undefined, // bodyField
+		undefined, // viewer
+		undefined, // viewerUnresolved
+		undefined, // syncedWith
+		fromGitHubMilestone(value.milestone),
 	);
 }
 

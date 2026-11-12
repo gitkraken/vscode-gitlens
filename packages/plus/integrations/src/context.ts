@@ -10,8 +10,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProvider } from './authentication/integrationAuthenticationProvider.js';
 import type { IntegrationIds } from './constants.js';
-import type { GitHostIntegration } from './models/gitHostIntegration.js';
-import type { IntegrationBase } from './models/integration.js';
+import type { IntegrationCacheDescriptor } from './models/publicIntegration.js';
 import type { Source } from './telemetry.js';
 
 /**
@@ -61,7 +60,7 @@ export interface AccountProvider {
 	/** Fires when a host auth session changes (carries the changed provider id the package matches). */
 	readonly onDidChangeSessions: Event<AuthenticationSessionsChangeEvent>;
 	/**
-	 * Whether the account is in a trial-or-paid state. Read by {@link IntegrationBase.access} to decide
+	 * Whether the account is in a trial-or-paid state. Read by `IntegrationBase.access` to decide
 	 * whether a connected integration's rich features are usable.
 	 */
 	isTrialOrPaid(): Promise<boolean>;
@@ -98,40 +97,41 @@ interface CacheExpiryOptions {
  * service, which deduplicates concurrent loads for the same logical key.
  *
  * Method names + shapes mirror the host's `CacheProvider` so the package routes
- * every cache call through this provider without adapting call sites — and the
- * host adapter can assign its real `CacheProvider` directly (no cast).
+ * every cache call through this provider without adapting call sites. Each
+ * lookup names its integration by {@link IntegrationCacheDescriptor} only, so a
+ * cache never depends on the integration classes.
  */
 export interface IntegrationCacheProvider {
 	getRepositoryMetadata(
 		repo: ResourceDescriptor,
-		integration: GitHostIntegration | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<RepositoryMetadata>,
 		options?: CacheExpiryOptions,
 	): CacheResult<RepositoryMetadata>;
 	getRepositoryDefaultBranch(
 		repo: ResourceDescriptor,
-		integration: GitHostIntegration | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<DefaultBranch>,
 		options?: CacheExpiryOptions,
 	): CacheResult<DefaultBranch>;
 	getPullRequestForSha(
 		sha: string,
 		repo: ResourceDescriptor,
-		integration: GitHostIntegration | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: CacheExpiryOptions,
 	): CacheResult<PullRequest>;
 	getPullRequestForBranch(
 		branch: string,
 		repo: ResourceDescriptor,
-		integration: GitHostIntegration | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: CacheExpiryOptions,
 	): CacheResult<PullRequest>;
 	getPullRequest(
 		id: string,
 		resource: ResourceDescriptor,
-		integration: IntegrationBase | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<PullRequest>,
 		options?: CacheExpiryOptions,
 	): CacheResult<PullRequest>;
@@ -139,19 +139,19 @@ export interface IntegrationCacheProvider {
 		id: string,
 		type: IssueOrPullRequestType | undefined,
 		resource: ResourceDescriptor,
-		integration: IntegrationBase | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<IssueOrPullRequest>,
 		options?: CacheExpiryOptions,
 	): CacheResult<IssueOrPullRequest>;
 	getIssue(
 		id: string,
 		resource: ResourceDescriptor,
-		integration: IntegrationBase | undefined,
+		integration: IntegrationCacheDescriptor | undefined,
 		cacheable: Cacheable<Issue>,
 		options?: CacheExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Issue>;
 	getCurrentAccount(
-		integration: IntegrationBase,
+		integration: IntegrationCacheDescriptor,
 		cacheable: Cacheable<Account>,
 		options?: CacheExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Account>;
@@ -270,6 +270,16 @@ export interface ConfigProvider {
 		includedOrganizations?: readonly string[];
 		ignoredOrganizations?: readonly string[];
 	};
+	/**
+	 * Pull request read knobs. `mergeQueue: true` makes GitHub.com pull request reads select merge-queue data
+	 * (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) and the etag cheap check select its queue state.
+	 * Off (omitted) by default: the selection costs a GitHub rate-limit request per pull request read, and makes a
+	 * queued pull request's etag change with every queue state change. The manager's `listPullRequestsPage`,
+	 * `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches` and sweeps take their own
+	 * `mergeQueue`, which overrides this for that read. Read on every query build, so a change applies from the next
+	 * read.
+	 */
+	getPullRequestReadOptions?(): { readonly mergeQueue?: boolean };
 	/** Per-remote-host configurations from `remotes`. */
 	getRemoteConfigs(): readonly IntegrationsRemoteConfig[];
 	/** Fires when any integration-relevant config changes. */

@@ -21,13 +21,13 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubPullRequestFixtureOverrides } from '../../__tests__/githubFixtures.js';
 import { gitHubPullRequest } from '../../__tests__/githubFixtures.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
+import { toActionablePullRequestInput } from '../actionablePullRequests.js';
 import type { ProviderPullRequest } from '../models.js';
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
 	stampNativePullRequest,
 	toProviderPullRequest,
-	toProviderPullRequestWithUniqueId,
 	toPullRequestRow,
 } from '../models.js';
 import { providerPullRequestReviewStateDismissed, toProviderReviews } from '../pullRequestReviews.js';
@@ -576,7 +576,7 @@ suite('pull request dismissed review projection', () => {
 
 		// `getActionablePullRequests` categorizes by review state and only knows provider-apis' vocabulary, so
 		// the widened state must not reach it.
-		const forSdk = toProviderPullRequestWithUniqueId(pr);
+		const forSdk = toActionablePullRequestInput(pr);
 
 		assert.deepEqual(
 			forSdk.reviews?.map(r => r.state),
@@ -805,7 +805,7 @@ suite('the GitHub native row keeps what the read fetched, and invents nothing', 
 		const pr = fromGitHubPullRequest(gitHubPullRequestNode({ mergeable: null }), fakeProvider);
 
 		assert.equal(toProviderPullRequest(pr).mergeableState, undefined);
-		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Unknown);
+		assert.equal(toActionablePullRequestInput(pr).mergeableState, GitPullRequestMergeableState.Unknown);
 	});
 
 	test("keeps GitHub's own review decision: none stays none while a review is requested", () => {
@@ -820,7 +820,7 @@ suite('the GitHub native row keeps what the read fetched, and invents nothing', 
 	test("still hands provider-apis' categorizer a pending request as REVIEW_REQUESTED where GitHub made no decision", () => {
 		const pr = nativeGitHub({ reviewDecision: null });
 
-		assert.equal(toProviderPullRequestWithUniqueId(pr).reviewDecision, GitPullRequestReviewState.ReviewRequested);
+		assert.equal(toActionablePullRequestInput(pr).reviewDecision, GitPullRequestReviewState.ReviewRequested);
 	});
 
 	test("derives the categorizer's merge permission from the viewer and the access level it was read with", () => {
@@ -905,7 +905,7 @@ suite('the Launchpad boundary for a GitHub row', () => {
 			cloneUrlSSH: 'git@github.com:base/repo.git',
 		};
 
-		assert.deepEqual(toProviderPullRequestWithUniqueId(nativeGitHub()), {
+		assert.deepEqual(toActionablePullRequestInput(nativeGitHub()), {
 			id: '1',
 			graphQLId: 'PR_1',
 			number: 1,
@@ -989,7 +989,7 @@ suite("provider-apis' rows carry no invented viewer", () => {
 			fakeProvider,
 		);
 
-		assert.deepEqual(toProviderPullRequestWithUniqueId(pr).permissions, {
+		assert.deepEqual(toActionablePullRequestInput(pr).permissions, {
 			canMerge: true,
 			canMergeAndBypassProtections: false,
 		});
@@ -1032,13 +1032,13 @@ suite("Launchpad's mergeability for a row that has none", () => {
 		const pr = unreadMergeability(GitCloudHostIntegrationId.Bitbucket);
 
 		assert.equal(pr.mergeableState, undefined, 'the row itself stays honest');
-		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Mergeable);
+		assert.equal(toActionablePullRequestInput(pr).mergeableState, GitPullRequestMergeableState.Mergeable);
 	});
 
 	test('a Bitbucket Cloud row keeps a mergeability it has', () => {
 		const pr = unreadMergeability(GitCloudHostIntegrationId.Bitbucket, GitPullRequestMergeableState.Conflicts);
 
-		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Conflicts);
+		assert.equal(toActionablePullRequestInput(pr).mergeableState, GitPullRequestMergeableState.Conflicts);
 	});
 
 	test('every other host goes over as UNKNOWN', () => {
@@ -1049,10 +1049,47 @@ suite("Launchpad's mergeability for a row that has none", () => {
 			GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 		]) {
 			assert.equal(
-				toProviderPullRequestWithUniqueId(unreadMergeability(providerId)).mergeableState,
+				toActionablePullRequestInput(unreadMergeability(providerId)).mergeableState,
 				GitPullRequestMergeableState.Unknown,
 				providerId,
 			);
 		}
+	});
+});
+
+suite('pull request milestone', () => {
+	test('keys a milestone by its GraphQL id and maps its state, due date and page', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				milestone: {
+					id: '12',
+					graphQLId: 'gid://gitlab/Milestone/12',
+					number: 2,
+					title: '16.0',
+					description: null,
+					isOpen: false,
+					url: 'https://gitlab.com/o/r/-/milestones/2',
+					startDate: null,
+					dueDate: new Date('2026-05-01T00:00:00Z'),
+				},
+			}),
+			fakeProvider,
+		);
+
+		assert.deepEqual(pr.milestone, {
+			id: 'gid://gitlab/Milestone/12',
+			title: '16.0',
+			state: 'closed',
+			dueDate: new Date('2026-05-01T00:00:00Z'),
+			url: 'https://gitlab.com/o/r/-/milestones/2',
+		});
+	});
+
+	test('keeps none (null) apart from a provider that reports no milestone (key absent)', () => {
+		const none = fromProviderPullRequest(createProviderPullRequest({ milestone: null }), fakeProvider);
+		const unreported = fromProviderPullRequest(createProviderPullRequest(), fakeProvider);
+
+		assert.equal(none.milestone, null);
+		assert.equal(unreported.milestone, undefined);
 	});
 });

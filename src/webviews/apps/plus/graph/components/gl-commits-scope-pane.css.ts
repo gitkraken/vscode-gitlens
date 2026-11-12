@@ -3,10 +3,10 @@ import { css, unsafeCSS } from 'lit';
 /* State colors: uncommitted=amber, unpushed=tracking-ahead teal, pushed=muted */
 const uncommittedColor = unsafeCSS('var(--vscode-gitlens-decorations-worktreeUncommittedForeground, #e2c08d)');
 const unpushedColor = unsafeCSS('var(--gl-tracking-ahead, #4ec9b0)');
-const pushedColor = unsafeCSS('var(--color-foreground--75)');
-const mergeBaseColor = unsafeCSS('var(--color-foreground--50)');
-const connectorPushedColor = unsafeCSS('color-mix(in srgb, var(--color-foreground, #888) 25%, transparent)');
-const bgColor = unsafeCSS('var(--vscode-sideBar-background, var(--color-background, #1e1e1e))');
+const pushedColor = unsafeCSS('var(--vscode-descriptionForeground)');
+const mergeBaseColor = unsafeCSS('var(--vscode-disabledForeground)');
+const connectorPushedColor = unsafeCSS('color-mix(in srgb, var(--color-foreground) 25%, transparent)');
+const bgColor = unsafeCSS('var(--gl-color-surface-aside)');
 
 export const commitsScopePaneStyles = css`
 	:host {
@@ -81,9 +81,11 @@ export const commitsScopePaneStyles = css`
 	   hosts — opacity on a gl-tooltip / formatted-date / gl-avatar carries
 	   through to their hoisted popups. So skip those hosts at the outer
 	   level and dim their visible parts directly: label-text inside the
-	   tooltip, formatted-date's 'base' part, gl-avatar's 'avatar' part. */
+	   tooltip, a commit's line stats inside theirs, formatted-date's 'base'
+	   part, gl-avatar's 'avatar' part. */
 	.scope-row--excluded > *:not(.scope-row__dot-col, gl-tooltip, formatted-date, gl-avatar),
 	.scope-row--excluded .scope-row__label-text,
+	.scope-row--excluded .scope-row__stats,
 	.scope-row--excluded formatted-date::part(base),
 	.scope-row--excluded gl-avatar::part(avatar),
 	.scope-row--excluded .scope-row__dot-col > * {
@@ -272,7 +274,7 @@ export const commitsScopePaneStyles = css`
 	     sibling selector hops the indicator onto the trailing handle bar. */
 	.scope-handle:focus-visible .scope-handle__bar,
 	.scope-row:focus-visible + .scope-handle .scope-handle__bar {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 

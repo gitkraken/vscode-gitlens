@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestFilter, PullRequestMergeQueueState } from '@gitlens/git/models/pullRequest.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import { toGitHubPullRequestSearchFacets, toGitHubPullRequestSortQualifier } from '../pullRequestSearchQuery.js';
@@ -58,13 +59,16 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				// that serves whatever the fixture holds passes either way, which is how the missing stack
 				// selection survived a green suite in the first place.
 				const selectsStack = query.includes('stack {');
+				const selectsMergeQueue = query.includes('mergeQueueEntry {');
 				const asSelected = (node: unknown): unknown => {
-					if (selectsStack || node == null || typeof node !== 'object') {
-						return node;
-					}
+					if (node == null || typeof node !== 'object') return node;
 
-					const { stack: _stack, stackEntry: _stackEntry, ...rest } = node as Record<string, unknown>;
-					return rest;
+					const { stack, stackEntry, mergeQueueEntry, ...rest } = node as Record<string, unknown>;
+					return {
+						...rest,
+						...(selectsStack ? { stack: stack, stackEntry: stackEntry } : {}),
+						...(selectsMergeQueue ? { mergeQueueEntry: mergeQueueEntry } : {}),
+					};
 				};
 				const data: Record<string, unknown> = {};
 				for (const key of Object.keys(variables).filter(key => key.endsWith('Search'))) {
@@ -85,6 +89,7 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				});
 			},
 			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+			getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		} as unknown as GitHubApiConfig;
 		return { config: config, getCalls: () => calls };
 	}
@@ -167,15 +172,55 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.doesNotMatch(search(unconstrained.getCalls()[0], 'scopeOpen'), /draft:/);
 	});
 
-	test('uses a cost-safe default page size while preserving the explicit maximum', async () => {
-		const { config, getCalls } = capture([{}, {}]);
+	test('caps a full page at the budget GitHub can build in time, whatever size is asked for', async () => {
+		// Why 20: see `fullPullRequestSearchPageBudget`. An explicit 100 used to be sent as asked and failed every
+		// time on a busy scope (#5978); a page that can't be built is no use to the caller that asked for it.
+		const { config, getCalls } = capture([{}, {}, {}]);
 		const api = new GitHubApi(config);
 
 		await api.searchPullRequestsPage(provider, token, { repos: ['o/a'] });
 		await api.searchPullRequestsPage(provider, token, { repos: ['o/a'], pageSize: 500 });
+		await api.searchPullRequestsPage(provider, token, { repos: ['o/a'], pageSize: 7 });
 
-		assert.match(getCalls()[0].query, /scopeOpen: search\(first: 30,/);
-		assert.match(getCalls()[1].query, /scopeOpen: search\(first: 100,/);
+		assert.match(getCalls()[0].query, /scopeOpen: search\(first: 20,/);
+		assert.match(getCalls()[1].query, /scopeOpen: search\(first: 20,/);
+		assert.match(getCalls()[2].query, /scopeOpen: search\(first: 7,/, 'a smaller size is still honoured');
+	});
+
+	test('splits the full page budget across the active facets of one document', async () => {
+		// Kepler's visible-PR preset: three relationships in one document, which at 30 each was 90 full nodes.
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			pageSize: 30,
+			criteria: {
+				relationships: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+				],
+			},
+		});
+
+		assert.equal(getCalls()[0].query.match(/search\(first: 6,/g)?.length, 3);
+	});
+
+	test('gives every facet at least one row when there are more facets than the budget', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: {
+				relationships: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Reviewed,
+					PullRequestFilter.Mention,
+				],
+				states: ['open', 'closed', 'merged'],
+			},
+		});
+
+		assert.equal(getCalls()[0].query.match(/search\(first: 1,/g)?.length, 15);
 	});
 
 	test('selects the lite fragment and the maximum default page size for a summary read', async () => {
@@ -223,13 +268,25 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.equal(getCalls()[0].query.match(/search\(first: 6,/g)?.length, 15);
 	});
 
-	test('keeps the full fragment and the cost-safe default when summary is not requested', async () => {
+	test('keeps the full fragment and its budget when summary is not requested', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
 
 		const query = getCalls()[0].query;
-		assert.match(query, /scopeOpen: search\(first: 30,/);
+		assert.match(query, /scopeOpen: search\(first: 20,/);
 		assert.match(query, /latestReviews/);
+	});
+
+	test('caps an explicit summary size at the summary budget split across the facets', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+			pageSize: 100,
+			criteria: { states: ['open', 'merged'] },
+		});
+
+		assert.equal(getCalls()[0].query.match(/search\(first: 50,/g)?.length, 2);
 	});
 
 	test('honours an explicit page size on the summary path too', async () => {
@@ -498,6 +555,573 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		});
 
 		assert.doesNotMatch(getCalls()[0].query, /stack \{/);
+	});
+
+	// Same shape of risk as the stack selection: `mergeQueueEntry` is optional on the node type, so a facet that
+	// forgets it type-checks and silently reports a queued pull request as not queued.
+	test('selects the merge queue entry on every facet, not just the first', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: {
+				relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+				states: ['open', 'closed'],
+			},
+		});
+
+		const { query } = getCalls()[0];
+		const facets = Array.from(query.matchAll(/(\w+): search\(/g), m => m[1]);
+		assert.equal(facets.length, 4, 'two relationships x two states');
+		assert.equal(
+			(query.match(/mergeQueueEntry \{/g) ?? []).length,
+			facets.length,
+			'every facet selects the merge queue entry, or queued PRs silently read as not queued on that facet',
+		);
+		assert.equal((query.match(/\bisMergeQueueEnabled\b/g) ?? []).length, facets.length);
+		assert.equal(
+			(
+				query.match(
+					/mergeQueueEvents: timelineItems\(last: 1, itemTypes: \[ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT\]\)/g,
+				) ?? []
+			).length,
+			facets.length,
+			'every facet selects the latest merge-queue event, and only the latest',
+		);
+	});
+
+	test('maps the selected merge queue entry onto the returned pull request', async () => {
+		const queued = {
+			...(prNode(1, '2024-01-02T00:00:00Z') as Record<string, unknown>),
+			mergeQueueEntry: {
+				state: 'QUEUED',
+				enqueuedAt: '2024-01-02T00:00:00Z',
+				estimatedTimeToMerge: null,
+				mergeQueue: { url: 'https://github.com/octo/repo/queue/main' },
+				position: 2,
+			},
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: { nodes: [{ __typename: 'AddedToMergeQueueEvent' }] },
+		};
+		const removed = {
+			...(prNode(2, '2024-01-01T00:00:00Z') as Record<string, unknown>),
+			mergeQueueEntry: null,
+			isMergeQueueEnabled: true,
+			mergeQueueEvents: {
+				nodes: [
+					{
+						__typename: 'RemovedFromMergeQueueEvent',
+						createdAt: '2024-01-01T01:00:00Z',
+						reason: 'failed_checks',
+					},
+				],
+			},
+		};
+		const { config } = capture([{ authorOpen: { issueCount: 2, nodes: [queued, removed] } }]);
+
+		const result = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.deepEqual(result?.values[0].mergeQueue, {
+			state: PullRequestMergeQueueState.Queued,
+			enqueuedAt: new Date('2024-01-02T00:00:00Z'),
+			estimatedMergeAt: undefined,
+			url: 'https://github.com/octo/repo/queue/main',
+			position: 2,
+		});
+		assert.equal(result?.values[0].mergeQueueRequired, true);
+		assert.equal(result?.values[0].mergeQueueRemoval, undefined, 'it rejoined since any removal');
+		assert.equal(result?.values[1].mergeQueue, undefined, 'a pull request not in the queue reports no entry');
+		assert.deepEqual(result?.values[1].mergeQueueRemoval, {
+			reason: 'failed_checks',
+			removedAt: new Date('2024-01-01T01:00:00Z'),
+		});
+	});
+
+	// GitHub Enterprise Server's schema isn't verified to have `mergeQueueEntry`, and an unknown field fails the
+	// WHOLE query, so it is gated exactly like the stack selection.
+	test('omits the merge queue selection off github.com', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			baseUrl: 'https://github.acme.com/api/v3',
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.doesNotMatch(getCalls()[0].query, /mergeQueueEntry|isMergeQueueEnabled|MERGE_QUEUE_EVENT/);
+	});
+
+	/**
+	 * GitHub answers a page it takes too long to build with a 502/504 HTML gateway page after ~11s (#5978). These tests
+	 * serve a fake GitHub that pages each facet over a fixed list honouring `first`/`after`, and answers that gateway
+	 * page whenever the document selects more nodes than it can "build in time".
+	 */
+	suite('gateway timeouts', () => {
+		type Request = { firsts: number[]; status: number };
+
+		/**
+		 * `rows[alias]` is the facet's full result, newest first. A document whose `first`s sum past `maxNodes` gets the
+		 * gateway page; so does every request `fail` names (by request index), whatever its size. `served[alias]` records
+		 * every row each facet served, in order, so a test can tell a facet repeating a row from two facets sharing one.
+		 */
+		function serve(options: {
+			rows: Record<string, number[]>;
+			maxNodes?: number;
+			fail?: (index: number) => boolean;
+			status?: number;
+			onResponded?: (index: number) => void;
+		}): { config: GitHubApiConfig; requests: Request[]; served: Record<string, number[]> } {
+			const requests: Request[] = [];
+			const served: Record<string, number[]> = {};
+			const respond = (index: number, response: Response): Response => {
+				options.onResponded?.(index);
+				return response;
+			};
+			const config = {
+				isWeb: false,
+				fetch: (_url: unknown, init?: { body?: string; signal?: AbortSignal }) => {
+					const index = requests.length;
+					const body = JSON.parse(init?.body ?? '{}') as {
+						query: string;
+						variables: Record<string, unknown>;
+					};
+					const active = Array.from(
+						body.query.matchAll(/(\w+): search\(first: (\d+),/g),
+						m => [m[1], Number(m[2])] as const,
+					).filter(([alias]) => body.variables[includeVar(alias)] === true);
+					const nodes = active.reduce((sum, [, first]) => sum + first, 0);
+					if (init?.signal?.aborted) {
+						return Promise.reject(
+							Object.assign(new Error('This operation was aborted'), { name: 'AbortError' }),
+						);
+					}
+
+					if (options.fail?.(index) === true || (options.maxNodes != null && nodes > options.maxNodes)) {
+						const status = options.status ?? 504;
+						requests.push({ firsts: active.map(([, first]) => first), status: status });
+						return Promise.resolve(
+							respond(
+								index,
+								new Response(`<html><body><h1>${status} Gateway Time-out</h1></body></html>`, {
+									status: status,
+									headers: { 'content-type': 'text/html' },
+								}),
+							),
+						);
+					}
+
+					requests.push({ firsts: active.map(([, first]) => first), status: 200 });
+					const data: Record<string, unknown> = {};
+					for (const [alias, first] of active) {
+						const all = options.rows[alias] ?? [];
+						const after = body.variables[`${alias}Cursor`];
+						const start = typeof after === 'string' ? Number(after) : 0;
+						const slice = all.slice(start, start + first);
+						const end = start + slice.length;
+						(served[alias] ??= []).push(...slice);
+						data[alias] = {
+							issueCount: all.length,
+							pageInfo: {
+								endCursor: slice.length > 0 ? String(end) : null,
+								hasNextPage: end < all.length,
+							},
+							nodes: slice.map(n =>
+								gitHubPullRequest(
+									n,
+									{ updatedAt: new Date(Date.UTC(2024, 0, 1) + (1000 - n) * 60_000).toISOString() },
+									{ owner: 'octo', name: 'repo' },
+								),
+							),
+						};
+					}
+					return Promise.resolve(
+						respond(
+							index,
+							new Response(JSON.stringify({ data: data }), {
+								status: 200,
+								headers: { 'content-type': 'application/json' },
+							}),
+						),
+					);
+				},
+				wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+			} as unknown as GitHubApiConfig;
+			return { config: config, requests: requests, served: served };
+		}
+
+		function includeVar(alias: string): string {
+			return `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
+		}
+
+		function range(from: number, to: number): number[] {
+			return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+		}
+
+		async function walk(
+			api: GitHubApi,
+			options: Parameters<GitHubApi['searchPullRequestsPage']>[2],
+		): Promise<{ numbers: number[]; sizes: number[] }> {
+			const numbers: number[] = [];
+			const sizes: number[] = [];
+			let cursor: string | undefined;
+			for (let i = 0; i < 50; i++) {
+				const page = await api.searchPullRequestsPage(provider, token, { ...options, cursor: cursor });
+				assert.ok(page != null);
+				numbers.push(...page.values.map(pr => Number(pr.id.replace(/\D/g, ''))));
+				sizes.push(page.values.length);
+				if (!page.hasMore) return { numbers: numbers, sizes: sizes };
+
+				assert.ok(page.cursor != null, 'a page with more to read always carries a cursor');
+				cursor = page.cursor;
+			}
+			assert.fail('the walk did not end');
+		}
+
+		/** Every facet served each of its rows exactly once, in its own order, and nothing else. */
+		function assertEveryFacetServedOnce(served: Record<string, number[]>, rows: Record<string, number[]>): void {
+			for (const [alias, all] of Object.entries(rows)) {
+				assert.deepEqual(served[alias] ?? [], all, `${alias} served each of its rows once, in order`);
+			}
+		}
+
+		const threeRelationships = {
+			criteria: {
+				relationships: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+				],
+			},
+		};
+
+		test('retries a gateway timeout once at half the size instead of identically', async () => {
+			const { config, requests } = serve({ rows: { scopeOpen: range(1, 50) }, maxNodes: 10 });
+
+			const page = await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+
+			assert.deepEqual(
+				requests.map(r => [r.status, ...r.firsts]),
+				[
+					[504, 20],
+					[200, 10],
+				],
+			);
+			assert.equal(page?.values.length, 10);
+			assert.equal(page?.hasMore, true, 'a smaller page is not the last one');
+			assert.equal(page?.truncated, false, 'a smaller page is not an incomplete one');
+			assert.ok(page?.cursor != null);
+		});
+
+		test('fails after two attempts when the halved page times out too', async () => {
+			const { config, requests } = serve({ rows: { scopeOpen: range(1, 50) }, fail: () => true, status: 502 });
+
+			await assert.rejects(
+				new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] }),
+				(ex: { status?: number }) => ex.status === 502,
+			);
+			assert.deepEqual(
+				requests.map(r => [r.status, ...r.firsts]),
+				[
+					[502, 20],
+					[502, 10],
+				],
+				'never a third, identical request',
+			);
+		});
+
+		test('retries a page already at one row per facet once, unchanged, rather than not at all', async () => {
+			// Twelve facets split the full budget of 20 to one row each, so there is nothing left to halve.
+			const relationships = [
+				PullRequestFilter.Author,
+				PullRequestFilter.Assignee,
+				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Reviewed,
+			];
+			const { config, requests } = serve({ rows: {}, fail: index => index === 0 });
+
+			const page = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+				repos: ['o/a'],
+				criteria: { relationships: relationships, states: ['open', 'closed', 'merged'] },
+			});
+
+			assert.deepEqual(
+				requests.map(r => [r.status, r.firsts.length, Math.max(...r.firsts)]),
+				[
+					[504, 12, 1],
+					[200, 12, 1],
+				],
+			);
+			assert.equal(page?.hasMore, false);
+		});
+
+		test('keeps retrying a transient failure that is not a gateway timeout as before', async () => {
+			const { config, requests } = serve({
+				rows: { scopeOpen: range(1, 5) },
+				fail: index => index < 2,
+				status: 503,
+			});
+
+			const page = await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+
+			assert.deepEqual(
+				requests.map(r => [r.status, ...r.firsts]),
+				[
+					[503, 20],
+					[503, 20],
+					[200, 20],
+				],
+			);
+			assert.equal(page?.values.length, 5);
+		});
+
+		test('walks a reduced search to the end with every facet serving each row exactly once', async () => {
+			// Three facets that overlap, so deduplication and per-facet continuation both matter.
+			const rows = { authorOpen: range(1, 23), assigneeOpen: range(10, 30), reviewRequestedOpen: range(40, 44) };
+			const { config, requests, served } = serve({ rows: rows, maxNodes: 9 });
+
+			const { numbers, sizes } = await walk(new GitHubApi(config), threeRelationships);
+
+			assertEveryFacetServedOnce(served, rows);
+			const expected = [...new Set([...rows.authorOpen, ...rows.assigneeOpen, ...rows.reviewRequestedOpen])];
+			assert.deepEqual(
+				[...new Set(numbers)].sort((a, b) => a - b),
+				expected.sort((a, b) => a - b),
+				'no pull request is skipped',
+			);
+			assert.equal(requests.filter(r => r.status !== 200).length, 1, 'only the first page timed out');
+			assert.deepEqual(requests[0].firsts, [6, 6, 6]);
+			assert.deepEqual(requests[1].firsts, [3, 3, 3], 'the retry halves every facet');
+			assert.ok(
+				requests.slice(2).every(r => r.firsts.reduce((a, b) => a + b, 0) <= 9),
+				'later pages keep the reduced budget instead of timing out again first',
+			);
+			assert.ok(sizes.every(size => size > 0));
+		});
+
+		test('halves again on a later page after facets ran out, and keeps every row exactly once', async () => {
+			// The first timeout reduces the walk to 9 (3 per facet), which drains the review-requested facet on the first
+			// page; the two facets left then split those 9 (4 each), and a second timeout on a later page halves them to 2.
+			const rows = {
+				authorOpen: range(1, 23),
+				assigneeOpen: range(100, 120),
+				reviewRequestedOpen: range(200, 202),
+			};
+			const { config, requests, served } = serve({
+				rows: rows,
+				fail: index => index === 0 || index === 3,
+			});
+
+			const { numbers } = await walk(new GitHubApi(config), threeRelationships);
+
+			assertEveryFacetServedOnce(served, rows);
+			assert.equal(new Set(numbers).size, numbers.length, 'disjoint facets never repeat a row');
+			assert.deepEqual(
+				requests.slice(0, 5).map(r => [r.status, ...r.firsts]),
+				[
+					[504, 6, 6, 6],
+					[200, 3, 3, 3],
+					[200, 4, 4],
+					[504, 4, 4],
+					[200, 2, 2],
+				],
+			);
+			assert.ok(
+				requests.slice(5).every(r => r.firsts.reduce((a, b) => a + b, 0) <= 4),
+				'the walk keeps the second reduction',
+			);
+		});
+
+		test('re-splits a reduced budget over the facets that are left, never past it', async () => {
+			// Once two facets run out, the one left gets the whole reduced budget rather than its old share.
+			const rows = {
+				authorOpen: range(1, 30),
+				assigneeOpen: range(100, 101),
+				reviewRequestedOpen: range(200, 201),
+			};
+			const { config, requests, served } = serve({ rows: rows, maxNodes: 9 });
+
+			const { numbers } = await walk(new GitHubApi(config), threeRelationships);
+
+			assertEveryFacetServedOnce(served, rows);
+			assert.equal(numbers.length, 34, 'disjoint facets never repeat a row');
+			assert.ok(requests.every(r => r.status === 200 || r === requests[0]));
+			assert.ok(requests.every(r => r.firsts.reduce((a, b) => a + b, 0) <= 18));
+			assert.deepEqual(requests.at(-1)?.firsts, [9], 'the last facet gets the whole reduced budget');
+		});
+
+		test('serves an empty search and a last page without asking for more', async () => {
+			const empty = serve({ rows: { scopeOpen: [] } });
+			const none = await new GitHubApi(empty.config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+			assert.deepEqual(none?.values, []);
+			assert.equal(none?.hasMore, false);
+			assert.equal(none?.cursor, undefined);
+
+			const exact = serve({ rows: { scopeOpen: range(1, 20) } });
+			const only = await new GitHubApi(exact.config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+			assert.equal(only?.values.length, 20);
+			assert.equal(only?.hasMore, false);
+			assert.equal(exact.requests.length, 1);
+		});
+
+		test('keeps the summary shape at a hundred rows a page', async () => {
+			const { config, requests } = serve({ rows: { scopeOpen: range(1, 250) } });
+
+			const { sizes } = await walk(new GitHubApi(config), { repos: ['o/a'], summary: true, pageSize: 100 });
+
+			assert.deepEqual(sizes, [100, 100, 50]);
+			assert.ok(requests.every(r => r.firsts[0] === 100));
+		});
+
+		test('ignores a reduced budget a cursor carries that is not a positive number', async () => {
+			const { config, requests } = serve({ rows: { scopeOpen: range(1, 50) } });
+			const api = new GitHubApi(config);
+			const first = await api.searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+			assert.ok(first?.cursor != null);
+
+			const tampered = JSON.stringify({ ...(JSON.parse(first.cursor) as object), budget: -4 });
+			await api.searchPullRequestsPage(provider, token, { repos: ['o/a'], cursor: tampered });
+
+			assert.deepEqual(requests[1].firsts, [20]);
+		});
+
+		test('a server error that lands after cancellation spends no strike and shows no notice', async () => {
+			// A 503 would otherwise be reported against the connection; cancelled, nobody is waiting for the read.
+			const controller = new AbortController();
+			let strikes = 0;
+			let notices = 0;
+			const counting = { ...provider, trackRequestException: () => void strikes++ } as unknown as Provider;
+			const { config } = serve({
+				rows: { scopeOpen: range(1, 5) },
+				fail: () => true,
+				status: 503,
+				onResponded: () => controller.abort(),
+			});
+			const notifying: GitHubApiConfig = { ...config, onRequestError: () => void notices++ };
+
+			await assert.rejects(
+				new GitHubApi(notifying).searchPullRequestsPage(counting, token, { repos: ['o/a'] }, controller.signal),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(strikes, 0);
+			assert.equal(notices, 0);
+		});
+
+		test('cancellation as a gateway failure is answered sends no smaller retry', async () => {
+			const controller = new AbortController();
+			const { config, requests } = serve({
+				rows: { scopeOpen: range(1, 50) },
+				fail: index => index === 0,
+				onResponded: index => {
+					if (index === 0) {
+						controller.abort();
+					}
+				},
+			});
+
+			await assert.rejects(
+				new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] }, controller.signal),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(requests.length, 1);
+		});
+
+		test('cancellation during the backoff of another transient failure sends nothing more', async () => {
+			// Aborted as the 503 is answered, so the abort lands while the retry waits out its backoff (at least 150ms)
+			// whatever the event loop does in between.
+			const controller = new AbortController();
+			const { config, requests } = serve({
+				rows: { scopeOpen: range(1, 50) },
+				fail: index => index === 0,
+				status: 503,
+				onResponded: index => {
+					if (index === 0) {
+						setTimeout(() => controller.abort(), 20);
+					}
+				},
+			});
+
+			await assert.rejects(
+				new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] }, controller.signal),
+				(ex: Error) => isCancellationError(ex),
+			);
+			assert.equal(requests.length, 1);
+		});
+
+		test('reports only the gateway failure it gives up on, not one it recovered from', async () => {
+			// GitHub's 502 for a timeout is reported against the connection and notified (see `handleRequestError`);
+			// the one the smaller retry recovers from must not be.
+			let strikes = 0;
+			let notices = 0;
+			const counting = { ...provider, trackRequestException: () => void strikes++ } as unknown as Provider;
+			const timedOut = (fail: (index: number) => boolean): { api: GitHubApi; requests: Request[] } => {
+				const { config, requests } = serve({ rows: { scopeOpen: range(1, 50) }, fail: fail, status: 502 });
+				const fetch = config.fetch;
+				const api = new GitHubApi({
+					...config,
+					// The HTML gateway page, as a message that names the timeout.
+					fetch: async (url, init) => {
+						const rsp = await fetch(url, init);
+						return rsp.status === 502 ? new Response('upstream request timeout', { status: 502 }) : rsp;
+					},
+					onRequestError: () => void notices++,
+				});
+				return { api: api, requests: requests };
+			};
+			const reportsDuring = async (read: () => Promise<unknown>): Promise<[number, number]> => {
+				const [strikesBefore, noticesBefore] = [strikes, notices];
+				await read();
+				return [strikes - strikesBefore, notices - noticesBefore];
+			};
+
+			const recovered = timedOut(index => index === 0);
+			assert.deepEqual(
+				await reportsDuring(() => recovered.api.searchPullRequestsPage(counting, token, { repos: ['o/a'] })),
+				[0, 0],
+				'a recovered page reports nothing',
+			);
+
+			const failed = timedOut(() => true);
+			assert.deepEqual(
+				await reportsDuring(() =>
+					assert.rejects(failed.api.searchPullRequestsPage(counting, token, { repos: ['o/a'] })),
+				),
+				[1, 1],
+				'a page given up on reports once',
+			);
+
+			// Identical concurrent searches share both requests, so they share the one failure they give up on too.
+			const shared = timedOut(() => true);
+			let results: PromiseSettledResult<unknown>[] = [];
+			assert.deepEqual(
+				await reportsDuring(async () => {
+					results = await Promise.allSettled([
+						shared.api.searchPullRequestsPage(counting, token, { repos: ['o/a'] }),
+						shared.api.searchPullRequestsPage(counting, token, { repos: ['o/a'] }),
+					]);
+				}),
+				[1, 1],
+				'a failure two searches share is reported once',
+			);
+			assert.deepEqual(
+				results.map(r => r.status),
+				['rejected', 'rejected'],
+			);
+			assert.equal(shared.requests.length, 2, 'both searches shared the page and its smaller retry');
+		});
+
+		test('shares one request between identical concurrent searches', async () => {
+			const { config, requests } = serve({ rows: { scopeOpen: range(1, 50) } });
+			const api = new GitHubApi(config);
+
+			const [a, b] = await Promise.all([
+				api.searchPullRequestsPage(provider, token, { repos: ['o/a'] }),
+				api.searchPullRequestsPage(provider, token, { repos: ['o/a'] }),
+			]);
+
+			assert.equal(requests.length, 1);
+			assert.deepEqual(a?.cursor, b?.cursor);
+		});
 	});
 });
 

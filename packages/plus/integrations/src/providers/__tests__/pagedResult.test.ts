@@ -175,18 +175,20 @@ suite('collection metadata normalization (#5438)', () => {
 		).getProvidersApi();
 		(api.providers.github as CapturingProvider).getPullRequestsForReposFn = reposFn;
 
+		// The result core, not the public wrapper: the wrapper maps to `PullRequest` and keeps only the paging, while
+		// the metadata this suite asserts on is carried by the core's value.
 		const result = await (
 			gh as unknown as {
-				getMyPullRequestsForRepos: (
+				getMyPullRequestsForReposResult: (
 					repos: { namespace: string; name: string }[],
 					options: undefined,
 					connectionId: string,
-				) => Promise<{ paging?: Record<string, unknown>; metadata?: unknown } | undefined>;
+				) => Promise<{ value?: { paging?: Record<string, unknown>; metadata?: unknown } } | undefined>;
 			}
-		).getMyPullRequestsForRepos([{ namespace: 'octo', name: 'repo' }], undefined, 'sec-tok');
+		).getMyPullRequestsForReposResult([{ namespace: 'octo', name: 'repo' }], undefined, 'sec-tok');
 
 		manager.dispose();
-		return result;
+		return result?.value;
 	}
 
 	test('preserves complete metadata without setting truncation', async () => {

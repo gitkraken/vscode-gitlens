@@ -185,7 +185,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
  * widths even the shrunken description + pill may overflow the right edge. Clipping
  * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
 			overflow: hidden;
-			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.toolbar gl-graph-visualizations-switcher {
@@ -229,7 +229,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 		}
 
@@ -266,11 +266,17 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		.period-button:hover,
 		.period-button:focus-visible {
 			outline: none;
-			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+			background: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		.period-button:not(:disabled, :focus-visible):hover {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		.period-button:focus-visible {
-			border-color: var(--vscode-focusBorder, transparent);
+			border-color: var(--gl-color-border-focus);
 		}
 
 		.period-button code-icon {
@@ -330,7 +336,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			align-items: center;
 			justify-content: center;
 			padding: var(--gl-space-10);
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+			color: var(--vscode-descriptionForeground);
 			text-align: center;
 			background: var(--vscode-editor-background, transparent);
 		}
@@ -343,7 +349,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			align-items: center;
 			justify-content: center;
 			padding: var(--gl-space-10);
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+			color: var(--vscode-descriptionForeground);
 			text-align: center;
 		}
 	`;

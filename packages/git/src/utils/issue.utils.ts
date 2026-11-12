@@ -7,6 +7,7 @@ import type {
 	IssueSorting,
 } from '../models/issue.js';
 import { defaultIssueSort } from '../models/issue.js';
+import { serializeMilestone } from './issueOrPullRequest.utils.js';
 
 /**
  * How each sort field is read off an {@link IssueShape}, for the reads that MERGE several provider queries and so
@@ -200,6 +201,8 @@ export function serializeIssue(value: IssueShape): IssueShape {
 					})),
 		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
 		viewerUnresolved: value.viewerUnresolved,
+		syncedWith: value.syncedWith?.map(synced => ({ ...synced })),
+		milestone: serializeMilestone(value.milestone),
 	};
 	return serialized;
 }

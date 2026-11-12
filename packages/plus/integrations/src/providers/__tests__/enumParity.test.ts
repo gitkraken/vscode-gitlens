@@ -23,12 +23,10 @@ import {
 } from '../models.js';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '../utils.js';
 
-// Guards the runtime enum copies that #5531 duplicated out of `@gitkraken/provider-apis` (to dodge the
-// CJS-from-ESM named-export breakage) against silent upstream drift. The type-level aliases keep compiling
-// even if a value changes (the const objects cast their literals, e.g. `'OPEN' as GitPullRequestState`), so
-// only a runtime deep-equal against the real SDK enums can catch an added/renamed/changed value. The package
-// test entrypoint at `scripts/test.mjs` bundles this suite through esbuild, which is why the SDK's CJS named
-// exports are available here as runtime values.
+// Guards the runtime copies of `@gitkraken/provider-apis`' enums against silent upstream drift. The type-level
+// aliases keep compiling even if a value changes (the const objects cast their literals, e.g.
+// `'OPEN' as GitPullRequestState`), so only a runtime deep-equal against the real SDK enums can catch an
+// added/renamed/changed value.
 //
 // One local copy is an intentional subset, not a full mirror, so it's asserted with `assertLocalMatchesSdk`
 // (every local entry must match the SDK; extra SDK members are allowed) rather than a bidirectional deep-equal:

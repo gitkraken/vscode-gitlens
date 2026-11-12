@@ -17,6 +17,14 @@ export interface BranchAndTargetRefs extends BranchRef {
 	mergeTargetName: string;
 }
 
+/** A branch to delete, with the optional context the delete wizard uses to pick its defaults */
+export type DeleteBranchOrWorktreeRefs = BranchRef & {
+	/** The branch it landed in, used to pre-select safe-delete behavior */
+	mergeTarget?: BranchRef;
+	/** Only PR evidence may pass this — it pre-selects Force Delete */
+	mergedPullRequest?: { id: string; sha: string };
+};
+
 export interface OpenWorktreeCommandArgs extends BranchRef {
 	location?: OpenWorkspaceLocation;
 }

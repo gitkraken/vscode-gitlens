@@ -61,7 +61,8 @@ export interface WatchSessionOptions {
 	readonly onDidFireWorkingTreeChange?: (repoPath: string) => void;
 }
 
-const defaultRepoDelay = 250;
+/** The debounce a repo subscriber gets when it names none */
+export const defaultRepoDelay = 250;
 const defaultWorkingTreeDelay = 2500;
 const defaultRepoMaxWait = 2000;
 const defaultWorkingTreeMaxWait = 10000;
@@ -212,8 +213,9 @@ const maxPendingRefNames = 1000;
 
 /**
  * What core's announced writes in the pending window said about one kind: when it was first announced, and the full
- * ref names it was confined to (for `config`, the branches whose sections it changed); `names` is absent when an
- * announcement left the kind open — any ref of it, or any part of the config, may have changed.
+ * ref names it was confined to (for `config`, the branches whose sections it changed; for `worktreeHead`, the admin ids
+ * of the linked worktrees whose HEAD it moved); `names` is absent when an announcement left the kind open — any ref of
+ * it, any part of the config, or any linked worktree's HEAD may have changed.
  */
 interface PendingAnnouncement {
 	readonly at: number;
@@ -257,6 +259,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * changed; `undefined` once any report may have changed anything else
 	 */
 	private pendingRepoConfigBranches: Set<string> | undefined;
+	/**
+	 * For a pending `worktreeHead` change, the admin ids of the linked worktrees whose HEAD moved outside core's announced
+	 * writes, as the reports not taken for a write's own named them; `undefined` once any such report, or an open
+	 * announcement, may have been any linked worktree's
+	 */
+	private pendingRepoMovedWorktrees: Set<string> | undefined;
 	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
 	private effectiveRepoMaxWaitMs: number;
@@ -553,12 +561,25 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * file changed; a ref kind in `changes` is attributed to it when the kinds match, and is otherwise unnamed.
 	 * `false` preserves cache invalidations for a config edit without claiming any ref moved. `configBranches`, for a
 	 * `config` among `changes`, are the local branches (full ref names) whose `branch.<name>` sections are all that
-	 * changed in `.git/config`; without it, the config change may be anywhere.
+	 * changed in `.git/config`; without it, the config change may be anywhere. `movedWorktree`, for a `worktreeHead`
+	 * among `changes`, is the admin id of the linked worktree whose HEAD moved; without it, any linked worktree's may
+	 * have.
 	 */
-	pushRepoChanges(changes: RepositoryChange[], ref?: string | false, configBranches?: ReadonlySet<string>): void {
+	pushRepoChanges(
+		changes: RepositoryChange[],
+		ref?: string | false,
+		configBranches?: ReadonlySet<string>,
+		movedWorktree?: string,
+	): void {
 		if (this._disposed) return;
 
-		this.coalesceRepo(changes, ref, 'raw', configBranches);
+		this.coalesceRepo(
+			changes,
+			ref,
+			'raw',
+			configBranches,
+			movedWorktree != null ? new Set([movedWorktree]) : undefined,
+		);
 	}
 
 	/**
@@ -580,16 +601,19 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 *   them in `announced`. A ref kind is unnamed unless `refs` names refs of that kind (the full ref names the write
 	 *   moved), in which case it carries those names and no other ref of the kind counts as changed by the write.
 	 *   `config` is confined to the `branch.<name>` sections of the local branches `refs` names when
-	 *   `options.configConfinedToRefs` says so, and the event carries them (`configBranches`);
+	 *   `options.configConfinedToRefs` says so, and the event carries them (`configBranches`). `worktreeHead` is
+	 *   confined to the linked worktrees `options.movedWorktrees` names by admin id (none, for a write that moved only
+	 *   the main checkout's HEAD), and is open without it;
 	 * - a raw change of an announced kind is the write's own report of it only when it is provably within what the
-	 *   write announced: a ref the write named or a ref directory holding one, or a config change confined to branches
-	 *   the write's config was confined to. Pending when the announcement arrives, it is replaced. Arriving later, it
-	 *   merges and the kind stays announced only within the repo debounce delay of the announcement; a window can stay
-	 *   pending for minutes while the session is suspended, and a later move of the same ref is as likely an outside
-	 *   one. Any other report of the kind is an outside change: it stays, and the kind isn't `announced`, since the
-	 *   host has not handled the outside part. A write never names `HEAD`, but a commit locks it to write its reflog,
-	 *   so under a write that announced `head`, a report of the `HEAD` file within the same delay is the write's echo,
-	 *   its `heads` part included;
+	 *   write announced: a ref the write named or a ref directory holding one, a config change confined to branches
+	 *   the write's config was confined to, or a `worktreeHead` report of a worktree the write named, or of none (the
+	 *   `worktrees` folder, a rescan). Pending when the announcement arrives, it is replaced, save the worktrees the
+	 *   write didn't name, which stay as an outside move. Arriving later, it merges and the kind stays announced only
+	 *   within the repo debounce delay of the announcement; a window can stay pending for minutes while the session is
+	 *   suspended, and a later move of the same ref is as likely an outside one. Any other report of the kind is an
+	 *   outside change: it stays, and the kind isn't `announced`, since the host has not handled the outside part. A
+	 *   write never names `HEAD`, but a commit locks it to write its reflog, so under a write that announced `head`, a
+	 *   report of the `HEAD` file within the same delay is the write's echo, its `heads` part included;
 	 * - a kind the write announced open (unnamed, or `config` unconfined) covers any change of the kind: raw changes
 	 *   of it still pending are replaced, since the host evicts everything of the kind after the write. One arriving
 	 *   within the repo debounce delay of the announcement, before its event fires, is taken for the write's own late
@@ -606,7 +630,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	noteSelfWrite(
 		changes: readonly RepositoryChange[],
 		refs?: readonly string[],
-		options?: { readonly configConfinedToRefs?: boolean },
+		options?: { readonly configConfinedToRefs?: boolean; readonly movedWorktrees?: readonly string[] },
 	): void {
 		if (this._disposed) return;
 
@@ -616,6 +640,10 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		const configBranches =
 			!all && options?.configConfinedToRefs === true && changes.includes('config')
 				? getBranchRefs(refs)
+				: undefined;
+		const movedWorktrees =
+			!all && options?.movedWorktrees != null && changes.includes('worktreeHead')
+				? new Set(options.movedWorktrees)
 				: undefined;
 
 		for (const change of this.pendingRepoChanges) {
@@ -627,6 +655,18 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				// is provably this write's own report
 				if (this.pendingRepoAnnounced.has(change)) continue;
 				if (!isSubsetOf(this.pendingRepoConfigBranches, configBranches)) continue;
+			} else if (change === 'worktreeHead' && movedWorktrees != null) {
+				// An earlier announcement's worktrees merge with this one's. What's left of the worktrees raw reports named
+				// once this write's are taken out moved outside it, so it stays, unannounced
+				if (this.pendingRepoAnnounced.has(change)) continue;
+
+				const outside = this.pendingRepoMovedWorktrees;
+				if (outside != null) {
+					for (const id of movedWorktrees) {
+						outside.delete(id);
+					}
+					if (outside.size) continue;
+				}
 			}
 
 			const names = isRefChangeKind(change) ? named?.get(change) : undefined;
@@ -653,6 +693,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			this.pendingRepoAnnounced.delete(change);
 			if (change === 'config') {
 				this.pendingRepoConfigBranches = undefined;
+			} else if (change === 'worktreeHead') {
+				this.pendingRepoMovedWorktrees = undefined;
 			}
 			if (!isRefChangeKind(change)) continue;
 
@@ -671,6 +713,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				undefined,
 				'announced',
 				configBranches,
+				movedWorktrees,
 			);
 			if (named != null) {
 				for (const [kind, names] of named) {
@@ -757,6 +800,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				configBranches: this.pendingRepoConfigBranches,
 			},
 			this.pendingRepoAnnounced.keys(),
+			this.pendingRepoMovedWorktrees,
 		);
 		this.clearPendingRepoChanges();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
@@ -770,12 +814,15 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * {@link pushUnfencedRepoChanges}), or core's announced write. A kind stays announced only while nothing else
 	 * reports it in the pending window, save the write's own report of it (see {@link noteSelfWrite}).
 	 * `configBranches` confines a `config` among `changes` to those branches' sections; without it, it may be anywhere.
+	 * `movedWorktrees` names the linked worktrees whose HEAD a `worktreeHead` among `changes` moved; without it, it may
+	 * be any linked worktree's.
 	 */
 	private coalesceRepo(
 		changes: readonly RepositoryChange[],
 		ref: string | false | undefined,
 		origin: 'raw' | 'unfenced' | 'announced',
 		configBranches?: ReadonlySet<string>,
+		movedWorktrees?: ReadonlySet<string>,
 	): void {
 		if (changes.length === 0) return;
 
@@ -788,12 +835,15 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			if (origin !== 'unfenced') {
 				if (change === 'config') {
 					names = configBranches;
+				} else if (change === 'worktreeHead') {
+					names = movedWorktrees;
 				} else if (typeof ref === 'string' && refKind === change) {
 					names = new Set([ref]);
 				}
 			}
 
 			const announcement = this.pendingRepoAnnounced.get(change);
+			let own = false;
 			if (origin === 'announced') {
 				if (!pending) {
 					this.pendingRepoAnnounced.set(change, {
@@ -812,8 +862,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 					}
 				}
 			} else {
-				const own =
-					origin === 'raw' && announcement != null && this.isOwnReport(change, announcement, names, now);
+				own = origin === 'raw' && announcement != null && this.isOwnReport(change, announcement, names, now);
 				if (announcement != null && !own) {
 					this.pendingRepoAnnounced.delete(change);
 				} else if (!pending && origin === 'raw' && this.isHeadEcho(change, names, now)) {
@@ -834,6 +883,18 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				}
 				this.pendingRepoConfigBranches =
 					branches != null && branches.size <= maxPendingRefNames ? branches : undefined;
+			} else if (change === 'worktreeHead') {
+				if (!pending) {
+					this.pendingRepoMovedWorktrees = new Set();
+				}
+				// The worktrees a write named, and its own reports of them, moved no HEAD outside it
+				if (names == null && !own) {
+					this.pendingRepoMovedWorktrees = undefined;
+				} else if (names != null && !own && origin !== 'announced') {
+					for (const id of names) {
+						this.pendingRepoMovedWorktrees?.add(id);
+					}
+				}
 			}
 
 			this.pendingRepoChanges.add(change);
@@ -856,7 +917,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * Whether a raw report of `change`, confined to `names` (`undefined`: not confined), is the announced write's own.
 	 * It must arrive within the repo debounce delay of the announcement, as it always had to. An open announcement
 	 * asks nothing more; one confined to names also needs every name the report carries to be one the write announced,
-	 * save the `heads` part of a `HEAD` report under a write that announced `head` in time, which is a commit's echo.
+	 * save the `heads` part of a `HEAD` report under a write that announced `head` in time, which is a commit's echo. A
+	 * `worktreeHead` report naming no worktree (the `worktrees` folder, a rescan) can't be told apart from the write's.
 	 */
 	private isOwnReport(
 		change: RepositoryChange,
@@ -866,7 +928,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	): boolean {
 		if (now - announcement.at > this.effectiveRepoMs) return false;
 		if (announcement.names == null) return true;
-		if (names == null) return false;
+		if (names == null) return change === 'worktreeHead';
 		// A ref and a directory of the same name can't coexist, which is what lets a directory report stand for its
 		// refs; config sections `branch.team` and `branch.team/task` can
 		if (isRefChangeKind(change) ? isCoveredBy(names, announcement.names) : isSubsetOf(names, announcement.names)) {
@@ -903,6 +965,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.pendingRepoAnnounced.clear();
 		this.pendingRepoAnnouncedRefs.clear();
 		this.pendingRepoConfigBranches = undefined;
+		this.pendingRepoMovedWorktrees = undefined;
 	}
 
 	private flushWorkingTree(): void {
@@ -1131,5 +1194,6 @@ function narrowToRelevantRefs(
 		keptChanges,
 		{ names: keptNames, unnamed: e.unnamedRefKinds, configBranches: configBranches },
 		e.announced,
+		e.movedWorktrees,
 	);
 }

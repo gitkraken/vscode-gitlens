@@ -28,7 +28,7 @@ export const branchHoverStyles = css`
 
 	.section + .section {
 		padding-top: var(--gl-space-6);
-		border-top: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+		border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.row {
@@ -154,7 +154,7 @@ export const branchHoverStyles = css`
 		font-size: 1rem;
 		line-height: 1;
 		color: var(--gl-tracking-ahead, #4ec9b0);
-		border: var(--gl-border-width) solid color-mix(in srgb, transparent 80%, var(--color-foreground));
+		border: var(--gl-border-width) solid var(--gl-color-border-raised);
 		border-radius: var(--gl-radius-sm);
 	}
 

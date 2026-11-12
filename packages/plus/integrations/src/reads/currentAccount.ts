@@ -1,27 +1,9 @@
-import type { Account } from '@gitlens/git/models/author.js';
 import type { IntegrationIds } from '../constants.js';
-import type { ProviderWarning } from '../results.js';
+import type { CurrentAccountResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { noConnectionWarning, unsupportedWarning } from './warnings.js';
-
-/**
- * "Who am I on this provider / connection" — {@link IntegrationBase.getCurrentAccount}'s own answer, exposed on
- * the manager so a caller can ask for it directly instead of waiting for some other read to warm it as a side
- * effect.
- */
-export interface CurrentAccountResult {
-	/** The signed-in account, when the provider answered. */
-	account?: Account;
-	warnings: ProviderWarning[];
-	/**
-	 * Set whenever `account` is absent. Unlike a list/batch read, this one has no benign empty answer — "who am
-	 * I" is either resolved or it couldn't be told, never a legitimately empty result — so `account` is never
-	 * missing without a warning explaining why.
-	 */
-	fetchFailed?: boolean;
-}
 
 /**
  * Resolves the viewer's own account for a connection. Jira Data Center refuses: it has no account-wide lookup.

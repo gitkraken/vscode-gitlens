@@ -40,6 +40,7 @@ function batchServe(
 	const requests: { query: string; variables: Record<string, unknown> }[] = [];
 	const config = {
 		isWeb: false,
+		getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
 		fetch: async (_url: unknown, init?: { body?: string }) => {
 			const body = JSON.parse(init?.body ?? '{}') as { query?: string; variables?: Record<string, unknown> };
@@ -177,6 +178,33 @@ suite('GitHubApi.getPullRequestsEtagFieldsBatch', () => {
 		});
 
 		assert.equal(requests[0].query.match(/^\s*mergeable$/gm)?.length, 1);
+	});
+
+	// A queued pull request's state changes without moving `updatedAt`, so the default etag reads the entry; only its
+	// state and enqueue time, never the estimate, which GitHub recomputes as the queue moves.
+	test('selects the merge queue entry’s state and enqueue time against github.com', async () => {
+		const { config, requests } = batchServe({ p0: { pullRequest: prNode(1) } });
+
+		await new GitHubApi(config).getPullRequestsEtagFieldsBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+		]);
+
+		const { query } = requests[0];
+		assert.match(query, /mergeQueueEntry \{\s*state\s*enqueuedAt\s*\}/);
+		assert.doesNotMatch(query, /\b(estimatedTimeToMerge|position)\b/);
+	});
+
+	test('omits the merge queue selection off github.com, as the full read does', async () => {
+		const { config, requests } = batchServe({ p0: { pullRequest: prNode(1) } });
+
+		await new GitHubApi(config).getPullRequestsEtagFieldsBatch(
+			provider,
+			token,
+			[{ owner: 'o', repo: 'a', number: 1 }],
+			{ baseUrl: 'https://ghe.example.com/api/v3' },
+		);
+
+		assert.doesNotMatch(requests[0].query, /mergeQueueEntry/);
 	});
 
 	for (const includes of includeSets) {

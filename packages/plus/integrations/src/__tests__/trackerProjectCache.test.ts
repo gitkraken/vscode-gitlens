@@ -43,6 +43,26 @@ async function flush(): Promise<void> {
 	}
 }
 
+/** Lets pending work run until `condition` holds, failing with `what` when it never does. */
+async function until(condition: () => boolean, what: string): Promise<void> {
+	for (let i = 0; i < 20 && !condition(); i++) {
+		await flush();
+	}
+	assert.ok(condition(), what);
+}
+
+/** Counts the calls to the integration's shared resource lookup, whatever each then joins. */
+function countResourceLookups(integration: IssuesIntegration): { count: number } {
+	const lookups = { count: 0 };
+	const shared = integration as unknown as { getResourcesForUserResult: (connectionId?: string) => Promise<unknown> };
+	const lookup = shared.getResourcesForUserResult.bind(integration);
+	shared.getResourcesForUserResult = connectionId => {
+		lookups.count++;
+		return lookup(connectionId);
+	};
+	return lookups;
+}
+
 /** A cloud-backed connection whose token never changes, like a Jira Data Center PAT. */
 function createCloudService(id: IntegrationIds, domain?: string) {
 	const runtime = createFakeRuntime();
@@ -144,12 +164,16 @@ function titles(result: ProviderPagedResult<IssueShape>): string[] {
  * the integration cached, but a search scoped to one is refused the way the live instance refuses it.
  */
 async function jiraServer() {
-	const { service } = createCloudService(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain);
+	const { service, runtime, tokenRequests } = createCloudService(
+		IssuesSelfManagedHostIntegrationId.JiraServer,
+		jiraServerDomain,
+	);
 	const integration = (await service.get(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain))!;
 	const state = {
 		projects: [{ id: '10001', key: 'ALPHA', name: 'Alpha' }],
 		deleted: new Set<string>(),
 		projectReads: 0,
+		accountReads: 0,
 		searches: [] as string[],
 		/** When set, the project list waits on it, so a test can act while the read is in flight. */
 		projectsGate: undefined as Promise<void> | undefined,
@@ -160,10 +184,12 @@ async function jiraServer() {
 		user: 'julian' as string | undefined,
 	};
 	stubApi(integration, {
-		getJiraServerCurrentUser: () =>
-			state.user == null || state.user.toLowerCase() === 'anonymous'
+		getJiraServerCurrentUser: () => {
+			state.accountReads++;
+			return state.user == null || state.user.toLowerCase() === 'anonymous'
 				? Promise.reject(new Error('(401) Unauthorized.'))
-				: Promise.resolve({ id: state.user, name: state.user, username: state.user }),
+				: Promise.resolve({ id: state.user, name: state.user, username: state.user });
+		},
 		getJiraServerProjects: async () => {
 			state.projectReads++;
 			if (state.projectsError != null) throw state.projectsError;
@@ -188,14 +214,21 @@ async function jiraServer() {
 	await service.refreshConnections();
 	await flush();
 
-	const read = (options?: { forceSync?: boolean; project?: string }) =>
+	const read = (options?: { forceSync?: boolean; project?: string; connectionId?: string }) =>
 		service.listIssueTrackerIssuesPage({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
 			domain: jiraServerDomain,
 			includeAllAssignees: true,
 			...options,
 		});
-	return { service: service, integration: integration, state: state, read: read };
+	return {
+		service: service,
+		runtime: runtime,
+		tokenRequests: tokenRequests,
+		integration: integration,
+		state: state,
+		read: read,
+	};
 }
 
 suite('Tracker project cache (#5907)', () => {
@@ -250,6 +283,66 @@ suite('Tracker project cache (#5907)', () => {
 			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 
 			assert.deepEqual(titles(await read({ forceSync: true })), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a per-connection forceSync read re-reads the project list when its re-sync succeeds', async () => {
+			// The per-connection re-sync goes through the auth provider, which never reaches the integration's own re-sync
+			// and the cache drop it makes, so only the read's own drop lets it see the new project.
+			const { service, state, tokenRequests, read } = await jiraServer();
+
+			await read({ connectionId: 't1' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			const syncs = tokenRequests.length;
+
+			const result = await read({ connectionId: 't1', forceSync: true });
+			assert.ok(tokenRequests.length > syncs, 'the connection was re-synced');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a per-connection forceSync read re-reads the project list even when its re-sync fails', async () => {
+			// A failed refetch keeps the stored token and still has the read go ahead, and nothing on this path drops
+			// the cache but the read itself, so the list cached before the refresh must not outlive it.
+			const { service, runtime, state, read } = await jiraServer();
+
+			await read({ connectionId: 't1' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			let syncs = 0;
+			runtime.account.fetchGkApi = () => {
+				syncs++;
+				return Promise.reject(new Error('GK API outage'));
+			};
+
+			const result = await read({ connectionId: 't1', forceSync: true });
+			assert.ok(syncs > 0, 'the re-sync was attempted');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a forceSync read re-reads the project list even when its re-sync fails', async () => {
+			// The primary read's failed re-sync still has the read go ahead, so the list cached before the refresh must
+			// not outlive the refresh the caller asked for.
+			const { service, runtime, state, read } = await jiraServer();
+
+			await read();
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+			let syncs = 0;
+			runtime.account.fetchGkApi = () => {
+				syncs++;
+				return Promise.reject(new Error('GK API outage'));
+			};
+
+			const result = await read({ forceSync: true });
+			assert.ok(syncs > 0, 'the re-sync was attempted');
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
 			assert.equal(state.projectReads, 2);
 
 			service.dispose();
@@ -429,7 +522,8 @@ suite('Tracker project cache (#5907)', () => {
 				result.warnings.some(w => w.selector != null),
 				false,
 			);
-			assert.equal(state.projectReads, 2, 'the list was read again before the miss was weighed');
+			assert.equal(state.projectReads, 1, 'the anonymous empty response fails its first discovery read');
+			assert.equal(state.accountReads, 1, 'a fresh account check proves the credential was refused');
 
 			// The same answers with a credential the account lookup accepts prove the project gone.
 			state.user = 'julian';
@@ -550,6 +644,8 @@ suite('Tracker project cache (#5907)', () => {
 				/** When set, the project list waits on it, so a test can act while the read is in flight. */
 				projectsGate: undefined as Promise<void> | undefined,
 				searchError: undefined as Error | undefined,
+				/** The sites the issue searches were made on. */
+				searchedSites: new Set<string>(),
 			};
 			stubApi(integration, {
 				getCurrentUserForResource: () => Promise.resolve({ id: 'me', name: 'Me', username: 'me' }),
@@ -570,6 +666,7 @@ suite('Tracker project cache (#5907)', () => {
 				},
 				// Addressed by key; the names differ from the keys so a read by name finds nothing.
 				getIssuesForProjectPaged: (_t: unknown, projectKey: string, resourceId: string) => {
+					state.searchedSites.add(resourceId);
 					if (state.searchError != null) return Promise.reject(state.searchError);
 					if (state.deleted.has(projectKey) || state.deletedOnSite.has(`${resourceId}:${projectKey}`)) {
 						return Promise.reject(missingProjectError(projectKey));
@@ -608,6 +705,33 @@ suite('Tracker project cache (#5907)', () => {
 
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1', 'Issue BETA-1']);
 			assert.ok((await prefixesOf(integration)).includes('BETA-'), 'the autolinks follow the new project list');
+
+			service.dispose();
+		});
+
+		test('a refresh whose token refetch fails still drops the project list (#6159)', async () => {
+			// The refresh a consumer runs, with the GK API listing the connection but failing its token refetch: the
+			// stored token is kept and no new session is published, so only the forced refresh's own drop retires the
+			// list cached before it.
+			const { service, runtime, state, read } = await jiraCloud();
+
+			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			const fetchGkApi = runtime.account.fetchGkApi;
+			let refetches = 0;
+			runtime.account.fetchGkApi = (path, init) => {
+				if (path === 'v1/provider-tokens') return fetchGkApi(path, init);
+
+				refetches++;
+				return Promise.resolve(new Response(null, { status: 503 }));
+			};
+			await service.refreshConnections();
+			await flush();
+
+			assert.ok(refetches > 0, 'the token refetch was attempted');
+			const result = await read();
+			assert.deepEqual(titles(result), ['Issue ALPHA-1', 'Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
 
 			service.dispose();
 		});
@@ -818,6 +942,61 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('an autolink read after a forced refresh does not join a rebuild started before it (#6170)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.projectReads;
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA exists, waits on the project list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+			state.projectsGate = undefined;
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+
+			// The drop every forced refresh begins with, while the earlier rebuild is still pending.
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await flush();
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+
+			service.dispose();
+		});
+
+		test('a rebuild started before a forced refresh does not retire the one started after it (#6170)', async () => {
+			const { service, integration, state } = await jiraCloud();
+			integration.invalidateDiscoveryCaches();
+			let reads = state.projectReads;
+			let releaseEarlier!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 1, 'the earlier render read the projects');
+
+			let releaseLater!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await until(() => state.projectReads === reads + 2, 'the later render read the projects');
+
+			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
+			releaseEarlier();
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			reads = state.projectReads;
+			const joined = prefixesOf(integration);
+			await flush();
+			assert.equal(state.projectReads, reads, 'the render joined the later rebuild');
+			releaseLater();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(await joined, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
 		test('a deleted project reads as empty instead of failing the provider', async () => {
 			const { service, state, read } = await jiraCloud();
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
@@ -922,8 +1101,9 @@ suite('Tracker project cache (#5907)', () => {
 			advanceClock(discoveryCacheTtl);
 			let release!: () => void;
 			state.sitesGate = new Promise<void>(resolve => (release = resolve));
-			// An ordinary read, started before site-2 exists, waits on the site list.
-			const earlier = integration.getResourcesForUserResult();
+			// An ordinary read, started before site-2 exists, waits on the site list. Through the connection, on the same
+			// token and cache, so the primary read below doesn't join it as it would one of its own selector and generation.
+			const earlier = integration.getResourcesForUserResult('t1');
 			await flush();
 			state.sitesGate = undefined;
 			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
@@ -984,6 +1164,76 @@ suite('Tracker project cache (#5907)', () => {
 			);
 			assert.equal(result.fetchFailed, true);
 			assert.notEqual(result.cursor, undefined, 'retried on the next read');
+
+			service.dispose();
+		});
+
+		test('a forced read does not join a site lookup started before its refresh (#6162)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			await read();
+			// Expired, so the next lookup asks Jira rather than the cache.
+			advanceClock(discoveryCacheTtl);
+			const lookups = countResourceLookups(integration);
+			const siteReads = state.siteReads;
+			let release!: () => void;
+			state.sitesGate = new Promise<void>(resolve => (release = resolve));
+			// An ordinary read, started before site-2 exists, waits on the site list.
+			const earlier = service.listOrgs({ providerId: IssuesCloudHostIntegrationId.Jira });
+			await until(() => state.siteReads === siteReads + 1, 'the earlier read asked for the sites');
+			state.sitesGate = undefined;
+			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
+			state.searchedSites.clear();
+
+			// The caller asks for a refresh after site-2 was created, while the earlier lookup is still pending.
+			const forced = service.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				includeAllAssignees: true,
+				forceSync: true,
+			});
+			await until(() => lookups.count === 2, 'the forced read reached the site lookup');
+			release();
+
+			const result = await forced;
+			assert.deepEqual([...state.searchedSites].sort(), ['site-1', 'site-2'], 'the forced read listed site-2');
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(
+				(await earlier).items.map(o => o.id),
+				['site-1'],
+				'the earlier read answers what it read',
+			);
+
+			service.dispose();
+		});
+
+		test('ordinary reads with no refresh between them share one site lookup (#6162)', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			await read();
+			// Expired, so the next lookup asks Jira rather than the cache.
+			advanceClock(discoveryCacheTtl);
+			const siteReads = state.siteReads;
+			let release!: () => void;
+			state.sitesGate = new Promise<void>(resolve => (release = resolve));
+			const first = service.listOrgs({ providerId: IssuesCloudHostIntegrationId.Jira });
+			await until(() => state.siteReads === siteReads + 1, 'the first read asked for the sites');
+			const second = service.listOrgs({ providerId: IssuesCloudHostIntegrationId.Jira });
+			// An empty connectionId reads the primary too, so it joins the same lookup.
+			const third = integration.getResourcesForUserResult('');
+			await flush();
+			release();
+
+			assert.deepEqual(
+				(await first).items.map(o => o.id),
+				['site-1'],
+			);
+			assert.deepEqual(
+				(await second).items.map(o => o.id),
+				['site-1'],
+			);
+			assert.deepEqual(
+				(await third)?.value?.map(s => s.id),
+				['site-1'],
+			);
+			assert.equal(state.siteReads, siteReads + 1, 'the later reads joined the first lookup');
 
 			service.dispose();
 		});
@@ -1177,14 +1427,18 @@ suite('Tracker project cache (#5907)', () => {
 				noOrganizationData: false,
 				/** When set, the team list waits on it, answering with the teams listed when it was asked. */
 				teamsGate: undefined as Promise<void> | undefined,
+				organization: { id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' },
+				organizationReads: 0,
+				/** When set, the organization lookup waits on it, answering with the organization when it was asked. */
+				organizationGate: undefined as Promise<void> | undefined,
 			};
 			stubApi(integration, {
-				getLinearOrganization: () =>
-					Promise.resolve(
-						state.noOrganizationData
-							? undefined
-							: { id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' },
-					),
+				getLinearOrganization: async () => {
+					state.organizationReads++;
+					const snapshot = state.noOrganizationData ? undefined : { ...state.organization };
+					await state.organizationGate;
+					return snapshot;
+				},
 				getLinearCurrentUser: () =>
 					Promise.resolve({ id: 'me', name: 'Me', displayName: 'me', email: undefined }),
 				getLinearTeamsForCurrentUser: async () => {
@@ -1236,6 +1490,46 @@ suite('Tracker project cache (#5907)', () => {
 			await prefixesOf(integration);
 			await flush();
 			assert.equal(state.teamReads, reads, 'no provider request is made with the expired token');
+
+			service.dispose();
+		});
+
+		test('a lookup started after a forced refresh does not join an organization lookup started before it (#6162)', async () => {
+			const { service, integration, state } = await linear();
+			// The provider's lookup itself, under the integration's gate, so only its own dedup is exercised.
+			const provider = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderResourcesForUser: (session: ProviderAuthenticationSession) => Promise<{ name: string }[]>;
+			};
+			const lookup = async () =>
+				(await provider.getProviderResourcesForUser(provider._session))?.map(o => o.name);
+			// The organization never expires, so it is dropped to have the next lookups ask Linear.
+			integration.invalidateDiscoveryCaches();
+			const organizationReads = state.organizationReads;
+			let release!: () => void;
+			state.organizationGate = new Promise<void>(resolve => (release = resolve));
+			const earlier = lookup();
+			await until(() => state.organizationReads === organizationReads + 1, 'the earlier lookup asked Linear');
+			// An unforced lookup joins the one in flight rather than making another request.
+			const joined = lookup();
+			await flush();
+			assert.equal(
+				state.organizationReads,
+				organizationReads + 1,
+				'the unforced lookup joined the one in flight',
+			);
+
+			state.organizationGate = undefined;
+			state.organization = { ...state.organization, name: 'Acme Renamed' };
+			// The drop every forced refresh begins with, while the earlier lookup is still pending.
+			integration.beginForcedRefresh();
+			const later = lookup();
+			await flush();
+			release();
+
+			assert.deepEqual(await later, ['Acme Renamed'], 'the later lookup asked Linear again');
+			assert.deepEqual(await earlier, ['Acme'], 'the earlier lookup answers what it read');
+			assert.deepEqual(await joined, ['Acme']);
 
 			service.dispose();
 		});
@@ -1333,6 +1627,77 @@ suite('Tracker project cache (#5907)', () => {
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the expired set, without waiting');
 			await flush();
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+
+			service.dispose();
+		});
+
+		test('concurrent autolink reads share one rebuild', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.teamReads;
+
+			const all = await Promise.all([prefixesOf(integration), prefixesOf(integration), prefixesOf(integration)]);
+			assert.deepEqual(all, [
+				['ALPHA-', 'ALPHA_'],
+				['ALPHA-', 'ALPHA_'],
+				['ALPHA-', 'ALPHA_'],
+			]);
+			assert.equal(state.teamReads, reads + 1);
+
+			service.dispose();
+		});
+
+		test('an autolink read after a forced refresh does not join a rebuild started before it (#6170)', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			const reads = state.teamReads;
+			let release!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (release = resolve));
+			// A render, started before BETA exists, waits on the team list.
+			const earlier = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
+			state.teamsGate = undefined;
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+
+			// The drop every forced refresh begins with, while the earlier rebuild is still pending.
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await flush();
+			release();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+
+			service.dispose();
+		});
+
+		test('a rebuild started before a forced refresh does not retire the one started after it (#6170)', async () => {
+			const { service, integration, state } = await linear();
+			integration.invalidateDiscoveryCaches();
+			let reads = state.teamReads;
+			let releaseEarlier!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
+			const earlier = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
+
+			let releaseLater!: () => void;
+			state.teamsGate = new Promise<void>(resolve => (releaseLater = resolve));
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			integration.beginForcedRefresh();
+			const later = prefixesOf(integration);
+			await until(() => state.teamReads === reads + 2, 'the later render read the teams');
+
+			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
+			releaseEarlier();
+			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			reads = state.teamReads;
+			const joined = prefixesOf(integration);
+			await flush();
+			assert.equal(state.teamReads, reads, 'the render joined the later rebuild');
+			releaseLater();
+
+			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
+			assert.deepEqual(await joined, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
 
 			service.dispose();
 		});

@@ -13,6 +13,7 @@ import type { Container } from '../../../container.js';
 import type { ConfirmToggleQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { Directive, isDirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import type { KeplerNotInstalledItem } from '../../kepler/keplerNotInstalled.js';
 import type { AgentDescriptor, AgentRoute } from '../agentDescriptor.js';
 import type { AgentRouteItem, ResolveAgentFlowResult } from '../agentPicker.js';
 import {
@@ -119,7 +120,7 @@ function getFirstRow(items: readonly Row[]): Row {
 function holdNonCliAgents(sandbox: sinon.SinonSandbox): { release: () => void } {
 	const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
 	getExtension.callThrough();
-	getExtension.withArgs(claudeExtensionId).returns({});
+	getExtension.withArgs(claudeExtensionId).returns({ isActive: true });
 
 	let release!: () => void;
 	const registered = new Promise<string[]>(resolve => {
@@ -1061,9 +1062,15 @@ suite('resolveAgentFlow — Kepler route', () => {
 		get.withArgs('ai.defaultAgent').returns(null);
 	}
 
-	function makeContainer(available: boolean): Container {
+	function makeContainer(available: boolean, installed?: boolean): Container {
 		return {
-			kepler: { available: available },
+			kepler: {
+				available: available,
+				installed: installed,
+				canInstall: true,
+				getRelease: () => Promise.resolve(undefined),
+			},
+			telemetry: { sendEvent: sandbox.spy() },
 			usage: { track: sandbox.stub().resolves() },
 		} as unknown as Container;
 	}
@@ -1133,6 +1140,54 @@ suite('resolveAgentFlow — Kepler route', () => {
 		stubSettings('ask');
 		const { routes } = await start(makeContainer(true), { requestedRoute: 'ask' });
 		assert.deepStrictEqual(routes, ['agent', 'manual']);
+	});
+
+	test('Kepler not installed: the next step offers Install Kepler and Learn More only, with Back', async () => {
+		stubSettings('kepler');
+		const next = await resolveAgentFlow(makeContainer(true, false), {
+			requestedRoute: 'ask',
+			item: githubIssue,
+		}).next();
+
+		assert.strictEqual(next.done, false);
+		const step = next.value as QuickPickStep<KeplerNotInstalledItem>;
+		const items = step.items as KeplerNotInstalledItem[];
+		assert.deepStrictEqual(
+			items.flatMap(i => (i.action != null ? [i.action] : [])),
+			['install', 'learn-more'],
+		);
+		assert.strictEqual(step.canGoBack, true);
+	});
+
+	test('Kepler not installed: Install Kepler resolves to a Kepler hand-off that installs first', async () => {
+		stubSettings('kepler');
+		const generator = resolveAgentFlow(makeContainer(true, false), { requestedRoute: 'ask', item: githubIssue });
+		const step = (await generator.next()).value as QuickPickStep<KeplerNotInstalledItem>;
+
+		const result = await generator.next([
+			(step.items as KeplerNotInstalledItem[]).find(i => i.action === 'install'),
+		]);
+		assert.deepStrictEqual(result, { done: true, value: { kind: 'kepler', install: true } });
+	});
+
+	test('Kepler not installed: Back from a persisted Kepler route shows the route picker', async () => {
+		stubSettings('kepler');
+		const generator = resolveAgentFlow(makeContainer(true, false), { requestedRoute: 'ask', item: githubIssue });
+		await generator.next();
+
+		const back = await generator.next(Directive.Back);
+		assert.strictEqual(back.done, false);
+		const items = (back.value as QuickPickStep).items as { route?: string }[];
+		assert.deepStrictEqual(
+			items.flatMap(i => (i.route != null ? [i.route] : [])),
+			['kepler', 'agent', 'manual'],
+		);
+	});
+
+	test('Kepler installed state unknown (a remote window): hands off without asking', async () => {
+		stubSettings('kepler');
+		const { result } = await start(makeContainer(true, undefined), { requestedRoute: 'ask', item: githubIssue });
+		assert.deepStrictEqual(result, { kind: 'kepler' });
 	});
 
 	test("useDefaults with a persisted 'kepler' continues manually — never a Kepler hand-off", async () => {
@@ -1247,7 +1302,7 @@ suite('loadSupportedAgentsInStages', () => {
 	test('a failed non-CLI check keeps the CLI rows', async () => {
 		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
 		getExtension.callThrough();
-		getExtension.withArgs(claudeExtensionId).returns({});
+		getExtension.withArgs(claudeExtensionId).returns({ isActive: true });
 		const getCommands = sandbox.stub(commands, 'getCommands') as sinon.SinonStub;
 		getCommands.callThrough();
 		getCommands.withArgs(true).rejects(new Error('commands unavailable'));
@@ -1261,5 +1316,36 @@ suite('loadSupportedAgentsInStages', () => {
 			[cliAgentId],
 		);
 		assert.strictEqual(cliDetectionFailed, false);
+	});
+
+	// #6140: Claude Code activates once startup finishes, so a window that dispatches earlier finds none of its
+	// commands registered — running one activates it, so the extension still counts as available
+	test('a Claude extension that has not activated yet is offered by the commands it contributes', async () => {
+		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
+		getExtension.callThrough();
+		getExtension.withArgs(claudeExtensionId).returns({
+			isActive: false,
+			packageJSON: { contributes: { commands: [{ command: claudeExtensionOpenCommand }] } },
+		});
+		const getCommands = sandbox.stub(commands, 'getCommands') as sinon.SinonStub;
+		getCommands.callThrough();
+		getCommands.withArgs(true).resolves([]);
+
+		const { nonCli } = loadSupportedAgentsInStages(makeContainer());
+
+		assert.ok((await nonCli).some(a => a.id === claudeExtensionRowId));
+	});
+
+	test('a Claude extension that has not activated yet and contributes no open command is not offered', async () => {
+		const getExtension = sandbox.stub(extensions, 'getExtension') as sinon.SinonStub;
+		getExtension.callThrough();
+		getExtension.withArgs(claudeExtensionId).returns({
+			isActive: false,
+			packageJSON: { contributes: { commands: [{ command: 'claude-vscode.sidebar.open' }] } },
+		});
+
+		const { nonCli } = loadSupportedAgentsInStages(makeContainer());
+
+		assert.ok(!(await nonCli).some(a => a.id === claudeExtensionRowId));
 	});
 });

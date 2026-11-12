@@ -135,7 +135,7 @@ export class GlGraphMinimap extends GlElement {
 			display: flex;
 			width: 100%;
 			height: 100%;
-			background: var(--color-graph-background);
+			background: var(--vscode-editor-background);
 		}
 
 		#canvas {
@@ -164,7 +164,7 @@ export class GlGraphMinimap extends GlElement {
 
 		#tooltip {
 			--gl-elevation: var(--gl-shadow-tooltip);
-			--gl-elevation-border-color: var(--color-hover-border);
+			--gl-elevation-border-color: var(--gl-color-border-overlay);
 
 			position: absolute;
 			top: calc(100% + 4px);
@@ -177,10 +177,10 @@ export class GlGraphMinimap extends GlElement {
 			max-width: min(420px, calc(100% - 8px));
 			padding: 0.5rem 1rem;
 			font-size: var(--font-size);
-			color: var(--color-hover-foreground);
+			color: var(--vscode-editorHoverWidget-foreground);
 			pointer-events: none;
 			user-select: none;
-			background-color: var(--color-hover-background);
+			background-color: var(--gl-color-surface-overlay);
 			opacity: 1;
 
 			${elevatedSurface}
@@ -920,9 +920,9 @@ export class GlGraphMinimap extends GlElement {
 	private resolveTheme(): MinimapTheme {
 		const style = getComputedStyle(this);
 		return {
-			background: getCssVariable('--color-graph-background', style),
+			background: getCssVariable('--vscode-editor-background', style),
 			line: getCssVariable('--color-graph-minimap-line0', style),
-			focusLine: getCssVariable('--color-graph-minimap-focusLine', style),
+			focusLine: getCssVariable('--vscode-foreground', style),
 			markerHead: getCssVariable('--color-graph-minimap-marker-head', style),
 			markerUpstream: getCssVariable('--color-graph-minimap-marker-upstream', style),
 			markerWorktree: getCssVariable('--color-graph-minimap-marker-worktree', style),

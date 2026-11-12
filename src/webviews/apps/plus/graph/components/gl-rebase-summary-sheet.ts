@@ -151,7 +151,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				gap: var(--gl-space-4);
 				padding-block: var(--gl-space-12);
 				padding-inline: var(--gl-space-16);
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.overview__line {
@@ -172,16 +172,16 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				align-items: baseline;
 				padding: var(--gl-space-6) var(--gl-space-8);
 				margin-block-start: var(--gl-space-4);
-				color: var(--vscode-inputValidation-warningForeground, inherit);
-				background: var(--vscode-inputValidation-warningBackground, transparent);
-				border: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder, transparent);
+				color: var(--gl-color-feedback-warning-fg);
+				background: var(--gl-color-feedback-warning-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 				border-radius: var(--gl-radius-sm);
 			}
 
 			.banner--error {
-				color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
-				background: var(--vscode-inputValidation-errorBackground, transparent);
-				border-color: var(--vscode-inputValidation-errorBorder, transparent);
+				color: var(--gl-color-feedback-danger-fg);
+				background: var(--gl-color-feedback-danger-bg);
+				border-color: var(--gl-color-feedback-danger-border);
 			}
 
 			.steps {
@@ -212,13 +212,9 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				color: inherit;
 				text-align: start;
 				cursor: pointer;
-				background: color-mix(
-					in srgb,
-					var(--vscode-foreground) 8%,
-					var(--vscode-sideBar-background, var(--vscode-editor-background))
-				);
+				background: color-mix(in srgb, var(--vscode-foreground) 8%, var(--gl-color-surface-aside));
 				border: none;
-				border-block: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+				border-block: var(--gl-border-width) solid var(--gl-color-divider-base);
 				/* Outcome accent down the band's edge — the same signal as the header's badge, but
    scannable while the rows are what's actually being read. */
 				box-shadow: inset 0.3rem 0 0 0 var(--step-accent);
@@ -279,7 +275,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				flex: none;
 				font-size: var(--gl-font-sm);
 				font-variant: all-small-caps;
-				color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.step__manual {

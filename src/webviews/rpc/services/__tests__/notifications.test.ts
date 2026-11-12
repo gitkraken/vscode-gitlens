@@ -6,7 +6,11 @@ import type { NotificationsState } from '@gitlens/notifications/models.js';
 import type { NotificationsService as GkNotificationsService } from '@gitlens/notifications/notificationsService.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Container } from '../../../../container.js';
-import { RequestRateLimitError, RequestsAreBlockedTemporarilyError } from '../../../../errors.js';
+import {
+	AuthenticationRequiredError,
+	RequestRateLimitError,
+	RequestsAreBlockedTemporarilyError,
+} from '../../../../errors.js';
 import type { NotificationsController } from '../../../../plus/notifications/notificationsController.js';
 import { NotificationsRpcService } from '../notifications.js';
 
@@ -84,6 +88,26 @@ suite('NotificationsRpcService', () => {
 		});
 
 		const failures: [string, () => Error, string][] = [
+			[
+				'a 401 response',
+				() => new NotificationsApiError(401, 'markRead'),
+				'Your GitKraken session has expired. Please sign in again.',
+			],
+			[
+				'a 429 response',
+				() => new NotificationsApiError(429, 'markRead'),
+				'Too many requests to GitKraken. Please try again in a few minutes.',
+			],
+			[
+				'a 503 response',
+				() => new NotificationsApiError(503, 'markRead'),
+				'GitKraken is temporarily unavailable. Please try again in a few minutes.',
+			],
+			[
+				'a missing session',
+				() => new AuthenticationRequiredError(),
+				'Your GitKraken session has expired. Please sign in again.',
+			],
 			[
 				'requests being blocked',
 				() => new RequestsAreBlockedTemporarilyError(),

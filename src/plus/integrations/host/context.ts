@@ -6,11 +6,11 @@ import type {
 	ConfigChangeEvent,
 	ConfigProvider,
 	HttpProvider,
-	IntegrationServiceContext,
+	IntegrationManagerContext,
 	IntegrationServiceHooks,
 	IntegrationsRemoteConfig,
 	IntegrationStorageProvider,
-} from '@gitlens/integrations/context.js';
+} from '@gitlens/integrations/index.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { flatSettled } from '@gitlens/utils/promise.js';
 import type { Source as TelemetrySource } from '../../../constants.telemetry.js';
@@ -26,7 +26,7 @@ import type { ServerConnection } from '../../gk/serverConnection.js';
 import { createAccountAdapter } from './gkDevFlows.js';
 
 /**
- * Builds an {@link IntegrationServiceContext} from the host's `Container`.
+ * Builds an {@link IntegrationManagerContext} from the host's `Container`.
  *
  * Lives outside the eventual `@gitlens/integrations` package — it is the
  * vscode-bound adapter the host wires up at construction time so the
@@ -41,9 +41,9 @@ import { createAccountAdapter } from './gkDevFlows.js';
 export function createIntegrationServiceContext(
 	container: Container,
 	connection: ServerConnection,
-): IntegrationServiceContext & VsCodeDisposable {
+): IntegrationManagerContext & VsCodeDisposable {
 	const disposables: VsCodeDisposable[] = [];
-	const ctx: IntegrationServiceContext = {
+	const ctx: IntegrationManagerContext = {
 		storage: createStorageAdapter(container),
 		account: createAccountAdapter(container, connection, disposables),
 		config: createConfigAdapter(disposables),
@@ -105,6 +105,7 @@ function createConfigAdapter(disposables: VsCodeDisposable[]): ConfigProvider {
 			includedOrganizations: configuration.get('launchpad.includedOrganizations'),
 			ignoredOrganizations: configuration.get('launchpad.ignoredOrganizations'),
 		}),
+		getPullRequestReadOptions: () => ({ mergeQueue: true }),
 		getRemoteConfigs: (): readonly IntegrationsRemoteConfig[] =>
 			(configuration.get('remotes') ?? [])
 				// Require a non-empty domain or regex: an empty string passes `!= null` but would match

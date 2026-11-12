@@ -1,6 +1,15 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	promises as fs,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
@@ -8,7 +17,7 @@ import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
-import { createBranch, createTestRepo, createWorktree, gkConfig } from './helpers.js';
+import { createBranch, createProvider, createTestRepo, createWorktree, gkConfig } from './helpers.js';
 
 suite('ConfigSubProvider', () => {
 	let repo: TestRepo;
@@ -290,6 +299,240 @@ suite('ConfigSubProvider — concurrent gk config writes', () => {
 
 		assert.strictEqual(countWrites(run), 1);
 		assert.strictEqual(gkConfig(repo.path, key), 'X');
+	});
+});
+
+suite('ConfigSubProvider strict association persistence', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		sinon.restore();
+		repo.cleanup();
+	});
+
+	test('strict reads reject a failed command while ordinary readers retain their contract', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["existing"]');
+		const real = repo.provider.git.run.bind(repo.provider.git);
+		sinon
+			.stub(repo.provider.git, 'run')
+			.callsFake(async (options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+				if (!args.includes('--get-regex') && !args.includes('--list')) return real(options, ...args);
+
+				return {
+					stdout: '',
+					stderr: undefined,
+					completion: { status: 'failed', reason: 'unstarted', error: new Error('read failed') },
+				};
+			});
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key), undefined);
+		await assert.rejects(
+			repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }),
+			/Unable to read/,
+		);
+		assert.strictEqual(gkConfig(repo.path, key), '["existing"]');
+	});
+
+	test('strict reads accept missing storage and missing keys', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		assert.strictEqual(existsSync(join(repo.path, '.git', 'gk', 'config')), false);
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), undefined);
+		await repo.provider.config.setGkConfig(repo.path, key, '[]', { throwOnError: true });
+		assert.strictEqual(gkConfig(repo.path, key), '[]');
+	});
+
+	test('strict reads see external writes despite a warm ordinary cache', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["old1"]');
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key), '["old1"]');
+		execFileSync('git', ['config', '-f', join(repo.path, '.git', 'gk', 'config'), key, '["old1","old2"]']);
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key), '["old1"]');
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }),
+			'["old1","old2"]',
+		);
+	});
+
+	test('strict reads reject a real file parent when stat reports Windows ENOENT', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["old"]');
+		const folder = join(repo.path, '.git', 'gk');
+		const path = join(folder, 'config');
+		rmSync(folder, { recursive: true });
+		writeFileSync(folder, 'blocked');
+		const missing = await fs.stat(path).then(
+			() => assert.fail('A child beneath a file cannot be statted'),
+			(ex: unknown) => {
+				const error = ex as NodeJS.ErrnoException;
+				assert.ok(error.code === 'ENOTDIR' || error.code === 'ENOENT');
+				return Object.assign(error, { code: 'ENOENT' });
+			},
+		);
+		sinon.stub(fs, 'stat').callThrough().withArgs(path).rejects(missing);
+		sinon.stub(fs, 'lstat').callThrough().withArgs(path).rejects(missing);
+		await assert.rejects(repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }));
+	});
+
+	test('strict reads accept missing config and gk directories after migration', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["old"]');
+		await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true });
+		const folder = join(repo.path, '.git', 'gk');
+		rmSync(join(folder, 'config'));
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), undefined);
+		rmSync(folder, { recursive: true });
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), undefined);
+		await repo.provider.config.setGkConfig(repo.path, key, '["first"]', { throwOnError: true });
+		assert.strictEqual(gkConfig(repo.path, key), '["first"]');
+	});
+
+	test('strict reads preserve directory symlinks and reject dangling directories', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["old"]');
+		await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true });
+		const folder = join(repo.path, '.git', 'gk');
+		const target = join(repo.path, 'metadata');
+		mkdirSync(target);
+		writeFileSync(join(target, 'config'), readFileSync(join(folder, 'config')));
+		rmSync(folder, { recursive: true });
+		symlinkSync(target, folder, process.platform === 'win32' ? 'junction' : 'dir');
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), '["old"]');
+		rmSync(join(target, 'config'));
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), undefined);
+		rmSync(target, { recursive: true });
+		await assert.rejects(repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }));
+	});
+
+	test('strict reads preserve supported file symlinks and reject dangling entries', async function () {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["old"]');
+		await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true });
+		const path = join(repo.path, '.git', 'gk', 'config');
+		const target = join(repo.path, 'metadata');
+		writeFileSync(target, readFileSync(path));
+		rmSync(path);
+		try {
+			symlinkSync(target, path, 'file');
+		} catch (ex) {
+			if ((ex as NodeJS.ErrnoException).code !== 'EPERM') throw ex;
+
+			this.skip();
+		}
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }), '["old"]');
+		rmSync(target);
+		await assert.rejects(repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }));
+	});
+
+	test('strict first reads migrate legacy associations before returning', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		execFileSync('git', ['config', '--local', key, '["legacy"]'], { cwd: repo.path });
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }),
+			'["legacy"]',
+		);
+		assert.strictEqual(gkConfig(repo.path, key), '["legacy"]');
+	});
+
+	test('strict worktree reads use shared association storage', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		await repo.provider.config.setGkConfig(repo.path, key, '["shared"]');
+		createBranch(repo.path, 'strict-associations');
+		const worktree = createWorktree(repo.path, 'strict-associations');
+		try {
+			assert.strictEqual(
+				await repo.provider.config.getGkConfig(worktree.path, key, { throwOnError: true }),
+				'["shared"]',
+			);
+		} finally {
+			worktree.cleanup();
+		}
+	});
+
+	(['config directory', 'parent file'] as const).forEach(fault => {
+		test(`strict reads reject a ${fault} even after an ordinary read cached it as empty`, async () => {
+			const key = 'branch.main.gk-associated-issues';
+			await repo.provider.config.setGkConfig(repo.path, key, '["old1","old2"]');
+			const folder = join(repo.path, '.git', 'gk');
+			const configPath = join(folder, 'config');
+			if (fault === 'config directory') {
+				rmSync(configPath);
+				mkdirSync(configPath);
+			} else {
+				rmSync(folder, { recursive: true });
+				writeFileSync(folder, 'blocked');
+			}
+
+			assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, key), undefined);
+			await assert.rejects(repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }));
+		});
+
+		test(`strict retry after a ${fault} preserves stored associations without cache invalidation`, async () => {
+			const key = 'branch.main.gk-associated-issues';
+			await repo.provider.config.setGkConfig(repo.path, key, '["old1","old2"]');
+			const folder = join(repo.path, '.git', 'gk');
+			const configPath = join(folder, 'config');
+			const before = readFileSync(configPath);
+			if (fault === 'config directory') {
+				rmSync(configPath);
+				mkdirSync(configPath);
+			} else {
+				rmSync(folder, { recursive: true });
+				writeFileSync(folder, 'blocked');
+			}
+
+			await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true }).catch(() => {});
+			await assert.rejects(
+				repo.provider.config.setGkConfig(repo.path, key, '["failed"]', { throwOnError: true }),
+			);
+			rmSync(folder, { recursive: true });
+			mkdirSync(folder);
+			writeFileSync(configPath, before);
+
+			const encoded = await repo.provider.config.getGkConfig(repo.path, key, { throwOnError: true });
+			const associated = encoded ? (JSON.parse(encoded) as string[]) : [];
+			associated.push('new');
+			await repo.provider.config.setGkConfig(repo.path, key, JSON.stringify(associated), { throwOnError: true });
+			assert.deepStrictEqual(JSON.parse(gkConfig(repo.path, key)!), ['old1', 'old2', 'new']);
+		});
+	});
+
+	test('strict writes reject a lock failure even when its path matches a Git warning', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'gitlens-no such path-'));
+		const path = join(root, 'repo');
+		const provider = createProvider();
+		const key = 'branch.main.gk-associated-issues';
+		try {
+			execFileSync('git', ['clone', '--no-hardlinks', repo.path, path], { stdio: 'pipe' });
+			await provider.config.setGkConfig(path, key, '["old"]', { throwOnError: true });
+			const configPath = join(path, '.git', 'gk', 'config');
+			const before = readFileSync(configPath, 'utf8');
+			writeFileSync(`${configPath}.lock`, '');
+			const publications = sinon.spy(provider.cache, 'recordGkConfigWrite');
+			await assert.doesNotReject(provider.config.setGkConfig(path, key, '["ordinary"]'));
+			const ordinaryPublications = publications.callCount;
+			await assert.rejects(provider.config.setGkConfig(path, key, '["strict"]', { throwOnError: true }));
+			assert.strictEqual(readFileSync(configPath, 'utf8'), before);
+			assert.strictEqual(publications.callCount, ordinaryPublications);
+		} finally {
+			provider.dispose();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test('a strict write does not join an ordinary write that silently fails to prepare storage', async () => {
+		const key = 'branch.main.gk-associated-issues';
+		writeFileSync(join(repo.path, '.git', 'gk'), 'blocked');
+		const results = await Promise.allSettled([
+			repo.provider.config.setGkConfig(repo.path, key, '[]'),
+			repo.provider.config.setGkConfig(repo.path, key, '[]', { throwOnError: true }),
+		]);
+		assert.strictEqual(results[0].status, 'fulfilled');
+		assert.strictEqual(results[1].status, 'rejected');
+		assert.strictEqual(existsSync(join(repo.path, '.git', 'gk', 'config')), false);
 	});
 });
 

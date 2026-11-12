@@ -185,12 +185,12 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(commitBottom).not.toBeVisible();
 	});
 
-	test('review idle shows explain input with "Start Review" button', async () => {
+	test('review idle shows explain input with run button', async () => {
 		const reviewChip = graphWebview.locator('gl-action-chip[icon="checklist"]');
 		await reviewChip.click();
 
-		// The gl-ai-input should be present with "Start Review" label
-		const explainInput = graphWebview.locator('gl-ai-input[button-label="Start Review"]');
+		// The gl-ai-input (idle run control) should be present
+		const explainInput = graphWebview.locator('gl-ai-input.review-action-input');
 		await expect(explainInput).toBeVisible({ timeout: MaxTimeout });
 	});
 

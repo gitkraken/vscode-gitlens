@@ -15,6 +15,7 @@ import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js'
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -64,7 +65,9 @@ import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDis
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
+import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import { isPullRequestQueued } from '../shared/mergeQueue.utils.js';
 import { AccountLaunchpadController } from './accountLaunchpadController.js';
 import { graphCoachMarks } from './components/coachMarks.js';
 import type { CapturedComparison } from './components/detailsState.js';
@@ -79,6 +82,7 @@ import type {
 } from './components/gl-graph-timeline.js';
 import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
 import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
+import { PausableRecheckTimer, queuedPullRequestRecheckMs } from './components/queuedPullRequestRecheck.js';
 import type { PullRequestSheetPayload, PullRequestSheetTarget, SheetKind } from './components/sheetStack.js';
 import { sheetKey } from './components/sheetStack.js';
 import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
@@ -692,6 +696,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** One-shot guard for the account rollup context wiring (see `updated()`). */
 	private _accountContextsInitialized = false;
 
+	/** One-shot guard for the `pullRequest.onPullRequestChanged` subscription (same `services` pattern as above). */
+	private _pullRequestChangedInitialized = false;
+	private _pullRequestChangedUnsubscribe: (() => void) | undefined;
+
+	/** The queued pull requests open pull request sheets show, by number, as the details panel last reported them. */
+	private _queuedPullRequestSheets: readonly string[] = [];
+	/** One recheck for every queued pull request on screen — the open sheets' and the header PR pill's. Nothing local
+	 *  notices a pull request leaving its merge queue, so without it they'd claim "queued" indefinitely. */
+	private readonly _queuedPullRequestRecheck = new PausableRecheckTimer(queuedPullRequestRecheckMs);
+	private _queuedPullRequestRecheckScope = new AbortController();
+
 	/** Launchpad + account rollup context bootstrap and teardown (see {@link AccountLaunchpadController});
 	 *  started from `updated()` once `services` resolves. */
 	private readonly accountLaunchpad = new AccountLaunchpadController(this, {
@@ -778,6 +793,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _lastGraphSize: { width: number; height: number } | undefined;
 	private _graphSizeObserver: ResizeObserver | undefined;
 	private _releaseSuspensionRafId: number | undefined;
+	/** The host reports `visible` also while the graph stays shown (an editor beside it focused); the app runs once shown */
+	private _webviewShown = true;
+
+	/** Focus given to the webview itself (its tab, a focus command, a group switch) goes on to the rows, as on a show */
+	private readonly onWindowFocus = (): void => {
+		if (document.activeElement == null || document.activeElement === document.body) {
+			this.graph?.focus();
+		}
+	};
 
 	/** Applies the host's shortcut customization to {@link keymap} — a no-op unless the host pushed a
 	 *  new `shortcuts` config object since the last apply. Called from {@link willUpdate} on every
@@ -797,10 +821,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
+		this._queuedPullRequestRecheckScope = new AbortController();
+		// The header's PR pill reads `branchState`, a signal: follow it here without re-rendering the whole app on each
+		// change. Disposed on disconnect.
+		this.updateEffect(() => this.syncQueuedPullRequestRecheck());
+
 		// A reconnect's `keymap` is fresh (see `disconnectedCallback`'s `keymap.dispose()`), so force
 		// the next `applyShortcutsConfig()` to re-apply even if the host's `shortcuts` config object
 		// is still the same identity as before disconnect.
 		this._appliedShortcutsConfig = undefined;
+		window.addEventListener('focus', this.onWindowFocus);
 
 		registerGraphKeymap(this.keymap, {
 			isGraphModeShortcut: () => this.isGraphModeShortcut(),
@@ -894,6 +924,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
+		window.removeEventListener('focus', this.onWindowFocus);
+		this._queuedPullRequestRecheckScope.abort();
+		this._queuedPullRequestRecheck.dispose();
+		this._pullRequestChangedUnsubscribe?.();
+		this._pullRequestChangedUnsubscribe = undefined;
+		this._pullRequestChangedInitialized = false;
 		// Abort in-flight AI runs — this element owns the registry, so teardown cancels them here.
 		abortRunningOperations(this._crossPaneState);
 		// Flush any pending debounced persist write so close-within-200ms-of-a-toggle doesn't
@@ -958,7 +994,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
-		if (!visible) return;
+		const shown = visible && !this._webviewShown;
+		this._webviewShown = visible;
+		if (!shown) return;
 
 		this._hoverTrackingCounter.reset();
 		this._selectionTrackingCounter.reset();
@@ -1707,6 +1745,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.accountLaunchpad.initNotifications(this.services);
 		}
 
+		if (!this._pullRequestChangedInitialized && this.services != null) {
+			this._pullRequestChangedInitialized = true;
+			void this.subscribeToPullRequestChanges(this.services);
+		}
+
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
 		// always belongs to the repo that was active when `openTimelineScope` ran. If the user
 		// switches repos before scope-applied fires, restoring that mode on the new repo would
@@ -2061,6 +2104,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@select-commit=${this.handleSelectCommit}
 					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
 					@gl-graph-sheet-stack-change=${this.handleSheetStackChange}
+					@gl-graph-queued-pr-sheets-change=${this.handleQueuedPullRequestSheetsChange}
 					@gl-detail-sheet-closing=${this.handleDetailSheetClosing}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
@@ -2073,6 +2117,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-reveal-location=${this.handleGraphRevealLocation}
 					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-dequeue-pull-request=${this.handleDequeuePullRequest}
 					@gl-graph-rebase-stack=${this.handleRebaseStack}
 					@gl-graph-pr-compare=${this.handlePrCompare}
 					@gl-graph-pr-review=${this.handlePrReview}
@@ -2453,7 +2498,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  session is already gone (the legacy fire-and-forget command never surfaced errors either). */
 	private handlePrReview = async (e: CustomEvent<{ url: string }>): Promise<void> => {
 		const commands = await this.services?.commands;
-		// The wizard only auto-selects the pull request when useDefaults rides along with prUrl
 		void commands?.execute('gitlens.startReview', {
 			prUrl: e.detail.url,
 			useDefaults: true,
@@ -2509,6 +2553,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			stack?: { number: number; position: number };
 			mergeMethod?: 'merge' | 'squash' | 'rebase';
 			confirmed?: boolean;
+			queue?: boolean;
 		}>,
 	): Promise<void> => {
 		const pullRequest = await this.services?.pullRequest;
@@ -2517,11 +2562,115 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const response = await pullRequest.merge(e.detail.number, {
 			mergeMethod: e.detail.mergeMethod,
 			confirmed: e.detail.confirmed,
+			queue: e.detail.queue,
 		});
 		if (response?.merged === true) {
 			this.detailsPanelEl?.markPullRequestMerged(e.detail.number, e.detail.stack);
+		} else {
+			// Not merged, but it may have joined its merge queue — or the host's fresh read found it already queued,
+			// or needing one — so any open sheet re-reads it rather than keep offering a stale action
+			void this.refreshPullRequestSheets(e.detail.number);
 		}
+		// Working Changes shows the same pull request for its branch, and its next steps follow its queue state
+		this.detailsPanelEl?.refreshWipPullRequest(e.detail.number);
 	};
+
+	/** Remove from Merge Queue — from the pull request sheet, already confirmed in place. */
+	private handleDequeuePullRequest = async (e: CustomEvent<{ number: string }>): Promise<void> => {
+		const pullRequest = await this.services?.pullRequest;
+		if (pullRequest == null) return;
+
+		await pullRequest.dequeue(e.detail.number, { confirmed: true });
+		void this.refreshPullRequestSheets(e.detail.number);
+		this.detailsPanelEl?.refreshWipPullRequest(e.detail.number);
+	};
+
+	/** Re-reads a pull request whose state an action may have changed, and swaps it into any open sheet showing it.
+	 *  `fresh` reads it past the host's cache, which also catches the header's PR pill up when it's the same one. */
+	private async refreshPullRequestSheets(number: string, options?: { fresh?: boolean; url?: string }): Promise<void> {
+		const resolved = await this._sidebarActions?.resolvePullRequestSheet(
+			{ number: number, url: options?.url },
+			options?.fresh ? { fresh: true } : undefined,
+		);
+		if (resolved?.pr == null) return;
+
+		this.detailsPanelEl?.updatePullRequest(resolved.pr);
+	}
+
+	/** Follows the host's word that a pull request moved under what the sheets show (see `onPullRequestChanged`). */
+	private async subscribeToPullRequestChanges(services: NonNullable<typeof this.services>): Promise<void> {
+		try {
+			const unsubscribe = await subscribeAll([
+				async () => {
+					const pullRequest = await services.pullRequest;
+					return pullRequest.onPullRequestChanged(e => {
+						void this.refreshPullRequestSheets(e.number);
+						this.detailsPanelEl?.refreshWipPullRequest(e.number);
+					});
+				},
+			]);
+			// Disconnected while subscribing — `disconnectedCallback` had nothing to release yet
+			if (!this.isConnected) {
+				unsubscribe();
+				return;
+			}
+
+			this._pullRequestChangedUnsubscribe = unsubscribe;
+		} catch {
+			// A failed subscription shouldn't break the graph — the sheet still re-reads once the action returns.
+		}
+	}
+
+	private readonly handleQueuedPullRequestSheetsChange = (e: CustomEvent<{ numbers: string[] }>): void => {
+		this._queuedPullRequestSheets = e.detail.numbers;
+		this.syncQueuedPullRequestRecheck();
+	};
+
+	/** The queued pull requests on screen, by number: the open sheets' and the header PR pill's. The pill's carries
+	 *  its url so the host reads it from its own repository, and wins over a sheet's bare number for the same one. */
+	private getQueuedPullRequestsShown(): { number: string; url?: string }[] {
+		const shown = new Map<string, string | undefined>();
+		for (const number of this._queuedPullRequestSheets) {
+			shown.set(number, undefined);
+		}
+
+		const pillPr = this.graphState.branchState?.pr;
+		if (pillPr != null && isPullRequestQueued(pillPr)) {
+			shown.set(getPullRequestNumberFromUrl(pillPr.url) ?? pillPr.id, pillPr.url);
+		}
+
+		return Array.from(shown, ([number, url]) => ({ number: number, url: url }));
+	}
+
+	/** Keeps one recheck pending while any queued pull request is on screen, and none once there isn't. A pending one
+	 *  stays put as what's on screen changes — it rechecks whatever is queued when it comes due. */
+	private syncQueuedPullRequestRecheck(): void {
+		if (this.getQueuedPullRequestsShown().length === 0) {
+			this._queuedPullRequestRecheck.cancel();
+			return;
+		}
+
+		if (this._queuedPullRequestRecheck.pending) return;
+
+		this._queuedPullRequestRecheck.schedule(
+			() => void this.recheckQueuedPullRequests(),
+			this._queuedPullRequestRecheckScope.signal,
+		);
+	}
+
+	/** Re-reads every queued pull request on screen past the host's cache, updating the sheets in place (no loading
+	 *  form) and, through the host, the header's PR pill. Then asks again later for whatever is still queued — a
+	 *  failed read included, since the queued copy it couldn't replace is still on screen. */
+	private async recheckQueuedPullRequests(): Promise<void> {
+		await Promise.allSettled(
+			this.getQueuedPullRequestsShown().map(pr =>
+				this.refreshPullRequestSheets(pr.number, { fresh: true, url: pr.url }),
+			),
+		);
+		if (this._queuedPullRequestRecheckScope.signal.aborted) return;
+
+		this.syncQueuedPullRequestRecheck();
+	}
 
 	/** Rebase Stack — from the pull request sheet's split button or the sidebar stack row's action.
 	 *  Fire-and-forget on this side too: the host command owns confirmation and progress reporting. */
@@ -2822,6 +2971,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-dequeue-pull-request=${this.handleDequeuePullRequest}
 					@gl-graph-rebase-stack=${this.handleRebaseStack}
 					@gl-graph-pr-compare=${this.handlePrCompare}
 					@gl-graph-pr-review=${this.handlePrReview}

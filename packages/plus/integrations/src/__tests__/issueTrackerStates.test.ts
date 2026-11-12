@@ -103,6 +103,9 @@ function toApiIssue(node: LinearNode) {
 		team: { id: 'team-1', name: 'Team', key: 'TEAM', icon: null },
 		state: { id: `state-${node.type}`, name: node.type, color: '#000', type: node.type },
 		projectMilestone: null,
+		// Synced with nothing, as Linear answers for an issue outside its GitHub Issues sync: one the viewer created but
+		// someone else is assigned is not part of their issues.
+		syncedWith: [],
 	};
 }
 
@@ -728,6 +731,49 @@ suite('Issue tracker state selector (#5911)', () => {
 				assert.equal(mixed.fetchFailed, true);
 				assert.match(mixed.warnings[0]?.message ?? '', /another issue state/);
 				assert.deepEqual(calls, [], "window 1's closed issues would otherwise be skipped");
+			}));
+
+		test('a narrowed read whose discovery failed accepts its own retry cursor', () =>
+			withManager(async manager => {
+				const linear = await connected(manager, IssuesCloudHostIntegrationId.Linear, 'linear.app');
+				const calls: { id: string; state: unknown }[] = [];
+				let discoveryFails = true;
+				linear.getResourcesForUserResult = () =>
+					Promise.resolve(
+						discoveryFails
+							? { error: new Error('boom') }
+							: { value: [{ id: 'org-1', key: 'org', name: 'Org' }] },
+					);
+				linear.getProjectsForResourcesWithMetadataResult = () =>
+					Promise.resolve({
+						value: { values: [{ id: 'p1', key: 'P1', name: 'P1', resourceId: 'org-1' }] },
+					});
+				linear.getIssuesForProjectWithTruncationResult = (
+					project: { id: string },
+					options: { state?: unknown },
+				) => {
+					calls.push({ id: project.id, state: options.state });
+					return Promise.resolve({ value: { values: [], truncated: false } });
+				};
+				const read = (cursor?: string) =>
+					manager.listIssueTrackerIssuesPage({
+						providerId: IssuesCloudHostIntegrationId.Linear,
+						includeAllAssignees: true,
+						itemsPerPage: 1,
+						state: 'closed',
+						cursor: cursor,
+					});
+
+				const failed = await read();
+				assert.equal(failed.fetchFailed, true);
+				assert.ok(failed.cursor != null, 'the failed page hands back a retry cursor');
+				assert.deepEqual(calls, []);
+
+				discoveryFails = false;
+				const retried = await read(failed.cursor);
+				assert.deepEqual(retried.warnings, []);
+				assert.equal(retried.fetchFailed, undefined);
+				assert.deepEqual(calls, [{ id: 'p1', state: 'closed' }], 'the retry reads the window it missed');
 			}));
 
 		test('direct provider reads refuse a state outside the vocabulary before any request', () =>

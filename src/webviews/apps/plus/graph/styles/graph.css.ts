@@ -33,7 +33,7 @@ export const actionButton = css`
 		font-family: inherit;
 		font-size: var(--gl-font-md);
 		line-height: 2.2rem;
-		color: var(--vscode-foreground);
+		color: var(--gl-color-action-quiet-fg);
 		text-decoration: none;
 		appearance: none;
 		cursor: pointer;
@@ -50,9 +50,15 @@ export const actionButton = css`
 	}
 
 	.action-button:hover {
-		color: var(--vscode-foreground);
+		color: var(--gl-color-action-quiet-fg);
 		text-decoration: none;
-		background-color: var(--color-graph-actionbar-selectedBackground);
+		background-color: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.action-button:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.action-button[aria-checked] {

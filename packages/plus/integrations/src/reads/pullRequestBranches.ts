@@ -1,11 +1,11 @@
-import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
 import { isAzureProviderId } from '../providers/providerErrors.js';
-import type { ProviderResult, ProviderWarning } from '../results.js';
+import type { ProviderResult, ProviderWarning, PullRequestBranchResult, PullRequestBranchTarget } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
-import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import { appendBatchSlotWarning } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
@@ -26,52 +26,6 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
 /** Pull requests returned per target. */
 const pullRequestsForBranchLimit = 10;
 
-/** One branch whose pull requests to find, echoed back under the caller's own `key`. */
-export interface PullRequestBranchTarget {
-	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
-	key: string;
-	/**
-	 * The repository the pull requests are OPENED AGAINST (their base), as in `PullRequestBatchTarget`: GitHub
-	 * owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or Azure
-	 * DevOps organization.
-	 */
-	owner: string;
-	/** Repository name or slug. */
-	repo: string;
-	/** Azure DevOps project. Required there, ignored elsewhere. */
-	project?: string;
-	/** The head branch's short name, without `refs/heads/`. */
-	branch: string;
-	/**
-	 * Owner (GitHub user or org, GitLab namespace, Bitbucket workspace) of the repository the branch lives in, when
-	 * it's a fork. Omitted, or equal to `owner` (ignoring case), means the branch lives in the base repository itself,
-	 * so a caller can pass the owner of whichever remote the branch was pushed to.
-	 *
-	 * A different owner is refused on Bitbucket Data Center and Azure DevOps, where a fork can't be found by its
-	 * owner.
-	 */
-	headOwner?: string;
-}
-
-/** The answer for one {@link PullRequestBranchTarget}. */
-export interface PullRequestBranchResult {
-	key: string;
-	/**
-	 * Every pull request whose head is this branch, in ANY state — open, closed and merged — most recently updated
-	 * first, up to a per-target cap. An empty array is a PROVEN "none" unless `truncated` is set. A target whose
-	 * read failed is not returned at all.
-	 */
-	pullRequests: PullRequestShape[];
-	/**
-	 * Set when a pull request that wasn't returned could still match: more matched than the cap, or the host held
-	 * more pull requests of this branch name than it returned and couldn't rule them out. GitHub/GHE rule them out
-	 * with a second request filtered by head owner, so there it means more than the cap truly match. That request
-	 * can't see a pull request from a since-deleted fork, so on GitHub/GHE such a pull request outside the first
-	 * request's page can be missing even when this is not set.
-	 */
-	truncated?: boolean;
-}
-
 export async function getPullRequestsForBranches(
 	ctx: ProviderReadContext,
 	options: {
@@ -83,6 +37,8 @@ export async function getPullRequestsForBranches(
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		mergeQueue?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBranchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBranchResult> => ({
@@ -135,6 +91,9 @@ export async function getPullRequestsForBranches(
 	}
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
+	// Resolved once, so the by-name query and the batch read that settles a truncated target select the same data
+	// and one target's rows never disagree on it, even if the host's setting changes while the call is in flight.
+	const mergeQueue = options.mergeQueue ?? ctx.getPullRequestReadOptions().mergeQueue === true;
 	const currentAccount = await getCurrentAccountIdentity(integration, options.connectionId);
 
 	const warnings: ProviderWarning[] = [];
@@ -153,7 +112,7 @@ export async function getPullRequestsForBranches(
 					branch: t.branch,
 					headOwner: forkOwner(t),
 				})),
-				{ currentAccount: currentAccount, limit: pullRequestsForBranchLimit },
+				{ currentAccount: currentAccount, limit: pullRequestsForBranchLimit, mergeQueue: mergeQueue },
 				undefined,
 				options.connectionId,
 			),
