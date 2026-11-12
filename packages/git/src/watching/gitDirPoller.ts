@@ -280,6 +280,7 @@ export class GitDirProbeTarget implements PollTarget {
 	private readonly signatures = new Map<string, string>();
 	/** For each poll whose stats are in flight, the paths {@link forget} cleared meanwhile, which it must not record */
 	private readonly forgottenDuringPolls = new Set<Set<string>>();
+	private racyReadings = 0;
 
 	constructor(
 		private readonly basePath: string,
@@ -288,6 +289,14 @@ export class GitDirProbeTarget implements PollTarget {
 		/** For each path a probe may be emitted as, the paths of the probes emitted as it */
 		private readonly probesByEmittedPath: ReadonlyMap<string, readonly string[]>,
 		private readonly onMoved: (event: FileWatchEvent, probe: GitDirProbe) => void,
+		private readonly options?: {
+			/**
+			 * Whether a reading can't be trusted to show the next change, as on a file system whose timestamps tick
+			 * too coarsely to tell a write just after the stat from the one before it. Such a reading is recorded as
+			 * matching no other, so the probe counts as moved at its next read. Given the absolute path it was read from
+			 */
+			readonly isRacy?: (stat: NonNullable<GitDirStat>, path: string) => boolean;
+		},
 	) {}
 
 	async poll(): Promise<void> {
@@ -359,8 +368,12 @@ export class GitDirProbeTarget implements PollTarget {
 
 	private async read(path: string): Promise<string | undefined> {
 		try {
-			const stat = await this.stats.stat(joinPaths(this.basePath, path));
-			return stat == null ? 'missing' : `${stat.mtime}:${stat.size}`;
+			const absolutePath = joinPaths(this.basePath, path);
+			const stat = await this.stats.stat(absolutePath);
+			if (stat == null) return 'missing';
+
+			const signature = `${stat.mtime}:${stat.size}`;
+			return this.options?.isRacy?.(stat, absolutePath) ? `${signature}:racy:${++this.racyReadings}` : signature;
 		} catch {
 			return undefined;
 		}

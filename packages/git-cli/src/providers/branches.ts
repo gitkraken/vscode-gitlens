@@ -6,10 +6,11 @@ import type {
 } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { BranchError } from '@gitlens/git/errors.js';
-import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/branch.js';
+import type { BranchDisposition, BranchMetadata, GitCurrentHead } from '@gitlens/git/models/branch.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitBranchReference, RefRecord } from '@gitlens/git/models/reference.js';
+import type { GitReflogEntry } from '@gitlens/git/models/reflog.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type {
 	AheadOfBase,
@@ -37,7 +38,7 @@ import {
 } from '@gitlens/git/utils/branch.utils.js';
 import { createConflictDetectionError } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { createRevisionRange, isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { BranchSortOptions } from '@gitlens/git/utils/sorting.js';
 import { sortBranches, sortContributors } from '@gitlens/git/utils/sorting.js';
 import { ensureArray, filterMap } from '@gitlens/utils/array.js';
@@ -46,6 +47,7 @@ import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
@@ -54,6 +56,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue, mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import type { Uri } from '@gitlens/utils/uri.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { mayWriteTracking } from '../exec/commandClassifier.js';
@@ -110,6 +113,151 @@ const maxOffHistoryCommits = 64;
  */
 type BaseMovedForward = { readonly offHistory: readonly string[]; readonly logged: ReadonlySet<string> };
 
+/**
+ * A base's fork point and HEAD's count past it; `counted` when the count was taken past a fork point the base was
+ * rewritten off, rather than being the count past the merge base it was given
+ */
+type SettledForkPoint = { readonly forkPoint: string | undefined; readonly ahead: number; readonly counted: boolean };
+
+/**
+ * A base's fork point settled from git's reading (see `settleForkPoint`); `rewritten` when it's one the base was
+ * rewritten off, past which HEAD's count isn't its count past the merge base
+ */
+type SettledFork = { readonly forkPoint: string | undefined; readonly rewritten: boolean };
+
+/**
+ * How far down a rewritten base's first-parent history its commits are compared by patch with the ones it lacks below
+ * the fork point. A rebased parent's replayed commits sit at its tip, but a base far ahead would otherwise cost a diff
+ * for each of thousands of commits; one replayed deeper reads as dropped, which shows the commit rather than hides it.
+ */
+const maxPatchCheckDepth = 256;
+
+/** The longest a rewritten base's patch comparison may run before the merge base is taken instead */
+const patchCheckTimeout = 10_000;
+
+/**
+ * How long a patch comparison that ran out of time isn't run again. Running out of time usually means the machine was
+ * busy rather than that the comparison can't finish, so it's tried again later rather than given up on for good
+ */
+const unfinishedPatchCheckTtl = 10 * 60 * 1000;
+
+/** The clock an unfinished patch comparison's expiry is read from, exported for testing */
+export const patchCheckClock = { now: (): number => Date.now() };
+
+/**
+ * One line of a ref's reflog file: the value it moved from, the one it moved to, and whether its message shows a move
+ * to a descendant (see {@link isForwardReflogMessage})
+ */
+type ReflogLine = { readonly from: string; readonly to: string; readonly forward: boolean };
+
+/** `<old> <new> <identity> <time> <zone>\t<message>`, oldest first; `undefined` when a line isn't one */
+function parseReflogLines(content: string): ReflogLine[] | undefined {
+	const lines: ReflogLine[] = [];
+	for (const line of content.split('\n')) {
+		if (!line) continue;
+
+		const tab = line.indexOf('\t');
+		const first = line.indexOf(' ');
+		const second = first < 0 ? -1 : line.indexOf(' ', first + 1);
+		if (first !== 40 && first !== 64) return undefined;
+		if (second !== first * 2 + 1 || (tab >= 0 && tab < second)) return undefined;
+
+		lines.push({
+			from: line.slice(0, first),
+			to: line.slice(first + 1, second),
+			forward: tab >= 0 && isForwardReflogMessage(line.slice(tab + 1)),
+		});
+	}
+	return lines;
+}
+
+/**
+ * Whether git wrote `message` only for a move to a descendant: a fetch, pull or merge that fast-forwarded, a merge
+ * made, or a commit on the ref. Anything else (a forced update, an update by push, a reset, a rebase, an amend) says
+ * nothing either way. The fetch, pull and merge notes are read only after their own verb, since the messages that
+ * carry a commit's subject (an amend's, a cherry-pick's) can end the same way.
+ */
+function isForwardReflogMessage(message: string): boolean {
+	return (
+		/^commit(?: \(merge\))?: /.test(message) ||
+		/^(?:fetch|pull|merge)\b.*: (?:fast-forward$|Merge made by )/i.test(message)
+	);
+}
+
+/**
+ * Whether `lines`, a ref's reflog at `tip`, show `forkPoint` in the tip's history: every move since the newest line
+ * moving off it shown forward, each from the value the one before moved to. So too when the reflog doesn't hold
+ * `forkPoint` at all: `--fork-point` answers only with the tip or a value the reflog holds (the oldest line's old value
+ * or any line's new one), so one it doesn't hold is the merge base. `false` when they can't show it: a move whose
+ * message doesn't, a reflog that doesn't end at `tip`, or one holding `forkPoint` with no line moving off it (a gap).
+ */
+function isForkPointKeptByReflog(lines: readonly ReflogLine[], forkPoint: string, tip: string): boolean {
+	if (!lines.length) return true;
+	if (lines.at(-1)!.to !== tip) return false;
+
+	let held = lines[0].from === forkPoint;
+	let off = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const { from, to } = lines[i];
+		if (to === forkPoint) {
+			held = true;
+		} else if (from === forkPoint) {
+			off = i;
+		}
+	}
+	if (!held) return true;
+	if (off < 0) return false;
+
+	for (let i = off; i < lines.length; i++) {
+		const { from, to, forward } = lines[i];
+		const chained = i === off || from === lines[i - 1].to;
+		if (!chained || (from !== to && !forward)) return false;
+	}
+	return true;
+}
+
+/**
+ * Where HEAD forked from a base rewritten off `forkPoint`, from `rev-list --left-only --cherry-mark --parents` of
+ * `<forkPoint>...<tip>`: the commits `forkPoint` holds that the base lacks, each `=` when the base holds one of the same
+ * patch (it replayed it, as a rebase does) and `+` when not (HEAD's own). That's the newest commit on their line below
+ * which every one is `=`, so `forkPoint` when all are. `undefined`, for the merge base, when the oldest is `+`, there
+ * are none to read (a fork point git can't find reads as none too), or they aren't one line: a merge has no patch to
+ * compare, so it and what it joins are taken as HEAD's.
+ *
+ * Git takes any two empty commits as the same patch, so an empty commit the base dropped reads as replayed while the
+ * base's newest commits hold an unrelated empty one, and can be left out of HEAD's commits.
+ */
+function getForkPointFromPatches(output: string, forkPoint: string): string | undefined {
+	const commits = new Map<string, { readonly equivalent: boolean; readonly parents: readonly string[] }>();
+	for (const line of output.split('\n')) {
+		if (!line) continue;
+
+		const mark = line[0];
+		const [sha, ...parents] = line.slice(1).split(' ');
+		if ((mark !== '=' && mark !== '+') || !sha) return undefined;
+
+		commits.set(sha, { equivalent: mark === '=', parents: parents });
+	}
+
+	let settled = forkPoint;
+	let sha = forkPoint;
+	let walked = 0;
+	for (let commit = commits.get(sha); commit != null; commit = commits.get(sha)) {
+		const [parent] = commit.parents;
+		if (parent == null || commit.parents.length !== 1) return undefined;
+
+		walked++;
+		sha = parent;
+		if (!commit.equivalent) {
+			settled = parent;
+		}
+	}
+	// `sha` is now the base's own commit under the line, which is for the merge base to decide
+	if (walked === 0 || walked !== commits.size || settled === sha) return undefined;
+
+	return settled;
+}
+
 /** Reads a `%(ahead-behind:<base>)` field, `<ahead> <behind>`; `undefined` when it isn't one */
 function parseAheadBehindField(field: string | undefined): { ahead: number; behind: number } | undefined {
 	const [ahead, behind] = (field ?? '').split(' ').map(n => parseInt(n, 10));
@@ -125,6 +273,51 @@ function toRefPatterns(refs: ReadonlySet<string>): string[] | undefined {
 
 /** The stored keys a merge target is read from: the user's pick, the detected target and its legacy key, and the recorded base */
 const storedMergeKeys = ['gk-merge-target-user', 'gk-merge-target', 'gk-target-base', 'gk-merge-base'] as const;
+
+/**
+ * `branch`, from the list shared by a repository's worktrees, as `repoPath` sees it. The copy holds the same metadata
+ * object, which `Cache.patchBranchMetadata` updates in place.
+ *
+ * A list read before a checkout gives the branch now current `worktree: false`, or the worktree it was checked out in
+ * then. `keepUnlisted` keeps those placements, so a reader of the whole list (`findStaleBranches`) can tell the list
+ * is stale. Otherwise the current branch names `repoPath`, and a branch that isn't current but that the list places at
+ * `repoPath` was left by the checkout, so it gets `worktree: false`. `isCurrent` is `undefined` when `repoPath`'s
+ * current branch couldn't be read, so the list's placement stands.
+ */
+function mapSharedBranch(
+	branch: GitBranch,
+	repoPath: string,
+	commonPath: string,
+	isCurrent: boolean | undefined,
+	defaultWorktreePath: string | undefined,
+	keepUnlisted: boolean,
+): GitBranch {
+	// For current branch, ensure worktree is set (fallback when git doesn't support worktreePath)
+	let worktree = branch.worktree;
+	if (isCurrent) {
+		if (worktree == null || (!keepUnlisted && (worktree === false || worktree.path !== repoPath))) {
+			worktree = { path: repoPath, isDefault: repoPath === defaultWorktreePath };
+		}
+	} else if (!keepUnlisted && isCurrent === false && worktree !== false && worktree?.path === repoPath) {
+		worktree = false;
+	}
+
+	// Only create new object if something changed
+	if (!isCurrent && repoPath === commonPath && worktree === branch.worktree) return branch;
+
+	return new GitBranch(
+		repoPath, // Use target worktree path
+		branch.refName,
+		isCurrent ?? false,
+		branch.date,
+		branch.metadata,
+		branch.sha,
+		branch.upstream,
+		worktree,
+		false, // detached - only true for detached HEAD branch itself
+		false, // rebasing - only true for detached HEAD branch in rebase
+	);
+}
 
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
@@ -161,6 +354,22 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			readonly read: Promise<ReadonlyMap<string, number> | undefined>;
 		}
 	>(64);
+	/**
+	 * Each base's reflog file, parsed, by `<commonPath>\0<ref>` and stamped by its size and mtime, so every worktree
+	 * measured against one base shares one read of it until it changes
+	 */
+	private readonly baseReflogs = new LruMap<
+		string,
+		{ readonly stamp: string; readonly lines: Promise<readonly ReflogLine[] | undefined> }
+	>(64);
+	/** Whether the repository at a common git directory keeps its refs and reflogs in reftables, by `<commonPath>` */
+	private readonly reftableRepositories = new LruMap<string, Promise<boolean>>(64);
+	/**
+	 * When each patch comparison that ran out of time, by `<commonPath>\0<forkPoint>\0<tip>`, may run again (see
+	 * {@link patchCheckClock}). The merge base it falls back to is the safe answer, so one that ran out of time isn't
+	 * run again on every full read of the base while the machine is likely still as busy
+	 */
+	private readonly unfinishedPatchChecks = new LruMap<string, number>(256);
 	/**
 	 * When each `commonPath\0branch\0key` was last stamped by this process. Bounded: a dropped entry only costs a
 	 * read of the stored stamp, which still holds off a write under 5 minutes old
@@ -202,36 +411,145 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined> {
+		const scope = getScopedLogger();
+
 		if (options?.force) {
 			this.cache.evictCaches(repoPath, 'branches');
 		}
 
-		if (name != null) {
-			const {
-				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.name === name }, cancellation);
-			return branch;
+		if (name != null) return (await this.getBranchFromSharedList(repoPath, name, scope, cancellation)).branch;
+
+		const validation = this.cache.validateBeforeRead(repoPath);
+		if (validation != null) {
+			await validation;
 		}
 
-		const branchPromise = this.cache.branch.getOrCreate(
+		return this.cache.branch.getOrCreate(
 			repoPath,
-			async (_cacheable, signal) => {
-				const {
-					values: [branch],
-				} = await this.getBranches(repoPath, { filter: b => b.current }, signal);
-				return branch ?? this.getCurrentBranch(repoPath, undefined, undefined, signal);
+			async (cacheable, signal) => {
+				const result = await this.getBranchFromSharedList(repoPath, undefined, scope, signal);
+				const branch = result.branch ?? (await this.getCurrentBranch(repoPath, undefined, undefined, signal));
+				// An answer from a list that wasn't kept comes from `git log -n1`, without the ahead/behind counts and date
+				// a listing gives. An unborn branch with no upstream has no date either, and nothing a listing could add
+				if (
+					!result.kept &&
+					(branch == null || branch.date != null || branch.sha != null || branch.upstream != null)
+				) {
+					cacheable.invalidate();
+				}
+				return branch;
 			},
 			cancellation,
 		);
+	}
 
-		if (branchPromise == null) {
-			const {
-				values: [branch],
-			} = await this.getBranches(repoPath, { filter: b => b.current }, cancellation);
-			return branch ?? this.getCurrentBranch(repoPath, undefined, undefined, cancellation);
+	/**
+	 * What `getBranches(repoPath)` would answer for the named branch, or for the current one when `name` is omitted,
+	 * without keeping that worktree's copy of the whole list, and whether the shared list it read is still kept
+	 */
+	private async getBranchFromSharedList(
+		repoPath: string,
+		name: string | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<{ branch: GitBranch | undefined; kept: boolean }> {
+		if (repoPath == null) return { branch: undefined, kept: true };
+
+		const commonPath = this.cache.getCommonPath(repoPath);
+
+		// The list comes first: reading it seeds every worktree's current branch reference, so a sweep of the worktrees
+		// runs no rev-parse for each
+		const shared = await this.cache.getSharedBranches(
+			repoPath,
+			(_commonPath, cacheable, signal) =>
+				this.getSharedBranchesCore(commonPath, undefined, scope, cacheable, signal),
+			cancellation,
+		);
+		const kept = this.cache.isSharedBranchesKept(repoPath, shared);
+		const { values } = shared;
+		if (!values.length) return { branch: undefined, kept: kept };
+
+		const { currentRef, defaultWorktreePath, isDetached } = await this.getCurrentRefAndDefaultWorktreePath(
+			repoPath,
+			commonPath,
+			cancellation,
+		);
+
+		const isCurrent = (b: GitBranch): boolean => !b.remote && b.name === currentRef?.name && !isDetached;
+
+		if (name == null) {
+			const current = values.find(isCurrent);
+			if (current != null) {
+				return {
+					branch: mapSharedBranch(current, repoPath, commonPath, true, defaultWorktreePath, false),
+					kept: kept,
+				};
+			}
+			if (currentRef == null) return { branch: undefined, kept: kept };
+
+			const metadataMap = await this.getBranchMetadataMap(commonPath);
+			const branch = await this.getCurrentBranch(
+				repoPath,
+				metadataMap,
+				this.context.config?.commits.ordering ?? undefined,
+				cancellation,
+			);
+			return { branch: branch, kept: kept };
 		}
 
-		return branchPromise;
+		// A list holding no current branch gets one of its own, as `getBranches` builds it. The cached answer is used so
+		// that named reads in a detached worktree don't each run `git log`
+		const special =
+			isDetached || (currentRef != null && !values.some(isCurrent))
+				? await this.getBranch(repoPath, undefined, undefined, cancellation)
+				: undefined;
+
+		// That branch replaces the entry with its id, keeping the list's order, otherwise it goes ahead of them all
+		const replaced =
+			special != null ? values.findIndex(b => b.remote === special.remote && b.name === special.name) : -1;
+		if (replaced === -1 && special?.name === name) return { branch: special, kept: kept };
+
+		const index = values.findIndex((b, i) => (i === replaced ? special?.name : b.name) === name);
+		if (index === -1) return { branch: undefined, kept: kept };
+		if (index === replaced) return { branch: special, kept: kept };
+
+		const branch = values[index];
+		return {
+			branch: mapSharedBranch(
+				branch,
+				repoPath,
+				commonPath,
+				currentRef != null ? isCurrent(branch) : undefined,
+				defaultWorktreePath,
+				false,
+			),
+			kept: kept,
+		};
+	}
+
+	/** The current ref of `repoPath` and the default worktree path of `commonPath`, rejecting if the caller aborted mid-read */
+	private async getCurrentRefAndDefaultWorktreePath(
+		repoPath: string,
+		commonPath: string,
+		cancellation?: AbortSignal,
+	): Promise<{
+		currentRef: GitBranchReference | undefined;
+		defaultWorktreePath: string | undefined;
+		isDetached: boolean;
+	}> {
+		const [currentRefResult, defaultWorktreePathResult] = await Promise.allSettled([
+			this.getCurrentBranchReferenceCore(repoPath, undefined, cancellation),
+			this.provider.config.getDefaultWorktreePath?.(commonPath),
+		]);
+
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const currentRef = getSettledValue(currentRefResult);
+		return {
+			currentRef: currentRef,
+			defaultWorktreePath: getSettledValue(defaultWorktreePathResult),
+			isDetached: currentRef != null && isDetachedHead(currentRef.name),
+		};
 	}
 
 	private async getCurrentBranch(
@@ -294,6 +612,155 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return branch;
 	}
 
+	/** The branches of the repository at `commonPath`, as the list every one of its worktrees maps from */
+	private async getSharedBranchesCore(
+		commonPath: string,
+		ordering: 'date' | 'author-date' | 'topo' | null | undefined,
+		scope: ScopedLogger | undefined,
+		cacheable?: CacheController,
+		signal?: AbortSignal,
+	): Promise<PagedResult<GitBranch>> {
+		try {
+			const [recordsResult, supportedResult, defaultWorktreePathResult, metadataMapResult] =
+				await Promise.allSettled([
+					this.provider.refs.getRefs(commonPath, signal),
+					this.git.supported('git:for-each-ref'),
+					this.provider.config.getDefaultWorktreePath?.(commonPath),
+					this.getBranchMetadataMap(commonPath),
+				]);
+
+			const records = getSettledValue(recordsResult) ?? [];
+			const supported = getSettledValue(supportedResult) ?? [];
+			const metadataMap = getSettledValue(metadataMapResult) ?? new Map<string, BranchMetadata>();
+			const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
+			const worktreePathSupported = supported.includes('git:for-each-ref:worktreePath');
+
+			// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
+			if (!records.length) {
+				// Never CACHE that conclusion. `getRefs` reports a failed enumeration the same way as a
+				// genuinely ref-less repo — an empty array (it invalidates its own entry but doesn't
+				// throw) — so a transient `for-each-ref` failure would otherwise pin this degraded
+				// current-branch-only list in a map with no TTL, and every branch consumer would see a
+				// one-branch repo for the session. A truly empty repo re-reads cheaply, so refusing the
+				// entry costs nothing in the case this is actually meant to serve.
+				cacheable?.invalidate();
+
+				const current = await this.getCurrentBranch(
+					commonPath,
+					metadataMap,
+					ordering ?? this.context.config?.commits.ordering ?? undefined,
+					signal,
+				);
+				return current != null ? { values: [current] } : emptyPagedResult;
+			}
+
+			using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
+
+			const branches: GitBranch[] = [];
+			/** Each branch checked out in a worktree, with that worktree's path and the record the branch was read from */
+			const checkedOut: [path: string, branch: GitBranch, record: RefRecord][] = [];
+
+			// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
+			// told from the upstream's short name alone, so read the remote names once, only if needed
+			let remoteNames: Promise<string[]> | undefined;
+			const resolveUpstreamRemote = async (upstream: string): Promise<string | undefined> => {
+				if (!upstream.startsWith('refs/remotes/')) return undefined;
+
+				const { name } = parseRefName(upstream);
+				if (!name.includes('/', name.indexOf('/') + 1)) return undefined;
+
+				remoteNames ??= this.provider.remotes.getRemotes(commonPath, undefined, signal).then(
+					remotes => {
+						// `getRemotes` answers a failed read as no remotes, which leaves only the first-segment split
+						if (!remotes.length) {
+							cacheable?.invalidate();
+						}
+						return remotes.map(r => r.name);
+					},
+					(ex: unknown) => {
+						if (isCancellationError(ex)) throw ex;
+
+						// Fall back to the first-segment split, but don't cache a list read without the remotes
+						cacheable?.invalidate();
+						return [];
+					},
+				);
+				return splitRemoteBranchName(name, await remoteNames)?.[0];
+			};
+
+			for (const record of records) {
+				const fullName = record.name;
+				// Filter to branches and remote-tracking branches; skip tags from the unified records.
+				if (!fullName.startsWith('refs/heads/') && !fullName.startsWith('refs/remotes/')) continue;
+				// Skip HEAD refs in remote branches
+				if (isRemoteHEAD(fullName)) continue;
+
+				const upstream = parseUpstream(
+					record.upstream,
+					record.upstreamTracking,
+					record.upstreamRemote ??
+						(!worktreePathSupported ? await resolveUpstreamRemote(record.upstream) : undefined),
+					record.upstreamRemoteRef,
+				);
+
+				const metadata = metadataMap.get(parseRefName(fullName).name);
+				const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
+
+				const branch = new GitBranch(
+					commonPath,
+					fullName,
+					false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
+					record.committerDate ? new Date(record.committerDate) : undefined,
+					metadata,
+					record.objectname,
+					upstream,
+					worktreePathSupported
+						? worktreePath
+							? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
+							: false
+						: undefined,
+				);
+				branches.push(branch);
+				if (worktreePathSupported && worktreePath) {
+					checkedOut.push([worktreePath, branch, record]);
+				}
+			}
+
+			sw?.stop({ suffix: ` parsed ${branches.length} branches` });
+
+			// Pre-populate current branch cache for worktrees based on worktreePath info
+			// This eliminates the need for rev-parse calls during branch reconstruction
+			for (const [path, branch, record] of checkedOut) {
+				const { name } = parseRefName(branch.refName);
+				const reference = createReference(name, path, {
+					refType: 'branch',
+					name: name,
+					id: getBranchId(path, false, name),
+					remote: false,
+					upstream: branch.upstream?.name
+						? {
+								name: branch.upstream.name,
+								missing: branch.upstream.missing,
+								remote: branch.upstream.remote,
+								remoteBranch: branch.upstream.remoteBranch,
+								local: branch.upstream.local,
+							}
+						: undefined,
+					sha: branch.sha,
+				});
+				this.cache.setCurrentBranchReferenceIfAbsent(path, reference, record);
+			}
+
+			return branches.length ? { values: branches } : emptyPagedResult;
+		} catch (ex) {
+			// Signal cache invalidation so the shared cache entry is cleaned up
+			cacheable?.invalidate();
+			if (isCancellationError(ex)) throw ex;
+
+			return emptyPagedResult;
+		}
+	}
+
 	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
 	async getBranches(
 		repoPath: string,
@@ -309,154 +776,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (
-			commonPath: string,
-			cacheable?: CacheController,
-			signal?: AbortSignal,
-		): Promise<PagedResult<GitBranch>> => {
-			// Prefer the aggregate signal from the cache when present; fall back to the caller's
-			// own cancellation when bypassing the cache (e.g. paging-cursor path).
-			signal ??= cancellation;
-			try {
-				const [recordsResult, supportedResult, defaultWorktreePathResult, metadataMapResult] =
-					await Promise.allSettled([
-						this.provider.refs.getRefs(commonPath, signal),
-						this.git.supported('git:for-each-ref'),
-						this.provider.config.getDefaultWorktreePath?.(commonPath),
-						this.getBranchMetadataMap(commonPath),
-					]);
-
-				const records = getSettledValue(recordsResult) ?? [];
-				const supported = getSettledValue(supportedResult) ?? [];
-				const metadataMap = getSettledValue(metadataMapResult) ?? new Map<string, BranchMetadata>();
-				const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
-				const worktreePathSupported = supported.includes('git:for-each-ref:worktreePath');
-
-				// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-				if (!records.length) {
-					// Never CACHE that conclusion. `getRefs` reports a failed enumeration the same way as a
-					// genuinely ref-less repo — an empty array (it invalidates its own entry but doesn't
-					// throw) — so a transient `for-each-ref` failure would otherwise pin this degraded
-					// current-branch-only list in a map with no TTL, and every branch consumer would see a
-					// one-branch repo for the session. A truly empty repo re-reads cheaply, so refusing the
-					// entry costs nothing in the case this is actually meant to serve.
-					cacheable?.invalidate();
-
-					const current = await this.getCurrentBranch(
-						commonPath,
-						metadataMap,
-						options?.ordering ?? this.context.config?.commits.ordering ?? undefined,
-						signal,
-					);
-					return current != null ? { values: [current] } : emptyPagedResult;
-				}
-
-				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-
-				const branches: GitBranch[] = [];
-
-				// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
-				// told from the upstream's short name alone, so read the remote names once, only if needed
-				let remoteNames: Promise<string[]> | undefined;
-				const resolveUpstreamRemote = async (upstream: string): Promise<string | undefined> => {
-					if (!upstream.startsWith('refs/remotes/')) return undefined;
-
-					const { name } = parseRefName(upstream);
-					if (!name.includes('/', name.indexOf('/') + 1)) return undefined;
-
-					remoteNames ??= this.provider.remotes.getRemotes(commonPath, undefined, signal).then(
-						remotes => {
-							// `getRemotes` answers a failed read as no remotes, which leaves only the first-segment split
-							if (!remotes.length) {
-								cacheable?.invalidate();
-							}
-							return remotes.map(r => r.name);
-						},
-						(ex: unknown) => {
-							if (isCancellationError(ex)) throw ex;
-
-							// Fall back to the first-segment split, but don't cache a list read without the remotes
-							cacheable?.invalidate();
-							return [];
-						},
-					);
-					return splitRemoteBranchName(name, await remoteNames)?.[0];
-				};
-
-				for (const record of records) {
-					const fullName = record.name;
-					// Filter to branches and remote-tracking branches; skip tags from the unified records.
-					if (!fullName.startsWith('refs/heads/') && !fullName.startsWith('refs/remotes/')) continue;
-					// Skip HEAD refs in remote branches
-					if (isRemoteHEAD(fullName)) continue;
-
-					const upstream = parseUpstream(
-						record.upstream,
-						record.upstreamTracking,
-						record.upstreamRemote ??
-							(!worktreePathSupported ? await resolveUpstreamRemote(record.upstream) : undefined),
-						record.upstreamRemoteRef,
-					);
-
-					const metadata = metadataMap.get(parseRefName(fullName).name);
-					const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
-
-					branches.push(
-						new GitBranch(
-							commonPath,
-							fullName,
-							false, // Don't trust %(HEAD) for current as it's per-worktree -- we will set it later
-							record.committerDate ? new Date(record.committerDate) : undefined,
-							metadata,
-							record.objectname,
-							upstream,
-							worktreePathSupported
-								? worktreePath
-									? { path: worktreePath, isDefault: worktreePath === defaultWorktreePath }
-									: false
-								: undefined,
-						),
-					);
-				}
-
-				sw?.stop({ suffix: ` parsed ${branches.length} branches` });
-
-				// Pre-populate current branch cache for worktrees based on worktreePath info
-				// This eliminates the need for rev-parse calls during branch reconstruction
-				for (const branch of branches) {
-					// oxlint-disable-next-line typescript/prefer-optional-chain
-					if (branch.worktree && branch.worktree.path) {
-						const { name } = parseRefName(branch.refName);
-						const reference = createReference(name, branch.worktree.path, {
-							refType: 'branch',
-							name: name,
-							id: getBranchId(branch.worktree.path, false, name),
-							remote: false,
-							upstream: branch.upstream?.name
-								? {
-										name: branch.upstream.name,
-										missing: branch.upstream.missing,
-										remote: branch.upstream.remote,
-										remoteBranch: branch.upstream.remoteBranch,
-										local: branch.upstream.local,
-									}
-								: undefined,
-							sha: branch.sha,
-						});
-						this.cache.setCurrentBranchReferenceIfAbsent(branch.worktree.path, reference);
-					}
-				}
-
-				return branches.length ? { values: branches } : emptyPagedResult;
-			} catch (ex) {
-				// Signal cache invalidation so the shared cache entry is cleaned up
-				cacheable?.invalidate();
-				if (isCancellationError(ex)) throw ex;
-
-				return emptyPagedResult;
-			}
-		};
-
 		// Mapper function that adjusts branches for a specific worktree
 		const mapBranches = async (
 			shared: PagedResult<GitBranch>,
@@ -471,37 +790,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			mapperSignal ??= cancellation;
 
 			// Get current branch info and default worktree path for the target worktree
-			const [currentRefResult, defaultWorktreePathResult] = await Promise.allSettled([
-				this.getCurrentBranchReferenceCore(targetRepoPath, undefined, mapperSignal),
-				this.provider.config.getDefaultWorktreePath?.(commonPath),
-			]);
-			const currentRef = getSettledValue(currentRefResult);
-			const defaultWorktreePath = getSettledValue(defaultWorktreePathResult);
-			const isDetached = currentRef != null && isDetachedHead(currentRef.name);
+			const { currentRef, defaultWorktreePath, isDetached } = await this.getCurrentRefAndDefaultWorktreePath(
+				targetRepoPath,
+				commonPath,
+				mapperSignal,
+			);
 
 			// Clone branches with correct repoPath and current flag
 			const branches: GitBranch[] = shared.values.map(b => {
 				// Check if this branch is current in the target worktree
-				const isCurrent = !b.remote && b.name === currentRef?.name && !isDetached;
-
-				// Only create new object if something changed
-				if (!isCurrent && targetRepoPath === commonPath) return b;
-
-				return new GitBranch(
-					targetRepoPath, // Use target worktree path
-					b.refName,
-					isCurrent,
-					b.date,
-					b.metadata,
-					b.sha,
-					b.upstream,
-					// For current branch, ensure worktree is set (fallback when git doesn't support worktreePath)
-					isCurrent
-						? (b.worktree ?? { path: targetRepoPath, isDefault: targetRepoPath === defaultWorktreePath })
-						: b.worktree,
-					false, // detached - only true for detached HEAD branch itself
-					false, // rebasing - only true for detached HEAD branch in rebase
-				);
+				const isCurrent =
+					currentRef != null ? !b.remote && b.name === currentRef.name && !isDetached : undefined;
+				return mapSharedBranch(b, targetRepoPath, commonPath, isCurrent, defaultWorktreePath, true);
 			});
 
 			// Handle detached HEAD - need to create a special branch for it
@@ -532,11 +832,24 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// Use paging cursor to bypass cache if paginating
 		if (options?.paging?.cursor != null) {
 			const commonPath = this.cache.getCommonPath(repoPath);
-			const shared = await getCore(commonPath);
+			// Bypasses the cache, so it runs under the caller's own cancellation
+			const shared = await this.getSharedBranchesCore(
+				commonPath,
+				options.ordering,
+				scope,
+				undefined,
+				cancellation,
+			);
 			// Still apply the mapper to ensure correct repoPath and current flag for the requesting worktree
 			result = await mapBranches(shared, repoPath, commonPath);
 		} else {
-			result = await this.cache.getBranches(repoPath, getCore, mapBranches, cancellation);
+			result = await this.cache.getBranches(
+				repoPath,
+				(commonPath, cacheable, signal) =>
+					this.getSharedBranchesCore(commonPath, options?.ordering, scope, cacheable, signal ?? cancellation),
+				mapBranches,
+				cancellation,
+			);
 		}
 
 		if (options?.filter != null) {
@@ -767,7 +1080,88 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return ref;
 	}
 
+	@debug({ quiet: true })
+	async getCurrentHead(
+		repoPath: string,
+		options?: { sha?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitCurrentHead> {
+		const [headResult, shaResult] = await Promise.allSettled([
+			this.readCurrentHeadBranch(repoPath, cancellation),
+			options?.sha
+				? this.git.run(
+						// Exits 1 with no output when the branch is unborn
+						{ cwd: repoPath, cancellation: cancellation, errors: 'throw', expectedExitCodes: [1] },
+						'rev-parse',
+						'--verify',
+						'-q',
+						'HEAD^{commit}',
+					)
+				: undefined,
+		]);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (headResult.status === 'rejected') throw headResult.reason;
+		if (shaResult.status === 'rejected') throw shaResult.reason;
+
+		const sha = shaResult.value?.stdout.trim();
+		return { branch: headResult.value.branch, sha: sha || undefined, rebasing: headResult.value.rebasing };
+	}
+
+	/** The branch `repoPath`'s HEAD is on, or the one a paused rebase is rebasing, read fresh for {@link getCurrentHead} */
+	private async readCurrentHeadBranch(
+		repoPath: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ branch: string | undefined; rebasing: boolean }> {
+		const state = await readHeadState(repoPath, this.context.fs, this.cache);
+		if (state == null) {
+			// Exits 1 with no output when HEAD is detached, and 128 when `repoPath` isn't a repository
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw', expectedExitCodes: [1] },
+				'symbolic-ref',
+				'-q',
+				'HEAD',
+			);
+			const ref = result.stdout.trim();
+			if (ref.startsWith('refs/heads/')) return { branch: ref.substring('refs/heads/'.length), rebasing: false };
+		} else if (state !== 'detached') {
+			return { branch: state.branch.substring('refs/heads/'.length), rebasing: false };
+		}
+
+		// A paused rebase leaves HEAD detached, and its `head-name` names the branch it rebases (`detached HEAD` for one
+		// started on a detached HEAD). Read here rather than as the paused-operation status, which runs git several
+		// times over and, for the other operations, reads the current-branch caches.
+		const gitDir = await this.provider.config.getGitDir(repoPath).catch(() => undefined);
+		if (gitDir == null) return { branch: undefined, rebasing: false };
+
+		for (const dir of ['rebase-apply', 'rebase-merge']) {
+			let name: string;
+			try {
+				name = new TextDecoder()
+					.decode(await this.context.fs.readFile(joinUriPath(gitDir.uri, dir, 'head-name')))
+					.trim();
+			} catch {
+				continue;
+			}
+			return {
+				branch: name.startsWith('refs/heads/') ? name.substring('refs/heads/'.length) : undefined,
+				rebasing: true,
+			};
+		}
+		return { branch: undefined, rebasing: false };
+	}
+
 	private getCurrentBranchReferenceCore(
+		repoPath: string,
+		ordering?: string,
+		cancellation?: AbortSignal,
+	): Promise<GitBranchReference | undefined> {
+		const validation = this.cache.validateBeforeRead(repoPath);
+		return validation != null
+			? validation.then(() => this.readCurrentBranchReference(repoPath, ordering, cancellation))
+			: this.readCurrentBranchReference(repoPath, ordering, cancellation);
+	}
+
+	private readCurrentBranchReference(
 		repoPath: string,
 		ordering?: string,
 		cancellation?: AbortSignal,
@@ -2294,7 +2688,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// Only `getMergeTarget`'s options reach the pull request and the reflog guess
 		const tier = resolved.tier as AheadOfBaseTier;
 		return withDefaultBranch(
-			await this.measureAheadOfBase(repoPath, resolved.target, tier, dependsOn, cancellation),
+			await this.measureAheadOfBase(repoPath, resolved.target, tier, reads, cancellation),
 			reads.localDefault,
 		);
 	}
@@ -2382,47 +2776,80 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			const { offHistory, logged } = movedForward;
 
-			// HEAD's commits the new tip lacks are a subset of those the old one lacked, so the previous count, taken
-			// past the new tip, the previous fork point and the commits the reflog reaches off the new tip's history,
-			// means the same commits, none of them reachable from that fork point or the reflog: none reached the base,
-			// and HEAD shares no more history with the base's whole reflog than with its tip, so its merge base and its
-			// `--fork-point` are one commit, which didn't move. The fork point is that commit too, being in the new tip's
-			// history, where a fork point the reflog supplied (a commit of HEAD's the base once held, its entry expired
-			// since) isn't.
+			// The previous count is of HEAD's commits past the previous fork point, so as many of HEAD's commits past the
+			// new tip and the commits the reflog reaches off its history, the fork point not among them, are the same
+			// commits, none of them reachable from the new tip or the reflog: none reached the base, and HEAD shares no
+			// more history with the base's whole reflog than before, so `--fork-point` and the merge base didn't move.
+			// The fork point is checked for among them rather than left out of the count: one the reflog no longer holds
+			// and the new tip doesn't reach (its entries expired since) would take everything below it out too, matching
+			// a count taken past it while a full read can no longer answer it. A forward move adds a move off the fork
+			// point only from an old tip that was the fork point, onto a commit holding it, past which HEAD counts the
+			// same as past the merge base, so the fork point and the count past it stand.
 			//
 			// Every worktree the move reached shares one count of each local branch's commits past the new tip alone, for
 			// the branches worktrees have checked out: one old or orphan branch no worktree uses would make the shared
-			// walk reach deeper than any worktree's own count. The old tip is in the new tip's history, so for HEAD that
-			// count is at most the previous one and at least the count above, which leaves out more: one that differs
-			// from the previous count means the count above does too. An equal one is the count above when leaving out
-			// more takes nothing more: with nothing off the new tip's history, everything the reflog holds is in it, so a
-			// fork point the reflog supplied is too, as are the old and new tips. With any other fork point (a merge base,
-			// or a commit whose reflog entry expired since), commits off the new tip's history, or a HEAD no checked-out
-			// branch points at (a detached one included), this worktree counts its own.
-			const aheadOfNewTip = await this.getAheadOfMovedBase(repoPath, records, newTip, head);
+			// walk reach deeper than any worktree's own count. That count is at least the count above, which leaves out
+			// more. With a fork point in the old tip's history, so in the new tip's, the previous count is the same count
+			// taken at the old tip, so at least this one: one that differs from it means the count above does too. An
+			// equal one is the count above when leaving out more takes nothing more: with nothing off the new tip's
+			// history, everything the reflog holds is in it, so a fork point the reflog supplied is too, as are the old
+			// and new tips. With any other fork point (a merge base, or a commit whose reflog entry expired since), commits
+			// off the new tip's history, or a HEAD no checked-out branch points at (a detached one included), this
+			// worktree counts its own.
+			//
+			// A fork point the base was rewritten off, still a value of its reflog but off the new tip's history, sits on
+			// HEAD's commits the base replayed, which the count past the new tip takes in too, so that count is never the
+			// previous one. Instead, the count past the new tip and what the reflog reaches being the previous count, the
+			// fork point not among it, shows the fork point is still `--fork-point`'s only answer (the one best common
+			// ancestor of HEAD and every value the reflog holds), and settling it again as a full read does must keep it
+			// and its count: its patches are compared against the new tip, whose newest commits may no longer hold the
+			// copies.
+			const forkPoint = base.forkPoint;
+			const rewritten = forkPoint != null && logged.has(forkPoint) && offHistory.includes(forkPoint);
+			const aheadOfNewTip = rewritten
+				? undefined
+				: await this.getAheadOfMovedBase(repoPath, records, newTip, head);
 			if (cancellation?.aborted) throw new CancellationError();
 			if (aheadOfNewTip != null && aheadOfNewTip !== base.ahead) return undefined;
 
-			const forkPoint = base.forkPoint;
 			if (
 				aheadOfNewTip == null ||
 				offHistory.length !== 0 ||
 				(forkPoint != null && forkPoint !== oldTip && forkPoint !== newTip && !logged.has(forkPoint))
 			) {
+				// Listed, one past the count, so the fork point's presence among them is known as well as their number
 				const result = await this.git.run(
 					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
 					'rev-list',
-					'--count',
+					`--max-count=${base.ahead + 1}`,
 					head,
 					'--not',
 					newTip,
-					...(forkPoint != null ? [forkPoint] : []),
 					...offHistory,
 					'--',
 				);
 				if (cancellation?.aborted) throw new CancellationError();
 				if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
-				if (parseInt(result.stdout.trim(), 10) !== base.ahead) return undefined;
+
+				const past = result.stdout.split('\n').filter(sha => sha.length > 0);
+				if (past.length !== base.ahead || (forkPoint != null && past.includes(forkPoint))) return undefined;
+			}
+
+			if (rewritten) {
+				const reads = { priority: undefined, pinnable: true };
+				const settled = await this.settleForkPointAndCount(
+					repoPath,
+					records,
+					base.ref,
+					newTip,
+					forkPoint,
+					base.ahead,
+					reads,
+					cancellation,
+				);
+				// One that rests on a failed read is left to a full read
+				if (!reads.pinnable || !settled.counted || settled.forkPoint !== forkPoint) return undefined;
+				if (settled.ahead !== base.ahead) return undefined;
 			}
 
 			return withDefaultBranch(
@@ -2484,7 +2911,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const commonPath = this.cache.getCommonPath(repoPath);
 		const key = `${commonPath}\0${ref}`;
 		const inputs = getBaseMoveReadInputs(records);
-		const reflog = (await this.getReflogStamp(repoPath, ref)) ?? inputs;
+		const reflog = (await this.getReflogSource(repoPath, ref))?.stamp ?? inputs;
 		const { replaced } = inputs;
 
 		let slot = this.baseMovedForward.get(key);
@@ -2498,7 +2925,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const { reads } = slot;
 		let pending = reads.get(oldTip);
 		if (pending == null) {
-			pending = this.readMovedForward(commonPath, ref, oldTip, newTip);
+			pending = this.readMovedForward(repoPath, commonPath, ref, oldTip, newTip);
 			reads.set(oldTip, pending);
 		}
 
@@ -2511,17 +2938,46 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * A stamp of `ref`'s reflog file in the common git directory, by its size and mtime; `undefined` when there's no
-	 * file to stat (a reftable repository, or a ref without a reflog)
+	 * Where `ref`'s reflog is kept, with a stamp that changes whenever the reflog may have: its file in the common git
+	 * directory, by its size and mtime, or in a reftable repository, which keeps every reflog in the same tables, read
+	 * only from git, the table list's. `stamp` is `undefined` when there's no such file (a ref without a reflog); the
+	 * whole answer when that can't be told.
 	 */
-	private async getReflogStamp(repoPath: string, ref: string): Promise<string | undefined> {
+	private async getReflogSource(
+		repoPath: string,
+		ref: string,
+	): Promise<{ readonly stamp: string | undefined; readonly reftable: boolean; readonly uri: Uri } | undefined> {
 		try {
 			const gitDir = await this.provider.config.getGitDir(repoPath);
-			const stat = await this.context.fs.stat(joinUriPath(gitDir.commonUri ?? gitDir.uri, 'logs', ref));
-			return stat != null ? `${stat.size}\0${stat.mtime}` : undefined;
+			const commonUri = gitDir.commonUri ?? gitDir.uri;
+			const reftable = await this.isReftableRepository(this.cache.getCommonPath(repoPath), commonUri);
+			// Git rewrites the table list with every ref update and reflog write, whichever process makes it
+			const uri = reftable
+				? joinUriPath(commonUri, 'reftable', 'tables.list')
+				: joinUriPath(commonUri, 'logs', ref);
+			const stat = await this.context.fs.stat(uri);
+			return { stamp: stat != null ? `${stat.size}\0${stat.mtime}` : undefined, reftable: reftable, uri: uri };
 		} catch {
 			return undefined;
 		}
+	}
+
+	/** Whether the repository keeps its refs in reftables, which it does for good once it has the table list */
+	private isReftableRepository(commonPath: string, commonUri: Uri): Promise<boolean> {
+		let detected = this.reftableRepositories.get(commonPath);
+		if (detected == null) {
+			detected = (async () => {
+				try {
+					return (await this.context.fs.stat(joinUriPath(commonUri, 'reftable', 'tables.list'))) != null;
+				} catch {
+					return false;
+				}
+			})();
+			this.reftableRepositories.set(commonPath, detected);
+		} else {
+			this.reftableRepositories.touch(commonPath);
+		}
+		return detected;
 	}
 
 	/**
@@ -2539,12 +2995,75 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * Reads {@link getMovedForward} from git, in `commonPath`, which holds the refs, their reflogs and the objects for
-	 * every worktree. Not bound to one caller's cancellation, since every worktree the move reached rides this one
-	 * read. `false` when the ref didn't move only forward, or reaches too much history off `newTip`'s to tell;
-	 * `undefined` when git couldn't say.
+	 * The values `ref`'s reflog took, newest first, and the one it held before its oldest entry, which `--fork-point`
+	 * reads too and no entry lists once the entries before it expired; `null` when that entry created the ref. Read from
+	 * the reflog's file by {@link readBaseReflog} when that has it, else from git. `false` when git can't name the value
+	 * before (before 2.31), `undefined` when it couldn't say.
+	 */
+	private async readReflogValues(
+		repoPath: string,
+		commonPath: string,
+		ref: string,
+	): Promise<{ readonly values: readonly string[]; readonly before: string | null } | false | undefined> {
+		const lines = await this.readBaseReflog(repoPath, ref);
+		if (lines != null) {
+			const from = lines[0]?.from;
+			return {
+				values: lines.map(l => l.to).reverse(),
+				before: from == null || /^0+$/.test(from) ? null : from,
+			};
+		}
+
+		const read = await this.readReflogFromGit(commonPath, ref);
+		if (!read) return read;
+
+		return { values: read.entries.map(e => e.sha), before: read.before };
+	}
+
+	/**
+	 * `ref`'s reflog entries, newest first, and the value it held before the oldest one (`null` when that entry created
+	 * the ref), by asking git in `commonPath`. `false` when git can't name the value before (before 2.31), `undefined`
+	 * when it couldn't say.
+	 */
+	private async readReflogFromGit(
+		commonPath: string,
+		ref: string,
+	): Promise<{ readonly entries: readonly GitReflogEntry[]; readonly before: string | null } | false | undefined> {
+		try {
+			const entries = await this.provider.refs.getReflogEntries(commonPath, ref);
+			if (!entries.length) return { entries: entries, before: null };
+
+			// `<ref>@{<count>}` names the value before the oldest entry; git refuses it when that entry created the ref,
+			// and before 2.31 refuses it either way, which leaves it unknown for good
+			const before = await this.git.run(
+				{ cwd: commonPath, errors: 'ignore' },
+				'rev-parse',
+				'--verify',
+				`${ref}@{${entries.length}}`,
+			);
+			if (before.completion.status !== 'exited') return undefined;
+
+			if (before.exitCode === 0) {
+				const sha = before.stdout.trim();
+				return sha ? { entries: entries, before: sha } : undefined;
+			}
+			if (!before.stderr?.includes(' only has ')) return undefined;
+			if (!(await this.git.supports('git:rev-parse:reflog-oldest-old-value'))) return false;
+
+			return { entries: entries, before: null };
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * Reads {@link getMovedForward}: the reflog by {@link readReflogValues}, then git, in `commonPath`, which holds the
+	 * refs, their reflogs and the objects for every worktree. Not bound to one caller's cancellation, since every
+	 * worktree the move reached rides this one read. `false` when the ref didn't move only forward, or reaches too much
+	 * history off `newTip`'s to tell; `undefined` when git couldn't say.
 	 */
 	private async readMovedForward(
+		repoPath: string,
 		commonPath: string,
 		ref: string,
 		oldTip: string,
@@ -2552,50 +3071,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<BaseMovedForward | false | undefined> {
 		let since = new Set([oldTip]);
 		let logged = new Set([oldTip]);
-		try {
-			// Newest first. The previous read may have been taken at any entry at the old tip, so everything since its
-			// oldest is checked; a ref at the same commit twice was moved back, which a fast-forward never does
-			const entries = await this.provider.refs.getReflogEntries(commonPath, ref);
-			if (entries.length) {
-				// A reflog that moved on since the ref list was read describes another move
-				if (entries[0].sha !== newTip) return false;
+		const reflog = await this.readReflogValues(repoPath, commonPath, ref);
+		if (!reflog) return reflog;
 
-				// No entry at the old tip can still mean the ref held it before its oldest entry, as after a clone, which
-				// logs nothing for a remote-tracking ref; that is checked against the value read below
-				const oldest = entries.findLastIndex(e => e.sha === oldTip);
-				since = new Set(entries.slice(1, oldest < 0 ? undefined : oldest + 1).map(e => e.sha));
-				logged = new Set(entries.map(e => e.sha));
-				if (oldest < 0) {
-					since.add(oldTip);
-					logged.add(oldTip);
-				}
+		// Newest first. The previous read may have been taken at any entry at the old tip, so everything since its oldest
+		// is checked; a ref at the same commit twice was moved back, which a fast-forward never does
+		const { values, before } = reflog;
+		if (values.length) {
+			// A reflog that moved on since the ref list was read describes another move
+			if (values[0] !== newTip) return false;
 
-				// `--fork-point` also reads the value the ref held before its oldest entry, which no entry lists once the
-				// entries before it expired. `<ref>@{<count>}` names it; git refuses it when the oldest entry created the
-				// ref, and before 2.31 refuses it either way, which leaves it unknown for good
-				const before = await this.git.run(
-					{ cwd: commonPath, errors: 'ignore' },
-					'rev-parse',
-					'--verify',
-					`${ref}@{${entries.length}}`,
-				);
-				if (before.completion.status !== 'exited') return undefined;
+			// No entry at the old tip can still mean the ref held it before its oldest entry, as after a clone, which logs
+			// nothing for a remote-tracking ref; that is checked against the value before it
+			const oldest = values.lastIndexOf(oldTip);
+			since = new Set(values.slice(1, oldest < 0 ? undefined : oldest + 1));
+			logged = new Set(values);
+			if (oldest < 0) {
+				if (before !== oldTip) return false;
 
-				if (before.exitCode === 0) {
-					const sha = before.stdout.trim();
-					if (!sha) return undefined;
-					if (oldest < 0 && sha !== oldTip) return false;
-
-					logged.add(sha);
-				} else if (!before.stderr?.includes(' only has ')) {
-					return undefined;
-				} else if (oldest < 0 || !(await this.git.supports('git:rev-parse:reflog-oldest-old-value'))) {
-					return false;
-				}
-				logged.delete(newTip);
+				since.add(oldTip);
 			}
-		} catch {
-			return undefined;
+			if (before != null) {
+				logged.add(before);
+			}
+			logged.delete(newTip);
 		}
 
 		try {
@@ -2826,13 +3325,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			const upstream = resolved.upstream;
 			if (upstream != null) {
 				selfAtTip = upstream.sha === (await this.getRefTip(repoPath, records, from, cancellation));
-				result = {
-					ref: upstream.ref,
-					forkPoint: selfAtTip
-						? upstream.sha
-						: await this.getForkPoint(repoPath, upstream.ref, reads, cancellation),
-					tier: 'upstream',
-				};
+				let forkPoint: string | undefined = upstream.sha;
+				if (!selfAtTip) {
+					forkPoint = await this.getForkPoint(repoPath, upstream.ref, reads, cancellation);
+					({ forkPoint } = await this.settleForkPoint(
+						repoPath,
+						records,
+						upstream.ref,
+						upstream.sha,
+						forkPoint,
+						reads,
+						cancellation,
+					));
+				}
+				result = { ref: upstream.ref, forkPoint: forkPoint, tier: 'upstream' };
 			}
 		} else if (resolved.kind === 'target') {
 			result = { ref: resolved.target.ref, forkPoint: resolved.target.forkPoint, tier: resolved.tier };
@@ -3281,7 +3787,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/**
 	 * The base for a branch created from `createdFrom`: that branch, unless the default branch forked strictly nearer
 	 * HEAD, as it does once `createdFrom` merged into it and the branch was rebased onto it. A stacked branch's
-	 * unmerged parent forked nearer, and stays its base. `undefined` when neither is usable.
+	 * unmerged parent forked nearer, and stays its base, also once the default was moved onto one of the branch's
+	 * commits and back, since both fork points are settled. `undefined` when neither is usable.
 	 */
 	private async getCreatedFromForkTarget(
 		repoPath: string,
@@ -3319,11 +3826,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Counts HEAD's commits past `target` for {@link getAheadOfBase} */
 	private async measureAheadOfBase(
 		repoPath: string,
-		target: { ref: string; forkPoint: string | undefined },
+		target: ForkTarget,
 		tier: AheadOfBaseTier,
-		dependsOn: Set<string>,
+		reads: BaseReads,
 		cancellation: AbortSignal | undefined,
 	): Promise<AheadOfBase> {
+		const { dependsOn } = reads;
 		const [countsResult, refsResult] = await Promise.allSettled([
 			this.countAgainstBase(repoPath, target.ref, cancellation),
 			// The same cached `for-each-ref` the branch list reads, so the tip usually costs nothing
@@ -3335,16 +3843,244 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const counts = countsResult.value;
 		if (counts == null) return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
 
+		const records = getSettledValue(refsResult, []);
+		const sha = findRefTip(records, target.ref);
+		// A base with nothing HEAD lacks is an ancestor of HEAD, so everything past its tip is only HEAD's, even a commit
+		// `--fork-point` found in its reflog from before it was moved back
+		const { forkPoint, ahead } =
+			counts.left === 0 && sha != null
+				? { forkPoint: sha, ahead: counts.right }
+				: await this.countPastForkPoint(
+						repoPath,
+						target.ref,
+						{ forkPoint: target.forkPoint, rewritten: target.rewritten ?? false },
+						counts.right,
+						reads,
+						cancellation,
+					);
 		return {
-			base: {
-				ref: target.ref,
-				ahead: counts.right,
-				sha: findRefTip(getSettledValue(refsResult, []), target.ref),
-				forkPoint: target.forkPoint,
-				tier: tier,
-			},
+			base: { ref: target.ref, ahead: ahead, sha: sha, forkPoint: forkPoint, tier: tier },
 			dependsOn: [...dependsOn],
 		};
+	}
+
+	/**
+	 * HEAD's count past `settled`, a fork point of `ref`, from `ahead`, its count past their merge base: that count,
+	 * unless `ref` was rewritten off the fork point, where it's counted past it, since that's what HEAD lists past it.
+	 * When that count can't be read, the merge base is taken, with `ahead`, and `reads.pinnable` cleared; the fork point
+	 * stays, with `ahead`, only when the merge base can't be read either.
+	 */
+	private async countPastForkPoint(
+		repoPath: string,
+		ref: string,
+		settled: SettledFork,
+		ahead: number,
+		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		cancellation: AbortSignal | undefined,
+	): Promise<SettledForkPoint> {
+		const { forkPoint } = settled;
+		if (!settled.rewritten || forkPoint == null) return { forkPoint: forkPoint, ahead: ahead, counted: false };
+
+		try {
+			const counts = await this.countAgainstBase(repoPath, forkPoint, cancellation);
+			if (counts != null) return { forkPoint: forkPoint, ahead: counts.right, counted: true };
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+
+		reads.pinnable = false;
+		const read = { priority: reads.priority, pinnable: true };
+		const mergeBase = await this.readMergeBase(repoPath, 'HEAD', ref, false, read, cancellation);
+		return { forkPoint: read.pinnable ? mergeBase : forkPoint, ahead: ahead, counted: false };
+	}
+
+	/** {@link settleForkPoint} from HEAD, then {@link countPastForkPoint} */
+	private async settleForkPointAndCount(
+		repoPath: string,
+		records: readonly RefRecord[],
+		ref: string,
+		tip: string | undefined,
+		forkPoint: string | undefined,
+		ahead: number,
+		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		cancellation: AbortSignal | undefined,
+	): Promise<SettledForkPoint> {
+		const fromHead = { from: 'HEAD', priority: reads.priority, pinnable: true };
+		const settled = await this.settleForkPoint(repoPath, records, ref, tip, forkPoint, fromHead, cancellation);
+		if (!fromHead.pinnable) {
+			reads.pinnable = false;
+		}
+		return this.countPastForkPoint(repoPath, ref, settled, ahead, reads, cancellation);
+	}
+
+	/**
+	 * Where `reads.from` forked from `ref` (a base at `tip`), from `forkPoint`, git's reading of `ref`'s reflog. A fork
+	 * point the base left behind (rebased, moved back and on, reset and moved on in one fetch) is settled by patch: the
+	 * commits it holds that the base lacks are compared with the base's, and `reads.from` forked below the first one the
+	 * base has no copy of (`rewritten`), the merge base when that's the oldest. Only where that answer is known is the
+	 * comparison skipped: when the reflog's file shows every move since the fork point forward, which spawns nothing, or
+	 * one ancestry check finds the fork point in the tip's history (it stays), the tip in the fork point's (the tip,
+	 * which `reads.from` holds), or no history shared (the merge base). A read that fails clears `reads.pinnable` and
+	 * takes the merge base, which never hides a commit; `forkPoint` stays only when that read fails too.
+	 */
+	private async settleForkPoint(
+		repoPath: string,
+		records: readonly RefRecord[],
+		ref: string,
+		tip: string | undefined,
+		forkPoint: string | undefined,
+		reads: Pick<BaseReads, 'from' | 'priority' | 'pinnable'>,
+		cancellation: AbortSignal | undefined,
+	): Promise<SettledFork> {
+		const kept = { forkPoint: forkPoint, rewritten: false };
+		if (forkPoint == null || forkPoint === tip) return kept;
+		// `--fork-point` refuses a name more than one listed ref answers to, so git's reading is already the merge base
+		if (isAmbiguousRefName(records, ref)) return kept;
+
+		const mergeBaseOrKept = async (): Promise<SettledFork> => {
+			const read = { priority: reads.priority, pinnable: true };
+			const mergeBase = await this.readMergeBase(repoPath, reads.from, ref, false, read, cancellation);
+			if (read.pinnable) return { forkPoint: mergeBase, rewritten: false };
+
+			reads.pinnable = false;
+			return kept;
+		};
+		// With no tip in the ref list to check git's reading against, it could be a commit the base dropped
+		if (tip == null) return mergeBaseOrKept();
+
+		// A remote's `HEAD` keeps a reflog of its own, while `--fork-point` reads the one of the branch it points at
+		const record = resolveRefRecord(records, ref);
+		const lines =
+			record != null && !record.name.endsWith('/HEAD')
+				? await this.readBaseReflog(repoPath, record.name)
+				: undefined;
+		if (cancellation?.aborted) throw new CancellationError();
+		if (lines != null && isForkPointKeptByReflog(lines, forkPoint, tip)) return kept;
+
+		// Two commits answer the same in every worktree, so the worktrees on one base share the check
+		const checks = { priority: reads.priority, pinnable: true };
+		const mergeBase = await this.readMergeBase(repoPath, forkPoint, tip, false, checks, cancellation);
+		if (!checks.pinnable) {
+			reads.pinnable = false;
+			return mergeBaseOrKept();
+		}
+		if (mergeBase === forkPoint) return kept;
+		if (mergeBase === tip) return { forkPoint: tip, rewritten: false };
+		// A move to history sharing nothing with the fork point leaves no commit of the base's for `reads.from` to have
+		// forked from below it, and comparing every commit the fork point holds would only run out of time
+		if (mergeBase == null) return mergeBaseOrKept();
+
+		// Only the patches tell the commits the base still holds, replayed by a rebase or a cherry-pick, from those it
+		// dropped, which are HEAD's to show, however it moved off them. Anything unclear is HEAD's
+		const settled = await this.readRewrittenForkPoint(repoPath, forkPoint, tip, checks, cancellation);
+		if (!checks.pinnable) {
+			reads.pinnable = false;
+		}
+		return settled != null ? { forkPoint: settled, rewritten: true } : mergeBaseOrKept();
+	}
+
+	/**
+	 * Where HEAD forked from a base at `tip` rewritten off `forkPoint`, by comparing patches (see
+	 * {@link getForkPointFromPatches}) with the base's newest commits only; `undefined`, for the merge base, when that
+	 * leaves none, or when git can't say in time, which also clears `reads.pinnable`
+	 */
+	private async readRewrittenForkPoint(
+		repoPath: string,
+		forkPoint: string,
+		tip: string,
+		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const commonPath = this.cache.getCommonPath(repoPath);
+		const unfinishedKey = `${commonPath}\0${forkPoint}\0${tip}`;
+		const retryAt = this.unfinishedPatchChecks.get(unfinishedKey);
+		if (retryAt != null) {
+			if (patchCheckClock.now() < retryAt) {
+				reads.pinnable = false;
+				return undefined;
+			}
+
+			this.unfinishedPatchChecks.delete(unfinishedKey);
+		}
+
+		try {
+			// `--ignore-missing` lets a base with a shorter history than the bound be read whole. Two commits answer the
+			// same in every worktree, so the worktrees on one base share the read
+			const result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: 'ignore',
+					timeout: patchCheckTimeout,
+					caching: {
+						cache: this.cache.gitResults,
+						commonPath: commonPath,
+						options: { accessTTL: 5 * 60 * 1000 },
+					},
+					...(reads.priority != null ? { priority: reads.priority } : undefined),
+				},
+				'rev-list',
+				'--left-only',
+				'--cherry-mark',
+				'--parents',
+				'--ignore-missing',
+				`${forkPoint}...${tip}`,
+				`^${tip}~${maxPatchCheckDepth}`,
+				'--',
+			);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (result.completion.status === 'exited' && result.exitCode === 0) {
+				return getForkPointFromPatches(result.stdout, forkPoint);
+			}
+
+			// Only a run out of time would likely end the same again soon; one that didn't start or failed may answer
+			// next time
+			if (result.completion.status === 'cancelled' && result.completion.reason === 'timeout') {
+				this.unfinishedPatchChecks.set(unfinishedKey, patchCheckClock.now() + unfinishedPatchCheckTtl);
+			}
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+
+		reads.pinnable = false;
+		return undefined;
+	}
+
+	/**
+	 * `ref`'s reflog (a full ref name), oldest line first, parsed from its file in the common git directory, which
+	 * spawns nothing; empty when there's no file, which leaves git no reflog to read either. `undefined` in a reftable
+	 * repository, which keeps reflogs out of files, or when the file can't be read or parsed.
+	 */
+	private async readBaseReflog(repoPath: string, ref: string): Promise<readonly ReflogLine[] | undefined> {
+		const source = await this.getReflogSource(repoPath, ref);
+		if (source == null || source.reftable) return undefined;
+
+		const { stamp, uri } = source;
+		if (stamp == null) return [];
+
+		const key = `${this.cache.getCommonPath(repoPath)}\0${ref}`;
+		let slot = this.baseReflogs.get(key);
+		if (slot?.stamp !== stamp) {
+			const read = async (): Promise<readonly ReflogLine[] | undefined> => {
+				try {
+					return parseReflogLines(new TextDecoder().decode(await this.context.fs.readFile(uri)));
+				} catch {
+					return undefined;
+				}
+			};
+			slot = { stamp: stamp, lines: read() };
+			this.baseReflogs.set(key, slot);
+		} else {
+			this.baseReflogs.touch(key);
+		}
+
+		// `undefined`, when the reflog couldn't be read, isn't kept
+		const { lines } = slot;
+		const result = await lines;
+		if (result === undefined && this.baseReflogs.get(key)?.lines === lines) {
+			this.baseReflogs.delete(key);
+		}
+		return result;
 	}
 
 	/** Counts the default branch's own commits past its upstream (see {@link getSelfUpstreamTarget}) for {@link getAheadOfBase} */
@@ -3366,12 +4102,35 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		// An upstream with nothing HEAD lacks is an ancestor of HEAD, so its tip is where HEAD forked from it
-		const forkPoint =
-			counts.left === 0 ? upstream.sha : await this.getForkPoint(repoPath, upstream.ref, reads, cancellation);
+		let settled: SettledForkPoint = { forkPoint: upstream.sha, ahead: counts.right, counted: false };
+		if (counts.left !== 0) {
+			const [forkPoint, records] = await Promise.all([
+				this.getForkPoint(repoPath, upstream.ref, reads, cancellation),
+				tolerateRead(() => this.provider.refs.getRefs(repoPath, cancellation)),
+			]);
+			if (cancellation?.aborted) throw new CancellationError();
+
+			settled = await this.settleForkPointAndCount(
+				repoPath,
+				records ?? [],
+				upstream.ref,
+				upstream.sha,
+				forkPoint,
+				counts.right,
+				reads,
+				cancellation,
+			);
+		}
 		if (cancellation?.aborted) throw new CancellationError();
 
 		return {
-			base: { ref: upstream.ref, ahead: counts.right, sha: upstream.sha, forkPoint: forkPoint, tier: 'upstream' },
+			base: {
+				ref: upstream.ref,
+				ahead: settled.ahead,
+				sha: upstream.sha,
+				forkPoint: settled.forkPoint,
+				tier: 'upstream',
+			},
 			dependsOn: [...dependsOn],
 		};
 	}
@@ -3830,11 +4589,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * A candidate base as the ref `reads.from` is measured against: the candidate or its tracking ref, whichever forked
-	 * nearer, so a stale local base defers to its upstream while one carrying unpushed work wins over it. A
-	 * `contender` other than the tracking ref is taken only when it forked strictly nearer than both, so a tie keeps
-	 * the candidate's own pick. A candidate none forks from is used as-is unless git confirms it names no ref: one the
-	 * cached ref list names is kept, and so is one whose check fails. `undefined` when the candidate is unusable.
+	 * A candidate base as the ref `reads.from` is measured against, with its fork point settled (see
+	 * {@link settleForkPoint}): the candidate or its tracking ref, whichever forked nearer, so a stale local base defers
+	 * to its upstream while one carrying unpushed work wins over it. The candidate must fork past git's reading of its
+	 * tracking ref, so commits the tracking ref held and moved off don't make it nearer. A `contender` other than the
+	 * tracking ref is taken only when it forked strictly nearer than both, so a tie keeps the candidate's own pick. A
+	 * candidate none forks from is used as-is unless git confirms it names no ref: one the cached ref list names is
+	 * kept, and so is one whose check fails. `undefined` when the candidate is unusable.
 	 */
 	private async getNearestForkTarget(
 		repoPath: string,
@@ -3884,39 +4645,80 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			getContenderMergeBase(),
 		]);
 
-		let nearest: { ref: string; mergeBase: string } | undefined;
-		for (const fork of [{ ref: candidate, mergeBase: candidateMergeBase }, upstreamFork]) {
-			if (fork?.mergeBase == null) continue;
+		const refs = await this.provider.refs.getRefs(repoPath, cancellation);
+		// Each ref is compared by its settled fork point, which is never past git's reading, so a ref whose reading is
+		// already outforked needs no settling
+		const settle = (ref: string, forkPoint: string): Promise<SettledFork> =>
+			this.settleForkPoint(repoPath, refs, ref, findRefTip(refs, ref), forkPoint, reads, cancellation);
+		const isAtOrPast = async (forkPoint: string | undefined, other: string | undefined): Promise<boolean> => {
+			if (forkPoint == null || other == null) return false;
+			if (forkPoint === other) return true;
 
-			// A later ref wins only when it forked at or past the nearest so far
-			if (
-				nearest == null ||
-				nearest.mergeBase === fork.mergeBase ||
-				(await this.provider.commits.isAncestorOf(repoPath, nearest.mergeBase, fork.mergeBase, cancellation))
-			) {
-				nearest = { ref: fork.ref, mergeBase: fork.mergeBase };
+			return this.provider.commits.isAncestorOf(repoPath, forkPoint, other, cancellation);
+		};
+
+		let nearest: { ref: string; settled: SettledFork } | undefined;
+		if (candidateMergeBase != null && upstreamFork?.mergeBase != null) {
+			const upstreamMergeBase = upstreamFork.mergeBase;
+			// The candidate wins only by forking past git's reading of its tracking ref, not just past where that reading
+			// settles. A tracking ref settled below its reading held HEAD's commits up to it and moved off them, so a
+			// candidate forking among them carries commits its upstream dropped rather than unpushed work, and is
+			// compared as if it were where it last agreed with its upstream; a tie is the tracking ref's. Unpushed work
+			// the upstream held and then dropped reads as dropped, and shows as HEAD's, as does a failed check.
+			if (!(await isAtOrPast(candidateMergeBase, upstreamMergeBase))) {
+				const candidateSettled = await settle(candidate, candidateMergeBase);
+				const candidateForkPoint = candidateSettled.forkPoint;
+				let behind = false;
+				if (candidateForkPoint !== candidateMergeBase) {
+					const mergeBase =
+						candidateForkPoint == null || candidateForkPoint === upstreamMergeBase
+							? candidateForkPoint
+							: await this.readMergeBase(
+									repoPath,
+									candidateForkPoint,
+									upstreamMergeBase,
+									false,
+									reads,
+									cancellation,
+								);
+					behind = mergeBase == null || mergeBase === candidateForkPoint;
+				}
+				if (!behind) {
+					nearest = { ref: candidate, settled: candidateSettled };
+				}
 			}
+			nearest ??= { ref: upstreamFork.ref, settled: await settle(upstreamFork.ref, upstreamMergeBase) };
+		} else if (candidateMergeBase != null) {
+			nearest = { ref: candidate, settled: await settle(candidate, candidateMergeBase) };
+		} else if (upstreamFork?.mergeBase != null) {
+			nearest = { ref: upstreamFork.ref, settled: await settle(upstreamFork.ref, upstreamFork.mergeBase) };
 		}
 
 		if (
 			contender != null &&
 			contender !== upstreamFork?.ref &&
 			contenderMergeBase != null &&
-			nearest != null &&
-			nearest.mergeBase !== contenderMergeBase &&
-			(await this.provider.commits.isAncestorOf(repoPath, nearest.mergeBase, contenderMergeBase, cancellation))
+			nearest?.settled.forkPoint != null &&
+			nearest.settled.forkPoint !== contenderMergeBase &&
+			(await isAtOrPast(nearest.settled.forkPoint, contenderMergeBase))
 		) {
-			nearest = { ref: contender, mergeBase: contenderMergeBase };
+			const contenderSettled = await settle(contender, contenderMergeBase);
+			if (
+				contenderSettled.forkPoint === contenderMergeBase ||
+				(contenderSettled.forkPoint !== nearest.settled.forkPoint &&
+					(await isAtOrPast(nearest.settled.forkPoint, contenderSettled.forkPoint)))
+			) {
+				nearest = { ref: contender, settled: contenderSettled };
+			}
 		}
 		if (nearest != null) {
 			if (!candidateReads.pinnable) {
 				reads.pinnable = false;
 			}
-			return { ref: nearest.ref, forkPoint: nearest.mergeBase };
+			return { ref: nearest.ref, forkPoint: nearest.settled.forkPoint, rewritten: nearest.settled.rewritten };
 		}
 
-		const records = await this.provider.refs.getRefs(repoPath, cancellation);
-		if (records.length && findRefTip(records, candidate) != null) {
+		if (refs.length && findRefTip(refs, candidate) != null) {
 			if (!candidateReads.pinnable) {
 				reads.pinnable = false;
 			}
@@ -4049,7 +4851,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					cancellation: cancellation,
 					errors: 'throw',
 					expectedExitCodes: [1],
-					caching: { cache: this.cache.gitResults, options: { accessTTL: 5 * 60 * 1000 } },
+					caching: {
+						cache: this.cache.gitResults,
+						// Two commits answer the same in every worktree, so the worktrees on one base share the read
+						...(!forkPoint && isSha(ref1) && isSha(ref2)
+							? { commonPath: this.cache.getCommonPath(repoPath) }
+							: undefined),
+						options: { accessTTL: 5 * 60 * 1000 },
+					},
 					...(reads.priority != null ? { priority: reads.priority } : undefined),
 				},
 				'merge-base',
@@ -4534,7 +5343,10 @@ function addRefDependencies(dependsOn: Set<string>, name: string): void {
 /** A candidate base as the ref it is measured against, with where the branch forked from it */
 interface ForkTarget {
 	readonly ref: string;
+	/** Settled (see `settleForkPoint`) */
 	readonly forkPoint: string | undefined;
+	/** As `SettledFork`'s */
+	readonly rewritten?: boolean;
 }
 
 /**

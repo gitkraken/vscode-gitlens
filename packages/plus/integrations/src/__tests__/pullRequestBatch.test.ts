@@ -17,9 +17,10 @@ import {
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import type { GetPullRequestForRepoFn, ProviderRepoInput } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../reads/etag.js';
 import { pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
@@ -2082,7 +2083,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 			etagIncludes: ['checks'],
 		});
 
-		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'] }]);
+		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'], mergeQueue: false }]);
 		assert.deepEqual(full, [[1]]);
 		assert.equal(result.items[0].etag, heldEtag(1, 0, ['checks']));
 		assert.match(result.items[0].etag ?? '', /^pr1\+checks:/);
@@ -2133,7 +2134,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 		assert.deepEqual(full, []);
 		assert.deepEqual(
 			cheap.options,
-			[{ etagIncludes: ['mergeable', 'checks'] }],
+			[{ etagIncludes: ['mergeable', 'checks'], mergeQueue: false }],
 			'the hook gets the normalized set',
 		);
 		assert.deepEqual(result.items, [{ key: 'a', unchanged: true, etag: heldEtag(1, 0, ['mergeable', 'checks']) }]);

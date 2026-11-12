@@ -8,7 +8,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { createIntegrationService } from '../integrationService.js';
-import type { GitConfigEntityIdentifier } from '../providers/models.js';
+import type { GitConfigEntityIdentifier } from '../providers/utils.js';
 import {
 	decodeEntityIdentifiersFromGitConfig,
 	encodeIssueOrPullRequestForGitConfig,
@@ -56,7 +56,7 @@ suite('branch-associated issues across self-managed hosts (#5873)', () => {
 					() => {
 						assert.fail('An association without a Jira Server host must not select the primary host');
 					},
-					{ ...identifier, domain: domain } as GitConfigEntityIdentifier,
+					{ ...identifier, domain: domain },
 					{ getConfiguredIntegrations: () => [{ domain: hostB }] },
 				),
 				undefined,
@@ -205,7 +205,7 @@ suite('legacy branch associations without a self-managed git host', () => {
 								resolutions.push(resolvedDomain);
 								return manager.get(id, resolvedDomain);
 							},
-							{ ...identifier, domain: domain } as GitConfigEntityIdentifier,
+							{ ...identifier, domain: domain },
 							{ getConfiguredIntegrations: id => manager.getConfigured(id) },
 						);
 						assert.equal(result, domains.length === 1 ? expected : undefined);

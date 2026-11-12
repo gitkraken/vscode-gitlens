@@ -140,7 +140,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.empty {
 				padding: var(--gl-space-12);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* ---------- Header: title slot (row 1) ---------- */
@@ -182,7 +182,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				z-index: 2;
 				font-size: 1.2rem;
 
-				--gl-agent-mark-chip: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				--gl-agent-mark-chip: var(--gl-color-surface-aside);
 			}
 
 			.avatar__badge--needs-input {
@@ -235,7 +235,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.subtitle__toolbar {
 				padding-top: var(--gl-space-8);
-				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.subtitle__toolbar > .loc-chips {
@@ -249,7 +249,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -269,7 +269,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				margin: 0;
 				overflow: hidden;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.meta__dot {
@@ -295,7 +295,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.status-zone__time {
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Squircle phase pill — phase only, no pip: the avatar's corner mark already carries the dot. */
@@ -367,7 +367,13 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			.loc-chip-btn:hover {
-				background: var(--vscode-list-hoverBackground);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.loc-chip-btn:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.loc-chip-btn:focus-visible {
@@ -379,7 +385,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			.loc-chip-btn--muted {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Cwd-only fallback — no worktree resolved, nothing to jump to. */
@@ -393,7 +399,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
@@ -429,13 +435,13 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
 			.hero__line {
 				margin: 0;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.tool-block {
@@ -453,7 +459,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.tool-block__caption {
 				margin-top: var(--gl-space-2);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* ---------- Constant body sections ---------- */
@@ -473,7 +479,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				margin: 0;
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -481,7 +487,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.sec__count {
 				padding: 0.1rem 0.5rem;
 				font-size: var(--gl-font-micro, 1rem);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				border-radius: 1rem;
 			}
@@ -512,7 +518,13 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			.loc__row:hover {
-				background: var(--vscode-list-hoverBackground);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.loc__row:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.loc__row:focus-visible {
@@ -521,7 +533,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.loc__row code-icon {
 				flex: none;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.loc__val {
@@ -533,7 +545,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.loc__meta {
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.prompt {

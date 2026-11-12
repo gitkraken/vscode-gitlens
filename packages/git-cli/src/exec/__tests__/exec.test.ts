@@ -1346,6 +1346,76 @@ suite('Git.run onSpawn', () => {
 	});
 });
 
+suite('Git.run sharing an in-flight run', () => {
+	function newGit(): { git: Git; spawns: { encoding: unknown; finish: () => void }[] } {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const spawns: { encoding: unknown; finish: () => void }[] = [];
+		(git as unknown as { _runSpawn: unknown })._runSpawn = (
+			_cmd: string,
+			_args: readonly string[],
+			encoding: string,
+		) =>
+			new Promise(resolve => {
+				spawns.push({
+					encoding: encoding,
+					finish: () =>
+						resolve({
+							exitCode: 0,
+							stdout: encoding === 'buffer' ? Buffer.from('out') : 'out',
+							stderr: '',
+						}),
+				});
+			});
+		return { git: git, spawns: spawns };
+	}
+
+	async function until(condition: () => boolean): Promise<void> {
+		for (let i = 0; i < 100 && !condition(); i++) {
+			await new Promise(resolve => setImmediate(resolve));
+		}
+		assert.ok(condition());
+	}
+
+	test('keeps a buffer run apart from a text run of the same command', async () => {
+		const { git, spawns } = newGit();
+
+		const text = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		const bytes = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		await until(() => spawns.length === 2);
+		for (const s of spawns) {
+			s.finish();
+		}
+
+		assert.strictEqual(typeof (await text).stdout, 'string');
+		assert.ok(Buffer.isBuffer((await bytes).stdout));
+	});
+
+	test('never shares a buffer run, so each caller owns its bytes', async () => {
+		const { git, spawns } = newGit();
+
+		const first = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		const second = git.run<Buffer>({ cwd: '/repo', encoding: 'buffer' }, 'ls-files', '-z');
+		await until(() => spawns.length === 2);
+		for (const s of spawns) {
+			s.finish();
+		}
+
+		assert.notStrictEqual((await first).stdout, (await second).stdout);
+	});
+
+	test('still joins two text runs of the same command', async () => {
+		const { git, spawns } = newGit();
+
+		const first = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		const second = git.run({ cwd: '/repo' }, 'ls-files', '-z');
+		await until(() => spawns.length === 1);
+		spawns[0].finish();
+		await Promise.all([first, second]);
+
+		assert.strictEqual(spawns.length, 1);
+	});
+});
+
 suite('Git.stream stdin', () => {
 	test('rejects, rather than crashing on EPIPE, when git exits before reading its input', async () => {
 		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
@@ -1413,5 +1483,68 @@ suite('Git options.spawn', () => {
 			},
 			(ex: unknown) => ex instanceof Error && ex.message.includes('without a stdout pipe'),
 		);
+	});
+});
+
+suite('Git locator failure', () => {
+	function flakyLocator(): { locator: () => Promise<{ path: string; version: string }>; calls: () => number } {
+		let calls = 0;
+		return {
+			locator: async () => {
+				calls++;
+				await new Promise(resolve => setImmediate(resolve));
+				if (calls === 1) throw new Error('git not found');
+				return { path: 'git', version: '2.40.0' };
+			},
+			calls: () => calls,
+		};
+	}
+
+	async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+		let timer: NodeJS.Timeout | undefined;
+		try {
+			return await Promise.race([
+				promise,
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(() => reject(new Error(message)), 5000);
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	test('retries the locator after a failure instead of memoizing the rejection', async () => {
+		const { locator, calls } = flakyLocator();
+		const git = new Git(locator);
+
+		await assert.rejects(git.path(), /git not found/);
+		assert.strictEqual(await git.path(), 'git');
+		assert.strictEqual(calls(), 2);
+	});
+
+	test('shares one locator call between concurrent callers during a failure', async () => {
+		const { locator, calls } = flakyLocator();
+		const git = new Git(locator);
+
+		const results = await Promise.allSettled([git.path(), git.path()]);
+		assert.deepStrictEqual(
+			results.map(r => r.status),
+			['rejected', 'rejected'],
+		);
+		assert.strictEqual(calls(), 1);
+	});
+
+	test('does not leave a pending run that a later identical run hangs on', async () => {
+		const { locator } = flakyLocator();
+		const git = new Git(locator);
+
+		await assert.rejects(git.run({ cwd: tmpdir() }, '--version'));
+
+		const result = await withTimeout(
+			git.run({ cwd: tmpdir() }, '--version'),
+			'identical run hung on an abandoned pending command',
+		);
+		assert.ok(result.stdout.startsWith('git version'));
 	});
 });

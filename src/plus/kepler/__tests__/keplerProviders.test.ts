@@ -142,8 +142,11 @@ suite('getKeplerInstallPaths', () => {
 		);
 	});
 
-	test('Linux probes the deb/rpm install dir under /opt, spaces and parentheses literal', () => {
-		assert.deepStrictEqual(getKeplerInstallPaths('production', 'linux', linuxEnv), ['/opt/Kepler']);
+	test('Linux probes the deb/rpm install dir under /opt, spaces and parentheses literal, and the GitLens AppImage for production', () => {
+		assert.deepStrictEqual(getKeplerInstallPaths('production', 'linux', linuxEnv), [
+			'/opt/Kepler',
+			'/home/me/.local/share/kepler/kepler.AppImage',
+		]);
 		assert.deepStrictEqual(getKeplerInstallPaths('staging', 'linux', linuxEnv), ['/opt/Kepler (staging)']);
 		assert.deepStrictEqual(getKeplerInstallPaths('dev', 'linux', linuxEnv), ['/opt/Kepler (dev)']);
 		assert.deepStrictEqual(getKeplerInstallPaths('source', 'linux', linuxEnv), ['/opt/Kepler (source)']);

@@ -3,17 +3,24 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import {
+	GitSelfManagedHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '@gitlens/integrations/constants.js';
+import type { IntegrationCacheDescriptor } from '@gitlens/integrations/index.js';
 import { CacheProvider } from '../cache.js';
 
-function createIntegration(domain: string, id: string = 'cloud-github-enterprise'): IntegrationBase {
-	const integration = {
+function createIntegration(
+	domain: string,
+	id: IntegrationIds = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+): IntegrationCacheDescriptor {
+	return {
 		id: id,
 		domain: domain,
 		maybeConnected: true,
 		sessionFingerprint: 'shared-session',
 	};
-	return integration as IntegrationBase;
 }
 
 suite('CacheProvider', () => {
@@ -93,8 +100,8 @@ suite('CacheProvider', () => {
 	test('issues from self-managed hosts are keyed by domain (#5872)', async () => {
 		const cache = new CacheProvider({} as never);
 		const resource: ResourceDescriptor = { id: '10000', key: 'PROJ', name: 'PROJ' };
-		const hostA = createIntegration('jira-a.example.com', 'jira-server');
-		const hostB = createIntegration('jira-b.example.com', 'jira-server');
+		const hostA = createIntegration('jira-a.example.com', IssuesSelfManagedHostIntegrationId.JiraServer);
+		const hostB = createIntegration('jira-b.example.com', IssuesSelfManagedHostIntegrationId.JiraServer);
 		const issueA = { id: 'PROJ-1', title: 'Host A' } satisfies Partial<Issue> as Issue;
 
 		await cache.getIssue('PROJ-1', resource, hostA, () => ({ value: Promise.resolve(issueA) }));

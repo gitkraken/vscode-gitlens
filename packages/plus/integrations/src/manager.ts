@@ -1,5 +1,8 @@
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
+import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
+	PullRequest,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestStateFilter,
@@ -7,30 +10,47 @@ import type {
 import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
-import type { IntegrationIds } from './constants.js';
-import type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
-import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
 import type {
-	IssueCountResult,
-	IssueCountScope,
-	PullRequestCountResult,
-	PullRequestCountScope,
-} from './reads/counts.js';
-import type { CurrentAccountResult } from './reads/currentAccount.js';
-import type { SupportedFilters } from './reads/filters.js';
-import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
-import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
-import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+	CloudGitSelfManagedHostIntegrationIds,
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IntegrationIds,
+	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+	SupportedCloudIntegrationIds,
+} from './constants.js';
+import type {
+	GitHostIntegration,
+	IntegrationById,
+	IntegrationResult,
+	IssuesIntegration,
+	SearchMyPullRequestsOptions,
+} from './models/publicIntegration.js';
+import type { IssueFilter, IssueSorting, PullRequestFilter, SupportedFilters } from './providerFilters.js';
+import type { IssueEtagInclude, PullRequestEtagInclude } from './reads/etag.js';
 import type {
 	ConnectionStateChangeEvent,
+	CurrentAccountResult,
+	IssueBatchResult,
+	IssueBatchTarget,
+	IssueCountResult,
+	IssueCountScope,
 	ProviderBroadenResult,
+	ProviderLinearProjectShape,
 	ProviderOrganization,
 	ProviderPagedResult,
 	ProviderRepositoryShape,
 	ProviderResult,
 	ProviderSweepResult,
+	PullRequestBatchResult,
+	PullRequestBatchTarget,
+	PullRequestBranchResult,
+	PullRequestBranchTarget,
+	PullRequestCountResult,
+	PullRequestCountScope,
 	ResolveRepositoryResult,
 } from './results.js';
+import type { Source } from './telemetry.js';
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {
@@ -43,9 +63,16 @@ export interface ProviderRepositoryInput {
 export type ProviderRepositoriesInput = (string | number)[] | ProviderRepositoryInput[];
 
 /**
- * One provider slice in a pull-request sweep.
+ * One provider slice in a pull-request sweep: a provider, optionally pinned to one of its connections.
  *
- * A sweep accepts at most one target per provider because its failure attribution is provider-scoped.
+ * A sweep may carry several targets of one provider, one per connection (two GitHub Enterprise installations,
+ * two Bitbucket Data Center servers, two github.com accounts). A target is identified by its provider,
+ * `connectionId` and the host its `domain` names; repeating one throws a `TypeError`. When a provider has more
+ * than one target, every one of them must name a `connectionId` or, on a self-managed provider, a `domain` (a cloud
+ * provider's read ignores `domain`): an unnamed target reads the provider's primary connection, which may be one
+ * of the named ones, so it would be read twice and its rows attributed ambiguously. A single unnamed target reads
+ * the primary connection.
+ *
  * `domain` is a fallback for self-managed hosts whose authentication provider doesn't persist a configured
  * connection; a configured `connectionId` domain takes precedence when both are supplied. It must come from
  * the trusted authentication configuration, not repository or remote data.
@@ -55,7 +82,13 @@ export interface ProviderSweepTarget {
 	connectionId?: string;
 	domain?: string;
 	/**
-	 * Relationship filters for this provider slice. With sweep-level `repos`, members are provider query
+	 * Repositories this target reads, so each connection can carry its own. It overrides the sweep-level `repos`
+	 * for this target, like `filters`; an empty array reads the target account-wide, as an empty sweep-level
+	 * one does.
+	 */
+	repos?: ProviderRepositoriesInput;
+	/**
+	 * Relationship filters for this provider slice. With `repos`, members are provider query
 	 * constraints; without `repos`, they form an exact OR union. The whole set is validated against the
 	 * selected path's capabilities.
 	 *
@@ -152,6 +185,7 @@ export interface ProviderBroadenOrg {
 }
 
 type PullRequestSweepCommonOptions = {
+	/** Repositories every target reads unless it carries its own `repos`. */
 	repos?: ProviderRepositoriesInput;
 	/** Named `states` to match {@link IntegrationManager.listPullRequestsPage}; a mismatch here read as silently ignored. */
 	states?: PullRequestStateFilter[];
@@ -183,6 +217,27 @@ type PullRequestSweepCommonOptions = {
 	 */
 	includeReviews?: boolean;
 	forceSync?: boolean;
+	/**
+	 * Repo-scoped targets only: most per-repository requests one provider read keeps in flight. Defaults to 6.
+	 * Only hosts that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud,
+	 * Bitbucket Data Center and Azure DevOps; GitHub/GHE send one query whatever the repo count. A sweep runs up
+	 * to 6 targets at once, each with this bound.
+	 */
+	scopeConcurrency?: number;
+	/**
+	 * Azure DevOps, repo-scoped targets only: `false` skips the lookup that fills each row's clone URLs, saving one
+	 * request per repository (and fork source) per page. Rows then carry no `refs.base.url`/`refs.head.url`
+	 * (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be checked out or matched to local
+	 * remotes. Defaults to `true`; other providers ignore it.
+	 */
+	includeRemoteInfo?: boolean;
+	/**
+	 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+	 * read: `true` selects it, `false` doesn't, omitted follows the host's `ConfigProvider.getPullRequestReadOptions`.
+	 * Account-wide targets only; a repo-scoped read goes through provider-apis, which selects none, and every other
+	 * provider ignores it. Selecting it costs a rate-limit request per row.
+	 */
+	mergeQueue?: boolean;
 	/**
 	 * Page budget per provider. A stop at this budget with a resumable cursor is reported as
 	 * `pagination-incomplete` with `recovery: 'page-budget'`. A part no budget reaches is reported beside it
@@ -248,6 +303,22 @@ export type ListProjectsOptions =
 			connectionId?: never;
 			domain?: never;
 	  };
+
+export type GetAutolinkReferencesOptions = {
+	providerId: IssuesCloudHostIntegrationId.Jira | IssuesSelfManagedHostIntegrationId.JiraServer;
+	connectionId?: string;
+	/** Trusted self-managed domain fallback, as on the other provider reads. */
+	domain?: string;
+	/** Drops discovery and awaits a fresh build; retires builds started before the refresh. */
+	forceSync?: boolean;
+};
+
+/** Linear Project discovery reads one Linear connection: the primary, or the one `connectionId` names. */
+export type ListLinearProjectsOptions = {
+	connectionId?: string;
+	/** Drops the cached Project list and re-syncs the connection before reading, as the other reads' `forceSync`. */
+	forceSync?: boolean;
+};
 
 /**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
@@ -319,6 +390,24 @@ export interface IntegrationManager {
 
 	listOrgs(options?: ListOrgsOptions): Promise<ProviderResult<ProviderOrganization>>;
 	listProjects(options?: ListProjectsOptions): Promise<ProviderResult<ProviderOrganization>>;
+	/**
+	 * Jira project references for one connection. Cold discovery is awaited. Returns `undefined` for an
+	 * unresolved target or failed/incomplete discovery; an empty set means complete discovery found no links.
+	 * Each call reads the provider; callers own coalescing and caching.
+	 * Match with `getAutolinks` or `getBranchAutolinks` from `git/utils/autolink.utils.js` in the host process;
+	 * references can contain compiled regular expressions and are not a wire format.
+	 */
+	getAutolinkReferences(options: GetAutolinkReferencesOptions): Promise<RefSet | undefined>;
+	/**
+	 * The Linear workspace's Projects: Linear's own `Project` entity, which can span several teams. Not what
+	 * {@link listProjects} returns for Linear, which is its teams (the tier a Linear issue read is windowed by).
+	 * Pass a Project's `id` to {@link listIssueTrackerIssuesPage}'s `linearProjects` to narrow an issue read to it.
+	 *
+	 * Drained across Linear's pages (100 Projects each, up to 2,000) and cached per connection like the team list,
+	 * for five minutes or until `forceSync`. A list the drain could not finish comes back with what it read, a
+	 * warning and `fetchFailed`, and is not cached.
+	 */
+	listLinearProjects(options?: ListLinearProjectsOptions): Promise<ProviderResult<ProviderLinearProjectShape>>;
 	listRepos(options: {
 		providerId: IntegrationIds;
 		org?: string;
@@ -384,6 +473,28 @@ export interface IntegrationManager {
 		 * ignores the option, so it is a hint rather than a guarantee about which fields are present.
 		 */
 		summary?: boolean;
+		/**
+		 * Repo-scoped only: most per-repository requests one provider read keeps in flight. Defaults to 6. Only hosts
+		 * that read repository by repository fan out — GitLab, GitLab self-managed, Bitbucket Cloud,
+		 * Bitbucket Data Center and Azure DevOps; GitHub/GHE send one query whatever the repo count. The
+		 * account-wide read ignores it.
+		 */
+		scopeConcurrency?: number;
+		/**
+		 * Azure DevOps, repo-scoped only (the account-wide read ignores it): `false` skips the lookup that fills each
+		 * row's clone URLs, saving one request per repository (and fork source) per page. Rows then carry no
+		 * `refs.base.url`/`refs.head.url` (empty) and no `cloneHttps`/`cloneSsh`, so leave it on for rows that will be
+		 * checked out or matched to local remotes. Defaults to `true`; other providers ignore it.
+		 */
+		includeRemoteInfo?: boolean;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`. Account-wide only (no `repos`); the repo-scoped read goes through
+		 * provider-apis, which selects none, and every other provider ignores it. Selecting it costs a rate-limit
+		 * request per row.
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	/**
 	 * Pull requests matching structured criteria over a repository/organization or current-user relationship
@@ -410,6 +521,19 @@ export interface IntegrationManager {
 	 * `totalCount`, `limit`, `sort`, and `recovery: 'none'`. `totalCount` is the largest provider-reported
 	 * pre-ceiling facet count, not the reachable or returned row count; this mirrors the per-search ceiling's own
 	 * unit.
+	 *
+	 * **On GitHub/GHE a page is bounded by how long GitHub takes to build it**, not only by `itemsPerPage`: past about
+	 * 11 seconds its gateway gives up with a 502/504. So a page holds at most 20 pull requests across all its facets
+	 * in the full shape and 100 in the `summary` shape, split evenly across the active facets (a 3-facet full search
+	 * gets 6 per facet), and `itemsPerPage` can only lower a facet's share. When the gateway gives up anyway, the
+	 * page is asked for once more at half its size (unchanged once it is one row per facet) and the rest of the walk
+	 * keeps that size; if that fails at the gateway too, the read fails (warning + `fetchFailed`) rather than asking
+	 * a third time. Other transient failures (503, a network failure) are retried unchanged, as on any read. A smaller
+	 * page is not a failure and carries no warning: it reports its real size in
+	 * `page.itemsPerPage`, and its `cursor` resumes every facet exactly after the last row it served, so no facet
+	 * skips or repeats a row. Never read a page shorter than requested as the last one; only `hasMore`/`cursor` say
+	 * that. As on every page of this search, a pull request two facets share (authored AND assigned, say) can come back
+	 * on two different pages, once per facet; dedupe across pages by `url`.
 	 *
 	 * **Azure DevOps Server** differs in how it gets there, because its pull request API can't filter by text, date or
 	 * draft: the first page drains every facet (up to 1,000 rows each) and later pages are served from that drain,
@@ -453,8 +577,9 @@ export interface IntegrationManager {
 		 * 2-state search returns up to `6 × itemsPerPage` items before deduplication, and fewer than that where
 		 * the facets overlap. Deduplication does NOT bring the page back to this size: it removes only the rows the
 		 * facets share. `page.itemsPerPage` reports what actually came back, so size the UI off that rather than
-		 * off this. A provider may also cap it below what is asked for. Azure DevOps Server is the exception: it
-		 * serves one merged page, so there this is the page size (at most 100).
+		 * off this. A provider may also cap it below what is asked for, as GitHub/GHE do to keep a page within the
+		 * time GitHub allows (see above), so omit it unless you need FEWER rows than the default. Azure DevOps Server
+		 * is the exception: it serves one merged page, so there this is the page size (at most 100).
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
@@ -463,14 +588,26 @@ export interface IntegrationManager {
 		domain?: string;
 		/**
 		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
-		 * without review, check or diff statistics. It also replaces the flat per-facet default page size with a
-		 * fixed budget shared across the search's ACTIVE facets, so with up to three of them it raises the page
-		 * and from four on it LOWERS it — measured against GitHub, a 100-row budget versus a flat 30 each.
+		 * without review, check or diff statistics. On GitHub/GHE it also raises the page budget shared across the
+		 * search's ACTIVE facets from 20 rows to 100, since the lite rows take GitHub a fraction of the time to build.
 		 *
 		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
 		 * rather than a contract about which fields are present.
 		 */
 		summary?: boolean;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`. Every other provider ignores it. Selecting it costs a
+		 * rate-limit request per row.
+		 */
+		mergeQueue?: boolean;
+		/**
+		 * Aborts the read: the request in flight, a retry waiting to be sent, and any page a page-number walk still
+		 * has to read. The read then rejects with a `CancellationError` instead of resolving, so a cancelled read is
+		 * never mistaken for a failed or an empty one.
+		 */
+		cancellation?: AbortSignal;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
 		state?: IssueStateFilter;
@@ -530,6 +667,12 @@ export interface IntegrationManager {
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
+		/**
+		 * Most per-repository requests (per-project for Azure DevOps) one provider read keeps in flight. Defaults
+		 * to 6. Only GitLab, GitLab self-managed and Azure DevOps fan out; GitHub/GHE send one query whatever the
+		 * repo count. Account-wide reads ignore it.
+		 */
+		scopeConcurrency?: number;
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
@@ -753,6 +896,15 @@ export interface IntegrationManager {
 		 * computed (and the cheap check's selection); the full read is the same.
 		 */
 		etagIncludes?: readonly PullRequestEtagInclude[];
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com, in the cheap
+		 * check and the full read alike: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it. A read
+		 * that selects it adds a marker to every etag it computes, so its etags and those of a read that doesn't never
+		 * compare equal: changing this, or the host setting, reads each held target in full once. Selecting it costs a
+		 * rate-limit request per row, in the cheap check as well as the full read.
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
@@ -798,6 +950,13 @@ export interface IntegrationManager {
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it.
+		 * Selecting it costs a rate-limit request per row (a 25-branch chunk 13 points instead of 10 without).
+		 */
+		mergeQueue?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
@@ -845,6 +1004,14 @@ export interface IntegrationManager {
 		 * `getSupportedFilters().issueStates` and are refused otherwise (warning + `fetchFailed`).
 		 */
 		state?: IssueStateFilter;
+		/**
+		 * Linear only: narrows the read to issues in any of these Linear Projects, by the `id`
+		 * {@link listLinearProjects} lists. Combines with `org`/`project` (a team), `includeAllAssignees`, `state`
+		 * and `sort`: the read stays windowed by team, and each team's issues are those in the Projects. Omitted or
+		 * empty narrows nothing; any other tracker refuses it (warning + `fetchFailed`). Part of a cursor's
+		 * fingerprint, so drop the cursor when you change it.
+		 */
+		linearProjects?: string[];
 		forceSync?: boolean;
 		page?: number;
 		/**
@@ -907,4 +1074,58 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<CurrentAccountResult>;
+
+	// #region Integration-object surface (connect/manage flows and the live integrations the GitLens host drives)
+
+	/**
+	 * The integration for `id` (and, for a self-managed host, `domain`), as its public view. A cloud id always
+	 * resolves; a self-managed one resolves to `undefined` when no connection names the host.
+	 */
+	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
+	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
+	get(
+		id: GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds,
+		domain?: string,
+	): Promise<GitHostIntegration | undefined>;
+	get(id: GitSelfManagedHostIntegrationId, domain: string): Promise<GitHostIntegration | undefined>;
+	get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined>;
+	/**
+	 * Every instance of `id` an account-wide read should cover: one per configured host for a self-managed id, else
+	 * the single instance. A lookup that throws is left out.
+	 */
+	getIntegrationsForAccountWideRead<T extends IntegrationIds>(id: T): Promise<IntegrationById<T>[]>;
+	/** Whether any instance {@link getIntegrationsForAccountWideRead} returns is connected (and, with `access`, usable). */
+	isConnectedForAccountWideRead(id: IntegrationIds, options?: { access?: boolean }): Promise<boolean>;
+	/**
+	 * Runs the host's cloud connect flow for `integrationIds` (all cloud integrations when omitted) and re-syncs.
+	 * Resolves whether a requested integration became connected (or, with none requested, whether the flow completed).
+	 */
+	connectCloudIntegrations(
+		options?: { integrationIds: SupportedCloudIntegrationIds[]; skipIfConnected?: boolean; skipPreSync?: boolean },
+		source?: Source,
+	): Promise<boolean>;
+	/** Opens the host's cloud integrations management, re-syncing once the user returns. */
+	manageCloudIntegrations(source?: Source): Promise<void>;
+	/** Resets every integration's local connection state. */
+	reset(): Promise<void>;
+	/** The current user's open pull requests across `integrationIds` (every git host when omitted). */
+	getMyPullRequests(
+		integrationIds?: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
+		cancellation?: AbortSignal,
+		options?: SearchMyPullRequestsOptions,
+	): Promise<IntegrationResult<PullRequest[] | undefined>>;
+	/** The current user's issues across `integrationIds` (every integration when omitted). */
+	getMyIssues(
+		integrationIds?: IntegrationIds[],
+		options?: { openRepositoriesOnly?: boolean; cancellation?: AbortSignal },
+	): Promise<IntegrationResult<IssueShape[] | undefined>>;
+	/** The `ignoreSSLErrors` setting of the remote configured for the integration's host, if any. */
+	ignoreSSLErrors(integration: { id: IntegrationIds; domain?: string }): boolean | 'force';
+	/**
+	 * The shared `GitHubApi` client, for a host that runs its own GitHub-backed git provider over the same instance.
+	 * Host-oriented: it hands out a whole client rather than a read, so it is a candidate to narrow.
+	 */
+	readonly github: Promise<GitHubApi | undefined>;
+
+	// #endregion
 }

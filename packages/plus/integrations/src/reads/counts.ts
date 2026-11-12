@@ -1,19 +1,22 @@
-import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
-import type { PullRequestSearchCriteria } from '@gitlens/git/models/pullRequest.js';
 import { chunk } from '@gitlens/utils/array.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { ProviderSearchCount } from '../models/integration.js';
-import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
-import { providersMetadata } from '../providers/models.js';
-import type { ProviderResult, ProviderWarning } from '../results.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
+import { providersMetadata } from '../providers/metadata.js';
+import type { ProviderRepoInput } from '../providers/models.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
+import type {
+	IssueCountResult,
+	IssueCountScope,
+	ProviderResult,
+	ProviderWarning,
+	PullRequestCountResult,
+	PullRequestCountScope,
+} from '../results.js';
 import { appendDedupedWarning, toProviderWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import {
@@ -61,94 +64,6 @@ const pullRequestCountChunkSize = 15;
  */
 function countsPullRequestsByReading(providerId: IntegrationIds): boolean {
 	return providerId === GitSelfManagedHostIntegrationId.BitbucketServer;
-}
-
-/**
- * One scope to count.
- *
- * `key` is caller-owned and echoed back verbatim, so a batch result needs no positional matching by the consumer.
- * It never reaches the provider query — the aliases in the upstream document are generated — so it can be any
- * string the caller finds meaningful.
- */
-export interface IssueCountScope {
-	key: string;
-	/** Repositories to count over. Combines with `org`, exactly as in `searchIssuesPage`. */
-	repos?: ProviderReposInput;
-	org?: string;
-	/**
-	 * Same criteria model as `searchIssuesPage`, validated against the same capability table.
-	 *
-	 * `criteria.sort` does not affect the count — a total is invariant under ordering — but it is still VALIDATED,
-	 * and an unsupported key refuses this scope exactly as it would refuse the read. That is the point of the
-	 * count: it previews the constraints the read will apply, so one that accepted what the read refuses would
-	 * promise a fetch that can't happen, which is worse than no preview at all.
-	 */
-	criteria?: IssueSearchCriteria;
-}
-
-/** The count for one {@link IssueCountScope}, echoed back under the caller's own `key`. */
-export interface IssueCountResult {
-	key: string;
-	/**
-	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
-	 * zero, which is a real answer. Render the difference: an unreported count means "unknown", and showing it as
-	 * 0 would tell the user this filter matches nothing.
-	 */
-	count?: number;
-	/**
-	 * True when `count` exceeds the provider's own result ceiling, so a full read CANNOT return everything no
-	 * matter how it is paged. This is the signal to warn before starting an expensive fetch.
-	 */
-	exceedsProviderLimit: boolean;
-	/** The ceiling itself, when the provider declares one. */
-	providerLimit?: number;
-}
-
-/**
- * One scope to count pull requests over — the PR twin of {@link IssueCountScope}.
- *
- * `key` is caller-owned and echoed back verbatim, never reaching the provider query (the aliases are generated), so
- * it can be any string the caller finds meaningful.
- */
-export interface PullRequestCountScope {
-	key: string;
-	/** Repositories to count over. Combines with `org`, exactly as in `searchPullRequestsPage`. */
-	repos?: ProviderReposInput;
-	org?: string;
-	/**
-	 * Same criteria model as `searchPullRequestsPage`, validated against the same capability table — so a count
-	 * refuses exactly what the read would, and never previews a fetch that can't happen.
-	 */
-	criteria?: PullRequestSearchCriteria;
-}
-
-/** The count for one {@link PullRequestCountScope}, echoed back under the caller's own `key`. */
-export interface PullRequestCountResult {
-	key: string;
-	/**
-	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
-	 * zero, which is a real answer.
-	 *
-	 * For a multi-state scope, GitHub/GHE report the LARGEST of their per-state counts (the same total
-	 * `searchPullRequestsPage` surfaces, since each state is its own capped search), not their sum. Bitbucket Data
-	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns —
-	 * and so does Azure DevOps Server, which reads every state in one drain.
-	 */
-	count?: number;
-	/**
-	 * True when `count` is a FLOOR rather than the total: the provider has no count query (Bitbucket Data Center),
-	 * so it counts by reading within a budget, and this scope had more than the budget read. Render it as "N+", and
-	 * treat the scope as at least that expensive. Absent means `count` is exact — the provider's own total, or for a
-	 * provider that counts by reading, every match it read.
-	 */
-	lowerBound?: boolean;
-	/**
-	 * True when `count` exceeds the provider's own per-search result ceiling, so a full read CANNOT return
-	 * everything no matter how it is paged. This is the signal to warn before starting an expensive fetch.
-	 */
-	exceedsProviderLimit: boolean;
-	/** The ceiling itself, when the provider declares one. */
-	providerLimit?: number;
 }
 
 /**

@@ -139,7 +139,15 @@ export interface GitConfigSubProvider {
 
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultWorktreePath?(repoPath: string): Promise<string | undefined>;
+	/**
+	 * Rejects, keeping nothing, when git gives no answer (it ran past its time limit, was killed or couldn't start), so
+	 * a later call reads again. Git saying `repoPath` isn't a repository it can use still answers `<repoPath>/.git`.
+	 */
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
+	/**
+	 * `[]` when git says `cwd` isn't a repository it can use, or `cwd` isn't a folder. Rejects when git gives no answer
+	 * (it ran past its time limit, was killed or couldn't start), which says nothing about `cwd`.
+	 */
 	getRepositoryInfo?(
 		cwd: string,
 	): Promise<
@@ -149,13 +157,17 @@ export interface GitConfigSubProvider {
 		| []
 	>;
 
-	getGkConfig?(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined>;
+	getGkConfig?(
+		repoPath: string,
+		key: GkConfigKeys | DeprecatedGkConfigKeys,
+		options?: { throwOnError?: boolean },
+	): Promise<string | undefined>;
 	getGkConfigRegex?(repoPath: string, pattern: string): Promise<Map<string, string>>;
 	setGkConfig?(
 		repoPath: string,
 		key: GkConfigKeys | DeprecatedGkConfigKeys,
 		value: string | undefined,
-		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
+		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[]; throwOnError?: boolean },
 	): Promise<void>;
 	/**
 	 * Drops every gk key stored for `ref` — call when a branch stops existing under that name. Deliberately

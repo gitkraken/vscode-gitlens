@@ -1,6 +1,5 @@
 import { l10n } from 'vscode';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
-import { getIssueOwner } from '@gitlens/integrations/providers/utils.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { proBadge } from '../../constants.js';
 import type { Sources } from '../../constants.telemetry.js';
@@ -61,9 +60,6 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 		);
 		if (this.branch == null) return;
 
-		const owner = getIssueOwner(issue);
-		if (owner == null) return;
-
-		await addAssociatedIssueToBranch(this.container, this.branch, { ...issue, type: 'issue' }, owner);
+		await addAssociatedIssueToBranch(this.container, this.branch, { ...issue, type: 'issue' });
 	}
 }

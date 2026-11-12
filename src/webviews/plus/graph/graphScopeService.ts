@@ -1,8 +1,12 @@
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import { GitFileIndexStatus, GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { ScopeFile, ScopeSelection } from './graphService.js';
+
+/** `contentId` of a deleted file — on disk, in the index or in a commit there is no blob to hash. */
+const deletedContentId = 'deleted';
 
 /**
  * Resolves the file list for a given {@link ScopeSelection}.
@@ -33,11 +37,13 @@ export async function getScopeFiles(
 	if (scope.type === 'commit') {
 		const files = await getCommitFiles(svc, scope.sha, signal);
 		const anchorBaseSha = files.length > 0 ? await resolveBaseSha(svc, scope.sha, signal) : undefined;
+		const contentIds = await getCommittedContentIds(svc, scope.sha, files, signal);
 		return files.map(f => ({
 			...toShape(f),
 			anchor: 'committed',
 			anchorSha: scope.sha,
 			anchorBaseSha: anchorBaseSha,
+			contentId: contentIds.get(f.path),
 		}));
 	}
 
@@ -49,34 +55,56 @@ export async function getScopeFiles(
 			const anchorSha = scope.includeShas[0];
 			const anchorBaseSha =
 				files.length > 0 ? await resolveBaseSha(svc, scope.includeShas.at(-1)!, signal) : undefined;
+			const contentIds = await getCommittedContentIds(svc, anchorSha, files, signal);
 			return files.map(f => ({
 				...toShape(f),
 				anchor: 'committed',
 				anchorSha: anchorSha,
 				anchorBaseSha: anchorBaseSha,
+				contentId: contentIds.get(f.path),
 			}));
 		}
 
-		const status = await svc.diff.getDiffStatus(`${scope.fromSha}..${scope.toSha}`);
+		const status = (await svc.diff.getDiffStatus(`${scope.fromSha}..${scope.toSha}`)) ?? [];
 		signal?.throwIfAborted();
-		return (status ?? []).map(f => ({
+		const contentIds = await getCommittedContentIds(svc, scope.toSha, status, signal);
+		return status.map(f => ({
 			...toShape(f),
 			anchor: 'committed',
 			anchorSha: scope.toSha,
 			anchorBaseSha: scope.fromSha,
+			contentId: contentIds.get(f.path),
 		}));
 	}
 
-	const wipEntries: GitFileChangeShape[] = [];
+	const wipEntries: ScopeFile[] = [];
 	if (scope.includeStaged || scope.includeUnstaged) {
 		const wipStatus = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
+		// The reviewed content of a working-tree layer is the file on disk; of a staged-only one, the
+		// index blob. A file deleted on disk, or deleted in the index, has no blob to hash — its identity
+		// is the deletion itself.
+		const workingPaths: string[] = [];
+		const indexPaths: string[] = [];
 		for (const f of wipStatus?.files ?? []) {
 			const hasStaged = f.indexStatus != null;
 			const hasUnstaged = f.workingTreeStatus != null;
 			const includeAsStaged = hasStaged && scope.includeStaged;
 			const includeAsUnstaged = hasUnstaged && scope.includeUnstaged;
 			if (!includeAsStaged && !includeAsUnstaged) continue;
+
+			let contentId: string | undefined;
+			if (includeAsUnstaged) {
+				if (f.workingTreeStatus === GitFileWorkingTreeStatus.Deleted) {
+					contentId = deletedContentId;
+				} else {
+					workingPaths.push(f.path);
+				}
+			} else if (f.indexStatus === GitFileIndexStatus.Deleted) {
+				contentId = deletedContentId;
+			} else {
+				indexPaths.push(f.path);
+			}
 
 			// Unstaged > staged matches the `anchorRank` ordering in graphWebview.ts, so right-click
 			// actions land on the topmost editable layer.
@@ -86,7 +114,17 @@ export async function getScopeFiles(
 				status: f.status,
 				originalPath: f.originalPath,
 				staged: includeAsStaged && !includeAsUnstaged,
+				contentId: contentId,
 			});
+		}
+
+		const [workingIds, indexIds] = await Promise.all([
+			svc.revision.getBlobIds?.(workingPaths, 'working', signal),
+			svc.revision.getBlobIds?.(indexPaths, 'index', signal),
+		]);
+		signal?.throwIfAborted();
+		for (const entry of wipEntries) {
+			entry.contentId ??= workingIds?.get(entry.path) ?? indexIds?.get(entry.path);
 		}
 	}
 
@@ -94,11 +132,16 @@ export async function getScopeFiles(
 		scope.includeShas.length === 0 ? [] : await collectCommittedRangeFiles(svc, scope.includeShas, signal);
 	const committedAnchorBaseSha =
 		committedEntries.length > 0 ? await resolveBaseSha(svc, scope.includeShas.at(-1)!, signal) : undefined;
+	const committedContentIds =
+		committedEntries.length > 0
+			? await getCommittedContentIds(svc, scope.includeShas[0], committedEntries, signal)
+			: undefined;
 	const committedShapes: ScopeFile[] = committedEntries.map(f => ({
 		...toShape(f),
 		anchor: 'committed',
 		anchorSha: scope.includeShas[0],
 		anchorBaseSha: committedAnchorBaseSha,
+		contentId: committedContentIds?.get(f.path),
 	}));
 	const committedByNewPath = new Map(committedShapes.map(e => [e.path, e]));
 
@@ -134,6 +177,42 @@ export async function getScopeFiles(
 	}
 
 	return [...merged.values()];
+}
+
+/** Each committed file's blob at `tip` (or the deletion) — the file, not the commit, so a viewed mark outlives a
+ *  rewrite that left it alone. A blob that can't be read falls back to `tip`. */
+async function getCommittedContentIds(
+	svc: GitRepositoryService,
+	tip: string,
+	files: readonly { path: string; status: GitFileStatus }[],
+	signal?: AbortSignal,
+): Promise<Map<string, string>> {
+	const ids = new Map<string, string>();
+	const present: string[] = [];
+	for (const f of files) {
+		if (f.status === 'D') {
+			ids.set(f.path, deletedContentId);
+		} else {
+			present.push(f.path);
+		}
+	}
+
+	try {
+		for (const entry of await svc.revision.getTreeForRevision(tip, { paths: present }, signal)) {
+			// A provider that can't read blob ids (GitHub) lists them empty
+			if (entry.type !== 'tree' && entry.oid) {
+				ids.set(entry.path, entry.oid);
+			}
+		}
+	} catch {
+		signal?.throwIfAborted();
+	}
+	for (const path of present) {
+		if (!ids.has(path)) {
+			ids.set(path, tip);
+		}
+	}
+	return ids;
 }
 
 /**

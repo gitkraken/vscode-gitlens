@@ -39,6 +39,7 @@ import {
 	buildGroupedTree,
 	getLayoutInfo,
 	getStatusDecoration,
+	getTreeFilePaths,
 	isTreeLayout,
 	nextContextMatchVisibility,
 	renderContextMatchVisibilityAction,
@@ -184,6 +185,30 @@ export class GlFileTreePane extends LitElement {
 	@property({ type: Boolean, attribute: 'multi-selectable' })
 	multiSelectable = false;
 
+	/** The file row to focus, select and scroll into view — applied when it changes or the row first shows
+	 *  up in the files, opening collapsed folders above it; a refresh of the files under the same path keeps
+	 *  the reader's folders, selection and cursor. For consumers that follow something outside the
+	 *  pane, like the review following the active diff editor. With `multiSelectable` and several rows
+	 *  selected by the reader, it only scrolls the row into view and leaves their selection alone. */
+	@property({ attribute: 'reveal-path' })
+	revealPath?: string;
+
+	/** With `revealPath`: that row is the only one selected, and a path this pane doesn't hold clears the
+	 *  selection — so panes fed the same path highlight one row between them. */
+	@property({ type: Boolean, attribute: 'reveal-only' })
+	revealOnly = false;
+
+	/** Whether the files are currently laid out as a tree (folders and chevrons) rather than a flat list —
+	 *  the resolved `auto` layout, reflected so styles can tell (document flow drops the chevron column
+	 *  for a flat list only). */
+	@property({ type: Boolean, reflect: true, attribute: 'tree-layout' })
+	treeLayout = false;
+
+	/** Document flow: the pane is as tall as its tree and leaves scrolling to an ancestor — for panes
+	 *  stacked as one document (a review's reading plan). Off, the pane fills its box and scrolls itself. */
+	@property({ type: Boolean, reflect: true })
+	flow = false;
+
 	/** Opt-in: makes file rows draggable (native drag carrying the file `path`). Off by default;
 	 *  set by consumers that support dropping files elsewhere (e.g. compose file→commit move). */
 	@property({ type: Boolean, attribute: 'draggable-files' })
@@ -232,7 +257,7 @@ export class GlFileTreePane extends LitElement {
 
 	/** Semantic checkbox action; labels are whole localized messages, not concatenated verbs. */
 	@property({ attribute: 'check-action' })
-	checkAction?: 'stage' | 'include' | 'resolve';
+	checkAction?: 'stage' | 'include' | 'resolve' | 'viewed';
 
 	/**
 	 * When `true` (default) and `checkable` is on, the count badge shows "x of y" while only a
@@ -271,6 +296,11 @@ export class GlFileTreePane extends LitElement {
 	 */
 	@property({ attribute: false })
 	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
+	/** Consumer-supplied per-file decorations, rendered ahead of the pane's own. Like `fileActions`,
+	 *  a callback read during model creation — bump `contextRevision` when what it reads changes. */
+	@property({ attribute: false })
+	fileDecorations?: (file: FileItem) => readonly TreeItemDecoration[] | undefined;
 
 	@state() private _contextMatchVisibility: 'off' | 'mixed' | 'matched' = 'mixed';
 	@state() private _showSearchBox = false;
@@ -451,9 +481,11 @@ export class GlFileTreePane extends LitElement {
 				}
 			}
 
+			const isTree = isTreeLayout(this.fileLayout, files.length, this.filesLayout?.threshold ?? 5);
+			this.treeLayout = isTree;
 			this._cachedTreeModel = buildGroupedTree({
 				files: files,
-				isTree: isTreeLayout(this.fileLayout, files.length, this.filesLayout?.threshold ?? 5),
+				isTree: isTree,
 				compact: this.filesLayout?.compact ?? true,
 				grouping: this.grouping,
 				checkable: this.checkable,
@@ -466,8 +498,13 @@ export class GlFileTreePane extends LitElement {
 				mixedPaths: this.mixedPaths,
 			});
 			this.applyCollapsedState(this._cachedTreeModel);
+			this._treeOrderChanged = true;
 		}
 	}
+
+	/** Set when the model was rebuilt this cycle; `updated` then announces the rendered order if it changed. */
+	private _treeOrderChanged = false;
+	private _announcedTreeOrder?: string[];
 
 	/** Re-applies remembered folder collapse state onto a freshly-built (default-expanded) model. */
 	private applyCollapsedState(nodes: TreeModel[]): void {
@@ -492,6 +529,25 @@ export class GlFileTreePane extends LitElement {
 	};
 
 	override updated(): void {
+		if (this._treeOrderChanged) {
+			this._treeOrderChanged = false;
+			// Consumers that read the files in the order shown (the review's reading order) follow this.
+			// Only a real change is announced: a consumer that re-renders on it would otherwise feed a
+			// rebuilt-but-identical model straight back into another rebuild
+			const paths = getTreeFilePaths(this._cachedTreeModel ?? []);
+			const announced = this._announcedTreeOrder;
+			if (announced == null || announced.length !== paths.length || announced.some((p, i) => p !== paths[i])) {
+				this._announcedTreeOrder = paths;
+				this.dispatchEvent(
+					new CustomEvent<{ paths: string[] }>('tree-order-changed', {
+						detail: { paths: paths },
+						bubbles: true,
+						composed: true,
+					}),
+				);
+			}
+		}
+
 		if (this._pendingScrollRestore != null) {
 			const scrollable = this.getTreeScrollContainer();
 			if (scrollable != null) {
@@ -541,45 +597,77 @@ export class GlFileTreePane extends LitElement {
 		const showSearch = this.buttons?.includes('search') ?? true;
 		const showSearchBox = this.effectiveShowSearchBox;
 
+		const checkAll = this.checkable ? this.getCheckAllParts(effectiveBadge) : undefined;
+		const viewActions = html`<action-nav>
+			${
+				this.searchContext != null
+					? renderContextMatchVisibilityAction(
+							this._contextMatchVisibility,
+							this.searchContext.matchedFiles?.length ?? 0,
+							fileCount,
+							e => this.onCycleContextMatchVisibility(e),
+						)
+					: nothing
+			}
+			${showLayout ? renderLayoutAction(this.fileLayout, e => this.onToggleFilesLayout(e)) : nothing}
+			${
+				showSearch
+					? html`<gl-action-chip
+							data-action="search"
+							label="${showSearchBox ? l10n.t('Hide Search') : l10n.t('Show Search')}"
+							icon="search"
+							class="${showSearchBox ? 'active-toggle' : ''}"
+							@click=${this.onToggleSearch}
+						></gl-action-chip>`
+					: nothing
+			}
+			<slot name="actions"></slot>
+		</action-nav>`;
+
+		// In document flow the heading is just the title and its count; the check-all box and the view
+		// toggles sit on their own row below whatever the consumer slots before the tree (a summary), so
+		// the heading reads like a heading and the controls stay with the files they act on
 		return html`
 			<webview-pane exportparts="header, content" .collapsable=${this.collapsable} expanded flexible>
 				<span slot="title"
 					>${
-						this.checkable
-							? this.renderCheckboxTitle(fileCount, effectiveBadge)
+						checkAll != null
+							? this.flow
+								? html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}
+										><span class="checkbox-header__label"
+											>${checkAll.title}<slot name="header-badge"></slot></span
+									></span>`
+								: html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
+										${checkAll.checkbox}
+										<span class="checkbox-header__label"
+											>${checkAll.title}${checkAll.count}<slot name="header-badge"></slot
+										></span>
+									</span>`
 							: this.renderTitle(effectiveBadge)
 					}</span
 				>
 				<slot name="subtitle" slot="subtitle"></slot>
 				<div class="header-actions" slot="actions">
 					<slot name="leading-actions" class="leading-actions"></slot>
-					<action-nav>
-						${
-							this.searchContext != null
-								? renderContextMatchVisibilityAction(
-										this._contextMatchVisibility,
-										this.searchContext.matchedFiles?.length ?? 0,
-										fileCount,
-										e => this.onCycleContextMatchVisibility(e),
-									)
-								: nothing
-						}
-						${showLayout ? renderLayoutAction(this.fileLayout, e => this.onToggleFilesLayout(e)) : nothing}
-						${
-							showSearch
-								? html`<gl-action-chip
-										data-action="search"
-										label="${showSearchBox ? l10n.t('Hide Search') : l10n.t('Show Search')}"
-										icon="search"
-										class="${showSearchBox ? 'active-toggle' : ''}"
-										@click=${this.onToggleSearch}
-									></gl-action-chip>`
-								: nothing
-						}
-						<slot name="actions"></slot>
-					</action-nav>
+					${this.flow ? nothing : viewActions}
 				</div>
 				<slot name="before-tree"></slot>
+				${
+					this.flow
+						? html`<div class="pane-controls">
+								${
+									checkAll != null
+										? html`<span class="pane-controls__check"
+												>${checkAll.checkbox}<span class="pane-controls__check-label"
+													>${checkAll.text}</span
+												>${checkAll.count}</span
+											>`
+										: nothing
+								}
+								${viewActions}
+							</div>`
+						: nothing
+				}
 				${this.renderTreeFileModel(treeModel)}
 			</webview-pane>
 		`;
@@ -596,7 +684,15 @@ export class GlFileTreePane extends LitElement {
 			}<slot name="header-badge"></slot>`;
 	}
 
-	private renderCheckboxTitle(_fileCount: number, badge?: string | number): TemplateResult {
+	/** The check-all box (with its tooltip), the title, the count badge and the box's plain-text meaning —
+	 *  the header composes them inline; document flow keeps the title as the heading and puts the box, its
+	 *  meaning and the count on their own row under it. */
+	private getCheckAllParts(badge?: string | number): {
+		checkbox: TemplateResult;
+		title: TemplateResult;
+		count: TemplateResult | typeof nothing;
+		text?: string;
+	} {
 		// Count unique paths so a mixed file (which appears twice in `files` — once staged, once
 		// unstaged) doesn't double-count and stick the header in indeterminate state. Disabled
 		// rows still count toward the total (so the badge shows "x of <visible>") but are
@@ -627,7 +723,9 @@ export class GlFileTreePane extends LitElement {
 			}
 		}
 
-		const totalFiles = seen.size;
+		// For a viewed checklist a disabled row is a file set aside from the walk, so it leaves the
+		// total as well — the badge and the header checkbox then agree with the walk's own count.
+		const totalFiles = this.checkAction === 'viewed' ? enabledPaths.length : seen.size;
 		const allChecked = totalFiles > 0 && checkedCount === totalFiles && mixedCount === 0;
 		const noneChecked = checkedCount === 0 && mixedCount === 0;
 		const indeterminate = !allChecked && !noneChecked;
@@ -710,22 +808,23 @@ export class GlFileTreePane extends LitElement {
 				>`
 			: nothing;
 
-		const label =
+		const title = html`<span class="checkbox-header__title">${this.header}</span>`;
+		const count =
 			effectiveBadge == null
-				? html`<span class="checkbox-header__title">${this.header}</span>`
-				: html`<span class="checkbox-header__title">${this.header}</span>
-						<gl-badge appearance=${badgeAppearance}
-							><span class="checkbox-header__badge-text">${effectiveBadge}</span>${mixedBadge}</gl-badge
-						>`;
+				? nothing
+				: html`<gl-badge appearance=${badgeAppearance}
+						><span class="checkbox-header__badge-text">${effectiveBadge}</span>${mixedBadge}</gl-badge
+					>`;
 
-		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
-			${
-				tooltipText
-					? html`<gl-tooltip placement="bottom" content=${tooltipText}>${checkbox}</gl-tooltip>`
-					: checkbox
-			}
-			<span class="checkbox-header__label">${label}<slot name="header-badge"></slot></span>
-		</span>`;
+		return {
+			checkbox: tooltipText
+				? html`<gl-tooltip placement="bottom" content=${tooltipText}>${checkbox}</gl-tooltip>`
+				: checkbox,
+			title: title,
+			count: count,
+			// The first line is the action; the alt-click hint stays a tooltip
+			text: tooltipText?.split('\n')[0],
+		};
 	}
 
 	private getCheckboxLabel(action: 'check' | 'uncheck' | 'remaining', fileName?: string): string | undefined {
@@ -754,6 +853,18 @@ export class GlFileTreePane extends LitElement {
 					: action === 'remaining'
 						? l10n.t('Include Remaining')
 						: l10n.t('Include All');
+			case 'viewed':
+				if (fileName != null) {
+					return action === 'uncheck'
+						? l10n.t('Mark {file} as Not Viewed', { file: fileName })
+						: l10n.t('Mark {file} as Viewed', { file: fileName });
+				}
+
+				return action === 'uncheck'
+					? l10n.t('Mark All as Not Viewed')
+					: action === 'remaining'
+						? l10n.t('Mark Remaining as Viewed')
+						: l10n.t('Mark All as Viewed');
 			case 'resolve':
 				if (fileName != null) {
 					return action === 'uncheck'
@@ -855,6 +966,11 @@ export class GlFileTreePane extends LitElement {
 
 	private getFileDecorations(file: FileItem): TreeItemDecoration[] {
 		const decorations: TreeItemDecoration[] = [];
+
+		const supplied = this.fileDecorations?.(file);
+		if (supplied?.length) {
+			decorations.push(...supplied);
+		}
 
 		// Rich conflict rendering — status code + "Modified (Both)" muted label + warning + count.
 		// Mirrors the rebase editor's treatment via the shared conflictRendering helpers.
@@ -1021,6 +1137,8 @@ export class GlFileTreePane extends LitElement {
 		const dimUnmatched = this.searchContext != null && this._contextMatchVisibility === 'mixed';
 		return html`<gl-tree-view
 			.model=${treeModel}
+			.focusedPath=${this.revealPath}
+			?focused-path-only=${this.revealOnly}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._contextMatchVisibility !== 'off'}
 			.searchBoxFilter=${this.effectiveSearchBoxFilter}
@@ -1028,6 +1146,7 @@ export class GlFileTreePane extends LitElement {
 			?filterable=${this.effectiveShowSearchBox}
 			?multi-selectable=${this.multiSelectable}
 			?draggable-files=${this.draggableFiles}
+			?flow=${this.flow}
 			filter-placeholder=${l10n.t('Filter files...')}
 			search-placeholder=${l10n.t('Search files...')}
 			empty-text=${emptyText}

@@ -22,7 +22,8 @@ export interface ProviderReference {
 export interface Provider extends ProviderReference {
 	getIgnoreSSLErrors(): boolean | 'force';
 	reauthenticate(): Promise<void>;
-	trackRequestException(): void;
+	/** Spends a strike toward disconnecting the connection `connectionId` names, or the primary when omitted. */
+	trackRequestException(options?: { connectionId?: string }): void;
 }
 
 export type RemoteProviderId =

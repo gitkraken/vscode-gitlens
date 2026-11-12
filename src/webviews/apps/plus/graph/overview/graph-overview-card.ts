@@ -8,6 +8,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
@@ -74,7 +75,7 @@ function getBranchCardIndicator(
 		// Merge-target is fetched lazily by <gl-branch-hover> on first hover and published into shared
 		// `overviewEnrichment`, which `graph-overview` passes straight back down as our `enrichment` prop.
 		// So this stays absent until someone hovers the branch — by design, it's expensive.
-		if (enrichment?.mergeTarget?.mergedStatus?.merged) return 'branch-merged';
+		if (enrichment?.mergeTarget?.landed != null) return 'branch-merged';
 	}
 
 	if (branch.upstream?.missing) return 'branch-missingUpstream';
@@ -115,30 +116,14 @@ export class GlGraphOverviewCard extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 8%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#fff 12%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 8%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 12%);
 		}
 
 		:host-context(.vscode-light),
 		:host-context(.vscode-high-contrast-light) {
-			--gl-card-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 6%
-			);
-			--gl-card-hover-background: color-mix(
-				in lab,
-				var(--color-graph-background, var(--color-background)) 100%,
-				#000 10%
-			);
+			--gl-card-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 6%);
+			--gl-card-hover-background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 10%);
 		}
 
 		/* Lights up when one or more selected/focused graph rows live on this branch.
@@ -663,7 +648,11 @@ export class GlGraphOverviewCard extends LitElement {
 
 		// `<pr-icon>` has its own `<gl-tooltip>` when state is set — render directly without
 		// wrapping to avoid nested tooltips.
-		return html`<pr-icon ?draft=${pr.draft ?? false} state=${pr.state} pr-id=${pr.id}></pr-icon>`;
+		return html`<pr-icon
+			?draft=${pr.draft ?? false}
+			state=${getPullRequestDisplayState(pr)}
+			pr-id=${pr.id}
+		></pr-icon>`;
 	}
 
 	private renderAgentsIndicator() {
@@ -742,24 +731,27 @@ export class GlGraphOverviewCard extends LitElement {
 						></action-item>`,
 					);
 				}
-			} else if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
-				// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
-				// opened in another worktree) can be offered
-				actions.push(
-					html`<action-item
-						label=${l10n.t('Publish Repository')}
-						icon="cloud-upload"
-						href=${this.createCommandLink('gitlens.publishRepository:')}
-					></action-item>`,
-				);
-			} else {
-				actions.push(
-					html`<action-item
-						label=${l10n.t('Publish Branch')}
-						icon="cloud-upload"
-						href=${this.createCommandLink('gitlens.publishBranch:')}
-					></action-item>`,
-				);
+			} else if (this.enrichment?.mergeTarget?.landed == null) {
+				// A landed branch's work is already in the merge target, so there is nothing to publish
+				if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
+					// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
+					// opened in another worktree) can be offered
+					actions.push(
+						html`<action-item
+							label=${l10n.t('Publish Repository')}
+							icon="cloud-upload"
+							href=${this.createCommandLink('gitlens.publishRepository:')}
+						></action-item>`,
+					);
+				} else {
+					actions.push(
+						html`<action-item
+							label=${l10n.t('Publish Branch')}
+							icon="cloud-upload"
+							href=${this.createCommandLink('gitlens.publishBranch:')}
+						></action-item>`,
+					);
+				}
 			}
 		} else if (this.isWorktree) {
 			actions.push(

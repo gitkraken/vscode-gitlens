@@ -20,6 +20,24 @@ export const fileTreeStyles = css`
 		overflow: hidden;
 	}
 
+	/* Document flow (see the \`flow\` property): content height all the way down, no inner scrolling.
+	   The pane's content box must not clip either — the virtualizer scrolls (and virtualizes against)
+	   its nearest clipping ancestor, which must be the document's column, not this box */
+	:host([flow]),
+	:host([flow]) webview-pane,
+	:host([flow]) webview-pane::part(content),
+	:host([flow]) gl-tree-view {
+		flex: none;
+		overflow: visible;
+	}
+
+	/* In document flow a group reads like a section of the document: its summary, controls and files start
+	   where the heading's text does, with the chevron hanging to the left — the pane header's chevron
+	   (16px with --gl-space-2 either side) and the title's own --gl-space-2 inset */
+	:host([flow]) webview-pane::part(content) {
+		padding-left: calc(var(--gl-space-2) + 16px + var(--gl-space-2) + var(--gl-space-2));
+	}
+
 	/* Checkbox mode: pull the title (and its select-all checkbox) back so the checkbox's left
 	   edge sits at the content inset, aligned with the filter box and the commit box's checkbox
 	   below — the default non-collapsable title indent lands it 4px to their right. */
@@ -140,6 +158,37 @@ export const fileTreeStyles = css`
 		padding: 5px 0 5px 2px; /* prevent focus ring from clipping */
 	}
 
+	/* Document flow: the check-all box and the view toggles on one row between the heading's summary and the
+	   files, and the files flush with it — a flat list has no chevrons to leave room for, so the rows lose
+	   the tree's gutter and connector column and start on the same edge as the box above them */
+	.pane-controls {
+		display: flex;
+		gap: var(--gl-space-6);
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 var(--gl-space-2) var(--gl-space-4);
+	}
+
+	/* Half a checkbox in, so the rows read as the box's content rather than its continuation — list and
+	   tree alike; the tree keeps only the indent its folders need */
+	:host([flow]) gl-tree-view {
+		--gitlens-gutter-width: 0.8rem;
+	}
+
+	:host([flow]:not([tree-layout])) gl-tree-view {
+		--gitlens-tree-indent: 0;
+	}
+
+	.pane-controls__check {
+		display: inline-flex;
+		gap: var(--gl-space-6);
+		align-items: center;
+		min-width: 0;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.pane-controls__check gl-checkbox,
 	.checkbox-header gl-checkbox {
 		--checkbox-foreground: var(--vscode-sideBarSectionHeader-foreground);
 		--checkbox-size: 1.6rem;

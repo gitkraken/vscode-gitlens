@@ -9,12 +9,19 @@ import type {
 	CommitResult,
 	ComposeResult,
 	ComposeSessionKey,
+	DeepReviewAvailability,
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
 import type { AppState } from '../../context.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
-import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
+import {
+	DetailsActions,
+	getRewrittenScopeShas,
+	mapRewrittenCommit,
+	remapScopeRange,
+	scopeSelectionEqual,
+} from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
 
 function createResources(overrides: Partial<DetailsResources> = {}): DetailsResources {
@@ -1027,5 +1034,1012 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 		await actions.ensureBranchCommitsCover(undefined, ['h']);
 
 		assert.strictEqual(calls(), 0, 'nothing to cover');
+	});
+});
+
+suite('remapScopeRange', () => {
+	/** `sha` or `sha:subject`; a rewritten commit keeps its subject unless it was reworded. */
+	const commits = (...entries: string[]): BranchCommitEntry[] =>
+		entries.map(entry => {
+			const [sha, subject] = entry.split(':');
+			const message = `${subject ?? sha.replaceAll("'", '')}\n\nbody`;
+			return { sha: sha, message: message, pushed: false } as unknown as BranchCommitEntry;
+		});
+
+	// Lists are newest first, as the branch commits and the scope keep them
+	const cases: {
+		name: string;
+		shas: string[];
+		wip?: boolean;
+		prev?: string[];
+		next: string[];
+		patchIds?: Record<string, string>;
+		mergeBases?: { prev?: string; next?: string };
+		expected: string[] | undefined;
+	}[] = [
+		{
+			name: 'nothing changed',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['c', 'b', 'a'],
+			expected: undefined,
+		},
+		{ name: 'no earlier list', shas: ['b'], next: ["b'"], expected: undefined },
+		{
+			name: 'amend of the tip',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", 'b', 'a'],
+			expected: ["c'", 'b'],
+		},
+		{
+			name: 'amend of an earlier commit',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", "b'", 'a'],
+			expected: ["c'", "b'", 'a'],
+		},
+		{
+			name: 'fixup folded in by an autosquash rebase',
+			shas: ['f:fixup! b', 'c', 'b'],
+			prev: ['f:fixup! b', 'c', 'b', 'a'],
+			next: ["c'", "b'", 'a'],
+			expected: ["c'", "b'"],
+		},
+		{ name: 'reword', shas: ['b'], prev: ['c', 'b', 'a'], next: ["c'", "b':reworded", 'a'], expected: ["b'"] },
+		{
+			name: 'reword while another commit is dropped, matched by patch id',
+			shas: ['b'],
+			prev: ['d', 'c', 'b', 'a'],
+			next: ["c'", "b':reworded", 'a'],
+			patchIds: { b: 'pb', c: 'pc', "c'": 'pc', "b'": 'pb' },
+			expected: ["b'"],
+		},
+		{
+			name: 'a patch id tells apart commits with the same subject',
+			shas: ['b:wip'],
+			prev: ['c:wip', 'b:wip', 'a'],
+			next: ["b':wip", "c':wip", 'a'],
+			patchIds: { b: 'pb', c: 'pc', "b'": 'pb', "c'": 'pc' },
+			expected: ["b'"],
+		},
+		{ name: 'reorder', shas: ['b'], prev: ['c', 'b', 'a'], next: ["b'", "c'", 'a'], expected: ["b'"] },
+		{
+			name: 'reorder of the whole range',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ["b'", "c'", 'a'],
+			expected: ["b'", "c'"],
+		},
+		{ name: 'drop', shas: ['c', 'b'], prev: ['c', 'b', 'a'], next: ["c'", 'a'], expected: ["c'"] },
+		{ name: 'only the dropped commit', shas: ['b'], prev: ['c', 'b', 'a'], next: ["c'", 'a'], expected: undefined },
+		{
+			name: 'oldest loaded commit rewritten, same count',
+			shas: ['b', 'a'],
+			prev: ['b', 'a'],
+			next: ["b'", "a':reworded"],
+			expected: ["b'", "a'"],
+		},
+		{
+			name: 'commits below the rewrite that the new page no longer loads',
+			shas: ['u', 'mb'],
+			prev: ['t', 'u', 'mb', 'p1'],
+			next: ["t'", 'u'],
+			expected: undefined,
+		},
+		{
+			name: 'a rewritten tip with older commits no longer loaded',
+			shas: ['t', 'u', 'mb'],
+			prev: ['t', 'u', 'mb', 'p1'],
+			next: ["t'", 'u'],
+			expected: ["t'", 'u', 'mb'],
+		},
+		{
+			name: 'a commit on top of a range holding the tip joins it',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['d', 'c', 'b', 'a'],
+			expected: ['d', 'c', 'b'],
+		},
+		{
+			name: 'a commit on top of a range without the tip does not join it',
+			shas: ['b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ['d', 'c', 'b', 'a'],
+			expected: undefined,
+		},
+		{
+			name: 'working changes committed on top join the range',
+			shas: [],
+			wip: true,
+			prev: ['c', 'b'],
+			next: ['d', 'c', 'b'],
+			expected: ['d'],
+		},
+		{
+			name: 'working changes and the tip, committed on top',
+			shas: ['c', 'b'],
+			wip: true,
+			prev: ['c', 'b'],
+			next: ['d', 'c', 'b'],
+			expected: ['d', 'c', 'b'],
+		},
+		{
+			name: 'a commit inserted inside the range joins it',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a', 'base'],
+			next: ["c'", 'x', "b'", 'a', 'base'],
+			expected: ["c'", 'x', "b'", 'a'],
+		},
+		{
+			name: 'a rebase onto the base branch',
+			shas: ['c', 'b', 'a'],
+			prev: ['c', 'b', 'a'],
+			next: ["c'", "b'", "a'"],
+			expected: ["c'", "b'", "a'"],
+		},
+		{ name: 'an undo of the tip', shas: ['c', 'b'], prev: ['c', 'b', 'a'], next: ['b', 'a'], expected: ['b'] },
+		{
+			name: 'an undo of the only commit in the range',
+			shas: ['c'],
+			prev: ['c', 'b'],
+			next: ['b'],
+			expected: undefined,
+		},
+		{
+			name: 'an oldest commit that no longer maps widens the range to the rewritten ones',
+			shas: ['c', 'b'],
+			prev: ['d', 'c', 'b', 'a'],
+			next: ["c'", "b':reworded", 'a'],
+			expected: ["c'", "b'"],
+		},
+		{
+			name: 'a first commit on a branch: working changes committed on top of its merge base',
+			shas: [],
+			wip: true,
+			// With no commits of its own the window is the plain branch log; after the commit it leaves out its merge base
+			prev: ['m0', 'm1', 'm2'],
+			next: ['c1'],
+			mergeBases: { next: 'm0' },
+			expected: ['c1'],
+		},
+		{
+			name: 'a first commit on a branch, over a scope on its tip',
+			shas: ['m0'],
+			prev: ['m0', 'm1', 'm2'],
+			next: ['c1'],
+			mergeBases: { next: 'm0' },
+			expected: ['c1'],
+		},
+		{
+			name: "an undo of a branch's only commit",
+			shas: ['c1'],
+			prev: ['c1'],
+			next: ['m0', 'm1', 'm2'],
+			mergeBases: { prev: 'm0' },
+			expected: undefined,
+		},
+		{
+			name: 'a scope commit that became the merge base',
+			shas: ['b'],
+			prev: ['c', 'b', 'a'],
+			next: ['c'],
+			mergeBases: { next: 'b' },
+			expected: undefined,
+		},
+		{
+			name: 'a squash with a new message',
+			shas: ['c', 'b'],
+			prev: ['c', 'b', 'a'],
+			next: ['s:squashed', 'a'],
+			expected: ['s'],
+		},
+	];
+
+	const shaOf = (entry: string) => entry.split(':')[0];
+	for (const c of cases) {
+		test(c.name, () => {
+			assert.deepStrictEqual(
+				remapScopeRange(
+					{ includeShas: c.shas.map(shaOf), includesWip: c.wip ?? false },
+					c.prev != null ? commits(...c.prev) : undefined,
+					commits(...c.next),
+					c.mergeBases,
+					c.patchIds,
+				),
+				c.expected,
+			);
+		});
+	}
+
+	test('patch ids are asked only for replaced scope commits and the rewritten ones', () => {
+		assert.deepStrictEqual(getRewrittenScopeShas(['c', 'b'], commits('c', 'b', 'a'), commits("c'", 'b', 'a')), [
+			'c',
+			"c'",
+		]);
+		assert.deepStrictEqual(
+			getRewrittenScopeShas(['c', 'b'], commits('c', 'b', 'a'), commits('d', 'c', 'b', 'a')),
+			[],
+			'nothing replaced',
+		);
+	});
+});
+
+suite('DetailsActions — scope follows a history rewrite', () => {
+	// A rewritten commit (`b'`) keeps the subject of the one it replaced (`b`)
+	const commit = (sha: string): BranchCommitEntry =>
+		({ sha: sha, message: sha.replace("'", ''), pushed: false }) as unknown as BranchCommitEntry;
+	const repo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
+	const wipAt = (revision: number, tip: string): Wip =>
+		({
+			changes: undefined,
+			repositoryCount: 1,
+			repo: repo,
+			revision: revision,
+			// No branch name, so the push doesn't also start a branch-enrichment fetch
+			branch: { repoPath: '/repo', reference: { sha: tip } },
+		}) as unknown as Wip;
+
+	test('an amend of an earlier commit moves the review scope and refetches its files', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+
+		let branchCommits: BranchCommitsResult = { commits: [commit('c'), commit('b'), commit('a')], hasMore: false };
+		const services = {
+			...createServices(),
+			graphInspect: { getBranchCommits: async () => branchCommits, getCommitPatchIds: async () => undefined },
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, scope: ScopeSelection) => {
+				fetchedScopes.push(scope);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		await actions.fetchBranchCommits('/repo');
+
+		// The agent amends b: c is rewritten on top of the new b, the tip moves, ahead/behind stays the same
+		branchCommits = { commits: [commit("c'"), commit("b'"), commit('a')], hasMore: false };
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		const expected: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["c'", "b'"],
+		};
+		assert.deepStrictEqual(state.scope.get(), expected);
+		assert.deepStrictEqual(fetchedScopes.at(-1), expected, 'the files are reloaded for the rewritten commits');
+	});
+
+	test("the host's patch ids map commits whose subjects are the same", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] });
+
+		const wip = (sha: string) => ({ sha: sha, message: 'wip', pushed: false }) as unknown as BranchCommitEntry;
+		const asked: string[][] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				// A rebase swapped the two "wip" commits
+				getBranchCommits: async () => ({ commits: [wip("b'"), wip("c'"), commit('a')], hasMore: false }),
+				getCommitPatchIds: async (_repoPath: string, shas: string[]) => {
+					asked.push(shas);
+					return { b: 'pb', c: 'pc', "b'": 'pb', "c'": 'pc' };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([wip('c'), wip('b'), commit('a')]);
+
+		await actions.fetchBranchCommits('/repo');
+
+		assert.deepStrictEqual(asked, [['b', "b'", "c'"]]);
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["b'"],
+		});
+	});
+
+	test("committed working changes join the scope even after the picker's fallback replaced it", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: true, includeUnstaged: false, includeShas: [] });
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// The staged changes are committed as w
+		actions.applyPushedWip(wipAt(2, 'w'));
+		// The staged row is gone before the new commit is listed, so the picker falls back to its default
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		});
+	});
+
+	[
+		{
+			name: "a branch's first commit joins the working changes it came from",
+			scope: [] as string[],
+			staged: true,
+			prev: ['m0', 'm1'],
+			prevMergeBase: undefined as string | undefined,
+			tips: ['m0', 'c1'],
+			next: { commits: ['c1'], mergeBase: 'm0' as string | undefined },
+			expected: ['c1'],
+		},
+		{
+			name: "an undo of a branch's only commit keeps its scope off the base branch's history",
+			scope: ['c1'],
+			staged: false,
+			prev: ['c1'],
+			prevMergeBase: 'm0',
+			tips: ['c1', 'm0'],
+			next: { commits: ['m0', 'm1'], mergeBase: undefined },
+			expected: ['c1'],
+		},
+	].forEach(c => {
+		test(c.name, async () => {
+			const state = createDetailsState();
+			state.activeMode.set('review');
+			state.activeModeContext.set('wip');
+			state.activeModeRepoPath.set('/repo');
+			state.scope.set({ type: 'wip', includeStaged: c.staged, includeUnstaged: false, includeShas: c.scope });
+
+			const services = {
+				...createServices(),
+				graphInspect: {
+					getBranchCommits: async () => ({
+						commits: c.next.commits.map(commit),
+						mergeBase: c.next.mergeBase != null ? { sha: c.next.mergeBase, message: '' } : undefined,
+						hasMore: false,
+					}),
+					getCommitPatchIds: async () => undefined,
+				},
+			} as unknown as ResolvedServices;
+			const actions = new DetailsActions(state, services, createResources());
+			actions['_branchCommitsFetchedRepoPath'] = '/repo';
+			state.branchCommits.set(c.prev.map(commit));
+			state.branchMergeBase.set(c.prevMergeBase != null ? { sha: c.prevMergeBase, message: '' } : undefined);
+
+			actions.applyPushedWip(wipAt(1, c.tips[0]));
+			actions.applyPushedWip(wipAt(2, c.tips[1]));
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+			assert.deepStrictEqual(state.scope.get(), {
+				type: 'wip',
+				includeStaged: c.staged,
+				includeUnstaged: false,
+				includeShas: c.expected,
+			});
+		});
+	});
+
+	test('a refetch that replaces an aborted one still starts from the scope pinned at the tip move', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: true, includeUnstaged: false, includeShas: [] });
+
+		const pending: (() => void)[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						pending.push(() =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false }),
+						);
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// The staged changes are committed as w: the tip push pins the scope and starts a refetch…
+		actions.applyPushedWip(wipAt(2, 'w'));
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+		// …and the branch-state change that follows (ahead/behind moved) starts another, aborting it
+		const second = actions.fetchBranchCommits('/repo');
+		pending[0]();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		pending[1]();
+		await second;
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		});
+		assert.strictEqual(actions['_scopeBeforeTipMove'], undefined, 'the pin is consumed');
+	});
+
+	test("the picker's fallback for a committed row is held while the remap is pending, so its files never load", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		const stagedOnly: ScopeSelection = {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: [],
+		};
+		state.scope.set(stagedOnly);
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('w'), commit('c'), commit('b')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, scope: ScopeSelection) => {
+				fetchedScopes.push(scope);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, 'w'));
+		const fallback: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['c', 'b'],
+		};
+		assert.ok(actions.holdScopeForRemap(fallback), 'held while the remap is pending');
+		assert.strictEqual(state.scope.get(), stagedOnly);
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		const expected: ScopeSelection = {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: false,
+			includeShas: ['w'],
+		};
+		assert.deepStrictEqual(state.scope.get(), expected);
+		assert.ok(!fetchedScopes.includes(fallback), "the fallback's files are never loaded");
+		assert.strictEqual(actions.holdScopeForRemap(fallback), false, 'nothing is held once the remap is done');
+	});
+
+	test('a tip move reloads the files once, after the remap, not for the scope it may replace', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		const scope: ScopeSelection = { type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] };
+		state.scope.set(scope);
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('d'), commit('c'), commit('b'), commit('a')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const fetchedScopes: ScopeSelection[] = [];
+		const resources = createResources({
+			scopeFiles: createResource(async (_signal, _repoPath: string, fetched: ScopeSelection) => {
+				fetchedScopes.push(fetched);
+				return [];
+			}),
+		});
+		const actions = new DetailsActions(state, services, resources);
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		const before = fetchedScopes.length;
+		actions.applyPushedWip(wipAt(2, 'd'));
+		assert.strictEqual(fetchedScopes.length, before, 'nothing loads while the remap is pending');
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(
+			fetchedScopes.slice(before),
+			[scope],
+			'the remap kept the scope, so its files load once',
+		);
+	});
+
+	test('a selection held during the remap applies when the remap leaves the scope as it was', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['b'] });
+
+		let listCommits!: () => void;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: () =>
+					new Promise<BranchCommitsResult>(resolve => {
+						listCommits = () =>
+							resolve({ commits: [commit('d'), commit('c'), commit('b'), commit('a')], hasMore: false });
+					}),
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// A commit on top of a range without the tip: the remap keeps the scope
+		actions.applyPushedWip(wipAt(2, 'd'));
+		const picked: ScopeSelection = {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['c', 'b'],
+		};
+		assert.ok(actions.holdScopeForRemap(picked));
+
+		listCommits();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(state.scope.get(), picked);
+	});
+
+	test('a scope reaching into pages loaded before the refetch pages back to them', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		// The scope reaches past the merge base, into commits a Load more listed
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'm1'] });
+
+		const firstPage = [commit('c'), commit('b')];
+		const pages: { limit?: number }[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async (_repoPath: string, options?: { limit?: number }) => {
+					pages.push({ limit: options?.limit });
+					return options?.limit != null
+						? { commits: [...firstPage, commit('m1'), commit('m0')], hasMore: false }
+						: { commits: firstPage, hasMore: true };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([...firstPage, commit('m1'), commit('m0')]);
+
+		await actions.fetchBranchCommits('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.ok(
+			state.branchCommits.get()?.some(c => c.sha === 'm1'),
+			'the scope commit is listed again',
+		);
+		assert.strictEqual(pages.length, 2, 'one page back');
+	});
+
+	test('a scope commit an undo removed does not page through the history', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c3'] });
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [commit('c2'), commit('c1')], hasMore: true };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c3'), commit('c2'), commit('c1')]);
+
+		await actions.fetchBranchCommits('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(calls, 1, 'no paging for a commit that is gone');
+	});
+
+	test('a pushed tip move refetches once the rebase has landed', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: false, includeShas: ['c', 'b'] });
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [commit("c'"), commit("b'"), commit('a')], hasMore: false };
+				},
+				getCommitPatchIds: async () => undefined,
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('c'), commit('b'), commit('a')]);
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// An `edit` stop on the tip: HEAD is already on the amended commit while paused
+		const paused = wipAt(2, "c'");
+		paused.changes = { pausedOpStatus: { type: 'rebase' } } as unknown as Wip['changes'];
+		actions.applyPushedWip(paused);
+		assert.strictEqual(calls, 0, 'no refetch while the rebase is paused');
+
+		// …and the rebase lands with the tip it already had
+		actions.applyPushedWip(wipAt(4, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(calls, 1, 'the landed rebase refetches');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ["c'", "b'"],
+		});
+	});
+
+	test('a tip that moves mid-rebase waits for the rebase to finish', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/repo');
+
+		let calls = 0;
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => {
+					calls++;
+					return { commits: [], hasMore: false };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		const paused = wipAt(2, 'x');
+		paused.changes = { pausedOpStatus: { type: 'rebase' } } as unknown as Wip['changes'];
+		actions.applyPushedWip(paused);
+
+		assert.strictEqual(calls, 0, 'no refetch while the rebase is paused');
+	});
+});
+
+suite('DetailsActions — Review in Repo availability', () => {
+	/** Services whose every event subscription is inert, except the availability push, which the test drives. */
+	function setup(fetch: () => Promise<DeepReviewAvailability>) {
+		let push: ((availability: DeepReviewAvailability) => void) | undefined;
+		const inert = () => () => undefined;
+		const withInertEvents = (target: Record<string, unknown>) =>
+			new Proxy(target, { get: (t, name) => (typeof name === 'string' ? (t[name] ?? inert) : undefined) });
+		const services = {
+			graphInspect: withInertEvents({
+				getDeepReviewAvailability: fetch,
+				onDeepReviewAvailability: (handler: (availability: DeepReviewAvailability) => void) => {
+					push = handler;
+					return () => undefined;
+				},
+			}),
+			config: withInertEvents({}),
+			ai: withInertEvents({}),
+		} as unknown as ResolvedServices;
+
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, services, createResources());
+		return {
+			state: state,
+			actions: actions,
+			subscribe: () => actions['subscribeEvents'](),
+			push: (availability: DeepReviewAvailability) => {
+				assert.ok(push != null, 'the actions should subscribe to the availability push');
+				push(availability);
+			},
+		};
+	}
+
+	test("the host's push lifts an answer given before the local channel was up", async () => {
+		const { state, actions, subscribe, push } = setup(async () => ({ available: false, reason: 'no-channel' }));
+
+		await actions.refreshDeepReviewAvailability();
+		await subscribe();
+		push({ available: true });
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
+	});
+
+	test('a push outdates a fetch still in flight', async () => {
+		let resolveFetch: ((value: DeepReviewAvailability) => void) | undefined;
+		const { state, actions, subscribe, push } = setup(() => new Promise(resolve => (resolveFetch = resolve)));
+
+		await subscribe();
+		const fetching = actions.refreshDeepReviewAvailability();
+		push({ available: true });
+		resolveFetch?.({ available: false, reason: 'no-channel' });
+		await fetching;
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
+	});
+
+	test('a refresh after a push replaces it', async () => {
+		const { state, actions, subscribe, push } = setup(async () => ({ available: true }));
+
+		await subscribe();
+		push({ available: false, reason: 'no-agents' });
+		await actions.refreshDeepReviewAvailability();
+
+		assert.deepStrictEqual(state.deepReviewAvailability.get(), { available: true });
+	});
+});
+
+suite('mapRewrittenCommit', () => {
+	const commits = (...entries: string[]) =>
+		entries.map(entry => {
+			const [sha, subject] = entry.split(':');
+			return { sha: sha, message: `${subject ?? sha.replaceAll("'", '')}\n\nbody` };
+		});
+	const cases: {
+		name: string;
+		sha: string;
+		previous: string[];
+		next: string[];
+		patchIds?: Record<string, string>;
+		expected: string | undefined;
+	}[] = [
+		{ name: 'an amend of the tip', sha: 'c', previous: ['c', 'b'], next: ["c'", "b'"], expected: "c'" },
+		{
+			name: 'a commit below where the histories part',
+			sha: 'a',
+			previous: ['c', 'b'],
+			next: ["c'", "b'"],
+			expected: 'a',
+		},
+		{
+			name: 'a reword while another commit is dropped, by patch id',
+			sha: 'b',
+			previous: ['c', 'b'],
+			next: ["b':reworded"],
+			patchIds: { b: 'pb', "b'": 'pb' },
+			expected: "b'",
+		},
+		{ name: 'a dropped commit', sha: 'b', previous: ['c', 'b'], next: ["c'"], expected: undefined },
+		{ name: 'a commit added on top', sha: 'c', previous: [], next: ['d'], expected: 'c' },
+	];
+
+	for (const c of cases) {
+		test(c.name, () => {
+			assert.strictEqual(
+				mapRewrittenCommit(c.sha, {
+					mergeBase: 'base',
+					previous: commits(...c.previous),
+					next: commits(...c.next),
+					patchIds: c.patchIds,
+				}),
+				c.expected,
+			);
+		});
+	}
+
+	test('a tip move under a commit review asks for what the commit became', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/repo');
+		state.activeModeSha.set('c');
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => ({ commits: [], hasMore: false }),
+				getCommitPatchIds: async () => undefined,
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return { mergeBase: 'base', previous: commits('c'), next: commits("c'") };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions.commitReviewsHandler = () => true;
+		const moved: string[][] = [];
+		actions.anchorRewrittenHandler = history => moved.push(history.next.map(c => c.sha));
+		const wipAt = (revision: number, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(asked, ['c']);
+		assert.deepStrictEqual(moved, [["c'"]]);
+	});
+
+	test('a rewrite during a run waits for it, then moves from the tip before the first rewrite', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeContext.set('commit');
+		state.activeModeRepoPath.set('/repo');
+		state.activeModeSha.set('c');
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getBranchCommits: async () => ({ commits: [], hasMore: false }),
+				getCommitPatchIds: async () => undefined,
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return { mergeBase: 'base', previous: commits('c'), next: commits("c''") };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		let busy = true;
+		actions.anchorBusyHandler = () => busy;
+		actions.commitReviewsHandler = () => true;
+		const moved: string[][] = [];
+		actions.anchorRewrittenHandler = history => moved.push(history.next.map(c => c.sha));
+		const wipAt = (revision: number, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		// Two amends while an AI review runs on the commit
+		actions.applyPushedWip(wipAt(2, "c'"));
+		actions.applyPushedWip(wipAt(3, "c''"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, [], 'nothing is matched while the run goes on');
+		assert.ok(actions.hasDeferredAnchorRewrite);
+
+		busy = false;
+		actions.retryDeferredAnchorRewrite();
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(asked, ['c'], 'matched from the tip before the first amend');
+		assert.deepStrictEqual(moved, [["c''"]]);
+		assert.strictEqual(actions.hasDeferredAnchorRewrite, false);
+	});
+
+	test('a tip move with no mode open still moves the commit reviews kept for later', async () => {
+		const state = createDetailsState();
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return { mergeBase: 'base', previous: commits('c'), next: commits("c'") };
+				},
+			},
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions.commitReviewsHandler = repoPath => repoPath === '/repo';
+		const moved: string[] = [];
+		actions.anchorRewrittenHandler = (_history, repoPath) => moved.push(repoPath);
+		const wipAt = (revision: number, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipAt(1, 'c'));
+		actions.applyPushedWip(wipAt(2, "c'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(asked, ['c']);
+		assert.deepStrictEqual(moved, ['/repo']);
+	});
+
+	test('a checkout onto another branch is no rewrite', async () => {
+		const state = createDetailsState();
+		const asked: string[] = [];
+		const services = {
+			...createServices(),
+			graphInspect: {
+				getRewrittenHistory: async (_repoPath: string, previousTip: string) => {
+					asked.push(previousTip);
+					return undefined;
+				},
+			},
+			branches: { getBranchEnrichment: async () => undefined },
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		actions.commitReviewsHandler = () => true;
+		const wipOn = (revision: number, branch: string, tip: string): Wip =>
+			({
+				changes: undefined,
+				repositoryCount: 1,
+				repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+				revision: revision,
+				branch: { repoPath: '/repo', name: branch, reference: { sha: tip } },
+			}) as unknown as Wip;
+
+		actions.applyPushedWip(wipOn(1, 'feature/a', 'x'));
+		actions.applyPushedWip(wipOn(2, 'feature/b', 'y'));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, [], 'the checkout leaves the reviews on feature/a where they are');
+
+		actions.applyPushedWip(wipOn(3, 'feature/b', "y'"));
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		assert.deepStrictEqual(asked, ['y'], 'an amend on feature/b is one');
 	});
 });

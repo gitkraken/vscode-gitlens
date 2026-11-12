@@ -1,9 +1,15 @@
 import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
-import type { IssueSorting } from '@gitlens/git/models/issue.js';
-import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
+import type { Account } from '@gitlens/git/models/author.js';
+import type { IssueSearchCriteria, IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
+import type {
+	PullRequestSearchCriteria,
+	PullRequestShape,
+	PullRequestSorting,
+} from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
 import { isProviderUnreachableError } from './errors.js';
+import type { ProviderRepositoriesInput } from './manager.js';
 import { UnexpectedResponseError } from './providers/providerErrors.js';
 
 export interface ConnectionStateChangeEvent {
@@ -108,10 +114,11 @@ export interface ProviderWarningScope {
 
 /**
  * The selector of an issue-tracker project read that matched nothing: see {@link ProviderWarning.selector}. `kind`
- * names which one missed, and `value` is that selector exactly as the caller passed it.
+ * names which one missed, and `value` is that selector exactly as the caller passed it. `linearProject` is one of a
+ * Linear read's `linearProjects`, an id the workspace's Projects no longer list.
  */
 export interface ProviderWarningSelector {
-	kind: 'org' | 'project';
+	kind: 'org' | 'project' | 'linearProject';
 	value: string;
 }
 
@@ -276,6 +283,8 @@ export interface ProviderWarning {
 	 * Present when an issue-tracker project read's `org` or `project` selector matched nothing the connection
 	 * discovered: the selection was removed, renamed, or is no longer visible to this connection. `kind` is
 	 * `'not-found'`, the page is empty and not `fetchFailed`, and it carries no cursor, since a retry finds the same.
+	 * A `linearProject` miss is diagnostic: the requested Project ids still filter the read, preserving issues in
+	 * other selected Projects. It therefore does not force an empty page or remove its continuation.
 	 *
 	 * Set only when discovery was complete. A read whose discovery failed or was truncated cannot tell a missing
 	 * selection from one it did not reach, so it keeps reporting that failure instead, without this field. A miss is
@@ -394,22 +403,43 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 	cursor?: string;
 }
 
+/**
+ * One sweep target, named the way {@link ProviderSweepTargetEvent} names it, so a consumer can join the two.
+ * `domain` is the resolved self-managed host (always `undefined` for a cloud provider).
+ */
+export interface ProviderSweepTargetRef {
+	providerId: IntegrationIds;
+	connectionId: string | undefined;
+	domain: string | undefined;
+}
+
+/**
+ * A sweep may carry several targets of one provider (one per connection), so the provider arrays below can't say
+ * which connection failed: `failedTargets` and `incompleteTargets` are the authoritative attribution, and
+ * `failedProviderIds`/`incompleteProviderIds` summarize them. With one target per provider the two agree exactly.
+ */
 export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	page: ProviderPageInfo;
 	hasMore: boolean;
 	/**
-	 * Providers whose top-level read failed before returning any usable page. Partial per-scope failures stay
-	 * represented by `warnings` + `fetchFailed` and are intentionally excluded.
+	 * Providers whose top-level read failed before returning any usable page, for EVERY attributed target of the
+	 * provider. A provider with a failed target and a surviving sibling is in `incompleteProviderIds` instead.
+	 * Partial per-scope failures stay represented by `warnings` + `fetchFailed` and are intentionally excluded.
 	 */
 	failedProviderIds: IntegrationIds[];
 	/**
 	 * Providers whose read started successfully but could not produce an authoritative complete slice (for
-	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit).
+	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit),
+	 * or that have a failed target beside one that returned something.
 	 * Kept separate from
 	 * `failedProviderIds` so consumers can accept healthy sibling providers while preserving an older snapshot
 	 * for a provider whose returned slice has a gap.
 	 */
 	incompleteProviderIds: IntegrationIds[];
+	/** Targets whose top-level read failed before returning any usable page. A skipped target is in neither list. */
+	failedTargets: ProviderSweepTargetRef[];
+	/** Targets that returned a slice with a gap: a later page failed, or pages remain unread. Never also in `failedTargets`. */
+	incompleteTargets: ProviderSweepTargetRef[];
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
@@ -433,19 +463,43 @@ export type RepositoryResolutionStatus =
 export interface RepositoryIdentity {
 	providerId: IntegrationIds;
 	domain: string;
-	/** The provider's canonical owner/namespace (follows renames), falling back to the parsed remote when omitted. */
+	/**
+	 * The provider's canonical owner/namespace (follows renames), falling back to where it was read when omitted. On
+	 * GitLab it is the whole group path (`group/subgroup`), not the remote path's first segment.
+	 */
 	owner: string;
-	/** The provider's canonical repo name (follows renames), falling back to the parsed remote when omitted. */
+	/** The provider's canonical repo name (follows renames), falling back to where it was read when omitted. */
 	name: string;
 	project?: string;
 	/** The original input remote URL, so the caller can key the resolution back to the remote it asked about. */
 	remoteUrl: string;
 	/**
 	 * True when the provider's canonical owner/name differ from what the input remote URL carried — i.e. the
-	 * repo was renamed/moved host-side and the local remote is stale. Case-insensitive, mirroring gkcli's
-	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged.
+	 * repo was renamed/moved host-side and the local remote is stale. Owner and name are compared as one path, because
+	 * the remote and the provider split a GitLab nested group differently. Case-insensitive, mirroring gkcli's
+	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged. On Azure
+	 * DevOps it compares the repository name and its {@link project} too, against the collection and project the
+	 * repository was read at: an Azure DevOps Server remote's path may be read as another collection and project than
+	 * the remote parser read, which is no rename. GitLab's lookup doesn't follow a renamed or moved path, so a stale
+	 * GitLab remote resolves as `not-found` rather than as `renamed`.
 	 */
 	renamed: boolean;
+	/**
+	 * Whether the provider says this repository is a fork: `true` for a fork (including one it reports only by naming
+	 * its {@link parent}), `false` for a repository it reports as not one, `undefined` when it didn't say. Only
+	 * `false` is proof of "not a fork" — a missing {@link parent} is not.
+	 */
+	isFork?: boolean;
+	/**
+	 * The repository this one was forked from, named as the provider names it and living on the same host
+	 * ({@link providerId} and {@link domain}), so on GitLab `owner` is the whole group path (`group/subgroup`).
+	 * `project` is set only on Azure DevOps, where a repository lives in a project of its organization. Present only
+	 * when the provider reports a fork and names its parent; absent means "not a fork" or "the provider didn't say",
+	 * which {@link isFork} tells apart. This is the immediate parent, not the root of the fork network: a pull request
+	 * from a branch of this repository usually targets this repository or its parent, but GitHub and Azure DevOps let
+	 * it target any repository in the network, so a fork of a fork can open one against the root.
+	 */
+	parent?: { owner: string; name: string; project?: string };
 }
 
 export interface RepositoryResolution {
@@ -500,6 +554,20 @@ export interface ProviderOrganization {
 	name: string;
 	org?: string;
 	orgId?: string;
+	url: string;
+}
+
+/**
+ * A Linear Project (Linear's own `Project` entity, which can span several teams), as `listLinearProjects` lists it.
+ * Distinct from the teams `listProjects` publishes for Linear: pass its `id` to `listIssueTrackerIssuesPage`'s
+ * `linearProjects` to narrow an issue read to it.
+ */
+export interface ProviderLinearProjectShape {
+	id: string;
+	providerId: IntegrationIds;
+	name: string;
+	/** Linear's project state, as Linear names it (e.g. `planned`, `started`, `paused`, `completed`, `canceled`). */
+	state: string;
 	url: string;
 }
 
@@ -714,4 +782,287 @@ export function mergeUnreadableItems(
 	if (!added.length && complete === existing.complete) return existing;
 
 	return { keys: [...existing.keys, ...new Set(added)], complete: complete };
+}
+
+// The count, batch, branch and current-account reads' input and result shapes. They live here rather than beside their
+// reads (`reads/*`) so the public facade can export them without its declarations reaching the reads' internal context.
+
+/**
+ * One scope to count.
+ *
+ * `key` is caller-owned and echoed back verbatim, so a batch result needs no positional matching by the consumer.
+ * It never reaches the provider query — the aliases in the upstream document are generated — so it can be any
+ * string the caller finds meaningful.
+ */
+export interface IssueCountScope {
+	key: string;
+	/** Repositories to count over. Combines with `org`, exactly as in `searchIssuesPage`. */
+	repos?: ProviderRepositoriesInput;
+	org?: string;
+	/**
+	 * Same criteria model as `searchIssuesPage`, validated against the same capability table.
+	 *
+	 * `criteria.sort` does not affect the count — a total is invariant under ordering — but it is still VALIDATED,
+	 * and an unsupported key refuses this scope exactly as it would refuse the read. That is the point of the
+	 * count: it previews the constraints the read will apply, so one that accepted what the read refuses would
+	 * promise a fetch that can't happen, which is worse than no preview at all.
+	 */
+	criteria?: IssueSearchCriteria;
+}
+
+/** The count for one {@link IssueCountScope}, echoed back under the caller's own `key`. */
+export interface IssueCountResult {
+	key: string;
+	/**
+	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
+	 * zero, which is a real answer. Render the difference: an unreported count means "unknown", and showing it as
+	 * 0 would tell the user this filter matches nothing.
+	 */
+	count?: number;
+	/**
+	 * True when `count` exceeds the provider's own result ceiling, so a full read CANNOT return everything no
+	 * matter how it is paged. This is the signal to warn before starting an expensive fetch.
+	 */
+	exceedsProviderLimit: boolean;
+	/** The ceiling itself, when the provider declares one. */
+	providerLimit?: number;
+}
+
+/**
+ * One scope to count pull requests over — the PR twin of {@link IssueCountScope}.
+ *
+ * `key` is caller-owned and echoed back verbatim, never reaching the provider query (the aliases are generated), so
+ * it can be any string the caller finds meaningful.
+ */
+export interface PullRequestCountScope {
+	key: string;
+	/** Repositories to count over. Combines with `org`, exactly as in `searchPullRequestsPage`. */
+	repos?: ProviderRepositoriesInput;
+	org?: string;
+	/**
+	 * Same criteria model as `searchPullRequestsPage`, validated against the same capability table — so a count
+	 * refuses exactly what the read would, and never previews a fetch that can't happen.
+	 */
+	criteria?: PullRequestSearchCriteria;
+}
+
+/** The count for one {@link PullRequestCountScope}, echoed back under the caller's own `key`. */
+export interface PullRequestCountResult {
+	key: string;
+	/**
+	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
+	 * zero, which is a real answer.
+	 *
+	 * For a multi-state scope, GitHub/GHE report the LARGEST of their per-state counts (the same total
+	 * `searchPullRequestsPage` surfaces, since each state is its own capped search), not their sum. Bitbucket Data
+	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns —
+	 * and so does Azure DevOps Server, which reads every state in one drain.
+	 */
+	count?: number;
+	/**
+	 * True when `count` is a FLOOR rather than the total: the provider has no count query (Bitbucket Data Center),
+	 * so it counts by reading within a budget, and this scope had more than the budget read. Render it as "N+", and
+	 * treat the scope as at least that expensive. Absent means `count` is exact — the provider's own total, or for a
+	 * provider that counts by reading, every match it read.
+	 */
+	lowerBound?: boolean;
+	/**
+	 * True when `count` exceeds the provider's own per-search result ceiling, so a full read CANNOT return
+	 * everything no matter how it is paged. This is the signal to warn before starting an expensive fetch.
+	 */
+	exceedsProviderLimit: boolean;
+	/** The ceiling itself, when the provider declares one. */
+	providerLimit?: number;
+}
+
+/** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
+export type IssueBatchTarget =
+	/**
+	 * A git host's issue, by repository coordinate. GitHub/GHE, GitLab (and self-managed) and Azure DevOps (and
+	 * Server); Bitbucket and Bitbucket Data Center have no issues and refuse.
+	 */
+	| {
+			key: string;
+			/** GitHub owner, GitLab namespace path (may be nested), or Azure DevOps organization (or collection). */
+			owner: string;
+			/**
+			 * Repository name. Required, but ignored on Azure DevOps, whose work items belong to the project rather
+			 * than to a repository; there it only names the project of a project-less Azure DevOps Server path read
+			 * behind a virtual directory (`{vdir}/{collection}/_git/{repo}` as owner `{vdir}`, project `{collection}`).
+			 */
+			repo: string;
+			/** Issue number, GitLab issue iid, or Azure DevOps work item id. */
+			number: number;
+			/** Azure DevOps project. Required there, ignored elsewhere. */
+			project?: string;
+			/** The {@link IssueBatchResult.etag} of the copy the caller holds; see {@link IssueBatchResult}. */
+			etag?: string;
+	  }
+	/**
+	 * An issue tracker's issue, by its own identifier (e.g. `ABC-123`) within a resource. Jira (Cloud and Data
+	 * Center) and Linear. For Jira Data Center `resourceId` is the host — the instance's single resource, as
+	 * `listOrgs` reports it — and `resourceUrl` is not needed, since the browser link is built from the
+	 * connection's own base URL; Jira Cloud requires it.
+	 */
+	| {
+			key: string;
+			resourceId: string;
+			resourceUrl?: string;
+			identifier: string;
+			/**
+			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud and Linear;
+			 * every other tracker accepts it but reads the issue in full.
+			 */
+			etag?: string;
+	  };
+
+/**
+ * The answer for one {@link IssueBatchTarget}, in one of four states:
+ * - `{ key, issue, etag }` — read in full. Every fully read row carries an `etag`, whether or not the caller sent
+ *   one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
+export interface IssueBatchResult {
+	key: string;
+	/**
+	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection) —
+	 * or when it is `unchanged`.
+	 *
+	 * Absent is an answer here, unlike every paged read on this facade: a target that FAILED — its own request
+	 * outright, or just its own alias within an otherwise-answering GitHub chunk (e.g. an org enforcing SAML SSO
+	 * the token isn't authorized for) — is not returned at all and sets `fetchFailed`, so a caller can tell
+	 * "proven absent" from "unknown" and cache the first without ever caching the second.
+	 */
+	issue?: IssueShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the issue's change state — its state and
+	 * update time, plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it back
+	 * as the target's `etag`. An etag from another scheme or another `etagIncludes` set simply compares unequal and
+	 * costs a full read, never a false `unchanged`. A host can add a reaction without moving the update time, so
+	 * unless `'reactions'` is listed, an `unchanged` copy's `thumbsUpCount` may be stale.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `issue` is absent because nothing was read. */
+	unchanged?: true;
+}
+
+/** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
+export interface PullRequestBatchTarget {
+	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
+	key: string;
+	/**
+	 * GitHub owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or
+	 * Azure DevOps organization.
+	 */
+	owner: string;
+	/** Repository name or slug. */
+	repo: string;
+	/** Pull request number, GitLab merge request iid, or Azure DevOps pull request id. */
+	number: number;
+	/** Azure DevOps project. Required there, ignored elsewhere. */
+	project?: string;
+	/**
+	 * The {@link PullRequestBatchResult.etag} of the copy the caller holds. When the host can check it cheaply and
+	 * it still matches, the pull request isn't read again and comes back `unchanged`.
+	 */
+	etag?: string;
+}
+
+/**
+ * The answer for one {@link PullRequestBatchTarget}, in one of four states:
+ * - `{ key, pullRequest, etag }` — read in full, whatever its state. Every fully read row carries an `etag`,
+ *   whether or not the caller sent one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT: it does not exist, or is not visible to this connection.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
+export interface PullRequestBatchResult {
+	key: string;
+	/**
+	 * The resolved pull request, whatever its state, or `undefined` when it PROVABLY does not exist (or is not
+	 * visible to this connection) — or when it is `unchanged`. A target whose read FAILED is not returned at
+	 * all and sets `fetchFailed`.
+	 */
+	pullRequest?: PullRequestShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the pull request's change state — its
+	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
+	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
+	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
+	 * compares unequal and costs a full read, never a false `unchanged` — and so does one from a read that selected
+	 * merge-queue data (see {@link IntegrationManager.getPullRequestsBatch}'s `mergeQueue`) when the other didn't.
+	 * Reactions are never an input: a host can add one without moving the update time, so an `unchanged` copy's
+	 * `thumbsUpCount` may be stale.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
+	unchanged?: true;
+}
+
+/** One branch whose pull requests to find, echoed back under the caller's own `key`. */
+export interface PullRequestBranchTarget {
+	/** Caller-owned identifier, echoed on the result so no positional matching is needed. Must be unique. */
+	key: string;
+	/**
+	 * The repository the pull requests are OPENED AGAINST (their base), as in `PullRequestBatchTarget`: GitHub
+	 * owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or Azure
+	 * DevOps organization.
+	 */
+	owner: string;
+	/** Repository name or slug. */
+	repo: string;
+	/** Azure DevOps project. Required there, ignored elsewhere. */
+	project?: string;
+	/** The head branch's short name, without `refs/heads/`. */
+	branch: string;
+	/**
+	 * Owner (GitHub user or org, GitLab namespace, Bitbucket workspace) of the repository the branch lives in, when
+	 * it's a fork. Omitted, or equal to `owner` (ignoring case), means the branch lives in the base repository itself,
+	 * so a caller can pass the owner of whichever remote the branch was pushed to. On GitLab this is the whole
+	 * namespace path, as `owner` is, so a remote's first-slash split can't be passed for either.
+	 *
+	 * A different owner is refused on Bitbucket Data Center and Azure DevOps, where a fork can't be found by its
+	 * owner.
+	 */
+	headOwner?: string;
+}
+
+/** The answer for one {@link PullRequestBranchTarget}. */
+export interface PullRequestBranchResult {
+	key: string;
+	/**
+	 * Every pull request whose head is this branch, in ANY state — open, closed and merged — most recently updated
+	 * first, up to a per-target cap. An empty array is a PROVEN "none" unless `truncated` is set. A target whose
+	 * read failed is not returned at all.
+	 */
+	pullRequests: PullRequestShape[];
+	/**
+	 * Set when a pull request that wasn't returned could still match: more matched than the cap, or the host held
+	 * more pull requests of this branch name than it returned and couldn't rule them out. GitHub/GHE rule them out
+	 * with a second request filtered by head owner, so there it means more than the cap truly match. That request
+	 * can't see a pull request from a since-deleted fork, so on GitHub/GHE such a pull request outside the first
+	 * request's page can be missing even when this is not set.
+	 */
+	truncated?: boolean;
+}
+
+/**
+ * "Who am I on this provider / connection" — {@link IntegrationBase.getCurrentAccount}'s own answer, exposed on
+ * the manager so a caller can ask for it directly instead of waiting for some other read to warm it as a side
+ * effect.
+ */
+export interface CurrentAccountResult {
+	/** The signed-in account, when the provider answered. */
+	account?: Account;
+	warnings: ProviderWarning[];
+	/**
+	 * Set whenever `account` is absent. Unlike a list/batch read, this one has no benign empty answer — "who am
+	 * I" is either resolved or it couldn't be told, never a legitimately empty result — so `account` is never
+	 * missing without a warning explaining why.
+	 */
+	fetchFailed?: boolean;
 }

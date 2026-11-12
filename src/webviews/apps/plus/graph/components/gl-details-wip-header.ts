@@ -4,6 +4,7 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { getPullRequestDisplayStatus } from '@gitlens/git/utils/pullRequest.utils.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -353,6 +354,7 @@ export class GlDetailsWipHeader extends LitElement {
 				mark="review"
 				placement="bottom"
 				.anchor=${this.queryHeaderTitle}
+				.bodyContext=${{ aiEnabled: this.aiEnabled }}
 				?auto-show=${eligible && context === 'review'}
 			></gl-graph-coachmark>
 			<gl-graph-coachmark
@@ -430,7 +432,8 @@ export class GlDetailsWipHeader extends LitElement {
 	};
 
 	private computeWipModes(): ('review' | 'compose' | 'resolve')[] {
-		if (!this.aiEnabled) return [];
+		// Review is a reading walk first; only compose and resolve are AI through and through.
+		if (!this.aiEnabled) return ['review'];
 		// Surface the Resolve toggle only when the WIP has conflicts (a paused merge/rebase) —
 		// resolve operates on the conflicted-file set, so it's meaningless otherwise. It leads
 		// the cluster when present: resolving is the primary action for a conflicted WIP.
@@ -442,6 +445,9 @@ export class GlDetailsWipHeader extends LitElement {
 		if (!branch) return nothing;
 
 		if (branch.upstream == null || branch.upstream.missing === true) {
+			// A landed branch's work is already in the merge target, so publishing it would resurrect a dead branch
+			if (this.mergeTargetStatus?.mergeTarget?.landed != null) return nothing;
+
 			// `git.publish` publishes the main repo's HEAD, so only offer it for the primary worktree's WIP
 			const isSecondaryWorktree =
 				this.wip?.repo?.path != null &&
@@ -547,6 +553,7 @@ export class GlDetailsWipHeader extends LitElement {
 							class="graph-details-header__merge-target"
 							.branch=${status?.branch}
 							.targetPromise=${status != null ? Promise.resolve(status.mergeTarget) : undefined}
+							.pullRequest=${this.pullRequest}
 							?loading=${status == null && loading}
 						></gl-merge-target-status>`
 					: nothing
@@ -571,14 +578,15 @@ export class GlDetailsWipHeader extends LitElement {
 			return nothing;
 		}
 
-		const status = pr.state === 'merged' || pr.state === 'closed' ? pr.state : 'opened';
+		const { status, queueStatus } = getPullRequestDisplayStatus(pr);
 		return html`<gl-autolink-chip
 			class="graph-details-header__pull-request"
 			type="pr"
 			name=${pr.title}
 			url=${pr.url}
 			identifier="#${pr.number}"
-			status=${status}
+			status=${status === 'merged' || status === 'closed' || status === 'queued' ? status : 'opened'}
+			.queueStatus=${queueStatus}
 			date-label="updated"
 			.date=${pr.updatedDate}
 			.dateFormat=${this.dateFormat}

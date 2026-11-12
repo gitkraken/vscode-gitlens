@@ -4,9 +4,11 @@ import { html } from 'lit';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
 
-/** Host-supplied values a coach mark's body may interpolate; today only the scoped worktree's name. */
+/** Host-supplied values a coach mark's body may interpolate: the scoped worktree's name, and whether
+ *  AI is on (the review mark's steps describe the AI lens only when it is there). */
 export interface GraphCoachMarkBodyContext {
 	worktreeName?: string;
+	aiEnabled?: boolean;
 }
 
 export interface GraphCoachMarkContent {
@@ -100,50 +102,76 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 				</div>`,
 	},
 	review: {
-		title: l10n.t('Review Changes with AI'),
+		title: l10n.t('Review Changes'),
 		icon: 'checklist',
 		priority: 2,
-		body: () =>
+		body: context =>
 			html`<p class="lede">${l10n.t('Catch issues before you push — right where the changes live.')}</p>
 				<div class="steps">
 					<div class="step">
 						<span class="step__num">1</span>
 						<div class="step__body">
-							${l10n.t('Pick your scope — drag across commits, check specific files')}
+							${l10n.t('Pick your scope, then read the changes — the checkbox marks a file as viewed')}
 						</div>
 					</div>
-					<div class="step">
-						<span class="step__num">2</span>
-						<div class="step__body">
-							${localizedContent(l10n.t('{startReview} — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Start Review')}</span>` })}
-							<div class="rows">
-								<div class="row">
-									<span class="dot dot--critical"></span>
-									<div class="row__body">
-										${localizedContent(l10n.t({ message: '{critical} — fix before pushing', comment: ['{critical} is the styled label “Critical”.'] }), { critical: html`<strong>${l10n.t('Critical')}</strong>` })}
+					${
+						context?.aiEnabled === false
+							? html`<div class="step">
+										<span class="step__num">2</span>
+										<div class="step__body">
+											${localizedContent(
+												l10n.t(
+													'Open any file to read it — {markViewedAndNext} in the diff keeps you moving',
+												),
+												{
+													markViewedAndNext: html`<span class="chip"
+														>${l10n.t('Mark Viewed & Next')}</span
+													>`,
+												},
+											)}
+										</div>
 									</div>
-								</div>
-								<div class="row">
-									<span class="dot dot--warning"></span>
-									<div class="row__body">
-										${localizedContent(l10n.t({ message: '{warning} — worth a look', comment: ['{warning} is the styled label “Warning”.'] }), { warning: html`<strong>${l10n.t('Warning')}</strong>` })}
+									<div class="step">
+										<span class="step__num">3</span>
+										<div class="step__body">
+											${l10n.t(
+												'Exclude the files that need no look; the review is complete once every other file is viewed',
+											)}
+										</div>
+									</div>`
+							: html`<div class="step">
+										<span class="step__num">2</span>
+										<div class="step__body">
+											${localizedContent(l10n.t('{startReview} for a second pair of eyes — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Review Diff')}</span>` })}
+											<div class="rows">
+												<div class="row">
+													<span class="dot dot--critical"></span>
+													<div class="row__body">
+														${localizedContent(l10n.t({ message: '{critical} — fix before pushing', comment: ['{critical} is the styled label “Critical”.'] }), { critical: html`<strong>${l10n.t('Critical')}</strong>` })}
+													</div>
+												</div>
+												<div class="row">
+													<span class="dot dot--warning"></span>
+													<div class="row__body">
+														${localizedContent(l10n.t({ message: '{warning} — worth a look', comment: ['{warning} is the styled label “Warning”.'] }), { warning: html`<strong>${l10n.t('Warning')}</strong>` })}
+													</div>
+												</div>
+												<div class="row">
+													<span class="dot dot--suggestion"></span>
+													<div class="row__body">
+														${localizedContent(l10n.t({ message: '{suggestion} — nice to have', comment: ['{suggestion} is the styled label “Suggestion”.'] }), { suggestion: html`<strong>${l10n.t('Suggestion')}</strong>` })}
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
-								</div>
-								<div class="row">
-									<span class="dot dot--suggestion"></span>
-									<div class="row__body">
-										${localizedContent(l10n.t({ message: '{suggestion} — nice to have', comment: ['{suggestion} is the styled label “Suggestion”.'] }), { suggestion: html`<strong>${l10n.t('Suggestion')}</strong>` })}
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="step">
-						<span class="step__num">3</span>
-						<div class="step__body">
-							${l10n.t('Send one finding — or the whole review — to your agent to fix')}
-						</div>
-					</div>
+									<div class="step">
+										<span class="step__num">3</span>
+										<div class="step__body">
+											${l10n.t('Dismiss findings as you go — or send one, or the whole review, to your agent')}
+										</div>
+									</div>`
+					}
 				</div>`,
 	},
 	conflicts: {

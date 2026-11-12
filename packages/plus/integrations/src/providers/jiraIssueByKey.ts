@@ -1,4 +1,5 @@
-import type { IssueEtagFields } from '../models/integration.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
+import type { IssueEtagFields } from '../reads/etag.js';
 import type { ProviderAccount, ProviderIssue, ProviderRequestFunction } from './models.js';
 
 const jiraCloudApiUrl = 'https://api.atlassian.com/ex/jira';
@@ -90,7 +91,7 @@ function toJiraIssueState(status: JiraIssueStatusResponse): NonNullable<Provider
 
 function toIssueWebUrl(resourceUrl: string, key: string): string {
 	const url = new URL(resourceUrl);
-	url.pathname = `${url.pathname.replace(/\/+$/, '')}/browse/${encodeURIComponent(key)}`;
+	url.pathname = `${trimTrailingSlashes(url.pathname)}/browse/${encodeURIComponent(key)}`;
 	url.search = '';
 	url.hash = '';
 	return url.toString();

@@ -2,7 +2,7 @@ import { css } from 'lit';
 
 export const detailsCommitPanelStyles = css`
 	:host {
-		--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)));
+		--mode-header-bg: var(--gl-color-surface-aside);
 	}
 
 	/* Split panel layout */
@@ -74,7 +74,6 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) {
 		--gl-tree-view-margin-top: -0.2rem;
 		--gl-tree-view-filterable-margin-top: -0.4rem;
-		--action-item-foreground: var(--vscode-sideBarSectionHeader-foreground);
 	}
 
 	/* ── Zone 1: Author header (standalone fallback when panelActions=false) ── */
@@ -87,7 +86,7 @@ export const detailsCommitPanelStyles = css`
 		gap: var(--gl-space-6);
 		align-items: center;
 		padding: 0.8rem var(--gl-panel-padding-right) 0.6rem var(--gl-panel-padding-left);
-		background-color: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)));
+		background-color: var(--gl-color-surface-aside);
 	}
 
 	:host([variant='embedded']) .author-header__author {
@@ -115,7 +114,7 @@ export const detailsCommitPanelStyles = css`
 		align-items: center;
 		font-size: var(--gl-font-base);
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+		color: var(--vscode-foreground);
 	}
 
 	.mode-title__icon {
@@ -127,12 +126,12 @@ export const detailsCommitPanelStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
 	.metadata-bar {
-		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+		color: var(--vscode-foreground);
 	}
 
 	/* Right-side mode-status snippet in the metadata bar (compose/review). Replaces the
@@ -140,7 +139,7 @@ export const detailsCommitPanelStyles = css`
 	   state rather than the static stats. */
 	.metadata-bar .mode-status {
 		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		white-space: nowrap;
 	}
 
@@ -175,15 +174,21 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	.metadata-bar .mode-status__resume:hover {
-		color: var(--vscode-foreground);
-		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--gl-color-action-quiet-fg);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	.metadata-bar .mode-status__resume:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	.metadata-bar .mode-status__resume:focus-visible {
-		color: var(--vscode-foreground);
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		color: var(--gl-color-action-quiet-fg);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: -0.1rem;
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
 	.metadata-bar .mode-status__resume-verb {
@@ -259,7 +264,7 @@ export const detailsCommitPanelStyles = css`
 		gap: 0.3rem;
 		align-items: center;
 		font-style: italic;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-unreachable code-icon {
@@ -278,7 +283,7 @@ export const detailsCommitPanelStyles = css`
 		overflow: hidden;
 		font-family: inherit;
 		font-size: inherit;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		cursor: pointer;
 		background: transparent;
 		border: none;
@@ -287,7 +292,13 @@ export const detailsCommitPanelStyles = css`
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator:hover {
 		color: var(--color-foreground);
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	:host([variant='embedded']) .metadata-bar__branch-indicator:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator:disabled {
@@ -300,15 +311,15 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator--idle {
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator--warning {
-		color: var(--vscode-editorWarning-foreground, #cca700);
+		color: var(--gl-color-feedback-warning-quiet-fg);
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator--error {
-		color: var(--vscode-errorForeground, #f48771);
+		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator code-icon {
@@ -323,7 +334,7 @@ export const detailsCommitPanelStyles = css`
 		flex-shrink: 0;
 		font-size: var(--gl-font-micro);
 		font-weight: 500;
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	:host([variant='embedded']) .metadata-bar__right {
@@ -364,7 +375,13 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .reachability__load-all:hover {
-		background: var(--vscode-toolbar-hoverBackground);
+		background: var(--gl-color-action-quiet-bg-hover);
+	}
+
+	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	:host([variant='embedded']) .reachability__load-all:not(:disabled, :focus-visible):hover {
+		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+		outline-offset: -1px;
 	}
 
 	:host([variant='embedded']) .reachability__load-all code-icon {
@@ -394,7 +411,7 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .message .message-block__text {
-		--_fade-bg: var(--titlebar-bg, var(--color-background));
+		--_fade-bg: var(--gl-color-surface-aside);
 
 		flex: 1;
 		min-height: 0;
@@ -473,7 +490,7 @@ export const detailsCommitPanelStyles = css`
 		margin-right: -0.4rem;
 		margin-bottom: -2.4rem;
 		margin-left: auto;
-		background: var(--vscode-sideBar-background, var(--color-background));
+		background: var(--gl-color-surface-aside);
 		border-radius: var(--gl-radius-sm);
 		opacity: 1;
 		transition: color var(--gl-duration-fast) ease;
@@ -491,7 +508,7 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .autolinks gl-action-chip[data-action='autolink-settings'] {
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		--code-icon-size: 12px;
 	}
 
@@ -501,7 +518,7 @@ export const detailsCommitPanelStyles = css`
 		align-items: center;
 		font-size: var(--gl-font-sm);
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--color-foreground--50);
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		white-space: nowrap;
@@ -570,15 +587,15 @@ export const detailsCommitPanelStyles = css`
 	/* Pinned cue: warning-tinted pin chip. Scopes the old full-band gl-inspect-nav warning
 	   (color = automatic following is suspended) down to the single relevant control. */
 	gl-action-chip.pin-action.pinned::part(base) {
-		color: var(--color-alert-warningForeground);
-		background-color: var(--color-alert-warningBackground);
+		color: var(--gl-color-feedback-warning-fg);
+		background-color: var(--gl-color-feedback-warning-bg);
 	}
 
 	gl-action-chip.pin-action.pinned::part(icon) {
-		color: var(--color-alert-warningForeground);
+		color: var(--gl-color-feedback-warning-fg);
 	}
 
 	gl-action-chip.pin-action.pinned:hover::part(base) {
-		background-color: var(--color-alert-warningHoverBackground);
+		background-color: var(--gl-color-feedback-warning-bg-hover);
 	}
 `;

@@ -59,7 +59,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				overflow: hidden;
 				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
-				background-color: var(--color-graph-background);
+				background-color: var(--vscode-editor-background);
 			}
 
 			.content {
@@ -75,7 +75,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.group + .group {
 				padding-top: var(--gl-space-8);
-				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.group__label {
@@ -117,19 +117,29 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				padding: 0 var(--gl-space-4);
 				font-family: inherit;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 				cursor: pointer;
 				background: none;
 				border: none;
+				border-radius: var(--gl-radius-sm);
 			}
 
+			/* Toolbar hover fill: color alone is no cue where descriptionForeground equals foreground
+			   (e.g. Light Modern) */
 			.threshold-filter:hover {
-				color: var(--vscode-foreground);
+				color: var(--gl-color-action-quiet-fg);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.threshold-filter:not(:focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.threshold-filter:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			}
 
 			.threshold-filter code-icon {
@@ -143,7 +153,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				margin-top: var(--gl-space-2);
 				font-family: inherit;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 				cursor: pointer;
 				background: none;
@@ -152,12 +162,18 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.show-more:hover {
-				color: var(--vscode-foreground);
-				background: var(--vscode-list-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.show-more:not(:focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.show-more:focus-visible {
-				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			}
 
 			.section {
@@ -203,13 +219,13 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-6);
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-6);
-				background: color-mix(in lab, var(--color-graph-background, var(--color-background)) 100%, #fff 8%);
+				background: color-mix(in lab, var(--vscode-editor-background) 100%, #fff 8%);
 				border-radius: var(--gl-radius-sm);
 			}
 
 			:host-context(.vscode-light) .skeleton-card,
 			:host-context(.vscode-high-contrast-light) .skeleton-card {
-				background: color-mix(in lab, var(--color-graph-background, var(--color-background)) 100%, #000 6%);
+				background: color-mix(in lab, var(--vscode-editor-background) 100%, #000 6%);
 			}
 
 			.skeleton-card__icon {

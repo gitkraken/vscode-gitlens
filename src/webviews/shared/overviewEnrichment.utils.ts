@@ -1,24 +1,40 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeQueueEntry,
+	PullRequestMergeQueueRemoval,
+	PullRequestShape,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
-import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
+import type { BranchContributionsOverview, GitBranchMergedStatus } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
-import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getBranchReflogWork } from '@gitlens/git/utils/branch.utils.js';
+import type { BranchLandedPullRequestCandidate, BranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
+import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
+import {
+	getPullRequestNumberFromUrl,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
+import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import type { Container } from '../../container.js';
 import { isContinuingPausedOperation } from '../../git/actions/pausedOperation.js';
+import type { GitRepositoryService } from '../../git/gitRepositoryService.js';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import {
+	cacheBranchAssociatedPullRequest,
 	getBranchAssociatedPullRequest,
 	getBranchEnrichedAutolinks,
 	getBranchMergeTargetInfo,
+	getBranchPullRequestsByHeadName,
 	getBranchRemote,
 	getDefaultBranchNameFromIntegration,
 } from '../../git/utils/-webview/branch.utils.js';
@@ -32,10 +48,43 @@ import type {
 	OverviewBranchContributor,
 	OverviewBranchEnrichment,
 	OverviewBranchIssue,
+	OverviewBranchLanded,
 	OverviewBranchLaunchpadItem,
 	OverviewBranchMergeTarget,
 	OverviewBranchPullRequest,
+	SerializedPullRequestMergeQueueEntry,
+	SerializedPullRequestMergeQueueRemoval,
 } from './overviewBranches.js';
+
+/** A pull request's merge-queue entry for the webviews, or `undefined` while it isn't queued. */
+export function serializePullRequestMergeQueue(pr: {
+	readonly state?: string;
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+}): SerializedPullRequestMergeQueueEntry | undefined {
+	if (!isPullRequestInMergeQueue(pr)) return undefined;
+
+	const entry = pr.mergeQueue;
+	return {
+		state: entry.state,
+		enqueuedAt: entry.enqueuedAt.getTime(),
+		estimatedMergeAt: entry.estimatedMergeAt?.getTime(),
+		url: entry.url,
+		position: entry.position,
+	};
+}
+
+/** A pull request's merge-queue removal for the webviews, or `undefined` once it no longer describes the pull request
+ *  (see `isPullRequestMergeQueueRemovalCurrent`) — decided here, so the webviews need only its presence. */
+export function serializePullRequestMergeQueueRemoval(pr: {
+	readonly state?: string;
+	readonly updatedDate: Date;
+	readonly mergeQueue?: PullRequestMergeQueueEntry;
+	readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval;
+}): SerializedPullRequestMergeQueueRemoval | undefined {
+	if (!isPullRequestMergeQueueRemovalCurrent(pr)) return undefined;
+
+	return { reason: pr.mergeQueueRemoval.reason, removedAt: pr.mergeQueueRemoval.removedAt.getTime() };
+}
 
 export async function getAutolinkIssuesInfo(
 	links: Map<string, EnrichedAutolink> | undefined,
@@ -57,6 +106,7 @@ export async function getAutolinkIssuesInfo(
 				url: issue.url,
 				state: issue.state,
 				draft: issue.type === 'pullrequest' ? (issue as PullRequestShape).isDraft : undefined,
+				mergeQueue: issue.type === 'pullrequest' ? serializePullRequestMergeQueue(issue) : undefined,
 			};
 		}),
 	);
@@ -90,6 +140,14 @@ export async function getContributorsInfo(
 	return result.map(r => (r.status === 'fulfilled' ? r.value : undefined)).filter(r => r != null);
 }
 
+/** How long pull request reads may hold up the merge-target status, all together, before it answers without them */
+const lookupTimeout = 5000;
+
+/** What's left of a shared deadline. At 0, a read that has already settled still wins: the timer fires after it */
+function getRemainingTimeout(deadline: number): number {
+	return Math.max(0, deadline - Date.now());
+}
+
 export async function getBranchMergeTargetStatusInfo(
 	container: Container,
 	branch: GitBranch,
@@ -101,10 +159,13 @@ export async function getBranchMergeTargetStatusInfo(
 	// stranding the webview's mergeTarget loading flag because the RPC promise never settles.
 	// On timeout the answer without the pull request's base is used and the late one is ignored — a usable
 	// answer instead of a stuck spinner.
+	associatedPullRequest ??= getBranchAssociatedPullRequest(container, branch);
+	// One deadline across the target lookup and the landed verdict's reads, so their waits can't add up
+	const deadline = Date.now() + lookupTimeout;
 	const info = await getBranchMergeTargetInfo(container, branch, {
-		associatedPullRequest: associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch),
+		associatedPullRequest: associatedPullRequest,
 		cancellation: cancellation,
-		timeout: 5000,
+		timeout: lookupTimeout,
 	});
 
 	const target = info.target?.ref;
@@ -136,13 +197,32 @@ export async function getBranchMergeTargetStatusInfo(
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
 	const rawMergedStatus = getSettledValue(mergedStatusResult);
-	// A branch with zero unique commits vs. its target isn't merged — it's just at (or behind) a
-	// point on the target's history. `getBranchMergedStatusCore` returns `merged: true` here because
-	// `git merge-base --is-ancestor` succeeds (every commit is an ancestor of its descendants),
-	// but no merge has actually occurred. Demote it so the indicator reports "Up to Date" / "X
-	// Commits Behind" instead of "Branch Merged".
+
+	let reflogWork: Promise<BranchReflogWork> | undefined;
+	const getReflogWork = (): Promise<BranchReflogWork> =>
+		(reflogWork ??= readBranchReflogWork(svc, branch, cancellation));
+
+	// Zero unique commits vs. the target reads as "merged" to `git merge-base --is-ancestor`, but that is
+	// also true of a brand-new branch, so the branch's reflog decides whether it was really merged.
 	const mergedStatus =
-		rawMergedStatus?.merged && status?.ahead === 0 ? ({ merged: false } as const) : rawMergedStatus;
+		rawMergedStatus?.merged && status?.ahead === 0
+			? await getZeroAheadMergedStatus(branch, rawMergedStatus, getReflogWork)
+			: rawMergedStatus;
+
+	// Decided apart from `mergedStatus`, which vscode.dev can't compute, so a pull request still decides there
+	const verdict = await getBranchLandedVerdict(
+		container,
+		svc,
+		branch,
+		targetBranch.name,
+		targetBranch.nameWithoutRemote,
+		status?.ahead,
+		associatedPullRequest,
+		mergedStatus,
+		getReflogWork,
+		deadline,
+		cancellation,
+	);
 
 	return {
 		repoPath: branch.repoPath,
@@ -151,11 +231,230 @@ export async function getBranchMergeTargetStatusInfo(
 		name: targetBranch.name,
 		status: status,
 		mergedStatus: mergedStatus,
+		landed: verdict.landed,
+		successor: verdict.successor,
 		potentialConflicts: getSettledValue(conflictResult),
 		targetBranch: targetBranch.name,
 		baseBranch: info.baseBranch,
 		defaultBranch: info.defaultBranch,
 	};
+}
+
+type BranchReflogWork = ReturnType<typeof getBranchReflogWork>;
+
+async function readBranchReflogWork(
+	svc: GitRepositoryService,
+	branch: GitBranch,
+	cancellation?: AbortSignal,
+): Promise<BranchReflogWork> {
+	// Only a local branch has its own reflog
+	if (branch.remote) return 'unknown';
+
+	try {
+		const entries = await svc.refs.getReflogEntries?.(`refs/heads/${branch.name}`, undefined, cancellation);
+		return entries != null ? getBranchReflogWork(entries, branch.name) : 'unknown';
+	} catch (ex) {
+		if (isCancellationError(ex)) throw ex;
+
+		return 'unknown';
+	}
+}
+
+/**
+ * Git evidence only. A merged pull request is checked before this is consulted (see `getBranchLandedVerdict`), so
+ * this decides only when the branch's pull requests say nothing — and on its own, `mergedStatus` stays git evidence.
+ */
+async function getZeroAheadMergedStatus(
+	branch: GitBranch,
+	rawMergedStatus: Extract<GitBranchMergedStatus, { merged: true }>,
+	getReflogWork: () => Promise<BranchReflogWork>,
+): Promise<GitBranchMergedStatus> {
+	// The upstream was deleted after the merge, which is a strong signal it really was merged
+	if (branch.upstream?.missing) return rawMergedStatus;
+
+	switch (await getReflogWork()) {
+		case 'work':
+			return rawMergedStatus;
+		case 'none':
+			return { merged: false };
+		default:
+			// Can't tell, so show it as "Likely Merged" (confidence below 'highest')
+			return { ...rawMergedStatus, confidence: 'high' };
+	}
+}
+
+/**
+ * Whether the branch's work landed: its pull request decides first, then git evidence. When neither does and the
+ * by-ref read found no pull request, the pull requests are read by head name once (cached) — the by-ref read
+ * answers "none" once the host deletes a merged pull request's head branch, until the user prunes.
+ */
+async function getBranchLandedVerdict(
+	container: Container,
+	svc: GitRepositoryService,
+	branch: GitBranch,
+	target: string,
+	targetWithoutRemote: string,
+	ahead: number | undefined,
+	associatedPullRequest: Promise<PullRequest | undefined>,
+	mergedStatus: GitBranchMergedStatus | undefined,
+	getReflogWork: () => Promise<BranchReflogWork>,
+	deadline: number,
+	cancellation?: AbortSignal,
+): Promise<{ landed?: OverviewBranchLanded; successor?: BranchLandedState['successor'] }> {
+	const tip = branch.sha;
+	if (!tip) return {};
+
+	const ctx: LandedCheckContext = {
+		svc: svc,
+		branch: branch,
+		tip: tip,
+		target: target,
+		targetWithoutRemote: targetWithoutRemote,
+		ahead: ahead,
+		getReflogWork: getReflogWork,
+		cancellation: cancellation,
+	};
+
+	const pr = await pauseOnCancelOrTimeout(
+		associatedPullRequest.catch(() => undefined),
+		cancellation,
+		getRemainingTimeout(deadline),
+	);
+	cancellation?.throwIfAborted();
+
+	if (!pr.paused && pr.value != null) {
+		const state = await getPullRequestsLandedState(ctx, [pr.value]);
+		// A live pull request at the tip means nothing landed, whatever git evidence says
+		if (state.live) return {};
+		if (state.landed != null || state.successor != null) {
+			return { landed: withTipSha(state.landed, tip), successor: state.successor };
+		}
+	}
+
+	if (mergedStatus?.merged) {
+		return { landed: { via: 'git', confidence: mergedStatus.confidence } };
+	}
+
+	// Only a proven miss: a pull request that's still loading may yet decide
+	if (pr.paused || pr.value != null) return {};
+
+	const byName = await pauseOnCancelOrTimeout(
+		getBranchPullRequestsByHeadName(container, branch).catch(() => undefined),
+		cancellation,
+		getRemainingTimeout(deadline),
+	);
+	cancellation?.throwIfAborted();
+	if (byName.paused || !byName.value?.length) return {};
+
+	const prs = byName.value;
+	const state = await getPullRequestsLandedState(ctx, prs);
+	if (state.live) return {};
+
+	// So the branch's pull request pill agrees with the verdict, rather than keep the by-ref read's "none"
+	const decidingUrl = state.landed?.pullRequest?.url ?? state.successor?.pullRequest.url;
+	const deciding = decidingUrl != null ? prs.find(p => p.url === decidingUrl) : undefined;
+	if (deciding != null) {
+		void cacheBranchAssociatedPullRequest(container, branch, deciding);
+	}
+
+	return { landed: withTipSha(state.landed, tip), successor: state.successor };
+}
+
+/** Stamps a pull request verdict with the tip it was decided for, so a cached copy can't vouch for a later tip */
+function withTipSha(landed: BranchLandedState['landed'], tip: string): OverviewBranchLanded | undefined {
+	return landed != null ? { ...landed, tipSha: tip } : undefined;
+}
+
+interface LandedCheckContext {
+	readonly svc: GitRepositoryService;
+	readonly branch: GitBranch;
+	readonly tip: string;
+	/** The merge target's branch name */
+	readonly target: string;
+	/** The merge target's branch name without its remote, as a pull request's base names it */
+	readonly targetWithoutRemote: string;
+	/** The branch's commits not in the merge target (merges excluded), when known */
+	readonly ahead: number | undefined;
+	readonly getReflogWork: () => Promise<BranchReflogWork>;
+	readonly cancellation: AbortSignal | undefined;
+}
+
+const maxCountedPullRequests = 3;
+
+async function getPullRequestsLandedState(
+	ctx: LandedCheckContext,
+	prs: readonly PullRequest[],
+): Promise<BranchLandedState> {
+	// A pull request merged into another base (a release branch, or the branch below in a stack) didn't land the
+	// branch's work in the merge target, so it can't vouch for it. An open one still counts: at the tip, it's live
+	const relevant = prs.filter(
+		p => p.state !== 'merged' || !p.refs?.base?.branch || p.refs.base.branch === ctx.targetWithoutRemote,
+	);
+
+	// Commits are only counted when no pull request's head is the tip — that alone decides
+	const atTip = relevant.some(p => p.refs?.head?.sha === ctx.tip);
+
+	// Each count is two rev-lists and the by-name read returns up to 10, so only the newest few are counted
+	let counted = 0;
+	const candidates = await Promise.all(
+		relevant.map(async (p): Promise<BranchLandedPullRequestCandidate> => {
+			const headSha = p.refs?.head?.sha;
+			if (atTip || p.state !== 'merged' || !headSha || counted >= maxCountedPullRequests) {
+				return { pullRequest: p };
+			}
+
+			counted++;
+			return { pullRequest: p, newCommits: await getCommitsNotInPullRequest(ctx, headSha) };
+		}),
+	);
+
+	return getBranchLandedState(ctx.tip, candidates);
+}
+
+/**
+ * The branch's commits that are in neither the pull request's head nor the merge target, or `undefined` when that
+ * can't be told — which leaves the pull request undecided, since a wrong 0 would offer the branch for a forced delete.
+ */
+async function getCommitsNotInPullRequest(ctx: LandedCheckContext, headSha: string): Promise<number | undefined> {
+	const { svc, branch, tip, target, ahead, cancellation } = ctx;
+
+	// The head can be missing locally, e.g. when the host added commits the user never fetched
+	if ((await svc.refs.validateReference(headSha, undefined, cancellation)) == null) return undefined;
+
+	const counts = await svc.commits.getLeftRightCommitCount(
+		createRevisionRange(headSha, tip, '...'),
+		{ excludeMerges: true },
+		cancellation,
+	);
+	if (counts == null) return undefined;
+
+	// Rewritten since the pull request (a rebase or reset), so its head says nothing about the tip
+	if (counts.left > 0 && counts.right > 0) return undefined;
+
+	// The tip is in the head's history, so the pull request carried all of it
+	if (counts.right === 0) return 0;
+
+	if (ahead == null) return undefined;
+
+	// The head is in the tip's history, so the tip's commits not in the target (`ahead`) are the head's own commits
+	// not in the target plus the new ones. Counting from the target rather than from the head leaves out what
+	// pulling the target in brought, which a squash merge would otherwise count as new
+	const headCounts = await svc.commits.getLeftRightCommitCount(
+		createRevisionRange(target, headSha, '...'),
+		{ excludeMerges: true },
+		cancellation,
+	);
+	if (headCounts == null) return undefined;
+
+	const newCommits = Math.max(0, ahead - headCounts.right);
+	if (newCommits > 0) return newCommits;
+
+	// The tip is past the head yet adds nothing — a branch freshly cut from a target that already holds an old
+	// same-named pull request's head reads the same as a stale one. Only a reflog showing work here tells them apart;
+	// PR evidence alone mustn't offer a forced delete for a tip the pull request never saw
+	if (!branch.upstream?.missing && (await ctx.getReflogWork()) !== 'work') return undefined;
+
+	return 0;
 }
 
 export async function getLaunchpadItemInfo(
@@ -228,6 +527,9 @@ export async function getPullRequestInfo(
 			pr.stack != null
 				? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
 				: undefined,
+		mergeQueue: serializePullRequestMergeQueue(pr),
+		mergeQueueRequired: pr.mergeQueueRequired,
+		mergeQueueRemoval: serializePullRequestMergeQueueRemoval(pr),
 		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
 }

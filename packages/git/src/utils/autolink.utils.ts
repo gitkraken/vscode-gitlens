@@ -80,8 +80,8 @@ export function ensureCachedBranchNameRegexes(
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'branchNameRegexes'> {
 	if (ref.prefix?.length > 0) {
 		ref.branchNameRegexes ??= [
-			// Rule 1: Any prefixed ref followed by a 2+ digit number and either a connector or end-of-string after it
-			new RegExp(`(?<prefix>${ref.prefix})(?<issueKeyNumber>\\d{2,})(?:[\\/\\-\\_\\.]|$)`, 'i'),
+			// An explicit prefix disambiguates short issue numbers from unrelated branch numbers.
+			new RegExp(`(?<prefix>${escapeRegex(ref.prefix)})(?<issueKeyNumber>\\d+)(?:[\\/\\-\\_\\.]|$)`, 'i'),
 		];
 	} else {
 		ref.branchNameRegexes ??= [
@@ -102,8 +102,17 @@ export function ensureCachedBranchNameRegexes(
 
 export const numRegex = /<num>/g;
 
-export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<string, Autolink> {
+export function getAutolinks(
+	message: string,
+	refsets: Readonly<RefSet[]>,
+	options?: {
+		/** Total distinct result budget; dynamic callbacks run to completion and may exceed it. Omitted means unlimited. */
+		maxResults?: number;
+	},
+): Map<string, Autolink> {
 	const autolinks = new Map<string, Autolink>();
+	const maxResults = Math.max(0, Math.floor(options?.maxResults ?? Infinity));
+	if (!maxResults) return autolinks;
 
 	let match;
 	let num;
@@ -112,6 +121,7 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<
 			if (!isCacheable(ref) || (ref.referenceType && ref.referenceType !== 'commit')) {
 				if (isDynamic(ref)) {
 					ref.parse(message, autolinks);
+					if (autolinks.size >= maxResults) return autolinks;
 				}
 				continue;
 			}
@@ -136,6 +146,10 @@ export function getAutolinks(message: string, refsets: Readonly<RefSet[]>): Map<
 					description: ref.description?.replace(numRegex, num),
 					descriptor: ref.descriptor,
 				});
+				if (autolinks.size >= maxResults) {
+					ref.messageRegex.lastIndex = 0;
+					return autolinks;
+				}
 			} while (true);
 		}
 	}

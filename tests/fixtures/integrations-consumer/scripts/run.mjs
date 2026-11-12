@@ -1,12 +1,8 @@
 // Bundle the consumer with esbuild, then run it.
 //
-// The integrations facade depends on @gitkraken/provider-apis — a CJS module
-// whose getter-based named exports only resolve through a real bundler
-// (webpack/esbuild), which is how the GitLens host and Kepler build Core.
-// Running the raw .js under Node would hit
-// Node's CJS named-import limitation, so this fixture bundles first to reproduce a
-// realistic consumer build. (The type-level boundary is checked separately by
-// `tsc --noEmit` in the `test` script.)
+// A real bundler (webpack/esbuild) is how the GitLens host and Kepler build Core,
+// so this fixture bundles first to reproduce a realistic consumer build. (The
+// type-level boundary is checked separately by `tsc --noEmit` in the `test` script.)
 
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';

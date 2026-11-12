@@ -89,7 +89,7 @@ export class GlSignatureDetails extends LitElement {
 			align-items: center;
 			width: fit-content;
 			margin-top: 0.15rem;
-			color: var(--vscode-textLink-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: none;
 		}
 

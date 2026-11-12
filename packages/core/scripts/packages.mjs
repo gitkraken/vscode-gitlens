@@ -37,9 +37,9 @@ export const packages = [
 		name: '@gitlens/integrations',
 		srcDir: 'packages/plus/integrations',
 		dest: 'plus/integrations',
-		// The private workspace package exposes internal subpaths for GitLens itself. Core's published facade is
-		// deliberately narrower: external consumers get only the two entry points documented as semver-stable.
-		publicExports: ['./index.js', './lite.js'],
+		// The package's own `exports` are its public API, and core publishes exactly those: the `index.js` facade, the
+		// token-scoped `lite.js` reads, and `constants.js` (ids and pure predicates, safe for browser bundles).
+		publicExports: ['./index.js', './lite.js', './constants.js'],
 	},
 	{
 		name: '@gitlens/notifications',

@@ -13,7 +13,7 @@ import type {
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { PullRequestFilter } from '../providerFilters.js';
 import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';

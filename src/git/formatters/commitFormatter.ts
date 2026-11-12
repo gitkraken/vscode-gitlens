@@ -6,6 +6,12 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { PreviousRangeComparisonUrisResult } from '@gitlens/git/providers/diff.js';
+import {
+	formatPullRequestMergeQueueEnqueuedFromNow,
+	formatPullRequestMergeQueueStatus,
+	isPullRequestInMergeQueue,
+	isPullRequestMergeQueueRemovalCurrent,
+} from '@gitlens/git/utils/pullRequest.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
@@ -41,6 +47,7 @@ import type { Source } from '../../constants.telemetry.js';
 import { Container } from '../../container.js';
 import { emojify } from '../../emojis.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
+import { formatMergeQueueRemoval } from '../../plus/integrations/utils/pullRequest.mergeQueue.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import { createMarkdownCommandLink } from '../../system/commands.js';
@@ -87,16 +94,44 @@ function formatPullRequestState(state: PullRequest['state']): string {
 	}
 }
 
+/** Like {@link formatPullRequestState}, but describes a pull request waiting in a merge queue instead of calling it "opened". */
+function formatPullRequestDisplayState(pullRequest: PullRequest): string {
+	return isPullRequestInMergeQueue(pullRequest)
+		? formatPullRequestMergeQueueStatus(pullRequest.mergeQueue)
+		: formatPullRequestState(pullRequest.state);
+}
+
+/** The relative date {@link formatPullRequestDisplayState} is paired with: when a queued pull request joined its
+ *  merge queue, since its status reads as what happened then, otherwise the pull request's own date. */
+function formatPullRequestDisplayDateFromNow(pullRequest: PullRequest): string {
+	return isPullRequestInMergeQueue(pullRequest)
+		? formatPullRequestMergeQueueEnqueuedFromNow(pullRequest.mergeQueue)
+		: PullRequest.formatDateFromNow(pullRequest);
+}
+
+/** A pull request's removal from its merge queue while that still describes it, the line its hover adds below its
+ *  state; `undefined` otherwise, including while it's queued. */
+function formatPullRequestMergeQueueRemovalIfCurrent(pullRequest: PullRequest): string | undefined {
+	return isPullRequestMergeQueueRemovalCurrent(pullRequest)
+		? formatMergeQueueRemoval(pullRequest.mergeQueueRemoval)
+		: undefined;
+}
+
 function formatPullRequestTooltip(pullRequest: PullRequest): string {
 	const heading =
 		Container.instance.actionRunners.count('openPullRequest') === 1
 			? l10n.t('Open Pull Request #{0} on {1}', pullRequest.id, pullRequest.provider.name)
 			: l10n.t('Open Pull Request #{0}...', pullRequest.id);
+	const removal = formatPullRequestMergeQueueRemovalIfCurrent(pullRequest);
 	return `${escapeMarkdownTooltip(heading)}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdownTooltip(
 		pullRequest.title,
 	)}\n${escapeMarkdownTooltip(
-		l10n.t('{0}, {1}', formatPullRequestState(pullRequest.state), PullRequest.formatDateFromNow(pullRequest)),
-	)}`;
+		l10n.t(
+			'{0}, {1}',
+			formatPullRequestDisplayState(pullRequest),
+			formatPullRequestDisplayDateFromNow(pullRequest),
+		),
+	)}${removal != null ? `\n${escapeMarkdownTooltip(removal)}` : ''}`;
 }
 
 function formatPresenceTitle(name: string, current: boolean, presence: ContactPresence): string {
@@ -975,8 +1010,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			const prLabel = l10n.t('PR #{0}', pr.id);
-			const prState = formatPullRequestState(pr.state);
-			const prDate = PullRequest.formatDateFromNow(pr);
+			const prState = formatPullRequestDisplayState(pr);
+			const prDate = formatPullRequestDisplayDateFromNow(pr);
 			if (this._options.outputFormat === 'markdown') {
 				text = `[**$(git-pull-request) ${escapeMarkdown(prLabel)}**](${createMarkdownActionCommandLink<OpenPullRequestActionContext>(
 					'openPullRequest',
@@ -992,6 +1027,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					const prTitle = escapeMarkdown(pr.title).replace(quoteRegex, '\\"').trim();
 
 					const index = this._options.footnotes.size + 1;
+					const removal = formatPullRequestMergeQueueRemovalIfCurrent(pr);
 					const prCommandLink = createMarkdownActionCommandLink<OpenPullRequestActionContext>(
 						'openPullRequest',
 						{
@@ -1007,7 +1043,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 							l10n.t('Open Pull Request #{0} on {1}', pr.id, pr.provider.name),
 						)}")\\\n${GlyphChars.Space.repeat(4)} ${escapeMarkdown(
 							l10n.t('#{0} {1} {2}', pr.id, prState, prDate),
-						)}`,
+						)}${removal != null ? `\\\n${GlyphChars.Space.repeat(4)} ${escapeMarkdown(removal)}` : ''}`,
 					);
 				}
 			} else if (this._options.footnotes != null) {

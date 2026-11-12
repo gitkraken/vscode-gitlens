@@ -5,7 +5,7 @@ import { gitHubIssueSortQualifiers } from '@gitlens/git-github/api/issueSearchQu
 import type { IssueShape, IssueSortField, IssueSorting } from '@gitlens/git/models/issue.js';
 import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import { issue, withManager } from './issueSortHelpers.js';
 
 /**
@@ -126,14 +126,15 @@ suite('issue sort capabilities', () => {
 		});
 
 		// A provider whose issue read can be ordered at all must be able to serve the facade's own default, or an
-		// unordered request would refuse a read that works today.
+		// unordered request would refuse a read that works today. An empty table, like an absent one, says the read
+		// can't be ordered (Asana, derived from an SDK surface that is empty today).
 		test('every declared table can express the default order', async () => {
 			for (const [providerId, metadata] of Object.entries(providersMetadata)) {
 				for (const [field, table] of [
 					['supportedIssueSorts', metadata.supportedIssueSorts],
 					['supportedAccountWideIssueSorts', metadata.supportedAccountWideIssueSorts],
 				] as const) {
-					if (table == null) continue;
+					if (!table?.length) continue;
 
 					assert.equal(
 						table.includes('updated:desc'),

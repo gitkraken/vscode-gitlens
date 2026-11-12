@@ -243,6 +243,48 @@ suite('WorktreesSubProvider mutations', () => {
 		}
 	});
 
+	test('a forced getWorktrees sees the main checkout detach from a branch the cached list still places there', async function () {
+		const own = createTestRepo();
+		const linkedPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-linked-'));
+		try {
+			createBranch(own.path, 'linked-branch');
+			addWorktree(own.path, linkedPath, 'linked-branch');
+			assert.ok(own.provider.worktrees);
+
+			const before = await own.provider.branches.getBranches(own.path);
+			if (before.values.find(b => b.name === 'main')?.worktree == null) {
+				// git < 2.23 lists no `%(worktreepath)`
+				this.skip();
+			}
+
+			// Outside core: the branch list misses it, as after a missed watcher event, while the current branch is seen
+			execFileSync('git', ['checkout', '--detach'], { cwd: own.path, stdio: 'pipe' });
+			own.provider.cache.evictCaches(own.path, 'branch');
+
+			const spy = sinon.spy(own.provider.git, 'run');
+			try {
+				await own.provider.worktrees.getWorktrees(own.path, { force: true });
+				assert.ok(
+					spy.getCalls().some(c => c.args.includes('for-each-ref')),
+					'the stale branch list should be read again',
+				);
+			} finally {
+				spy.restore();
+			}
+
+			const { values } = await own.provider.branches.getBranches(own.path);
+			assert.notDeepStrictEqual(
+				values.find(b => b.name === 'main')?.worktree,
+				{ path: own.path, isDefault: true },
+				'main should no longer be placed at the main checkout',
+			);
+		} finally {
+			execFileSync('git', ['worktree', 'remove', '--force', linkedPath], { cwd: own.path, stdio: 'pipe' });
+			rmSync(linkedPath, { recursive: true, force: true });
+			own.cleanup();
+		}
+	});
+
 	test('a forced getWorktrees of an unchanged repository re-reads only the worktree list', async () => {
 		assert.ok(repo.provider.worktrees);
 		createBranch(repo.path, 'steady-branch');

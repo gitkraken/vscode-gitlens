@@ -1,5 +1,6 @@
 import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { Autolink } from '../../autolinks/models/autolinks.js';
@@ -111,7 +112,9 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 					? enriched.state === 'merged'
 						? l10n.t('was merged {0}', relativeTime)
 						: l10n.t('was closed {0}', relativeTime)
-					: l10n.t('was opened {0}', relativeTime);
+					: enriched.type === 'pullrequest' && isPullRequestInMergeQueue(enriched)
+						? formatPullRequestMergeQueueStatus(enriched.mergeQueue)
+						: l10n.t('was opened {0}', relativeTime);
 		const tooltip = new MarkdownString(
 			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
 				enriched.url

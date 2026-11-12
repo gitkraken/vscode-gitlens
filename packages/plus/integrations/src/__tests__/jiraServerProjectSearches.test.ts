@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
@@ -67,6 +68,7 @@ async function connectedJiraServer(
 	(jiraServer as unknown as { _session: ProviderAuthenticationSession })._session = jiraServerSession();
 
 	const searches: SearchCall[] = [];
+	const states: (GitIssueState[] | undefined)[] = [];
 	const projectReads: string[] = [];
 	stubApi(jiraServer, {
 		getJiraServerCurrentUser: () =>
@@ -76,8 +78,9 @@ async function connectedJiraServer(
 			_token: unknown,
 			url: string,
 			projectKeys: string[],
-			options: { assigneeLogins?: string[] },
+			options: { assigneeLogins?: string[]; states?: GitIssueState[] },
 		) => {
+			states.push(options.states);
 			const call = { projectKeys: projectKeys, baseUrl: url, assigneeLogins: options.assigneeLogins };
 			searches.push(call);
 			return search(call);
@@ -87,7 +90,7 @@ async function connectedJiraServer(
 			return projectRead(projectKey);
 		},
 	});
-	return { manager: manager, searches: searches, projectReads: projectReads };
+	return { manager: manager, searches: searches, states: states, projectReads: projectReads };
 }
 
 suite('Jira Server multi-project issue searches', () => {
@@ -229,6 +232,32 @@ suite('Jira Server multi-project issue searches', () => {
 		);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings[0]?.scope?.projectId, 'ALPHA');
+
+		manager.dispose();
+	});
+
+	test('sends the requested state to the search', async () => {
+		const { manager, searches, states, projectReads } = await connectedJiraServer(() =>
+			Promise.resolve({ data: [], hasMore: false, nextCursor: undefined }),
+		);
+
+		for (const state of [undefined, 'open', 'closed', 'all'] as const) {
+			await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+				domain: domain,
+				state: state,
+				itemsPerPage: 20,
+			});
+		}
+
+		assert.equal(searches.length, 4, 'one search per read');
+		assert.deepEqual(projectReads, []);
+		assert.deepEqual(states, [
+			undefined,
+			[GitIssueState.Open],
+			[GitIssueState.Closed],
+			[GitIssueState.Open, GitIssueState.Closed],
+		]);
 
 		manager.dispose();
 	});

@@ -25,17 +25,22 @@ import type {
 	ProviderAuthenticationSession,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { ResponseHeaders } from '../errors.js';
 import { AuthenticationError, getAuthenticatedUser } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationKey, ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/integration.js';
+import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/integration.js';
+import type {
+	IntegrationKey,
+	SearchMyPullRequestsOptions,
+	SearchPullRequestsOptions,
+} from '../models/publicIntegration.js';
 import type { BitbucketServerSearchUser } from './bitbucket-server/pullRequestSearch.js';
 import { getBitbucketServerPullRequestIdentityFromMaybeUrl } from './bitbucket/bitbucket.utils.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderHierarchyResult,
 	ProviderOrganization,
@@ -47,7 +52,6 @@ import {
 	fromProviderPullRequest,
 	providerPullRequestMatchesSearch,
 	ProviderPullRequestReviewState,
-	providersMetadata,
 	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
@@ -56,6 +60,7 @@ import {
 	collectProviderPagedResult,
 	flatSettledOrThrow,
 	parsePageCursor,
+	providerFanOutConcurrency,
 	toPageCursor,
 } from './utils/providerPaging.js';
 

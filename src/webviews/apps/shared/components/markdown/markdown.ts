@@ -31,7 +31,7 @@ export class GlMarkdown extends LitElement {
 
 			a,
 			a code {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: none;
 			}
 

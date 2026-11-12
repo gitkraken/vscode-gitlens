@@ -1,4 +1,5 @@
 import { sha256 } from '@gitlens/utils/crypto.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
 import type { GitSelfManagedHostIntegrationId } from '../../constants.js';
 import type {
@@ -76,7 +77,7 @@ function sanitizeLink(href: string | undefined, installationUrl: string, paths: 
 		}
 
 		// Project keys and slugs resolve case-insensitively, and clone links spell the key in lower case.
-		const base = ssh ? '' : installation.pathname.replace(/\/+$/, '');
+		const base = ssh ? '' : trimTrailingSlashes(installation.pathname);
 		const path = url.pathname.toLowerCase();
 		if (!paths.some(expected => path === `${base}${expected}`.toLowerCase())) return null;
 

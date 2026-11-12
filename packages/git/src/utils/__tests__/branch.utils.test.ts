@@ -3,6 +3,7 @@ import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
 import { GitBranch } from '../../models/branch.js';
 import {
 	getBranchNameAndRemote,
+	getBranchReflogWork,
 	getBranchTrackingWithoutRemote,
 	isDetachedHead,
 	parseRefName,
@@ -443,6 +444,95 @@ suite('Branch Utils Test Suite', () => {
 			});
 			assert.strictEqual(without.remoteName, 'origin');
 			assert.strictEqual(without.trackingWithoutRemote, 'feature');
+		});
+	});
+
+	suite('getBranchReflogWork', () => {
+		const sha = '4d28104b50c5110233869ac13c9ac08ad0327a1f';
+		const onto = '0042e7c2ac9c73caae29239c21824798e830efbe';
+		const other = '64a34b1c0ffee00000000000000000000000beef';
+		const e = (message: string, entrySha: string = other): { sha: string; message: string } => ({
+			sha: entrySha,
+			message: message,
+		});
+
+		test('fast-forward merge into a fresh branch is none', () => {
+			const entries = [e('merge main~1: Fast-forward'), e('branch: Created from main~2')];
+			assert.strictEqual(getBranchReflogWork(entries, 'ff'), 'none');
+		});
+
+		test('fast-forward pull into a fresh branch is none', () => {
+			const entries = [e('pull -q --ff-only . main: Fast-forward'), e('branch: Created from main~2')];
+			assert.strictEqual(getBranchReflogWork(entries, 'ff'), 'none');
+		});
+
+		test('fresh branch rebased onto its own sha is none', () => {
+			const entries = [e(`rebase (finish): refs/heads/frb onto ${sha}`, sha), e('branch: Created from main~2')];
+			assert.strictEqual(getBranchReflogWork(entries, 'frb'), 'none');
+		});
+
+		test('own commits rebased then fast-forwarded is work', () => {
+			const entries = [
+				e(`rebase (finish): refs/heads/rb onto ${onto}`, other),
+				e('commit: r2'),
+				e('commit: r1'),
+				e('branch: Created from main~1'),
+			];
+			assert.strictEqual(getBranchReflogWork(entries, 'rb'), 'work');
+		});
+
+		test('amend is work', () => {
+			const entries = [e('commit (amend): x2'), e('commit: x'), e('branch: Created from main')];
+			assert.strictEqual(getBranchReflogWork(entries, 'a'), 'work');
+		});
+
+		test('cherry-pick is work', () => {
+			const entries = [e('cherry-pick: x2'), e('branch: Created from main~1')];
+			assert.strictEqual(getBranchReflogWork(entries, 'cp'), 'work');
+		});
+
+		test('no-ff merge is work', () => {
+			const entries = [e("merge main: Merge made by the 'ort' strategy."), e('branch: Created from main~2')];
+			assert.strictEqual(getBranchReflogWork(entries, 'nff'), 'work');
+		});
+
+		test('created from the same-named remote is unknown', () => {
+			assert.strictEqual(
+				getBranchReflogWork([e('branch: Created from refs/remotes/origin/ff2')], 'ff2'),
+				'unknown',
+			);
+			assert.strictEqual(
+				getBranchReflogWork([e('branch: Created from origin/feature/x')], 'feature/x'),
+				'unknown',
+			);
+		});
+
+		test('created from a different remote branch is none', () => {
+			assert.strictEqual(getBranchReflogWork([e('branch: Created from origin/main')], 'ff2'), 'none');
+		});
+
+		test('missing or expired reflog is unknown', () => {
+			assert.strictEqual(getBranchReflogWork([], 'x'), 'unknown');
+			assert.strictEqual(getBranchReflogWork([e('merge main: Fast-forward')], 'x'), 'unknown');
+		});
+
+		test('squash then pull --rebase is work', () => {
+			const entries = [
+				e(`pull --rebase (finish): refs/heads/sq onto ${sha}`, sha),
+				e('commit: s1'),
+				e('branch: Created from main'),
+			];
+			assert.strictEqual(getBranchReflogWork(entries, 'sq'), 'work');
+		});
+
+		test('fresh at tip after checkout -B is none', () => {
+			const entries = [e('branch: Reset to main'), e('branch: Reset to main'), e('branch: Created from main')];
+			assert.strictEqual(getBranchReflogWork(entries, 'b'), 'none');
+		});
+
+		test('renamed is none', () => {
+			const entries = [e('Branch: renamed refs/heads/a to refs/heads/b'), e('branch: Created from main')];
+			assert.strictEqual(getBranchReflogWork(entries, 'b'), 'none');
 		});
 	});
 });

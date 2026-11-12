@@ -35,22 +35,24 @@ suite('WorktreesGitSubProvider.pruneWorktrees', () => {
 
 	let run: sinon.SinonStub;
 	let unregisterRepoPath: sinon.SinonSpy;
+	let announceWrite: sinon.SinonSpy;
 	let provider: WorktreesGitSubProvider;
 
 	setup(() => {
 		run = sinon.stub();
 		const git = { ensureSupports: () => Promise.resolve(), run: run } as unknown as Git;
 		unregisterRepoPath = sinon.spy();
-		const cache = { unregisterRepoPath: unregisterRepoPath } as unknown as Cache;
-		provider = new WorktreesGitSubProvider(
-			{ hooks: {} } as unknown as GitServiceContext,
-			git,
-			cache,
-			{} as unknown as CliGitProviderInternal,
-		);
+		announceWrite = sinon.spy();
+		const cache = {
+			unregisterRepoPath: unregisterRepoPath,
+			getLinkedWorktreeId: (path: string) => (path === '/wt' ? 'wt' : undefined),
+		} as unknown as Cache;
+		provider = new WorktreesGitSubProvider({ hooks: {} } as unknown as GitServiceContext, git, cache, {
+			announceWrite: announceWrite,
+		} as unknown as CliGitProviderInternal);
 	});
 
-	test('unregisters a worktree the prune removed', async () => {
+	test('unregisters a worktree the prune removed, and names it as moved', async () => {
 		run.onCall(0).resolves(exited(listing));
 		run.onCall(1).resolves(exited(''));
 		run.onCall(2).resolves(exited('worktree /repo\nHEAD abc\nbranch refs/heads/main\n'));
@@ -58,6 +60,9 @@ suite('WorktreesGitSubProvider.pruneWorktrees', () => {
 		await provider.pruneWorktrees(repoPath);
 
 		sinon.assert.calledOnceWithExactly(unregisterRepoPath, '/wt');
+		sinon.assert.calledOnceWithExactly(announceWrite, repoPath, ['worktrees', 'worktreeHead'], undefined, {
+			movedWorktrees: ['wt'],
+		});
 	});
 
 	test('a failed listing after the prune unregisters nothing', async () => {
@@ -82,6 +87,7 @@ suite('WorktreesGitSubProvider.getWorktrees lock reason fallback', () => {
 		run = sinon.stub();
 		lockReasonListed = false;
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(repoPath, { invalidate: () => {} }, undefined),
 			evictCaches: () => {},
@@ -190,6 +196,7 @@ suite('WorktreesGitSubProvider.getWorktrees ignored worktrees', () => {
 		invalidated?: { count: number },
 	): WorktreesGitSubProvider {
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(
 					repoPath,
@@ -324,6 +331,7 @@ suite('WorktreesGitSubProvider.getWorktrees branch list consistency', () => {
 
 	function createProvider(listing: () => string): WorktreesGitSubProvider {
 		const cache = {
+			validateBeforeRead: () => undefined,
 			getWorktrees: (repoPath: string, load: (p: string, c: unknown, s?: AbortSignal) => unknown) =>
 				load(repoPath, { invalidate: () => invalidated++ }, undefined),
 			getWorktreePaths: () => [],

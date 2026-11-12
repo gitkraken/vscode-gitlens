@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { mistralProviderDescriptor } from '../../constants.js';
+import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIModel } from '../../models/model.js';
 import { MistralProvider } from '../mistralProvider.js';
 import { createStubProviderContext } from './fixtures.js';
@@ -72,4 +73,20 @@ suite('MistralProvider tools fallback', () => {
 			/Input should be a list/,
 		);
 	});
+});
+
+suite('MistralProvider unauthorized responses', () => {
+	for (const status of [401, 403]) {
+		test(`maps a ${status} to AIError(Unauthorized), keeping the provider's text`, async () => {
+			await assert.rejects(
+				() => new TestFailureProvider(context).fail(status, { message: 'Unauthorized key' }),
+				(ex: unknown) => {
+					assert.ok(ex instanceof AIError);
+					assert.strictEqual(ex.reason, AIErrorReason.Unauthorized);
+					assert.ok(String(ex.original).includes(`${status}`));
+					return true;
+				},
+			);
+		});
+	}
 });

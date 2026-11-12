@@ -2,7 +2,12 @@ import * as l10n from '@vscode/l10n';
 import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
+	AIReviewFindingLocation,
 	AIReviewFocusArea,
+	AIReviewOrientFile,
+	AIReviewOrientGroup,
+	AIReviewOrientGroupKind,
+	AIReviewOrientResult,
 	AIReviewResult,
 	AIReviewSeverity,
 } from '../models/results.js';
@@ -163,6 +168,13 @@ function serializeFindingJson(finding: AIReviewFinding): ReviewFindingJson {
 		description: finding.description,
 		file: finding.filePath ?? null,
 		lines: finding.lineRange != null ? { start: finding.lineRange.start, end: finding.lineRange.end } : null,
+		locations:
+			finding.locations != null
+				? finding.locations.map(l => ({
+						file: l.filePath,
+						lines: l.lineRange != null ? { start: l.lineRange.start, end: l.lineRange.end } : null,
+					}))
+				: null,
 	};
 }
 
@@ -193,12 +205,16 @@ export function parseReviewDetailResult(result: string, focusAreaId: string): AI
 	return { findings: findings };
 }
 
-interface ReviewFindingJson {
+interface ReviewFindingLocationJson {
+	file?: string | null;
+	lines?: { start?: number; end?: number } | null;
+}
+
+interface ReviewFindingJson extends ReviewFindingLocationJson {
 	severity?: string;
 	title?: string;
 	description?: string;
-	file?: string | null;
-	lines?: { start?: number; end?: number } | null;
+	locations?: readonly ReviewFindingLocationJson[] | null;
 }
 
 interface ReviewResultJson {
@@ -321,17 +337,105 @@ function coerceLineNumber(value: unknown): number | undefined {
 
 // Normalizes schema null-unions (null → undefined) and synthesizes the same 1-based positional ids
 // as the XML parsers, so ids stay stable regardless of which parse route handled the response
+function normalizeLocationJson(
+	location: ReviewFindingLocationJson | null | undefined,
+): AIReviewFindingLocation | undefined {
+	const filePath = trimmedString(location?.file) || undefined;
+	if (filePath == null) return undefined;
+
+	const lineRange = normalizeLineRange(
+		coerceLineNumber(location?.lines?.start),
+		coerceLineNumber(location?.lines?.end),
+	);
+	return lineRange != null ? { filePath: filePath, lineRange: lineRange } : { filePath: filePath };
+}
+
+/** The finding's places, first place first: `file`/`lines` lead, then `locations` in order, each place once.
+ *  A model that puts the first place only in `locations` still gets it as the finding's `filePath`. */
+export function normalizeFindingLocations(
+	finding: ReviewFindingLocationJson & { locations?: readonly ReviewFindingLocationJson[] | null },
+): AIReviewFindingLocation[] {
+	const out: AIReviewFindingLocation[] = [];
+	const seen = new Set<string>();
+	const add = (location: AIReviewFindingLocation | undefined) => {
+		if (location == null) return;
+
+		const key = `${location.filePath}:${location.lineRange?.start ?? ''}-${location.lineRange?.end ?? ''}`;
+		if (seen.has(key)) return;
+
+		seen.add(key);
+		out.push(location);
+	};
+	add(normalizeLocationJson(finding));
+	for (const location of Array.isArray(finding.locations) ? finding.locations : []) {
+		add(normalizeLocationJson(location));
+	}
+	return out;
+}
+
 function normalizeFindingJson(finding: ReviewFindingJson, id: string): AIReviewFinding {
 	const title = trimmedString(finding.title);
+	const locations = normalizeFindingLocations(finding);
+	const [first] = locations;
 	return {
 		id: id,
 		severity: parseSeverity(trimmedString(finding.severity)),
 		title: title || 'Untitled finding',
 		...(!title ? { titleIsFallback: true } : {}),
 		description: trimmedString(finding.description) ?? '',
-		filePath: trimmedString(finding.file) || undefined,
-		lineRange: normalizeLineRange(coerceLineNumber(finding.lines?.start), coerceLineNumber(finding.lines?.end)),
+		filePath: first?.filePath,
+		lineRange: first?.lineRange,
+		...(locations.length > 1 ? { locations: locations } : {}),
 	};
+}
+
+interface ReviewOrientJson {
+	overview?: unknown;
+	groups?: readonly { label?: unknown; kind?: unknown; files?: unknown }[] | null;
+}
+
+function parseOrientGroupKind(value: string | undefined): AIReviewOrientGroupKind {
+	return value === 'core' || value === 'supporting' || value === 'mechanical' ? value : 'supporting';
+}
+
+/** Parses an orient pass: a reading order, not findings. A file that appears twice keeps its first stop. */
+export function parseReviewOrientJson(result: string): AIReviewOrientResult {
+	if (!result.trim()) throw new Error(l10n.t('The AI model returned an empty response'));
+
+	const parsed = extractJsonObject(result, o => Array.isArray(o.groups)) as ReviewOrientJson | undefined;
+	if (parsed == null) throw new Error(l10n.t('Unable to parse the review response from the AI model'));
+
+	const seen = new Set<string>();
+	const groups: AIReviewOrientGroup[] = [];
+	let index = 0;
+	for (const group of parsed.groups ?? []) {
+		if (group == null || typeof group !== 'object') continue;
+
+		const files: AIReviewOrientFile[] = [];
+		for (const file of Array.isArray(group.files) ? group.files : []) {
+			if (file == null || typeof file !== 'object') continue;
+
+			const path = trimmedString((file as { path?: unknown }).path);
+			if (!path || seen.has(path)) continue;
+
+			seen.add(path);
+			files.push({ path: path, note: trimmedString((file as { note?: unknown }).note) ?? '' });
+		}
+		if (files.length === 0) continue;
+
+		index++;
+		const label = trimmedString(group.label);
+		groups.push({
+			id: `group-${index}`,
+			label: label || 'Untitled group',
+			...(!label ? { labelIsFallback: true } : {}),
+			kind: parseOrientGroupKind(trimmedString(group.kind)),
+			summary: trimmedString((group as { summary?: unknown }).summary) ?? '',
+			files: files,
+		});
+	}
+
+	return { overview: typeof parsed.overview === 'string' ? parsed.overview.trim() : '', groups: groups };
 }
 
 /** Parses a review result, preferring the JSON shape and falling back to the legacy XML format */

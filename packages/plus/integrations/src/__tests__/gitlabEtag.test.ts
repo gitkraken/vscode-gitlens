@@ -12,15 +12,20 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { getIssueFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { BatchSlot } from '../models/integration.js';
 import type {
-	BatchSlot,
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-} from '../models/integration.js';
-import { pullRequestEtagIncludes } from '../models/integration.js';
-import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
+} from '../reads/etag.js';
+import {
+	issueEtag,
+	issueEtagFieldsFromShape,
+	pullRequestEtag,
+	pullRequestEtagFieldsFromShape,
+	pullRequestEtagIncludes,
+} from '../reads/etag.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitLab, primarySession } from './sweepHelpers.js';

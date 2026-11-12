@@ -111,7 +111,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 				align-items: center;
 				justify-content: space-between;
 				padding: 1.3rem 2rem;
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.titlebar h2 {
@@ -129,7 +129,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: none;
 				border: none;
@@ -137,8 +137,14 @@ export class GlGraphFeedbackDialog extends LitElement {
 			}
 
 			.close:hover {
-				color: var(--vscode-foreground);
-				background: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.close:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.body {
@@ -157,7 +163,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 			.subtitle {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* No min-height: 0 here: the field must never shrink below its label + the textarea's own
@@ -173,7 +179,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 			.field label {
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.segmented {
@@ -212,7 +218,13 @@ export class GlGraphFeedbackDialog extends LitElement {
 			}
 
 			.segmented button:hover {
-				background: var(--vscode-toolbar-hoverBackground);
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.segmented button:not([aria-checked='true'], :disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.segmented button[aria-checked='true'] {
@@ -221,7 +233,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 			}
 
 			.segmented button:focus-visible {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -253,7 +265,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 
 			.textarea:focus {
 				outline: none;
-				border-color: var(--vscode-focusBorder);
+				border-color: var(--gl-color-border-focus);
 			}
 
 			.textarea::placeholder {
@@ -263,7 +275,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 			.hint {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.links {
@@ -277,7 +289,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 				gap: var(--gl-space-4);
 				align-items: center;
 				font-size: var(--gl-font-sm);
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: none;
 			}
 
@@ -293,7 +305,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 			.error {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.footer {
@@ -301,7 +313,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 				gap: var(--gl-space-8);
 				justify-content: flex-end;
 				padding: 1.2rem 2rem;
-				border-top: var(--gl-border-width) solid var(--vscode-widget-border);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 		`,
 	];

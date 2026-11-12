@@ -358,8 +358,7 @@ with overflow: hidden. */
 
 			.hover-actions__row {
 				display: flex;
-				flex-direction: row;
-				flex-wrap: wrap;
+				flex-flow: row wrap;
 				gap: var(--gl-space-4);
 			}
 
@@ -440,8 +439,7 @@ with overflow: hidden. */
 
 			.hover-summary-row + .hover-summary-row {
 				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid
-					var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 15%, transparent));
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Ended rows add a 4th track for Resume/Archive actions — rows without actions keep
@@ -520,7 +518,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 			}
 
 			a.hover-summary__more {
-				color: var(--vscode-textLink-foreground);
+				color: var(--gl-color-action-link-fg);
 				text-decoration: none;
 			}
 

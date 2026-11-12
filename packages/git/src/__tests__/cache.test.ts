@@ -3,16 +3,20 @@ import * as sinon from 'sinon';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import type { BranchMetadataChange, CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
+import type { BranchMetadataChange, CachedGitTypes, CachedMergeTarget, MergeTargetsChangeEvent } from '../cache.js';
 import { Cache, resetDropsPendingRuns, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
+import type { GitBranchReference, RefRecord } from '../models/reference.js';
+import type { RepositoryChange } from '../models/repository.js';
 import type { GitTag } from '../models/tag.js';
 import { GitWorktree } from '../models/worktree.js';
 import type { GitResult } from '../run.types.js';
+import { createReference } from '../utils/reference.utils.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
 	const blame: GitBlame = {
@@ -1057,6 +1061,26 @@ suite('Cache — tag-scoped invalidation', () => {
 		assert.strictEqual(countReads, 2, 'a force-moved tag must not serve the count taken against its old commit');
 		assert.strictEqual(mergeBaseReads, 2, 'a force-moved tag must not serve its old fork point');
 	});
+
+	test('reachability is cleared when tags change', async () => {
+		let factoryCount = 0;
+		const factory = () => {
+			factoryCount++;
+			return Promise.resolve({ refs: [] });
+		};
+
+		await cache.reachability.getOrCreate(repoPath, 'abc123', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		cache.clearCaches(repoPath, 'tags');
+
+		await cache.reachability.getOrCreate(repoPath, 'abc123', factory);
+		assert.strictEqual(
+			factoryCount,
+			2,
+			'the tags a commit is reachable from must not survive a tag create or delete',
+		);
+	});
 });
 
 suite('Cache — gkConfig watcher reconciliation', () => {
@@ -2093,6 +2117,822 @@ suite('Cache.getCloseGeneration', () => {
 		cache.unregisterRepoPath('/test/repo-feature');
 		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
 	});
+
+	test('advances on reset for a path never registered', () => {
+		const generation = cache.getCloseGeneration(repoPath);
+		cache.reset();
+		assert.notStrictEqual(cache.getCloseGeneration(repoPath), generation);
+	});
+
+	test('an unregister after a reset still advances it', () => {
+		cache.reset();
+		const generation = cache.getCloseGeneration(repoPath);
+		cache.unregisterRepoPath(repoPath);
+		assert.notStrictEqual(cache.getCloseGeneration(repoPath), generation);
+	});
+});
+
+suite('Cache.setCurrentBranchReferenceIfAbsent', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const sibling = '/test/repo-sibling';
+	/** How many worktree paths the cache tracks the drop of before folding the oldest into the all-paths floor */
+	const dropsTracked = 128;
+
+	function reference(path: string): GitBranchReference {
+		return createReference('main', path, { refType: 'branch', name: 'main', remote: false });
+	}
+
+	function recordOf(worktreePath: string | undefined): RefRecord {
+		return {
+			current: '',
+			name: `refs/heads/${worktreePath ?? 'none'}`,
+			objectname: '',
+			peeledObjectname: '',
+			upstream: '',
+			upstreamTracking: '',
+			committerDate: '',
+			creatorDate: '',
+			authorDate: '',
+			subject: '',
+			worktreePath: worktreePath,
+			push: '',
+		};
+	}
+
+	/** A listing with a record checked out in each of `paths`, and one checked out nowhere */
+	function recordsOf(paths: readonly string[]): RefRecord[] {
+		return [...paths.map(recordOf), recordOf(undefined)];
+	}
+
+	async function seeded(cache: Cache, path: string, records: readonly RefRecord[]): Promise<boolean> {
+		const record = records.find(r => r.worktreePath === path);
+		assert.ok(record != null, `the listing should have a record checked out in ${path}`);
+		cache.setCurrentBranchReferenceIfAbsent(path, reference(path), record);
+		return (await cache.currentBranchReference.get(path)) != null;
+	}
+
+	function readListing(cache: Cache, paths: readonly string[] = [worktree, sibling]): Promise<RefRecord[]> {
+		return cache.getRefs(repoPath, () => recordsOf(paths));
+	}
+
+	/** A listing that is still being read until {@link done} is called */
+	function startListing(
+		cache: Cache,
+		paths: readonly string[] = [worktree, sibling],
+	): { listing: Promise<RefRecord[]>; done: () => void } {
+		const read = defer<RefRecord[]>();
+		return { listing: cache.getRefs(repoPath, () => read.promise), done: () => read.fulfill(recordsOf(paths)) };
+	}
+
+	test('a listing seeds every worktree', async () => {
+		using cache = new Cache();
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, records));
+		assert.ok(await seeded(cache, sibling, records));
+	});
+
+	test('a record from a copy of the listing seeds', async () => {
+		using cache = new Cache();
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, [...records]));
+		assert.ok(await seeded(cache, sibling, records.toReversed()));
+	});
+
+	test("a listing read across a worktree's branch eviction seeds only its siblings", async () => {
+		using cache = new Cache();
+		const { listing, done } = startListing(cache);
+		cache.evictCaches(worktree, 'branch');
+		done();
+		const records = await listing;
+
+		assert.strictEqual(await seeded(cache, worktree, records), false);
+		assert.ok(await seeded(cache, sibling, records));
+	});
+
+	test('a listing started after the eviction seeds the worktree', async () => {
+		using cache = new Cache();
+		cache.evictCaches(worktree, 'branch');
+		const records = await readListing(cache);
+
+		assert.ok(await seeded(cache, worktree, records));
+	});
+
+	for (const [name, drop] of [
+		['a config eviction', (cache: Cache) => cache.evictCaches(worktree, 'config')],
+		['unregistering the worktree', (cache: Cache) => cache.unregisterRepoPath(worktree)],
+	] as const) {
+		test(`a listing read across ${name} doesn't seed the worktree`, async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache);
+			drop(cache);
+			done();
+
+			assert.strictEqual(await seeded(cache, worktree, await listing), false);
+		});
+	}
+
+	for (const [name, drop] of [
+		['a full clear', (cache: Cache) => cache.clearCaches(undefined)],
+		['a reset', (cache: Cache) => cache.reset()],
+	] as const) {
+		test(`a listing read across ${name} seeds no worktree`, async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache);
+			drop(cache);
+			done();
+			const records = await listing;
+
+			assert.strictEqual(await seeded(cache, worktree, records), false);
+			assert.strictEqual(await seeded(cache, sibling, records), false);
+		});
+	}
+
+	test("a record the cache didn't read seeds nothing", async () => {
+		using cache = new Cache();
+
+		assert.strictEqual(await seeded(cache, worktree, recordsOf([worktree])), false);
+	});
+
+	suite('with more dropped worktrees than are tracked', () => {
+		const paths = Array.from({ length: dropsTracked + 3 }, (_, i) => `/test/repo-wt-${i}`);
+
+		function dropAll(cache: Cache): void {
+			for (const path of paths) {
+				cache.evictCaches(path, 'branch');
+			}
+		}
+
+		test('only as many drops are kept as are tracked', () => {
+			using cache = new Cache();
+			dropAll(cache);
+
+			assert.strictEqual(cache.getResourceUsage()['cache.currentBranchDroppedAt.entries.count'], dropsTracked);
+		});
+
+		test('a listing started before the oldest drop no longer seeds its worktree', async () => {
+			using cache = new Cache();
+			const { listing, done } = startListing(cache, paths);
+			dropAll(cache);
+			done();
+
+			assert.strictEqual(await seeded(cache, paths[0], await listing), false);
+		});
+
+		test('a listing started after every drop seeds every worktree', async () => {
+			using cache = new Cache();
+			dropAll(cache);
+			const records = await readListing(cache, paths);
+
+			for (const path of paths) {
+				assert.ok(await seeded(cache, path, records), path);
+			}
+		});
+	});
+});
+
+suite("Cache — a linked worktree's HEAD change reported elsewhere", () => {
+	const repoPath = '/test/repo';
+	const reporter = '/test/repo-reporter';
+	const sibling = '/test/repo-sibling';
+	const unregistered = '/test/repo-unregistered';
+	const otherRepoPath = '/test/other';
+	const otherWorktree = '/test/other-wt';
+
+	function reference(path: string): GitBranchReference {
+		return createReference('main', path, { refType: 'branch', name: 'main', remote: false });
+	}
+
+	function recordOf(worktreePath: string): RefRecord {
+		return {
+			current: '',
+			name: `refs/heads/${worktreePath}`,
+			objectname: '',
+			peeledObjectname: '',
+			upstream: '',
+			upstreamTracking: '',
+			committerDate: '',
+			creatorDate: '',
+			authorDate: '',
+			subject: '',
+			worktreePath: worktreePath,
+			push: '',
+		};
+	}
+
+	function listing(): RefRecord[] {
+		return [repoPath, reporter, sibling, unregistered].map(recordOf);
+	}
+
+	function registerLinked(cache: Cache, path: string): void {
+		cache.registerRepoPath(fileUri(path), {
+			uri: fileUri(`${repoPath}/.git/worktrees/${path.substring(path.lastIndexOf('/') + 1)}`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	}
+
+	/** Seeds each worktree in `records`, returning the worktrees whose seed was taken */
+	function seed(cache: Cache, records: readonly RefRecord[]): string[] {
+		const taken: string[] = [];
+		for (const record of records) {
+			const path = record.worktreePath!;
+			const before = cache.currentBranchReference.get(path);
+			cache.setCurrentBranchReferenceIfAbsent(path, reference(path), record);
+			const after = cache.currentBranchReference.get(path);
+			if (after != null && after !== before) {
+				taken.push(path);
+			}
+		}
+		return taken;
+	}
+
+	function branchesOf(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', true, undefined, undefined, 'abc123')] };
+	}
+
+	/** Caches each path's current branch and mapped list */
+	function cacheBranches(cache: Cache, paths: readonly string[]): void {
+		for (const path of paths) {
+			cache.branch.set(path, Promise.resolve(branchesOf(path).values[0]));
+			cache.branches.set(path, Promise.resolve(branchesOf(path)));
+		}
+	}
+
+	function hasCurrentBranch(cache: Cache, path: string): boolean {
+		return cache.currentBranchReference.get(path) != null && cache.branch.has(path) && cache.branches.has(path);
+	}
+
+	function hasNoCurrentBranch(cache: Cache, path: string): boolean {
+		return cache.currentBranchReference.get(path) == null && !cache.branch.has(path) && !cache.branches.has(path);
+	}
+
+	/**
+	 * A cache with the main checkout, the reporter and a sibling registered, and every worktree of both repositories
+	 * seeded from a listing and holding its current branch and mapped list; returns the listings' records
+	 */
+	async function setUp(cache: Cache): Promise<{ records: RefRecord[]; shared: PagedResult<GitBranch> }> {
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		registerLinked(cache, reporter);
+		registerLinked(cache, sibling);
+
+		const records = await cache.getRefs(reporter, () => listing());
+		assert.deepStrictEqual(seed(cache, records), [repoPath, reporter, sibling, unregistered]);
+		const otherRecords = await cache.getRefs(otherRepoPath, () => [otherRepoPath, otherWorktree].map(recordOf));
+		assert.deepStrictEqual(seed(cache, otherRecords), [otherRepoPath, otherWorktree]);
+
+		const shared = await cache.getSharedBranches(repoPath, () => branchesOf(repoPath));
+		cacheBranches(cache, [repoPath, reporter, sibling, unregistered, otherRepoPath, otherWorktree]);
+		return { records: records, shared: shared };
+	}
+
+	test('drops the current branch of every other linked worktree of the repository, and nothing else', async () => {
+		using cache = new Cache();
+		const { shared } = await setUp(cache);
+
+		cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead']);
+
+		assert.ok(hasNoCurrentBranch(cache, sibling), 'a registered sibling');
+		assert.ok(hasNoCurrentBranch(cache, unregistered), 'a worktree seeded from the listing');
+		assert.ok(hasCurrentBranch(cache, reporter), 'the reporter, which hears its own HEAD as `head`');
+		assert.ok(hasCurrentBranch(cache, repoPath), 'the main checkout, whose HEAD is never `worktreeHead`');
+		assert.ok(hasCurrentBranch(cache, otherWorktree), "another repository's worktree");
+		assert.ok(hasCurrentBranch(cache, otherRepoPath), 'another repository');
+		assert.ok(cache.isSharedBranchesKept(repoPath, shared), 'the shared list');
+		assert.ok(cache.refs.has(repoPath), 'the refs');
+	});
+
+	test('a listing read before the change no longer seeds the dropped worktrees, and one read after does', async () => {
+		using cache = new Cache();
+		const { records } = await setUp(cache);
+
+		cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead']);
+
+		assert.deepStrictEqual(seed(cache, records), []);
+		cache.refs.delete(repoPath);
+		assert.deepStrictEqual(seed(cache, await cache.getRefs(reporter, () => listing())), [sibling, unregistered]);
+	});
+
+	test('a change the main checkout reports drops the linked worktrees but its own', async () => {
+		using cache = new Cache();
+		await setUp(cache);
+
+		cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead']);
+
+		for (const path of [reporter, sibling, unregistered]) {
+			assert.ok(hasNoCurrentBranch(cache, path), path);
+		}
+		assert.ok(hasCurrentBranch(cache, repoPath));
+	});
+
+	test('a change applied to a sibling of the worktree it ran in drops nothing of its siblings', async () => {
+		using cache = new Cache();
+		await setUp(cache);
+
+		cache.applyRepositoryChanges(reporter, ['worktrees', 'worktreeHead'], 'evict', { worktreeOnly: true });
+
+		for (const path of [sibling, unregistered, repoPath]) {
+			assert.ok(hasCurrentBranch(cache, path), path);
+		}
+	});
+
+	for (const changes of [
+		['head', 'index', 'worktrees', 'worktreeHead'],
+		['head', 'heads', 'index', 'worktrees', 'worktreeHead'],
+	] satisfies RepositoryChange[][]) {
+		test(`core's announced write that moved its own worktree's HEAD (${changes.join(', ')}) drops only that worktree's current branch`, async () => {
+			using cache = new Cache();
+			const { records } = await setUp(cache);
+			const stamp = cache.getDropStamp();
+
+			cache.applyRepositoryChanges(reporter, changes, 'evict', { announced: true });
+
+			assert.ok(hasNoCurrentBranch(cache, reporter), 'the worktree it ran in');
+			// Their mapped lists go with the shared list, which a HEAD move evicts
+			for (const path of [sibling, unregistered, repoPath]) {
+				assert.notStrictEqual(cache.currentBranchReference.get(path), undefined, path);
+				assert.ok(cache.branch.has(path), path);
+				assert.strictEqual(cache.isDroppedSince('currentBranchReference', path, stamp), false, path);
+			}
+			assert.deepStrictEqual(seed(cache, records), [], 'a listing read before it seeds nothing');
+		});
+	}
+
+	test("core's announced write that added or removed a worktree drops no worktree's current branch", async () => {
+		using cache = new Cache();
+		await setUp(cache);
+
+		cache.applyRepositoryChanges(reporter, ['worktrees', 'worktreeHead'], 'evict', { announced: true });
+
+		for (const path of [reporter, sibling, unregistered, repoPath]) {
+			assert.ok(hasCurrentBranch(cache, path), path);
+		}
+	});
+
+	test('the same changes not announced drop the current branch of every other linked worktree', async () => {
+		using cache = new Cache();
+		await setUp(cache);
+
+		cache.applyRepositoryChanges(reporter, ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], 'evict');
+
+		for (const path of [reporter, sibling, unregistered]) {
+			assert.ok(hasNoCurrentBranch(cache, path), path);
+		}
+		assert.notStrictEqual(cache.currentBranchReference.get(repoPath), undefined, 'the main checkout');
+		assert.ok(cache.branch.has(repoPath), 'the main checkout');
+	});
+
+	test('an entry only listed or locked drops nothing', async () => {
+		using cache = new Cache();
+		await setUp(cache);
+
+		cache.onRepositoryChanged(reporter, ['worktrees']);
+
+		for (const path of [sibling, unregistered]) {
+			assert.ok(hasCurrentBranch(cache, path), path);
+		}
+	});
+
+	suite('a change naming the worktrees that moved', () => {
+		const sibling2 = '/test/repo-sibling2';
+
+		/** {@link setUp}, with a second sibling registered, and every worktree holding what its HEAD resolved to */
+		async function setUpNamed(cache: Cache): Promise<void> {
+			await setUp(cache);
+			registerLinked(cache, sibling2);
+			cache.currentBranchReference.set(sibling2, Promise.resolve(reference(sibling2)));
+			cacheBranches(cache, [sibling2]);
+			for (const path of [repoPath, reporter, sibling, sibling2, unregistered]) {
+				cache.commitCount.set(path, 'HEAD', Promise.resolve(1));
+				cache.mergeBase.set(path, 'main:HEAD', Promise.resolve('abc123'));
+			}
+		}
+
+		function hasHeadEntries(cache: Cache, path: string): boolean {
+			return cache.commitCount.get(path, 'HEAD') != null && cache.mergeBase.get(path, 'main:HEAD') != null;
+		}
+
+		test("clears a registered worktree it names as for that worktree's own HEAD change, and no other", async () => {
+			using cache = new Cache();
+			await setUpNamed(cache);
+			const stamp = cache.getDropStamp();
+			const generations = new Map(
+				[repoPath, reporter, sibling, sibling2].map(p => [p, cache.getStatusGeneration(p)]),
+			);
+
+			cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead'], {
+				movedWorktrees: new Set(['repo-sibling']),
+			});
+
+			assert.ok(hasNoCurrentBranch(cache, sibling), 'the worktree that moved');
+			assert.ok(cache.isDroppedSince('currentBranchReference', sibling, stamp), 'through the drop stamp');
+			assert.ok(!hasHeadEntries(cache, sibling), 'what its HEAD resolved to');
+			assert.strictEqual(cache.getStatusGeneration(sibling), generations.get(sibling)! + 1, 'its status clock');
+			for (const path of [reporter, sibling2, repoPath, unregistered]) {
+				assert.ok(hasCurrentBranch(cache, path), path);
+				assert.ok(hasHeadEntries(cache, path), path);
+				assert.strictEqual(cache.isDroppedSince('currentBranchReference', path, stamp), false, path);
+			}
+			for (const path of [reporter, sibling2, repoPath]) {
+				assert.strictEqual(cache.getStatusGeneration(path), generations.get(path), path);
+			}
+		});
+
+		test('a listing read before the change no longer seeds the worktree that moved', async () => {
+			using cache = new Cache();
+			const { records } = await setUp(cache);
+			cache.currentBranchReference.delete(reporter);
+
+			cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead'], {
+				movedWorktrees: new Set(['repo-sibling']),
+			});
+
+			assert.deepStrictEqual(seed(cache, records), [reporter]);
+		});
+
+		test('clears each registered worktree it names', async () => {
+			using cache = new Cache();
+			await setUpNamed(cache);
+
+			cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead'], {
+				movedWorktrees: new Set(['repo-sibling', 'repo-sibling2']),
+			});
+
+			for (const path of [sibling, sibling2]) {
+				assert.ok(hasNoCurrentBranch(cache, path), path);
+				assert.ok(!hasHeadEntries(cache, path), path);
+			}
+			for (const path of [reporter, repoPath, unregistered]) {
+				assert.ok(hasCurrentBranch(cache, path), path);
+			}
+		});
+
+		test("an id no registered worktree has drops only the worktrees whose id isn't known", async () => {
+			using cache = new Cache();
+			await setUpNamed(cache);
+			// Registered with a git dir outside the common one's `worktrees`, so its admin id isn't known
+			const unidentified = '/test/repo-unidentified';
+			cache.registerRepoPath(fileUri(unidentified), {
+				uri: fileUri('/elsewhere/.git/worktrees/repo-unidentified'),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+			cache.currentBranchReference.set(unidentified, Promise.resolve(reference(unidentified)));
+			cacheBranches(cache, [unidentified]);
+
+			cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead'], {
+				movedWorktrees: new Set(['repo-unregistered']),
+			});
+
+			assert.ok(hasNoCurrentBranch(cache, unregistered), 'a worktree seeded from the listing');
+			assert.ok(hasNoCurrentBranch(cache, unidentified), 'a registered worktree whose id is not known');
+			for (const path of [reporter, sibling, sibling2, repoPath]) {
+				assert.ok(hasCurrentBranch(cache, path), path);
+				assert.ok(hasHeadEntries(cache, path), path);
+			}
+			assert.ok(hasCurrentBranch(cache, otherWorktree), "another repository's worktree");
+		});
+
+		test('an id the reporter has, or that is named announced or for a sibling only, drops nothing', async () => {
+			using cache = new Cache();
+			await setUpNamed(cache);
+			const named = { movedWorktrees: new Set(['repo-sibling']) };
+
+			cache.onRepositoryChanged(sibling, ['worktrees', 'worktreeHead'], named);
+			cache.applyRepositoryChanges(reporter, ['worktrees', 'worktreeHead'], 'evict', {
+				...named,
+				announced: true,
+			});
+			cache.applyRepositoryChanges(reporter, ['worktrees', 'worktreeHead'], 'evict', {
+				...named,
+				worktreeOnly: true,
+			});
+
+			for (const path of [reporter, sibling, sibling2, repoPath, unregistered]) {
+				assert.ok(hasCurrentBranch(cache, path), path);
+			}
+		});
+	});
+
+	suite('the seeded worktrees tracked', () => {
+		function seededCount(cache: Cache): number | undefined {
+			return cache.getResourceUsage()['cache.seededWorktrees.entries.count'];
+		}
+
+		test('a registered worktree or the common path is not tracked as seeded', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			assert.strictEqual(seededCount(cache), 2, 'the unregistered worktrees of both repositories');
+		});
+
+		test('a seeded worktree is forgotten once it is unregistered', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.unregisterRepoPath(unregistered);
+
+			assert.strictEqual(seededCount(cache), 1);
+		});
+
+		test("a repository's seeded worktrees are forgotten once its last worktree is unregistered", async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.unregisterRepoPath(sibling);
+			cache.unregisterRepoPath(reporter);
+			assert.strictEqual(seededCount(cache), 2);
+			cache.unregisterRepoPath(repoPath);
+
+			assert.strictEqual(seededCount(cache), 1, "only the other repository's");
+			assert.ok(hasNoCurrentBranch(cache, unregistered), 'a forgotten worktree loses its current branch');
+			assert.ok(hasCurrentBranch(cache, otherWorktree), "another repository's worktree");
+		});
+
+		test("a reopened repository's listing tracks its seeded worktrees again", async () => {
+			using cache = new Cache();
+			await setUp(cache);
+			cache.unregisterRepoPath(sibling);
+			cache.unregisterRepoPath(reporter);
+			cache.unregisterRepoPath(repoPath);
+
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			assert.deepStrictEqual(seed(cache, await cache.getRefs(repoPath, () => listing())), [
+				repoPath,
+				reporter,
+				sibling,
+				unregistered,
+			]);
+			assert.strictEqual(seededCount(cache), 4, "the closed checkouts and the other repository's");
+			cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead']);
+
+			assert.strictEqual(cache.currentBranchReference.get(unregistered), undefined);
+		});
+
+		test('a seeded worktree is forgotten once it is registered', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			registerLinked(cache, unregistered);
+
+			assert.strictEqual(seededCount(cache), 1, "only the other repository's");
+			assert.notStrictEqual(
+				cache.currentBranchReference.get(unregistered),
+				undefined,
+				'it keeps its current branch reference',
+			);
+		});
+
+		test('a reset forgets them all', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.reset();
+
+			assert.strictEqual(seededCount(cache), 0);
+		});
+
+		test('a worktree whose reference a direct read cached is tracked once a listing reports it', async () => {
+			using cache = new Cache();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			registerLinked(cache, reporter);
+			// Read directly, before any listing reported it
+			cache.currentBranchReference.set(unregistered, Promise.resolve(reference(unregistered)));
+
+			const records = await cache.getRefs(reporter, () => listing());
+			assert.ok(!seed(cache, records).includes(unregistered), 'its reference was already cached');
+			cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead']);
+
+			assert.strictEqual(cache.currentBranchReference.get(unregistered), undefined);
+		});
+
+		test('every unregistered worktree a listing reports is tracked, however many, and keeps its current branch', async () => {
+			using cache = new Cache();
+			const paths = Array.from({ length: 130 }, (_, i) => `/test/repo-wt-${i}`);
+			const read = () => cache.getRefs(repoPath, () => paths.map(recordOf));
+
+			assert.deepStrictEqual(seed(cache, await read()), paths);
+			cache.refs.delete(repoPath);
+			seed(cache, await read());
+
+			assert.strictEqual(seededCount(cache), paths.length);
+			for (const path of paths) {
+				assert.notStrictEqual(cache.currentBranchReference.get(path), undefined, path);
+			}
+
+			cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead']);
+
+			for (const path of paths) {
+				assert.strictEqual(cache.currentBranchReference.get(path), undefined, path);
+			}
+		});
+
+		test('a worktree a later listing no longer reports is forgotten and loses its current branch', async () => {
+			using cache = new Cache();
+			const [kept, gone] = ['/test/repo-kept', '/test/repo-gone'];
+			seed(cache, await cache.getRefs(repoPath, () => [kept, gone].map(recordOf)));
+			cacheBranches(cache, [kept, gone]);
+			assert.strictEqual(seededCount(cache), 2);
+
+			cache.refs.delete(repoPath);
+			await cache.getRefs(repoPath, () => [recordOf(kept)]);
+
+			assert.strictEqual(seededCount(cache), 1);
+			assert.ok(hasCurrentBranch(cache, kept));
+			assert.ok(hasNoCurrentBranch(cache, gone));
+		});
+
+		test('a listing that reports no unregistered worktree forgets every one it tracked', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.refs.delete(repoPath);
+			await cache.getRefs(repoPath, () => [recordOf(repoPath)]);
+
+			assert.strictEqual(seededCount(cache), 1, "only the other repository's");
+			assert.ok(hasNoCurrentBranch(cache, unregistered));
+			assert.ok(hasCurrentBranch(cache, otherWorktree));
+		});
+
+		test("a repository's listing leaves the other repository's tracked worktrees alone", async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.refs.delete(repoPath);
+			await cache.getRefs(repoPath, () => [recordOf(repoPath), recordOf('/test/repo-another')]);
+			assert.ok(hasNoCurrentBranch(cache, unregistered), 'forgotten by the listing that stopped reporting it');
+			assert.strictEqual(seededCount(cache), 2, "the new one and the other repository's");
+
+			cache.onRepositoryChanged(otherRepoPath, ['worktrees', 'worktreeHead']);
+
+			assert.ok(hasNoCurrentBranch(cache, otherWorktree), 'still found by its own repository');
+		});
+
+		test('a listing that settles after a reset tracks nothing', async () => {
+			using cache = new Cache();
+			const read = defer<RefRecord[]>();
+			const pending = cache.getRefs(repoPath, () => read.promise);
+
+			cache.reset();
+			read.fulfill(listing());
+			await pending;
+
+			assert.strictEqual(seededCount(cache), 0);
+		});
+
+		test('a failed listing, which answers empty, forgets none and drops no current branch', async () => {
+			using cache = new Cache();
+			await setUp(cache);
+
+			cache.refs.delete(repoPath);
+			await cache.getRefs(repoPath, (_commonPath, cacheable) => {
+				cacheable.invalidate();
+				return [];
+			});
+
+			assert.strictEqual(seededCount(cache), 2);
+			assert.ok(hasCurrentBranch(cache, unregistered));
+			cache.onRepositoryChanged(reporter, ['worktrees', 'worktreeHead']);
+			assert.ok(hasNoCurrentBranch(cache, unregistered), 'still found by a HEAD change');
+		});
+
+		test('a listing that settles after its repository was closed tracks nothing', async () => {
+			using cache = new Cache();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			const read = defer<RefRecord[]>();
+			const pending = cache.getRefs(repoPath, () => read.promise);
+
+			cache.unregisterRepoPath(repoPath);
+			read.fulfill(listing());
+			await pending;
+
+			assert.strictEqual(seededCount(cache), 0);
+		});
+
+		test('a worktree path the listing spells unnormalized is tracked as the seeds spell it', async () => {
+			using cache = new Cache();
+			const path = '/test/repo-trailing';
+			// As the branch list seeds it, from the normalized path
+			const read = () => cache.getRefs(repoPath, () => [{ ...recordOf(path), worktreePath: `${path}/` }]);
+			const [record] = await read();
+			cache.setCurrentBranchReferenceIfAbsent(path, reference(path), record);
+			cacheBranches(cache, [path]);
+
+			cache.refs.delete(repoPath);
+			await read();
+
+			assert.strictEqual(seededCount(cache), 1);
+			assert.ok(hasCurrentBranch(cache, path), 'a listing still reporting it keeps its current branch');
+			cache.onRepositoryChanged(repoPath, ['worktrees', 'worktreeHead']);
+			assert.ok(hasNoCurrentBranch(cache, path), 'found by a HEAD change');
+		});
+	});
+});
+
+suite('Cache.isDroppedSince', () => {
+	const repoPath = '/test/repo';
+	const sibling = '/test/repo-sibling';
+	/** How many paths the cache tracks the drop of, per stamped cache, before folding the oldest into the floor */
+	const dropsTracked = 128;
+
+	test('nothing is dropped since a stamp taken before any drop', () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+		assert.strictEqual(cache.isDroppedSince('currentBranchReference', repoPath, stamp), false);
+	});
+
+	test("a config clear drops the path's current user only", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.clearCaches(repoPath, 'config');
+
+		assert.ok(cache.isDroppedSince('currentUser', repoPath, stamp));
+		assert.strictEqual(cache.isDroppedSince('currentUser', sibling, stamp), false);
+	});
+
+	test('a stamp taken after a drop sees nothing dropped', () => {
+		using cache = new Cache();
+		cache.clearCaches(repoPath, 'config');
+		const stamp = cache.getDropStamp();
+
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+	});
+
+	test("an entry's own stamp advances only with a drop of it, and still tells of one", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp('currentUser', repoPath);
+		cache.clearCaches(sibling, 'config');
+		cache.evictCaches(repoPath, 'branch');
+
+		assert.strictEqual(cache.getDropStamp('currentUser', repoPath), stamp);
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+
+		cache.clearCaches(repoPath, 'config');
+
+		assert.notStrictEqual(cache.getDropStamp('currentUser', repoPath), stamp);
+		assert.ok(cache.isDroppedSince('currentUser', repoPath, stamp));
+	});
+
+	test("a branch eviction doesn't drop the current user", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.evictCaches(repoPath, 'branch');
+
+		assert.ok(cache.isDroppedSince('currentBranchReference', repoPath, stamp));
+		assert.strictEqual(cache.isDroppedSince('currentUser', repoPath, stamp), false);
+	});
+
+	test("unregistering a path drops the path's stamped caches only", () => {
+		using cache = new Cache();
+		const stamp = cache.getDropStamp();
+		cache.unregisterRepoPath(repoPath);
+
+		for (const key of ['currentUser', 'currentBranchReference'] as const) {
+			assert.ok(cache.isDroppedSince(key, repoPath, stamp), key);
+			assert.strictEqual(cache.isDroppedSince(key, sibling, stamp), false, key);
+		}
+	});
+
+	for (const [name, drop] of [
+		['a full clear', (cache: Cache) => cache.clearCaches(undefined)],
+		['a reset', (cache: Cache) => cache.reset()],
+	] as const) {
+		test(`${name} drops every path's stamped caches`, () => {
+			using cache = new Cache();
+			const stamp = cache.getDropStamp();
+			drop(cache);
+
+			for (const key of ['currentUser', 'currentBranchReference'] as const) {
+				assert.ok(cache.isDroppedSince(key, repoPath, stamp), key);
+				assert.ok(cache.isDroppedSince(key, sibling, stamp), key);
+			}
+		});
+	}
+
+	suite('with more dropped paths than are tracked', () => {
+		const paths = Array.from({ length: dropsTracked + 3 }, (_, i) => `/test/repo-wt-${i}`);
+
+		test('only as many current user drops are kept as are tracked', () => {
+			using cache = new Cache();
+			for (const path of paths) {
+				cache.clearCaches(path, 'config');
+			}
+
+			assert.strictEqual(cache.getResourceUsage()['cache.currentUserDroppedAt.entries.count'], dropsTracked);
+		});
+
+		test('a stamp taken before the oldest drop still sees it dropped', () => {
+			using cache = new Cache();
+			const stamp = cache.getDropStamp();
+			for (const path of paths) {
+				cache.clearCaches(path, 'config');
+			}
+
+			assert.ok(cache.isDroppedSince('currentUser', paths[0], stamp));
+		});
+	});
 });
 
 suite('Cache.applyRepositoryChanges', () => {
@@ -2427,6 +3267,479 @@ suite('GitWorktree.name', () => {
 	});
 });
 
+suite('Cache.registerRepoPath', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const worktreeGitDir = {
+		uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+		commonUri: fileUri(`${repoPath}/.git`),
+	};
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function count(cache: Cache, name: string): number | undefined {
+		return cache.getResourceUsage()[`cache.${name}.entries.count`];
+	}
+
+	function list(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', false, undefined, undefined, 'abc123')] };
+	}
+
+	test("a worktree read before it was registered gives up its copy of the repository's list", async () => {
+		using cache = new Cache();
+		await cache.getBranches(worktree, list, identity);
+		await cache.getRefs(worktree, () => []);
+		await cache.getRemotes(worktree, () => []);
+		assert.strictEqual(count(cache, 'sharedBranches'), 1);
+		assert.strictEqual(count(cache, 'branches'), 1);
+		assert.strictEqual(count(cache, 'refs'), 1);
+		assert.strictEqual(count(cache, 'remotes'), 1);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.strictEqual(count(cache, 'sharedBranches'), 0);
+		assert.strictEqual(count(cache, 'branches'), 0);
+		assert.strictEqual(count(cache, 'refs'), 0);
+		assert.strictEqual(count(cache, 'remotes'), 0);
+
+		let readAt: string | undefined;
+		await cache.getBranches(
+			worktree,
+			path => {
+				readAt = path;
+				return list(path);
+			},
+			identity,
+		);
+		assert.strictEqual(readAt, repoPath, 'the next read goes by the common path');
+	});
+
+	test('a read in flight across registration still answers, and is not kept', async () => {
+		using cache = new Cache();
+		let resolve!: (value: PagedResult<GitBranch>) => void;
+		const inFlight = cache.getSharedBranches(
+			worktree,
+			() =>
+				new Promise<PagedResult<GitBranch>>(r => {
+					resolve = r;
+				}),
+		);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		const values = list(worktree);
+		resolve(values);
+
+		assert.strictEqual(await inFlight, values);
+		await Promise.resolve();
+		assert.strictEqual(count(cache, 'sharedBranches'), 0);
+	});
+
+	test('keeps what a checkout reads for itself, and what the common path holds', async () => {
+		using cache = new Cache();
+		await cache.getConfig(worktree, 'core.foo', () => 'bar');
+		await cache.getBranches(repoPath, list, identity);
+
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		let factoryCount = 0;
+		assert.strictEqual(
+			await cache.getConfig(worktree, 'core.foo', () => {
+				factoryCount++;
+				return 'baz';
+			}),
+			'bar',
+		);
+		assert.strictEqual(factoryCount, 0);
+		assert.strictEqual(count(cache, 'sharedBranches'), 1, "the main checkout's list stays");
+		assert.ok(cache.branches.has(repoPath));
+	});
+
+	test('registering a worktree again keeps what it has read since', async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		await cache.getBranches(worktree, list, identity);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.ok(cache.branches.has(worktree), 'the mapped list stays');
+		assert.strictEqual(count(cache, 'sharedBranches'), 1);
+	});
+
+	test('a worktree read before it was registered gives up its gk config baseline and merge target tracking', async () => {
+		using cache = new Cache();
+		const key = 'branch.feature.gk-merge-target';
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'a']]));
+		await cache.getMergeTarget(worktree, 'refs/heads/feature', () => ({
+			result: undefined,
+			selfAtTip: false,
+			tips: [],
+			replaced: '',
+			shallow: null,
+			configKey: undefined,
+			stored: undefined,
+			evictOnCheckout: true,
+		}));
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 1);
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 1);
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 0);
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 0);
+
+		cache.unregisterRepoPath(worktree);
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'b']]));
+		assert.strictEqual(cache.getGkConfigSnapshot(worktree)?.get(key), 'b', 'the next read seeds a fresh baseline');
+	});
+
+	const key = 'branch.feature.gk-merge-target';
+
+	function mergeTarget(): CachedMergeTarget {
+		return {
+			result: undefined,
+			selfAtTip: false,
+			tips: [],
+			replaced: '',
+			shallow: null,
+			configKey: undefined,
+			stored: undefined,
+			evictOnCheckout: true,
+		};
+	}
+
+	test('a gk config read still running when its worktree is registered does not seed a baseline under the worktree', async () => {
+		using cache = new Cache();
+		const gate = defer<void>();
+		const read = cache.getGkConfigMap(worktree, async () => {
+			await gate.promise;
+			return new Map([[key, 'a']]);
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await read;
+
+		assert.strictEqual(count(cache, 'gkConfigSnapshots'), 0);
+		cache.unregisterRepoPath(worktree);
+		assert.strictEqual(cache.getGkConfigSnapshot(worktree), undefined);
+	});
+
+	test('a merge target read still running when its worktree is registered does not track the worktree', async () => {
+		using cache = new Cache();
+		const gate = defer<void>();
+		const read = cache.getMergeTarget(worktree, 'refs/heads/feature', async () => {
+			await gate.promise;
+			return mergeTarget();
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await read;
+
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 0);
+	});
+
+	test('reads that started after registration, or for the main checkout, still seed', async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		const gate = defer<void>();
+		const mainRead = cache.getGkConfigMap(repoPath, async () => {
+			await gate.promise;
+			return new Map([[key, 'a']]);
+		});
+		const mainTarget = cache.getMergeTarget(repoPath, 'refs/heads/feature', async () => {
+			await gate.promise;
+			return mergeTarget();
+		});
+
+		cache.registerRepoPath(fileUri(worktree), worktreeGitDir);
+		gate.fulfill();
+		await Promise.all([mainRead, mainTarget]);
+
+		assert.strictEqual(cache.getGkConfigSnapshot(repoPath)?.get(key), 'a');
+		assert.strictEqual(count(cache, 'mergeTargetsEvictedOnCheckout'), 1);
+
+		await cache.getGkConfigMap(worktree, () => new Map([[key, 'b']]));
+		assert.strictEqual(
+			cache.getGkConfigSnapshot(worktree)?.get(key),
+			'a',
+			'the worktree shares the main checkout baseline',
+		);
+	});
+});
+
+suite('Cache.superprojects', () => {
+	const repoPath = '/test/repo';
+
+	function populate(cache: Cache): Promise<boolean> {
+		return cache.superprojects.getOrCreate('/parent', () => Promise.resolve(false));
+	}
+
+	for (const [name, clear] of [
+		['reset', (cache: Cache) => cache.reset()],
+		['a full clear of one repository', (cache: Cache) => cache.clearCaches(repoPath)],
+		['unregistering a repository', (cache: Cache) => cache.unregisterRepoPath(repoPath)],
+	] as const) {
+		test(`${name} empties it`, async () => {
+			using cache = new Cache();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			await populate(cache);
+			assert.strictEqual(cache.superprojects.size, 1);
+
+			clear(cache);
+
+			assert.strictEqual(cache.superprojects.size, 0);
+		});
+	}
+
+	test('a typed clear keeps it', async () => {
+		using cache = new Cache();
+		await populate(cache);
+
+		cache.clearCaches(repoPath, 'branches');
+
+		assert.strictEqual(cache.superprojects.size, 1);
+	});
+});
+
+suite('Cache.getSharedBranches', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function createCache(): Cache {
+		const cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		return cache;
+	}
+
+	test('shares one list by common path, without creating a branches entry', async () => {
+		using cache = createCache();
+		const values = [new GitBranch(repoPath, 'refs/heads/main', false, undefined, undefined, 'abc123')];
+		let factoryCount = 0;
+		let commonPath: string | undefined;
+		const factory = (path: string): PagedResult<GitBranch> => {
+			factoryCount++;
+			commonPath = path;
+			return { values: values };
+		};
+
+		const fromWorktree = await cache.getSharedBranches(worktree, factory);
+		const fromRepo = await cache.getSharedBranches(repoPath, factory);
+
+		assert.strictEqual(factoryCount, 1);
+		assert.strictEqual(commonPath, repoPath);
+		assert.strictEqual(fromWorktree.values, values);
+		assert.strictEqual(fromRepo, fromWorktree);
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+	});
+
+	test('a read invalidated by its factory carries that to the mapped entries and is not kept', async () => {
+		using cache = createCache();
+		let factoryCount = 0;
+		let release!: () => void;
+		const released = new Promise<void>(resolve => (release = resolve));
+		const shared = cache.getSharedBranches(worktree, async (_commonPath, cacheable) => {
+			factoryCount++;
+			await released;
+			cacheable.invalidate();
+			return { values: [] };
+		});
+
+		const unusedFactory = (): PagedResult<GitBranch> => assert.fail('joins the read in flight');
+		const mapped = [
+			cache.getBranches(worktree, unusedFactory, identity),
+			cache.getBranches(repoPath, unusedFactory, identity),
+		];
+		assert.strictEqual(cache.branches.has(worktree), true);
+		assert.strictEqual(cache.branches.has(repoPath), true);
+
+		release();
+		await Promise.all([shared, ...mapped]);
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+
+		await cache.getSharedBranches(worktree, () => {
+			factoryCount++;
+			return { values: [] };
+		});
+		assert.strictEqual(factoryCount, 2, 'the invalidated list is read again');
+	});
+
+	for (const invalidated of [true, false]) {
+		test(`a list ${invalidated ? 'its factory invalidated is not' : 'that was kept is'} reported as kept`, async () => {
+			using cache = createCache();
+			const shared = await cache.getSharedBranches(worktree, (path, cacheable) => {
+				if (invalidated) {
+					cacheable.invalidate();
+				}
+				return { values: [new GitBranch(path, 'refs/heads/main', true, undefined, undefined, 'abc123')] };
+			});
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			assert.strictEqual(cache.isSharedBranchesKept(worktree, shared), !invalidated);
+			assert.strictEqual(cache.isSharedBranchesKept(repoPath, shared), !invalidated);
+		});
+	}
+
+	test("a refused read leaves a sibling's settled current branch", async () => {
+		using cache = createCache();
+		const current = new GitBranch(repoPath, 'refs/heads/main', true, undefined, undefined, 'abc123');
+		await cache.branch.getOrCreate(repoPath, () => Promise.resolve(current));
+
+		await cache.getSharedBranches(worktree, (_path, cacheable) => {
+			cacheable.invalidate();
+			return { values: [] };
+		});
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		assert.strictEqual(cache.branch.has(repoPath), true);
+	});
+
+	test('getBranches builds its mapped entry from the same list', async () => {
+		using cache = createCache();
+		let factoryCount = 0;
+		const factory = (): PagedResult<GitBranch> => {
+			factoryCount++;
+			return { values: [] };
+		};
+
+		const fromShared = await cache.getSharedBranches(worktree, factory);
+		let mappedFrom: PagedResult<GitBranch> | undefined;
+		await cache.getBranches(worktree, factory, result => {
+			mappedFrom = result;
+			return result;
+		});
+
+		assert.strictEqual(factoryCount, 1);
+		assert.strictEqual(mappedFrom, fromShared);
+		assert.strictEqual(cache.branches.has(worktree), true);
+	});
+
+	test('one aborted caller does not abort the read for another', async () => {
+		using cache = createCache();
+		const controller = new AbortController();
+		let release!: (result: PagedResult<GitBranch>) => void;
+		const factory = (
+			_commonPath: string,
+			_cacheable: unknown,
+			_signal?: AbortSignal,
+		): Promise<PagedResult<GitBranch>> => new Promise<PagedResult<GitBranch>>(resolve => (release = resolve));
+
+		const aborted = cache.getSharedBranches(worktree, factory, controller.signal);
+		const waiting = cache.getSharedBranches(repoPath, factory);
+		controller.abort();
+
+		await assert.rejects(aborted, (ex: unknown) => isCancellationError(ex));
+
+		const result = { values: [] };
+		release(result);
+		assert.strictEqual(await waiting, result);
+	});
+});
+
+suite("Cache — a 'branch' clear and a worktree's own branch list", () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	const identity = (result: PagedResult<GitBranch>): PagedResult<GitBranch> => result;
+
+	function count(cache: Cache, name: string): number | undefined {
+		return cache.getResourceUsage()[`cache.${name}.entries.count`];
+	}
+
+	function list(path: string): PagedResult<GitBranch> {
+		return { values: [new GitBranch(path, 'refs/heads/main', false, undefined, undefined, 'abc123')] };
+	}
+
+	async function createCache(): Promise<Cache> {
+		const cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		await cache.getBranches(worktree, list, identity);
+		await cache.getBranches(repoPath, list, identity);
+		return cache;
+	}
+
+	for (const [name, clear] of [
+		['evictCaches', (cache: Cache) => cache.evictCaches(worktree, 'branch')],
+		['clearCaches', (cache: Cache) => cache.clearCaches(worktree, 'branch')],
+	] as const) {
+		test(`${name} drops only that worktree's mapped list`, async () => {
+			using cache = await createCache();
+			assert.strictEqual(count(cache, 'sharedBranches'), 1);
+
+			clear(cache);
+
+			assert.strictEqual(
+				cache.branches.has(worktree),
+				false,
+				"the worktree's list marked the old branch current",
+			);
+			assert.strictEqual(cache.branches.has(repoPath), true, "a sibling's list stays");
+			assert.strictEqual(count(cache, 'sharedBranches'), 1, 'the shared list stays');
+		});
+	}
+
+	test("a read after a watcher 'branch' change does not join a mapper that started before it", async () => {
+		using cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		const blocked = defer<void>();
+		const before = list(worktree);
+		const after = list(worktree);
+
+		const first = cache.getBranches(worktree, list, async () => {
+			await blocked.promise;
+			return before;
+		});
+		cache.onRepositoryChanged(worktree, ['rebase']);
+		let mapperCount = 0;
+		const second = cache.getBranches(worktree, list, () => {
+			mapperCount++;
+			return after;
+		});
+
+		blocked.fulfill();
+
+		assert.strictEqual(await second, after);
+		assert.strictEqual(mapperCount, 1);
+		assert.strictEqual(await first, before, 'the earlier waiter still gets its answer');
+	});
+
+	test("a repository-wide 'branch' clear drops every mapped list and keeps the shared one", async () => {
+		using cache = await createCache();
+
+		cache.clearCaches(undefined, 'branch');
+
+		assert.strictEqual(cache.branches.has(worktree), false);
+		assert.strictEqual(cache.branches.has(repoPath), false);
+		let factoryCount = 0;
+		await cache.getBranches(
+			worktree,
+			path => {
+				factoryCount++;
+				return list(path);
+			},
+			identity,
+		);
+		assert.strictEqual(factoryCount, 0, 'the shared list stays');
+	});
+});
+
 suite('resetDropsPendingRuns', () => {
 	const cases: [string, readonly CachedGitTypes[] | undefined, boolean][] = [
 		['undefined, a reset of everything', undefined, true],
@@ -2443,4 +3756,57 @@ suite('resetDropsPendingRuns', () => {
 			assert.strictEqual(resetDropsPendingRuns(types), expected);
 		});
 	}
+});
+
+suite('Cache read validator resource usage', () => {
+	test("reports the read validator's resource usage among its own until it is removed", () => {
+		const cache = new Cache();
+		try {
+			cache.setReadValidator(
+				() => undefined,
+				() => ({ 'unwatchedValidation.validations.count': 3 }),
+			);
+			assert.strictEqual(cache.getResourceUsage()['unwatchedValidation.validations.count'], 3);
+
+			cache.setReadValidator(undefined);
+			assert.strictEqual(cache.getResourceUsage()['unwatchedValidation.validations.count'], undefined);
+		} finally {
+			cache.dispose();
+		}
+	});
+});
+
+suite('Cache git results read validation', () => {
+	test('a cached git run waits for the read validator, then runs', async () => {
+		const cache = new Cache();
+		try {
+			const validation = defer<void>();
+			const validated: string[] = [];
+			cache.setReadValidator(repoPath => {
+				validated.push(repoPath);
+				return validation.promise;
+			});
+
+			let runs = 0;
+			const result: GitResult = {
+				stdout: 'abc',
+				stderr: undefined,
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			};
+			const read = cache.gitResults.getOrCreate('/repo', 'git merge-base main feature', () => {
+				runs++;
+				return Promise.resolve(result);
+			});
+			await Promise.resolve();
+			assert.deepStrictEqual(validated, ['/repo']);
+			assert.strictEqual(runs, 0, 'waits for the validation');
+
+			validation.fulfill();
+			assert.strictEqual(await read, result);
+			assert.strictEqual(runs, 1);
+		} finally {
+			cache.dispose();
+		}
+	});
 });

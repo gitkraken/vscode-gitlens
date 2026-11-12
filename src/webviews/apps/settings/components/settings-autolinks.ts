@@ -50,9 +50,9 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				color: var(--gl-color-feedback-info-fg);
+				background-color: var(--gl-color-feedback-info-bg);
+				border: var(--gl-border-width) solid var(--gl-color-feedback-info-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -63,7 +63,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 
 			.banner--connected {
 				background-color: transparent;
-				border-color: var(--vscode-widget-border, var(--color-foreground--25));
+				border-color: var(--gl-color-border-raised);
 			}
 
 			.rules {
@@ -134,7 +134,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
 				line-height: 1;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: transparent;
 				border: var(--gl-border-width) solid transparent;
@@ -159,7 +159,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			.rule__delete {
 				flex: none;
 				padding: var(--gl-space-4);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				cursor: pointer;
 				background: transparent;
 				border: none;
@@ -167,8 +167,10 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			}
 
 			.rule__delete:hover {
-				color: var(--color-foreground);
-				background-color: var(--vscode-toolbar-hoverBackground);
+				color: var(--gl-color-action-quiet-fg);
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
+				background-color: var(--gl-color-action-quiet-bg-hover);
 			}
 
 			.rule__delete:focus-visible {
@@ -184,7 +186,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				flex-basis: 100%;
 				font-size: 1.1rem;
 				line-height: 1.5;
-				color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.rule__error code {
@@ -195,7 +197,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			.hint {
 				font-size: 1.15rem;
 				line-height: 1.5;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hint code {

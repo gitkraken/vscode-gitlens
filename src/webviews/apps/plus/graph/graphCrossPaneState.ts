@@ -3,6 +3,7 @@ import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import type { AnchorKey } from './components/anchorKey.js';
 import type { RunningOperationBucket } from './components/detailsState.js';
+import { abortRunningOperation } from './components/detailsState.js';
 
 /** Per-anchor memory of the last-active review/compose mode. Lets a return to a previously-
  *  visited anchor restore the mode the user was in (e.g. switching away from a WIP row in
@@ -32,10 +33,10 @@ export function createGraphCrossPaneState(): GraphCrossPaneState {
 export function abortRunningOperations(state: GraphCrossPaneState): void {
 	const current = state.runningOperations.get();
 	for (const bucket of current.values()) {
-		bucket.review?.abortController?.abort();
-		bucket.compose?.abortController?.abort();
-		bucket.resolve?.abortController?.abort();
-		bucket.generateMessage?.abortController?.abort();
+		abortRunningOperation(bucket.review);
+		abortRunningOperation(bucket.compose);
+		abortRunningOperation(bucket.resolve);
+		abortRunningOperation(bucket.generateMessage);
 	}
 	if (current.size > 0) {
 		state.runningOperations.set(new Map());

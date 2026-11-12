@@ -37,13 +37,13 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 			align-items: center;
 			padding: var(--gl-space-4) var(--gl-space-8);
 			font-size: var(--gl-font-md);
-			background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 8%);
-			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
+			background: color-mix(in lab, var(--gl-color-surface-base) 100%, var(--vscode-foreground) 8%);
+			border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		.strip__heart {
 			flex: none;
-			color: var(--color-alert-infoBorder);
+			color: var(--gl-color-feedback-info-quiet-fg);
 		}
 
 		.strip__msg {
@@ -79,13 +79,17 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 			font-weight: var(--gl-font-weight-semibold);
 			line-height: 1.8rem;
 			color: var(--vscode-foreground);
-			background: color-mix(in srgb, var(--color-alert-infoBorder) 14%, transparent);
-			border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 40%, transparent);
+			background: color-mix(in srgb, var(--gl-color-feedback-info-quiet-fg) 14%, transparent);
+			border: var(--gl-border-width) solid
+				var(
+					--gl-color-feedback-info-quiet-border,
+					color-mix(in srgb, var(--gl-color-feedback-info-quiet-fg) 40%, transparent)
+				);
 			border-radius: var(--gl-radius-sm);
 		}
 
 		.strip__chip code-icon {
-			color: var(--color-alert-infoBorder);
+			color: var(--gl-color-feedback-info-quiet-fg);
 		}
 
 		/* Same treatment as the jump toast's action (gl-graph-jump-toast.css.ts) — the graph's banner
@@ -95,7 +99,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 			padding: 0.2rem 0.5rem;
 			font: inherit;
 			font-size: var(--gl-font-md);
-			color: var(--vscode-textLink-foreground);
+			color: var(--gl-color-action-link-fg);
 			cursor: pointer;
 			background: none;
 			border: var(--gl-border-width) solid transparent;
@@ -109,9 +113,9 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		}
 
 		.strip__cta:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 0;
-			border-color: var(--vscode-focusBorder);
+			border-color: var(--gl-color-border-focus);
 		}
 	`;
 

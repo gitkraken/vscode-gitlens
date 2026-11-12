@@ -7,7 +7,7 @@ import type {
 	StoredConfiguredIntegrationDescriptor,
 	StoredIntegrationConfigurations,
 } from '@gitlens/integrations/constants.js';
-import type { IntegrationConnectedKey } from '@gitlens/integrations/models/integration.js';
+import type { IntegrationConnectedKey } from '@gitlens/integrations/index.js';
 import type { NotificationsSnapshot } from '@gitlens/notifications/models.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
 import type { SubscriptionState } from './constants.subscription.js';
@@ -589,6 +589,7 @@ export type StoredLaunchpadGroup =
 	| 'follow-up'
 	| 'needs-review'
 	| 'waiting-for-review'
+	| 'merge-queue'
 	| 'draft'
 	| 'other'
 	| 'snoozed';

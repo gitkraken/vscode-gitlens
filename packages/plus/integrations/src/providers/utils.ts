@@ -1,4 +1,5 @@
-import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
+import type { AnyEntityIdentifierInput } from '@gitkraken/provider-apis';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -22,14 +23,12 @@ import {
 	isGitSelfManagedHostIntegrationId,
 	isSelfManagedHostIntegrationId,
 } from '../utils/integration.utils.js';
-import type { AzureProjectInputDescriptor } from './azure/models.js';
-import type { GitConfigEntityIdentifier } from './models.js';
-import { isGitHubDotCom, isGitLabDotCom } from './models.js';
+import { isGitHubDotCom, isGitLabDotCom } from './metadata.js';
 
-// Local runtime copies of the `@gitkraken/provider-apis` entity-identifier string enums, duplicated for
-// the same CJS-from-ESM reason as the enums in `models.ts`. Exported so the enum-parity test can guard
-// them against upstream drift. `EntityVersion` is an intentional subset: the package only ever writes
-// version 1, so the parity test asserts each local entry matches the SDK rather than a full mirror.
+// Local runtime copies of the `@gitkraken/provider-apis` entity-identifier string enums. Exported so the
+// enum-parity test can guard them against upstream drift. `EntityVersion` is an intentional subset: the
+// package only ever writes version 1, so the parity test asserts each local entry matches the SDK rather
+// than a full mirror.
 export const EntityIdentifierProviderType = {
 	Azure: 'azure',
 	AzureDevOpsServer: 'azureDevOpsServer',
@@ -43,6 +42,7 @@ export const EntityIdentifierProviderType = {
 	JiraServer: 'jiraServer',
 	Linear: 'linear',
 	Trello: 'trello',
+	Asana: 'asana',
 } as const;
 
 export const EntityType = {
@@ -53,6 +53,118 @@ export const EntityType = {
 export const EntityVersion = {
 	One: '1',
 } as const;
+
+export type EntityIdentifierProviderType =
+	(typeof EntityIdentifierProviderType)[keyof typeof EntityIdentifierProviderType];
+export type EntityType = (typeof EntityType)[keyof typeof EntityType];
+
+/**
+ * A decoded entity identifier: a GitLens-neutral copy of provider-apis' `EntityIdentifier`, so consumers never name
+ * the SDK. `version` names every version the SDK decodes, unlike {@link EntityVersion}, which lists the one written.
+ */
+export interface EntityIdentifier {
+	provider: EntityIdentifierProviderType;
+	entityType: EntityType;
+	version: '0' | '1';
+	domain: string | null;
+	resourceId: string | null;
+	accountOrOrgId: string | null;
+	organizationName: string | null;
+	projectId: string | null;
+	repoId: string | null;
+	entityId: string;
+}
+
+/** The fields an entity identifier can carry. Which of them one needs depends on its provider and entity type. */
+interface EntityIdentifierValues {
+	version?: '0' | '1';
+	entityId: string;
+	domain?: string | null;
+	resourceId?: string | null;
+	accountOrOrgId?: string | null;
+	organizationName?: string | null;
+	projectId?: string | null;
+	repoId?: string | null;
+}
+
+/**
+ * An entity identifier's fields as {@link getEntityIdentifierInput} builds them for any issue or pull request, and as
+ * a branch-issue association stores them ({@link GitConfigEntityIdentifier}): every provider (Linear included), with
+ * each provider-specific field nullable. Not every one of these encodes; {@link EntityIdentifierInput} is the subset
+ * that does.
+ */
+export interface EntityIdentifierFields extends EntityIdentifierValues {
+	provider: EntityIdentifierProviderType;
+	entityType: EntityType;
+}
+
+type ProviderOf<K extends keyof typeof EntityIdentifierProviderType> = (typeof EntityIdentifierProviderType)[K];
+
+/**
+ * What {@link encodeEntityIdentifier} accepts: one arm per provider and entity type the codec encodes, each requiring
+ * the fields the codec refuses to encode without. Linear isn't encodable at all, and Jira and Trello have no pull
+ * requests. The fields an arm doesn't require may still be present (as {@link getEntityIdentifierInput} fills them),
+ * and are ignored.
+ */
+export type EntityIdentifierInput =
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Github' | 'GithubEnterprise' | 'Gitlab' | 'GitlabSelfHosted'>;
+			entityType: EntityType;
+	  })
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Bitbucket' | 'BitbucketServer'>;
+			entityType: EntityType;
+			repoId: string;
+	  })
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Azure' | 'AzureDevOpsServer'>;
+			entityType: typeof EntityType.Issue;
+			organizationName: string;
+			projectId: string;
+	  })
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Azure' | 'AzureDevOpsServer'>;
+			entityType: typeof EntityType.PullRequest;
+			organizationName: string;
+			projectId: string;
+			repoId: string;
+	  })
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Jira' | 'JiraServer'>;
+			entityType: typeof EntityType.Issue;
+			projectId: string;
+	  })
+	| (EntityIdentifierValues & {
+			provider: ProviderOf<'Trello'>;
+			entityType: typeof EntityType.Issue;
+			accountOrOrgId: string;
+			projectId: string;
+	  });
+
+/** The {@link EntityIdentifierInput} arms for a pull request: what a pull request's identifier encodes as. */
+export type PullRequestEntityIdentifierInput = EntityIdentifierInput & { entityType: typeof EntityType.PullRequest };
+
+/** A branch-issue association as git config stores it: the identifier's fields plus what resolves it back. */
+export type GitConfigEntityIdentifier = EntityIdentifierFields & {
+	metadata: {
+		id: string;
+		owner: { key: string; name: string; id: string | undefined; owner: string | undefined };
+		createdDate: string;
+		isCloudEnterprise?: boolean;
+	};
+};
+
+/** Encodes an entity identifier into the string form Launchpad keys pins/snoozes by and drafts store. */
+export function encodeEntityIdentifier(entity: EntityIdentifierInput): string {
+	// Each arm mirrors one of the SDK's, but the SDK's string enums are nominal, so its input can't be named without
+	// them.
+	return EntityIdentifierUtils.encode(entity as unknown as AnyEntityIdentifierInput);
+}
+
+/** Decodes an identifier written by {@link encodeEntityIdentifier}; throws on a malformed one. */
+export function decodeEntityIdentifier(encoded: string): EntityIdentifier {
+	return EntityIdentifierUtils.decode(encoded);
+}
 
 /**
  * Forward-compatible structural shape of the host's `LaunchpadItem`. The package
@@ -80,8 +192,16 @@ function isIssue(item: IssueOrPullRequest | LaunchpadItem): item is Issue {
 	return item.type === 'issue';
 }
 
-export function getEntityIdentifierInput(entity: Issue | PullRequest | LaunchpadItem): AnyEntityIdentifierInput {
-	let entityType: (typeof EntityType)[keyof typeof EntityType] = EntityType.Issue;
+/**
+ * The identifier fields of an issue or pull request. A pull request's are checked to encode (see
+ * {@link toPullRequestEntityIdentifierInput}), so they can go straight to {@link encodeEntityIdentifier}.
+ */
+export function getEntityIdentifierInput(entity: PullRequest): PullRequestEntityIdentifierInput;
+export function getEntityIdentifierInput(entity: Issue | PullRequest | LaunchpadItem): EntityIdentifierFields;
+export function getEntityIdentifierInput(
+	entity: Issue | PullRequest | LaunchpadItem,
+): EntityIdentifierFields | PullRequestEntityIdentifierInput {
+	let entityType: EntityType = EntityType.Issue;
 	if (entity.type === 'pullrequest') {
 		entityType = EntityType.PullRequest;
 	}
@@ -165,6 +285,13 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		// Trello currently exposes the board but not a separate workspace/org id here. Reuse the board id in
 		// both serialization slots so branch associations remain round-trippable until the upstream shape grows.
 		accountOrOrgId = entity.project.resourceId || entity.project.id;
+	} else if (provider === EntityIdentifierProviderType.Asana) {
+		if (!isIssue(entity) || !entity.project?.resourceId) {
+			throw new Error('Asana issues must have a workspace to be encoded');
+		}
+
+		// An Asana task is addressed by its gid alone; the workspace is what the SDK's identifier keys it under.
+		accountOrOrgId = entity.project.resourceId;
 	} else if (
 		provider === EntityIdentifierProviderType.Bitbucket ||
 		provider === EntityIdentifierProviderType.BitbucketServer
@@ -180,13 +307,7 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		entityId = (isLaunchpadItem(entity) ? entity.underlyingPullRequest?.id : entity.id) as string;
 	}
 
-	// `AnyEntityIdentifierInput` includes the catch-all `EntityIdentifier`
-	// variant which requires all fields, while each provider-specific variant
-	// requires a different subset. The function builds a polymorphic value
-	// that's correct at runtime per `provider` but the literal can't be
-	// structurally narrowed to any single variant. The 2-step cast through
-	// `unknown` is the documented escape for this discriminated-union pattern.
-	return {
+	const fields: EntityIdentifierFields = {
 		accountOrOrgId: accountOrOrgId,
 		organizationName: organizationName, // needed for Azure issues and PRs, once supported
 		projectId: projectId,
@@ -197,11 +318,50 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		version: EntityVersion.One,
 		domain: domain,
 		entityId: entityId,
-	} as unknown as AnyEntityIdentifierInput;
+	};
+	return entityType === EntityType.PullRequest && !isLaunchpadItem(entity)
+		? toPullRequestEntityIdentifierInput(fields)
+		: fields;
+}
+
+/**
+ * Narrows a pull request's identifier fields to the arm the codec encodes it by, throwing (as the codec would) when a
+ * field that arm requires is missing.
+ */
+function toPullRequestEntityIdentifierInput(fields: EntityIdentifierFields): PullRequestEntityIdentifierInput {
+	const { provider, organizationName, projectId, repoId } = fields;
+	switch (provider) {
+		case EntityIdentifierProviderType.Github:
+		case EntityIdentifierProviderType.GithubEnterprise:
+		case EntityIdentifierProviderType.Gitlab:
+		case EntityIdentifierProviderType.GitlabSelfHosted:
+			return { ...fields, provider: provider, entityType: EntityType.PullRequest };
+		case EntityIdentifierProviderType.Bitbucket:
+		case EntityIdentifierProviderType.BitbucketServer:
+			if (repoId == null) throw new Error('Bitbucket PRs must have a repository ID to be encoded');
+
+			return { ...fields, provider: provider, entityType: EntityType.PullRequest, repoId: repoId };
+		case EntityIdentifierProviderType.Azure:
+		case EntityIdentifierProviderType.AzureDevOpsServer:
+			if (organizationName == null || projectId == null || repoId == null) {
+				throw new Error('Azure PRs must have an organization, a project and a repository ID to be encoded');
+			}
+
+			return {
+				...fields,
+				provider: provider,
+				entityType: EntityType.PullRequest,
+				organizationName: organizationName,
+				projectId: projectId,
+				repoId: repoId,
+			};
+		default:
+			throw new Error(`Pull requests from '${provider}' can't be encoded`);
+	}
 }
 
 export function getProviderIdFromEntityIdentifier(
-	entityIdentifier: EntityIdentifier | AnyEntityIdentifierInput | GitConfigEntityIdentifier,
+	entityIdentifier: EntityIdentifier | EntityIdentifierFields | EntityIdentifierInput | GitConfigEntityIdentifier,
 ): IntegrationIds | undefined {
 	switch (entityIdentifier.provider) {
 		case EntityIdentifierProviderType.Github:
@@ -220,6 +380,8 @@ export function getProviderIdFromEntityIdentifier(
 			return IssuesCloudHostIntegrationId.Linear;
 		case EntityIdentifierProviderType.Trello:
 			return IssuesCloudHostIntegrationId.Trello;
+		case EntityIdentifierProviderType.Asana:
+			return IssuesCloudHostIntegrationId.Asana;
 		case EntityIdentifierProviderType.Azure:
 			return GitCloudHostIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.AzureDevOpsServer:
@@ -235,9 +397,7 @@ export function getProviderIdFromEntityIdentifier(
 	}
 }
 
-function fromStringToEntityIdentifierProviderType(
-	str: string,
-): (typeof EntityIdentifierProviderType)[keyof typeof EntityIdentifierProviderType] {
+function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifierProviderType {
 	switch (str) {
 		case 'github':
 			return EntityIdentifierProviderType.Github;
@@ -255,6 +415,8 @@ function fromStringToEntityIdentifierProviderType(
 			return EntityIdentifierProviderType.Linear;
 		case 'trello':
 			return EntityIdentifierProviderType.Trello;
+		case 'asana':
+			return EntityIdentifierProviderType.Asana;
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
@@ -270,6 +432,12 @@ function fromStringToEntityIdentifierProviderType(
 	}
 }
 
+/**
+ * Builds the git-config form of a branch-issue association from an issue (the only thing production callers pass).
+ * A pull request is accepted but goes through {@link getEntityIdentifierInput}, so it throws when its provider can't
+ * encode pull requests (Jira, Trello, Linear) or a field its arm requires is missing (Bitbucket and Bitbucket Server
+ * need `repoId`; Azure and Azure DevOps Server need an organization, a project and `repoId`).
+ */
 export function encodeIssueOrPullRequestForGitConfig(
 	entity: Issue | PullRequest,
 	owner: RepositoryDescriptor | IssueResourceDescriptor,
@@ -416,7 +584,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.BitbucketServer &&
 		identifier.provider !== EntityIdentifierProviderType.AzureDevOpsServer &&
 		identifier.provider !== EntityIdentifierProviderType.Azure &&
-		identifier.provider !== EntityIdentifierProviderType.Trello
+		identifier.provider !== EntityIdentifierProviderType.Trello &&
+		identifier.provider !== EntityIdentifierProviderType.Asana
 	) {
 		return undefined;
 	}
@@ -479,6 +648,12 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	}
 
 	return integration.getIssue(resource, remoteLookupId);
+}
+
+/** An Azure DevOps project as {@link getIssueOwner} names it: the organization as `owner`, the project as `name`. */
+export interface AzureProjectInputDescriptor extends ResourceDescriptor {
+	owner: string;
+	name: string;
 }
 
 export function getIssueOwner(

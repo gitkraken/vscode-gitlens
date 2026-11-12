@@ -63,7 +63,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				margin: 0;
 				font-size: 1.05rem;
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;
 			}
@@ -107,13 +107,13 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				width: 0.6rem;
 				height: 0.6rem;
 				background: transparent;
-				border: var(--gl-border-width) solid var(--color-foreground--50);
+				border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
 				border-radius: 50%;
 			}
 
 			.item__pip--on {
-				background: var(--gl-stat-added, var(--vscode-charts-green));
-				border-color: var(--gl-stat-added, var(--vscode-charts-green));
+				background: var(--gl-color-feedback-success-quiet-fg);
+				border-color: var(--gl-color-feedback-success-quiet-fg);
 			}
 
 			.item__pip--placeholder {
@@ -125,7 +125,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				width: 1.6rem;
 				aspect-ratio: 1 / 1;
 				object-fit: cover;
-				background-color: var(--vscode-sideBar-background);
+				background-color: var(--gl-color-surface-aside);
 				border-radius: 50%;
 			}
 
@@ -141,7 +141,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				flex: none;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.05rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.item[aria-selected='true'] .item__count {
@@ -152,13 +152,13 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				padding: 0.4rem 1.4rem 0.8rem;
 				margin: 0;
 				font-size: 1.1rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.empty {
 				padding: 1.6rem 1.4rem;
 				font-size: 1.2rem;
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.empty p {
@@ -264,10 +264,10 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					label: unread > 0 ? formatUnreadCount(unread) : '',
 					aria:
 						unread === 0
-							? l10n.t('Notifications, no unread')
+							? l10n.t('No unread')
 							: unread > 99
-								? l10n.t('Notifications, more than 99 unread')
-								: l10n.t('Notifications, {count} unread', { count: unread }),
+								? l10n.t('More than 99 unread')
+								: l10n.t('{count} unread', { count: unread }),
 				},
 			};
 		}

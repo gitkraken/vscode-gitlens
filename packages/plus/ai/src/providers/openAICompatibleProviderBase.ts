@@ -34,6 +34,8 @@ function getRequestErrorMessage(action: AIActionType, providerName: string, mess
 			return l10n.t('Unable to Explain Changes: ({provider}) {message}', args);
 		case 'review-changes':
 			return l10n.t('Unable to Review Changes: ({provider}) {message}', args);
+		case 'review-orient':
+			return l10n.t('Unable to Orient Changes: ({provider}) {message}', args);
 		case 'generate-commitMessage':
 			return l10n.t('Unable to Generate Commit Message: ({provider}) {message}', args);
 		case 'generate-stashMessage':
@@ -539,6 +541,16 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		if (Array.isArray(json)) {
 			json = json[0];
 		}
+
+		// A revoked/invalid key or no access: AI is unavailable to this user, not a one-off failure.
+		// Neither retry probe below can apply — both only match a 400 (or the OpenRouter 404 handled above)
+		if (rsp.status === 401 || rsp.status === 403) {
+			throw new AIError(
+				AIErrorReason.Unauthorized,
+				new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`),
+			);
+		}
+
 		if (json?.error?.code === 'context_length_exceeded') {
 			if (retries < 3) {
 				return { retry: true, maxInputTokens: getReducedMaxInputTokens(maxInputTokens, retries + 1) };

@@ -99,7 +99,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			width: var(--gl-border-width);
 			height: 1.4rem;
 			margin-inline: var(--gl-space-4);
-			background-color: var(--vscode-widget-border, var(--vscode-editorWidget-border));
+			background-color: var(--gl-color-divider-base);
 		}
 
 		.visualization-button {
@@ -119,7 +119,13 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 
 		.visualization-button:hover:not(:disabled) {
 			color: var(--vscode-foreground);
-			background: var(--vscode-toolbar-hoverBackground);
+			background: var(--gl-color-action-quiet-bg-hover);
+		}
+
+		/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+		.visualization-button:not(:disabled, :focus-visible):hover {
+			outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+			outline-offset: -1px;
 		}
 
 		.visualization-button[aria-pressed='true'] {
@@ -133,7 +139,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 			outline-offset: 1px;
 		}
 

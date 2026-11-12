@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub, primarySession, stubApi } from './sweepHelpers.js';
 

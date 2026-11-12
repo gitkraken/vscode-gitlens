@@ -5,10 +5,11 @@ import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { AzureProjectDescriptor, AzureRemoteRepositoryDescriptor } from '../providers/azure/models.js';
 import type { ProviderPullRequest, ProviderRepoInput } from '../providers/models.js';
+import { providerFanOutConcurrency } from '../providers/utils/providerPaging.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 function session(domain: string): ProviderAuthenticationSession {

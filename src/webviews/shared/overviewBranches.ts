@@ -3,6 +3,7 @@ import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { IssueOrPullRequestState, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { PullRequestMergeQueueEntry, PullRequestMergeQueueRemoval } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { RemoteProviderSupportedFeatures } from '@gitlens/git/models/remoteProvider.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -175,7 +176,31 @@ export interface OverviewBranchPullRequest {
 	/** Stack membership, when this pull request is one layer of a stack. `position` is 1-based from the
 	 *  stack's base. */
 	stack?: { number: number; position: number; size: number };
+	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
+	/** Whether its base branch accepts it only through a merge queue, so merging it means adding it to the queue.
+	 *  `undefined` is unknown (not read). GitHub.com only. */
+	mergeQueueRequired?: boolean;
+	/** Its removal from its merge queue, set only while that removal still describes it. GitHub.com only. */
+	mergeQueueRemoval?: SerializedPullRequestMergeQueueRemoval;
 	launchpad?: Promise<OverviewBranchLaunchpadItem | undefined>;
+}
+
+/** A pull request's merge-queue entry as the webviews receive it, with its dates as timestamps (ms) like the shapes'
+ *  other dates. */
+export interface SerializedPullRequestMergeQueueEntry extends Pick<
+	PullRequestMergeQueueEntry,
+	'state' | 'url' | 'position'
+> {
+	enqueuedAt: number;
+	estimatedMergeAt?: number;
+}
+
+/** A pull request's merge-queue removal as the webviews receive it, with its date as a timestamp (ms). Serialized only
+ *  while `isPullRequestMergeQueueRemovalCurrent` holds, so its presence alone means it still describes the pull
+ *  request. */
+export interface SerializedPullRequestMergeQueueRemoval extends Pick<PullRequestMergeQueueRemoval, 'reason'> {
+	removedAt: number;
 }
 
 export interface OverviewBranchLaunchpadItem {
@@ -212,6 +237,8 @@ export interface OverviewBranchIssue {
 	state: IssueOrPullRequestState | undefined;
 	/** PR-only: draft state. */
 	draft?: boolean;
+	/** PR-only: the merge-queue entry, while it's queued. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
 	/** Stable identifier used to unassociate from a branch; populated only for manually-associated issues. */
 	entityId?: string;
 }
@@ -237,9 +264,24 @@ export interface OverviewBranchMergeTarget {
 	sha: string;
 	name: string;
 	status?: GitTrackingState;
+	/** Pure git evidence; {@link landed} is what decides whether the branch's work landed */
 	mergedStatus?: GitBranchMergedStatus;
+	/** Set when the branch's work landed — by its merged pull request first, else by {@link mergedStatus} */
+	landed?: OverviewBranchLanded;
+	/** The branch's pull request merged, but the branch has commits after its head — so it is NOT landed */
+	successor?: { pullRequest: { id: string; url: string }; newCommits: number };
 	potentialConflicts?: ConflictDetectionResult;
 	targetBranch: string | undefined;
 	baseBranch: string | undefined;
 	defaultBranch: string | undefined;
+}
+
+export interface OverviewBranchLanded {
+	via: 'pr' | 'git';
+	/** git evidence confidence; 'highest' for PR evidence */
+	confidence: 'highest' | 'high' | 'medium';
+	/** `id` is the pull request number, as {@link OverviewBranchPullRequest.number} */
+	pullRequest?: { id: string; url: string; title?: string };
+	/** The branch tip the verdict was computed against; set for pull request evidence */
+	tipSha?: string;
 }

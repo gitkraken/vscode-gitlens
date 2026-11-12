@@ -20,6 +20,7 @@
  * methods (`resetDurable`, `resetTransient`) and the comments below.
  */
 import { Signal } from '@lit-labs/signals';
+import type { AIReviewFinding, AIReviewOrientResult } from '@gitlens/ai/models/results.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -36,6 +37,7 @@ import type {
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	ComposeResult,
+	DeepReviewAvailability,
 	ResolveResult,
 	ReviewResult,
 	ScopeSelection,
@@ -49,6 +51,7 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { createSignalGroup } from '../../../shared/state/signals.js';
+import type { ReviewFindingsContent, ReviewSession } from './reviewSession.js';
 
 /** Selection-shape vocabulary. Identifies which kind of selection the details panel is showing. */
 export type DetailsContext = 'wip' | 'commit' | 'multicommit';
@@ -140,7 +143,53 @@ export interface GenerateMessageResult {
  *  `generateMessage` is tracking-only: lives only as `'generating'`, removed on settle, carries no `result`/
  *  `prompt`/`'backed'`/`'orphaned'`. `kind` matches the bucket slot so `bucket[op.kind]` indexing holds. */
 export type RunningOperation =
-	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult; preErrorValue?: ReviewResult })
+	| (RunningOperationBase & {
+			kind: 'review';
+			result?: ReviewResult;
+			preErrorValue?: ReviewResult;
+			/** In-flight two-pass focus-area detail runs, keyed by focus-area id. They ride on the
+			 *  entry (not on `abortController`, which is gone once the overview run settles) so
+			 *  discard, cancel, repo-switch and orphaning stop them along with everything else. */
+			focusAreaRuns?: ReadonlyMap<string, AbortController>;
+			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
+			session?: ReviewSession;
+			/** The content the AI findings were made against, to tell which describe a file that has moved
+			 *  on since; started over by each fresh result, added to as findings come in after it. */
+			findingsContent?: ReviewFindingsContent;
+			/** The model's findings this review had before its current run — what the run's findings, and a
+			 *  two-pass area's when its details come, take their ids from when they are the same ones; kept
+			 *  across runs, dropped with the findings. */
+			earlierFindings?: readonly AIReviewFinding[];
+			/** What the host reports about the editor: which review file is the active diff, and how many
+			 *  of its editor-made viewed marks the session has already taken. */
+			reading?: { active?: string; marksApplied: number };
+			/** Sequence of the last editor-made thread action folded into the session. */
+			threadActionsApplied?: number;
+			/** The orient pass's reading plan, while the reader keeps it; carried across runs like the session. */
+			orient?: AIReviewOrientResult;
+			/** The in-flight orient run; aborted with everything else on the entry. */
+			orientRun?: AbortController;
+			orientError?: string;
+			/** The delegated deep review on this anchor: whether its channel is open, what it reported, and
+			 *  the sequence of the last finding folded into the result. */
+			deepReview?: {
+				/** The channel start the counters below belong to */
+				run?: number;
+				/** Open for a whole review, or only for questions on findings (see `DeepReviewState.purpose`) */
+				purpose?: 'review' | 'ask';
+				/** Whether an agent has the prompt yet (see `DeepReviewState.handOff`) */
+				handOff?: 'pending' | 'failed' | 'delivered';
+				active: boolean;
+				done: boolean;
+				count: number;
+				seqApplied: number;
+				/** The ids this run's findings were given — a later report of the same run never takes one */
+				runFindingIds?: readonly string[];
+				notesApplied?: number;
+				/** The reader put the status strip away for this run; the channel stays as it was */
+				hidden?: boolean;
+			};
+	  })
 	| (RunningOperationBase & {
 			kind: 'compose';
 			result?: ComposeResult;
@@ -163,6 +212,19 @@ export type RunningOperation =
 			startedAt?: number;
 			telemetryContext?: { amend: boolean; hasExistingMessage: boolean };
 	  });
+
+/** Aborts an entry's live run — and, for review, every focus-area detail run riding on it. */
+export function abortRunningOperation(op: RunningOperation | undefined): void {
+	if (op == null) return;
+
+	op.abortController?.abort();
+	if (op.kind === 'review') {
+		op.orientRun?.abort();
+		for (const controller of op.focusAreaRuns?.values() ?? []) {
+			controller.abort();
+		}
+	}
+}
 
 /** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
 export interface RunningOperationBucket {
@@ -304,6 +366,8 @@ function createDurableState() {
 	const hasIntegrationsConnected = capability(false);
 	const hasRemotes = repoScoped(false);
 	const aiModel = capability<AiModelInfo | undefined>(undefined);
+	/** Whether a deep review can start here — `undefined` until the host's agent detection answers. */
+	const deepReviewAvailability = capability<DeepReviewAvailability | undefined>(undefined);
 
 	return {
 		commit: commit,
@@ -372,6 +436,7 @@ function createDurableState() {
 		hasAccount: hasAccount,
 		hasIntegrationsConnected: hasIntegrationsConnected,
 		hasRemotes: hasRemotes,
+		deepReviewAvailability: deepReviewAvailability,
 		aiModel: aiModel,
 
 		resetRepoScoped: resetRepoScoped,

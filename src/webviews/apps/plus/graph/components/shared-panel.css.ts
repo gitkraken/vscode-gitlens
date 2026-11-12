@@ -37,7 +37,7 @@ export const panelAutolinkStripStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 		--code-icon-size: 1.2rem;
 	}
 
@@ -88,74 +88,6 @@ export const panelActionInputStyles = css`
 
 	.review-input-row > .review-action-input {
 		margin-bottom: var(--gl-space-2);
-	}
-`;
-
-/* Resume bar — full-width clickable surface that replaces the older "Resume Last …" chip.
-   Mirrors the visual language of `.compose-plan__header` so the bar
-   reads as a preview of the destination. Shared by review + compose panels. */
-export const resumeBarStyles = css`
-	.resume-bar {
-		display: flex;
-		flex: none;
-		gap: var(--gl-space-4);
-		align-items: center;
-		padding: var(--gl-space-4) var(--gl-space-8);
-		margin: var(--gl-space-6) var(--gl-space-6) 0;
-		font: inherit;
-		color: var(--vscode-foreground);
-		text-align: left;
-		cursor: pointer;
-		background: transparent;
-		border: var(--gl-border-width) solid var(--vscode-button-border);
-		border-radius: var(--gl-radius-sm);
-	}
-
-	.resume-bar:hover {
-		background: var(--vscode-list-hoverBackground);
-	}
-
-	.resume-bar:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-		outline-offset: -0.1rem;
-	}
-
-	.resume-bar__title {
-		font-size: var(--gl-font-base);
-		font-weight: 500;
-	}
-
-	.resume-bar__count {
-		display: inline-flex;
-		gap: var(--gl-space-6);
-		align-items: center;
-		margin-left: auto;
-		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground);
-	}
-
-	.resume-bar__count-item {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
-	}
-
-	.resume-bar__count-item > code-icon {
-		font-size: var(--gl-font-md);
-		opacity: 0.85;
-	}
-
-	.resume-bar__arrow {
-		flex-shrink: 0;
-		margin-left: var(--gl-space-4);
-		font-size: var(--gl-font-lg);
-		opacity: 0.85;
-	}
-
-	/* When no preview data is available, the arrow follows the title directly — push it
-	   to the far right so the bar's right edge still reads as the resume affordance. */
-	.resume-bar > .resume-bar__title:first-child + .resume-bar__arrow {
-		margin-left: auto;
 	}
 `;
 
@@ -216,8 +148,8 @@ export const panelStaleBannerStyles = css`
 		align-items: center;
 		padding: var(--gl-space-6) var(--gl-space-8);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-editorWarning-foreground, #cca700);
-		background-color: var(--vscode-editorWarning-background, rgb(204 167 0 / 10%));
+		color: var(--gl-color-feedback-warning-fg);
+		background-color: var(--gl-color-feedback-warning-bg);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -250,7 +182,7 @@ export const panelScopeSplitStyles = css`
 		height: 100%;
 		padding: var(--gl-space-6);
 		overflow: hidden;
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-divider-base);
 	}
 
 	.scope-split__files {
@@ -293,10 +225,9 @@ export const panelErrorStyles = css`
 		padding: var(--gl-space-10) var(--gl-space-12);
 		margin: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		color: var(--vscode-foreground);
-		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
-		border: var(--gl-border-width) solid
-			var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+		color: var(--gl-color-feedback-danger-fg);
+		background: var(--gl-color-feedback-danger-bg);
+		border: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -309,22 +240,23 @@ export const panelErrorStyles = css`
 	.panel-error__icon {
 		flex-shrink: 0;
 		font-size: var(--gl-font-lg);
-		color: var(--vscode-editorError-foreground);
+		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
 	.panel-error__title {
 		font-weight: var(--gl-font-weight-semibold);
-		color: var(--vscode-foreground);
+		color: var(--gl-color-feedback-danger-fg);
 	}
 
 	.panel-error__message {
 		line-height: 1.4;
-		color: var(--vscode-foreground);
+		color: var(--gl-color-feedback-danger-fg);
 		overflow-wrap: anywhere;
 	}
 
 	.panel-error__actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--gl-space-6);
 		justify-content: flex-end;
 	}

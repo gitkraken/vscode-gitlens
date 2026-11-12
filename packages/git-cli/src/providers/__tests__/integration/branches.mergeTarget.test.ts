@@ -8,6 +8,7 @@ import type { MergeTarget, MergeTargetOptions } from '@gitlens/git/providers/bra
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { patchCheckClock } from '../../branches.js';
 import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
@@ -20,6 +21,7 @@ import {
 	fetch,
 	gkConfig,
 	setConfig,
+	supportsReftable,
 } from './helpers.js';
 
 // Every fixture is built before the provider's first read of it: no watcher runs here, so a change made after a read
@@ -214,7 +216,201 @@ function createFork(): { origin: TestRepo; clone: TestRepo; cleanup: () => void 
 	};
 }
 
+/** Fast-forwards `branch` onto `sha` and resets it back, as a merged pull request undone leaves it, then checks out `back` */
+function moveOntoAndBack(repoPath: string, branch: string, sha: string, back: string): void {
+	const tip = revParse(repoPath, branch);
+	git(repoPath, 'checkout', '-q', branch);
+	git(repoPath, 'merge', '-q', '--ff-only', sha);
+	git(repoPath, 'reset', '-q', '--hard', tip);
+	git(repoPath, 'checkout', '-q', back);
+}
+
+/**
+ * `child` stacked on `parent`, each created from the branch below it, `child` with a commit of its own; `main` then
+ * fast-forwarded onto it and reset back, and checked out
+ */
+function createStackOverRewoundMain(repoPath: string): { parentTip: string; own: string } {
+	git(repoPath, 'checkout', '-q', '-b', 'parent', 'main');
+	addCommit(repoPath, 'parent.txt', 'parent', 'parent');
+	const parentTip = revParse(repoPath, 'HEAD');
+	git(repoPath, 'checkout', '-q', '-b', 'child', 'parent');
+	addCommit(repoPath, 'child.txt', 'child', 'child');
+	const own = revParse(repoPath, 'HEAD');
+	moveOntoAndBack(repoPath, 'main', own, 'main');
+	return { parentTip: parentTip, own: own };
+}
+
+/**
+ * A clone whose `feature` has two commits off `origin/main`, the first of which `origin/main` then held in one real
+ * fetch, its tip `base` before it did; `feature` is checked out
+ */
+function createCloneWithLandedCommit(options?: { refFormat?: 'reftable' }): {
+	origin: TestRepo;
+	clone: TestRepo;
+	base: string;
+	landed: string;
+	cleanup: () => void;
+} {
+	const origin = createTestRepo();
+	let clone: TestRepo | undefined;
+	try {
+		clone = cloneTestRepo(origin.path, options);
+		const base = revParse(clone.path, 'origin/main');
+		createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
+		addCommit(clone.path, 'landed.txt', 'landed', 'landed');
+		const landed = revParse(clone.path, 'HEAD');
+		addCommit(clone.path, 'feature.txt', 'feature', 'feature');
+		git(origin.path, 'fetch', '-q', clone.path, 'feature');
+		git(origin.path, 'reset', '-q', '--hard', landed);
+		fetch(clone.path);
+
+		const created = clone;
+		return {
+			origin: origin,
+			clone: created,
+			base: base,
+			landed: landed,
+			cleanup: () => {
+				created.cleanup();
+				origin.cleanup();
+			},
+		};
+	} catch (ex) {
+		clone?.cleanup();
+		origin.cleanup();
+		throw ex;
+	}
+}
+
 suite('BranchesSubProvider.getMergeTarget', () => {
+	suite('candidates compared where the branch forked from each', () => {
+		test("answers a stacked branch's parent, not a default moved back off the branch's commit", async () => {
+			const repo = createTestRepo();
+			try {
+				const { parentTip } = createStackOverRewoundMain(repo.path);
+
+				assert.deepStrictEqual(await getMergeTarget(repo, 'child'), {
+					ref: 'parent',
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('answers the default once the branch it was created from merged into it and was moved back', async () => {
+			const repo = createTestRepo();
+			try {
+				git(repo.path, 'checkout', '-q', '-b', 'feat-a', 'main');
+				addCommit(repo.path, 'feat-a.txt', 'feat-a', 'feat-a work');
+				git(repo.path, 'checkout', '-q', '-b', 'feat', 'feat-a');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main-only.txt', 'main', 'main only');
+				git(repo.path, 'merge', '-q', '--no-ff', '-m', 'merge feat-a', 'feat-a');
+				const mainTip = revParse(repo.path, 'main');
+				checkout(repo.path, 'feat');
+				git(repo.path, 'rebase', '-q', 'main');
+				moveOntoAndBack(repo.path, 'feat-a', revParse(repo.path, 'feat'), 'main');
+
+				assert.deepStrictEqual(await getMergeTarget(repo, 'feat'), {
+					ref: 'main',
+					forkPoint: mainTip,
+					tier: 'default',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('defers a stale local default holding the dropped commit to its moved-back upstream', async () => {
+			const { origin, clone, base, landed, cleanup } = createCloneWithLandedCommit();
+			try {
+				git(origin.path, 'reset', '-q', '--hard', base);
+				fetch(clone.path);
+				git(clone.path, 'branch', '-f', 'main', landed);
+
+				assert.deepStrictEqual(await getMergeTarget(clone, 'feature'), {
+					ref: 'origin/main',
+					forkPoint: base,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('prefers a local default carrying unpushed work over its upstream moved back off a commit both held', async () => {
+			const { origin, clone, base, cleanup } = createCloneWithLandedCommit();
+			try {
+				git(clone.path, 'checkout', '-q', 'main');
+				git(clone.path, 'pull', '-q', '--ff-only');
+				git(origin.path, 'reset', '-q', '--hard', base);
+				fetch(clone.path);
+				addCommit(clone.path, 'unpushed.txt', 'unpushed', 'unpushed on main');
+				const unpushed = revParse(clone.path, 'main');
+				createBranchFromDetachedHead(clone.path, 'work', 'main');
+				addCommit(clone.path, 'work.txt', 'work', 'work');
+				checkout(clone.path, 'main');
+
+				assert.deepStrictEqual(await getMergeTarget(clone, 'work'), {
+					ref: 'main',
+					forkPoint: unpushed,
+					tier: 'default',
+				});
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("keeps a rebased parent's fork point against a default moved back off the branch's commit", async () => {
+			const repo = createTestRepo();
+			try {
+				const { parentTip, own } = createStackOverRewoundMain(repo.path);
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				// Rebased alone, as without `rebase.updateRefs`, which would carry the child along
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'main');
+				assert.notStrictEqual(
+					mergeBase(repo.path, own, 'parent'),
+					parentTip,
+					'the merge base is below the rebase',
+				);
+
+				assert.deepStrictEqual(await getMergeTarget(repo, 'child'), {
+					ref: 'parent',
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("answers a stacked branch's parent, not a default moved back off the branch's commit, in a reftable repository", async function () {
+			if (!supportsReftable()) {
+				this.skip();
+			}
+
+			const origin = createTestRepo();
+			let clone: TestRepo | undefined;
+			try {
+				clone = cloneTestRepo(origin.path, { refFormat: 'reftable' });
+				const { parentTip } = createStackOverRewoundMain(clone.path);
+
+				assert.deepStrictEqual(await getMergeTarget(clone, 'child'), {
+					ref: 'parent',
+					forkPoint: parentTip,
+					tier: 'created',
+				});
+			} finally {
+				clone?.cleanup();
+				origin.cleanup();
+			}
+		});
+	});
+
 	suite('candidate order', () => {
 		test("answers the user's merge target over every other candidate", async () => {
 			const repo = createCandidateRepo();
@@ -1210,6 +1406,82 @@ suite('BranchesSubProvider.getMergeTarget', () => {
 				);
 			} finally {
 				stub.restore();
+				repo.cleanup();
+			}
+		});
+
+		test('compares the patches of a rebased parent again after the comparison failed or ran out of time, rather than caching the merge base', async () => {
+			for (const failure of ['failed', 'timed out'] as const) {
+				const repo = createTestRepo();
+				try {
+					const { parentTip, own } = createStackOverRewoundMain(repo.path);
+					addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+					git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+					checkout(repo.path, 'main');
+					const below = mergeBase(repo.path, own, 'parent');
+
+					const gitRunner = repo.provider.git;
+					const run = gitRunner.run.bind(gitRunner);
+					const stub = sinon.stub(gitRunner, 'run').callsFake(((options: unknown, ...args: unknown[]) => {
+						if (!args.includes('--cherry-mark')) return run(options as never, ...(args as never[]));
+						if (failure === 'failed') return Promise.reject(new Error('failed'));
+
+						return Promise.resolve({
+							stdout: '',
+							completion: {
+								status: 'cancelled',
+								reason: 'timeout',
+								error: new Error('timed out'),
+							},
+						});
+					}) as typeof gitRunner.run);
+					let now = Date.now();
+					const clock = sinon.stub(patchCheckClock, 'now').callsFake(() => now);
+					try {
+						assert.notStrictEqual((await getMergeTarget(repo, 'child'))?.forkPoint, parentTip, failure);
+						assert.notStrictEqual(below, parentTip);
+
+						stub.restore();
+						// A comparison that ran out of time isn't run again for a while
+						now += 11 * 60 * 1000;
+						assert.deepStrictEqual(
+							await getMergeTarget(repo, 'child'),
+							{ ref: 'parent', forkPoint: parentTip, tier: 'created' },
+							failure,
+						);
+					} finally {
+						clock.restore();
+						stub.restore();
+					}
+				} finally {
+					repo.cleanup();
+				}
+			}
+		});
+
+		test("runs a rebased parent's patch comparison at the read's priority", async () => {
+			const repo = createTestRepo();
+			try {
+				const { parentTip } = createStackOverRewoundMain(repo.path);
+				addCommit(repo.path, 'main.txt', 'main', 'main moved on');
+				git(repo.path, '-c', 'rebase.updateRefs=false', 'rebase', '-q', 'main', 'parent');
+				checkout(repo.path, 'main');
+
+				const spy = sinon.spy(repo.provider.git, 'run');
+				try {
+					assert.strictEqual(
+						(await getMergeTarget(repo, 'child', { priority: 'background' }))?.forkPoint,
+						parentTip,
+					);
+				} finally {
+					spy.restore();
+				}
+				const patchReads = spy.getCalls().filter(c => c.args.includes('--cherry-mark'));
+				assert.ok(patchReads.length > 0, 'compared the patches');
+				for (const call of patchReads) {
+					assert.strictEqual((call.args[0] as { priority?: string }).priority, 'background');
+				}
+			} finally {
 				repo.cleanup();
 			}
 		});

@@ -103,7 +103,7 @@ export class GlTimelineHeader extends LitElement {
 				align-items: center;
 				min-width: 0;
 				margin: 0.5rem 1rem;
-				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+				color: var(--vscode-foreground);
 			}
 
 			:host([placement='editor']) .header {
@@ -168,14 +168,14 @@ that looks wrong inside the dark tooltip body. */
 			[slot='tooltip'] hr {
 				margin: var(--gl-space-4) 0;
 				border: none;
-				border-top: var(--gl-border-width) solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			.details__timeframe {
 				flex: 0 0 auto;
 				margin-right: var(--gl-space-4);
 				font-size: var(--gl-font-md);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 				user-select: none;
 			}
@@ -204,11 +204,17 @@ focus affordance to advertise interactivity. */
 			.details__timeframe--button:focus-visible {
 				color: var(--vscode-foreground);
 				outline: none;
-				background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+				background: var(--gl-color-action-quiet-bg-hover);
+			}
+
+			/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+			.details__timeframe--button:not(:disabled, :focus-visible):hover {
+				outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
+				outline-offset: -1px;
 			}
 
 			.details__timeframe--button:focus-visible {
-				border-color: var(--vscode-focusBorder, transparent);
+				border-color: var(--gl-color-border-focus);
 			}
 
 			.details__timeframe--button code-icon {
@@ -219,7 +225,7 @@ focus affordance to advertise interactivity. */
 			.config__help {
 				padding: 0 var(--gl-space-4);
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.toolbox {

@@ -3,16 +3,14 @@ import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { GitHostIntegration, SettledRepositoryScopes } from '../models/gitHostIntegration.js';
+import { isGitHostIntegration } from '../models/publicIntegration.js';
+import { PagingMode, providersMetadata } from '../providers/metadata.js';
 import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
-import { isRepoIdsInput, PagingMode, providersMetadata } from '../providers/models.js';
+import { isRepoIdsInput } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
 import { reconcileOmissionsWithFailure } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isIssuesHostIntegrationId, warnOnMissingSessionForDomain } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolveAccountWideIssueFilters } from './filters.js';
@@ -116,6 +114,8 @@ export interface ListIssuesPageOptions {
 	page?: number;
 	cursor?: string;
 	itemsPerPage?: number;
+	/** See {@link IntegrationManager.listIssuesPage}. */
+	scopeConcurrency?: number;
 	forceSync?: boolean;
 	connectionId?: string;
 	/**
@@ -549,6 +549,7 @@ async function readRepoScopedIssuesPage({
 					page: options.page != null ? page : undefined,
 					pageSize: options.itemsPerPage,
 					sort: ordering.sort,
+					scopeConcurrency: options.scopeConcurrency,
 				},
 				options.connectionId,
 			),
@@ -592,6 +593,7 @@ async function readRepoScopedIssuesPage({
 									cursor: cursor,
 									pageSize: options.itemsPerPage,
 									sort: ordering.sort,
+									scopeConcurrency: options.scopeConcurrency,
 								},
 								options.connectionId,
 							),

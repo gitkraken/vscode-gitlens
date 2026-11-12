@@ -23,20 +23,19 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
 import type {
-	AccountWideIssuesResult,
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
-	SearchMyIssuesOptions,
-} from '../models/integration.js';
+} from '../reads/etag.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import {
@@ -46,6 +45,7 @@ import {
 	toGitLabIssueEtagFields,
 	toGitLabPullRequestEtagFields,
 } from './gitlab/models.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiPagedResult,
 	ProviderHierarchyResult,
@@ -58,7 +58,6 @@ import {
 	getProviderPullRequestIdentity,
 	IssueFilter,
 	ProviderPullRequestReviewState,
-	providersMetadata,
 	PullRequestFilter,
 	toIssueShape,
 	toProviderPullRequestStates,
@@ -67,6 +66,7 @@ import type { ProvidersApi } from './providersApi.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
+	providerFanOutConcurrency,
 	readEtagFieldsByRepository,
 	resolveBranchPullRequests,
 } from './utils/providerPaging.js';

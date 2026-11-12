@@ -29,13 +29,13 @@ export class GlCommitAuthor extends LitElement {
 			border-radius: var(--gl-radius-sm);
 
 			&:focus {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 			}
 		}
 
 		a {
-			color: var(--color-link-foreground);
+			color: var(--gl-color-action-link-fg);
 			text-decoration: none;
 		}
 
@@ -76,7 +76,7 @@ export class GlCommitAuthor extends LitElement {
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
 			line-height: 1.4;
-			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 		}
 
@@ -151,7 +151,7 @@ export class GlCommitAuthor extends LitElement {
 			}
 
 			a:focus {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: 2px;
 			}
 		}
@@ -187,7 +187,7 @@ export class GlCommitAuthor extends LitElement {
 			width: 45%;
 			height: 45%;
 			object-fit: cover;
-			border: 1.5px solid var(--vscode-sideBar-background, var(--color-background));
+			border: 1.5px solid var(--gl-color-surface-aside);
 			border-radius: 50%;
 		}
 
@@ -196,7 +196,7 @@ export class GlCommitAuthor extends LitElement {
 			align-items: center;
 			justify-content: center;
 			color: var(--vscode-descriptionForeground);
-			background-color: var(--vscode-sideBar-background, var(--color-background));
+			background-color: var(--gl-color-surface-aside);
 		}
 
 		.committer-label {

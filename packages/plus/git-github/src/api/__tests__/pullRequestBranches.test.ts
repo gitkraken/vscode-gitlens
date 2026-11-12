@@ -99,8 +99,12 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		return { pullRequests: { totalCount: totalCount, nodes: nodes } };
 	}
 
-	function ids(slot: PromiseSettledResult<{ pullRequests: { id: string }[] }>): string[] | 'rejected' {
-		return slot.status === 'fulfilled' ? slot.value.pullRequests.map(pr => pr.id) : 'rejected';
+	/** The ids answered for the query's `owner`th head owner. */
+	function ids(
+		slot: PromiseSettledResult<{ pullRequests: { id: string }[][] }>,
+		owner: number = 0,
+	): string[] | 'rejected' {
+		return slot.status === 'fulfilled' ? slot.value.pullRequests[owner].map(pr => pr.id) : 'rejected';
 	}
 
 	test('answers every branch in one request, keyed on the head ref name in every state, newest first', async () => {
@@ -117,13 +121,16 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'b', branch: 'other' },
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] },
+				{ owner: 'o', repo: 'b', branch: 'other', headOwners: [undefined] },
 			],
 			limit,
 		);
 
-		assert.deepEqual(out.map(ids), [['2', '1'], []]);
+		assert.deepEqual(
+			out.map(slot => ids(slot)),
+			[['2', '1'], []],
+		);
 		assert.equal(out[0].status === 'fulfilled' ? out[0].value.truncated : undefined, false);
 		// Keyed on the ref NAME, never on the ref itself: a merged pull request's branch is usually deleted, and the
 		// ref lookup answers "none" for it.
@@ -150,12 +157,15 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		const out = await api.getPullRequestsForBranches(
 			provider,
 			token,
-			[{ owner: 'o', repo: 'a', branch: 'feature' }],
+			[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] }],
 			limit,
 		);
 
-		assert.deepEqual(out.map(ids), [['7']]);
-		const pr = out[0].status === 'fulfilled' ? out[0].value.pullRequests[0] : undefined;
+		assert.deepEqual(
+			out.map(slot => ids(slot)),
+			[['7']],
+		);
+		const pr = out[0].status === 'fulfilled' ? out[0].value.pullRequests[0][0] : undefined;
 		assert.equal(pr?.state, 'merged');
 	});
 
@@ -165,22 +175,30 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			prNode(2, { forkOwner: 'forker', updatedAt: '2026-02-01T00:00:00Z' }),
 			prNode(3, { forkOwner: 'someone-else', updatedAt: '2026-03-01T00:00:00Z' }),
 		];
-		const { config } = serve({ b0: connection(nodes), b1: connection(nodes), b2: connection(nodes) });
+		const { config, getQuery } = serve({ b0: connection(nodes) });
 		const api = new GitHubApi(config);
 
 		const out = await api.getPullRequestsForBranches(
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'a', branch: 'feature', headOwner: 'forker' },
-				// GitHub logins are case-insensitive.
-				{ owner: 'o', repo: 'a', branch: 'feature', headOwner: 'Forker' },
+				{
+					owner: 'o',
+					repo: 'a',
+					branch: 'feature',
+					// GitHub logins are case-insensitive.
+					headOwners: [undefined, 'forker', 'Forker', 'nobody'],
+				},
 			],
 			limit,
 		);
 
-		assert.deepEqual(out.map(ids), [['1'], ['2'], ['2']]);
+		assert.deepEqual(
+			[0, 1, 2, 3].map(owner => ids(out[0], owner)),
+			[['1'], ['2'], ['2'], []],
+			'one query answers every owner from the same rows',
+		);
+		assert.doesNotMatch(getQuery(), /b1:/, 'the owners share one alias');
 	});
 
 	test("a fork's pull request is still found after the fork was deleted", async () => {
@@ -192,11 +210,14 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		const out = await api.getPullRequestsForBranches(
 			provider,
 			token,
-			[{ owner: 'o', repo: 'a', branch: 'feature', headOwner: 'forker' }],
+			[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: ['forker'] }],
 			limit,
 		);
 
-		assert.deepEqual(out.map(ids), [['4']]);
+		assert.deepEqual(
+			out.map(slot => ids(slot)),
+			[['4']],
+		);
 	});
 
 	test('truncated when GitHub matched more pull requests than it returned', async () => {
@@ -208,8 +229,8 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'b', branch: 'feature' },
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] },
+				{ owner: 'o', repo: 'b', branch: 'feature', headOwners: [undefined] },
 			],
 			limit,
 		);
@@ -218,7 +239,58 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			out.map(slot => (slot.status === 'fulfilled' ? slot.value.truncated : 'rejected')),
 			[true, false],
 		);
-		assert.equal(out[0].status === 'fulfilled' ? out[0].value.pullRequests.length : 0, 10);
+		assert.equal(out[0].status === 'fulfilled' ? out[0].value.pullRequests[0].length : 0, 10);
+	});
+
+	test("truncation is the query's, shared by every head owner that asked it", async () => {
+		const ten = Array.from({ length: 10 }, (_, i) => prNode(i + 1));
+		const { config } = serve({ b0: connection(ten, 15) });
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsForBranches(
+			provider,
+			token,
+			[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined, 'forker'] }],
+			limit,
+		);
+
+		assert.equal(out[0].status === 'fulfilled' ? out[0].value.truncated : undefined, true);
+		assert.equal(ids(out[0], 0).length, 10);
+		assert.deepEqual(ids(out[0], 1), []);
+	});
+
+	test('a query that fails on its own rejects once, for every owner of it', async () => {
+		const { config } = serve({ b0: connection([prNode(1)]), b1: null }, [
+			{ type: 'FORBIDDEN', path: ['b1'], message: 'Resource protected by organization SAML enforcement.' },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsForBranches(
+			provider,
+			token,
+			[
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined, 'forker'] },
+				{ owner: 'o', repo: 'saml-org', branch: 'feature', headOwners: [undefined, 'forker'] },
+			],
+			limit,
+		);
+
+		assert.deepEqual(ids(out[0]), ['1']);
+		assert.equal(out[1].status, 'rejected');
+	});
+
+	test('a missing base repository answers none for every owner of the query', async () => {
+		const { config } = serve({ b0: null }, [{ type: 'NOT_FOUND', path: ['b0'] }]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsForBranches(
+			provider,
+			token,
+			[{ owner: 'o', repo: 'gone', branch: 'feature', headOwners: [undefined, 'forker', 'other'] }],
+			limit,
+		);
+
+		assert.deepEqual(out[0].status === 'fulfilled' ? out[0].value.pullRequests : undefined, [[], [], []]);
 	});
 
 	test('a missing base repository is a proven "none", not a failure', async () => {
@@ -229,13 +301,16 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'gone', branch: 'feature' },
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] },
+				{ owner: 'o', repo: 'gone', branch: 'feature', headOwners: [undefined] },
 			],
 			limit,
 		);
 
-		assert.deepEqual(out.map(ids), [['1'], []]);
+		assert.deepEqual(
+			out.map(slot => ids(slot)),
+			[['1'], []],
+		);
 	});
 
 	test('a target that fails on its own — e.g. SAML — rejects only that slot, not as an auth failure', async () => {
@@ -252,8 +327,8 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'saml-org', branch: 'feature' },
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] },
+				{ owner: 'o', repo: 'saml-org', branch: 'feature', headOwners: [undefined] },
 			],
 			limit,
 		);
@@ -274,7 +349,7 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		const out = await api.getPullRequestsForBranches(
 			provider,
 			token,
-			[{ owner: 'o', repo: 'a', branch: 'feature' }],
+			[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] }],
 			limit,
 		);
 
@@ -287,7 +362,12 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 
 		await assert.rejects(
 			() =>
-				api.getPullRequestsForBranches(provider, token, [{ owner: 'o', repo: 'a', branch: 'feature' }], limit),
+				api.getPullRequestsForBranches(
+					provider,
+					token,
+					[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] }],
+					limit,
+				),
 			(ex: unknown) => ex instanceof RequestRateLimitError,
 		);
 	});
@@ -297,7 +377,12 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		const api = new GitHubApi(config);
 
 		await assert.rejects(() =>
-			api.getPullRequestsForBranches(provider, token, [{ owner: 'o', repo: 'a', branch: 'feature' }], limit),
+			api.getPullRequestsForBranches(
+				provider,
+				token,
+				[{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] }],
+				limit,
+			),
 		);
 	});
 
@@ -312,14 +397,37 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			provider,
 			token,
 			[
-				{ owner: 'o', repo: 'a', branch: 'feature' },
-				{ owner: 'o', repo: 'b', branch: 'feature' },
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined] },
+				{ owner: 'o', repo: 'b', branch: 'feature', headOwners: [undefined] },
 			],
 			limit,
 		);
 
 		assert.equal(out[0].status, 'rejected', 'a partial list would read as a complete answer');
 		assert.deepEqual(ids(out[1]), ['3']);
+	});
+
+	test("an unmappable node matching one owner rejects the whole query, every owner's answer with it", async () => {
+		const { repository: _repository, ...unmappableFork } = prNode(2, { forkOwner: 'forker' });
+		const { config } = serve({ b0: connection([prNode(1), unmappableFork]), b1: connection([prNode(3)]) });
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsForBranches(
+			provider,
+			token,
+			[
+				{ owner: 'o', repo: 'a', branch: 'feature', headOwners: [undefined, 'forker'] },
+				{ owner: 'o', repo: 'b', branch: 'feature', headOwners: [undefined, 'forker'] },
+			],
+			limit,
+		);
+
+		assert.equal(out[0].status, 'rejected', "the base repository's mappable row is dropped with the fork's");
+		assert.deepEqual(
+			[0, 1].map(owner => ids(out[1], owner)),
+			[['3'], []],
+			'another query still answers',
+		);
 	});
 
 	test('no targets costs no request', async () => {

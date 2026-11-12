@@ -13,12 +13,9 @@ import {
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
-import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
-import {
-	azureWorkItemDescriptionRule,
-	azureWorkItemViewerRule,
-	pullRequestRevision,
-} from '../../models/integration.js';
+import { trimTrailingSlashes } from '@gitlens/utils/path.js';
+import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../reads/etag.js';
+import { azureWorkItemDescriptionRule, azureWorkItemViewerRule, pullRequestRevision } from '../../reads/etag.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 import {
 	fromProviderPullRequestMergeableState,
@@ -67,11 +64,6 @@ export interface AzureRemoteRepositoryDescriptor extends ResourceDescriptor {
 	url?: string;
 	cloneUrlHttps?: string;
 	cloneUrlSsh?: string;
-}
-
-export interface AzureProjectInputDescriptor extends ResourceDescriptor {
-	owner: string;
-	name: string;
 }
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
@@ -448,7 +440,7 @@ export function encodeAzurePathSegment(value: string): string {
  */
 function getAzureRepositoryWebUrl(baseUrl: string, owner: string, projectName: string, repoName: string): string {
 	const repoPath = `${encodeURIComponent(owner)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}`;
-	return `${baseUrl.replace(/\/+$/, '')}/${repoPath}`;
+	return `${trimTrailingSlashes(baseUrl)}/${repoPath}`;
 }
 
 export function getAzurePullRequestWebUrl(pr: AzurePullRequest, baseUrl: string, owner: string): string {
@@ -477,7 +469,7 @@ function isSameAzureCloudOrganization(url: URL, expected: URL, expectedOwner: st
  * A matching origin says nothing on its own: Azure organizations and self-hosted collections are path segments.
  */
 function isUnderAzureCollection(url: URL, expected: URL, expectedOwner: string): boolean {
-	const base = expected.pathname.replace(/\/+$/, '');
+	const base = trimTrailingSlashes(expected.pathname);
 	const prefix = `${base}/${encodeURIComponent(expectedOwner)}/`.toLowerCase();
 	return `${url.pathname}/`.toLowerCase().startsWith(prefix);
 }

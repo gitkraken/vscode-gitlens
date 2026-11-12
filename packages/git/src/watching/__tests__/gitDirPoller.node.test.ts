@@ -71,6 +71,33 @@ describe('GitDirProbeTarget', () => {
 		assert.deepStrictEqual(fs.reads.sort(), ['/repo/.git/HEAD', '/repo/.git/index']);
 	});
 
+	it('with `isRacy`, counts a racy reading as moved at its next read, however it reads then', async () => {
+		const fs = createFakeStat();
+		const moved: string[] = [];
+		let racy = true;
+		const target = new GitDirProbeTarget(
+			'/repo/.git',
+			{ stat: fs.stat, invalidate: () => {} },
+			() => [{ path: 'HEAD' }, { path: 'index' }],
+			new Map(),
+			(event: FileWatchEvent) => moved.push(normalizePath(event.path)),
+			{ isRacy: stat => racy && stat.size === 10 },
+		);
+		fs.files.set('/repo/.git/HEAD', { mtime: 1, size: 10 });
+		fs.files.set('/repo/.git/index', { mtime: 1, size: 100 });
+
+		await target.poll();
+		await target.poll();
+		assert.deepStrictEqual(moved, ['/repo/.git/HEAD'], 'unchanged, but its last reading was racy');
+
+		racy = false;
+		await target.poll();
+		assert.deepStrictEqual(moved, ['/repo/.git/HEAD', '/repo/.git/HEAD']);
+
+		await target.poll();
+		assert.strictEqual(moved.length, 2, 'a trusted reading compares as usual');
+	});
+
 	it('reports a probe whose mtime or size moved as a change of its path', async () => {
 		const { target, fs, moved } = createTarget(() => [{ path: 'HEAD' }, { path: 'index' }, { path: 'config' }]);
 		fs.files.set('/repo/.git/HEAD', { mtime: 1, size: 10 });

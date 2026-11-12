@@ -5,10 +5,25 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
+		id: 'gemini-4-argon',
+		name: 'Gemini 4 Argon',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
+	},
+	{
+		id: 'gemini-3.8-flash',
+		name: 'Gemini 3.8 Flash',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
+	},
+	{
 		id: 'gemini-3.7-flash',
 		name: 'Gemini 3.7 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
@@ -16,6 +31,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 3.6 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
@@ -23,6 +39,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 3.5 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
 	{
@@ -51,6 +68,7 @@ const models: GeminiModel[] = [
 		name: 'Gemini 3 Flash Preview',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		// Default stays on this preview: the 3.6/3.8 Flash models cost ~1.4x per request (~2.9x from 2027-01-01)
 		default: true,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
 	},
@@ -66,149 +84,13 @@ const models: GeminiModel[] = [
 		name: 'Gemini 2.5 Flash',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'gemini-2.5-flash-lite',
 		name: 'Gemini 2.5 Flash-Lite',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
-	},
-	{
-		id: 'gemini-2.5-flash-preview-05-20',
-		name: 'Gemini 2.5 Flash (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.5-flash-preview-04-17',
-		name: 'Gemini 2.5 Flash (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.5-pro-preview-06-05',
-		name: 'Gemini 2.5 Pro (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.5-pro-preview-03-25',
-		name: 'Gemini 2.5 Pro (Preview)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.5-pro-exp-03-25',
-		name: 'Gemini 2.5 Pro (Experimental)',
-		maxTokens: { input: 1048576, output: 65536 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-flash',
-		name: 'Gemini 2.0 Flash',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-flash-001',
-		name: 'Gemini 2.0 Flash',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-flash-lite',
-		name: 'Gemini 2.0 Flash-Lite',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-flash-lite-001',
-		name: 'Gemini 2.0 Flash-Lite',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-flash-lite-preview-02-05',
-		name: 'Gemini 2.0 Flash-Lite (Preview)',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'gemini-2.0-pro-exp-02-05',
-		name: 'Gemini 2.0 Pro (Experimental)',
-		maxTokens: { input: 2097152, output: 8192 },
-		provider: provider,
-		hidden: true,
-		// The OpenAI-compat endpoint's `response_format: json_schema` postdates these frozen
-		// pre-GA snapshots and the 1.5 generation (this and every entry below); GA 2.x+ models
-		// stay on by default and rely on strip-and-retry for the shapes its converter rejects
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-2.0-flash-thinking-exp-01-21',
-		name: 'Gemini 2.0 Flash Thinking (Experimental)',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-2.0-flash-exp',
-		name: 'Gemini 2.0 Flash (Experimental)',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-exp-1206',
-		name: 'Gemini Experimental 1206',
-		maxTokens: { input: 2097152, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-exp-1121',
-		name: 'Gemini Experimental 1121',
-		maxTokens: { input: 2097152, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-1.5-pro',
-		name: 'Gemini 1.5 Pro',
-		maxTokens: { input: 2097152, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-1.5-flash',
-		name: 'Gemini 1.5 Flash',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'gemini-1.5-flash-8b',
-		name: 'Gemini 1.5 Flash 8B',
-		maxTokens: { input: 1048576, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
 	},
 ];
 

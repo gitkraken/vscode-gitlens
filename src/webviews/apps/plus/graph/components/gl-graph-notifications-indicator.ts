@@ -19,6 +19,7 @@ import {
 	getNotificationBodyText,
 	getNotificationHeadline,
 	getNotificationSender,
+	observeTruncationTargets,
 	syncTruncationTooltips,
 } from '../../shared/notifications.utils.js';
 import type { GraphNotificationsState } from '../graphNotificationsState.js';
@@ -140,8 +141,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-4);
 				min-width: 0;
 				padding: var(--gl-space-8) var(--gl-space-4);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 
 			/* Hover tints the row; focus inside draws an inset focus border (the row's own border is only its top edge),
@@ -153,7 +153,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			}
 
 			.row:focus-within {
-				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 				outline-offset: -1px;
 			}
 
@@ -186,13 +186,13 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			/* The sender, standing in for a headline the notification doesn't have */
 			.row__headline--byline {
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row__time {
 				flex: none;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row__body,
@@ -204,7 +204,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				margin: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				color: var(--color-foreground--85);
+				color: var(--vscode-foreground);
 				white-space: nowrap;
 			}
 
@@ -217,16 +217,16 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 
 			.row--read .row__dot {
 				background-color: transparent;
-				border-color: var(--color-foreground--50);
+				border-color: var(--vscode-descriptionForeground);
 			}
 
 			.row--read .row__headline {
 				font-weight: var(--gl-font-weight-regular);
-				color: var(--color-foreground--75);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.row--read .row__body {
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.note {
@@ -242,7 +242,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			}
 
 			.note--error {
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.empty {
@@ -252,7 +252,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: var(--gl-space-16);
 				margin: 0;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}
 
@@ -273,8 +273,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 				align-items: center;
 				justify-content: space-between;
 				padding: var(--gl-space-8) var(--gl-space-4) var(--gl-space-4);
-				border-block-start: var(--gl-border-width) solid
-					var(--vscode-widget-border, var(--color-foreground--25));
+				border-block-start: var(--gl-border-width) solid var(--gl-color-divider-base);
 			}
 		`,
 	];
@@ -295,9 +294,12 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 	@state()
 	private _error: { title: string; message: string } | undefined;
 
-	/** Re-checks which headlines are truncated when the panel is resized (including when the popover opens) */
+	/**
+	 * Re-checks which headlines are truncated when one's box changes: the panel resizing, the popover opening, or
+	 * a row's meta finishing its first render
+	 */
 	private _resizeObserver: ResizeObserver | undefined;
-	private _observedPanel: HTMLElement | undefined;
+	private readonly _observedHeadlines = new Set<Element>();
 
 	@state()
 	private _open = false;
@@ -315,7 +317,7 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 		document.removeEventListener('visibilitychange', this.onDocumentVisibilityChanged);
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = undefined;
-		this._observedPanel = undefined;
+		this._observedHeadlines.clear();
 		this.setOpen(false);
 		super.disconnectedCallback?.();
 	}
@@ -326,15 +328,8 @@ export class GlGraphNotificationsIndicator extends SignalWatcher(LitElement) {
 			this.setOpen(false);
 		}
 
-		const panel = this._panel;
-		if (panel !== this._observedPanel) {
-			this._resizeObserver?.disconnect();
-			this._observedPanel = panel;
-			if (panel != null) {
-				this._resizeObserver ??= new ResizeObserver(() => this.syncHeadlineTooltips());
-				this._resizeObserver.observe(panel);
-			}
-		}
+		this._resizeObserver ??= new ResizeObserver(() => this.syncHeadlineTooltips());
+		observeTruncationTargets(this._resizeObserver, this.renderRoot, '.row__headline', this._observedHeadlines);
 		this.syncHeadlineTooltips();
 	}
 

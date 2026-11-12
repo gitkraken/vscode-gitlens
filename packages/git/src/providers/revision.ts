@@ -22,6 +22,15 @@ export interface GitRevisionSubProvider {
 		path: string,
 		revOrOptions?: string | { untracked?: 'only' | 'include' },
 	): Promise<boolean>;
+	/** Blob ids the given repo-relative paths have right now in one layer — the index, or the working
+	 *  tree hashed as git would store it (nothing is written). A submodule's id is its commit (in the
+	 *  working tree, the one checked out); paths absent from that layer, or that can't be hashed, are left out. */
+	getBlobIds?(
+		repoPath: string,
+		paths: readonly string[],
+		source: 'index' | 'working',
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string>>;
 	/** The empty tree's id in this repository's object format (SHA-1 or SHA-256). */
 	getEmptyTreeSha(repoPath: string): Promise<string>;
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;
@@ -36,6 +45,12 @@ export interface GitRevisionSubProvider {
 		options?: { paths?: readonly string[] },
 		cancellation?: AbortSignal,
 	): Promise<string[]>;
+	/**
+	 * The whole index's paths exactly as `git ls-files -z` prints them: each NUL-terminated, repo-relative, in index
+	 * order. An unmerged path appears once per stage, unlike {@link getTrackedFiles}, which dedupes.
+	 * Rejects when git fails (e.g. not a repository), and with a `CancellationError` when `cancellation` aborts.
+	 */
+	getTrackedFilesRaw?(repoPath: string, cancellation?: AbortSignal): Promise<Uint8Array>;
 	getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined>;
 	/**
 	 * Lists every entry (files and folders) of the tree at `rev`, recursively.

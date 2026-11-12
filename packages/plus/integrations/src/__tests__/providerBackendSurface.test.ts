@@ -15,14 +15,15 @@ import {
 import { AuthenticationError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult } from '../models/publicIntegration.js';
+import { PagingMode } from '../providers/metadata.js';
 import type {
 	ProviderIssue,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepository,
 } from '../providers/models.js';
-import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
+import { IssueFilter, PullRequestFilter } from '../providers/models.js';
 import { parseIssueTrackerPageCursor } from '../reads/cursors.js';
 import { projectKey } from '../reads/hierarchy.utils.js';
 import { createFakeRuntime } from './fakeRuntime.js';

@@ -1,6 +1,6 @@
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
 import type { GkConfigInvalidationTarget } from '../cache.js';
-import type { BranchDisposition, GitBranch } from '../models/branch.js';
+import type { BranchDisposition, GitBranch, GitCurrentHead } from '../models/branch.js';
 import type { GitCommitStats } from '../models/commit.js';
 import type { GitContributor } from '../models/contributor.js';
 import type { ConflictDetectionResult } from '../models/mergeConflicts.js';
@@ -31,15 +31,15 @@ export interface AheadOfBase {
 	/** The base HEAD was measured against; `undefined` when there is none (see `getAheadOfBase`) */
 	readonly base:
 		| {
-				/** The ref the count was taken against: the chosen base or its tracking ref, whichever forked nearer HEAD */
+				/** The ref the count was taken against: the chosen base or its tracking ref, whichever forked nearer HEAD by `forkPoint`, a tie going to the tracking ref. A local base forks nearer only past git's `--fork-point` reading of its tracking ref, so one holding commits its tracking ref held and moved off defers to it */
 				readonly ref: string;
-				/** Commits on HEAD not on `ref` */
+				/** Commits on HEAD past `forkPoint`, the ones `<forkPoint>..HEAD` lists: those not on `ref`, except past a fork point `ref` was rewritten off, where the commits a patch comparison shows it replayed don't count; with no `forkPoint`, every commit on HEAD not on `ref`. The sole exception: when a read settling `forkPoint` fails and the merge base can't be read either, `forkPoint` stays where it was read while this still counts every commit on HEAD not on `ref`, which can differ from what `<forkPoint>..HEAD` lists */
 				readonly ahead: number;
 				/** The commit `ref` pointed at, from the cached ref list; `undefined` when no listed ref matches it */
 				readonly sha: string | undefined;
-				/** Where HEAD forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
+				/** Where HEAD forked from `ref`: its tip when HEAD contains it; otherwise git's `--fork-point` reading of `ref`'s reflog, else the merge base. A reading `ref`'s history still holds stands, as `ref`'s reflog file shows (every move since it forward) or one ancestry check does. One `ref` left behind (rebased, reset, force-pushed) is settled by patch: the commits it holds that `ref` lacks are compared with `ref`'s 256 newest first-parent commits, and the fork point is the newest of them below which each has a copy of the same patch there (rewritten), the commit itself when all do, else the merge base; one with no copy is HEAD's, shown rather than hidden. A read that fails takes the merge base, and git's reading stays only when that fails too. `undefined` when they share no history */
 				readonly forkPoint: string | undefined;
-				/** The source the base came from: the `preferredTarget` option, the user's merge target, the detected one, the base recorded against the branch, the branch git's reflog says this branch was created from (unless the default branch forked strictly nearer HEAD), the default branch, or — when the branch is the default branch — the branch's own upstream */
+				/** The source the base came from: the `preferredTarget` option, the user's merge target, the detected one, the base recorded against the branch, the branch git's reflog says this branch was created from (unless the default branch forked strictly nearer HEAD, each by its `forkPoint`), the default branch, or — when the branch is the default branch — the branch's own upstream */
 				readonly tier: AheadOfBaseTier;
 		  }
 		| undefined;
@@ -55,9 +55,9 @@ export interface AheadOfBase {
 export type MergeTargetTier = AheadOfBaseTier | 'pr' | 'inferred';
 
 export interface MergeTarget {
-	/** The ref the branch is measured against: the chosen target or its tracking ref, whichever the branch forked from nearer */
+	/** The ref the branch is measured against: the chosen target or its tracking ref, whichever the branch forked from nearer, chosen as `AheadOfBase.ref` is */
 	readonly ref: string;
-	/** Where the branch forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
+	/** Where the branch forked from `ref`, as `AheadOfBase.forkPoint` settles it from git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history. With no count taken, a tip of `ref` the branch contains is the fork point too, unless every read settling it fails, which leaves git's reading, one that can name a commit past the tip */
 	readonly forkPoint: string | undefined;
 	readonly tier: MergeTargetTier;
 }
@@ -214,6 +214,14 @@ export interface GitBranchesSubProvider {
 	): Promise<GitBranchMergedStatus>;
 	/** @internal not intended to be used outside of the sub-providers */
 	getCurrentBranchReference?(repoPath: string, cancellation?: AbortSignal): Promise<GitBranchReference | undefined>;
+	/**
+	 * Reads what `repoPath` has checked out fresh on every call: never from or into core's current-branch caches,
+	 * without waiting on cache validation, and without walking the index as a status does, so it answers right after a
+	 * checkout no watcher reported yet. A detached HEAD with a paused rebase names the rebased branch, as `getStatus` does,
+	 * and no branch when that rebase started on a detached HEAD. `sha` also reads the commit HEAD points at. Rejects when
+	 * `repoPath` isn't a repository or git fails, and with a `CancellationError` when `cancellation` aborts.
+	 */
+	getCurrentHead?(repoPath: string, options?: { sha?: boolean }, cancellation?: AbortSignal): Promise<GitCurrentHead>;
 	getLocalBranchByUpstream?(
 		repoPath: string,
 		remoteBranchName: string,
@@ -260,7 +268,9 @@ export interface GitBranchesSubProvider {
 	 * local branch or else the remote ref; then, in the same remote order, `<remote>/main` or `<remote>/master`, again as
 	 * the local branch or else the remote ref; then `init.defaultBranch`, `main`, `master` — from local refs only, never
 	 * the network. On the default branch itself the base is its upstream (`upstream/<branch>` when an `upstream` remote has
-	 * it, else `<branch>@{u}`), tier `'upstream'`. The count is the right side of `<base>...HEAD`. `base` is `undefined`
+	 * it, else `<branch>@{u}`), tier `'upstream'`. The count is HEAD's commits past `base.forkPoint`: the right side of
+	 * `<base>...HEAD`, except past a fork point the base was rebased off, where it's the right side of
+	 * `<forkPoint>...HEAD`. `base` is `undefined`
 	 * when no base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at
 	 * HEAD's own commit — or the default branch has no upstream — or when HEAD has no commit yet; `reason`
 	 * then says which (`'none'`, `'self'` or `'unborn'`) and `dependsOn` is given either way. `base.sha` is the tip of
@@ -309,11 +319,14 @@ export interface GitBranchesSubProvider {
 	 * own ref (the only listed ref its name answers to) and any `<remote>/HEAD` symref still pointing at it, with the
 	 * default branch resolving as `previous.defaultBranch` when one did (absent, it can't be shown), the repository
 	 * isn't shallow, the base moved only forward (its old tip and every value its reflog
-	 * took since are in its new tip's history), and HEAD's count past its new tip, `previous.base.forkPoint` and every
-	 * commit the base's reflog reaches off its new tip's history is unchanged. Equal counts mean none of HEAD's commits
-	 * reached the base, the fork point is in its history, and the reflog shares no more of HEAD's history than the tip
-	 * does, so HEAD's common history with the base, and with that the fork point and the choice of base, stay as they
-	 * were; only `base.sha` moves, and `defaultBranch` is kept. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is due.
+	 * took since are in its new tip's history), and HEAD's commits past its new tip and every commit the base's reflog
+	 * reaches off its new tip's history are `previous.base.ahead` in number, its count past the fork point, without
+	 * `previous.base.forkPoint` among them (a fork point the reflog no longer holds, off the new tip's history, is).
+	 * Equal counts mean none of HEAD's commits past the fork point reached the base or its reflog, so HEAD's common
+	 * history with the base and its reflog, and with that the fork point, the reflog's move off it, the count past it
+	 * and the choice of base, stay as they were; only `base.sha` moves, and `defaultBranch` is kept. A fork point the
+	 * base was rebased off, still a value of its reflog but off its new tip's history, is settled again as a full read
+	 * does, and must keep the fork point and its count. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is due.
 	 */
 	getAheadOfBaseAfterBaseMove?(
 		repoPath: string,

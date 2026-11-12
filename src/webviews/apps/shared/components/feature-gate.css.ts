@@ -14,9 +14,9 @@ const featureGateListColumnsThreshold = unsafeCSS('72rem');
 
 export const featureGateBaseStyles = css`
 	:host {
-		--gate-background: var(--vscode-editorWidget-background);
-		--gate-foreground: var(--vscode-editorWidget-foreground);
-		--gate-border: var(--vscode-editorWidget-border);
+		--gate-background: var(--gl-color-surface-overlay);
+		--gate-foreground: var(--vscode-foreground);
+		--gate-border: var(--gl-color-border-overlay);
 		--gate-border-size: 0.2rem;
 
 		position: absolute;
@@ -44,7 +44,7 @@ export const featureGateBaseStyles = css`
 		--section-background: var(--gate-background);
 		--section-border-color: var(--gate-border);
 
-		--link-foreground: var(--vscode-textLink-foreground);
+		--link-foreground: var(--gl-color-action-link-fg);
 		--link-foreground-active: var(--vscode-textLink-activeForeground);
 
 		position: fixed;
@@ -102,7 +102,7 @@ export const featureGateBaseStyles = css`
 	:host-context(body[data-placement='editor']) dialog,
 	:host([appearance='alert']) dialog {
 		--link-decoration-default: underline;
-		--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--vscode-textLink-foreground));
+		--link-foreground: color-mix(in srgb, var(--section-foreground) 50%, var(--gl-color-action-link-fg));
 		--link-foreground-active: color-mix(
 			in srgb,
 			var(--section-foreground) 50%,
@@ -136,10 +136,10 @@ export const featureGateBaseStyles = css`
 
 	:host([variant='sheet']) .sheet {
 		--section-foreground: var(--vscode-foreground);
-		--section-background: var(--vscode-editor-background);
-		--section-border-color: var(--gate-border);
+		--section-background: var(--gl-color-surface-base);
+		--section-border-color: var(--gl-color-border-raised);
 
-		--link-foreground: var(--vscode-textLink-foreground);
+		--link-foreground: var(--gl-color-action-link-fg);
 		--link-foreground-active: var(--vscode-textLink-activeForeground);
 
 		position: absolute;
@@ -150,7 +150,7 @@ export const featureGateBaseStyles = css`
 		padding: 0;
 		overflow: hidden;
 		color: var(--section-foreground);
-		background: var(--vscode-editor-background);
+		background: var(--gl-color-surface-base);
 	}
 
 	:host([variant='sheet']) .content {
@@ -188,7 +188,7 @@ export const featureGateContentStyles = css`
 		gap: var(--gl-space-10);
 		margin-block-end: var(--gl-space-12);
 		line-height: 1.5;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.feature__header {
@@ -256,16 +256,16 @@ export const featureGateContentStyles = css`
 		margin: 0;
 		font-size: var(--gl-font-md);
 		line-height: 1.4;
-		color: var(--color-foreground--85);
+		color: var(--vscode-foreground);
 		text-wrap: pretty;
-		background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 12%);
-		border-inline-start: 0.2rem solid var(--color-alert-infoBorder);
+		background: color-mix(in lab, var(--gl-color-surface-base) 100%, var(--vscode-foreground) 12%);
+		border-inline-start: 0.2rem solid var(--gl-color-feedback-info-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
 	.feature__promise code-icon {
 		flex: none;
-		color: var(--color-alert-infoBorder);
+		color: var(--gl-color-feedback-info-quiet-fg);
 	}
 
 	/* A flex item defaults to min-width:auto, so without this the text can't shrink below its longest

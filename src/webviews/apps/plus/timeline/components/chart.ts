@@ -147,7 +147,7 @@ export class GlTimelineChart extends GlElement {
 			pointer-events: none;
 			content: '';
 			background: linear-gradient(90deg, var(--timeline-glass-start), var(--timeline-glass-end));
-			border-right: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 32%, transparent);
+			border-right: var(--gl-border-width) solid color-mix(in srgb, var(--gl-color-divider-base) 32%, transparent);
 			box-shadow: inset -1px 0 0 color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 			-webkit-backdrop-filter: var(--timeline-glass-filter);
 			backdrop-filter: var(--timeline-glass-filter);
@@ -302,14 +302,14 @@ export class GlTimelineChart extends GlElement {
 		.rail-tooltip__meta {
 			margin-top: 0.15rem;
 			font-size: 0.85em;
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.rail-tooltip__hint {
 			max-width: 16rem;
 			margin-top: var(--gl-space-4);
 			font-size: 0.8em;
-			color: var(--color-foreground--50);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.rail__y2-title {
@@ -317,7 +317,7 @@ export class GlTimelineChart extends GlElement {
 			left: calc(var(--rail-left-offset, 8px) + 2px);
 			z-index: 1;
 			font-size: var(--gl-font-micro);
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 			pointer-events: none;
 			transform: translate(-50%, -50%) rotate(-90deg);
@@ -329,7 +329,7 @@ export class GlTimelineChart extends GlElement {
 			z-index: 1;
 			width: 4px;
 			height: 1px;
-			background: var(--color-foreground--85);
+			background: var(--vscode-foreground);
 			transform: translateY(-50%);
 		}
 
@@ -338,7 +338,7 @@ export class GlTimelineChart extends GlElement {
 			right: 6px;
 			z-index: 1;
 			font-size: var(--gl-font-micro);
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
 			pointer-events: none;
 			transform: translateY(-50%);
@@ -365,7 +365,7 @@ export class GlTimelineChart extends GlElement {
 				color-mix(in srgb, var(--vscode-editor-background) 68%, transparent),
 				color-mix(in srgb, var(--vscode-editor-background) 56%, transparent)
 			);
-			border-top: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 22%, transparent);
+			border-top: var(--gl-border-width) solid color-mix(in srgb, var(--gl-color-divider-base) 22%, transparent);
 			box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vscode-foreground) 7%, transparent);
 			-webkit-backdrop-filter: var(--timeline-glass-filter);
 			backdrop-filter: var(--timeline-glass-filter);
@@ -441,7 +441,7 @@ export class GlTimelineChart extends GlElement {
 		gl-commit-sha-copy {
 			min-width: 7.5rem;
 			margin-left: var(--gl-space-12);
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 			text-align: right;
 		}
 
@@ -469,10 +469,10 @@ export class GlTimelineChart extends GlElement {
 			max-width: 320px;
 			padding: var(--gl-space-6) var(--gl-space-8);
 			font-size: var(--gl-font-sm);
-			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
+			color: var(--vscode-editorHoverWidget-foreground);
 			pointer-events: none;
-			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));
-			border: var(--gl-border-width) solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
+			background: var(--gl-color-surface-overlay);
+			border: var(--gl-border-width) solid var(--gl-color-border-overlay);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -489,7 +489,7 @@ export class GlTimelineChart extends GlElement {
 			display: flex;
 			gap: var(--gl-space-6);
 			margin-top: var(--gl-space-2);
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.tooltip .tooltip__additions {
@@ -527,7 +527,7 @@ export class GlTimelineChart extends GlElement {
 			align-items: center;
 			justify-content: center;
 			padding: 10% 2rem 30%;
-			color: var(--color-foreground--75);
+			color: var(--vscode-descriptionForeground);
 			pointer-events: none;
 		}
 
@@ -1924,22 +1924,16 @@ export class GlTimelineChart extends GlElement {
 
 		this._theme = {
 			background: getCssVariable('--vscode-editor-background', style) || '#1e1e1e',
-			zebraOdd: getCssVariable('--vscode-list-hoverBackground', style) || 'rgba(255,255,255,0.03)',
-			axisDomain: getCssVariable('--color-foreground--50', style) || '#888',
-			axisLabel: getCssVariable('--color-foreground--75', style) || '#bbb',
-			axisLabelMuted: getCssVariable('--color-foreground--50', style) || '#888',
-			gridLine: getCssVariable('--color-foreground--85', style) || '#ccc',
-			bubbleStroke: getCssVariable('--color-view-foreground', style) || '#fff',
+			axisDomain: getCssVariable('--vscode-descriptionForeground', style) || '#888',
+			axisLabel: getCssVariable('--vscode-descriptionForeground', style) || '#bbb',
+			axisLabelMuted: getCssVariable('--vscode-descriptionForeground', style) || '#888',
+			gridLine: getCssVariable('--vscode-foreground', style) || '#ccc',
 			selectedRing: getCssVariable('--color-foreground', style) || '#fff',
-			hoverRing: getCssVariable('--color-foreground--85', style) || '#ddd',
 			additions: getCssVariable('--vscode-gitlens-timelineAdditionsColor', style) || 'rgba(73, 190, 71, 1)',
 			deletions: getCssVariable('--vscode-gitlens-timelineDeletionsColor', style) || 'rgba(195, 32, 45, 1)',
 			scrollThumb: getCssVariable('--vscode-scrollbarSlider-background', style) || 'rgba(121,121,121,0.4)',
 			scrollThumbHover:
 				getCssVariable('--vscode-scrollbarSlider-hoverBackground', style) || 'rgba(100,100,100,0.7)',
-			tooltipBg: getCssVariable('--vscode-editorHoverWidget-background', style) || '#252526',
-			tooltipFg: getCssVariable('--vscode-editorHoverWidget-foreground', style) || '#cccccc',
-			tooltipBorder: getCssVariable('--vscode-editorHoverWidget-border', style) || '#454545',
 			slicePalette: palette,
 		};
 		return this._theme;

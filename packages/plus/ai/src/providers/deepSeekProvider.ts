@@ -5,6 +5,14 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type DeepSeekModel = AIModel<typeof provider.id>;
 const models: DeepSeekModel[] = [
 	{
+		id: 'deepseek-flash',
+		name: 'DeepSeek Flash',
+		maxTokens: { input: 1000000, output: 384000 },
+		provider: provider,
+		default: true,
+		temperature: 0.0, // Recommended for Coding/Math
+	},
+	{
 		id: 'deepseek-v4-pro',
 		name: 'DeepSeek V4 Pro',
 		maxTokens: { input: 1000000, output: 384000 }, // DeepSeek publishes "384K" only; decimal reading avoids overstating
@@ -16,7 +24,7 @@ const models: DeepSeekModel[] = [
 		name: 'DeepSeek V4 Flash',
 		maxTokens: { input: 1000000, output: 384000 },
 		provider: provider,
-		default: true,
+		hidden: true,
 		temperature: 0.0, // Recommended for Coding/Math
 	},
 ];

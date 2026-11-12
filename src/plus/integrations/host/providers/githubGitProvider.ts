@@ -1,6 +1,7 @@
 /* oxlint-disable typescript/require-await */
 import type { WorkspaceFolder } from 'vscode';
 import { authentication, l10n, Uri, window, workspace } from 'vscode';
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { GitHubSession } from '@gitlens/git-github/context.js';
 import type { GitHubGitProviderOptions } from '@gitlens/git-github/providers/githubGitProvider.js';
 import { GitHubGitProvider } from '@gitlens/git-github/providers/githubGitProvider.js';
@@ -14,12 +15,13 @@ import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { getVisibilityCacheKey } from '@gitlens/git/utils/remote.utils.js';
 import { isRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
 import { decodeRemoteHubAuthority } from '@gitlens/git/utils/uriAuthority.js';
-import type { IntegrationAuthenticationSessionDescriptor } from '@gitlens/integrations/authentication/integrationAuthenticationProvider.js';
-import type { ProviderAuthenticationSession } from '@gitlens/integrations/authentication/models.js';
-import { toTokenWithInfo } from '@gitlens/integrations/authentication/models.js';
 import { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
-import type { AuthenticationSessionsChangeEvent } from '@gitlens/integrations/context.js';
-import type { GitHubApi } from '@gitlens/integrations/providers/github/github.js';
+import type {
+	AuthenticationSessionsChangeEvent,
+	IntegrationAuthenticationSessionDescriptor,
+	ProviderAuthenticationSession,
+} from '@gitlens/integrations/index.js';
+import { toTokenWithInfo } from '@gitlens/integrations/index.js';
 import { CharCode } from '@gitlens/utils/charCode.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable, UnifiedDisposable } from '@gitlens/utils/disposable.js';

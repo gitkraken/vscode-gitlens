@@ -32,10 +32,7 @@
 		// sources — every `.d.ts.map` would point at a file no consumer has.
 		"declarationMap": false,
 		"emitDeclarationOnly": true,
-		// `packages/plus/integrations` cannot type-check under `nodenext` — `@gitkraken/provider-apis` ships
-		// CJS with getter-based named exports and a callable default, which nodenext types as non-callable
-		// (TS2349). Its own tsconfig already overrides to `bundler` for exactly this reason, and bundler is
-		// what webpack and the bundler here actually do at runtime.
+		// Bundler is what webpack and the bundler here actually do at runtime.
 		"moduleResolution": "bundler",
 		"module": "esnext",
 		// ...but bundler resolution drops the `node` condition, which would resolve utils' `#env/*.js` shim

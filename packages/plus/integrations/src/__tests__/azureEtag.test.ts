@@ -11,19 +11,21 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type {
-	BatchSlot,
-	IssueEtagFields,
-	PullRequestEtagFields,
-	PullRequestEtagInclude,
-} from '../models/integration.js';
-import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import type { BatchSlot } from '../models/integration.js';
 import {
 	azureRestDiscoveryResponse,
 	azureWorkItemTypeStatesResponse,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
-import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
+import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../reads/etag.js';
+import {
+	issueEtag,
+	issueEtagFieldsFromShape,
+	pullRequestEtag,
+	pullRequestEtagFieldsFromShape,
+	pullRequestEtagIncludes,
+	pullRequestRevision,
+} from '../reads/etag.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedAzure, primarySession } from './sweepHelpers.js';

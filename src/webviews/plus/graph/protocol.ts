@@ -48,7 +48,12 @@ import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
 import type { WebviewState } from '../../protocol.js';
-import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
+import type {
+	OverviewBranch,
+	OverviewRecentThreshold,
+	SerializedPullRequestMergeQueueEntry,
+	SerializedPullRequestMergeQueueRemoval,
+} from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
 import type { TreemapMode } from '../treemap/protocol.js';
 import type { Wip, WipStats } from './detailsProtocol.js';
@@ -139,7 +144,13 @@ export type GraphHostingServiceType =
 	| 'azureDevops'
 	| 'bitbucket'
 	| 'bitbucketServer';
-export type GraphIssueTrackerType = GraphHostingServiceType | 'jiraCloud' | 'jiraServer' | 'trello' | 'linear';
+export type GraphIssueTrackerType =
+	| GraphHostingServiceType
+	| 'jiraCloud'
+	| 'jiraServer'
+	| 'trello'
+	| 'linear'
+	| 'asana';
 
 interface BaseRefMetadata {
 	context?: SerializedGraphItemContext;
@@ -694,6 +705,9 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
+	/** `true` when {@link pr} merged and its head is this branch's tip, so the branch's work landed through it.
+	 *  Head-sha equality only (no git counts), so the header can hide Publish without any merge-target data. */
+	landed?: boolean;
 	worktree?: boolean;
 	/** Whether the repo has any remotes. `false` is what turns the header's Publish Branch into Publish Repository
 	 *  (which creates the hosted repo via VS Code's `git.publish`). Absent when not probed. */
@@ -989,6 +1003,8 @@ export interface MergePullRequestParams {
 	mergeMethod?: 'merge' | 'squash' | 'rebase';
 	/** The webview already confirmed the blast radius in place — the host skips its own confirmation. */
 	confirmed?: boolean;
+	/** What the webview confirmed in place was adding the pull request to its merge queue, not merging it. */
+	queue?: boolean;
 }
 export interface MergePullRequestResult {
 	merged: boolean;
@@ -1237,6 +1253,14 @@ export interface GraphSidebarPullRequest {
 	/** Review decision off the PR model itself, for the same reason as {@link statusCheckRollup} —
 	 *  it must survive categorization being unavailable. */
 	reviewDecision?: PullRequestReviewDecision;
+	/** The pull request's merge-queue entry, while it's queued. GitHub.com only. */
+	mergeQueue?: SerializedPullRequestMergeQueueEntry;
+	/** Whether its base branch accepts it only through a merge queue, so merging it means adding it to the queue.
+	 *  `undefined` is unknown: provider-native reads (the sheet's by-number lookup) carry it, but the panel's
+	 *  repository-scoped list never does — so a Merge action there can still route to the queue host-side. */
+	mergeQueueRequired?: boolean;
+	/** Its removal from its merge queue, set only while that removal still describes it. Provider-native reads only. */
+	mergeQueueRemoval?: SerializedPullRequestMergeQueueRemoval;
 	/** Whether the PR's head branch is what's checked out — matched by short name, so it's set for a fork
 	 *  head with no local branch too. Mirrors the deep link's own `nameWithoutRemote` test, which skips the
 	 *  switch on a match, so the row's switch affordances stand down rather than promise a no-op. */

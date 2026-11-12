@@ -48,6 +48,7 @@ export type ProFeatures =
 export type ProAIFeatures =
 	| 'explain-changes'
 	| 'review-changes'
+	| 'review-orient'
 	| 'generate-create-cloudPatch'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
@@ -84,6 +85,7 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'associateIssueWithBranch':
 		case 'explain-changes':
 		case 'review-changes':
+		case 'review-orient':
 		case 'generate-create-cloudPatch':
 		case 'generate-stashMessage':
 		case 'generate-changelog':

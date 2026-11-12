@@ -4037,6 +4037,10 @@ gl-commit-graph {
 		color: var(--gl-graph-pr-merged-color);
 	}
 
+	.gl-graph__ref-metadata-card-icon--pr-queued {
+		color: var(--gl-graph-pr-queued-color);
+	}
+
 	.gl-graph__ref-metadata-card-icon--pr-closed {
 		color: var(--gl-graph-pr-closed-color);
 	}

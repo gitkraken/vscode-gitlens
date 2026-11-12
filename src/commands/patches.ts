@@ -1,4 +1,3 @@
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { TextEditor } from 'vscode';
 import { env, l10n, Uri, window, workspace } from 'vscode';
 import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
@@ -8,7 +7,7 @@ import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js'
 import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
-import { getProviderIdFromEntityIdentifier } from '@gitlens/integrations/providers/utils.js';
+import { decodeEntityIdentifier, getProviderIdFromEntityIdentifier } from '@gitlens/integrations/index.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -477,7 +476,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 			let providerId: IntegrationIds | undefined;
 			let providerDomain: string | undefined;
 			try {
-				const identifier = EntityIdentifierUtils.decode(args.prEntityId);
+				const identifier = decodeEntityIdentifier(args.prEntityId);
 				providerId = getProviderIdFromEntityIdentifier(identifier);
 				providerDomain = identifier.domain ?? undefined;
 			} catch {
@@ -508,8 +507,8 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 				return;
 			}
 
-			const session = await integration.getSession('cloud-patches');
-			if (session == null) {
+			const credential = await integration.getCredential('cloud-patches');
+			if (credential == null) {
 				void window.showErrorMessage(
 					isCodeSuggestion
 						? l10n.t('Cannot open Code Suggestion; provider not connected.')
@@ -518,7 +517,7 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 				return;
 			}
 
-			providerAuth = { provider: integration.id, token: session.accessToken };
+			providerAuth = { provider: integration.id, token: credential.accessToken };
 		}
 
 		try {

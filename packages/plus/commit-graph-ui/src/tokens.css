@@ -106,6 +106,7 @@ gl-commit-graph {
 	--gl-graph-range-highlight-border: transparent;
 	--gl-graph-pr-open-color: #3fb950;
 	--gl-graph-pr-merged-color: #a371f7;
+	--gl-graph-pr-queued-color: #d29922;
 	--gl-graph-pr-closed-color: #f85149;
 	--gl-graph-operation-active-color: #d29922;
 	--gl-graph-operation-conflict-color: #f85149;

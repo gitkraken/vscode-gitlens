@@ -4,23 +4,26 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { PullRequest, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeQueueEntry, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestNumberFromUrl, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import { getAzureRepositoryIdentity } from '@gitlens/integrations/providers/azure/azure.utils.js';
-import { toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
-import { isAzureProviderId } from '@gitlens/integrations/providers/providerErrors.js';
-import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
+import type { GitHostIntegration } from '@gitlens/integrations/index.js';
+import {
+	getAzureRepositoryIdentity,
+	getIntegrationIdForRemote,
+	getPullRequestFieldPresence,
+	isAzureProviderId,
+	toActionablePullRequestInput,
+} from '@gitlens/integrations/index.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
@@ -54,9 +57,10 @@ import {
 } from '../../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import {
+	getLaunchpadActionCategory,
+	getMergeQueueActionCategory,
 	launchpadCategoryToGroupMap,
 	launchpadPriorityGroups,
-	sharedCategoryToLaunchpadActionCategoryMap,
 } from '../../../plus/launchpad/models/launchpad.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
@@ -69,7 +73,12 @@ import type {
 	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
-import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
+import {
+	getOverviewEnrichment,
+	getOverviewWip,
+	serializePullRequestMergeQueue,
+	serializePullRequestMergeQueueRemoval,
+} from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphServices } from './graphService.js';
 import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
@@ -95,6 +104,7 @@ import type {
 	SidebarWorktreeChange,
 } from './protocol.js';
 import { sidebarItemOrigin } from './protocol.js';
+import { getMergeQueueBaseBranches, joinPullRequestMergeQueue } from './sidebarMergeQueue.utils.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
@@ -116,6 +126,9 @@ export type GraphPanelsServiceContext = {
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
 	getLastWorktreeChange: (path: string) => SidebarWorktreeChange | undefined;
 	fireSidebarInvalidated: () => void;
+	/** Hands over a pull request just read past the cache, so surfaces outside the panels (the header's PR pill)
+	 *  can catch up with it. */
+	didReadFreshPullRequest: (pr: PullRequest) => void;
 };
 
 /** Page size for the Overview panel's "Load More" older-branches paging — how many additional
@@ -130,6 +143,9 @@ const pullRequestsCacheExpiration = 30 * 60 * 1000;
  *  GitLab's search converts an API failure into `[]`, indistinguishable from a repo with no open pull
  *  requests. Hold it only long enough to keep a burst of panel opens to a single request. */
 const pullRequestsEmptyCacheExpiration = 60 * 1000;
+/** TTL while any listed pull request is queued: merge queues move in minutes. Matches the queued expiry in
+ *  `src/cache.ts`. */
+const pullRequestsQueuedCacheExpiration = 5 * 60 * 1000;
 /** Page size for the open-PR walk. Paging is sequential, so a big page is the difference between one
  *  round trip and many — this is a browse list, not an export. */
 const pullRequestsPageSize = 100;
@@ -148,6 +164,8 @@ const viewerAccountTimeout = 3000;
 type SidebarPullRequests = {
 	prs: PullRequest[] | undefined;
 	launchpadByPr: Map<PullRequest, NonNullable<GraphSidebarPullRequest['launchpad']>> | undefined;
+	/** INTERIM (goals S6): GitHub.com merge-queue entries joined by number, for rows whose read selected none. */
+	mergeQueueByNumber?: Map<number, PullRequestMergeQueueEntry>;
 };
 
 /** The project an Azure DevOps remote names, which its repo-scoped pull request read requires. Azure names a
@@ -158,6 +176,22 @@ function getAzureProjectName(remote: GitRemote<RemoteProvider>): string | undefi
 	if (owner == null || name == null) return undefined;
 
 	return getAzureRepositoryIdentity({ owner: owner, name: name }).projectName;
+}
+
+/** Whether a pull request's url names the repository this remote's provider points at (same host, and its path
+ *  under the repository's). An unparseable url is a mismatch — nothing safe to read by number from it. */
+function isPullRequestUrlInRemote(url: string, provider: RemoteProvider): boolean {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+
+	return (
+		parsed.host.toLowerCase() === provider.domain.toLowerCase() &&
+		`${parsed.pathname.toLowerCase()}/`.startsWith(`/${provider.path.toLowerCase()}/`)
+	);
 }
 
 /** The checked-out branch's name, for deciding whether a pull request's head is already here. Matched by
@@ -835,6 +869,7 @@ export class GraphPanelsService {
 				currentBranchName,
 				stacksByNumber,
 				behindByStack,
+				result.mergeQueueByNumber,
 			),
 		);
 
@@ -943,6 +978,7 @@ export class GraphPanelsService {
 		prs: PullRequest[],
 		integration: GitHostIntegration,
 		viewer: Promise<{ account: Account | undefined; timedOut: boolean }>,
+		mergeQueueByNumber: Map<number, PullRequestMergeQueueEntry> | undefined,
 	): Promise<SidebarPullRequests['launchpadByPr']> {
 		try {
 			const integrationId = integration.id;
@@ -961,7 +997,7 @@ export class GraphPanelsService {
 			// conversion drops just that one.
 			for (const pr of prs) {
 				try {
-					const providerPr = toProviderPullRequestWithUniqueId(pr);
+					const providerPr = toActionablePullRequestInput(pr);
 					prsByUuid.set(providerPr.uuid, pr);
 					// The shared pull request model carries no provider reference, and the per-integration
 					// split keys on it.
@@ -1004,31 +1040,37 @@ export class GraphPanelsService {
 			];
 			for (const { item, viewerless: isViewerless } of categorized) {
 				const pr = prsByUuid.get(item.uuid);
-				let category = sharedCategoryToLaunchpadActionCategoryMap.get(item.suggestedActionCategory);
-				if (pr == null || category == null) continue;
+				if (pr == null) continue;
 
-				if (mergeableUnverifiable && category === 'mergeable') {
-					category = 'other';
-				}
-
-				if (isViewerless) {
-					// Viewer-less only — see above for why these demotions exist and why they don't apply
-					// once a real viewer resolves.
-					if (category === 'mergeable' || category === 'unassigned-reviewers') {
+				const queueable = joinPullRequestMergeQueue(pr, mergeQueueByNumber);
+				let category = getLaunchpadActionCategory(item.suggestedActionCategory, queueable);
+				// A queued pull request skips every demotion: the queue's own verdict is objective, and a queued pull
+				// request isn't one you can act on as "Ready to Merge" or "Blocked" outside the queue. Likewise one its
+				// queue run just failed out of: that failure is the verdict.
+				if (getMergeQueueActionCategory(queueable) == null) {
+					if (mergeableUnverifiable && category === 'mergeable') {
 						category = 'other';
 					}
-					if (item.hasConflicts) {
-						category = 'conflicts';
-					} else if (item.failingCI) {
-						category = 'failed-checks';
-					}
-				} else if (!rendersIndicator(category, pr.isDraft)) {
-					// Rows that would otherwise show nothing — everyone else's pull requests, which the
-					// cascade leaves blank, and your own drafts. Objective blockers only.
-					if (item.hasConflicts) {
-						category = 'conflicts';
-					} else if (item.failingCI) {
-						category = 'failed-checks';
+
+					if (isViewerless) {
+						// Viewer-less only — see above for why these demotions exist and why they don't apply
+						// once a real viewer resolves.
+						if (category === 'mergeable' || category === 'unassigned-reviewers') {
+							category = 'other';
+						}
+						if (item.hasConflicts) {
+							category = 'conflicts';
+						} else if (item.failingCI) {
+							category = 'failed-checks';
+						}
+					} else if (!rendersIndicator(category, pr.isDraft)) {
+						// Rows that would otherwise show nothing — everyone else's pull requests, which the
+						// cascade leaves blank, and your own drafts. Objective blockers only.
+						if (item.hasConflicts) {
+							category = 'conflicts';
+						} else if (item.failingCI) {
+							category = 'failed-checks';
+						}
 					}
 				}
 
@@ -1095,13 +1137,20 @@ export class GraphPanelsService {
 	 * pane's search, which wants the single pull request and none of the stack work.
 	 */
 	async onResolvePullRequestSheet(
-		params: { number: string } | { stackNumber: number },
+		params: { number: string; url?: string } | { stackNumber: number },
+		options?: { fresh?: boolean },
 	): Promise<GraphPullRequestSheetData | undefined> {
 		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
 		if (graph == null) return undefined;
 
 		const remote = await getBestRemoteWithIntegration(graph.repoPath);
 		if (remote == null) return undefined;
+
+		// A caller holding the pull request's url (the header pill's recheck) pins it to its own repository: the best
+		// remote can be another one (a fork's upstream), and reading this number there is a different pull request.
+		if ('number' in params && params.url != null && !isPullRequestUrlInRemote(params.url, remote.provider)) {
+			return undefined;
+		}
 
 		const integration = await getRemoteIntegration(remote);
 		if (integration == null) return undefined;
@@ -1135,9 +1184,18 @@ export class GraphPanelsService {
 		if ('stackNumber' in params) {
 			stackNumber = params.stackNumber;
 		} else {
-			// Cached by id in `src/cache.ts`, so re-opening the same sheet doesn't re-hit the API.
-			const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
+			// Cached by id in `src/cache.ts`, so re-opening the same sheet doesn't re-hit the API — unless the caller
+			// asked for a fresh read, which replaces the cached copy.
+			const pr = await integration.getPullRequest(
+				remote.provider.repoDesc,
+				params.number,
+				options?.fresh ? { expiryOverride: true } : undefined,
+			);
 			if (pr == null) return undefined;
+
+			if (options?.fresh) {
+				this.context.didReadFreshPullRequest(pr);
+			}
 
 			requestedPr = pr;
 			// Built without `behind` — only to learn whether it's stacked; rebuilt with it below.
@@ -1355,6 +1413,7 @@ export class GraphPanelsService {
 		currentBranchName?: string,
 		stacksByNumber?: Map<number, PullRequestStackInfo>,
 		behindByStack?: Map<number, number | undefined>,
+		mergeQueueByNumber?: Map<number, PullRequestMergeQueueEntry>,
 	): GraphSidebarPullRequest {
 		// Truthiness, not a null check: `fromProviderPullRequest` always builds `refs` and fills a gone head
 		// repo (merged-and-deleted, deleted fork) with `''` — the same test the command handlers make before
@@ -1395,6 +1454,7 @@ export class GraphPanelsService {
 		// Prefer what the model already carries (the native reads select it) and fall back to the
 		// per-repository join, which is the only source on the paged read this panel uses.
 		const stack = pr.stack ?? stacksByNumber?.get(Number(number));
+		const queueable = joinPullRequestMergeQueue(pr, mergeQueueByNumber);
 
 		return {
 			number: number,
@@ -1428,6 +1488,9 @@ export class GraphPanelsService {
 			statusCheckRollup: pr.statusCheckRollupState,
 			mergeableState: pr.mergeableState,
 			reviewDecision: pr.reviewDecision,
+			mergeQueue: serializePullRequestMergeQueue(queueable),
+			mergeQueueRequired: pr.mergeQueueRequired,
+			mergeQueueRemoval: serializePullRequestMergeQueueRemoval(queueable),
 			launchpad: launchpad,
 			stack:
 				stack != null
@@ -1525,10 +1588,31 @@ export class GraphPanelsService {
 					);
 				}
 
+				// Within the shared promise, before categorizing, so the queue's verdict reaches the category
+				// override as well as the rows. Never throws: a failed read costs the queue status, not the list.
+				const mergeQueueByNumber = await this.getMergeQueueEntriesByPullRequestNumber(prs, integration, remote);
+
+				// Merge queues move in minutes, so a list showing a queued pull request isn't held for the full
+				// window.
+				if (
+					this._pullRequestsCache?.promise === promise &&
+					prs.some(pr => isPullRequestInMergeQueue(joinPullRequestMergeQueue(pr, mergeQueueByNumber)))
+				) {
+					this._pullRequestsCache.expiresAt = Math.min(
+						this._pullRequestsCache.expiresAt,
+						Date.now() + pullRequestsQueuedCacheExpiration,
+					);
+				}
+
 				// Categorize within the shared promise so the rows wait on it exactly once, no matter how
 				// many panel opens land on this fetch. It neither throws nor waits unbounded, so it can cost
 				// the enrichment but never the list.
-				const launchpadByPr = await this.categorizeSidebarPullRequests(prs, integration, viewer);
+				const launchpadByPr = await this.categorizeSidebarPullRequests(
+					prs,
+					integration,
+					viewer,
+					mergeQueueByNumber,
+				);
 
 				// A viewer that timed out categorized every row viewer-less. That's a worse answer than the one
 				// a second attempt would give — the account request it gave up on has very likely landed in
@@ -1559,7 +1643,7 @@ export class GraphPanelsService {
 					);
 				}
 
-				return { prs: prs, launchpadByPr: launchpadByPr };
+				return { prs: prs, launchpadByPr: launchpadByPr, mergeQueueByNumber: mergeQueueByNumber };
 			},
 			(ex: unknown) => {
 				evict();
@@ -1568,6 +1652,35 @@ export class GraphPanelsService {
 		);
 		this._pullRequestsCache = { key: key, expiresAt: Date.now() + pullRequestsCacheExpiration, promise: promise };
 		return promise;
+	}
+
+	/**
+	 * INTERIM (goals S6): remove once provider-apis carries the merge-queue entry on its pull requests. GitHub.com's
+	 * merge-queue entries for the open pull requests' base branches, keyed by number — one request for the repository.
+	 * Skipped when every row's own read already selected its queue (the provider-native fallback). Best-effort: any
+	 * failure is logged and yields `undefined`, so the rows render without queue status rather than not at all.
+	 */
+	private async getMergeQueueEntriesByPullRequestNumber(
+		prs: readonly PullRequest[],
+		integration: GitHostIntegration,
+		remote: GitRemote<RemoteProvider>,
+	): Promise<Map<number, PullRequestMergeQueueEntry> | undefined> {
+		if (integration.id !== GitCloudHostIntegrationId.GitHub) return undefined;
+		if (prs.every(pr => getPullRequestFieldPresence(pr)?.mergeQueue === 'fetched')) return undefined;
+
+		const owner = remote.provider.owner;
+		const repo = remote.provider.repoName;
+		if (owner == null || repo == null) return undefined;
+
+		const branches = getMergeQueueBaseBranches(prs);
+		if (!branches.length) return undefined;
+
+		try {
+			return await integration.getMergeQueueEntriesByPullRequestNumber?.(owner, repo, branches);
+		} catch (ex) {
+			Logger.warn(`Unable to resolve merge queues for ${owner}/${repo}: ${ex}`, 'getSidebarPullRequests');
+			return undefined;
+		}
 	}
 
 	/** The repo's open pull requests, with whether the paged read reported them incomplete, or `undefined`

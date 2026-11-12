@@ -7,6 +7,7 @@ import '../../container.js';
 import * as sinon from 'sinon';
 import { commands, ConfigurationTarget, extensions, window } from 'vscode';
 import { getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
+import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -157,6 +158,8 @@ function makeContainer(options?: {
 	worktrees?: unknown[];
 	onGetWorktrees?: () => Promise<unknown[]>;
 	keplerInstalled?: boolean;
+	/** Replaces the Kepler fake, so a test can flip `installed` mid-session and fire `onDidChange` */
+	kepler?: { installed: boolean | undefined; onDidChange: Event<void> };
 }): Container {
 	const noopDisposable = { dispose: () => {} };
 	return {
@@ -171,7 +174,7 @@ function makeContainer(options?: {
 			onDidChangeRepositories: () => noopDisposable,
 		},
 		telemetry: { sendEvent: () => {} },
-		kepler: { installed: options?.keplerInstalled },
+		kepler: options?.kepler ?? { installed: options?.keplerInstalled, onDidChange: () => noopDisposable },
 		agents: { getAll: () => Promise.resolve([]), invalidateCache: () => {} },
 		onReady: () => noopDisposable,
 	} as unknown as Container;
@@ -359,6 +362,28 @@ suite('AgentStatusService session snapshot publishing', () => {
 			} finally {
 				dispose();
 			}
+		}
+	});
+
+	test('offers Open Session in Kepler on an existing session once Kepler is installed mid-session', () => {
+		const onDidChangeKepler = new Emitter<void>();
+		const kepler = { installed: false as boolean | undefined, onDidChange: onDidChangeKepler.event };
+		const { provider, service, published, dispose } = setup({ kepler: kepler });
+		try {
+			provider.sessions = [makeSession({ id: 'mapped', providerId: 'claudeCode' })];
+			provider.fire();
+			assert.strictEqual(service.getSerializedSessions()[0]?.keplerAgent, undefined);
+			const before = published.length;
+
+			// Installed from GitLens; the session itself stays quiet, so no provider event follows
+			kepler.installed = true;
+			onDidChangeKepler.fire();
+
+			assert.strictEqual(published.length, before + 1);
+			assert.strictEqual(service.getSerializedSessions()[0]?.keplerAgent, 'claude-code');
+		} finally {
+			dispose();
+			onDidChangeKepler.dispose();
 		}
 	});
 

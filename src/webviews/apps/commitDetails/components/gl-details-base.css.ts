@@ -39,13 +39,11 @@ export const detailsBaseStyles = [
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-base);
 			font-weight: 500;
-			color: var(--color-foreground--85);
 			white-space: nowrap;
 		}
 
 		.compare-header__mode-icon {
 			flex: 0 0 auto;
-			color: var(--mode-accent, var(--vscode-foreground));
 		}
 
 		/* Section layout */
@@ -87,8 +85,6 @@ export const detailsBaseStyles = [
 			position: relative;
 			padding: 0.5rem;
 			font-size: var(--gl-font-base);
-			background: var(--vscode-input-background);
-			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-xs) var(--gl-radius-xs) 0 0;
 		}
 
@@ -134,8 +130,6 @@ export const detailsBaseStyles = [
 		.message-block-row--actions {
 			padding: var(--gl-space-2);
 			font-size: var(--gl-font-base);
-			color: var(--color-foreground--65);
-			background: var(--color-background--level-075);
 		}
 
 		.message-block-row--actions:last-child {
@@ -180,14 +174,6 @@ export const detailsBaseStyles = [
 			--code-icon-size: 12px;
 		}
 
-		.message-block-row--actions gl-action-chip.error {
-			background-color: var(--color-alert-errorBackground);
-		}
-
-		.message-block-row--actions gl-action-chip.warning {
-			background-color: var(--color-alert-warningHoverBackground);
-		}
-
 		/* Reachability styles */
 		.reachability-summary {
 			display: flex;
@@ -228,7 +214,7 @@ export const detailsBaseStyles = [
 			max-width: 100%;
 			padding: 0.1rem 0.25rem;
 			overflow: hidden;
-			color: var(--color-foreground--65);
+			color: var(--vscode-descriptionForeground);
 			border-radius: var(--gl-radius-sm);
 			--chip-text-transform: none;
 			--chip-background: transparent;
@@ -285,7 +271,7 @@ export const detailsBaseStyles = [
 			padding-left: var(--gl-space-4);
 			font-size: var(--gl-font-micro);
 			font-weight: var(--gl-font-weight-semibold);
-			color: var(--color-foreground--50);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.reachability-popover {
@@ -388,14 +374,11 @@ export const detailsBaseStyles = [
 			padding: 0.5rem;
 			margin-top: var(--gl-space-10);
 			font-size: var(--gl-font-base);
-			background: var(--vscode-input-background);
-			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-xs);
 		}
 
 		.ai-content.has-error {
 			padding-left: var(--gl-space-8);
-			border-left-color: var(--color-alert-errorBorder);
 			border-left-width: 0.3rem;
 		}
 
@@ -413,7 +396,6 @@ export const detailsBaseStyles = [
 		/* Popover content */
 		.popover-content {
 			padding: var(--gl-space-8) var(--gl-space-12);
-			background-color: var(--color-background--level-15);
 		}
 
 		/* Alert */
@@ -426,9 +408,9 @@ export const detailsBaseStyles = [
 			max-width: 100%;
 			padding: var(--gl-space-4) var(--gl-space-8);
 			margin-block: 0;
-			color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
-			background-color: var(--color-alert-warningBackground);
-			border: var(--gl-border-width) solid var(--color-alert-warningBorder);
+			color: var(--gl-color-feedback-warning-fg);
+			background-color: var(--gl-color-feedback-warning-bg);
+			border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -484,8 +466,7 @@ export const detailsBaseStyles = [
 			justify-content: center;
 			width: 100%;
 			height: 100%;
-			border-top: var(--gl-border-width) solid
-				color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
+			border-top: var(--gl-border-width) solid var(--gl-color-divider-base);
 		}
 
 		:host([variant='embedded']) .split__handle::after {
@@ -494,7 +475,7 @@ export const detailsBaseStyles = [
 			width: 7rem;
 			height: 0.3rem;
 			content: '';
-			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--color-background));
+			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--gl-color-surface-base));
 			border-radius: var(--gl-radius-xs);
 			transition: background-color var(--gl-duration-fast) ease;
 		}

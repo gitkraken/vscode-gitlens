@@ -15,7 +15,7 @@ import type { Container } from '../../../container.js';
 import { executeGitCommand } from '../../../git/actions.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import type { GlRepository } from '../../../git/models/repository.js';
-import { getBranchWorktree } from '../../../git/utils/-webview/branch.utils.js';
+import { getBranchMergeTargetInfo, getBranchWorktree } from '../../../git/utils/-webview/branch.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
@@ -121,21 +121,66 @@ export async function deleteBranchOrWorktree(
 	container: Container,
 	ref: BranchRef,
 	mergeTarget?: BranchRef,
+	options?: { mergedPullRequest?: { id: string; sha: string } },
 ): Promise<void> {
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) return;
+	// This command only ever deleted local branches and worktrees; deleting a remote branch has its own command
+	if (branch.remote) return;
 
 	const worktree =
 		branch.worktree === false ? undefined : (branch.worktree ?? (await getBranchWorktree(container, branch)));
 
-	if (branch.current && mergeTarget != null && (!worktree || worktree.isDefault)) {
-		const mergeTargetLocalBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
+	// The merged pull request only vouches for the tip it was checked against — a commit since may not be in it
+	const mergedPullRequest =
+		options?.mergedPullRequest != null && options.mergedPullRequest.sha === branch.sha
+			? options.mergedPullRequest
+			: undefined;
+
+	const deleteWizardState = {
+		subcommand: 'delete',
+		repo: ref.repoPath,
+		references: branch,
+		...(mergedPullRequest != null
+			? {
+					flags: ['--force'] as ('--force' | '--remotes')[],
+					reason: l10n.t('Pull request #{0} was merged', mergedPullRequest.id),
+				}
+			: undefined),
+	} as const;
+
+	if (!worktree || worktree.isDefault) {
+		if (!branch.current) {
+			void executeGitCommand({ command: 'branch', state: deleteWizardState });
+			return;
+		}
+
+		let switchToBranchName: string | undefined;
+		if (mergeTarget != null) {
+			switchToBranchName = getBranchNameWithoutRemote(mergeTarget.branchName);
+		} else {
+			const info = await getBranchMergeTargetInfo(container, branch, { timeout: 5000 });
+			const fallback = info.target?.ref ?? info.baseBranch ?? info.defaultBranch;
+			switchToBranchName = fallback != null ? getBranchNameWithoutRemote(fallback) : undefined;
+		}
+
+		// The default branch's merge target is its own upstream, which strips back to the branch itself
+		if (!switchToBranchName || switchToBranchName === branch.name) {
+			void window.showWarningMessage(
+				l10n.t(
+					"Unable to delete the current branch '{0}' because there is no other branch to switch to. Switch to another branch and try again.",
+					branch.name,
+				),
+			);
+			return;
+		}
+
 		const continueItem = { title: l10n.t('Continue') };
 		const confirm = await window.showWarningMessage(
 			l10n.t(
 				"Before deleting the current branch '{0}', you will be switched to '{1}'.",
 				branch.name,
-				mergeTargetLocalBranchName,
+				switchToBranchName,
 			),
 			{ modal: true },
 			continueItem,
@@ -143,20 +188,13 @@ export async function deleteBranchOrWorktree(
 		if (confirm !== continueItem) return;
 
 		try {
-			await container.git.getRepositoryService(ref.repoPath).ops?.checkout(mergeTargetLocalBranchName);
+			await container.git.getRepositoryService(ref.repoPath).ops?.checkout(switchToBranchName);
 		} catch (ex) {
-			void showGitErrorMessage(ex, l10n.t("Unable to switch to branch '{0}'", mergeTargetLocalBranchName));
+			void showGitErrorMessage(ex, l10n.t("Unable to switch to branch '{0}'", switchToBranchName));
 			return;
 		}
 
-		void executeGitCommand({
-			command: 'branch',
-			state: {
-				subcommand: 'delete',
-				repo: ref.repoPath,
-				references: branch,
-			},
-		});
+		void executeGitCommand({ command: 'branch', state: deleteWizardState });
 	} else if (repo != null && worktree != null && !worktree.isDefault) {
 		const commonRepo = await repo.git.getOrOpenCommonRepository();
 		const defaultWorktree = await repo.git.worktrees?.getWorktree(w => w.isDefault);

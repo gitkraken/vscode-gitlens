@@ -38,7 +38,7 @@ export const graphJumpToastStyles = css`
 
 	.toast {
 		--gl-elevation: var(--gl-shadow-popover);
-		--gl-elevation-border-color: var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		--gl-elevation-border-color: var(--gl-color-border-overlay);
 
 		display: flex;
 		gap: 0.6rem;
@@ -47,7 +47,7 @@ export const graphJumpToastStyles = css`
 		font-size: var(--gl-font-md);
 		color: var(--vscode-descriptionForeground);
 		pointer-events: auto;
-		background: var(--vscode-editorWidget-background);
+		background: var(--gl-color-surface-overlay);
 		border-radius: var(--gl-radius-md);
 		${elevatedSurface}
 	}
@@ -56,7 +56,7 @@ export const graphJumpToastStyles = css`
 		display: flex;
 		flex: none;
 		align-items: center;
-		color: var(--color-foreground--65);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.toast__message {
@@ -83,7 +83,7 @@ export const graphJumpToastStyles = css`
 		padding: 0.2rem 0.5rem;
 		font: inherit;
 		font-size: var(--gl-font-md);
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-color-action-link-fg);
 		cursor: pointer;
 		background: none;
 		border: var(--gl-border-width) solid transparent;
@@ -97,9 +97,9 @@ export const graphJumpToastStyles = css`
 	}
 
 	.toast__action:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 0;
-		border-color: var(--vscode-focusBorder);
+		border-color: var(--gl-color-border-focus);
 	}
 
 	.toast__dismiss {

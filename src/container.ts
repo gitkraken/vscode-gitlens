@@ -11,8 +11,8 @@ import {
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
-import { createIntegrationService } from '@gitlens/integrations/integrationService.js';
-import type { IntegrationService } from '@gitlens/integrations/integrationService.js';
+import type { IntegrationManager } from '@gitlens/integrations/index.js';
+import { createIntegrationManager } from '@gitlens/integrations/index.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { once } from '@gitlens/utils/event.js';
@@ -687,10 +687,10 @@ export class Container {
 		return this._integrationContext;
 	}
 
-	private _integrations: IntegrationService | undefined;
-	get integrations(): IntegrationService {
+	private _integrations: IntegrationManager | undefined;
+	get integrations(): IntegrationManager {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = createIntegrationService(this.integrationContext)));
+			this._disposables.push((this._integrations = createIntegrationManager(this.integrationContext)));
 		}
 		return this._integrations;
 	}

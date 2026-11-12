@@ -45,6 +45,8 @@ import {
 } from '../exec/git.js';
 import type { HeadState } from '../exec/headState.js';
 import { getMovedHead, readHeadState } from '../exec/headState.js';
+import type { IndexRefresher } from '../exec/indexRefresh.js';
+import { refreshIndexAfter } from '../exec/indexRefresh.js';
 import { resolveBranchRemote } from './branchRemote.js';
 import { parseGitBoolean } from './config.js';
 
@@ -118,7 +120,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		private readonly git: Git,
 		private readonly cache: Cache,
 		private readonly provider: CliGitProviderInternal,
+		private readonly indexRefresher?: IndexRefresher,
 	) {}
+
+	scheduleIndexRefresh(repoPath: string): void {
+		this.indexRefresher?.schedule(repoPath);
+	}
 
 	@debug()
 	async checkout(
@@ -141,7 +148,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params),
+			);
 			if (options?.createBranch) {
 				// Evict the cached base only — see `createBranch` on why the persisted keys stay.
 				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
@@ -212,7 +221,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		try {
 			await this.runMovingHeadBranch(repoPath, () =>
-				this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args),
+				refreshIndexAfter(this.indexRefresher, repoPath, () =>
+					this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args),
+				),
 			);
 			return { conflicted: false };
 		} catch (ex) {
@@ -731,10 +742,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		try {
 			await this.runMovingHeadBranch(repoPath, () =>
-				this.git.run(
-					// Avoid a timeout since merges can take a long time (set to 0 to disable)
-					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
-					...args,
+				refreshIndexAfter(this.indexRefresher, repoPath, () =>
+					this.git.run(
+						// Avoid a timeout since merges can take a long time (set to 0 to disable)
+						{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
+						...args,
+					),
 				),
 			);
 			return { conflicted: false };
@@ -920,7 +933,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, configs: gitConfigsPull, errors: 'throw', ...runOptions }, ...params);
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, configs: gitConfigsPull, errors: 'throw', ...runOptions }, ...params),
+			);
 		} catch (ex) {
 			if (isRunHookFailure(ex)) throw ex;
 
@@ -1259,10 +1274,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'rebase', 'started');
 		try {
 			try {
-				await this.git.run(
-					// Avoid a timeout since rebases can take a long time (set to 0 to disable)
-					{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions, env: env },
-					...args,
+				await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+					this.git.run(
+						// Avoid a timeout since rebases can take a long time (set to 0 to disable)
+						{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions, env: env },
+						...args,
+					),
 				);
 			} finally {
 				this.announceHeadChanged(repoPath, undefined, undefined, true);
@@ -1326,7 +1343,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		params.push(rev, '--');
 
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
+			await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+				this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params),
+			);
 		} catch (ex) {
 			if (isRunHookFailure(ex)) throw ex;
 
@@ -1374,9 +1393,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				}
 				args.push('--pathspec-from-file=-', '--pathspec-file-nul');
 				ran = true;
-				await this.git.run(
-					{ cwd: repoPath, errors: 'throw', ...runOptions, stdin: normalized.join('\0') },
-					...args,
+				await refreshIndexAfter(this.indexRefresher, repoPath, () =>
+					this.git.run(
+						{ cwd: repoPath, errors: 'throw', ...runOptions, stdin: normalized.join('\0') },
+						...args,
+					),
 				);
 			} else {
 				// Older git: pass pathspecs as args, one git invocation per chunk (collapsing N
@@ -1385,10 +1406,16 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				// can't exceed the OS limit even with many short paths.
 				const perArgOverhead = 3;
 				const prefixLength = prefix.reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
-				for (const batch of chunkByStringLength(normalized, maxGitCliLength - prefixLength, perArgOverhead)) {
-					ran = true;
-					await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...prefix, ...batch);
-				}
+				await refreshIndexAfter(this.indexRefresher, repoPath, async () => {
+					for (const batch of chunkByStringLength(
+						normalized,
+						maxGitCliLength - prefixLength,
+						perArgOverhead,
+					)) {
+						ran = true;
+						await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...prefix, ...batch);
+					}
+				});
 			}
 		} catch (ex) {
 			scope?.error(ex);
@@ -1437,10 +1464,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		try {
 			await this.runMovingHeadBranch(repoPath, () =>
-				this.git.run(
-					// Avoid a timeout since reverts can take a long time (set to 0 to disable)
-					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
-					...args,
+				refreshIndexAfter(this.indexRefresher, repoPath, () =>
+					this.git.run(
+						// Avoid a timeout since reverts can take a long time (set to 0 to disable)
+						{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
+						...args,
+					),
 				),
 			);
 			return { conflicted: false };

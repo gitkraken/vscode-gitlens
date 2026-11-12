@@ -230,6 +230,11 @@ export const MergeQuickInputButton: QuickInputButton = {
 	tooltip: l10n.t('Merge...'),
 };
 
+export const AddToMergeQueueQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('merge'),
+	tooltip: l10n.t('Add to Merge Queue...'),
+};
+
 export const OpenLogsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('output'),
 	tooltip: l10n.t('Open Logs'),

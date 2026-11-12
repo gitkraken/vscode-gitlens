@@ -240,9 +240,13 @@ export const resolveDisplayStyles = css`
 		transform: translateY(0.05em);
 	}
 
+	/* The border pairs the callout fill; the padding gives its width back so the badge stays the
+	   size of its unbordered siblings. */
 	.resolve-file__badge--warn {
-		color: var(--vscode-inputValidation-warningForeground, var(--vscode-badge-foreground));
-		background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background));
+		padding: calc(0.25rem - var(--gl-border-width)) calc(0.5rem - var(--gl-border-width));
+		color: var(--gl-color-feedback-warning-fg);
+		background: var(--gl-color-feedback-warning-bg);
+		border: var(--gl-border-width) solid var(--gl-color-feedback-warning-border);
 	}
 
 	/* AI confidence pips — neutral; low tints to warning (the only actionable level). */
@@ -273,7 +277,7 @@ export const resolveDisplayStyles = css`
 	}
 
 	.resolve-file__conf--low {
-		color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
+		color: var(--gl-color-feedback-warning-quiet-fg);
 	}
 
 	/* AI reasoning block + its "see more" expander. The clamp is deliberately its own class rather than
@@ -302,7 +306,7 @@ export const resolveDisplayStyles = css`
 		padding: var(--gl-space-2) 0;
 		font: inherit;
 		font-size: var(--gl-font-sm);
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-color-action-link-fg);
 		cursor: pointer;
 		background: transparent;
 		border: none;
@@ -329,7 +333,7 @@ export const resolveDisplayStyles = css`
 		gap: 0.3rem;
 		align-items: center;
 		width: fit-content;
-		color: var(--vscode-textLink-foreground);
+		color: var(--gl-color-action-link-fg);
 		cursor: pointer;
 		list-style: none;
 	}
@@ -345,7 +349,7 @@ export const resolveDisplayStyles = css`
 	}
 
 	.resolve-file__consulted-summary:focus-visible {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
 		outline-offset: 2px;
 	}
 

@@ -107,7 +107,8 @@ export class VslsGitProvider extends GlCliGitProvider {
 			for (const r of repositories) {
 				const repoUri = Uri.parse(r.folderUri, true);
 
-				const gitDir = await this.provider.config.getGitDir?.(repoUri.fsPath);
+				// A git that gave no answer skips only this repository, as discovery does elsewhere
+				const gitDir = await this.provider.config.getGitDir?.(repoUri.fsPath).catch(() => undefined);
 				if (gitDir == null) {
 					scope?.warn(`Unable to get gitDir for '${repoUri.toString(true)}'`);
 					continue;

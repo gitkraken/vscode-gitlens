@@ -5,7 +5,7 @@ import type { PullRequestMember, PullRequestProjection, PullRequestReviewer } fr
 import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import type { PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../../reads/etag.js';
 
 export interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;

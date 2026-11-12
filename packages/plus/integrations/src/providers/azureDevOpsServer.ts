@@ -1,4 +1,5 @@
 import type { CollectionScopeFailure } from '@gitkraken/provider-apis';
+import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
 import type { PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
@@ -14,18 +15,23 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	IntegrationReadUnavailableError,
+	RequestNotFoundError,
+} from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { RepositoryCoordinate } from '../models/gitHostIntegration.js';
 import type {
-	IntegrationKey,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
+import type { IntegrationKey } from '../models/publicIntegration.js';
 import { getAzureRepositoryIdentity } from './azure/azure.utils.js';
 import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
@@ -52,6 +58,7 @@ import {
 	toAzureReviewerReads,
 	uniqueAzureNames,
 } from './azureDevOps.js';
+import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderAzureResource,
@@ -62,13 +69,13 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
-	providersMetadata,
 	PullRequestFilter,
 	pullRequestNamesPeople,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
+import { providerFanOutConcurrency } from './utils/providerPaging.js';
 
 /**
  * Whether `value` can stand as one route segment. Encoding keeps `.` and `..` as they are, and a URL resolves them
@@ -76,6 +83,14 @@ import { discoveryCacheTtl } from './utils/discoveryCache.js';
  */
 function isAzureRouteSegment(value: string): boolean {
 	return value.length > 0 && value !== '.' && value !== '..';
+}
+
+/**
+ * A request the credential was refused with a `401`: how Azure DevOps Server answers a server-level read with a token
+ * limited to one collection (#6071). A `403` (a missing permission) or any other failure is not one.
+ */
+function isServerLevelRefusal(ex: unknown): ex is AuthenticationError {
+	return ex instanceof AuthenticationError && ex.reason === AuthenticationErrorReason.Unauthorized;
 }
 
 /**
@@ -403,6 +418,143 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	override invalidateDiscoveryCaches(): void {
 		super.invalidateDiscoveryCaches();
 		this._collectionNames.clear();
+		this._tokenCollections.clear();
+	}
+
+	/**
+	 * The collection a token limited to one collection is limited to, per credential and installation, once the server
+	 * level refused it and {@link findTokenCollection} found it (#6071). Kept with the account it was found with, and
+	 * dropped with the other discovery caches.
+	 */
+	private readonly _tokenCollections = new Map<string, string>();
+
+	/** The address of `collection`'s own routes, e.g. its connection data. */
+	private collectionAddress(session: ProviderAuthenticationSession, collection: string): string {
+		return `${this.collectionApiBaseUrl(session, collection)}/${encodeURIComponent(collection)}`;
+	}
+
+	/**
+	 * Finds the collection a token the server level refused is limited to, and the current user there.
+	 *
+	 * Azure DevOps Server can limit a personal access token to one collection (the token dialog's "Organization"
+	 * choice). The server level refuses such a token with a `401`, and nothing there names its collection: the server's
+	 * connection data, collection list and resource areas all refuse it too. So this tries, in order, the collection the
+	 * read names, the ones this connection already discovered, those of the repositories open on this installation, and
+	 * `DefaultCollection`, the installer's default; the first whose own connection data answers is the token's.
+	 *
+	 * A candidate that refuses the token or doesn't exist is skipped; any other failure is that failure, not a reason to
+	 * try the next one. `undefined` when no candidate answers.
+	 */
+	private async findTokenCollection(
+		session: ProviderAuthenticationSession,
+		candidates: readonly string[],
+	): Promise<{ id: string; name?: string; email?: string; username?: string } | undefined> {
+		const azure = await this.authenticationService.apis.azure;
+		if (azure == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		for (const collection of candidates) {
+			try {
+				const user = await azure.getCurrentUserOnServer(
+					this,
+					token,
+					this.collectionAddress(session, collection),
+				);
+				if (user != null) {
+					this._tokenCollections.set(this.discoveryKey(session), collection);
+					return user;
+				}
+			} catch (ex) {
+				if (!(ex instanceof AuthenticationError) && !(ex instanceof RequestNotFoundError)) throw ex;
+			}
+		}
+
+		return undefined;
+	}
+
+	/** See {@link findTokenCollection}: deduplicated in the order they are tried, compared as Azure compares names. */
+	private async getTokenCollectionCandidates(
+		session: ProviderAuthenticationSession,
+		organization: string | undefined,
+	): Promise<{ candidates: string[]; shortFormCollections: string[] }> {
+		const known = this._organizations?.get(this.discoveryKey(session))?.map(o => o.name) ?? [];
+		const remotes = await this.ctx.repositories.getOpenRemotes();
+		const owners = await Promise.all(
+			remotes.map(async r =>
+				(await this.authenticationService.getByRemote(r)) === this ? r.provider?.owner : undefined,
+			),
+		);
+		const baseUrl = this.apiBaseUrlFor(session);
+		const shortFormCollections = uniqueAzureNames(
+			remotes.flatMap((r, i) => {
+				const owner = owners[i];
+				if (owner == null || getAzureScopeVirtualDirectory(baseUrl, owner) == null) return [];
+
+				const { projectName } = getAzureRepositoryIdentity({ owner: owner, name: r.provider?.repoName ?? '' });
+				return projectName != null ? [projectName] : [];
+			}),
+		);
+		return {
+			candidates: uniqueAzureNames(
+				[organization, ...known, ...owners, ...shortFormCollections, 'DefaultCollection'].filter(
+					(c): c is string => Boolean(c),
+				),
+			),
+			shortFormCollections: shortFormCollections,
+		};
+	}
+
+	/**
+	 * The current user on the server, or, when the server level refuses a token limited to one collection, in that
+	 * collection (see {@link findTokenCollection}). The account is then the collection's identity, which is also the id
+	 * the collection's creator and reviewer filters compare against (see {@link getFilterUserId}).
+	 */
+	private async getCurrentUser(
+		session: ProviderAuthenticationSession,
+		organization?: string,
+	): Promise<{ id: string; name?: string; email?: string; username?: string; avatarUrl?: string } | undefined> {
+		const azure = await this.authenticationService.apis.azure;
+		if (azure == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const known = this._tokenCollections.get(this.discoveryKey(session));
+		if (known != null) return azure.getCurrentUserOnServer(this, token, this.collectionAddress(session, known));
+
+		try {
+			return await azure.getCurrentUserOnServer(this, token, this.apiBaseUrlFor(session));
+		} catch (ex) {
+			if (!isServerLevelRefusal(ex)) throw ex;
+
+			const refused = this.apiBaseUrlFor(session).toLowerCase();
+			const { candidates, shortFormCollections } = await this.getTokenCollectionCandidates(session, organization);
+			const alreadyAddressesCandidate = candidates.some(
+				c => this.collectionAddress(session, c).toLowerCase() === refused,
+			);
+			const user = await this.findTokenCollection(
+				session,
+				alreadyAddressesCandidate ? shortFormCollections : candidates,
+			);
+			if (user != null) return user;
+
+			throw alreadyAddressesCandidate ? ex : this.toServerLevelRefusal(session, ex);
+		}
+	}
+
+	/**
+	 * The refusal a read reports when neither the server level nor any collection {@link findTokenCollection} tried
+	 * accepts the token. It stays an authentication failure, so the connection is recovered exactly as before; only
+	 * its wording names a collection-limited token as a possible cause, which "invalid or expired" alone hides.
+	 */
+	private toServerLevelRefusal(session: ProviderAuthenticationSession, ex: AuthenticationError): AuthenticationError {
+		const { accessToken: _accessToken, ...tokenInfo } = toTokenWithInfo(this.id, session);
+		return new AuthenticationError(
+			tokenInfo,
+			l10n.t(
+				"Your '{0}' credentials were refused: the token is invalid or expired, or it is limited to a collection that couldn't be found. Use a token for all accessible organizations, or open a repository from the token's collection.",
+				this.id,
+			),
+			ex,
+		);
 	}
 
 	/**
@@ -411,34 +563,69 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * `webApplicationRelativeDirectory` spells it, and reports it as the one collection visible there. When that read
 	 * fails, the address is presumed to name a collection, which the failure carries (see {@link getCollectionNames}) for
 	 * as long as the failed discovery is kept; connection data that answers for the server says it doesn't.
+	 *
+	 * A token limited to one collection sees only that collection, which the server level refuses to list (#6071): it
+	 * is the collection {@link findTokenCollection} found, read there the same way.
 	 */
 	protected override async requestResourcesForUser(
 		session: ProviderAuthenticationSession,
 		userId: string,
+		organization?: string,
 	): Promise<ProviderAzureResource[] | undefined> {
-		try {
-			return await super.requestResourcesForUser(session, userId);
-		} catch (ex) {
-			if (!(ex instanceof RequestNotFoundError)) throw ex;
-
-			const azure = await this.authenticationService.apis.azure;
-			let addressed;
+		let collection = this._tokenCollections.get(this.discoveryKey(session));
+		if (collection == null) {
 			try {
-				addressed = await azure?.getAddressedCollection(
-					this,
-					toTokenWithInfo(this.id, session),
-					this.apiBaseUrlFor(session),
-				);
-			} catch (collectionError) {
-				if (typeof collectionError === 'object' && collectionError != null) {
-					this._collectionListRefusals.add(collectionError);
-				}
-				throw collectionError;
-			}
-			if (addressed == null) throw ex;
+				return await super.requestResourcesForUser(session, userId, organization);
+			} catch (ex) {
+				if (isServerLevelRefusal(ex)) {
+					// The account may have come from a cache (e.g. the stored one) rather than a lookup that placed a
+					// token limited to one collection, so it is looked up again: a server level that accepts the token
+					// for that lookup refuses only the list, and that refusal stands.
+					await this.getCurrentUser(session, organization);
+					collection = this._tokenCollections.get(this.discoveryKey(session));
+					if (collection == null) throw ex;
+				} else {
+					if (!(ex instanceof RequestNotFoundError)) throw ex;
 
-			return [addressed];
+					return [await this.getCollectionAddressedBy(session, ex)];
+				}
+			}
 		}
+
+		const azure = await this.authenticationService.apis.azure;
+		const addressed = await azure?.getAddressedCollection(
+			this,
+			toTokenWithInfo(this.id, session),
+			this.collectionAddress(session, collection),
+		);
+		return [addressed ?? { id: collection, name: collection }];
+	}
+
+	/**
+	 * The collection the address names, read from its own connection data, once the server-level list answered with a
+	 * 404 (see {@link requestResourcesForUser}); the 404 stands when that data answers for the server.
+	 */
+	private async getCollectionAddressedBy(
+		session: ProviderAuthenticationSession,
+		notFound: RequestNotFoundError,
+	): Promise<ProviderAzureResource> {
+		const azure = await this.authenticationService.apis.azure;
+		let addressed;
+		try {
+			addressed = await azure?.getAddressedCollection(
+				this,
+				toTokenWithInfo(this.id, session),
+				this.apiBaseUrlFor(session),
+			);
+		} catch (collectionError) {
+			if (typeof collectionError === 'object' && collectionError != null) {
+				this._collectionListRefusals.add(collectionError);
+			}
+			throw collectionError;
+		}
+		if (addressed == null) throw notFound;
+
+		return addressed;
 	}
 
 	/**
@@ -556,7 +743,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			throw this.searchUnavailable(`the repositories are not in the '${org}' collection`);
 		}
 
-		const collections = await this.getSearchCollections(session);
+		const collections = await this.getSearchCollections(session, org || repoCollections[0]);
 		const name = org || repoCollections[0] || (collections.length === 1 ? collections[0].name : undefined);
 		if (name == null) {
 			throw this.searchUnavailable(
@@ -655,13 +842,15 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		// own, bounded like every other read's and only for a row that names someone. Per page rather than per drain,
 		// so a continuation asks again rather than serving the answer its first page got.
 		const viewerFor = this.getOrganizationViewers(session);
-		const viewers = await Promise.all(
+		// The viewer lookups are shared, so they take no signal; a cancelled page stops waiting for them instead.
+		const lookups = Promise.all(
 			slice.map(r =>
 				r.currentAccount == null && pullRequestNamesPeople(r.pr)
 					? viewerFor(r.collection)
 					: Promise.resolve(r.currentAccount),
 			),
 		);
+		const viewers = await (cancellation != null ? raceWithSignal(lookups, cancellation) : lookups);
 		return {
 			values: slice.map((r, i) =>
 				fromProviderPullRequest(r.pr, this, {
@@ -955,7 +1144,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		repos: ProviderRepoInput[] | undefined,
 		org: string | undefined,
 	): Promise<{ collection: string; project: AzureProjectDescriptor; repository?: string }[]> {
-		const collections = await this.getSearchCollections(session);
+		const collections = await this.getSearchCollections(session, org || repos?.[0]?.namespace);
 		const collectionFor = (name: string): AzureOrganizationDescriptor => {
 			const collection = findAzureCollection(collections, name);
 			if (collection == null) throw this.searchUnavailable(`the '${name}' collection is not visible`);
@@ -1024,14 +1213,20 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const user = await azure?.getCurrentUserOnServer(
 			this,
 			toTokenWithInfo(this.id, session),
-			`${this.collectionApiBaseUrl(session, collection)}/${encodeURIComponent(collection)}`,
+			this.collectionAddress(session, collection),
 		);
 		return user?.id;
 	}
 
-	/** Every collection the account can see, or a refusal when discovery itself failed. */
-	private async getSearchCollections(session: ProviderAuthenticationSession): Promise<AzureOrganizationDescriptor[]> {
-		const collections = await this.getProviderResourcesForUser(session);
+	/**
+	 * Every collection the account can see, or a refusal when discovery itself failed. `named` is the collection the
+	 * search names, if any; see {@link getProviderResourcesForUser}.
+	 */
+	private async getSearchCollections(
+		session: ProviderAuthenticationSession,
+		named?: string,
+	): Promise<AzureOrganizationDescriptor[]> {
+		const collections = await this.getProviderResourcesForUser(session, false, named);
 		if (collections == null) throw this.searchUnavailable('the account’s collections could not be read');
 
 		return collections;
@@ -1101,15 +1296,14 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
 		this._collectionNames.clear();
+		this._tokenCollections.clear();
 	}
 
 	protected override async _requestForCurrentUser(
 		session: ProviderAuthenticationSession,
+		organization?: string,
 	): Promise<Account | undefined> {
-		const azure = await this.authenticationService.apis.azure;
-		const user = azure
-			? await azure.getCurrentUserOnServer(this, toTokenWithInfo(this.id, session), this.apiBaseUrlFor(session))
-			: undefined;
+		const user = await this.getCurrentUser(session, organization);
 		return user
 			? {
 					provider: this,

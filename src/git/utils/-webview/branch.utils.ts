@@ -1,9 +1,11 @@
 import type { BranchDisposition, GitBranch } from '@gitlens/git/models/branch.js';
-import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { MergeTarget } from '@gitlens/git/providers/branches.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { getAzureRepositoryIdentity, isAzureProviderId } from '@gitlens/integrations/index.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
@@ -241,6 +243,96 @@ export async function getBranchAssociatedPullRequest(
 		remote.provider.repoDesc,
 		branch.trackingWithoutRemote ?? branch.nameWithoutRemote,
 		options,
+	);
+}
+
+/**
+ * Every pull request whose head is the branch's upstream name, in any state, newest first — or `undefined` when that
+ * couldn't be asked or answered (an empty list is a proven "none"). Unlike {@link getBranchAssociatedPullRequest},
+ * which looks the ref up, this still finds a merged pull request after the host deleted its head branch.
+ *
+ * One uncached integration read, so it's cached here by branch name for an hour, "none" included.
+ */
+export async function getBranchPullRequestsByHeadName(
+	container: Container,
+	branch: GitBranch,
+): Promise<PullRequest[] | undefined> {
+	if (branch.upstream == null) return undefined;
+
+	const remote = await getBranchRemote(container, branch);
+	if (remote?.provider == null) return undefined;
+
+	const { owner, name } = remote.provider.repoDesc as { owner?: string; name?: string };
+	if (!owner || !name) return undefined;
+
+	const integration = await getRemoteIntegration(remote);
+	if (integration == null || integration.maybeConnected === false) return undefined;
+
+	const branchName = branch.trackingWithoutRemote ?? branch.nameWithoutRemote;
+	let target: { owner: string; repo: string; project?: string };
+	if (isAzureProviderId(integration.id)) {
+		// Azure names a repository `{project}/_git/{repo}`, and the read takes the two apart
+		const identity = getAzureRepositoryIdentity({ owner: owner, name: name });
+		target = { owner: owner, repo: identity.repositoryName, project: identity.projectName };
+	} else {
+		target = { owner: owner, repo: name };
+	}
+
+	return container.cache.getPullRequestsForBranchName(
+		branchName,
+		remote.provider.repoDesc,
+		integration,
+		cacheable => ({
+			value: (async () => {
+				try {
+					const result = await container.integrations.getPullRequestsForBranches({
+						providerId: integration.id,
+						domain: integration.domain,
+						targets: [{ key: branchName, ...target, branch: branchName }],
+					});
+					// A missing key is "couldn't tell", never "none", so it mustn't be cached as one
+					const found = result.items.find(i => i.key === branchName);
+					if (found == null) {
+						cacheable.invalidate();
+						return undefined;
+					}
+
+					// Typed as the plain shape, but each row is built as the `PullRequest` model
+					return found.pullRequests as PullRequest[];
+				} catch {
+					cacheable.invalidate();
+					return undefined;
+				}
+			})(),
+		}),
+	);
+}
+
+/**
+ * Caches `pr` as the branch's pull request, where {@link getBranchAssociatedPullRequest} reads it by branch. A branch
+ * whose upstream is gone is read by its tip instead, which a pull request found by head name may not contain, so it's
+ * left alone.
+ */
+export async function cacheBranchAssociatedPullRequest(
+	container: Container,
+	branch: GitBranch,
+	pr: PullRequest,
+): Promise<void> {
+	// Some hosts' by-name rows are plain shapes, and this cache's readers use the model's getters
+	if (branch.upstream?.missing || !PullRequest.is(pr)) return;
+
+	const remote = await getBranchRemote(container, branch);
+	if (remote?.provider == null) return;
+
+	const integration = await getRemoteIntegration(remote);
+	void container.cache.getPullRequestForBranch(
+		branch.trackingWithoutRemote ?? branch.nameWithoutRemote,
+		remote.provider.repoDesc,
+		integration,
+		// Replaces a by-ref "none", so it keeps that read's 1h life rather than the 12h a long-merged pull request
+		// would get: a follow-up pull request opened for the branch must not stay hidden behind it any longer
+		() => ({ value: pr, expiresAt: Date.now() + 60 * 60 * 1000 }),
+		{ expiryOverride: true },
 	);
 }
 

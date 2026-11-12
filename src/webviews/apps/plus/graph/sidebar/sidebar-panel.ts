@@ -8,6 +8,7 @@ import { URI } from 'vscode-uri';
 import { getAltKeySymbol } from '@env/platform.js';
 import { scrollableBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
+import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
@@ -507,8 +508,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				height: 100%;
 				overflow: visible;
-				background-color: var(--color-view-background);
-				border-color: var(--vscode-sideBar-border, transparent);
+				background-color: var(--gl-color-surface-aside);
+				border-color: var(--gl-color-border-aside, transparent);
 				border-right: var(--gl-border-width) solid transparent;
 			}
 
@@ -557,9 +558,9 @@ would expose the graph through fade or at the gap left by the translate). */
 				padding: 0 0 0 var(--gl-space-4);
 				font-size: var(--gl-view-header-font-size, var(--gl-font-sm));
 				font-weight: var(--gl-view-header-font-weight, var(--gl-font-weight-semibold));
-				color: var(--color-view-header-foreground);
+				color: var(--vscode-sideBarSectionHeader-foreground);
 				text-transform: var(--gl-view-header-text-transform);
-				background-color: var(--color-view-background);
+				background-color: var(--gl-color-surface-aside);
 				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 				border-bottom: var(--gl-border-width) solid transparent;
 			}
@@ -624,13 +625,12 @@ would expose the graph through fade or at the gap left by the translate). */
 				padding: var(--gl-space-4) var(--gl-space-6);
 				font-size: var(--gl-font-sm);
 				color: var(--vscode-descriptionForeground);
-				border-bottom: var(--gl-border-width) solid
-					var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+				border-bottom: var(--gl-border-width) solid var(--gl-color-feedback-danger-border);
 			}
 
 			.error-strip__icon {
 				flex: none;
-				color: var(--vscode-errorForeground);
+				color: var(--gl-color-feedback-danger-quiet-fg);
 			}
 
 			.error-strip__message {
@@ -725,7 +725,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-12);
 				font-style: italic;
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 			}
 		`,
 	];
@@ -1152,6 +1152,7 @@ would expose the graph through fade or at the gap left by the translate). */
 			const keplerBannerVisible = shouldShowKeplerBanner({
 				progress: this._onboarding?.walkthroughProgress.get(),
 				onboardingOptedOut: this._onboarding?.onboardingOptedOut.get(),
+				keplerInstalled: this._onboarding?.kepler.get()?.installed,
 				orgDisabledAi: this._ai?.state.get().orgEnabled === false,
 			});
 			return html`<div class="panel">
@@ -1379,8 +1380,14 @@ would expose the graph through fade or at the gap left by the translate). */
 	}
 
 	private renderKeplerBanner(): unknown {
+		const kepler = this._onboarding?.kepler.get();
 		return html`<div class="kepler-banner">
-			<gl-kepler-banner source="graph-sidebar" layout="responsive"></gl-kepler-banner>
+			<gl-kepler-banner
+				source="graph-sidebar"
+				layout="responsive"
+				?installable=${kepler?.installable === true}
+				?installing=${kepler?.installing === true}
+			></gl-kepler-banner>
 		</div>`;
 	}
 
@@ -1976,7 +1983,7 @@ would expose the graph through fade or at the gap left by the translate). */
 			// indicator (grouping is open-only) — so the glyph is the only thing distinguishing it. Color
 			// comes with it, from GitLens's contributed pull-request colors, and draft keeps its own glyph
 			// so the distinction survives for anyone the hue doesn't reach.
-			icon: { type: 'pull-request', state: pr.state, draft: pr.isDraft },
+			icon: { type: 'pull-request', state: getPullRequestDisplayState(pr), draft: pr.isDraft },
 			description: pr.authorName,
 			decorations: [
 				// Leading, in the scanning column, so provenance reads before the title — the trailing slot stays

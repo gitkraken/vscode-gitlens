@@ -9,7 +9,7 @@ import {
 } from '../constants.js';
 import type { IntegrationIds } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
-import { providersMetadata } from '../providers/models.js';
+import { providersMetadata } from '../providers/metadata.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import type { SearchPageResponse } from './issueSearchHelpers.js';
 import { primarySession, stubGitHubApi } from './issueSearchHelpers.js';

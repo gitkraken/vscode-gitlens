@@ -1,13 +1,8 @@
 import type { Disposable } from 'vscode';
 import { authentication, commands, env, l10n, ProgressLocation, Uri, window } from 'vscode';
-import {
-	CloudIntegrationAuthenticationUriPathPrefix,
-	toCloudIntegrationType,
-} from '@gitlens/integrations/authentication/models.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
-import type { AccountProvider, AuthenticationSessionsChangeEvent } from '@gitlens/integrations/context.js';
-import type { Source } from '@gitlens/integrations/telemetry.js';
-import { detailToContext, sourceToContext } from '@gitlens/integrations/telemetry.js';
+import type { AccountProvider, AuthenticationSessionsChangeEvent, Source } from '@gitlens/integrations/index.js';
+import { toCloudIntegrationType } from '@gitlens/integrations/index.js';
 import { Emitter, promisifyDeferred } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Source as TelemetrySource } from '../../../constants.telemetry.js';
@@ -15,6 +10,19 @@ import type { Container } from '../../../container.js';
 import { openUrl } from '../../../system/-webview/vscode/uris.js';
 import type { ServerConnection } from '../../gk/serverConnection.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../gk/utils/subscription.utils.js';
+
+export const CloudIntegrationAuthenticationUriPathPrefix = 'did-authenticate-cloud-integration';
+
+/**
+ * Maps a telemetry `source`/`detail` to the `&context=` value appended when building cloud-connect URLs.
+ */
+const sourceToContext: { [source: string]: string | undefined } = {
+	launchpad: 'launchpad',
+};
+
+const detailToContext: { [detail: string]: string | undefined } = {
+	mcp: 'mcp',
+};
 
 /**
  * The host-side `account` adapter: the GitKraken account + the GK-Dev connect/manage OAuth round-trips.

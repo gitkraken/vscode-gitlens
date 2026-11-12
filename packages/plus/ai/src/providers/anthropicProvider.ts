@@ -9,6 +9,44 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-fable-5-2',
+		name: 'Claude Fable 5.2',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		// Requires 30-day data retention; ZDR orgs get a 400 on every request
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-opus-5-5',
+		name: 'Claude Opus 5.5',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-sonnet-5-5',
+		name: 'Claude Sonnet 5.5',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-haiku-5-5',
+		name: 'Claude Haiku 5.5',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		default: true,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-fable-5-1',
+		name: 'Claude Fable 5.1',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		// Requires 30-day data retention; ZDR orgs get a 400 on every request
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
 		id: 'claude-opus-5',
 		name: 'Claude Opus 5',
 		maxTokens: { input: 1000000, output: 128000 },
@@ -35,6 +73,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Opus 4.8',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		hidden: true,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
@@ -42,6 +81,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Opus 4.7',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		hidden: true,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
@@ -49,19 +89,21 @@ const models: AnthropicModel[] = [
 		name: 'Claude Sonnet 4.6',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-6',
 		name: 'Claude Opus 4.6',
 		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-haiku-4-5',
 		name: 'Claude Haiku 4.5',
 		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
-		default: true,
+		hidden: true,
 	},
 	{
 		id: 'claude-haiku-4-5-20251001',
@@ -70,6 +112,7 @@ const models: AnthropicModel[] = [
 		provider: provider,
 		hidden: true,
 	},
+	// Anthropic retires Sonnet 4.5 on 2026-11-30 — remove both entries after that date (#6164)
 	{
 		id: 'claude-sonnet-4-5',
 		name: 'Claude Sonnet 4.5',
@@ -97,167 +140,6 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
-	},
-	{
-		id: 'claude-opus-4-1',
-		name: 'Claude Opus 4.1',
-		maxTokens: { input: 200000, output: 32000 },
-		provider: provider,
-		hidden: true,
-		// Structured outputs require the 4.5 generation or newer (this and every entry below)
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-opus-4-1-20250805',
-		name: 'Claude Opus 4.1',
-		maxTokens: { input: 200000, output: 32000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-opus-4-0',
-		name: 'Claude Opus 4',
-		maxTokens: { input: 200000, output: 32000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-opus-4-20250514',
-		name: 'Claude Opus 4',
-		maxTokens: { input: 200000, output: 32000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-sonnet-4-0',
-		name: 'Claude Sonnet 4',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-sonnet-4-20250514',
-		name: 'Claude Sonnet 4',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-7-sonnet-latest',
-		name: 'Claude Sonnet 3.7',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-7-sonnet-20250219',
-		name: 'Claude Sonnet 3.7',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-5-sonnet-latest',
-		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 200000, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-5-sonnet-20241022',
-		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 200000, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-5-sonnet-20240620',
-		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 200000, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-5-haiku-latest',
-		name: 'Claude Haiku 3.5',
-		maxTokens: { input: 200000, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-5-haiku-20241022',
-		name: 'Claude Haiku 3.5',
-		maxTokens: { input: 200000, output: 8192 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-opus-latest',
-		name: 'Claude Opus 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-opus-20240229',
-		name: 'Claude Opus 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-sonnet-latest',
-		name: 'Claude Sonnet 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-sonnet-20240229',
-		name: 'Claude Sonnet 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-haiku-latest',
-		name: 'Claude Haiku 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-3-haiku-20240307',
-		name: 'Claude Haiku 3',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
-	},
-	{
-		id: 'claude-2.1',
-		name: 'Claude 2.1',
-		maxTokens: { input: 200000, output: 4096 },
-		provider: provider,
-		hidden: true,
-		supportsStructuredOutputs: false,
 	},
 ];
 

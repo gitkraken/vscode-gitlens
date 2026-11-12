@@ -39,10 +39,8 @@ async function buildTests(target) {
 		outdir: target === 'webworker' ? 'out/tests/browser' : 'out/tests',
 		platform: target === 'webworker' ? 'browser' : target,
 		// Bundle the `@gitlens/*` workspace packages from source (via the aliases below) rather than
-		// externalizing them. Their published `dist/` is ESM that statically named-imports the CJS
-		// `@gitkraken/provider-apis` (getter-based exports) — which Node's ESM loader can't resolve,
-		// so loading the dist in the test host throws "does not provide an export named ...". Bundling
-		// from source lets esbuild resolve the CJS interop, matching the package's own test runner.
+		// externalizing them: their manifests export TypeScript sources, which Node can't load in the
+		// test host.
 		// `@gitkraken/commit-graph` is a vendored source-only package (extension-less internal
 		// imports), so it must bundle from source too — externalized, Node's ESM loader can't
 		// resolve it in the test host.

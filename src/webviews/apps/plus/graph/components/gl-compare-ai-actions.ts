@@ -81,9 +81,9 @@ animates --angle so the gradient sweeps around the perimeter. */
 			.changelog-btn:hover:not([disabled]),
 			.changelog-btn:focus-visible,
 			.changelog-btn.is-busy {
-				color: var(--vscode-button-foreground);
+				color: var(--gl-color-action-primary-fg);
 				background:
-					linear-gradient(var(--vscode-button-background), var(--vscode-button-background)) padding-box,
+					linear-gradient(var(--gl-color-action-primary-bg), var(--gl-color-action-primary-bg)) padding-box,
 					conic-gradient(
 							from var(--angle, 0deg),
 							var(--gradient-start),
@@ -133,7 +133,7 @@ otherwise stretches its (single, historically) slotted child to fill the row. */
 				padding: 0 var(--gl-space-8);
 				font: inherit;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
+				color: var(--vscode-descriptionForeground);
 				background: none;
 				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-radius-lg);
