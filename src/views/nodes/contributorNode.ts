@@ -5,7 +5,7 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
-import { escapeMarkdown } from '@gitlens/utils/markdown.js';
+import { escapeMarkdown, escapeMarkdownLinkTitle } from '@gitlens/utils/markdown.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
@@ -24,10 +24,6 @@ import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode.js';
 import { insertDateMarkers } from './utils/-webview/node.utils.js';
 
 const markdownCodeToken = '\ue000code\ue001';
-
-function escapeMarkdownLinkTitle(value: string): string {
-	return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
-}
 
 function getMarkdownMailto(email: string): string {
 	const encodedEmail = encodeURIComponent(email).replace(
@@ -297,7 +293,6 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			`${avatarMarkdown ?? ''} &nbsp;${link} \n\n${lastCommitted}${contributions}${stats}`,
 		);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
 
 		item.tooltip = markdown;
 		item.iconPath = avatarUri;

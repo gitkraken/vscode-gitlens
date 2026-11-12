@@ -210,7 +210,6 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
 		return markdown;
 	}
 

@@ -7,6 +7,7 @@ import { makeHierarchical } from '@gitlens/utils/array.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '@gitlens/utils/promise.js';
 import { sortCompare } from '@gitlens/utils/string.js';
+import { trustedMarkdownCommands } from '../../constants.markdown.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import {
 	getCommitEnrichedAutolinks,
@@ -149,7 +150,7 @@ export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashRe
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
+		markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 
 		return markdown;
 	}

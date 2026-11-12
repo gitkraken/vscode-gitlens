@@ -8,7 +8,7 @@ import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
-import { escape, untrustedMarkdownRenderer } from './markdown.utils.js';
+import { escape, getCommandLinkRenderer, isAllowedRawHtml, untrustedMarkdownRenderer } from './markdown.utils.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 
 type BlockRenderMode = 'plain' | 'image-chips' | 'avatar-column';
@@ -16,6 +16,8 @@ type BlockRenderMode = 'plain' | 'image-chips' | 'avatar-column';
 let inlineMarked: Marked | undefined;
 let untrustedInlineMarked: Marked | undefined;
 const blockMarkedByMode = new Map<`${BlockRenderMode}${'' | '|untrusted'}`, Marked>();
+/** Instances for call sites that allow command links, keyed by the identity of their (module-level) allowed list */
+const blockMarkedByAllowedCommands = new WeakMap<readonly string[], Map<BlockRenderMode, Marked>>();
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
@@ -209,6 +211,15 @@ export class GlMarkdown extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	untrusted = false;
 
+	/** The command ids whose `command:` links may render as links; any other `command:` link renders as just its
+	 *  text, and with none given (the default) no command link renders at all. Only for content GitLens itself
+	 *  generated (e.g. host-formatted hovers or autolinks) — never to make arbitrary text's links clickable.
+	 *  Must be a module-level constant array: instances are cached by its identity, so an inline literal would
+	 *  miss the cache (and re-render) every update. Has no effect on `inline` (links are always text) or
+	 *  `untrusted` content. */
+	@property({ attribute: false })
+	allowedCommands?: readonly string[];
+
 	override render(): unknown {
 		return html`${this.markdown ? this.renderMarkdown(this.markdown) : ''}`;
 	}
@@ -253,15 +264,27 @@ export class GlMarkdown extends LitElement {
 		}
 
 		const mode: BlockRenderMode = this.imageChips ? 'image-chips' : this.avatarColumn ? 'avatar-column' : 'plain';
-		const key = this.untrusted ? (`${mode}|untrusted` as const) : mode;
-		let marked = blockMarkedByMode.get(key);
-		if (marked == null) {
-			let renderer = getMarkdownRenderer(mode);
-			if (this.untrusted) {
-				renderer = { ...renderer, ...untrustedMarkdownRenderer };
+		const allowedCommands = this.untrusted ? undefined : this.allowedCommands;
+		let marked;
+		if (allowedCommands?.length) {
+			let markedByMode = blockMarkedByAllowedCommands.get(allowedCommands);
+			if (markedByMode == null) {
+				markedByMode = new Map();
+				blockMarkedByAllowedCommands.set(allowedCommands, markedByMode);
 			}
-			marked = new Marked({ breaks: true, gfm: true, renderer: renderer });
-			blockMarkedByMode.set(key, marked);
+
+			marked = markedByMode.get(mode);
+			if (marked == null) {
+				marked = createBlockMarked(mode, false, new Set(allowedCommands));
+				markedByMode.set(mode, marked);
+			}
+		} else {
+			const key = this.untrusted ? (`${mode}|untrusted` as const) : mode;
+			marked = blockMarkedByMode.get(key);
+			if (marked == null) {
+				marked = createBlockMarked(mode, this.untrusted, undefined);
+				blockMarkedByMode.set(key, marked);
+			}
 		}
 
 		// Untrusted content must not inject theme icons (incl. `~spin`), so it skips icon rendering entirely
@@ -270,6 +293,18 @@ export class GlMarkdown extends LitElement {
 			: renderThemeIconsWithinText(marked.parse(markdownEscapeEscapedIcons(markdown), { async: false }));
 		return unsafeHTML(rewriteInlineStylesToData(rendered));
 	}
+}
+
+function createBlockMarked(
+	mode: BlockRenderMode,
+	untrusted: boolean,
+	allowedCommands: ReadonlySet<string> | undefined,
+): Marked {
+	let renderer: RendererObject = { ...getMarkdownRenderer(mode), ...getCommandLinkRenderer(allowedCommands) };
+	if (untrusted) {
+		renderer = { ...renderer, ...untrustedMarkdownRenderer };
+	}
+	return new Marked({ breaks: true, gfm: true, renderer: renderer });
 }
 
 const leadingImageRegex = /^(<img\b[^>]*>)(?:\s|&nbsp;)*(.*)$/is;
@@ -323,8 +358,7 @@ function getMarkdownRenderer(mode: BlockRenderMode): RendererObject {
 				if (images) return images;
 			}
 
-			const match = text.match(/^(<span[^>]+>)|(<\/\s*span>)$/);
-			return match ? text : '';
+			return isAllowedRawHtml(text) ? text : '';
 		},
 	};
 }
@@ -406,9 +440,13 @@ function getInlineMarkdownRenderer(): RendererObject {
 			// In inline mode, skip horizontal rules
 			return '';
 		},
-		image: function (this: RendererThis, { text }: Tokens.Image): string {
-			// In inline mode, use alt text if available, otherwise skip
-			return text || '';
+		image: function (this: RendererThis, { text, tokens }: Tokens.Image): string {
+			// In inline mode, use alt text if available, otherwise skip. The alt text is raw source, so it is
+			// flattened and escaped (as marked's own `alt` attribute is) rather than emitted as HTML.
+			if (tokens) {
+				text = this.parser.parseInline(tokens, this.parser.textRenderer);
+			}
+			return text ? escape(text) : '';
 		},
 		link: function (this: RendererThis, { tokens }: Tokens.Link): string | false {
 			const text = this.parser.parseInline(tokens);

@@ -57,6 +57,5 @@ export function getFileTooltip(
 export function getFileTooltipMarkdown(file: GitFile | GitStatusFile, suffix?: string): MarkdownString {
 	const tooltip = new MarkdownString(getFileTooltip(file, suffix, 'markdown'), true);
 	tooltip.supportHtml = true;
-	tooltip.isTrusted = true;
 	return tooltip;
 }

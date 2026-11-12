@@ -18,7 +18,7 @@ import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
 import type { FormatOptions, RequiredTokenOptions } from '@gitlens/utils/formatter.js';
 import { Formatter } from '@gitlens/utils/formatter.js';
 import { join, map } from '@gitlens/utils/iterable.js';
-import { escapeMarkdown } from '@gitlens/utils/markdown.js';
+import { defuseMarkdownLinks, escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { TokenOptions } from '@gitlens/utils/string.js';
 import { encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
@@ -964,6 +964,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (outputFormat === 'markdown') {
 			// Block image embeds to prevent tracking pixels from commit messages
 			message = message.replace(/!\[/g, '&#33;&#91;');
+			// Restrict links in the message to web/mail destinations (autolinks are added afterwards, so unaffected)
+			message = defuseMarkdownLinks(message);
 			// Preserve line breaks — Markdown collapses a lone `\n` into whitespace, so convert single
 			// newlines into CommonMark hard line breaks (`  \n`); `\n\n` becomes `  \n  \n` which still
 			// parses as a blank line (paragraph break).

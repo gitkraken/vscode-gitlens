@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds high contrast light defaults for all of GitLens' theme colors &mdash; blame annotations, branch and file decorations, pull request and issue icons, _Commit Graph_ lanes and markers, and _Launchpad_ indicators now meet high contrast levels instead of reusing the light theme's colors ([#2119](https://github.com/gitkraken/vscode-gitlens/issues/2119))
 - Removes an unused inline script from the _Interactive Rebase Editor_ and _Cloud Patch_ details webviews, so their state is only ever embedded as encoded data ([#6201](https://github.com/gitkraken/vscode-gitlens/issues/6201))
+- Hardens how commit messages and pull request and issue text are rendered in hovers, view tooltips, the _Commit Graph_ and _Inspect_ &mdash; links in that text can only open web or mail addresses, and only GitLens' own actions can run commands ([#6200](https://github.com/gitkraken/vscode-gitlens/issues/6200))
 
 ### Fixed
 

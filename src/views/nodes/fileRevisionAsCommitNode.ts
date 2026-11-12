@@ -13,6 +13,7 @@ import { getSettledValue, pauseOnCancelOrTimeoutMapTuplePromise } from '@gitlens
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import type { Colors } from '../../constants.colors.js';
+import { trustedMarkdownCommands } from '../../constants.markdown.js';
 import type { Container } from '../../container.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
@@ -309,7 +310,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
+		markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 		return markdown;
 	}
 }

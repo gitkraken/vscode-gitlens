@@ -11,6 +11,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
+import { trustedMarkdownCommands } from '../../../../../constants.markdown.js';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
 import '../../../shared/components/markdown/markdown.js';
 import '@gitlens/components/components/overlays/popover.js';
@@ -155,6 +156,7 @@ export class GlGraphHover extends GlElement {
 			<div slot="content">
 				<gl-markdown
 					avatar-column
+					.allowedCommands=${trustedMarkdownCommands}
 					.markdown=${until(this.markdown ?? 'Loading...', 'Loading...')}
 				></gl-markdown>
 			</div>

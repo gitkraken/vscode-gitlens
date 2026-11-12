@@ -11,6 +11,7 @@ import {
 	isPullRequestMergeQueueRemovalCurrent,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { escapeMarkdown, escapeMarkdownLinkTitle, getMarkdownWebLinkDestination } from '@gitlens/utils/markdown.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -263,36 +264,44 @@ export function getPullRequestTooltip(
 	pullRequest: PullRequest,
 	context?: { commit?: GitCommit; idPrefix?: string },
 ): MarkdownString {
+	// Emits no `command:` links, so it isn't trusted; the title and author come from the provider, so are escaped
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
-	tooltip.isTrusted = true;
 
+	const id = escapeMarkdown(pullRequest.id);
 	if (context?.commit != null) {
 		tooltip.appendMarkdown(
 			l10n.t(
 				'Commit `$(git-commit) {0}` was introduced by $(git-pull-request) PR #{1}\n\n',
 				context.commit.shortSha,
-				pullRequest.id,
+				id,
 			),
 		);
 	}
 
-	const linkTitle = ` "${l10n.t('Open Pull Request \\#{0} on {1}', pullRequest.id, pullRequest.provider.name)}"`;
+	const providerName = pullRequest.provider.name;
+	const url = getMarkdownWebLinkDestination(pullRequest.url);
+	const linkTitle = ` "${l10n.t(
+		'Open Pull Request \\#{0} on {1}',
+		escapeMarkdownLinkTitle(pullRequest.id),
+		escapeMarkdownLinkTitle(providerName),
+	)}"`;
 	// A provider can report a pull request with no author (a deleted account, or a host with no per-item
 	// creator), which normalizes to an absent `url` and `name`. Interpolating the url produced a link to nowhere,
 	// so fall back to plain text; with no name there's nothing to attribute, so drop the `by …` clause rather
 	// than render `by @undefined` (the provider layer deliberately doesn't invent a placeholder name).
 	const authorName = pullRequest.author.name;
+	const authorUrl = getMarkdownWebLinkDestination(pullRequest.author.url);
 	const attribution =
 		authorName == null
 			? undefined
-			: pullRequest.author.url
-				? `[@${authorName}](${pullRequest.author.url} "${l10n.t(
+			: authorUrl != null
+				? `[@${escapeMarkdown(authorName)}](${authorUrl} "${l10n.t(
 						'Open @{0} on {1}',
-						authorName,
-						pullRequest.provider.name,
+						escapeMarkdownLinkTitle(authorName),
+						escapeMarkdownLinkTitle(providerName),
 					)}")`
-				: `@${authorName}`;
+				: `@${escapeMarkdown(authorName)}`;
 	let status = getPullRequestStatus(pullRequest.state, attribution, PullRequest.formatDateFromNow(pullRequest));
 	if (isPullRequestInMergeQueue(pullRequest)) {
 		status += ` \\\n${formatPullRequestMergeQueueStatus(pullRequest.mergeQueue)}`;
@@ -300,10 +309,12 @@ export function getPullRequestTooltip(
 		status += ` \\\n${formatMergeQueueRemoval(pullRequest.mergeQueueRemoval)}`;
 	}
 
+	const title = `**${escapeMarkdown(pullRequest.title.trim())}**`;
+	const idLabel = `${escapeMarkdown(context?.idPrefix ?? '')}#${id}`;
 	tooltip.appendMarkdown(
-		`${getIssueOrPullRequestMarkdownIcon(pullRequest)} [**${pullRequest.title.trim()}**](${
-			pullRequest.url
-		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${pullRequest.url}${linkTitle}) ${status}`,
+		url != null
+			? `${getIssueOrPullRequestMarkdownIcon(pullRequest)} [${title}](${url}${linkTitle}) \\\n[${idLabel}](${url}${linkTitle}) ${status}`
+			: `${getIssueOrPullRequestMarkdownIcon(pullRequest)} ${title} \\\n${idLabel} ${status}`,
 	);
 	return tooltip;
 }

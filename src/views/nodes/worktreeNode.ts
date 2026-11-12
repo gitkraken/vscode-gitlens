@@ -20,6 +20,7 @@ import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/p
 import { pad } from '@gitlens/utils/string.js';
 import type { IconPath } from '../../@types/vscode.iconpath.d.js';
 import { GlyphChars } from '../../constants.js';
+import { trustedMarkdownCommands } from '../../constants.markdown.js';
 import type { GitUri } from '../../git/gitUri.js';
 import {
 	getBranchAheadRange,
@@ -411,7 +412,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		if (item.tooltip != null) return item;
 
 		const tooltip = new MarkdownString('', true);
-		tooltip.isTrusted = true;
+		tooltip.isTrusted = { enabledCommands: trustedMarkdownCommands };
 
 		const indicators = formatIndicators(
 			this.worktree.isDefault

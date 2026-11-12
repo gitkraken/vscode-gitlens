@@ -17,6 +17,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { serializeIssueOrPullRequest } from '@gitlens/git/utils/issueOrPullRequest.utils.js';
 import { map } from '@gitlens/utils/iterable.js';
+import { defuseMarkdownLinks } from '@gitlens/utils/markdown.js';
 import { encodeHtmlWeak } from '@gitlens/utils/string.js';
 import type { Autolink, EnrichedAutolink, MaybeEnrichedAutolink } from '../../../autolinks/models/autolinks.js';
 import { serializeAutolink } from '../../../autolinks/utils/-webview/autolinks.utils.js';
@@ -284,6 +285,9 @@ function linkifyMessage(
 	// in commit messages from being rendered (e.g. <script>, <span onclick>).
 	// The marked library won't double-encode existing entities.
 	message = encodeHtmlWeak(message);
+	// Restrict links in the message to web/mail destinations — must run before linkification so the
+	// autolinks added below are unaffected.
+	message = defuseMarkdownLinks(message);
 	if (headlineSplitterToken != null) {
 		const index = message.indexOf('\n');
 		if (index !== -1) {

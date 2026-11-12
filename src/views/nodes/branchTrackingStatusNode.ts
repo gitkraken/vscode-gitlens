@@ -399,7 +399,6 @@ export class BranchTrackingStatusNode
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
 
 		item.tooltip = markdown;
 

@@ -4,7 +4,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
@@ -181,12 +180,12 @@ export class GlDraftDetails extends GlTreeBase {
 
 		description = description.trim();
 
-		// The description is user-authored rich content supplied by the Cloud Patch service. Keep it
-		// on its existing rendering path; localized authored UI is always interpolated as inert text.
+		// The description is user-authored content supplied by the Cloud Patch service, so it renders through
+		// gl-markdown's sanitizing renderer (no raw HTML beyond styling spans, no command links) rather than as HTML.
 		return html`
 			<div class="message-block">
 				<p class="message-block__text scrollable" data-region="message">
-					<span>${unsafeHTML(description)}</span>
+					<gl-markdown density="compact" .markdown=${description}></gl-markdown>
 				</p>
 			</div>
 		`;
