@@ -326,7 +326,10 @@ export interface GitBranchesSubProvider {
 	 * history with the base and its reflog, and with that the fork point, the reflog's move off it, the count past it
 	 * and the choice of base, stay as they were; only `base.sha` moves, and `defaultBranch` is kept. A fork point the
 	 * base was rebased off, still a value of its reflog but off its new tip's history, is settled again as a full read
-	 * does, and must keep the fork point and its count. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is due.
+	 * does, and must keep the fork point and its count. It also answers when the local default branch tracking a
+	 * remote-tracking base moved, alone or with the base, if HEAD shares nothing past `previous.base.forkPoint` with
+	 * that branch's tip or reflog; moved alone, the previous answer comes back unchanged. `undefined` when any of that
+	 * can't be shown, and a full `getAheadOfBase` is due.
 	 */
 	getAheadOfBaseAfterBaseMove?(
 		repoPath: string,
