@@ -193,6 +193,85 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		);
 	});
 
+	/**
+	 * The processes each linked worktree ran in its own checkout once `move`, run in the main checkout, reached every
+	 * summary, and those run anywhere else
+	 */
+	async function spawnedByMove(
+		move: () => Promise<unknown>,
+	): Promise<{ perWorktree: string[][]; shared: string[]; spawned: string[] }> {
+		const mark = completed.length;
+		await move();
+		// Lets the refreshes start and any trailing read finish, so a late spawn is counted too; a base that stays the
+		// same changes no summary, so there is no change event to wait for
+		await delay(150);
+		await Promise.all(linked.map(wt => service.summaries!.getSummary(wt.path)));
+		const spawned = completed.slice(mark);
+		const perWorktree = linked.map(wt => {
+			const key = getRepositoryKey(wt.path);
+			return spawned.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
+		});
+		const shared = spawned.filter(m => !perWorktree.some(lines => lines.includes(m)));
+		return { perWorktree: perWorktree, shared: shared, spawned: spawned };
+	}
+
+	test('a fast-forward of local main costs each linked worktree no git process for its base (was 4)', async () => {
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'push', 'origin', 'main');
+		await spawnedByMove(() => service.forRepo(main.path)!.ops!.fetch({ remote: 'origin' }));
+		const before = subs.slice(1).map(sub => sub.current?.base);
+		for (const base of before) {
+			assert.strictEqual(base?.ref, 'origin/main');
+		}
+
+		const { perWorktree, shared } = await spawnedByMove(() =>
+			service.forRepo(main.path)!.ops!.merge('origin/main', { fastForward: 'only' }),
+		);
+		assert.strictEqual(git(main.path, 'rev-parse', 'main'), git(main.path, 'rev-parse', 'origin/main'));
+		console.error(
+			`[measure] base refresh after a fast-forward of main: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${shared.length} elsewhere`,
+		);
+		for (const line of [...perWorktree[0], ...shared]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		assert.deepStrictEqual(
+			subs.slice(1).map(sub => sub.current?.base),
+			before,
+			'the bases are unchanged',
+		);
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.strictEqual(lines.length, 0, `linked worktree ${i} ran ${lines.join('\n')}`);
+		}
+	});
+
+	test('a pull moving local main and origin/main costs each linked worktree no git process for its base (was 4)', async () => {
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'push', 'origin', 'main');
+		const tip = git(peer.path, 'rev-parse', 'HEAD');
+
+		const { perWorktree, shared } = await spawnedByMove(() =>
+			service.forRepo(main.path)!.ops!.pull({ fastForward: 'only' }),
+		);
+		assert.strictEqual(git(main.path, 'rev-parse', 'main'), tip);
+		console.error(
+			`[measure] base refresh after a pull: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${shared.length} elsewhere`,
+		);
+		for (const line of [...perWorktree[0], ...shared]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		for (const sub of subs.slice(1)) {
+			assert.strictEqual(sub.current?.base?.sha, tip, 'the base follows the new tip');
+			assert.strictEqual(sub.current?.base?.ahead, 1);
+		}
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		const own = (await provider.git.supports('git:for-each-ref:ahead-behind')) ? 0 : 1;
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.strictEqual(lines.length, own, `linked worktree ${i} ran ${lines.join('\n')}`);
+		}
+	});
+
 	test('a fetch moving origin/main, with a branch created during the refreshes, shares one reflog read and one count (was 2 each)', async () => {
 		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
 		const launched = join(root, 'launched');
