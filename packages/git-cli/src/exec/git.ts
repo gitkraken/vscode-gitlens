@@ -1247,18 +1247,25 @@ export class Git {
 					// Never cache a result that isn't a genuine command outcome. Under `errors: 'ignore'` a
 					// cancelled/aborted run RESOLVES an empty result, which — left cached — would be served as a
 					// real empty result for the full TTL (e.g. a valid merge-base read back as "none").
-					// Invalidate on anything that isn't a clean exit, or whenever the aggregate signal aborted,
+					// Invalidate on anything that isn't an answer, or whenever the aggregate signal aborted,
 					// so the entry self-evicts instead of poisoning later callers.
+					//
+					// An answer is a clean exit, or an exit the caller listed in `expectedExitCodes`, which
+					// `runCore` resolves as `exited` under every `errors` mode. Any other non-zero exit stays
+					// uncached: nothing says it is stable, and it may be a failure that a retry clears.
 					//
 					// `status !== 'exited'` is what catches the case a bare `exitCode` check cannot. A swallowed
 					// `GitWarnings` match used to report `exitCode: 0` UNCONDITIONALLY — the old code read it off
 					// a `result` that is only ever assigned on the non-throwing path, so it was always the `?? 0`
 					// fallback — which meant `exitCode !== 0` could never fire and every swallowed failure was
 					// cached. A `warned` result now carries git's real code, so it's the status, not the code,
-					// that has to do the work here. The `exitCode !== 0` half is kept as-is — a non-zero exit is
-					// a real answer and arguably cacheable, but it isn't cached today and this isn't the change
-					// to start.
-					if (result.completion.status !== 'exited' || result.exitCode !== 0 || signal?.aborted) {
+					// that has to do the work here.
+					const exitCode = result.exitCode;
+					const answered =
+						result.completion.status === 'exited' &&
+						exitCode != null &&
+						(exitCode === 0 || options.expectedExitCodes?.includes(exitCode) === true);
+					if (!answered || signal?.aborted) {
 						cacheable.invalidate();
 					}
 					return result;
