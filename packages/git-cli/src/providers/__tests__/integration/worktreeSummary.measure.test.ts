@@ -91,6 +91,8 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 	let linked: { path: string; cleanup: () => void }[];
 	let service: GitService;
 	let subs: WorktreeSummarySubscription[];
+	/** The processes the subscriptions below ran, up to each checkout's first summary */
+	let subscribed: string[];
 
 	setup(async () => {
 		root = mkdtempSync(join(tmpdir(), 'gitlens-summary-measure-'));
@@ -125,11 +127,13 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
 
 		subs = [];
+		const mark = completed.length;
 		for (const path of [main.path, ...linked.map(wt => wt.path)]) {
 			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
 			subs.push(service.summaries!.subscribe(path, { delayMs: 10, workingTreeDelayMs: 10 }));
 			await service.summaries!.getSummary(path);
 		}
+		subscribed = completed.slice(mark);
 	});
 
 	teardown(() => {
@@ -143,6 +147,33 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		}
 		main.cleanup();
 		rmSync(root, { recursive: true, force: true });
+	});
+
+	/**
+	 * A linked worktree's first base read takes the name its branch was created from out of the branch's reflog file,
+	 * and leaves `main@{u}` to one read in the main checkout for every checkout, since a named branch's upstream comes
+	 * from the config they share.
+	 */
+	test('subscribing reads no created-from reflog in a linked worktree, and asks main@{u} once for all of them (was once each)', () => {
+		const perWorktree = linked.map(wt => {
+			const key = getRepositoryKey(wt.path);
+			return subscribed.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
+		});
+		console.error(
+			`[measure] subscribe: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${subscribed.length} in all`,
+		);
+		for (const line of perWorktree[0]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.deepStrictEqual(
+				lines.filter(m => m.includes('] git reflog ') || m.includes('main@{u}')),
+				[],
+				`linked worktree ${i}`,
+			);
+		}
+		assert.strictEqual(subscribed.filter(m => m.includes('main@{u}')).length, 1, subscribed.join('\n'));
 	});
 
 	test('a fetch moving origin/main costs each linked worktree no git process for its base (was 4)', async () => {

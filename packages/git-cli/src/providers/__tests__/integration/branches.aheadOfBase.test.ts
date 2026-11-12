@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
@@ -17,6 +17,7 @@ import {
 	cloneTestRepo,
 	createBranch,
 	createBranchAt,
+	createProvider,
 	createTestRepo,
 	createTrackingBranch,
 	fetch,
@@ -283,6 +284,49 @@ function failRuns(repo: TestRepo, fails: (args: string[]) => boolean): sinon.Sin
 			fails(args.filter((a): a is string => typeof a === 'string'))
 				? Promise.reject(new Error('failed'))
 				: run(options as never, ...(args as never[]))) as typeof git.run);
+}
+
+/** Spies on the uncached spawn path under `Git.run`, which a `run` served from a result cache never reaches */
+function spyOnSpawns(repo: TestRepo): sinon.SinonSpy {
+	return sinon.spy(
+		repo.provider.git as unknown as {
+			runCore: (...args: unknown[]) => unknown;
+		},
+		'runCore',
+	);
+}
+
+/** What `spy` (see {@link spyOnSpawns}) saw spawned, as each spawn's string arguments, global options first */
+function spawns(spy: sinon.SinonSpy): string[][] {
+	return spy.getCalls().map(c => (c.args[1] as unknown[]).filter((a): a is string => typeof a === 'string'));
+}
+
+/** The working directory of each spawn `spy` (see {@link spyOnSpawns}) saw whose arguments include `arg` */
+function spawnPathsWith(spy: sinon.SinonSpy, arg: string): string[] {
+	return spy
+		.getCalls()
+		.filter(c => (c.args[1] as unknown[]).includes(arg))
+		.map(c => (c.args[0] as { cwd: string }).cwd);
+}
+
+/** A base read as a worktree summary makes it, after reading the config inputs the base depends on */
+async function readBaseAsSummary(repo: TestRepo, path: string, branch: string): Promise<AheadOfBase> {
+	await repo.provider.branches.getAheadOfBaseConfigKey(path);
+	return repo.provider.branches.getAheadOfBase(path, branch);
+}
+
+/** The private created-from read of `BranchesGitSubProvider`, which the base read memoizes per branch */
+type CreatedFromReader = {
+	getReflogCreatedFrom(
+		repoPath: string,
+		ref: string,
+		priority: undefined,
+		cancellation: undefined,
+	): Promise<string | undefined>;
+};
+
+function asCreatedFromReader(provider: TestRepo['provider']): CreatedFromReader {
+	return provider.branches as unknown as CreatedFromReader;
 }
 
 /** `git merge-base --fork-point <ref> HEAD`, git's own reading */
@@ -756,6 +800,114 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 					spy.getCalls().some(c => c.args.includes('main@{u}')),
 					'the local target was asked for its upstream',
 				);
+			} finally {
+				cleanup();
+			}
+		});
+
+		/**
+		 * A clone whose local `main` is a commit behind `origin/main`, with a linked worktree for each of `names`, each
+		 * on its own branch taken off `origin/main` with one commit of its own and `main` as its detected target
+		 */
+		async function createWorktreesOnLocalTarget(
+			names: string[],
+		): Promise<{ origin: TestRepo; clone: TestRepo; paths: string[]; cleanup: () => void }> {
+			const { origin, clone, cleanup } = createClone();
+			const worktrees = mkdtempSync(join(tmpdir(), 'gitlens-upstream-worktrees-'));
+			const cleanupAll = () => {
+				rmSync(worktrees, { recursive: true, force: true });
+				cleanup();
+			};
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				fetch(clone.path);
+				const paths: string[] = [];
+				for (const name of names) {
+					const path = join(worktrees, name);
+					git(clone.path, 'worktree', 'add', '-q', '--no-track', '-b', name, path, 'origin/main');
+					addCommit(path, `${name}.txt`, name, `${name} work`);
+					storeTargets(clone.path, name, { detected: 'main' });
+					clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+					paths.push(path);
+				}
+				return { origin: origin, clone: clone, paths: paths, cleanup: cleanupAll };
+			} catch (ex) {
+				cleanupAll();
+				throw ex;
+			}
+		}
+
+		test("asks a local target's upstream once for every worktree, and again after a config change", async () => {
+			const { clone, paths, cleanup } = await createWorktreesOnLocalTarget(['one', 'two']);
+			try {
+				const commonPath = clone.provider.cache.getCommonPath(paths[0]);
+				const spy = spyOnSpawns(clone);
+				try {
+					const one = await readBaseAsSummary(clone, paths[0], 'one');
+					const two = await readBaseAsSummary(clone, paths[1], 'two');
+					assert.strictEqual(one.base?.ref, 'origin/main');
+					assert.strictEqual(one.base?.ahead, 1);
+					assert.strictEqual(two.base?.ref, 'origin/main');
+					assert.strictEqual(two.base?.ahead, 1);
+					assert.deepStrictEqual(spawnPathsWith(spy, 'main@{u}'), [commonPath], 'one upstream read for both');
+
+					// `main` loses its upstream, so local `main`, a commit behind, is the base
+					git(clone.path, 'branch', '--unset-upstream', 'main');
+					clone.provider.cache.clearCaches(clone.path, 'config');
+					spy.resetHistory();
+
+					const oneUnset = await readBaseAsSummary(clone, paths[0], 'one');
+					const twoUnset = await readBaseAsSummary(clone, paths[1], 'two');
+					assert.strictEqual(oneUnset.base?.ref, 'main');
+					assert.strictEqual(oneUnset.base?.ahead, 2);
+					assert.strictEqual(twoUnset.base?.ref, 'main');
+					assert.strictEqual(twoUnset.base?.ahead, 2);
+					assert.deepStrictEqual(spawnPathsWith(spy, 'main@{u}'), [commonPath], 'asked again, once');
+
+					git(clone.path, 'branch', '--set-upstream-to=origin/main', 'main');
+					clone.provider.cache.clearCaches(clone.path, 'config');
+					spy.resetHistory();
+
+					const oneSet = await readBaseAsSummary(clone, paths[0], 'one');
+					const twoSet = await readBaseAsSummary(clone, paths[1], 'two');
+					assert.strictEqual(oneSet.base?.ref, 'origin/main');
+					assert.strictEqual(twoSet.base?.ref, 'origin/main');
+					assert.deepStrictEqual(spawnPathsWith(spy, 'main@{u}'), [commonPath], 'asked again, once');
+				} finally {
+					spy.restore();
+				}
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("asks each worktree for a local target's upstream when a worktree's own config sets it", async () => {
+			const { origin, clone, paths, cleanup } = await createWorktreesOnLocalTarget(['one', 'two']);
+			try {
+				// `dev` is a commit past `origin/main`, so a branch off `origin/main` forks from both at its tip
+				git(origin.path, 'checkout', '-q', '-b', 'dev');
+				addCommit(origin.path, 'dev-only.txt', 'dev', 'dev only');
+				fetch(clone.path);
+
+				git(clone.path, 'config', 'extensions.worktreeConfig', 'true');
+				git(clone.path, 'branch', '--unset-upstream', 'main');
+				git(paths[0], 'config', '--worktree', 'branch.main.remote', 'origin');
+				git(paths[0], 'config', '--worktree', 'branch.main.merge', 'refs/heads/main');
+				git(paths[1], 'config', '--worktree', 'branch.main.remote', 'origin');
+				git(paths[1], 'config', '--worktree', 'branch.main.merge', 'refs/heads/dev');
+
+				const spy = spyOnSpawns(clone);
+				try {
+					const one = await readBaseAsSummary(clone, paths[0], 'one');
+					const two = await readBaseAsSummary(clone, paths[1], 'two');
+					assert.strictEqual(one.base?.ref, 'origin/main');
+					assert.strictEqual(one.base?.ahead, 1);
+					assert.strictEqual(two.base?.ref, 'origin/dev');
+					assert.strictEqual(two.base?.ahead, 1);
+					assert.deepStrictEqual(spawnPathsWith(spy, 'main@{u}'), paths, 'each worktree asked');
+				} finally {
+					spy.restore();
+				}
 			} finally {
 				cleanup();
 			}
@@ -2017,10 +2169,10 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 					const patchReads = revLists.filter(args => args.includes('--cherry-mark'));
 					assert.strictEqual(revLists.length - patchReads.length, counts, c.name);
 					assert.strictEqual(patchReads.length, patches, c.name);
-					// Only the branch's own, for the branch it was created from, when no target is stored
+					// Nor the branch's own, for the branch it was created from when no target is stored: its file has it too
 					assert.deepStrictEqual(
 						calls.filter(args => args[0] === 'reflog').map(args => args.at(-2)),
-						detected != null ? [] : [`refs/heads/${branch}`],
+						[],
 						c.name,
 					);
 				} finally {
@@ -2138,21 +2290,6 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			}
 		});
 
-		/** Spies on the uncached spawn path under `Git.run`, which a `run` served from a result cache never reaches */
-		function spyOnSpawns(repo: TestRepo): sinon.SinonSpy {
-			return sinon.spy(
-				repo.provider.git as unknown as {
-					runCore: (...args: unknown[]) => unknown;
-				},
-				'runCore',
-			);
-		}
-
-		/** What `spy` (see {@link spyOnSpawns}) saw spawned, as each spawn's string arguments, global options first */
-		function spawns(spy: sinon.SinonSpy): string[][] {
-			return spy.getCalls().map(c => (c.args[1] as unknown[]).filter((a): a is string => typeof a === 'string'));
-		}
-
 		/** The spawns that read the base's reflog: the entries, and the value before the oldest one */
 		function reflogSpawns(spy: sinon.SinonSpy): string[][] {
 			return spawns(spy).filter(args => args.includes('reflog') || args.some(a => /@\{\d+\}$/.test(a)));
@@ -2163,6 +2300,34 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			try {
 				assert.ok(existsSync(join(clone.path, '.git', 'reftable', 'tables.list')));
 				assert.ok(!existsSync(join(clone.path, '.git', 'logs')));
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('asks git for the name a branch was created from', async () => {
+			const { origin, clone, cleanup } = createClone(reftable);
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				fetch(clone.path);
+				git(clone.path, 'checkout', '-q', '-b', 'feat', 'main');
+				addCommit(clone.path, 'feat.txt', 'feat', 'feat work');
+
+				const spy = spyOnSpawns(clone);
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(clone, 'feat');
+				} finally {
+					spy.restore();
+				}
+
+				// Created from the stale `main`, which defers to its upstream, nearer
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.tier, 'created');
+				assert.strictEqual(
+					spawns(spy).filter(args => args.includes('--grep-reflog=branch: Created from *.')).length,
+					1,
+				);
 			} finally {
 				cleanup();
 			}
@@ -2829,17 +2994,20 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				storeTargets(repo.path, 'feat', { recorded: 'main' });
 
 				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				const createdFrom = sinon.spy(asCreatedFromReader(repo.provider), 'getReflogCreatedFrom');
 				let result: AheadOfBase;
 				try {
 					result = await getAheadOfBase(repo, 'feat');
 				} finally {
 					spy.restore();
+					createdFrom.restore();
 				}
 
 				assert.strictEqual(result.base?.ref, 'main');
 				assert.strictEqual(result.base?.ahead, 2);
 				assert.strictEqual(result.base?.tier, 'recorded');
 				assert.strictEqual(spy.callCount, 0, 'read the reflog');
+				assert.strictEqual(createdFrom.callCount, 0, 'read the reflog file');
 			} finally {
 				repo.cleanup();
 			}
@@ -2858,7 +3026,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				assert.strictEqual(first.base?.ahead, 1);
 				assert.strictEqual(first.base?.tier, 'created');
 
-				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				const spy = sinon.spy(asCreatedFromReader(repo.provider), 'getReflogCreatedFrom');
 				try {
 					// A commit clears the cached results, as the heads watcher does
 					addCommit(repo.path, 'feat-2.txt', 'feat', 'more feat work');
@@ -2884,6 +3052,273 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				} finally {
 					spy.restore();
 				}
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('reads the name a branch was created from out of its reflog file as git reads it', async () => {
+			type Answer = { name: string | undefined } | 'rejects';
+			const cases: {
+				readonly name: string;
+				/** Makes `feat` in `repo`, on `main` with `develop` a commit past it, and gives where to read it */
+				readonly build: (repo: string, scratch: string) => { path: string; ref: string };
+				readonly expected: Answer;
+			}[] = [
+				{
+					name: 'git branch',
+					build: repo => {
+						git(repo, 'branch', 'feat', 'develop');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'git branch from a full ref',
+					build: repo => {
+						git(repo, 'branch', 'feat', 'refs/heads/develop');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'refs/heads/develop' },
+				},
+				{
+					name: 'git checkout -b',
+					build: repo => {
+						git(repo, 'checkout', '-q', '-b', 'feat', 'develop');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'git switch -c from HEAD',
+					build: repo => {
+						git(repo, 'checkout', '-q', 'develop');
+						git(repo, 'switch', '-q', '-c', 'feat');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'HEAD' },
+				},
+				{
+					name: 'git checkout -b from a detached HEAD',
+					build: repo => {
+						createBranchFromDetachedHead(repo, 'feat', 'develop');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'HEAD' },
+				},
+				{
+					name: 'git worktree add -b, read in the worktree',
+					build: (repo, scratch) => {
+						const path = join(scratch, 'wt');
+						git(repo, 'worktree', 'add', '-q', '-b', 'feat', path, 'develop');
+						return { path: path, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'git worktree add, which names the branch after its directory',
+					build: (repo, scratch) => {
+						git(repo, 'worktree', 'add', '-q', join(scratch, 'feat'));
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'HEAD' },
+				},
+				{
+					name: 'a rename',
+					build: repo => {
+						git(repo, 'branch', 'old', 'develop');
+						git(repo, 'branch', '-m', 'old', 'feat');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'a copy',
+					build: repo => {
+						git(repo, 'branch', 'old', 'develop');
+						git(repo, 'branch', '-c', 'old', 'feat');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'no reflog written',
+					build: repo => {
+						git(repo, '-c', 'core.logAllRefUpdates=false', 'branch', 'feat', 'develop');
+						assert.ok(!existsSync(join(repo, '.git', 'logs', 'refs', 'heads', 'feat')));
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: undefined },
+				},
+				{
+					name: 'an expired reflog',
+					build: repo => {
+						git(repo, 'branch', 'feat', 'develop');
+						git(repo, 'reflog', 'expire', '--expire=now', '--all');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: undefined },
+				},
+				{
+					name: 'a commit subject the pattern matches as well',
+					build: repo => {
+						git(repo, 'checkout', '-q', '-b', 'feat', 'develop');
+						addCommit(repo, 'subject.txt', 'subject', 'branch: Created from main');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: undefined },
+				},
+				{
+					name: 'only a commit subject naming a start point',
+					build: repo => {
+						git(repo, '-c', 'core.logAllRefUpdates=false', 'checkout', '-q', '-b', 'feat', 'develop');
+						addCommit(repo, 'subject.txt', 'subject', 'see branch: Created from develop');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: 'develop' },
+				},
+				{
+					name: 'only a commit subject the grep matches with no name after it',
+					build: repo => {
+						git(repo, '-c', 'core.logAllRefUpdates=false', 'checkout', '-q', '-b', 'feat', 'develop');
+						addCommit(repo, 'subject.txt', 'subject', 'branch: Created fromage');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: { name: undefined },
+				},
+				{
+					name: 'a branch with no ref',
+					build: repo => ({ path: repo, ref: 'refs/heads/feat' }),
+					expected: 'rejects',
+				},
+				{
+					name: 'an unborn branch',
+					build: repo => {
+						git(repo, 'checkout', '-q', '--orphan', 'feat');
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: 'rejects',
+				},
+				{
+					name: 'a reflog file left for a branch with no ref',
+					build: repo => {
+						git(repo, 'branch', 'feat', 'develop');
+						const log = join(repo, '.git', 'logs', 'refs', 'heads', 'feat');
+						const content = readFileSync(log);
+						git(repo, 'branch', '-q', '-D', 'feat');
+						writeFileSync(log, content);
+						return { path: repo, ref: 'refs/heads/feat' };
+					},
+					expected: 'rejects',
+				},
+			];
+
+			for (const { name, build, expected } of cases) {
+				const repo = createTestRepo();
+				const scratch = mkdtempSync(join(tmpdir(), 'gitlens-created-from-'));
+				const fromFile = createProvider();
+				const fromGit = createProvider();
+				try {
+					createBranch(repo.path, 'develop');
+					git(repo.path, 'checkout', '-q', 'develop');
+					addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+					git(repo.path, 'checkout', '-q', 'main');
+					const { path, ref } = build(repo.path, scratch);
+
+					// Its reflog files out of sight, as in a reftable repository, so git is asked
+					const fs = fromGit.context.fs;
+					const stat = sinon.stub(fs, 'stat').callsFake(async uri => {
+						if (toFsPath(uri).includes(join('logs', 'refs'))) throw new Error('unreadable');
+						return stat.wrappedMethod.call(fs, uri);
+					});
+					const fileSpawns = sinon.spy(fromFile.refs, 'getReflogEntries');
+					const gitSpawns = sinon.spy(fromGit.refs, 'getReflogEntries');
+					const read = (provider: TestRepo['provider']): Promise<Answer> =>
+						asCreatedFromReader(provider)
+							.getReflogCreatedFrom(path, ref, undefined, undefined)
+							.then(
+								n => ({ name: n }),
+								() => 'rejects' as const,
+							);
+					try {
+						const file = await read(fromFile);
+						const spawned = await read(fromGit);
+						assert.deepStrictEqual(file, spawned, name);
+						assert.deepStrictEqual(file, expected, name);
+						assert.strictEqual(gitSpawns.callCount, 1, `${name}: git was asked`);
+						// Only git can tell a ref it doesn't list is gone
+						assert.strictEqual(
+							fileSpawns.callCount,
+							expected === 'rejects' ? 1 : 0,
+							`${name}: git asked from the file side`,
+						);
+					} finally {
+						stat.restore();
+					}
+				} finally {
+					fromFile.dispose();
+					fromGit.dispose();
+					rmSync(scratch, { recursive: true, force: true });
+					repo.cleanup();
+				}
+			}
+		});
+
+		test('reads the name a branch was created from without launching git when its reflog file is readable', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'develop', { checkout: true });
+				addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+				git(repo.path, 'checkout', '-q', '-b', 'feat', 'develop');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+
+				const spy = spyOnSpawns(repo);
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(repo, 'feat');
+				} finally {
+					spy.restore();
+				}
+
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'created');
+				assert.deepStrictEqual(
+					spawns(spy).filter(args => args.includes('reflog')),
+					[],
+				);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('asks git for the name a branch was created from when its reflog file cannot be read', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'develop', { checkout: true });
+				addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+				git(repo.path, 'checkout', '-q', '-b', 'feat', 'develop');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+
+				const fs = repo.provider.context.fs;
+				const readFile = sinon.stub(fs, 'readFile').callsFake(async uri => {
+					if (toFsPath(uri).endsWith(join('logs', 'refs', 'heads', 'feat'))) throw new Error('unreadable');
+					return readFile.wrappedMethod.call(fs, uri);
+				});
+				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(repo, 'feat');
+				} finally {
+					readFile.restore();
+					spy.restore();
+				}
+
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'created');
+				assert.ok(readFile.called, 'the reflog file was asked for');
+				assert.strictEqual(spy.callCount, 1, 'git was asked');
 			} finally {
 				repo.cleanup();
 			}
@@ -2941,17 +3376,20 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				setConfig(repo.path, 'init.defaultBranch', 'develop');
 
 				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				const createdFrom = sinon.spy(asCreatedFromReader(repo.provider), 'getReflogCreatedFrom');
 				let result: AheadOfBase;
 				try {
 					result = await getAheadOfBase(repo, 'develop');
 				} finally {
 					spy.restore();
+					createdFrom.restore();
 				}
 
 				// Measured against its own upstream, of which it has none, not against `main`
 				assert.strictEqual(result.base, undefined);
 				assert.strictEqual(result.reason, 'self');
 				assert.strictEqual(spy.callCount, 0, 'read the reflog');
+				assert.strictEqual(createdFrom.callCount, 0, 'read the reflog file');
 			} finally {
 				repo.cleanup();
 			}
