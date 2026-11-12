@@ -9,12 +9,19 @@ import { CommitError, FetchError, MergeError, PullError, PushError, SigningError
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import type { ProcessSpawner } from '@gitlens/utils/env/node/exec.js';
+import { spawnProcess } from '@gitlens/utils/env/node/exec.js';
+import { normalizePath } from '@gitlens/utils/path.js';
+import { fileUri } from '@gitlens/utils/uri.js';
+import type { CliGitProvider } from '../../../cliGitProvider.js';
 import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
 	checkout,
 	cloneTestRepo,
 	createBranch,
+	createProvider,
+	createTag,
 	createTestRepo,
 	createTrackingBranch,
 	createWorktree,
@@ -1851,6 +1858,717 @@ suite('OperationsGitSubProvider.fetch — announcing the refs it moved', () => {
 			bare?.cleanup();
 			source.cleanup();
 		}
+	});
+});
+
+suite('OperationsGitSubProvider.pull — announcing the refs it moved', () => {
+	// A ref kind announced without a name of its kind means any ref of it may have moved, so every worktree sharing the
+	// repository refreshes in full; named, only the worktrees following those refs do
+	function watch() {
+		const announced: { repoPath: string; changes: string[]; refs?: string[] }[] = [];
+		return {
+			announced: announced,
+			hooks: {
+				repository: {
+					onChanged: (repoPath: string, c: readonly string[], refs?: readonly string[]) =>
+						announced.push(
+							refs != null
+								? { repoPath: normalizePath(repoPath), changes: [...c], refs: [...refs].sort() }
+								: { repoPath: normalizePath(repoPath), changes: [...c] },
+						),
+				},
+			},
+		};
+	}
+
+	/** What `path` heard, in order */
+	function heard(watched: ReturnType<typeof watch>, path: string): { changes: string[]; refs?: string[] }[] {
+		return watched.announced
+			.filter(a => a.repoPath === normalizePath(path))
+			.map(a => (a.refs != null ? { changes: a.changes, refs: a.refs } : { changes: a.changes }));
+	}
+
+	function sideRef(repoPath: string): GitBranchReference {
+		return createReference('side', repoPath, {
+			refType: 'branch',
+			name: 'side',
+			remote: false,
+			upstream: { name: 'origin/side', missing: false },
+		});
+	}
+
+	test('a pull that fast-forwards main names it and the remote-tracking refs its fetch moved', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			addCommit(origin.path, 'ahead.txt', 'x', 'Origin advances');
+
+			await clone.provider.ops.pull(clone.path, { fastForward: 'only' });
+
+			// `origin/HEAD` resolves to `origin/main`, so it moved with it
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{
+					changes: ['head', 'heads', 'remotes', 'index'],
+					refs: ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
+				},
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull of an upstream already fetched names main and announces no remote-tracking ref', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			addCommit(origin.path, 'ahead.txt', 'x', 'Origin advances');
+			execFileSync('git', ['fetch', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+
+			await clone.provider.ops.pull(clone.path, { fastForward: 'only' });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['head', 'heads', 'index'], refs: ['refs/heads/main'] },
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull that moves nothing announces its HEAD and index, and no ref', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			await clone.provider.ops.pull(clone.path, { fastForward: 'only' });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [{ changes: ['head', 'index'] }]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull with tags names the tags it fetched', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			createTag(origin.path, 'v1');
+
+			await clone.provider.ops.pull(clone.path, { fastForward: 'only', tags: true });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['head', 'tags', 'index'], refs: ['refs/tags/v1'] },
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a rebasing pull that updates refs names every branch it moved', async function () {
+		// `rebase.updateRefs` came in git 2.38
+		const [major, minor] = /(\d+)\.(\d+)/
+			.exec(execFileSync('git', ['--version'], { encoding: 'utf-8' }))!
+			.slice(1)
+			.map(Number);
+		if (major < 2 || (major === 2 && minor < 38)) {
+			this.skip();
+		}
+
+		const watched = watch();
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			execFileSync('git', ['config', 'rebase.updateRefs', 'true'], { cwd: clone.path, stdio: 'pipe' });
+			// `part` sits inside the local work the pull rebases, so the rebase moves it too
+			addCommit(clone.path, 'one.txt', 'x', 'Local one');
+			createBranch(clone.path, 'part');
+			addCommit(clone.path, 'two.txt', 'y', 'Local two');
+			addCommit(origin.path, 'ahead.txt', 'z', 'Origin advances');
+
+			await clone.provider.ops.pull(clone.path, { rebase: true });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{
+					changes: ['head', 'heads', 'remotes', 'index', 'worktrees', 'worktreeHead'],
+					refs: [
+						'refs/heads/main',
+						'refs/heads/part',
+						'refs/remotes/origin/HEAD',
+						'refs/remotes/origin/main',
+					],
+				},
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	suite('a sibling worktree', () => {
+		/**
+		 * Pulls `main` in a clone with a registered linked worktree on `side`, once `prepare` ran, and answers what that
+		 * worktree heard
+		 */
+		async function siblingHears(
+			prepare: (origin: string, clone: string) => void,
+		): Promise<{ changes: string[]; refs?: string[] }[]> {
+			const watched = watch();
+			const origin = createTestRepo();
+			const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+			let worktree: { path: string; cleanup: () => void } | undefined;
+			try {
+				createBranch(clone.path, 'side');
+				worktree = createWorktree(clone.path, 'side');
+				for (const path of [clone.path, worktree.path]) {
+					clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+				}
+				prepare(origin.path, clone.path);
+
+				await clone.provider.ops.pull(clone.path, { fastForward: 'only' });
+
+				return heard(watched, worktree.path);
+			} finally {
+				worktree?.cleanup();
+				clone.cleanup();
+				origin.cleanup();
+			}
+		}
+
+		test('hears the shared refs the pull moved, named', async () => {
+			const sibling = await siblingHears(origin => addCommit(origin, 'ahead.txt', 'x', 'Origin advances'));
+
+			assert.deepStrictEqual(sibling, [
+				{
+					changes: ['heads', 'remotes'],
+					refs: ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
+				},
+			]);
+		});
+
+		test('hears only the local branch a pull of an upstream already fetched moved', async () => {
+			const sibling = await siblingHears((origin, clone) => {
+				addCommit(origin, 'ahead.txt', 'x', 'Origin advances');
+				execFileSync('git', ['fetch', 'origin'], { cwd: clone, stdio: 'pipe' });
+			});
+
+			assert.deepStrictEqual(sibling, [{ changes: ['heads'], refs: ['refs/heads/main'] }]);
+		});
+
+		test('hears nothing of a pull that moved no ref', async () => {
+			const sibling = await siblingHears(() => {});
+
+			assert.deepStrictEqual(sibling, []);
+		});
+	});
+
+	test('a pull of a branch checked out in a linked worktree names what moved, to that worktree and the asking checkout', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		createBranch(origin.path, 'side');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		let worktree: { path: string; cleanup: () => void } | undefined;
+		try {
+			createTrackingBranch(clone.path, 'side', 'origin/side');
+			worktree = createWorktree(clone.path, 'side');
+			checkout(origin.path, 'side');
+			addCommit(origin.path, 'side.txt', 'x', 'Origin side advances');
+
+			await clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), fastForward: 'only' });
+
+			const pulled = {
+				changes: ['head', 'heads', 'remotes', 'index'],
+				refs: ['refs/heads/side', 'refs/remotes/origin/side'],
+			};
+			assert.deepStrictEqual(heard(watched, worktree.path), [pulled]);
+			assert.deepStrictEqual(heard(watched, clone.path), [pulled]);
+		} finally {
+			worktree?.cleanup();
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a fast-forward-only pull of a branch checked out nowhere names that branch', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		createBranch(origin.path, 'side');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			createTrackingBranch(clone.path, 'side', 'origin/side');
+			checkout(origin.path, 'side');
+			addCommit(origin.path, 'side.txt', 'x', 'Origin side advances');
+
+			await clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), fastForward: 'only' });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['remotes', 'heads'], refs: ['refs/heads/side', 'refs/remotes/origin/side'] },
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull that stops on a conflict names the remote-tracking ref its fetch moved, and no branch', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		addCommit(origin.path, 'shared.txt', 'base\n', 'Add shared');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			// A merge whatever the user's git config says: a clone's `branch.main.rebase`, which `branch.autoSetupRebase`
+			// writes, outranks `pull.rebase`, and `merge.ff=only` refuses the merge
+			for (const [key, value] of [
+				['pull.rebase', 'false'],
+				['branch.main.rebase', 'false'],
+				['merge.ff', 'true'],
+			]) {
+				execFileSync('git', ['config', key, value], { cwd: clone.path, stdio: 'pipe' });
+			}
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(clone.path, 'shared.txt', 'local\n', 'Clone edits');
+
+			await assert.rejects(clone.provider.ops.pull(clone.path, { rebase: false }), (ex: unknown) =>
+				PullError.is(ex, 'conflict'),
+			);
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{
+					changes: ['head', 'remotes', 'index'],
+					refs: ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
+				},
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a rebasing pull that stops on a conflict tells the other worktrees its HEAD left its branch', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		addCommit(origin.path, 'shared.txt', 'base\n', 'Add shared');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		const cold = createProvider();
+		let worktree: { path: string; cleanup: () => void } | undefined;
+		try {
+			createBranch(clone.path, 'side');
+			worktree = createWorktree(clone.path, 'side');
+			for (const path of [clone.path, worktree.path]) {
+				clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+			}
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(clone.path, 'shared.txt', 'local\n', 'Clone edits');
+			// Already fetched, so the pull moves no ref: only its HEAD leaving `main` tells the other worktrees anything
+			execFileSync('git', ['fetch', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+
+			/** Where `path` reads each worktree's HEAD and each local branch checked out */
+			async function placement(provider: CliGitProvider, path: string) {
+				return {
+					worktrees: (await provider.worktrees.getWorktrees(path)).map(w => [
+						normalizePath(w.uri.fsPath),
+						w.type,
+						w.branchName,
+					]),
+					branches: (await provider.branches.getBranches(path)).values
+						.filter(b => !b.remote)
+						.map(b => [b.name, b.current, b.worktree === false ? false : normalizePath(b.worktree!.path)]),
+				};
+			}
+			// Read before the pull, so an answer it leaves cached is served after it
+			for (const path of [clone.path, worktree.path]) {
+				await placement(clone.provider, path);
+			}
+
+			await assert.rejects(clone.provider.ops.pull(clone.path, { rebase: true }), (ex: unknown) =>
+				PullError.is(ex, 'conflict'),
+			);
+
+			for (const path of [clone.path, worktree.path]) {
+				assert.deepStrictEqual(await placement(clone.provider, path), await placement(cold, path), path);
+			}
+			// A host re-reads where its branches are checked out when a worktree's HEAD moved, or any branch may have
+			const sibling = heard(watched, worktree.path);
+			assert.ok(
+				sibling.some(
+					a => a.changes.includes('worktreeHead') || (a.changes.includes('heads') && a.refs == null),
+				),
+				`the sibling heard ${JSON.stringify(sibling)}`,
+			);
+			assert.deepStrictEqual(sibling, [{ changes: ['worktrees', 'worktreeHead'] }]);
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['head', 'index', 'worktrees', 'worktreeHead'] },
+			]);
+		} finally {
+			cold.dispose();
+			worktree?.cleanup();
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a rebasing pull of a branch in a linked worktree that stops on a conflict detaches that worktree alone', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		createBranch(origin.path, 'side');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		let worktree: { path: string; cleanup: () => void } | undefined;
+		try {
+			createTrackingBranch(clone.path, 'side', 'origin/side');
+			worktree = createWorktree(clone.path, 'side');
+			for (const path of [clone.path, worktree.path]) {
+				clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+			}
+			checkout(origin.path, 'side');
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(worktree.path, 'shared.txt', 'worktree\n', 'Worktree edits');
+			execFileSync('git', ['fetch', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+
+			await assert.rejects(
+				clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), rebase: true }),
+				(ex: unknown) => PullError.is(ex, 'conflict'),
+			);
+
+			assert.deepStrictEqual(heard(watched, worktree.path), [
+				{ changes: ['head', 'index', 'worktrees', 'worktreeHead'] },
+			]);
+			// Its own announcement, then the shared part of the worktree's
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['head', 'index'] },
+				{ changes: ['worktrees', 'worktreeHead'] },
+			]);
+		} finally {
+			worktree?.cleanup();
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a rebasing pull that stops on a conflict still detaches HEAD when the refs could not be listed before it', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		addCommit(origin.path, 'shared.txt', 'base\n', 'Add shared');
+		let listings = 0;
+		const spawn: ProcessSpawner = (gitPath, args, options) => {
+			if (args.includes('for-each-ref') && ++listings === 1) {
+				return spawnProcess(process.execPath, ['-e', 'process.exit(128)'], options);
+			}
+			return spawnProcess(gitPath, args, options);
+		};
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks, gitOptions: { spawn: spawn } });
+		try {
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(clone.path, 'shared.txt', 'local\n', 'Clone edits');
+			listings = 0;
+
+			await assert.rejects(clone.provider.ops.pull(clone.path, { rebase: true }), (ex: unknown) =>
+				PullError.is(ex, 'conflict'),
+			);
+
+			// With nothing to compare against, the listing after the pull is not even taken
+			assert.strictEqual(listings, 1);
+			// No ref is named, as the listing before the pull is missing, yet HEAD is seen to have left its branch
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{ changes: ['head', 'heads', 'remotes', 'index', 'worktrees', 'worktreeHead'] },
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	suite('a pull that finishes with the branch diverged from its upstream', () => {
+		/** Sets or, with `undefined`, removes `key` in the repository's configuration */
+		function setConfig(path: string, key: string, value: string | undefined): void {
+			try {
+				execFileSync('git', value != null ? ['config', key, value] : ['config', '--unset-all', key], {
+					cwd: path,
+					stdio: 'pipe',
+				});
+			} catch {
+				// Nothing was set, which is what removing it asked for
+			}
+		}
+
+		/**
+		 * Pulls `side` from the clone, where it is checked out in a linked worktree, once `configure` pinned how the pull
+		 * reconciles, and answers what the worktree and the asking checkout heard
+		 */
+		async function pullDiverged(
+			configure: (clone: string) => void,
+			options?: { rebase?: boolean; localCommits?: boolean },
+		): Promise<{
+			worktree: { changes: string[]; refs?: string[] }[];
+			asking: { changes: string[]; refs?: string[] }[];
+		}> {
+			const watched = watch();
+			const origin = createTestRepo();
+			createBranch(origin.path, 'side');
+			const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+			let worktree: { path: string; cleanup: () => void } | undefined;
+			try {
+				createTrackingBranch(clone.path, 'side', 'origin/side');
+				worktree = createWorktree(clone.path, 'side');
+				for (const path of [clone.path, worktree.path]) {
+					clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+				}
+				configure(clone.path);
+				checkout(origin.path, 'side');
+				addCommit(origin.path, 'origin.txt', 'origin\n', 'Origin side advances');
+				if (options?.localCommits !== false) {
+					addCommit(worktree.path, 'worktree.txt', 'worktree\n', 'Worktree commits');
+				}
+				execFileSync('git', ['fetch', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+
+				await clone.provider.ops.pull(clone.path, {
+					branch: sideRef(clone.path),
+					...(options?.rebase != null ? { rebase: options.rebase } : undefined),
+				});
+
+				return { worktree: heard(watched, worktree.path), asking: heard(watched, clone.path) };
+			} finally {
+				worktree?.cleanup();
+				clone.cleanup();
+				origin.cleanup();
+			}
+		}
+
+		// `branch.autosetuprebase` can write `branch.<name>.rebase` as the branch is created, and it outranks `pull.rebase`
+		const side = ['refs/heads/side'];
+		// The asking checkout announces first, and the worktree hears what of that is shared; then the worktree's own
+		const sharedBranch = { changes: ['heads'], refs: side };
+		const ownBranch = { changes: ['head', 'heads', 'index'], refs: side };
+		const rewroteHead = { changes: ['head', 'heads', 'index', 'worktrees', 'worktreeHead'], refs: side };
+		const rewroteHeadShared = { changes: ['heads', 'worktrees', 'worktreeHead'], refs: side };
+		const rebased = { worktree: [sharedBranch, rewroteHead], asking: [ownBranch, rewroteHeadShared] };
+		const merged = { worktree: [sharedBranch, ownBranch], asking: [ownBranch, sharedBranch] };
+
+		test('announces the HEAD it rewrote when asked to rebase', async () => {
+			const heardBy = await pullDiverged(
+				clone => {
+					setConfig(clone, 'branch.side.rebase', 'false');
+					setConfig(clone, 'pull.rebase', 'false');
+				},
+				{ rebase: true },
+			);
+
+			assert.deepStrictEqual(heardBy, rebased);
+		});
+
+		// The pull is seen to rewrite HEAD whatever made it rebase
+		for (const value of ['true', 'merges']) {
+			test(`announces the HEAD it rewrote when the branch's configuration is ${value}`, async () => {
+				const heardBy = await pullDiverged(clone => {
+					setConfig(clone, 'branch.side.rebase', value);
+					setConfig(clone, 'pull.rebase', 'false');
+				});
+
+				assert.deepStrictEqual(heardBy, rebased);
+			});
+		}
+
+		test('announces the HEAD it rewrote when pull.rebase is true and the branch sets nothing', async () => {
+			const heardBy = await pullDiverged(clone => {
+				setConfig(clone, 'branch.side.rebase', undefined);
+				setConfig(clone, 'pull.rebase', 'true');
+			});
+
+			assert.deepStrictEqual(heardBy, rebased);
+		});
+
+		test('leaves HEAD out of a rebasing pull that only fast-forwards, which git does without touching the file', async () => {
+			const heardBy = await pullDiverged(
+				clone => {
+					setConfig(clone, 'branch.side.rebase', 'true');
+					setConfig(clone, 'pull.rebase', 'true');
+				},
+				{ localCommits: false },
+			);
+
+			assert.deepStrictEqual(heardBy, merged);
+		});
+
+		test('leaves HEAD out when the branch merges although pull.rebase is true', async () => {
+			const heardBy = await pullDiverged(clone => {
+				setConfig(clone, 'branch.side.rebase', 'false');
+				setConfig(clone, 'pull.rebase', 'true');
+				setConfig(clone, 'merge.ff', 'true');
+			});
+
+			assert.deepStrictEqual(heardBy, merged);
+		});
+
+		test('announces the HEAD file a checkout rebased to a sibling worktree', async () => {
+			const watched = watch();
+			const origin = createTestRepo();
+			const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+			let worktree: { path: string; cleanup: () => void } | undefined;
+			try {
+				createBranch(clone.path, 'side');
+				worktree = createWorktree(clone.path, 'side');
+				for (const path of [clone.path, worktree.path]) {
+					clone.provider.cache.registerRepoPath(fileUri(path), await clone.provider.config.getGitDir(path));
+				}
+				addCommit(origin.path, 'origin.txt', 'origin\n', 'Origin advances');
+				addCommit(clone.path, 'local.txt', 'local\n', 'Clone commits');
+
+				await clone.provider.ops.pull(clone.path, { rebase: true });
+
+				assert.deepStrictEqual(heard(watched, worktree.path), [
+					{
+						changes: ['heads', 'remotes', 'worktrees', 'worktreeHead'],
+						refs: ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
+					},
+				]);
+			} finally {
+				worktree?.cleanup();
+				clone.cleanup();
+				origin.cleanup();
+			}
+		});
+
+		test('leaves HEAD out of a merging pull', async () => {
+			const heardBy = await pullDiverged(clone => {
+				setConfig(clone, 'branch.side.rebase', 'false');
+				setConfig(clone, 'pull.rebase', 'false');
+				setConfig(clone, 'merge.ff', 'true');
+			});
+
+			assert.deepStrictEqual(heardBy, merged);
+		});
+	});
+
+	test('a pull whose autostash conflicts on restore names the stash it left', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		addCommit(origin.path, 'shared.txt', 'base\n', 'Add shared');
+		const clone = cloneTestRepo(origin.path, { hooks: watched.hooks });
+		try {
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(clone.path, 'local.txt', 'local\n', 'Clone adds a file');
+			execFileSync('git', ['fetch', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+			writeFileSync(join(clone.path, 'shared.txt'), 'dirty\n');
+
+			// git finishes the rebase and exits 0, leaving the conflicted restore and the stash entry behind
+			await clone.provider.ops.pull(clone.path, { rebase: true });
+
+			assert.deepStrictEqual(heard(watched, clone.path), [
+				{
+					changes: ['head', 'heads', 'stash', 'index', 'worktrees', 'worktreeHead'],
+					refs: ['refs/heads/main', 'refs/stash'],
+				},
+			]);
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	suite('a ref listing in flight across the write', () => {
+		const format = '--format=%(refname)%00%(objectname)%00%(symref)';
+		// A listing that reads the refs at once and answers only once released, as a slow one started before the write would
+		const heldListing = `const fs = require('fs');
+const [git, listed, release, ...args] = process.argv.slice(1);
+const out = require('child_process').execFileSync(git, args);
+fs.writeFileSync(listed, '');
+const wait = () => (fs.existsSync(release) ? process.stdout.write(out) : setTimeout(wait, 10));
+wait();`;
+		// The write, started only once the held listing has read the refs as they stand before it
+		const heldWrite = `const fs = require('fs');
+const [git, listed, ...args] = process.argv.slice(1);
+const go = () => {
+	if (!fs.existsSync(listed)) return void setTimeout(go, 10);
+	process.exit(require('child_process').spawnSync(git, args, { stdio: 'inherit' }).status ?? 1);
+};
+go();`;
+
+		/**
+		 * Runs `write` in a clone whose origin moved, with a listing identical to the one taken after it started while
+		 * the write runs and still in flight when that one starts, and answers what the clone heard and how many times
+		 * that listing was launched
+		 */
+		async function runAcrossHeldListing(
+			command: 'fetch' | 'pull',
+			write: (clone: TestRepo) => Promise<void>,
+		): Promise<{ heard: { changes: string[]; refs?: string[] }[]; listings: number }> {
+			const watched = watch();
+			const origin = createTestRepo();
+			const signals = mkdtempSync(join(tmpdir(), 'gitlens-held-'));
+			const listed = join(signals, 'listed');
+			const release = join(signals, 'release');
+			let clone: TestRepo | undefined;
+			let snapshotArgs: string[] | undefined;
+			let held: Promise<unknown> | undefined;
+			let listings = 0;
+			let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+			const spawn: ProcessSpawner = (gitPath, args, options) => {
+				if (args.includes(format)) {
+					listings++;
+					snapshotArgs ??= args.slice(args.indexOf('for-each-ref'));
+					if (listings === 2) {
+						return spawnProcess(
+							process.execPath,
+							['-e', heldListing, gitPath, listed, release, ...args],
+							options,
+						);
+					}
+
+					if (listings === 3) {
+						writeFileSync(release, '');
+					}
+				} else if (args.includes(command) && held == null) {
+					held = clone!.provider.git.run({ cwd: clone!.path, errors: 'ignore' }, ...snapshotArgs!);
+					// Released at the latest after a while, so a run that joins it still answers
+					releaseTimer = setTimeout(writeFileSync, 1000, release, '');
+					return spawnProcess(process.execPath, ['-e', heldWrite, gitPath, listed, ...args], options);
+				}
+				return spawnProcess(gitPath, args, options);
+			};
+			try {
+				clone = cloneTestRepo(origin.path, { hooks: watched.hooks, gitOptions: { spawn: spawn } });
+				addCommit(origin.path, 'ahead.txt', 'x', 'Origin advances');
+
+				await write(clone);
+				await held;
+
+				return { heard: heard(watched, clone.path), listings: listings };
+			} finally {
+				clearTimeout(releaseTimer);
+				// A held listing still waiting would otherwise outlive the test
+				writeFileSync(release, '');
+				clone?.cleanup();
+				origin.cleanup();
+				rmSync(signals, { recursive: true, force: true });
+			}
+		}
+
+		test('a fetch lists the refs again rather than join it', async () => {
+			const result = await runAcrossHeldListing('fetch', clone => clone.provider.ops.fetch(clone.path));
+
+			assert.strictEqual(result.listings, 3);
+			assert.deepStrictEqual(result.heard, [
+				{ changes: ['remotes'], refs: ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main'] },
+			]);
+		});
+
+		test('a pull lists the refs again rather than join it', async () => {
+			const result = await runAcrossHeldListing('pull', clone =>
+				clone.provider.ops.pull(clone.path, { fastForward: 'only' }),
+			);
+
+			assert.strictEqual(result.listings, 3);
+			assert.deepStrictEqual(result.heard, [
+				{
+					changes: ['head', 'heads', 'remotes', 'index'],
+					refs: ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
+				},
+			]);
+		});
 	});
 });
 
