@@ -49,6 +49,17 @@ export interface AheadOfBase {
 	readonly dependsOn: readonly string[];
 	/** The default branch the read resolved from local refs and the remotes' `HEAD` symrefs, `null` when none did; absent when it didn't consult the default branch (a recorded candidate decided the base first) */
 	readonly defaultBranch?: string | null;
+	/** `true` when a read inside this one failed and a fallback answered in its place (a merge base for a fork point that couldn't be read or settled, a stored value read as absent): the best answer there is, but one a read where every read succeeds may not give, so it is no `previous` for `getAheadOfBaseAfterBaseMove` or `getAheadOfBaseAfterCommit` to keep (nor does `getMergeTarget` cache such an answer). Absent otherwise */
+	readonly provisional?: true;
+	/**
+	 * The commit HEAD's side of the answer was measured at: for a named branch the cached ref list gives a tip for and
+	 * places in the checkout read, that tip, which every count, fork point and merge base in the read was taken from
+	 * instead of HEAD as git found it. Only when the host wires a read validator (`Cache.setReadValidator`), which
+	 * keeps that list current. Absent when the read measured from HEAD itself (a detached HEAD, a branch the list
+	 * doesn't name or place there, git before 2.23, or no read validator) or there is no base. A host may ignore it;
+	 * `getAheadOfBaseAfterCommit` takes it to know whose count `base.ahead` is.
+	 */
+	readonly measuredFrom?: string;
 }
 
 /** Which source decided a merge target (see `getMergeTarget`): an {@link AheadOfBaseTier}, the pull request's base, or the branch HEAD was on when the branch was created */
@@ -328,8 +339,9 @@ export interface GitBranchesSubProvider {
 	 * base was rebased off, still a value of its reflog but off its new tip's history, is settled again as a full read
 	 * does, and must keep the fork point and its count. It also answers when the local default branch tracking a
 	 * remote-tracking base moved, alone or with the base, if HEAD shares nothing past `previous.base.forkPoint` with
-	 * that branch's tip or reflog; moved alone, the previous answer comes back unchanged. `undefined` when any of that
-	 * can't be shown, and a full `getAheadOfBase` is due.
+	 * that branch's tip or reflog; moved alone, the previous answer comes back unchanged. HEAD doesn't move, so the
+	 * answer keeps `previous.measuredFrom`. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is
+	 * due.
 	 */
 	getAheadOfBaseAfterBaseMove?(
 		repoPath: string,
@@ -339,8 +351,40 @@ export interface GitBranchesSubProvider {
 			readonly base: NonNullable<AheadOfBase['base']>;
 			readonly dependsOn: readonly string[];
 			readonly defaultBranch?: string | null;
+			readonly measuredFrom?: string;
 		},
 		moved: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase | undefined>;
+	/**
+	 * Carries `previous`, a `getAheadOfBase` answer for `branch` read with HEAD at `previous.head`, past one ordinary
+	 * commit: `head`, the branch's tip now, without resolving the base again. It answers `previous` with
+	 * `base.ahead` one higher only when that provably equals a fresh `getAheadOfBase`: `head`'s only parent is
+	 * `previous.head`, and no tip or reflog value of the refs in `previous.dependsOn` but the branch's own reaches it, as
+	 * one git run shows, and `previous.base.ahead` is the count as of `previous.head`: known when
+	 * `previous.measuredFrom` is `previous.head`, and otherwise shown by a second run. The answer is measured from
+	 * `head`. Such a commit is one no fork point, merge base or count against those refs takes in but the
+	 * count of HEAD's own commits, so the choice of base, its fork point and every other field stay as they were. Only
+	 * while the base's tip is still `previous.base.sha`, the default branch resolves as `previous.defaultBranch` when one
+	 * did, `previous.base.ahead` is HEAD's commits not on the base (at least one, past a fork point in the base's
+	 * history other than `previous.head`, and not a preferred target's or an upstream the default branch contains), the
+	 * branch's reflog says nothing new of where the branch was created from, no ref the read would compare once it
+	 * exists, and so left out of `previous.dependsOn` while it didn't (the branch it was created from, the `upstream`
+	 * remote's copy of a candidate), has appeared, and the repository isn't shallow, grafted, holding replace refs, or
+	 * keeping its reflogs in reftables. `undefined` for a detached HEAD, or when any of that can't be shown, and a full
+	 * `getAheadOfBase` is due.
+	 */
+	getAheadOfBaseAfterCommit?(
+		repoPath: string,
+		branch: string | undefined,
+		previous: {
+			readonly head: string;
+			readonly base: NonNullable<AheadOfBase['base']>;
+			readonly dependsOn: readonly string[];
+			readonly defaultBranch?: string | null;
+			readonly measuredFrom?: string;
+		},
+		head: string,
 		cancellation?: AbortSignal,
 	): Promise<AheadOfBase | undefined>;
 	/**
