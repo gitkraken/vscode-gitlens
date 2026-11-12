@@ -674,6 +674,12 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/install/completed': KeplerInstallCompletedEvent;
 	/** Sent when installing Kepler fails or is cancelled */
 	'kepler/install/failed': KeplerInstallFailedEvent;
+	/** Sent when Install Kepler installs nothing: GitLens can't install it here and opens the download page instead, or Kepler is already installed. No `kepler/install/started` precedes it, except when the existing Kepler is only found once the install has started (Windows) */
+	'kepler/install/skipped': KeplerInstallSkippedEvent;
+	/** Sent when the user picks a button in, or dismisses, the notification that ends Install Kepler */
+	'kepler/install/action': KeplerInstallActionEvent;
+	/** Sent when a Kepler call to action — the "Try Kepler" banner or the Welcome card — scrolls into view, once per webview and `source` */
+	'kepler/cta/shown': KeplerCtaShownEvent;
 	/** Sent when the user picks an action in the "Kepler isn't installed" quick pick, or dismisses it */
 	'kepler/notInstalled/action': KeplerNotInstalledActionEvent;
 
@@ -2819,14 +2825,50 @@ interface KeplerInstallEvent {
 	kind: KeplerReleaseFileKind;
 }
 
-interface KeplerInstallCompletedEvent extends KeplerInstallEvent {
-	/** The installed version; absent when it is unknown before install (Windows) */
+interface KeplerInstallOutcomeEvent extends KeplerInstallEvent {
+	/** The Kepler version; absent when unknown — on Windows it is only known once installed */
 	version?: string;
+	/** How long the whole install took, in milliseconds */
+	duration: number;
+	/** How long the download took, in milliseconds; absent when it never started */
+	'duration.download'?: number;
+	/** How long checking the download took, in milliseconds; absent when it never started */
+	'duration.verify'?: number;
+	/** How long installing the file took, in milliseconds; absent when it never started */
+	'duration.install'?: number;
+	/** Linux only: how long setting the `kepler://` handler took, in milliseconds; absent when it never started */
+	'duration.register'?: number;
+	/** How many bytes were downloaded; absent when the download never started */
+	'download.size'?: number;
 }
 
-interface KeplerInstallFailedEvent extends KeplerInstallCompletedEvent {
+interface KeplerInstallCompletedEvent extends KeplerInstallOutcomeEvent {
+	/** Set when the user cancelled too late to stop the install: Kepler is installed, but what the install was for is not carried out */
+	'cancelled.late'?: true;
+}
+
+interface KeplerInstallFailedEvent extends KeplerInstallOutcomeEvent {
 	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
 	'failure.reason': KeplerInstallFailureReason;
+	/** What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path */
+	'failure.code'?: string;
+}
+
+interface KeplerInstallSkippedEvent {
+	/** Why nothing was installed. `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
+	reason: 'remote' | 'unsupported' | 'channel' | 'already-installed';
+}
+
+interface KeplerInstallActionEvent {
+	/** What the user picked. `open` = Open Kepler; `download` = Download Kepler; `output` = Open Output Channel; `dismiss` = closed the notification */
+	action: 'open' | 'download' | 'output' | 'dismiss';
+	/** How Install Kepler ended. `skipped` = Kepler was already installed */
+	after: 'completed' | 'failed' | 'skipped';
+}
+
+interface KeplerCtaShownEvent {
+	/** Whether the call to action offers Install Kepler; otherwise only Learn More */
+	installable: boolean;
 }
 
 interface KeplerNotInstalledActionEvent {

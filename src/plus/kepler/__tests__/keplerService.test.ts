@@ -8,11 +8,12 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import * as sinon from 'sinon';
 import type { CancellationToken, Progress } from 'vscode';
-import { window } from 'vscode';
+import { env, window } from 'vscode';
 // Side-effect only: `keplerService.ts` pulls in `system/-webview/context.js` for `setContext`, which
 // loads `system/-webview/command.js`, whose first load is re-entered through container.ts's dependency
 // chain before its `registrableCommands` array exists. Loading container.ts first avoids it.
 import '../../../container.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { KeplerRelease } from '../keplerRelease.js';
@@ -21,6 +22,9 @@ import { KeplerService } from '../keplerService.js';
 function makeContainer(prereleaseOrDebugging: boolean): Container {
 	return { prereleaseOrDebugging: prereleaseOrDebugging } as unknown as Container;
 }
+
+/** Lets the notification an install ends with, which nothing awaits, report its outcome */
+const flush = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
 
 // The channel/scheme suites never see an install, so they don't touch the real filesystem
 const notInstalled = (): boolean => false;
@@ -161,13 +165,16 @@ suite('KeplerService.installed', () => {
 	function makeUsageContainer(options: { prereleaseOrDebugging: boolean; alreadyTracked: boolean }): {
 		container: Container;
 		track: sinon.SinonStub;
+		sendEvent: sinon.SinonSpy<unknown[], void>;
 	} {
 		const track = sandbox.stub().resolves();
+		const sendEvent = sandbox.spy((..._args: unknown[]) => {});
 		const container = {
 			prereleaseOrDebugging: options.prereleaseOrDebugging,
 			usage: { isUsed: () => options.alreadyTracked, track: track },
+			telemetry: { sendEvent: sendEvent },
 		} as unknown as Container;
-		return { container: container, track: track };
+		return { container: container, track: track, sendEvent: sendEvent };
 	}
 
 	test('probes eagerly at construction, for the configured channel', () => {
@@ -191,10 +198,11 @@ suite('KeplerService.installed', () => {
 	test('picks up a Kepler installed after construction, and Install Kepler then installs nothing but says so', async () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
 		const probe = sandbox.stub().returns(false);
-		const { container, track } = makeUsageContainer({
+		const { container, track, sendEvent } = makeUsageContainer({
 			prereleaseOrDebugging: false,
 			alreadyTracked: false,
 		});
+		const source = { source: 'welcome' } as const;
 		const withProgress = sandbox.spy(window, 'withProgress');
 		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
 
@@ -205,11 +213,39 @@ suite('KeplerService.installed', () => {
 		assert.strictEqual(service.installed, true);
 		assert.deepStrictEqual(track.firstCall.args, ['action:gitlens.kepler.installed:happened']);
 
-		assert.strictEqual(await service.install(), true);
+		assert.strictEqual(await service.install(source), true);
+		await flush();
 		assert.strictEqual(withProgress.callCount, 0);
 		assert.strictEqual(showInformationMessage.callCount, 1);
 		assert.strictEqual(showInformationMessage.firstCall.args[0], 'Kepler is installed.');
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args),
+			[
+				['kepler/install/skipped', { reason: 'already-installed' }, source],
+				['kepler/install/action', { action: 'dismiss', after: 'skipped' }, source],
+			],
+		);
 	});
+
+	async function assertCannotInstall(reason: string, channel: string | undefined, remote: boolean): Promise<void> {
+		sandbox.stub(configuration, 'getAny').returns(channel);
+		const openExternal = sandbox.stub(env, 'openExternal').resolves(true);
+		const { container, sendEvent } = makeUsageContainer({ prereleaseOrDebugging: true, alreadyTracked: false });
+		const service = new KeplerService(container, notInstalled, remote, notLocated);
+
+		assert.strictEqual(await service.install(), false);
+		assert.strictEqual(openExternal.callCount, 1);
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args),
+			[['kepler/install/skipped', { reason: reason }, undefined]],
+		);
+	}
+
+	test('in a remote window, Install Kepler opens the download page and reports why', () =>
+		assertCannotInstall('remote', undefined, true));
+
+	test('on a non-production channel, Install Kepler opens the download page and reports why', () =>
+		assertCannotInstall('channel', 'staging', false));
 
 	test('does not take a half-installed Kepler for installed while an install runs; a second install joins it', () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
@@ -337,7 +373,7 @@ suite('KeplerService.installed', () => {
 
 // A real install end to end, with the Linux AppImage because it installs into `HOME` and needs no admin
 // rights: a local server stands in for Kepler's CDN and a stub `xdg-mime` for the desktop's registration
-suite('KeplerService.install — cancel', () => {
+suite('KeplerService.install', () => {
 	const appImage = Buffer.from('#!/bin/sh\necho kepler\n'.repeat(1024));
 	let sandbox: sinon.SinonSandbox;
 	let dir: string;
@@ -391,7 +427,7 @@ suite('KeplerService.install — cancel', () => {
 
 	test('a Cancel after the point of no return keeps the install but resolves false, quietly', async () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
-		const sendEvent = sandbox.spy((_event: string) => {});
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>) => {});
 		const container = {
 			prereleaseOrDebugging: false,
 			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
@@ -438,5 +474,96 @@ suite('KeplerService.install — cancel', () => {
 			sendEvent.getCalls().map(c => c.args[0]),
 			['kepler/install/started', 'kepler/install/completed'],
 		);
+		assert.strictEqual(sendEvent.lastCall.args[1]?.['cancelled.late'], true);
+	});
+
+	function makeInstallService(sendEvent: sinon.SinonSpy): KeplerService {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const container = {
+			prereleaseOrDebugging: false,
+			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
+			telemetry: { sendEvent: sendEvent },
+		} as unknown as Container;
+		const token = {
+			isCancellationRequested: false,
+			onCancellationRequested: () => ({ dispose: () => {} }),
+		} as unknown as CancellationToken;
+		sandbox.stub(window, 'withProgress').callsFake((_options, task) => task({ report: () => {} }, token));
+		return new KeplerService(container, () => false, false, notLocated);
+	}
+
+	function assertDuration(value: unknown): void {
+		assert.ok(typeof value === 'number' && value >= 0, `expected a duration, got ${String(value)}`);
+	}
+
+	test('reports a completed install with its timings and download size, then how its notification was answered', async () => {
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
+		const source = { source: 'settings' } as const;
+		sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const service = makeInstallService(sendEvent);
+		sandbox.stub(service, 'getRelease').resolves(release);
+
+		assert.strictEqual(await service.install(source), true);
+		await flush();
+
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args[0]),
+			['kepler/install/started', 'kepler/install/completed', 'kepler/install/action'],
+		);
+		const { duration, ...completed } = sendEvent.getCall(1).args[1]!;
+		assertDuration(duration);
+		for (const step of ['download', 'verify', 'install', 'register']) {
+			assertDuration(completed[`duration.${step}`]);
+			delete completed[`duration.${step}`];
+		}
+		assert.deepStrictEqual(completed, {
+			kind: 'linux-appimage',
+			version: '0.16.0',
+			'download.size': appImage.length,
+			'cancelled.late': undefined,
+		});
+		assert.deepStrictEqual(sendEvent.getCall(2).args.slice(1), [{ action: 'dismiss', after: 'completed' }, source]);
+	});
+
+	test('reports a failed install with the step, a code for what failed, and the button picked', async () => {
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
+		const showOutputChannel = sandbox.stub(Logger, 'showOutputChannel');
+		sandbox
+			.stub(window, 'showErrorMessage')
+			.callsFake((_message: string, ...items: unknown[]) => Promise.resolve(items[1]) as Thenable<undefined>);
+		const service = makeInstallService(sendEvent);
+		sandbox.stub(service, 'getRelease').resolves({ ...release, sha512: 'not-the-hash' });
+
+		assert.strictEqual(await service.install(), false);
+		await flush();
+
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args[0]),
+			['kepler/install/started', 'kepler/install/failed', 'kepler/install/action'],
+		);
+		const failed = sendEvent.getCall(1).args[1]!;
+		assert.strictEqual(failed['failure.reason'], 'verify');
+		assert.strictEqual(failed['failure.code'], 'sha512-mismatch');
+		assert.strictEqual(failed['download.size'], appImage.length);
+		assertDuration(failed.duration);
+		assertDuration(failed['duration.download']);
+		assertDuration(failed['duration.verify']);
+		assert.strictEqual(failed['duration.install'], undefined);
+		assert.deepStrictEqual(sendEvent.getCall(2).args[1], { action: 'output', after: 'failed' });
+		assert.strictEqual(showOutputChannel.callCount, 1);
+	});
+
+	test('reports why the release could not be resolved', async () => {
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
+		sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		// Stands in for a manifest request the server refuses
+		sandbox.stub(globalThis, 'fetch').resolves(new Response(null, { status: 503 }));
+		const service = makeInstallService(sendEvent);
+
+		assert.strictEqual(await service.install(), false);
+
+		const failed = sendEvent.getCall(1).args[1]!;
+		assert.strictEqual(failed['failure.reason'], 'manifest');
+		assert.strictEqual(failed['failure.code'], '503');
 	});
 });

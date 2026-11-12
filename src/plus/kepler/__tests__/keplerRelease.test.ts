@@ -2,10 +2,13 @@ import * as assert from 'node:assert';
 import {
 	createKeplerDesktopEntry,
 	getKeplerAppImagePath,
+	getKeplerInstallFailureCode,
 	getKeplerReleaseTarget,
 	getKeplerWindowsProtocolCommand,
+	KeplerInstallError,
 	parseKeplerInstallLocation,
 	parseKeplerManifest,
+	parseKeplerVersion,
 	resolveKeplerReleaseFromManifest,
 	toMegabytes,
 } from '../keplerRelease.js';
@@ -139,5 +142,60 @@ suite('toMegabytes', () => {
 	test('rounds to whole decimal megabytes', () => {
 		assert.strictEqual(toMegabytes(166_123_456), 166);
 		assert.strictEqual(toMegabytes(175_600_000), 176);
+	});
+});
+
+suite('getKeplerInstallFailureCode', () => {
+	function error(props: Record<string, unknown>, cause?: unknown): Error {
+		return Object.assign(new Error('/home/jane/secret: failed', { cause: cause }), props);
+	}
+
+	const cases: [name: string, ex: unknown, expected: string | undefined][] = [
+		['a Node error code', error({ code: 'EACCES' }), 'EACCES'],
+		['a process exit code', error({ code: 2 }), 'exit:2'],
+		['a signal that ended a process', error({ signal: 'SIGKILL' }), 'SIGKILL'],
+		['a process that timed out', error({ reason: 'timeout', signal: 'SIGTERM' }), 'timeout'],
+		['a request that timed out', error({ name: 'TimeoutError', code: 23 }), 'timeout'],
+		[
+			'a network error under "fetch failed"',
+			new TypeError('fetch failed', { cause: error({ code: 'ENOTFOUND' }) }),
+			'ENOTFOUND',
+		],
+		['an abort, which has no cause of its own', error({ name: 'AbortError', code: 20 }), undefined],
+		['a code that is not code-shaped', error({ code: '/home/jane/kepler' }), undefined],
+		['an error with no code', new Error('/home/jane/secret'), undefined],
+		['not an error', 'ENOENT', undefined],
+		['an install error with its own code', new KeplerInstallError('download', 'x', { code: '404' }), '404'],
+		[
+			"an install error that takes its cause's code",
+			new KeplerInstallError('register', 'x', { cause: error({ code: 1 }) }),
+			'exit:1',
+		],
+		[
+			'an install error wrapping another',
+			new KeplerInstallError('manifest', 'x', {
+				cause: new KeplerInstallError('manifest', 'y', { code: '503' }),
+			}),
+			'503',
+		],
+	];
+
+	for (const [name, ex, expected] of cases) {
+		test(`reads ${name}`, () => {
+			assert.strictEqual(getKeplerInstallFailureCode(ex), expected);
+		});
+	}
+});
+
+suite('parseKeplerVersion', () => {
+	test('reads the version Windows reports for an executable', () => {
+		assert.strictEqual(parseKeplerVersion('0.16.0\r\n'), '0.16.0');
+		assert.strictEqual(parseKeplerVersion('1.2.3-beta.1'), '1.2.3-beta.1');
+		assert.strictEqual(parseKeplerVersion('0.16.0.0'), '0.16.0.0');
+	});
+
+	test('returns undefined for anything else', () => {
+		assert.strictEqual(parseKeplerVersion(''), undefined);
+		assert.strictEqual(parseKeplerVersion('Get-Item : Cannot find path C:\\Users\\Jane'), undefined);
 	});
 });

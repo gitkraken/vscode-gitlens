@@ -256,6 +256,11 @@ export function parseKeplerInstallLocation(regOutput: string): string | undefine
 	return match?.[1] || undefined;
 }
 
+/** The version in `text` (what Windows reports for an executable), or `undefined` when it holds none. */
+export function parseKeplerVersion(text: string): string | undefined {
+	return /^\s*(\d+\.\d+\.\d+(?:[-+.][0-9A-Za-z.-]{1,40})?)\s*$/.exec(text)?.[1];
+}
+
 /** Bytes as whole megabytes (1 MB = 1,000,000 bytes, matching how the download page states sizes). */
 export function toMegabytes(bytes: number): number {
 	return Math.round(bytes / 1_000_000);
@@ -278,14 +283,42 @@ export type KeplerInstallFailureReason =
 
 /** An install failure. `message` stays English, for logs; the UI maps `reason` to a localized message. */
 export class KeplerInstallError extends Error {
+	/** What failed, for telemetry — see {@link getKeplerInstallFailureCode}; defaults to the cause's code */
+	readonly code: string | undefined;
+
 	constructor(
 		readonly reason: KeplerInstallFailureReason,
 		message: string,
-		options?: { cause?: unknown },
+		options?: { cause?: unknown; code?: string },
 	) {
 		super(message, options);
 		this.name = 'KeplerInstallError';
+		this.code = options?.code ?? getKeplerInstallFailureCode(options?.cause);
 	}
+}
+
+/**
+ * A short code for what failed, safe to send as telemetry: a Node error code (`ENOTFOUND`, `EACCES`), a
+ * process exit code (`exit:2`) or signal, or `timeout`. Never message text — it can hold paths under
+ * the user's home folder. Follows `cause` until a code is found.
+ */
+export function getKeplerInstallFailureCode(ex: unknown): string | undefined {
+	for (let depth = 0; depth < 5 && ex != null && typeof ex === 'object'; depth++) {
+		if (ex instanceof KeplerInstallError) return ex.code;
+
+		const { name, code, signal, reason, cause } = ex as Record<string, unknown>;
+		// Checked before `code`: a DOMException's is a legacy number, and a timed out process has none
+		if (name === 'TimeoutError' || reason === 'timeout') return 'timeout';
+		if (name !== 'AbortError') {
+			if (typeof code === 'number') return `exit:${code}`;
+			if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,40}$/.test(code)) return code;
+			if (typeof signal === 'string' && /^SIG[A-Z0-9]{2,10}$/.test(signal)) return signal;
+		}
+
+		ex = cause;
+	}
+
+	return undefined;
 }
 
 /** The steps an install reports progress for, in order. `register` happens on Linux only. */
@@ -297,6 +330,16 @@ export interface KeplerInstallProgress {
 	readonly transferred?: number;
 	/** Total bytes to download, when known; only for `download` */
 	readonly total?: number;
+}
+
+/** What an install did. */
+export interface KeplerInstallResult {
+	/** The installed app's path */
+	readonly location: string;
+	/** `true` when Kepler was already installed, so nothing was downloaded or installed (Windows) */
+	readonly existing?: boolean;
+	/** The installed version, where it is only known once installed (Windows) */
+	readonly version?: string;
 }
 
 export interface KeplerInstallOptions {

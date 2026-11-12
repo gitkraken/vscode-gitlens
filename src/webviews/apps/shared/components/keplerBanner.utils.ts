@@ -1,4 +1,6 @@
+import type { Sources } from '../../../../constants.telemetry.js';
 import type { WalkthroughProgress } from '../../../../constants.walkthroughs.js';
+import { emitTelemetrySentEvent } from '../telemetry.js';
 
 /** Whether the "Try Kepler" banner should show for the given main-walkthrough progress.
  *
@@ -31,4 +33,32 @@ export function shouldShowKeplerBanner(options: {
 }): boolean {
 	const { progress, onboardingOptedOut, orgDisabledAi, keplerInstalled } = options;
 	return progress != null && !onboardingOptedOut && !orgDisabledAi && !keplerInstalled && !progress.state.kepler;
+}
+
+const shownSources = new Set<Sources>();
+
+/**
+ * Reports `kepler/cta/shown` the first time `el` — a Kepler call to action — is at least half in view,
+ * once per webview and `source`. Rendered is not seen: the Welcome card sits in a collapsed step, and a
+ * banner can be below the fold. Returns a function that stops watching.
+ */
+export function trackKeplerCtaShown(el: Element, source: Sources, isInstallable: () => boolean): () => void {
+	if (shownSources.has(source)) return () => {};
+
+	const observer = new IntersectionObserver(
+		entries => {
+			if (shownSources.has(source) || !entries.some(e => e.isIntersecting)) return;
+
+			shownSources.add(source);
+			observer.disconnect();
+			emitTelemetrySentEvent<'kepler/cta/shown'>(el, {
+				name: 'kepler/cta/shown',
+				data: { installable: isInstallable() },
+				source: { source: source },
+			});
+		},
+		{ threshold: 0.5 },
+	);
+	observer.observe(el);
+	return () => observer.disconnect();
 }

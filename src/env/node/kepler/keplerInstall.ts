@@ -10,6 +10,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { getKeplerInstallPaths, getKeplerProductName } from '../../../plus/kepler/keplerProviders.js';
 import type {
 	KeplerInstallOptions,
+	KeplerInstallResult,
 	KeplerManifest,
 	KeplerRelease,
 	KeplerReleaseTarget,
@@ -25,6 +26,7 @@ import {
 	keplerWindowsRegistryKey,
 	parseKeplerInstallLocation,
 	parseKeplerManifest,
+	parseKeplerVersion,
 	resolveKeplerReleaseFromManifest,
 } from '../../../plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from '../../../plus/kepler/keplerService.js';
@@ -100,18 +102,24 @@ export async function getKeplerRelease(target: KeplerReleaseTarget): Promise<Kep
 	}
 
 	let manifest: KeplerManifest;
+	let status: string | undefined;
 	try {
 		const response = await fetch(target.manifestUrl, { signal: AbortSignal.timeout(manifestFetchTimeout) });
-		if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+		if (!response.ok) {
+			status = String(response.status);
+			throw new Error(`${response.status} ${response.statusText}`);
+		}
 
 		manifest = parseKeplerManifest(await response.text());
 	} catch (ex) {
-		throw new KeplerInstallError('manifest', `Unable to read ${target.manifestUrl}`, { cause: ex });
+		throw new KeplerInstallError('manifest', `Unable to read ${target.manifestUrl}`, { cause: ex, code: status });
 	}
 
 	const release = resolveKeplerReleaseFromManifest(target, manifest);
 	if (release == null) {
-		throw new KeplerInstallError('manifest', `${target.manifestUrl} does not list ${target.fileName}`);
+		throw new KeplerInstallError('manifest', `${target.manifestUrl} does not list ${target.fileName}`, {
+			code: 'file-not-listed',
+		});
 	}
 
 	return release;
@@ -149,18 +157,23 @@ export async function findKeplerLaunchServicesInstallLocation(channel: KeplerCha
 
 /**
  * Downloads, verifies and installs a Kepler release into a user-owned location — no admin prompt.
- * Returns the installed app's path. Throws {@link KeplerInstallError}.
+ * Throws {@link KeplerInstallError}.
  */
-export async function installKepler(release: KeplerRelease, options?: KeplerInstallOptions): Promise<string> {
+export async function installKepler(
+	release: KeplerRelease,
+	options?: KeplerInstallOptions,
+): Promise<KeplerInstallResult> {
 	throwIfCancelled(options?.signal);
 
 	// A silent setup closes a running Kepler, so never run it over an install the path probe missed
 	if (release.kind === 'windows-setup') {
 		const existing = await findKeplerRegistryInstallLocation('production');
-		if (existing != null) return existing;
+		if (existing != null) return { location: existing, existing: true };
 	} else if (release.sha512 == null) {
 		// On macOS and Linux the manifest's SHA-512 is the only check on the download
-		throw new KeplerInstallError('verify', `The manifest lists no SHA-512 for ${release.fileName}`);
+		throw new KeplerInstallError('verify', `The manifest lists no SHA-512 for ${release.fileName}`, {
+			code: 'sha512-missing',
+		});
 	}
 
 	const tempDir = await mkdtemp(join(tmpdir(), 'gitlens-kepler-'));
@@ -172,7 +185,9 @@ export async function installKepler(release: KeplerRelease, options?: KeplerInst
 		options?.onProgress?.({ step: 'verify' });
 		if (release.sha512 != null) {
 			if (sha512 !== release.sha512) {
-				throw new KeplerInstallError('verify', `SHA-512 mismatch for ${release.fileName}`);
+				throw new KeplerInstallError('verify', `SHA-512 mismatch for ${release.fileName}`, {
+					code: 'sha512-mismatch',
+				});
 			}
 		} else {
 			await verifyAuthenticode(file);
@@ -182,11 +197,11 @@ export async function installKepler(release: KeplerRelease, options?: KeplerInst
 		options?.onProgress?.({ step: 'install' });
 		switch (release.kind) {
 			case 'mac-zip':
-				return await installMacZip(file, tempDir);
+				return { location: await installMacZip(file, tempDir) };
 			case 'windows-setup':
 				return await installWindowsSetup(file);
 			case 'linux-appimage':
-				return await installLinuxAppImage(file, options);
+				return { location: await installLinuxAppImage(file, options) };
 		}
 	} catch (ex) {
 		if (ex instanceof KeplerInstallError) throw ex;
@@ -231,7 +246,9 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 		armStallTimer();
 		const response = await fetch(release.url, { signal: controller.signal });
 		if (!response.ok || response.body == null) {
-			throw new KeplerInstallError('download', `${response.status} ${response.statusText}`);
+			throw new KeplerInstallError('download', `${response.status} ${response.statusText}`, {
+				code: String(response.status),
+			});
 		}
 
 		const length = Number(response.headers.get('content-length'));
@@ -257,7 +274,9 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 		await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
 
 		if (total != null && transferred !== total) {
-			throw new KeplerInstallError('download', `Downloaded ${transferred} of ${total} bytes`);
+			throw new KeplerInstallError('download', `Downloaded ${transferred} of ${total} bytes`, {
+				code: 'incomplete',
+			});
 		}
 		return hash.digest('base64');
 	} catch (ex) {
@@ -268,7 +287,7 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 		throw new KeplerInstallError(
 			'download',
 			stalled ? `Download stalled (no progress for ${downloadStallTimeout}ms)` : 'Download failed',
-			{ cause: writeError ?? ex },
+			{ cause: writeError ?? ex, code: stalled ? 'stalled' : undefined },
 		);
 	} finally {
 		if (timer != null) {
@@ -280,11 +299,6 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 
 /** Windows publishes no SHA-512, so the setup's Authenticode signature is checked instead. */
 async function verifyAuthenticode(file: string): Promise<void> {
-	// VS Code started from PowerShell 7 inherits its `PSModulePath`, whose 7.x modules Windows
-	// PowerShell 5.1 can't load — `Get-AuthenticodeSignature` among them. Unset, 5.1 uses its own.
-	// Windows environment variable names ignore case, so match it that way
-	const inherited = Object.fromEntries(Object.entries(env).filter(([k]) => k.toLowerCase() !== 'psmodulepath'));
-
 	let status: string;
 	try {
 		// The path goes through the environment, not the command line, so it needs no quoting
@@ -297,14 +311,26 @@ async function verifyAuthenticode(file: string): Promise<void> {
 				'(Get-AuthenticodeSignature -LiteralPath $env:GITLENS_KEPLER_SETUP).Status',
 			],
 			'utf8',
-			{ env: { ...inherited, GITLENS_KEPLER_SETUP: file }, timeout: 60_000 },
+			{ env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file }, timeout: 60_000 },
 		);
 		status = output.trim();
 	} catch (ex) {
 		throw new KeplerInstallError('verify', 'Unable to check the setup signature', { cause: ex });
 	}
 
-	if (status !== 'Valid') throw new KeplerInstallError('verify', `The setup signature is not valid (${status})`);
+	if (status !== 'Valid') {
+		throw new KeplerInstallError('verify', `The setup signature is not valid (${status})`, {
+			// One of PowerShell's `SignatureStatus` names, such as `NotSigned` or `HashMismatch`
+			code: /^[A-Za-z]{1,30}$/.test(status) ? `signature:${status}` : 'signature',
+		});
+	}
+}
+
+function getWindowsPowerShellEnv(): NodeJS.ProcessEnv {
+	// VS Code started from PowerShell 7 inherits its `PSModulePath`, whose 7.x modules Windows
+	// PowerShell 5.1 can't load — `Get-AuthenticodeSignature` among them. Unset, 5.1 uses its own.
+	// Windows environment variable names ignore case, so match it that way
+	return Object.fromEntries(Object.entries(env).filter(([k]) => k.toLowerCase() !== 'psmodulepath'));
 }
 
 /**
@@ -317,7 +343,7 @@ async function installMacZip(file: string, tempDir: string): Promise<string> {
 	await run('ditto', ['-x', '-k', file, extractDir], 'utf8');
 
 	const app = (await readdir(extractDir)).find(name => name.endsWith('.app'));
-	if (app == null) throw new KeplerInstallError('install', 'The download has no app bundle');
+	if (app == null) throw new KeplerInstallError('install', 'The download has no app bundle', { code: 'no-app' });
 
 	let applications = '/Applications';
 	try {
@@ -354,9 +380,11 @@ async function installMacZip(file: string, tempDir: string): Promise<string> {
  * it. Exit code 0 is success; anything else (usually 2) is a failure, cancellation included — the
  * setup doesn't tell them apart.
  */
-async function installWindowsSetup(file: string): Promise<string> {
+async function installWindowsSetup(file: string): Promise<KeplerInstallResult> {
 	const code = await run(file, ['/S'], 'utf8', { exitCodeOnly: true });
-	if (code !== 0) throw new KeplerInstallError('install', `The setup exited with code ${code}`);
+	if (code !== 0) {
+		throw new KeplerInstallError('install', `The setup exited with code ${code}`, { code: `exit:${code}` });
+	}
 
 	const installed =
 		(await findKeplerRegistryInstallLocation('production')) ??
@@ -364,10 +392,42 @@ async function installWindowsSetup(file: string): Promise<string> {
 			home: homedir(),
 			localAppData: env.LOCALAPPDATA,
 		}).find(p => existsSync(p));
-	if (installed == null) throw new KeplerInstallError('install', 'The setup finished, but Kepler was not found');
+	if (installed == null) {
+		throw new KeplerInstallError('install', 'The setup finished, but Kepler was not found', {
+			code: 'not-found',
+		});
+	}
 
 	await registerWindowsProtocol(installed);
-	return installed;
+	return { location: installed, version: await getWindowsInstalledVersion(installed) };
+}
+
+function getWindowsExecutablePath(installFolder: string): string {
+	return join(installFolder, `${getKeplerProductName('production')}.exe`);
+}
+
+/** The version of the Kepler in `installFolder`, read off its executable — the setup's URL doesn't carry one. */
+async function getWindowsInstalledVersion(installFolder: string): Promise<string | undefined> {
+	try {
+		const output = await run(
+			'powershell.exe',
+			[
+				'-NoProfile',
+				'-NonInteractive',
+				'-Command',
+				'(Get-Item -LiteralPath $env:GITLENS_KEPLER_EXE).VersionInfo.ProductVersion',
+			],
+			'utf8',
+			{
+				env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_EXE: getWindowsExecutablePath(installFolder) },
+				quiet: true,
+				timeout: 10_000,
+			},
+		);
+		return parseKeplerVersion(output);
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -376,7 +436,7 @@ async function installWindowsSetup(file: string): Promise<string> {
  * handler an earlier uninstall left behind, pointing at a deleted executable.
  */
 async function registerWindowsProtocol(installFolder: string): Promise<void> {
-	const exe = join(installFolder, `${getKeplerProductName('production')}.exe`);
+	const exe = getWindowsExecutablePath(installFolder);
 	try {
 		if (!existsSync(exe)) throw new Error(`${exe} not found`);
 

@@ -14,8 +14,21 @@ import { installKepler } from '../keplerInstall.js';
 const appImage = Buffer.from('#!/bin/sh\necho kepler\n'.repeat(4096));
 const appImageSha512 = createHash('sha512').update(appImage).digest('base64');
 
-async function rejectsWith(promise: Promise<unknown>, reason: KeplerInstallError['reason']): Promise<void> {
-	await assert.rejects(promise, (ex: unknown) => ex instanceof KeplerInstallError && ex.reason === reason);
+async function rejectsWith(
+	promise: Promise<unknown>,
+	reason: KeplerInstallError['reason'],
+	code?: string | RegExp,
+): Promise<void> {
+	await assert.rejects(promise, (ex: unknown) => {
+		assert.ok(ex instanceof KeplerInstallError);
+		assert.strictEqual(ex.reason, reason);
+		if (typeof code === 'string') {
+			assert.strictEqual(ex.code, code);
+		} else if (code != null) {
+			assert.match(ex.code ?? '', code);
+		}
+		return true;
+	});
 }
 
 // The whole Linux install end to end: a local server stands in for Kepler's CDN, `HOME` for the user's
@@ -27,6 +40,7 @@ suite('installKepler — Linux AppImage', () => {
 	let baseUrl: string;
 	/** Bytes the server sends before cutting the connection, with the full `content-length` claimed */
 	let truncateAt: number | undefined;
+	let status: number;
 	let requests: number;
 	const originalHome = process.env.HOME;
 	const originalPath = process.env.PATH;
@@ -67,6 +81,11 @@ suite('installKepler — Linux AppImage', () => {
 
 		server = createServer((_req, res) => {
 			requests++;
+			if (status !== 200) {
+				res.writeHead(status).end();
+				return;
+			}
+
 			res.writeHead(200, { 'content-length': appImage.length });
 			if (truncateAt == null) {
 				res.end(appImage);
@@ -86,6 +105,7 @@ suite('installKepler — Linux AppImage', () => {
 
 	setup(async () => {
 		truncateAt = undefined;
+		status = 200;
 		requests = 0;
 		dir = await mkdtemp(join(tmpdir(), 'gitlens-kepler-install-'));
 		home = join(dir, 'home');
@@ -101,9 +121,10 @@ suite('installKepler — Linux AppImage', () => {
 	test('installs a verified AppImage, executable, with a desktop entry for kepler://', async () => {
 		await stubXdgMime(0);
 
-		const installed = await installKepler(release());
+		const result = await installKepler(release());
+		const installed = result.location;
 
-		assert.strictEqual(installed, appImagePath());
+		assert.deepStrictEqual(result, { location: appImagePath() });
 		assert.deepStrictEqual(await readFile(installed), appImage);
 		assert.strictEqual((await stat(installed)).mode & 0o777, 0o755);
 		assert.match(await readFile(desktopEntryPath(), 'utf8'), /^MimeType=x-scheme-handler\/kepler;$/m);
@@ -114,7 +135,7 @@ suite('installKepler — Linux AppImage', () => {
 		await stubXdgMime(0);
 		await seedExistingInstall();
 
-		await rejectsWith(installKepler(release('not-the-hash')), 'verify');
+		await rejectsWith(installKepler(release('not-the-hash')), 'verify', 'sha512-mismatch');
 
 		assert.strictEqual(await readFile(appImagePath(), 'utf8'), 'old kepler');
 	});
@@ -123,7 +144,7 @@ suite('installKepler — Linux AppImage', () => {
 		await stubXdgMime(0);
 		await seedExistingInstall();
 
-		await rejectsWith(installKepler({ ...release(), sha512: undefined }), 'verify');
+		await rejectsWith(installKepler({ ...release(), sha512: undefined }), 'verify', 'sha512-missing');
 
 		assert.strictEqual(requests, 0);
 		assert.strictEqual(await readFile(appImagePath(), 'utf8'), 'old kepler');
@@ -133,17 +154,27 @@ suite('installKepler — Linux AppImage', () => {
 		await stubXdgMime(0);
 		truncateAt = 1024;
 
-		await rejectsWith(installKepler(release()), 'download');
+		// The connection drops mid-file, so the code is the network error's, whichever the platform gives
+		await rejectsWith(installKepler(release()), 'download', /^[A-Z][A-Z0-9_]+$/);
 
 		assert.strictEqual(existsSync(appImagePath()), false);
 		assert.strictEqual(existsSync(desktopEntryPath()), false);
+	});
+
+	test('fails a download the server refuses, with the HTTP status as the code', async () => {
+		await stubXdgMime(0);
+		status = 404;
+
+		await rejectsWith(installKepler(release()), 'download', '404');
+
+		assert.strictEqual(existsSync(appImagePath()), false);
 	});
 
 	test('rolls back when kepler:// cannot be registered, keeping the existing install and desktop entry', async () => {
 		await stubXdgMime(1);
 		await seedExistingInstall();
 
-		await rejectsWith(installKepler(release()), 'register');
+		await rejectsWith(installKepler(release()), 'register', 'exit:1');
 
 		assert.strictEqual(await readFile(appImagePath(), 'utf8'), 'old kepler');
 		assert.strictEqual(existsSync(`${appImagePath()}.download`), false);

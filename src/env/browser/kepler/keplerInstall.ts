@@ -1,7 +1,12 @@
 // Browser-side stub for `@env/kepler/keplerInstall`. vscode.dev has no filesystem to probe for, or
 // install, a desktop app, so Kepler always reads as not installed and can never be installed.
 
-import type { KeplerInstallOptions, KeplerRelease, KeplerReleaseTarget } from '../../../plus/kepler/keplerRelease.js';
+import type {
+	KeplerInstallOptions,
+	KeplerInstallResult,
+	KeplerRelease,
+	KeplerReleaseTarget,
+} from '../../../plus/kepler/keplerRelease.js';
 import { KeplerInstallError } from '../../../plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from '../../../plus/kepler/keplerService.js';
 
@@ -31,6 +36,6 @@ export function getKeplerRelease(_target: KeplerReleaseTarget): Promise<KeplerRe
 }
 
 /** Browser stub — never called, since Install Kepler is not offered on the web. Always rejects. */
-export function installKepler(_release: KeplerRelease, _options?: KeplerInstallOptions): Promise<string> {
+export function installKepler(_release: KeplerRelease, _options?: KeplerInstallOptions): Promise<KeplerInstallResult> {
 	return Promise.reject(new KeplerInstallError('unsupported', 'Kepler cannot be installed on the web'));
 }
