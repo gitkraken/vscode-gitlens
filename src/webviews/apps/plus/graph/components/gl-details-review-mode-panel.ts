@@ -2011,8 +2011,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const unpushed = ids(
 			(firstPushed < 0 ? items : items.slice(0, firstPushed)).filter(i => i.state !== 'load-more'),
 		);
-		const end = items.findIndex(i => i.state === 'load-more' || i.state === 'merge-base');
-		const branch = items.some(i => i.state === 'merge-base') ? ids(items.slice(0, end)) : [];
+		const isMergeBase = (i: ScopeItem) => i.state === 'merge-base' || i.mergeBase === true;
+		const end = items.findIndex(i => i.state === 'load-more' || isMergeBase(i));
+		const branch = items.some(isMergeBase) ? ids(items.slice(0, end)) : [];
 
 		const same = (a: readonly string[], b: readonly string[]) =>
 			a.length === b.length && a.every((id, i) => id === b[i]);

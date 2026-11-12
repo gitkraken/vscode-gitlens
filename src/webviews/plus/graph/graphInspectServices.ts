@@ -1077,15 +1077,11 @@ export class GraphInspectServices {
 			}
 
 			// On Load more (`includePastMergeBase`) walk the full branch log so ancestor
-			// history past the merge base is brought in. Otherwise scope to the
+			// history past the merge base is brought in — the merge base is still reported, so
+			// the picker knows where the branch ends. Otherwise scope to the
 			// merge-base..branch range so the picker shows the branch-divergence window.
-			let logRef: string;
-			if (options?.includePastMergeBase) {
-				mergeBaseSha = undefined;
-				logRef = branch.ref;
-			} else {
-				logRef = mergeBaseSha ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
-			}
+			const pastMergeBase = options?.includePastMergeBase === true;
+			let logRef = mergeBaseSha && !pastMergeBase ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
 			// Request one extra so we can detect "more available" without a separate count.
 			let log = await svc.commits.getLog(logRef, { limit: limit + 1 });
 			signal?.throwIfAborted();
@@ -1098,6 +1094,8 @@ export class GraphInspectServices {
 				logRef = branch.ref;
 				log = await svc.commits.getLog(logRef, { limit: limit + 1 });
 				signal?.throwIfAborted();
+			} else if (pastMergeBase && log?.commits.keys().next().value === mergeBaseSha) {
+				mergeBaseSha = undefined;
 			}
 
 			if (!log?.commits?.size) return { commits: [], hasMore: false };
@@ -1107,12 +1105,15 @@ export class GraphInspectServices {
 			// ancestor history even when the page isn't full. Once we've extended past the
 			// merge base, `hasMore` reflects the actual branch log size — when it returns
 			// false on a subsequent Load more, the button disappears.
-			const hasMore = mergeBaseSha != null || total > limit;
+			const hasMore = (mergeBaseSha != null && !pastMergeBase) || total > limit;
 
 			const entries: BranchCommitEntry[] = [];
 			let index = 0;
+			let reachedMergeBase = false;
 			for (const [sha, commit] of log.commits) {
 				if (index >= limit) break;
+
+				reachedMergeBase ||= sha === mergeBaseSha;
 
 				const fileCount =
 					commit.stats?.files != null
@@ -1123,7 +1124,7 @@ export class GraphInspectServices {
 
 				// With upstream: commits within ahead count are unpushed, rest are pushed
 				// Without upstream: all branch commits since merge base are unpushed
-				const isPushed = hasUpstream ? index >= aheadCount : false;
+				const isPushed = hasUpstream ? index >= aheadCount : reachedMergeBase;
 
 				const entry: BranchCommitEntry = {
 					sha: sha,

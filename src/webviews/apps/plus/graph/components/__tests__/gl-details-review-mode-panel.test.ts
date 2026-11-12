@@ -609,4 +609,15 @@ suite('GlDetailsReviewModePanel scope presets', () => {
 		assert.deepStrictEqual(presets(pushed, ['c2'], false), [['Branch', 'false']]);
 		assert.deepStrictEqual(presets(pushed, ['c2', 'c1'], false), [['Branch', 'true']]);
 	});
+
+	test('keeps Branch to the commits above the merge base once Load more lists it', () => {
+		const loaded = [
+			row('c2', 'pushed'),
+			row('c1', 'pushed'),
+			{ ...row('m2', 'pushed'), mergeBase: true },
+			row('m1', 'pushed'),
+		];
+		assert.deepStrictEqual(presets(loaded, ['c2', 'c1', 'm2'], false), [['Branch', 'false']]);
+		assert.deepStrictEqual(presets(loaded, ['c2', 'c1'], false), [['Branch', 'true']]);
+	});
 });

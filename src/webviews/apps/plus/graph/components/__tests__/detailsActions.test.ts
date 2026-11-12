@@ -1037,6 +1037,28 @@ suite('DetailsActions.ensureBranchCommitsCover', () => {
 	});
 });
 
+suite('DetailsActions.buildWipScopeItems', () => {
+	const commit = (sha: string): BranchCommitEntry =>
+		({ sha: sha, message: sha, pushed: true }) as unknown as BranchCommitEntry;
+
+	/** The rows' ids, the listed merge base starred */
+	function rows(commits: string[], hasMore: boolean): string[] {
+		const state = createDetailsState();
+		state.wip.set({ changes: undefined } as unknown as Wip);
+		state.branchCommits.set(commits.map(commit));
+		state.branchMergeBase.set({ sha: 'm', message: 'm' });
+		state.branchCommitsHasMore.set(hasMore);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+		return actions.buildWipScopeItems()!.map(i => (i.mergeBase ? `${i.id}*` : i.id));
+	}
+
+	test('ends the branch at a merge-base footer, or at the merge base itself once it is listed', () => {
+		assert.deepStrictEqual(rows(['c2', 'c1'], true), ['c2', 'c1', 'load-more', 'merge-base:m']);
+		assert.deepStrictEqual(rows(['c2', 'c1', 'm', 'm0'], false), ['c2', 'c1', 'm*', 'm0']);
+	});
+});
+
 suite('remapScopeRange', () => {
 	/** `sha` or `sha:subject`; a rewritten commit keeps its subject unless it was reworded. */
 	const commits = (...entries: string[]): BranchCommitEntry[] =>

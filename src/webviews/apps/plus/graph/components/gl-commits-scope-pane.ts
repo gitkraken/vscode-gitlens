@@ -29,6 +29,8 @@ export interface ScopeItem {
 	modified?: number;
 	loading?: boolean;
 	state: ScopeItemState;
+	/** A listed commit the branch split off from: the commits above it are the branch's own */
+	mergeBase?: boolean;
 	author?: string;
 	avatarUrl?: string;
 	date?: number;

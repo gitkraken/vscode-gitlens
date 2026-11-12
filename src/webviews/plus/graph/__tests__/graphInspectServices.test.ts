@@ -17,6 +17,8 @@ import { GraphInspectServices } from '../graphInspectServices.js';
 import type {
 	AddressReviewFindingsArgs,
 	AddressReviewFindingsResult,
+	BranchCommitsOptions,
+	BranchCommitsResult,
 	ComposeSessionKey,
 	DeepReviewArgs,
 	DeepReviewAvailability,
@@ -508,6 +510,60 @@ function reviewedDiff(stub: sinon.SinonStub): string {
 	assert.ok(stub.called, 'the AI review action should have been invoked');
 	return (stub.firstCall.args[0] as { diff: string }).diff;
 }
+
+suite('graphInspectServices — getBranchCommits past the merge base', () => {
+	type GetBranchCommits = (repoPath: string, options?: BranchCommitsOptions) => Promise<BranchCommitsResult>;
+
+	/** A branch over `main`'s history, newest first; `own` commits are the branch's, the rest `main`'s. */
+	function branchCommits(own: string[], main: string[], options?: BranchCommitsOptions) {
+		const commit = (sha: string) => ({ sha: sha, message: sha });
+		const log = (shas: string[]) => ({ commits: new Map(shas.map(sha => [sha, commit(sha)])) });
+		const svc = {
+			branches: { getBranch: async () => ({ name: 'feature', ref: 'feature' }) },
+			refs: { getMergeBase: async () => main[0] },
+			commits: {
+				getLog: async (ref: string) => log(ref.includes('..') ? own : [...own, ...main]),
+				getCommit: async (sha: string) => commit(sha),
+			},
+		};
+		const fakeThis = {
+			container: { git: { getRepositoryService: () => svc } },
+			setAvatarIfCached: () => {},
+		};
+
+		const fn = (GraphInspectServices.prototype as unknown as { getBranchCommits: GetBranchCommits })
+			.getBranchCommits;
+		return fn.call(fakeThis, '/repo', options);
+	}
+
+	const rows = (result: BranchCommitsResult) =>
+		result.commits.map(c => `${c.sha}:${c.pushed ? 'pushed' : 'unpushed'}`);
+
+	test('the first page stops at the merge base and always offers more', async () => {
+		const result = await branchCommits(['f2', 'f1'], ['m2', 'm1']);
+		assert.deepStrictEqual(rows(result), ['f2:unpushed', 'f1:unpushed']);
+		assert.strictEqual(result.mergeBase?.sha, 'm2');
+		assert.strictEqual(result.hasMore, true);
+	});
+
+	test('Load more lists the history under the branch and still reports where the branch ends', async () => {
+		const result = await branchCommits(['f2', 'f1'], ['m2', 'm1'], { limit: 200, includePastMergeBase: true });
+		// Without an upstream only the branch's own commits are unpushed
+		assert.deepStrictEqual(rows(result), ['f2:unpushed', 'f1:unpushed', 'm2:pushed', 'm1:pushed']);
+		assert.strictEqual(result.mergeBase?.sha, 'm2');
+		assert.strictEqual(result.hasMore, false);
+	});
+
+	test('a branch with no commits of its own reports no merge base on either page', async () => {
+		const first = await branchCommits([], ['m2', 'm1']);
+		const more = await branchCommits([], ['m2', 'm1'], { limit: 200, includePastMergeBase: true });
+		for (const result of [first, more]) {
+			assert.deepStrictEqual(rows(result), ['m2:unpushed', 'm1:unpushed']);
+			assert.strictEqual(result.mergeBase, undefined);
+			assert.strictEqual(result.hasMore, false);
+		}
+	});
+});
 
 suite('graphInspectServices — review finding lines', () => {
 	test('re-points finding lines at the file the reader opens, by their quoted text', async () => {
