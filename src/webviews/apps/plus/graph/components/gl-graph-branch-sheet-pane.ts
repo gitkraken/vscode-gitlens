@@ -1300,6 +1300,10 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const upstreamMissing = branch.upstream == null || branch.upstream.missing;
 		// While queued, the merge queue owns the branch — see the note pushed at the end.
 		const queueEntry = getQueuedPullRequestEntry(this._pullRequest);
+		const mergeTarget = this._mergeTarget?.mergeTarget;
+		// Landed: the work is already in the merge target, so Create PR and Recompose have nothing to act on.
+		const landed = mergeTarget?.landed != null;
+		const successor = mergeTarget?.successor;
 
 		// Switch — a local branch not checked out anywhere. A branch on a (even closed) worktree
 		// can't be switched to; its Worktree row below is the way "onto" it.
@@ -1344,7 +1348,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 		// Tri-state PR row (published branches only, since an unpublished branch can't have a PR):
 		// View → Checking… → Create PR. The no-PR Create PR leg uses the ref's GraphItemContext
-		// (threaded from the pill); it collapses only when the context is unavailable.
+		// (threaded from the pill); it collapses when the context is unavailable or the branch has landed.
 		if (!upstreamMissing) {
 			// A merged/closed PR stays in the header chip as context, but isn't a next step
 			const pr = this._pullRequest?.state === 'opened' ? this._pullRequest : undefined;
@@ -1357,20 +1361,31 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					actionLabel: l10n.t('View'),
 					href: pr.url,
 				});
-			} else if (this._pullRequestLoading) {
-				steps.push({
-					icon: 'git-pull-request',
-					label: l10n.t('Checking for pull request…'),
-					actionLabel: l10n.t('Checking'),
-					loading: true,
-				});
-			} else if (context != null) {
-				steps.push({
-					icon: 'git-pull-request-create',
-					label: l10n.t('Create a Pull Request'),
-					actionLabel: l10n.t('Create PR'),
-					href: this._webview.createCommandLink<GraphItemContext>('gitlens.createPullRequest:', context),
-				});
+			} else if (!landed) {
+				if (this._pullRequestLoading || this._mergeTargetLoading) {
+					// Also waits on the merge target so Create PR can't flash before the landed verdict arrives
+					steps.push({
+						icon: 'git-pull-request',
+						label: l10n.t('Checking for pull request…'),
+						actionLabel: l10n.t('Checking'),
+						loading: true,
+					});
+				} else if (context != null) {
+					steps.push({
+						icon: 'git-pull-request-create',
+						label:
+							successor != null
+								? formatPlural(
+										l10n.t(
+											'{count, plural, one{Create a Pull Request for {count} New Commit} other{Create a Pull Request for {count} New Commits}}',
+										),
+										{ count: successor.newCommits },
+									)
+								: l10n.t('Create a Pull Request'),
+						actionLabel: l10n.t('Create PR'),
+						href: this._webview.createCommandLink<GraphItemContext>('gitlens.createPullRequest:', context),
+					});
+				}
 			}
 		}
 
@@ -1383,8 +1398,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				actionLabel: l10n.t('Review'),
 				href: this._webview.createCommandLink<GraphItemContext>('gitlens.reviewChanges:', context),
 			});
-			// Recompose rewrites the branch, which the merge queue owns while the pull request is queued.
-			if (queueEntry == null) {
+			// Recompose rewrites the branch: the merge queue owns it while queued, and a landed branch has nothing
+			// left to recompose. Withheld while the merge target loads so it can't flash before the landed verdict.
+			if (queueEntry == null && !landed && !this._mergeTargetLoading) {
 				steps.push({
 					icon: 'wand',
 					label: l10n.t('Recompose Branch'),
