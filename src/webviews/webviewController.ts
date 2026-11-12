@@ -954,12 +954,11 @@ export class WebviewController<
 		const webRootUri = this.getWebRootUri();
 		const uri = Uri.joinPath(webRootUri, this.descriptor.fileName);
 
-		const [bytes, bootstrap, head, body, endOfBody] = await Promise.all([
+		const [bytes, bootstrap, head, body] = await Promise.all([
 			workspace.fs.readFile(uri),
 			this.provider.includeBootstrap?.(true),
 			this.provider.includeHead?.(),
 			this.provider.includeBody?.(),
-			this.provider.includeEndOfBody?.(),
 		]);
 
 		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
@@ -982,7 +981,6 @@ export class WebviewController<
 			serialized,
 			head,
 			body,
-			endOfBody,
 			{ language: env.language, bundle: l10n.bundle },
 			getWebviewHostEnvironmentAttributes(getWebviewHostEnvironment()),
 		);
@@ -991,7 +989,7 @@ export class WebviewController<
 }
 
 const htmlTokensRegex =
-	/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|hostEnvironment|cspSource|cspNonce|root|webroot|state|language|l10n)}/g;
+	/#{(head|body|webviewId|webviewInstanceId|placement|hostEnvironment|cspSource|cspNonce|root|webroot|state|language|l10n)}/g;
 
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
@@ -1005,7 +1003,6 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	bootstrap?: SerializedState | string,
 	head?: string,
 	body?: string,
-	endOfBody?: string,
 	localization?: { language: string; bundle?: Record<string, string> },
 	hostEnvironment?: string,
 ): string {
@@ -1023,14 +1020,6 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 				return bootstrap != null
 					? base64(typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap))
 					: '';
-			case 'endOfBody':
-				return `${
-					bootstrap != null
-						? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${
-								typeof bootstrap === 'string' ? bootstrap : JSON.stringify(bootstrap)
-							};</script>`
-						: ''
-				}${endOfBody ?? ''}`;
 			case 'webviewId':
 				return webviewId;
 			case 'webviewInstanceId':

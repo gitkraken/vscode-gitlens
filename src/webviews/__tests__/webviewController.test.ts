@@ -521,7 +521,6 @@ suite('Webview localization HTML', () => {
 			undefined,
 			undefined,
 			undefined,
-			undefined,
 			{ language: 'fr" onload="alert(1)', bundle: bundle },
 		);
 		assert.ok(result.includes('lang="fr&quot; onload=&quot;alert(1)"'));
@@ -546,6 +545,28 @@ suite('Webview localization HTML', () => {
 	});
 });
 
+suite('Webview state HTML', () => {
+	test('embeds state only as an encoded attribute value, never as raw markup', () => {
+		const state = { patch: '</script><img src=x onerror="alert(1)">' };
+		const result = replaceWebviewHtmlTokens(
+			'<body><gl-app context="#{state}"></gl-app></body>',
+			'gitlens.patchDetails',
+			undefined,
+			'',
+			'nonce',
+			'',
+			'',
+			'view',
+			state,
+		);
+		assert.ok(!result.includes('<script'));
+		assert.ok(!result.includes('<img'));
+		const encoded = /context="([^"]+)"/.exec(result)?.[1];
+		assert.ok(encoded);
+		assert.deepStrictEqual(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')), state);
+	});
+});
+
 suite('Webview host environment HTML', () => {
 	test('expands the hostEnvironment token to the given body attributes', () => {
 		const result = replaceWebviewHtmlTokens(
@@ -557,7 +578,6 @@ suite('Webview host environment HTML', () => {
 			'',
 			'',
 			'view',
-			undefined,
 			undefined,
 			undefined,
 			undefined,

@@ -47,7 +47,6 @@ export interface WebviewProvider<
 	includeBootstrap?(deferrable?: boolean): SerializedState | Promise<SerializedState>;
 	includeHead?(): string | Promise<string>;
 	includeBody?(): string | Promise<string>;
-	includeEndOfBody?(): string | Promise<string>;
 
 	onReady?(): void | Promise<void>;
 	/**
