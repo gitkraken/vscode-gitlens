@@ -516,8 +516,9 @@ suite('KeplerService.install', () => {
 			assertDuration(completed[`duration.${step}`]);
 			delete completed[`duration.${step}`];
 		}
+		// The installer kind follows the machine the tests run on, not the release under test
+		delete completed.kind;
 		assert.deepStrictEqual(completed, {
-			kind: 'linux-appimage',
 			version: '0.16.0',
 			'download.size': appImage.length,
 			'cancelled.late': undefined,
