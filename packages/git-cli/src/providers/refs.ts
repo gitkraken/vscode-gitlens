@@ -459,7 +459,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	/**
 	 * Like {@link getSymbolicReferenceName}, but tells a ref git confirmed doesn't exist (`rev-parse --verify` exit 1)
 	 * apart from a read that didn't complete (timeout, error, cancellation), which never reports `missing`.
-	 * Shares the same cached `rev-parse`, though only a found ref is cached: a missing one re-runs on every call.
+	 * Shares the same cached `rev-parse`, which keeps a missing ref as it does a found one.
 	 */
 	@debug({ quiet: true })
 	async getSymbolicReferenceNameOrMissing(
@@ -488,6 +488,9 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 				cwd: repoPath,
 				cancellation: cancellation,
 				errors: 'ignore',
+				// `--quiet` makes a name that doesn't resolve exit 1 with nothing printed (a branch with no upstream,
+				// a missing ref, a detached HEAD asked for `@{u}`), unlike a failed read, so that answer is kept too
+				expectedExitCodes: [1],
 				// Why: a fixed ref name's symbolic name is itself stable; only HEAD's, or whether the ref exists
 				// at all, changes — and the gitResults cache is cleared on those ref events. 60s TTL is the failsafe
 				// for watcher latency / web — matches the other "resolve symbolic state" calls in commits.ts.

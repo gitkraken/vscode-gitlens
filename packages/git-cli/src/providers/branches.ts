@@ -4747,9 +4747,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one: a failed lookup isn't
-	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read. The
-	 * list's own upstream isn't used: a config-only change (`git branch -u`) doesn't refresh it.
+	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one, as a remote-tracking ref
+	 * (`origin/main`, the usual default) can't. The list's own upstream isn't used: a config-only change
+	 * (`git branch -u`) doesn't refresh it.
 	 */
 	private async getUpstreamName(
 		repoPath: string,

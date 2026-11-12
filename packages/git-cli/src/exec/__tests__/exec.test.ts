@@ -6,12 +6,12 @@ import { join, resolve } from 'path';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { CacheController, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { CommandChanges } from '../commandClassifier.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import type { ProcessSpawner } from '../exec.js';
 import { run, runSpawn } from '../exec.js';
-import type { GitResultCache } from '../exec.types.js';
+import type { GitResult, GitResultCache } from '../exec.types.js';
 import { defaultExceptionHandler, Git, GitError } from '../git.js';
 import type { HeadState } from '../headState.js';
 
@@ -428,6 +428,190 @@ suite('Shell Test Suite', () => {
 				git.run({ cwd: '/repo' }, 'update-ref', 'refs/x', 'HEAD'),
 				(err: unknown) => err instanceof Error && err.name !== 'CancellationError',
 			);
+		});
+
+		// A git whose every run exits with `exitCode`, counting the processes it launches
+		function exitingGit(exitCode: number): { git: Git; launches: () => number } {
+			let launches = 0;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				launches++;
+				return spawn(execPath, nodeArgs(`process.exit(${exitCode})`), { ...options, cwd: undefined });
+			};
+			return {
+				git: new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner }),
+				launches: () => launches,
+			};
+		}
+
+		function keepsExpectedExit(errors: 'throw' | 'ignore' | undefined): void {
+			test(`keeps an exit code the caller expects under errors: ${errors ?? 'default'}, so the next read launches nothing`, async () => {
+				const { git, launches } = exitingGit(1);
+				const cache = new RepoPromiseCacheMap<string, GitResult>();
+				const read = () =>
+					git.run(
+						{ cwd: '/repo', errors: errors, expectedExitCodes: [1], caching: { cache: cache } },
+						'merge-base',
+						'--fork-point',
+						'a',
+						'b',
+					);
+
+				const first = await read();
+				const second = await read();
+
+				assert.strictEqual(first.exitCode, 1);
+				assert.strictEqual(first.completion.status, 'exited');
+				assert.strictEqual(second.exitCode, 1);
+				assert.strictEqual(second.completion.status, 'exited');
+				assert.strictEqual(launches(), 1);
+			});
+		}
+		keepsExpectedExit('throw');
+		keepsExpectedExit('ignore');
+		keepsExpectedExit(undefined);
+
+		test('shares one run between concurrent reads of an expected exit', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'--fork-point',
+					'a',
+					'b',
+				);
+
+			const results = await Promise.all([read(), read()]);
+
+			assert.deepStrictEqual(
+				results.map(r => r.exitCode),
+				[1, 1],
+			);
+			assert.strictEqual(launches(), 1);
+		});
+
+		test('invalidates a result unless it is a clean exit or one the caller expects', async () => {
+			const invalidated: boolean[] = [];
+			const cache: GitResultCache = {
+				getOrCreate: async (_repoPath, _key, factory) => {
+					const cacheable = new CacheController();
+					const result = await factory(cacheable);
+					invalidated.push(cacheable.invalidated);
+					return result;
+				},
+				delete: () => {},
+			};
+			const read = (git: Git, expectedExitCodes: readonly number[] | undefined) =>
+				git.run(
+					{ cwd: '/repo', errors: 'ignore', expectedExitCodes: expectedExitCodes, caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read(exitingGit(0).git, undefined);
+			await read(exitingGit(0).git, [1]);
+			await read(exitingGit(1).git, [1]);
+			await read(exitingGit(1).git, [1, 2]);
+			await read(exitingGit(1).git, undefined);
+			await read(exitingGit(1).git, [2]);
+			await read(exitingGit(128).git, [1]);
+
+			assert.deepStrictEqual(invalidated, [false, false, false, false, true, true, true]);
+		});
+
+		test('does not keep an unlisted non-zero exit, so the next read launches again', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run({ cwd: '/repo', errors: 'ignore', caching: { cache: cache } }, 'merge-base', 'a', 'b');
+
+			await read();
+			await read();
+
+			assert.strictEqual(launches(), 2);
+		});
+
+		test('keeps a clean exit', async () => {
+			const { git, launches } = exitingGit(0);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read();
+			await read();
+
+			assert.strictEqual(launches(), 1);
+		});
+
+		test('does not keep a run that did not exit, even when an exit it never gave is expected', async () => {
+			let launches = 0;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				launches++;
+				return spawn('/nonexistent/git-binary', [], options);
+			};
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'ignore', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			const result = await read();
+			await read();
+
+			assert.notStrictEqual(result.completion.status, 'exited');
+			assert.strictEqual(launches, 2);
+		});
+
+		test('does not keep an expected exit when the aggregate signal aborted', async () => {
+			const { git } = exitingGit(1);
+			const aggregate = AbortSignal.abort();
+			const cacheable = new CacheController();
+			const cache: GitResultCache = {
+				getOrCreate: (_repoPath, _key, factory) => factory(cacheable, aggregate),
+				delete: () => {},
+			};
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', expectedExitCodes: [1], caching: { cache: cache } },
+				'merge-base',
+				'a',
+				'b',
+			);
+
+			assert.strictEqual(cacheable.invalidated, true);
+		});
+
+		test('caching.force runs again over a kept expected exit', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = (force: boolean) =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache, force: force } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read(false);
+			await read(false);
+			assert.strictEqual(launches(), 1);
+
+			await read(true);
+			assert.strictEqual(launches(), 2);
+
+			await read(false);
+			assert.strictEqual(launches(), 2);
 		});
 	});
 
