@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Commit Graph_ ref pills keeping highlights that no longer describe them ([#5764](https://github.com/gitkraken/vscode-gitlens/issues/5764))
   - Stops painting another branch or tag in the current branch's color when the current branch is hidden behind the _+N_ badge
   - Clears a branch, tag, or worktree's find highlight as soon as the query no longer matches it, instead of when the finder closes
+- Fixes a remote URL with an `@` in its path being recognized as a repository on a different host &mdash; e.g. `https://example.com/x@github.com/owner/repo.git` as GitHub's `owner/repo` ([#6185](https://github.com/gitkraken/vscode-gitlens/issues/6185))
 
 ## [19.6.0] - 2026-11-10
 

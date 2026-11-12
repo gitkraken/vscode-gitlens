@@ -14,38 +14,6 @@ suite('Remote URL Parser Test Suite', () => {
 		test('parses ssh url', () => {
 			const url = 'git@github.com:gitkraken/vscode-gitlens.git';
 			const [_scheme, domain, path] = parseGitRemoteUrl(url);
-			// The regex structure might return empty scheme for some formats or specific capture groups
-			// Based on regex: (git@)(.*):
-			// match[8] = github.com, match[9] = gitkraken/vscode-gitlens.git
-			// scheme comes from match[1]||match[3]||match[6] which are schemes.
-			// For git@... the scheme part is undefined in the regex (no protocol prefix like ssh://)
-			// effectively it returns empty string for scheme in the current implementation?
-			// Let's check implementation:
-			// match[1] = git://
-			// match[3] = https?://
-			// match[6] = ssh://
-			// If none match, scheme is undefined -> || || || undefined -> undefined?
-			// But the return type is [scheme, domain, path].
-			// If match[1]... are undefined, it might be empty string/undefined.
-			// The implementation: match[1] || match[3] || match[6]
-			// for `git@...` these are likely undefined.
-			// So scheme is undefined.
-
-			// Actually, let's look at the regex:
-			// ^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$
-			// 1: git://
-			// 3: https://
-			// 5: domain for git@
-			// 6: ssh://
-			// 7: domain for ssh://
-			// 8: domain for user@host:
-
-			// If it matches git@..., match[5] is the domain.
-			// match[1], match[3], match[6] are undefined.
-			// So parsed scheme is undefined?
-			// The return array is [scheme, domain, path].
-			// Let's verify what `undefined` becomes.
-
 			assert.strictEqual(domain, 'github.com');
 			assert.strictEqual(path, 'gitkraken/vscode-gitlens');
 		});
@@ -56,6 +24,40 @@ suite('Remote URL Parser Test Suite', () => {
 			assert.strictEqual(scheme, 'ssh://');
 			assert.strictEqual(domain, 'github.com');
 			assert.strictEqual(path, 'gitkraken/vscode-gitlens');
+		});
+
+		const cases: [url: string, domain: string, path: string][] = [
+			// An `@` in the path is not a user/host separator
+			['https://example.com/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['https://example.com:8443/x@github.com/owner/repo.git', 'example.com:8443', 'x@github.com/owner/repo'],
+			['https://user@example.com/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['ssh://git@example.com/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['ssh://example.com/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['ssh://example.com:2222/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['ssh://user:pass@example.com/x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['git@example.com:x@github.com/owner/repo.git', 'example.com', 'x@github.com/owner/repo'],
+			['git@example.com:x@github.com:owner/repo.git', 'example.com', 'x@github.com:owner/repo'],
+			['user@example.com:x@github.com:owner/repo.git', 'example.com', 'x@github.com:owner/repo'],
+			// Credentials before the host still are
+			['https://user@github.com/owner/repo.git', 'github.com', 'owner/repo'],
+			['https://user:pass@github.com/owner/repo.git', 'github.com', 'owner/repo'],
+			['https://user:p@ss@github.com/owner/repo.git', 'github.com', 'owner/repo'],
+			['ssh://git@github.com:22/owner/repo.git', 'github.com', 'owner/repo'],
+			['ssh://git@github.com/~user/repo.git', 'github.com', '~user/repo'],
+			['user@github.com:owner/repo.git', 'github.com', 'owner/repo'],
+			['git@[::1]:owner/repo.git', '[::1]', 'owner/repo'],
+		];
+		for (const [url, expectedDomain, expectedPath] of cases) {
+			test(`parses ${url} as host ${expectedDomain}`, () => {
+				const [, domain, path] = parseGitRemoteUrl(url);
+				assert.strictEqual(domain, expectedDomain);
+				assert.strictEqual(path, expectedPath);
+			});
+		}
+
+		test('does not take a host from a local path with an `@` and a `:`', () => {
+			const url = '/srv/x@github.com:owner/repo.git';
+			assert.deepStrictEqual(parseGitRemoteUrl(url), ['', '', url]);
 		});
 	});
 });

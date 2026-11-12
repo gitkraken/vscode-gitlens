@@ -109,17 +109,18 @@ ssh://host.xz/project.git
 ssh://user@host.xz/path/to/repo.git
 user@host.xz:path/to/repo.git
 */
+// A user or host never contains a `/` (nor `?` or `#` on the web), and an scp-like host ends at the first `:` — past that, `@` and `:` are path
 export const remoteUrlRegex =
-	/^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
+	/^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:[^/?#]*@)?([^/?#]*?)\/|(ssh:\/\/)(?:[^/]*@)?([^/]*?)(?::[^/]*?)?(?:\/|(?=~))|[^/:]*?@(\[[^\]/]*\]|[^/:@]*):)(.*)$/;
 
 export function parseGitRemoteUrl(url: string): [scheme: string, domain: string, path: string] {
 	const match = remoteUrlRegex.exec(url);
 	if (match == null) return ['', '', url];
 
 	return [
-		match[1] || match[3] || match[6],
-		match[2] || match[4] || match[5] || match[7] || match[8],
-		match[9].replace(gitSuffixRegex, ''),
+		match[1] || match[3] || match[5],
+		match[2] || match[4] || match[6] || match[7],
+		match[8].replace(gitSuffixRegex, ''),
 	];
 }
 
