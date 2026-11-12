@@ -553,6 +553,27 @@ suite('KeplerService.install', () => {
 		assert.strictEqual(showOutputChannel.callCount, 1);
 	});
 
+	test('times a download that fails before any of the file arrives', async () => {
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
+		sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		const service = makeInstallService(sendEvent);
+		const closed = createServer();
+		await new Promise<void>(resolve => closed.listen(0, '127.0.0.1', resolve));
+		const { port } = closed.address() as AddressInfo;
+		await new Promise(resolve => closed.close(resolve));
+		sandbox
+			.stub(service, 'getRelease')
+			.resolves({ ...release, url: `http://127.0.0.1:${port}/kepler-x64.AppImage` });
+
+		assert.strictEqual(await service.install(), false);
+
+		const failed = sendEvent.getCall(1).args[1]!;
+		assert.strictEqual(failed['failure.reason'], 'download');
+		assert.strictEqual(failed['failure.code'], 'ECONNREFUSED');
+		assert.strictEqual(failed['download.size'], 0);
+		assertDuration(failed['duration.download']);
+	});
+
 	test('reports why the release could not be resolved', async () => {
 		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
 		sandbox.stub(window, 'showErrorMessage').resolves(undefined);

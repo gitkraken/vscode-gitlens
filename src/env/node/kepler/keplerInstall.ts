@@ -19,6 +19,7 @@ import {
 	createKeplerDesktopEntry,
 	getKeplerAppImagePath,
 	getKeplerDesktopEntryPath,
+	getKeplerInstallFailureCode,
 	getKeplerReleaseTarget,
 	getKeplerWindowsProtocolCommand,
 	KeplerInstallError,
@@ -244,6 +245,7 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 	});
 	try {
 		armStallTimer();
+		options?.onProgress?.({ step: 'download', transferred: 0, total: release.size });
 		const response = await fetch(release.url, { signal: controller.signal });
 		if (!response.ok || response.body == null) {
 			throw new KeplerInstallError('download', `${response.status} ${response.statusText}`, {
@@ -383,7 +385,10 @@ async function installMacZip(file: string, tempDir: string): Promise<string> {
 async function installWindowsSetup(file: string): Promise<KeplerInstallResult> {
 	const code = await run(file, ['/S'], 'utf8', { exitCodeOnly: true });
 	if (code !== 0) {
-		throw new KeplerInstallError('install', `The setup exited with code ${code}`, { code: `exit:${code}` });
+		// Not always a number: a setup that could not be started gives a Node error code, a killed one nothing
+		throw new KeplerInstallError('install', `The setup exited with code ${code}`, {
+			code: getKeplerInstallFailureCode({ code: code }),
+		});
 	}
 
 	const installed =
