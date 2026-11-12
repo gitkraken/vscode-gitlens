@@ -8,9 +8,11 @@ import { sortTags } from '@gitlens/git/utils/sorting.js';
 import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
 import { emptyPagedResult } from '@gitlens/utils/paging.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
@@ -27,10 +29,25 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 	@debug({ quiet: true })
 	async getTag(repoPath: string, name: string, cancellation?: AbortSignal): Promise<GitTag | undefined> {
-		const {
-			values: [tag],
-		} = await this.getTags(repoPath, { filter: t => t.name === name }, cancellation);
-		return tag;
+		if (!repoPath) return undefined;
+
+		const { values } = await this.getSharedTags(repoPath, cancellation);
+		return values.find(t => t.name === name)?.withRepoPath(repoPath);
+	}
+
+	/**
+	 * Whether `getTags(repoPath)` holds a tag `matches` accepts (any when omitted), judged on each as that list would
+	 * hold it, without keeping that worktree's copy of the list
+	 */
+	async hasTag(
+		repoPath: string,
+		matches: ((tag: GitTag) => boolean) | undefined,
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
+		if (!repoPath) return false;
+
+		const { values } = await this.getSharedTags(repoPath, cancellation);
+		return matches == null ? values.length !== 0 : values.some(t => matches(t.withRepoPath(repoPath)));
 	}
 
 	@debug({ quiet: true, args: repoPath => ({ repoPath: repoPath }) })
@@ -49,55 +66,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		let tagsResult = await this.cache.getTags(
 			repoPath,
-			async (commonPath, cacheable, signal) => {
-				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
-				signal ??= cancellation;
-				try {
-					const records = await this.provider.refs.getRefs(commonPath, signal);
-					if (!records.length) {
-						// Empty also means the listing failed; the listing's own cached answer covers a
-						// repository that truly has no refs without another git run
-						cacheable.invalidate();
-						return emptyPagedResult;
-					}
-
-					using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-
-					const tags: GitTag[] = [];
-
-					for (const record of records) {
-						const fullName = record.name;
-						if (!fullName.startsWith('refs/tags/')) continue;
-
-						// Annotated tags: peeledObjectname is the commit SHA; objectname is the tag-object SHA.
-						// Lightweight tags: peeledObjectname is empty; objectname is already the commit SHA.
-						const annotated = Boolean(record.peeledObjectname);
-						const sha = record.peeledObjectname || record.objectname;
-
-						tags.push(
-							new GitTag(
-								commonPath,
-								fullName,
-								sha,
-								record.subject,
-								record.creatorDate ? new Date(record.creatorDate) : undefined,
-								record.authorDate ? new Date(record.authorDate) : undefined,
-								annotated,
-							),
-						);
-					}
-
-					sw?.stop({ suffix: ` parsed ${String(tags.length)} tags` });
-
-					return { values: tags };
-				} catch (ex) {
-					cacheable.invalidate();
-					scope?.error(ex);
-					if (isCancellationError(ex)) throw ex;
-
-					return emptyPagedResult;
-				}
-			},
+			(commonPath, cacheable, signal) => this.readTags(commonPath, cacheable, signal ?? cancellation, scope),
 			cancellation,
 		);
 
@@ -113,6 +82,70 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		}
 
 		return tagsResult;
+	}
+
+	/** The tags every worktree of `repoPath` shares, listed from the common path, read once whoever asks */
+	private getSharedTags(repoPath: string, cancellation?: AbortSignal): Promise<PagedResult<GitTag>> {
+		const scope = getScopedLogger();
+
+		return this.cache.getSharedTags(
+			repoPath,
+			(commonPath, cacheable, signal) => this.readTags(commonPath, cacheable, signal ?? cancellation, scope),
+			cancellation,
+		);
+	}
+
+	private async readTags(
+		commonPath: string,
+		cacheable: CacheController,
+		signal: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<PagedResult<GitTag>> {
+		try {
+			const records = await this.provider.refs.getRefs(commonPath, signal);
+			if (!records.length) {
+				// Empty also means the listing failed; the listing's own cached answer covers a
+				// repository that truly has no refs without another git run
+				cacheable.invalidate();
+				return emptyPagedResult;
+			}
+
+			using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
+
+			const tags: GitTag[] = [];
+
+			for (const record of records) {
+				const fullName = record.name;
+				if (!fullName.startsWith('refs/tags/')) continue;
+
+				// Annotated tags: peeledObjectname is the commit SHA; objectname is the tag-object SHA.
+				// Lightweight tags: peeledObjectname is empty; objectname is already the commit SHA.
+				const annotated = Boolean(record.peeledObjectname);
+				const sha = record.peeledObjectname || record.objectname;
+
+				tags.push(
+					new GitTag(
+						commonPath,
+						fullName,
+						sha,
+						record.subject,
+						record.creatorDate ? new Date(record.creatorDate) : undefined,
+						record.authorDate ? new Date(record.authorDate) : undefined,
+						annotated,
+					),
+				);
+			}
+
+			sw?.stop({ suffix: ` parsed ${String(tags.length)} tags` });
+
+			return { values: tags };
+		} catch (ex) {
+			cacheable.invalidate();
+			scope?.error(ex);
+			if (isCancellationError(ex)) throw ex;
+
+			return emptyPagedResult;
+		}
 	}
 
 	@debug({ quiet: true })

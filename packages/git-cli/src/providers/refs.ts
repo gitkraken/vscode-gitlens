@@ -517,16 +517,9 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.provider.branches.getBranches(
-				repoPath,
-				{ filter: options?.filter?.branches, sort: false },
-				cancellation,
-			),
-			this.provider.tags.getTags(repoPath, { filter: options?.filter?.tags, sort: false }, cancellation),
-		]);
+		if (await this.provider.branches.hasBranch(repoPath, options?.filter?.branches, cancellation)) return true;
 
-		return branches.length !== 0 || tags.length !== 0;
+		return this.provider.tags.hasTag(repoPath, options?.filter?.tags, cancellation);
 	}
 
 	@debug({ quiet: true })

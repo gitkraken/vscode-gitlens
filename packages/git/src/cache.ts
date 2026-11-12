@@ -3195,6 +3195,23 @@ export class Cache implements Disposable {
 		);
 	}
 
+	/**
+	 * The tag list shared by `repoPath`'s worktrees, as the common path holds it, without keeping a copy for
+	 * `repoPath`. A caller maps the tags it needs with {@link GitTag.withRepoPath}; {@link getTags} keeps a mapped copy
+	 * per worktree.
+	 */
+	getSharedTags(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitTag>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitTag>> {
+		return this.readValidated(repoPath, () => this.getSharedEntry(this.tags, repoPath, factory, cancellation));
+	}
+
 	async getWorktrees(
 		repoPath: string,
 		factory: (
@@ -3224,20 +3241,22 @@ export class Cache implements Disposable {
 		});
 	}
 
-	private async getSharedOrCreate<T>(
+	/**
+	 * The entry shared by `repoPath`'s worktrees, as the common path holds it. A caller maps what it needs for
+	 * `repoPath`; {@link getSharedOrCreate} keeps a mapped copy per worktree.
+	 */
+	private getSharedEntry<T>(
 		cache: PromiseMap<string, T>,
 		repoPath: string,
 		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
-		mapper: (data: T, repoPath: string) => T,
 		cancellation?: AbortSignal,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
 		// Always register this caller with the shared factory's aggregate so same-`repoPath` and
 		// worktree-distinct concurrent callers both contribute — invariant 3 (factory aborts iff
-		// every waiter aborts) holds uniformly. The wrapped return is our caller-facing promise
-		// for the commonPath-keyed branch; the per-worktree branch uses `raceWithSignal` below.
-		const sharedPromise = cache.getOrCreate(
+		// every waiter aborts) holds uniformly.
+		return cache.getOrCreate(
 			commonPath,
 			(cacheable, signal) => {
 				const p = Promise.resolve(factory(commonPath, cacheable, signal));
@@ -3261,6 +3280,20 @@ export class Cache implements Disposable {
 			},
 			cancellation,
 		);
+	}
+
+	private async getSharedOrCreate<T>(
+		cache: PromiseMap<string, T>,
+		repoPath: string,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
+		mapper: (data: T, repoPath: string) => T,
+		cancellation?: AbortSignal,
+	): Promise<T> {
+		const commonPath = this.getCommonPath(repoPath);
+
+		// The wrapped return is our caller-facing promise for the commonPath-keyed branch; the
+		// per-worktree branch uses `raceWithSignal` below.
+		const sharedPromise = this.getSharedEntry(cache, repoPath, factory, cancellation);
 		// Swallow any rejection on the registration wrapper so it isn't surfaced as an unhandled
 		// rejection when we discard it below (existing-mapper path). The real caller-facing
 		// promise is the returned value.
