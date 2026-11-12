@@ -2,6 +2,7 @@ import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } f
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { formatPullRequestMergeQueueStatus, isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { escapeMarkdown, escapeMarkdownLinkTitle, getMarkdownWebLinkDestination } from '@gitlens/utils/markdown.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { Autolink } from '../../autolinks/models/autolinks.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -77,18 +78,28 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 							: 'issues',
 			);
 			item.contextValue = ContextValues.AutolinkedItem;
+
+			// The autolink's parts come from settings, a provider, or the commit message, so are escaped
+			const url = getMarkdownWebLinkDestination(autolink.url);
+			const urlText = escapeMarkdown(autolink.url);
 			item.tooltip = new MarkdownString(
 				`${
 					autolink.description
-						? l10n.t('Autolinked {0}', autolink.description)
+						? l10n.t('Autolinked {0}', escapeMarkdown(autolink.description))
 						: `${
 								autolink.type == null
 									? l10n.t('Autolinked')
 									: autolink.type === 'pullrequest'
 										? l10n.t('Autolinked Pull Request')
 										: l10n.t('Autolinked Issue')
-							} ${autolink.prefix}${autolink.id}`
-				} \\\n[${autolink.url}](${autolink.url}${autolink.title != null ? ` "${autolink.title}"` : ''})`,
+							} ${escapeMarkdown(`${autolink.prefix}${autolink.id}`)}`
+				} \\\n${
+					url != null
+						? `[${urlText}](${url}${
+								autolink.title != null ? ` "${escapeMarkdownLinkTitle(autolink.title)}"` : ''
+							})`
+						: urlText
+				}`,
 			);
 			return item;
 		}
@@ -100,10 +111,12 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 		item.iconPath = getIssueOrPullRequestThemeIcon(enriched);
 		item.contextValue = `${ContextValues.AutolinkedItem}+${enriched.type === 'pullrequest' ? 'pr' : 'issue'}`;
 
+		const linkId = escapeMarkdownLinkTitle(enriched.id);
+		const linkProvider = escapeMarkdownLinkTitle(enriched.provider.name);
 		const linkTitle = ` "${
 			enriched.type === 'pullrequest'
-				? l10n.t('Open Pull Request \\#{0} on {1}', enriched.id, enriched.provider.name)
-				: l10n.t('Open Issue \\#{0} on {1}', enriched.id, enriched.provider.name)
+				? l10n.t('Open Pull Request \\#{0} on {1}', linkId, linkProvider)
+				: l10n.t('Open Issue \\#{0} on {1}', linkId, linkProvider)
 		}"`;
 		const status =
 			enriched.state == null
@@ -115,14 +128,17 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 					: enriched.type === 'pullrequest' && isPullRequestInMergeQueue(enriched)
 						? formatPullRequestMergeQueueStatus(enriched.mergeQueue)
 						: l10n.t('was opened {0}', relativeTime);
+		// Emits no `command:` links, so it isn't trusted; the title comes from the provider, so is escaped
+		const url = getMarkdownWebLinkDestination(enriched.url);
+		const title = `**${escapeMarkdown(enriched.title.trim())}**`;
+		const id = `#${escapeMarkdown(enriched.id)}`;
 		const tooltip = new MarkdownString(
-			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
-				enriched.url
-			}${linkTitle}) \\\n[#${enriched.id}](${enriched.url}${linkTitle}) ${status}`,
+			url != null
+				? `${getIssueOrPullRequestMarkdownIcon(enriched)} [${title}](${url}${linkTitle}) \\\n[${id}](${url}${linkTitle}) ${status}`
+				: `${getIssueOrPullRequestMarkdownIcon(enriched)} ${title} \\\n${id} ${status}`,
 			true,
 		);
 		tooltip.supportHtml = true;
-		tooltip.isTrusted = true;
 
 		item.tooltip = tooltip;
 

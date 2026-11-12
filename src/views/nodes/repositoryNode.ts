@@ -8,6 +8,7 @@ import { findLastIndex } from '@gitlens/utils/array.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
@@ -462,11 +463,11 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		let description;
-		let tooltip = `${this.repo.name ?? this.uri.repoPath ?? ''}${
+		let tooltip = `${escapeMarkdown(this.repo.name ?? this.uri.repoPath ?? '')}${
 			lastFetched
 				? `${pad(GlyphChars.Dash, 2, 2)}${l10n.t('Last fetched {0}', formatLastFetched(lastFetched, false))}`
 				: ''
-		}${this.repo.name ? `\\\n${this.uri.repoPath}` : ''}`;
+		}${this.repo.name ? `\\\n${escapeMarkdown(this.uri.repoPath ?? '')}` : ''}`;
 		let workingStatus = '';
 
 		const { workspace } = this.context;
@@ -566,7 +567,6 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
 
 		item.tooltip = markdown;
 

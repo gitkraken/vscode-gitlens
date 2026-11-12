@@ -14,6 +14,7 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
+import type { GlExtensionCommands } from '../../../../constants.commands.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { WireSerialized } from '../../../../system/wireSerialize.js';
 import type {
@@ -64,6 +65,10 @@ import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/split-panel/split-panel.js';
 
 type State = WireSerialized<_State>;
+
+/** The only command links the host's autolinked commit message carries (`OpenIssueOnRemoteCommand.createMarkdownCommandLink`) */
+const commitMessageCommands: readonly GlExtensionCommands[] = ['gitlens.action.openIssue'];
+
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
@@ -796,6 +801,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		if (!commit) return nothing;
 
 		const message = this.formattedMessage ?? commit.message;
+		// Only the host-linkified message carries GitLens-generated autolink commands; the raw message is the author's text
+		const allowedCommands = this.formattedMessage != null ? commitMessageCommands : undefined;
 		// The splitter token is only injected during autolink linkification; the raw commit.message
 		// (graph commitLite / full fetch) carries a plain newline. Fall back to it so the
 		// headline/body split — and its font sizing — is stable before autolinks land.
@@ -821,7 +828,13 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							>
 								<code-icon icon="copy"></code-icon>
 							</gl-copy-container>
-							<strong><gl-markdown .markdown=${message} density="compact"></gl-markdown></strong>
+							<strong
+								><gl-markdown
+									.markdown=${message}
+									.allowedCommands=${allowedCommands}
+									density="compact"
+								></gl-markdown
+							></strong>
 						</div>`,
 					() =>
 						html`<div class="message-block__text scrollable" data-region="message">
@@ -835,10 +848,15 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 								<code-icon icon="copy"></code-icon>
 							</gl-copy-container>
 							<strong
-								><gl-markdown .markdown=${message.substring(0, index)} density="compact"></gl-markdown
+								><gl-markdown
+									.markdown=${message.substring(0, index)}
+									.allowedCommands=${allowedCommands}
+									density="compact"
+								></gl-markdown
 							></strong>
 							<gl-markdown
 								.markdown=${message.substring(index + bodyOffset)}
+								.allowedCommands=${allowedCommands}
 								density="compact"
 							></gl-markdown>
 						</div>`,

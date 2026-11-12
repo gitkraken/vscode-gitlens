@@ -104,6 +104,50 @@ export function escapeMarkdownCodeBlocks(s: string): string {
 	return result;
 }
 
+// Matches the `](` of an inline link or the `]:` of a reference definition whose destination isn't a literal
+// http(s)/mailto URL (the only whitespace skipped is what CommonMark allows before a destination, so anything
+// unusual fails closed)
+const defuseMarkdownLinksRegex = /\]([(:])(?![ \t\r\n]*(?:https?:\/\/|mailto:))/gi;
+
+/**
+ * Restricts links in externally-sourced Markdown text (e.g. commit messages) to web and mail destinations
+ * (`http:`, `https:`, `mailto:`), leaving the visible text unchanged.
+ *
+ * Inline links (`[text](dest)`) and reference definitions (`[ref]: dest`) whose destination isn't a literal
+ * http(s)/mailto URL are broken by inserting a zero-width space between the `]` and the `(`/`:` (CommonMark
+ * requires them to be adjacent). Destinations that are obfuscated in any way (entity-encoded, escaped,
+ * angle-bracketed) fail closed.
+ *
+ * Expects text that has already been HTML-encoded (see `encodeHtmlWeak`), which neutralizes raw HTML and
+ * `<scheme:...>` autolinks, and must run before any trusted links are added to the text. Idempotent.
+ */
+export function defuseMarkdownLinks(s: string): string {
+	if (!s.includes(']')) return s;
+
+	return s.replace(defuseMarkdownLinksRegex, ']\u200b$1');
+}
+
+/** Escapes text for use inside a Markdown link title (`[text](url "title")`) */
+export function escapeMarkdownLinkTitle(s: string): string {
+	return s.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+const webUrlRegex = /^https?:\/\//i;
+const markdownLinkDestinationUnsafeRegex = /[\s()<>"\\]/g;
+
+/**
+ * Returns `url` ready to use as a Markdown link destination when it's a web (http/https) URL, otherwise `undefined`
+ * so the caller renders its text unlinked. Characters that could end or escape the destination are percent-encoded;
+ * the rest is left as is.
+ */
+export function getMarkdownWebLinkDestination(url: string | undefined): string | undefined {
+	if (!url || !webUrlRegex.test(url)) return undefined;
+
+	return url.replace(markdownLinkDestinationUnsafeRegex, c =>
+		c === '(' ? '%28' : c === ')' ? '%29' : encodeURIComponent(c),
+	);
+}
+
 export function unescapeMarkdown(s: string): string {
 	return (
 		s

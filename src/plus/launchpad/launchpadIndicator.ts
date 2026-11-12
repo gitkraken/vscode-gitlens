@@ -8,6 +8,7 @@ import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { Colors } from '../../constants.colors.js';
+import type { CoreCommands, GlCommands } from '../../constants.commands.js';
 import { proBadge } from '../../constants.js';
 import type { Container } from '../../container.js';
 import { createCommand, executeCommand, registerCommand } from '../../system/-webview/command.js';
@@ -30,6 +31,13 @@ type LaunchpadIndicatorItemState =
 	| 'needs-review';
 
 const richTextToken = '\ue000richText\ue001';
+
+/** The only commands the indicator tooltip's `command:` links may run — it builds every link itself */
+const trustedTooltipCommands: readonly string[] = Object.freeze([
+	'gitlens.launchpad.indicator.action' satisfies GlCommands,
+	'gitlens.showLaunchpad' satisfies GlCommands,
+	'workbench.action.openSettings' satisfies CoreCommands,
+]);
 
 function appendLocalizedMarkdown(
 	markdown: MarkdownString,
@@ -353,7 +361,7 @@ export class LaunchpadIndicator implements Disposable {
 
 		const tooltip = new MarkdownString('', true);
 		tooltip.supportHtml = true;
-		tooltip.isTrusted = true;
+		tooltip.isTrusted = { enabledCommands: trustedTooltipCommands };
 
 		appendPlainText(tooltip, l10n.t('GitLens Launchpad {0}', proBadge));
 		tooltip.appendMarkdown(`\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);

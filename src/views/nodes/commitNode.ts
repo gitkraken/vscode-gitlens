@@ -17,6 +17,7 @@ import {
 import { sortCompare } from '@gitlens/utils/string.js';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious.js';
 import type { Colors } from '../../constants.colors.js';
+import { trustedMarkdownCommands } from '../../constants.markdown.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import {
 	getCommitAssociatedPullRequest,
@@ -337,7 +338,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
-		markdown.isTrusted = true;
+		markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 
 		return markdown;
 	}

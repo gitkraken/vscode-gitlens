@@ -25,6 +25,7 @@ import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
 import { map } from '@gitlens/utils/iterable.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -709,7 +710,7 @@ export async function getBranchNodeParts(
 			tooltip +=
 				providerName == null
 					? `\n\n${l10n.t("Local branch, hasn't been published to a remote")}`
-					: `\n\n${l10n.t("Local branch, hasn't been published to {0}", providerName)}`;
+					: `\n\n${l10n.t("Local branch, hasn't been published to {0}", escapeMarkdown(providerName))}`;
 		}
 	}
 
@@ -725,7 +726,6 @@ export async function getBranchNodeParts(
 
 	tooltip = new MarkdownString(tooltip, true);
 	tooltip.supportHtml = true;
-	tooltip.isTrusted = true;
 
 	if (branch.starred) {
 		tooltip.appendMarkdown(`\\\n$(star-full) ${l10n.t('Favorited')}`);

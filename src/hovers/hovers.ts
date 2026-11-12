@@ -16,8 +16,8 @@ import {
 import type { EnrichedAutolink } from '../autolinks/models/autolinks.js';
 import { DiffWithCommand } from '../commands/diffWith.js';
 import { ShowQuickCommitCommand } from '../commands/showQuickCommit.js';
-import type { GlCommands } from '../constants.commands.js';
 import { GlyphChars } from '../constants.js';
+import { trustedMarkdownCommands } from '../constants.markdown.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { CommitFormatter } from '../git/formatters/commitFormatter.js';
@@ -33,28 +33,6 @@ import { isRemoteMaybeIntegrationConnected, remoteSupportsIntegration } from '..
 import { toAbortSignal } from '../system/-webview/cancellation.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { editorLineToDiffRange } from '../system/-webview/vscode/range.js';
-
-// Commands that are allowed to execute from markdown links in hovers
-const trustedHoverCommands: (GlCommands | `gitlens.action.${string}`)[] = [
-	'gitlens.action.hover.commands' satisfies GlCommands,
-	'gitlens.action.openIssue' satisfies GlCommands,
-	'gitlens.action.openPullRequest' satisfies GlCommands,
-	'gitlens.ai.explainCommit:editor' satisfies GlCommands,
-	'gitlens.ai.explainWip:editor' satisfies GlCommands,
-	'gitlens.connectRemoteProvider' satisfies GlCommands,
-	'gitlens.copyShaToClipboard' satisfies GlCommands,
-	'gitlens.diffWith' satisfies GlCommands,
-	'gitlens.inviteToLiveShare' satisfies GlCommands,
-	'gitlens.openCommitOnRemote' satisfies GlCommands,
-	'gitlens.openFileRevision' satisfies GlCommands,
-	'gitlens.refreshHover' satisfies GlCommands,
-	'gitlens.revealCommitInView' satisfies GlCommands,
-	'gitlens.showCommitInView' satisfies GlCommands,
-	'gitlens.showCommitsInView' satisfies GlCommands,
-	'gitlens.showInCommitGraph' satisfies GlCommands,
-	'gitlens.showQuickCommitDetails' satisfies GlCommands,
-	'gitlens.showQuickCommitFileDetails' satisfies GlCommands,
-];
 
 export async function changesMessage(
 	container: Container,
@@ -196,7 +174,7 @@ export async function changesMessage(
 
 	const markdown = new MarkdownString(message, true);
 	markdown.supportHtml = true;
-	markdown.isTrusted = { enabledCommands: trustedHoverCommands };
+	markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 	return markdown;
 }
 
@@ -261,7 +239,7 @@ export async function localChangesMessage(
 
 	const markdown = new MarkdownString(message, true);
 	markdown.supportHtml = true;
-	markdown.isTrusted = { enabledCommands: trustedHoverCommands };
+	markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 	return markdown;
 }
 
@@ -396,7 +374,7 @@ export async function detailsMessage(
 
 	const markdown = new MarkdownString(details, true);
 	markdown.supportHtml = true;
-	markdown.isTrusted = { enabledCommands: trustedHoverCommands };
+	markdown.isTrusted = { enabledCommands: trustedMarkdownCommands };
 	return markdown;
 }
 
