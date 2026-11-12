@@ -2,9 +2,11 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
+import { FileType } from '@gitlens/git/context.js';
 import { CheckoutError, FetchError, MergeError, PullError, PushError, ResetError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import { RunError } from '../../exec/exec.errors.js';
 import type { Git } from '../../exec/git.js';
@@ -361,6 +363,319 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['+refs/notes/*:refs/notes/*'] });
 
 			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes', 'tags']]);
+		});
+	});
+
+	suite('pull announcing the refs it moved', () => {
+		let onReset: sinon.SinonSpy;
+		let onChanged: sinon.SinonSpy;
+		/** What the ref snapshots taken around the pull answer, in order; `undefined` fails the read */
+		let snapshots: (string | undefined)[];
+		/** The stderr `git pull` fails with, or `undefined` for a pull that succeeds */
+		let pullFailure: string | undefined;
+		/** The HEAD file the pull reads before and after it runs, or `undefined` when it can't be read */
+		let headFile: { content: string; stamp: number } | undefined;
+		/** What the pull does to the HEAD file while git runs */
+		let pullRewritesHead: (() => void) | undefined;
+
+		const onMain = 'ref: refs/heads/main\n';
+
+		setup(() => {
+			headFile = { content: onMain, stamp: 1 };
+			pullRewritesHead = undefined;
+			onReset = sandbox.spy();
+			onChanged = sandbox.spy();
+			const fs = {
+				readFile: (uri: { path: string }) =>
+					headFile != null && uri.path === '/repo/.git/HEAD'
+						? Promise.resolve(new TextEncoder().encode(headFile.content))
+						: Promise.reject(new Error('ENOENT')),
+				readDirectory: () => Promise.resolve([]),
+				stat: (uri: { path: string }) =>
+					Promise.resolve(
+						headFile != null && uri.path === '/repo/.git/HEAD'
+							? {
+									type: FileType.File,
+									ctime: headFile.stamp,
+									mtime: headFile.stamp,
+									size: headFile.content.length,
+								}
+							: undefined,
+					),
+			};
+			const context = {
+				fs: fs,
+				hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } },
+			} as unknown as GitServiceContext;
+			const cache = {
+				gitDir: { get: () => ({ uri: fileUri('/repo/.git'), commonUri: undefined }) },
+			} as unknown as Cache;
+			const provider = {
+				config: {
+					getConfigRegexAll: () =>
+						Promise.resolve(
+							new Map([
+								['remote.origin.fetch', ['+refs/heads/*:refs/remotes/origin/*']],
+								['remote.upstream.fetch', ['+refs/heads/*:refs/remotes/upstream/*']],
+							]),
+						),
+				},
+			} as unknown as CliGitProviderInternal;
+
+			snapshots = [];
+			pullFailure = undefined;
+			(gitStub.run as sinon.SinonStub).callsFake(
+				async (_options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+					if (args[0] === 'pull') {
+						pullRewritesHead?.();
+					}
+					if (args[0] === 'pull' && pullFailure != null) {
+						throw new GitError(
+							new RunError({ message: pullFailure, cmd: 'git pull', code: 1 }, '', pullFailure),
+						);
+					}
+					if (args[0] !== 'for-each-ref') return successResult();
+
+					const stdout = snapshots.shift();
+					return stdout != null
+						? { ...successResult(), stdout: stdout }
+						: ({
+								stdout: '',
+								stderr: 'fatal: not a git repository',
+								exitCode: 128,
+								completion: { status: 'exited', code: 128 },
+							} satisfies GitResult);
+				},
+			);
+
+			operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
+		});
+
+		const moved = [
+			'refs/heads/main\0aaa\0\nrefs/heads/other\0ccc\0\nrefs/remotes/origin/main\0aaa\0\n',
+			'refs/heads/main\0bbb\0\nrefs/heads/other\0ccc\0\nrefs/remotes/origin/main\0bbb\0\n',
+		];
+
+		test("reads every local branch, tags, the stash and every remote's destinations, before and after", async () => {
+			snapshots = ['', ''];
+
+			await operations.pull(repoPath);
+
+			const format = '--format=%(refname)%00%(objectname)%00%(symref)';
+			const patterns = [
+				'for-each-ref',
+				format,
+				'refs/tags',
+				'refs/heads',
+				'refs/stash',
+				'refs/remotes/origin',
+				'refs/remotes/upstream',
+			];
+			const reads = (gitStub.run as sinon.SinonStub)
+				.getCalls()
+				.filter(c => c.args[1] === 'for-each-ref')
+				.map(c => (c.args as unknown[]).slice(1));
+			assert.deepStrictEqual(reads, [patterns, patterns]);
+		});
+
+		test("passes the pull's cancellation to the read before it, and not to the read after it", async () => {
+			snapshots = ['', ''];
+			const controller = new AbortController();
+
+			await operations.pull(repoPath, undefined, { cancellation: controller.signal });
+
+			const reads = (gitStub.run as sinon.SinonStub)
+				.getCalls()
+				.filter(c => c.args[1] === 'for-each-ref')
+				.map(c => (c.args[0] as GitRunOptions).cancellation);
+			assert.deepStrictEqual(reads, [controller.signal, undefined]);
+		});
+
+		test('names only the refs the pull moved', async () => {
+			snapshots = [...moved];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'remotes', 'index'],
+				['refs/heads/main', 'refs/remotes/origin/main'],
+			]);
+		});
+
+		suite('a pull that leaves HEAD detached', () => {
+			const detached = [repoPath, ['head', 'index', 'worktrees', 'worktreeHead']];
+
+			test('announces the worktrees too, and resets their list', async () => {
+				// A rebase that stopped partway leaves HEAD detached and `main` where it was
+				snapshots = [moved[0], moved[0]];
+				pullFailure = 'CONFLICT (content): Merge conflict in a.txt';
+				pullRewritesHead = () => (headFile = { content: `${'a'.repeat(40)}\n`, stamp: 2 });
+
+				await assert.rejects(operations.pull(repoPath), (ex: unknown) => PullError.is(ex));
+
+				assert.deepStrictEqual(onReset.lastCall.args, [repoPath, 'branches', 'status', 'tags', 'worktrees']);
+				assert.deepStrictEqual(onChanged.lastCall.args, detached);
+			});
+
+			test('announces it when the ref reads before and after the pull both fail', async () => {
+				snapshots = [];
+				pullFailure = 'CONFLICT (content): Merge conflict in a.txt';
+				pullRewritesHead = () => (headFile = { content: `${'a'.repeat(40)}\n`, stamp: 2 });
+
+				await assert.rejects(operations.pull(repoPath), (ex: unknown) => PullError.is(ex));
+
+				assert.deepStrictEqual(onChanged.lastCall.args, [
+					repoPath,
+					['head', 'heads', 'remotes', 'index', 'worktrees', 'worktreeHead'],
+				]);
+			});
+
+			test('announces nothing of the kind when HEAD was detached before the pull', async () => {
+				headFile = { content: `${'a'.repeat(40)}\n`, stamp: 1 };
+				snapshots = [...moved];
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args[1], ['head', 'heads', 'remotes', 'index']);
+			});
+		});
+
+		suite('a pull that rewrites the HEAD file', () => {
+			const rewrote = [
+				repoPath,
+				['head', 'heads', 'remotes', 'index', 'worktrees', 'worktreeHead'],
+				['refs/heads/main', 'refs/remotes/origin/main'],
+			];
+			const left = [
+				repoPath,
+				['head', 'heads', 'remotes', 'index'],
+				['refs/heads/main', 'refs/remotes/origin/main'],
+			];
+
+			test("announces it, and leaves the worktree list's placement of the branch be", async () => {
+				snapshots = [...moved];
+				pullRewritesHead = () => (headFile = { content: onMain, stamp: 2 });
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, rewrote);
+				assert.deepStrictEqual(onReset.lastCall.args, [repoPath, 'branches', 'status', 'tags']);
+			});
+
+			test('announces it although no ref moved', async () => {
+				snapshots = [moved[0], moved[0]];
+				pullRewritesHead = () => (headFile = { content: onMain, stamp: 2 });
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, [
+					repoPath,
+					['head', 'index', 'worktrees', 'worktreeHead'],
+				]);
+			});
+
+			test('announces it when the ref reads fail', async () => {
+				snapshots = [];
+				pullRewritesHead = () => (headFile = { content: onMain, stamp: 2 });
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, [
+					repoPath,
+					['head', 'heads', 'remotes', 'index', 'worktrees', 'worktreeHead'],
+				]);
+			});
+
+			test('leaves it out when the file is as it was', async () => {
+				snapshots = [...moved];
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, left);
+			});
+
+			test('leaves it out when the file cannot be read after the pull', async () => {
+				snapshots = [...moved];
+				pullRewritesHead = () => (headFile = undefined);
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, left);
+			});
+
+			test('leaves it out when the file cannot be read before the pull', async () => {
+				snapshots = [...moved];
+				headFile = undefined;
+				pullRewritesHead = () => (headFile = { content: onMain, stamp: 2 });
+
+				await operations.pull(repoPath);
+
+				assert.deepStrictEqual(onChanged.lastCall.args, left);
+			});
+		});
+
+		test('names the stash a conflicting autostash left', async () => {
+			snapshots = [moved[0], `${moved[0]}refs/stash\0ddd\0\n`];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'stash', 'index'], ['refs/stash']]);
+		});
+
+		test('announces only its HEAD and index when no ref moved', async () => {
+			snapshots = [moved[0], moved[0]];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'index']]);
+		});
+
+		test('names the refs a pull git rejects moved', async () => {
+			snapshots = [...moved];
+			pullFailure = 'CONFLICT (content): Merge conflict in a.txt';
+
+			await assert.rejects(operations.pull(repoPath), (ex: unknown) => PullError.is(ex));
+
+			assert.ok(onChanged.calledOnce);
+			assert.deepStrictEqual(onChanged.lastCall.args, [
+				repoPath,
+				['head', 'heads', 'remotes', 'index'],
+				['refs/heads/main', 'refs/remotes/origin/main'],
+			]);
+		});
+
+		test('falls back to the unnamed kinds when the read before the pull fails', async () => {
+			snapshots = [undefined, moved[1]];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'remotes', 'index']]);
+		});
+
+		test('falls back to the unnamed kinds when the read after the pull fails', async () => {
+			snapshots = [moved[0]];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'remotes', 'index']]);
+		});
+
+		test('falls back to the unnamed kinds, keeping a moved tag, when a ref of no announceable kind moved', async () => {
+			snapshots = ['', 'refs/notes/commits\0aaa\0\nrefs/tags/v2\0bbb\0\n'];
+
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'remotes', 'tags', 'index']]);
+		});
+
+		test('falls back to the unnamed kinds when the read after a pull git rejects fails', async () => {
+			snapshots = [moved[0]];
+			pullFailure = 'CONFLICT (content): Merge conflict in a.txt';
+
+			await assert.rejects(operations.pull(repoPath), (ex: unknown) => PullError.is(ex));
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'remotes', 'index']]);
 		});
 	});
 
