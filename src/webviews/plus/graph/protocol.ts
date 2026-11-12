@@ -705,8 +705,10 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
-	/** `true` when {@link pr} merged and its head is this branch's tip, so the branch's work landed through it.
-	 *  Head-sha equality only (no git counts), so the header can hide Publish without any merge-target data. */
+	/** `true` when {@link pr} merged into the branch's merge target (or into a base it doesn't name) and its head is
+	 *  this branch's tip, so the branch's work landed through it. Never set without a resolved merge target, nor for a
+	 *  pull request merged into another base. Head-sha equality only (no git counts), and the header hides Publish on
+	 *  it. */
 	landed?: boolean;
 	worktree?: boolean;
 	/** Whether the repo has any remotes. `false` is what turns the header's Publish Branch into Publish Repository

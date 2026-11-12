@@ -5,7 +5,6 @@ import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getPullRequestDisplayState } from '@gitlens/git/utils/pullRequest.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/index.js';
@@ -1005,10 +1004,12 @@ export class GraphProducersService {
 			) {
 				branchState.pr ??= last.pr;
 				branchState.upstreamSha ??= last.upstreamSha;
-			}
-			// Derived from the carried PR against THIS branch's tip, so a PR carried from another branch can't mark it
-			if (branchState.pr != null && getBranchLandedState(branch.sha, [{ pullRequest: branchState.pr }]).landed) {
-				branchState.landed = true;
+				// Carried, not re-derived: the full build also checked the PR's base against the merge target, which
+				// the fast path doesn't resolve. Only while the PR's head is still THIS branch's tip, so a verdict
+				// can't outlive a new commit or vouch for another branch
+				if (last.landed && last.pr?.refs?.head?.sha === branch.sha) {
+					branchState.landed = true;
+				}
 			}
 		}
 

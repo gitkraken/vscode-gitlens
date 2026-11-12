@@ -24,6 +24,19 @@ export interface BranchLandedState {
 }
 
 /**
+ * Whether a pull request can vouch for the branch's work landing in the merge target. One merged into another base
+ * (a release branch, or the branch below in a stack) didn't land the work in the target, so it can't. One whose base
+ * isn't known still can, and an open one always can: at the tip, it's live.
+ * @param targetWithoutRemote The merge target's branch name without its remote, as a pull request's base names it
+ */
+export function isPullRequestRelevantToMergeTarget(
+	pr: Pick<PullRequestShape, 'state' | 'refs'>,
+	targetWithoutRemote: string,
+): boolean {
+	return pr.state !== 'merged' || !pr.refs?.base?.branch || pr.refs.base.branch === targetWithoutRemote;
+}
+
+/**
  * What a branch's pull requests say about whether its work landed. The head sha decides, never recency:
  * - an open pull request whose head is the tip is live (`live`), so nothing landed
  * - a merged pull request whose head is the tip landed

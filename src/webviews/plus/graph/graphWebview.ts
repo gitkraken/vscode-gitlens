@@ -28,7 +28,7 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
-import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
+import { getBranchLandedState, isPullRequestRelevantToMergeTarget } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isPullRequestInMergeQueue, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -4367,6 +4367,79 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
+	/**
+	 * Whether `pr` landed the branch's work in its merge target, for the header's `BranchState.landed`. A pull request
+	 * merged into another base (a release branch, a stacked parent) doesn't count, as in the merge target status, and
+	 * with no merge target nothing landed — that status has no verdict without one either.
+	 *
+	 * The merge target lookup is bounded, so a slow one answers without the pull request first. When that answer says
+	 * not landed, `late` settles to the verdict for the full answer (its base can differ, e.g. a stacked parent).
+	 */
+	private async getPullRequestLandedVerdict(
+		branch: GitBranch,
+		pr: PullRequest,
+		cancellation?: AbortSignal,
+	): Promise<{ landed: boolean; late?: Promise<boolean> }> {
+		// Only a merged pull request at the tip can land it, so skip the merge-target lookup for every other one
+		if (getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed == null) return { landed: false };
+
+		// Already merged at the tip (above), so the base is all that's left to decide
+		const getVerdict = async (target: { ref: string } | undefined): Promise<boolean> => {
+			if (target == null) return false;
+
+			const targetBranch = await this.container.git
+				.getRepositoryService(branch.repoPath)
+				.branches.getBranch(target.ref, undefined, cancellation);
+			if (targetBranch == null) return false;
+
+			return isPullRequestRelevantToMergeTarget(pr, targetBranch.nameWithoutRemote);
+		};
+
+		// Shares core's cached answer with the merge target status' lookup
+		const { target, pending } = await getBranchMergeTarget(this.container, branch, {
+			associatedPullRequest: Promise.resolve(pr),
+			cancellation: cancellation,
+			timeout: 100,
+		});
+
+		const landed = await getVerdict(target);
+		if (landed || pending == null) return { landed: landed };
+
+		// `pending` settles to the differing target, or `undefined` when the full answer is the same one
+		return { landed: false, late: pending.then(getVerdict).catch(() => false) };
+	}
+
+	/** Applies a verdict that arrived after the branch state was built, onto the state last sent for this tip */
+	private async applyLateLandedVerdict(
+		branch: GitBranch,
+		late: Promise<boolean>,
+		cancellation: CancellationToken,
+		unsent?: BranchState,
+	): Promise<void> {
+		try {
+			if (!(await late) || cancellation.isCancellationRequested) return;
+
+			// Merge into the most recently sent branchState (see the paused pull request callback) and only while
+			// it still describes this tip, so a verdict can't outlive a new commit or vouch for another branch
+			const lastSent = this._producers.lastSentBranchState;
+			if (lastSent == null || lastSent.pr?.refs?.head?.sha !== branch.sha) {
+				// The build that asked hasn't sent yet, so it carries the verdict itself
+				if (unsent != null) {
+					unsent.landed = true;
+				}
+				return;
+			}
+			if (lastSent.landed) return;
+
+			void this._producers.notifyDidChangeBranchState(
+				{ ...lastSent, landed: true },
+				this._producers.nextBranchStateRevision(),
+			);
+		} catch {
+			// A failed lookup leaves it not landed
+		}
+	}
+
 	/** `GraphSelectionService.updateSelection` — the app's report of what the user selected. Runs
 	 *  undebounced: the coalescing now lives on the APP side of the wire (see the wrapper's
 	 *  `sendSelectionDebounced`), so an arrow-key scrub arrives here already collapsed to its final row. */
@@ -6001,10 +6074,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const maybePr = getSettledValue(prResult);
 				if (maybePr?.paused) {
 					const fallbackBranchState: BranchState = branchState;
-					void maybePr.value.then(pr => {
+					void maybePr.value.then(async pr => {
 						if (branchStateCancellation?.token.isCancellationRequested) return;
 
 						if (pr != null) {
+							let landed = false;
+							let late: Promise<boolean> | undefined;
+							try {
+								({ landed, late } = await this.getPullRequestLandedVerdict(
+									branch,
+									pr,
+									toAbortSignal(branchStateCancellation.token),
+								));
+							} catch (ex) {
+								// A failed lookup leaves it not landed, as a cancelled one leaves the state alone
+								if (isCancellationError(ex)) return;
+							}
+							if (branchStateCancellation.token.isCancellationRequested) return;
+
 							// Merge `pr` into the most recently sent branchState so we don't clobber
 							// fresher ahead/behind/upstream values shipped by a later state notify.
 							const base = this._producers.lastSentBranchState ?? fallbackBranchState;
@@ -6020,18 +6107,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								{
 									...base,
 									pr: serializePullRequest(pr),
-									landed: getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed != null,
+									landed: landed,
 								},
 								this._producers.nextBranchStateRevision(),
 							);
+
+							if (late != null) {
+								void this.applyLateLandedVerdict(branch, late, branchStateCancellation.token);
+							}
 						}
 					});
 				} else {
 					const pr = maybePr?.value;
 					if (pr != null) {
 						branchState.pr = serializePullRequest(pr);
-						if (getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed != null) {
+						// A failed lookup leaves it not landed rather than fail the build; cancellation still throws
+						const { landed, late } = await this.getPullRequestLandedVerdict(
+							branch,
+							pr,
+							toAbortSignal(cancellation.token),
+						).catch((ex: unknown) => {
+							if (isCancellationError(ex)) throw ex;
+
+							return { landed: false, late: undefined };
+						});
+						if (landed) {
 							branchState.landed = true;
+						}
+						// Not sent yet: lands on the sent state, or on this build's own if it resolves first
+						if (late != null) {
+							void this.applyLateLandedVerdict(branch, late, branchStateCancellation.token, branchState);
 						}
 					}
 				}

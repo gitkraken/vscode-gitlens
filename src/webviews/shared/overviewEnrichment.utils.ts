@@ -14,7 +14,7 @@ import type { BranchContributionsOverview, GitBranchMergedStatus } from '@gitlen
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { getBranchReflogWork } from '@gitlens/git/utils/branch.utils.js';
 import type { BranchLandedPullRequestCandidate, BranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
-import { getBranchLandedState } from '@gitlens/git/utils/branchLanded.utils.js';
+import { getBranchLandedState, isPullRequestRelevantToMergeTarget } from '@gitlens/git/utils/branchLanded.utils.js';
 import {
 	getPullRequestNumberFromUrl,
 	isPullRequestInMergeQueue,
@@ -385,11 +385,7 @@ async function getPullRequestsLandedState(
 	ctx: LandedCheckContext,
 	prs: readonly PullRequest[],
 ): Promise<BranchLandedState> {
-	// A pull request merged into another base (a release branch, or the branch below in a stack) didn't land the
-	// branch's work in the merge target, so it can't vouch for it. An open one still counts: at the tip, it's live
-	const relevant = prs.filter(
-		p => p.state !== 'merged' || !p.refs?.base?.branch || p.refs.base.branch === ctx.targetWithoutRemote,
-	);
+	const relevant = prs.filter(p => isPullRequestRelevantToMergeTarget(p, ctx.targetWithoutRemote));
 
 	// Commits are only counted when no pull request's head is the tip — that alone decides
 	const atTip = relevant.some(p => p.refs?.head?.sha === ctx.tip);

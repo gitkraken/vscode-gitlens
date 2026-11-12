@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { PullRequestState } from '../../models/pullRequest.js';
 import type { BranchLandedPullRequestCandidate } from '../branchLanded.utils.js';
-import { getBranchLandedState } from '../branchLanded.utils.js';
+import { getBranchLandedState, isPullRequestRelevantToMergeTarget } from '../branchLanded.utils.js';
 
 const tip = 'aaaaaaa';
 const older = 'bbbbbbb';
@@ -128,6 +128,40 @@ suite('branchLanded.utils', () => {
 				},
 			]);
 			assert.strictEqual(state.landed?.pullRequest.id, 'node-12');
+		});
+	});
+
+	suite('isPullRequestRelevantToMergeTarget', () => {
+		function pr(
+			state: PullRequestState,
+			baseBranch: string | undefined,
+		): Parameters<typeof isPullRequestRelevantToMergeTarget>[0] {
+			return {
+				state: state,
+				refs:
+					baseBranch != null
+						? ({
+								base: { branch: baseBranch },
+							} as unknown as BranchLandedPullRequestCandidate['pullRequest']['refs'])
+						: undefined,
+			};
+		}
+
+		test('merged into the merge target counts', () => {
+			assert.strictEqual(isPullRequestRelevantToMergeTarget(pr('merged', 'main'), 'main'), true);
+		});
+
+		test('merged into another base (a release branch, a stacked parent) does not count', () => {
+			assert.strictEqual(isPullRequestRelevantToMergeTarget(pr('merged', 'core'), 'main'), false);
+		});
+
+		test('merged into an unknown base counts', () => {
+			assert.strictEqual(isPullRequestRelevantToMergeTarget(pr('merged', undefined), 'main'), true);
+			assert.strictEqual(isPullRequestRelevantToMergeTarget(pr('merged', ''), 'main'), true);
+		});
+
+		test('an open pull request counts whatever its base, since at the tip it is live', () => {
+			assert.strictEqual(isPullRequestRelevantToMergeTarget(pr('opened', 'core'), 'main'), true);
 		});
 	});
 });
