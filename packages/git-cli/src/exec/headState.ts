@@ -30,9 +30,7 @@ const headShaRegex = /^(?:[0-9a-f]{40}|[0-9a-f]{64})\s*$/;
  */
 export async function readHeadState(repoPath: string, fs: FileSystemProvider, cache: Cache): Promise<HeadState> {
 	try {
-		const cached = cache.gitDir.get(repoPath);
-		const gitDir =
-			cached != null ? { uri: cached.uri, commonUri: cached.commonUri } : await findGitDir(repoPath, fs);
+		const gitDir = await resolveGitDir(repoPath, fs, cache);
 		if (gitDir == null) return undefined;
 
 		const decoder = new TextDecoder();
@@ -58,6 +56,55 @@ export async function readHeadState(repoPath: string, fs: FileSystemProvider, ca
 }
 
 /**
+ * A stamp of `repoPath`'s `HEAD` file — its modification and change times and size — read without running git, or
+ * `undefined` when it can't be read. Git rewrites `HEAD` by writing `HEAD.lock` and renaming it over `HEAD` (a checkout
+ * or a rebase), which changes the stamp; a commit, merge or fast-forward moves the branch `HEAD` names and leaves the
+ * file be, so a stamp that differs between two reads says a write rewrote the file. Never rejects.
+ */
+export async function readHeadStamp(
+	repoPath: string,
+	fs: FileSystemProvider,
+	cache: Cache,
+): Promise<string | undefined> {
+	try {
+		const gitDir = await resolveGitDir(repoPath, fs, cache);
+		if (gitDir == null) return undefined;
+
+		const stat = await fs.stat(joinUriPath(gitDir.uri, 'HEAD'));
+		return stat != null ? `${stat.mtime}:${stat.ctime}:${stat.size}` : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** What `repoPath`'s HEAD is on and the stamp of its file, read together (see {@link readHeadState}, {@link readHeadStamp}) */
+export interface HeadSnapshot {
+	readonly state: HeadState;
+	readonly stamp: string | undefined;
+}
+
+/** Reads `repoPath`'s HEAD and its file's stamp concurrently. Never rejects. */
+export async function readHeadSnapshot(repoPath: string, fs: FileSystemProvider, cache: Cache): Promise<HeadSnapshot> {
+	const [state, stamp] = await Promise.all([readHeadState(repoPath, fs, cache), readHeadStamp(repoPath, fs, cache)]);
+	return { state: state, stamp: stamp };
+}
+
+/**
+ * How a write changed HEAD, from {@link HeadSnapshot}s read before and after it: `detached` when HEAD was on a branch
+ * and is on none now (a rebase stopped partway), `rewrote` when it stayed on a branch and the file was rewritten (a
+ * rebase that finished replays its commits with HEAD detached, then points it back). Each is `false` when a read
+ * failed, so a write is announced no more than one that left HEAD be would be.
+ */
+export function getHeadWrite(
+	before: HeadSnapshot,
+	after: HeadSnapshot,
+): { readonly detached: boolean; readonly rewrote: boolean } {
+	const detached = before.state != null && before.state !== 'detached' && after.state === 'detached';
+	const rewrote = !detached && before.stamp != null && after.stamp != null && before.stamp !== after.stamp;
+	return { detached: detached, rewrote: rewrote };
+}
+
+/**
  * The path of `repoPath`'s common git dir, without running git: the cached one, else the folder `<repoPath>/.git` is,
  * or the shared one a linked worktree's `gitdir:` file leads to. `undefined` when it can't be read. Never rejects.
  */
@@ -74,6 +121,15 @@ export async function readCommonGitDir(
 	} catch {
 		return undefined;
 	}
+}
+
+async function resolveGitDir(
+	repoPath: string,
+	fs: FileSystemProvider,
+	cache: Cache,
+): Promise<{ readonly uri: Uri; readonly commonUri: Uri | undefined } | undefined> {
+	const cached = cache.gitDir.get(repoPath);
+	return cached != null ? { uri: cached.uri, commonUri: cached.commonUri } : findGitDir(repoPath, fs);
 }
 
 /**
