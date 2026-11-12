@@ -2432,7 +2432,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/**
 	 * The start point `ref`'s own reflog says it was created from (`branch: Created from <name>`), as git wrote it:
-	 * a branch, `HEAD`, a sha, a tag or any other revision. `undefined` unless exactly one entry says so. Rejects
+	 * a branch, `HEAD`, a sha, a tag or any other revision. `undefined` unless exactly one entry says so. Read from the
+	 * reflog's file (see {@link readBaseReflog}) for a local branch the cached ref list names, else from git. Rejects
 	 * when the reflog can't be read, including for a ref that doesn't exist.
 	 */
 	private async getReflogCreatedFrom(
@@ -2441,6 +2442,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		priority: GitCommandPriority | undefined,
 		cancellation: AbortSignal | undefined,
 	): Promise<string | undefined> {
+		const lines = await this.readListedBranchReflog(repoPath, ref, cancellation);
+		if (lines != null) {
+			let name: string | undefined;
+			let count = 0;
+			for (const line of lines) {
+				if (line.createdFrom == null) continue;
+
+				count++;
+				name = line.createdFrom;
+			}
+			if (count !== 1) return undefined;
+
+			// Git trims a reflog message's trailing whitespace, so an empty name is a match with no space after
+			// `from`, which git's pattern takes and the name's own doesn't
+			return name || undefined;
+		}
+
 		const entries = await this.provider.refs.getReflogEntries(
 			repoPath,
 			ref,
@@ -4815,6 +4833,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return result;
 	}
 
+	/**
+	 * {@link readBaseReflog} of `ref`, a local branch's full name, in place of git's reading of it; `undefined` when only
+	 * git can say. Git rejects a ref that doesn't exist, even when a reflog file is left for it, so the file is taken
+	 * only for a branch the cached ref list names.
+	 */
+	private async readListedBranchReflog(
+		repoPath: string,
+		ref: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<readonly ReflogLine[] | undefined> {
+		if (!ref.startsWith('refs/heads/')) return undefined;
+
+		const lines = await this.readBaseReflog(repoPath, ref);
+		if (lines == null) return undefined;
+
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		return findRefRecord(records, ref) != null ? lines : undefined;
+	}
+
 	/** Counts the default branch's own commits past its upstream (see {@link getSelfUpstreamTarget}) for {@link getAheadOfBase} */
 	private async measureAheadOfSelfUpstream(
 		repoPath: string,
@@ -5475,8 +5512,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/**
 	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one, as a remote-tracking ref
-	 * (`origin/main`, the usual default) can't. The list's own upstream isn't used: a config-only change
-	 * (`git branch -u`) doesn't refresh it.
+	 * (`origin/main`, the usual default) can't. A local branch the list names is asked in the main checkout, so the
+	 * repository's checkouts share one read, unless the config listing the base read took shows config that can differ
+	 * by checkout. The list's own upstream isn't the same answer: it names an upstream that is gone, which this reports
+	 * as none, and can differ for one outside `refs/remotes/` or a short name that is ambiguous.
 	 */
 	private async getUpstreamName(
 		repoPath: string,
@@ -5487,7 +5526,31 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 		if (!mayHaveUpstream(records, name)) return undefined;
 
-		return this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`, options, cancellation);
+		const path =
+			name !== 'HEAD' &&
+			findRefRecord(records, `refs/heads/${name}`) != null &&
+			(await this.isConfigSharedByCheckouts(repoPath))
+				? this.cache.getCommonPath(repoPath)
+				: repoPath;
+		return this.provider.refs.getSymbolicReferenceName(path, `${name}@{u}`, options, cancellation);
+	}
+
+	/**
+	 * Whether `repoPath`'s config is its repository's main checkout's, as the config listing already read for its base
+	 * shows it (see `mayConfigDifferByCheckout`). Never reads the listing: `false` when there is none to go by.
+	 */
+	private async isConfigSharedByCheckouts(repoPath: string): Promise<boolean> {
+		if (this.cache.getCommonPath(repoPath) === repoPath) return true;
+
+		const listing = this.cache.aheadOfBaseConfigKey.get(repoPath);
+		if (listing == null) return false;
+
+		try {
+			const value = await listing;
+			return value != null && !mayConfigDifferByCheckout(value);
+		} catch {
+			return false;
+		}
 	}
 
 	/**

@@ -2393,9 +2393,9 @@ suite('Re-measuring a base after only its own ref moved', () => {
 			assert.strictEqual(spawned.filter(pastForkPoint).length, 2, spawned.join('\n'));
 			assert.deepStrictEqual(reflogSpawns(spawned), []);
 			// The ref list, the remotes, the default branch's symref and the gk config, read by both, then 3 shared
-			// processes and 2 for each worktree, where a full read shares the 2 settling the fork point and takes 7 for each
+			// processes and 2 for each worktree, where a full read shares the 2 settling the fork point and takes 6 for each
 			assert.strictEqual(spawned.length, 4 + 3 + 2 * 2, spawned.join('\n'));
-			assert.strictEqual(fullReads.length, 4 + 2 + 7 * 2, fullReads.join('\n'));
+			assert.strictEqual(fullReads.length, 4 + 2 + 6 * 2, fullReads.join('\n'));
 		});
 
 		test("a fork point the base's reflog no longer holds makes the worktree count its own", async () => {
