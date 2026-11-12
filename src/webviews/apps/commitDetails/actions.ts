@@ -134,6 +134,15 @@ const commitEnrichmentCacheLimit = 32;
 export class CommitDetailsActions {
 	private _navigating = false;
 
+	/** One-time load of `views.commitDetails.autolinks.enabled`, awaited by {@link fetchCommit} so the
+	 *  first commit's enrichment reads the real setting. Cleared on a real failure so the next fetch retries. */
+	private _autolinksSettingReady?: Promise<void>;
+	/** Set once a {@link fetchPreferences} result has applied the autolinks flag — that result is always
+	 *  at least as fresh as the one-time load, so the load must not overwrite it. */
+	private _autolinksAppliedByPreferences = false;
+	/** Latest-wins counter for {@link fetchPreferences} — an older overlapping call must not apply. */
+	private _preferencesRequestId = 0;
+
 	/** Aborts when a new commit selection arrives — propagates to host-side enrichment RPCs
 	 *  via `signal?.throwIfAborted()` so abandoned work stops at the next checkpoint instead
 	 *  of running to completion + shipping a dead-letter response over the channel. */
@@ -536,10 +545,8 @@ export class CommitDetailsActions {
 
 			// Fire config calls as fire-and-forget — each sets its signal on resolve.
 			// These don't gate domain data; signals have safe defaults until they arrive.
+			// (The autolinks setting is the exception: `fetchCommit` awaits its one-time load.)
 			void this.fetchPreferences();
-			void this.services.config
-				.get('views.commitDetails.autolinks.enabled')
-				.then(a => (this.state.capabilities.autolinksEnabled = a), noop);
 			// Note: hasAccount and orgSettings use RemoteSignalBridge (connected in commitDetails.ts)
 			void this.services.integrations
 				.getIntegrationStates()
@@ -572,6 +579,12 @@ export class CommitDetailsActions {
 	 * Autolinks and enriched data are fire-and-forget.
 	 */
 	async fetchCommit(repoPath: string, sha: string, options?: FetchCommitOptions): Promise<void> {
+		// The host replays the current selection on subscribe, which lands here before
+		// `fetchInitialState` has requested anything, so wait for the autolinks setting once. The
+		// flag defaults to false (so users who disabled autolinks never see them flash in), and the
+		// enrichment below reads it only once — without this wait the first commit never autolinks.
+		await (this._autolinksSettingReady ??= this.loadAutolinksSetting());
+
 		const current = this.state.currentCommit.get();
 		if (!options?.force && current?.repoPath === repoPath && current?.sha === sha) {
 			// Already showing this commit — cancel any in-flight request
@@ -621,6 +634,8 @@ export class CommitDetailsActions {
 		}
 
 		await this.resources.commit.fetch(repoPath, sha);
+		// Superseded — the shared resource may now hold a newer selection; don't write it under our cache key.
+		if (enrichSignal.aborted) return;
 
 		// Write result to state for derived signals and events
 		if (this.resources.commit.status.get() === 'success') {
@@ -728,9 +743,31 @@ export class CommitDetailsActions {
 	}
 
 	/**
+	 * One-time load of the autolinks setting for {@link fetchCommit}. Never rejects; on a real failure
+	 * it clears `_autolinksSettingReady` so the next fetch retries, leaving the flag as it was.
+	 */
+	private async loadAutolinksSetting(): Promise<void> {
+		try {
+			const enabled = await this.services.config.get('views.commitDetails.autolinks.enabled');
+			if (!this._autolinksAppliedByPreferences) {
+				this.state.capabilities.autolinksEnabled = enabled;
+			}
+		} catch (ex) {
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('Autolinks setting load dropped by deliberate connection teardown');
+				return;
+			}
+
+			Logger.error(ex, 'Failed to load autolinks setting');
+			this._autolinksSettingReady = undefined;
+		}
+	}
+
+	/**
 	 * Fetch preferences from the backend via individual config calls.
 	 */
 	async fetchPreferences(): Promise<void> {
+		const requestId = ++this._preferencesRequestId;
 		try {
 			const [
 				pullRequestExpandedResult,
@@ -761,6 +798,8 @@ export class CommitDetailsActions {
 				),
 				this.services.ai.isEnabled(),
 			]);
+			// A newer overlapping call owns the state now — never apply an older read over it.
+			if (requestId !== this._preferencesRequestId) return;
 
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
 			const showSearchBox = getSettledValue(showSearchBoxResult);
@@ -797,7 +836,20 @@ export class CommitDetailsActions {
 				searchBoxFilter: searchBoxFilter ?? true,
 			});
 			if (autolinksEnabled != null) {
+				const wasEnabled = this.state.capabilities.autolinksEnabled;
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
+				this._autolinksAppliedByPreferences = true;
+
+				// The shown commit's enrichment ran with autolinks off, so refetch to pick them up. An
+				// in-flight commit fetch needs nothing: it reads the flag after its fetch resolves.
+				if (
+					!wasEnabled &&
+					autolinksEnabled &&
+					this.state.currentCommit.get() != null &&
+					!this.resources.commit.loading.get()
+				) {
+					void this.refetchCurrentCommit();
+				}
 			}
 		} catch (ex) {
 			if (isConnectionClosedError(ex)) {

@@ -356,7 +356,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						.filesCollapsable=${false}
 						.autolinksEnabled=${s.capabilities.autolinksEnabled}
 						.autolinks=${s.autolinks.get()}
-						.formattedMessage=${s.formattedMessage.get()}
+						.formattedMessage=${s.capabilities.autolinksEnabled ? s.formattedMessage.get() : undefined}
 						.autolinkedIssues=${s.autolinkedIssues.get()}
 						.pullRequest=${s.pullRequest.get()}
 						.signature=${s.signature.get()}
