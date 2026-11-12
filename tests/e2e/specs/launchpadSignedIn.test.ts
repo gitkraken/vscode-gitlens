@@ -248,5 +248,17 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 				timeout: itemsTimeout,
 			})
 			.toMatch(/^Launchpad — .*\d+ pull requests? (?:is|are) blocked/);
+
+		// Connected, the summary is marked as such, and hovering opens a popover that offers Open Launchpad and none of
+		// the welcome text shown before an integration is connected
+		const launchpad = webview!.locator('gl-graph-launchpad-indicator');
+		await expect(launchpad.locator('gl-launchpad-summary[has-integrations-connected]').first()).toBeAttached();
+		await indicator.hover();
+		await expect(launchpad.locator('gl-popover[open]')).toHaveCount(1, { timeout: 30_000 });
+		await expect(
+			launchpad.locator('[slot="content"] [href*="command:gitlens.showLaunchpad"]').first(),
+			'Open Launchpad in the popover',
+		).toBeVisible({ timeout: 30_000 });
+		await expect(launchpad.locator('.welcome'), 'no not-connected welcome text').toHaveCount(0);
 	});
 });
