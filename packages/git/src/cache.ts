@@ -569,6 +569,11 @@ export class Cache implements Disposable {
 		this._readValidatorUsage = validator != null ? getResourceUsage : undefined;
 	}
 
+	/** Whether a read validator is set (see {@link setReadValidator}), so the host keeps the caches it covers current */
+	get readsAreValidated(): boolean {
+		return this._readValidator != null;
+	}
+
 	/**
 	 * Runs the read validator (see {@link setReadValidator}) for a read of one of its caches made without the wrappers
 	 * here: `undefined` when the read can go ahead at once, or a promise (that never rejects) to read after

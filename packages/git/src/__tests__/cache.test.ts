@@ -4349,6 +4349,21 @@ suite('resetDropsPendingRuns', () => {
 });
 
 suite('Cache read validator resource usage', () => {
+	test('says whether a read validator is set', () => {
+		const cache = new Cache();
+		try {
+			assert.strictEqual(cache.readsAreValidated, false);
+
+			cache.setReadValidator(() => undefined);
+			assert.strictEqual(cache.readsAreValidated, true);
+
+			cache.setReadValidator(undefined);
+			assert.strictEqual(cache.readsAreValidated, false);
+		} finally {
+			cache.dispose();
+		}
+	});
+
 	test("reports the read validator's resource usage among its own until it is removed", () => {
 		const cache = new Cache();
 		try {

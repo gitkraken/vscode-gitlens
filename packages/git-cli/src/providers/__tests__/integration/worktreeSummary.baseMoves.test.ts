@@ -241,8 +241,8 @@ suite('Re-measuring a base after random moves of its refs', function () {
 		return dependsOn.filter(ref => before.get(ref) !== after.get(ref));
 	}
 
-	async function readFresh(path: string): Promise<AheadOfBase> {
-		const provider = createProvider();
+	async function readFresh(path: string, validated: boolean): Promise<AheadOfBase> {
+		const provider = createProvider({ validateReads: validated });
 		try {
 			return await provider.branches.getAheadOfBase(path, 'task');
 		} finally {
@@ -260,19 +260,19 @@ suite('Re-measuring a base after random moves of its refs', function () {
 	 * One sequence. The re-measures go through one provider kept for the whole sequence, as a summary's is, with its
 	 * caches cleared after each move as the watcher would clear them, so what it shares across moves is exercised
 	 */
-	async function runSequence(sequenceSeed: number, tally: Tally): Promise<void> {
+	async function runSequence(sequenceSeed: number, tally: Tally, validated: boolean): Promise<void> {
 		const random = createRandom(sequenceSeed);
 		const fixture = createFixture(random);
 		const moves = createMoves(random);
 		const log: string[] = [];
-		const provider: CliGitProvider = createProvider();
+		const provider: CliGitProvider = createProvider({ validateReads: validated });
 		try {
 			const paths = [fixture.repo.path, fixture.task.path];
 			for (const path of paths) {
 				provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
 			}
 
-			let previous = await readFresh(fixture.task.path);
+			let previous = await readFresh(fixture.task.path, validated);
 			let tips = readTips(fixture.repo.path);
 			for (let i = 0; i < movesPerSequence; i++) {
 				const move = pickMove(random, moves);
@@ -291,7 +291,7 @@ suite('Re-measuring a base after random moves of its refs', function () {
 				// A HEAD that moved is read in full, as is a base whose refs didn't move but whose inputs did (a ref it
 				// left out while absent); neither is the re-measure's to answer
 				if (headMoved || !moved.length || previous.base == null) {
-					previous = await readFresh(fixture.task.path);
+					previous = await readFresh(fixture.task.path, validated);
 					continue;
 				}
 
@@ -310,10 +310,11 @@ suite('Re-measuring a base after random moves of its refs', function () {
 						...(previous.defaultBranch !== undefined
 							? { defaultBranch: previous.defaultBranch }
 							: undefined),
+						...(previous.measuredFrom !== undefined ? { measuredFrom: previous.measuredFrom } : undefined),
 					},
 					moved,
 				);
-				const fresh = await readFresh(fixture.task.path);
+				const fresh = await readFresh(fixture.task.path, validated);
 				if (answer != null) {
 					assert.deepStrictEqual(answer, fresh, `moved ${moved.join(', ')}`);
 					count(tally.answered, shape);
@@ -336,16 +337,18 @@ suite('Re-measuring a base after random moves of its refs', function () {
 		}
 	}
 
-	test(`answers what a full read does after every move (seed ${seed}, ${sequences} sequences)`, async () => {
-		const tally: Tally = { kept: 0, answered: new Map(), declined: new Map() };
-		for (let i = 0; i < sequences; i++) {
-			await runSequence(seed + i, tally);
-		}
-		console.error(
-			`[base moves] seed ${seed}, ${sequences} sequences: answered ${JSON.stringify([...tally.answered])}, declined ${JSON.stringify([...tally.declined])}, kept unchanged ${tally.kept}`,
-		);
+	for (const validated of [true, false]) {
+		test(`answers what a full read does after every move, reads ${validated ? 'validated' : 'not validated'} (seed ${seed}, ${sequences} sequences)`, async () => {
+			const tally: Tally = { kept: 0, answered: new Map(), declined: new Map() };
+			for (let i = 0; i < sequences; i++) {
+				await runSequence(seed + i, tally, validated);
+			}
+			console.error(
+				`[base moves] seed ${seed}, ${sequences} sequences, ${validated ? 'validated' : 'not validated'}: answered ${JSON.stringify([...tally.answered])}, declined ${JSON.stringify([...tally.declined])}, kept unchanged ${tally.kept}`,
+			);
 
-		// A re-measure that never answers would pass the comparison, so moves of local main alone must be answered
-		assert.ok((tally.answered.get('main') ?? 0) > 0, 'a move of local main alone was re-measured');
-	});
+			// A re-measure that never answers would pass the comparison, so moves of local main alone must be answered
+			assert.ok((tally.answered.get('main') ?? 0) > 0, 'a move of local main alone was re-measured');
+		});
+	}
 });

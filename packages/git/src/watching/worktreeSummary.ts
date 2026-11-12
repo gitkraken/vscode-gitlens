@@ -142,13 +142,13 @@ export interface WorktreeSummaryServiceOptions {
 	 */
 	readonly stat?: (path: string) => Promise<{ readonly mtime: number; readonly size: number } | undefined>;
 	/**
-	 * For tests only; production never passes it. Called whenever the base re-measure answers in place of a full base
-	 * read, with its answer and what a full `getAheadOfBase` of the same branch answers right after (`undefined` when
-	 * that rejects or the provider has none), so a test can fail where the shortcut keeps an answer the full read would
-	 * not. The summary keeps the re-measure's answer either way. The full read goes through the same provider and
-	 * caches as the shortcut, so it checks the shortcut's reasoning, not whether those caches are current. The callback
-	 * should record a mismatch for the test to fail on rather than throw: a throw is taken for a failed base read.
-	 * Unset, it costs one check of the option.
+	 * For tests only; production never passes it. Called whenever the base re-measure, or the base carried past a commit
+	 * (`getAheadOfBaseAfterCommit`), answers in place of a full base read, with that answer and what a full
+	 * `getAheadOfBase` of the same branch answers right after (`undefined` when that rejects or the provider has none),
+	 * so a test can fail where the shortcut keeps an answer the full read would not. The summary keeps the shortcut's
+	 * answer either way. The full read goes through the same provider and caches as the shortcut, so it checks the
+	 * shortcut's reasoning, not whether those caches are current. The callback should record a mismatch for the test to
+	 * fail on rather than throw: a throw is taken for a failed base read. Unset, it costs one check of the option.
 	 */
 	readonly verifyBaseRemeasure?: (remeasured: AheadOfBase, full: AheadOfBase | undefined) => void;
 }
@@ -196,8 +196,15 @@ const maxDeferredDirtyMs = 10_000;
 // save; a change to what the base depends on retries it at once. No timer retries it on its own
 const minBaseRetryDelayMs = 5_000;
 const maxBaseRetryDelayMs = 5 * 60_000;
+// A shortcut keeping the base (the re-measure after a base move, the carry past a commit) is proven only from the answer
+// before it, so one already wrong (a fallback past a failed read, a reflog expired under it) would be kept through
+// every later commit and move. Past either bound below, the event that would take a shortcut reads the base in full.
+// Minutes, so a burst of commits or fetches still takes the shortcuts while a wrong answer can't outlast a short pause
+const maxCarriedBaseAgeMs = 5 * 60_000;
+// One full read in this many still saves nearly every read for a worktree committing every few seconds
+const maxCarriedBaseAnswers = 20;
 
-/** The clock a failed base read's wait is read from, exported for testing */
+/** The clock a failed base read's wait, and the age of a base kept by a shortcut, are read from; exported for testing */
 export const baseRetryClock = { now: (): number => Date.now() };
 
 const emptyRefs: readonly string[] = Object.freeze([]);
@@ -223,6 +230,11 @@ interface ReadResult {
 	readonly baseConfigKey: string | undefined;
 	/** The default branch the base read resolved (see `AheadOfBase.defaultBranch`); `undefined` when unknown */
 	readonly baseDefaultBranch: string | null | undefined;
+	/**
+	 * The base's last full read as of this read; `undefined` when unknown, after a failed base read, or after one that
+	 * fell back past a failed read inside it (see `AheadOfBase.provisional`), none of which a shortcut answers from
+	 */
+	readonly baseFullRead: BaseFullRead | undefined;
 	/** Why the base read failed when the rest of the summary was read; the summary is then stale */
 	readonly baseError: unknown;
 	/** When the dirty read started; `undefined` when dirty wasn't read but kept from `previous` */
@@ -234,7 +246,7 @@ interface ReadResult {
 /**
  * Probes a subscribed read's inputs once its dirty read started, and before its branch and base reads, given the groups
  * due and the refs the base depends on that moved; returns them as the probe widened them, with HEAD as it read it
- * (absent when it didn't), which the branch read then takes
+ * (absent when it didn't), which the branch read then takes, and the refs it found (absent when it failed)
  */
 type ReadProbe = (
 	fields: number,
@@ -243,6 +255,7 @@ type ReadProbe = (
 	readonly fields: number;
 	readonly baseMoves: ReadonlySet<string> | undefined;
 	readonly head?: { readonly branch: GitBranch | undefined };
+	readonly refs?: ProbedRefs;
 }>;
 
 /**
@@ -263,6 +276,17 @@ interface ReadTips {
 interface BaseRetry {
 	readonly at: number;
 	readonly delay: number;
+}
+
+/**
+ * When the base was last read in full (by `getAheadOfBase`, not a shortcut), and how many shortcut answers were kept
+ * since; a shortcut answers only while both are inside their bounds (see {@link getCarriableBaseRead})
+ */
+interface BaseFullRead {
+	readonly at: number;
+	readonly answers: number;
+	/** The commit the kept answer was measured from (see `AheadOfBase.measuredFrom`), for the next shortcut */
+	readonly measuredFrom: string | undefined;
 }
 
 /**
@@ -382,6 +406,8 @@ interface SummaryEntry {
 	baseConfigKey: string | undefined;
 	/** The default branch the last base read resolved, for a re-measure to check; `undefined` when unknown */
 	baseDefaultBranch: string | null | undefined;
+	/** The base's last full read, as of the value (or the saved read), see {@link ReadResult.baseFullRead} */
+	baseFullRead: BaseFullRead | undefined;
 	/** The tips the value (or the saved read) was read from, for a tip check; `undefined` before any were taken */
 	tips: ReadTips | undefined;
 	/** Why the latest read failed while there was no value to keep */
@@ -843,9 +869,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				last?.result.baseKeys,
 				last?.result.baseConfigKey,
 				last?.result.baseDefaultBranch,
+				last?.result.baseFullRead,
 				baseMoves,
 				signal,
 				this.verifyBaseRemeasure,
+				last?.inputs.baseTips,
+				probe,
 			);
 
 			// Keep the summary the caller already has when nothing in it changed
@@ -942,13 +971,13 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		try {
 			if (!check && (fields & branchField) === 0) {
 				probed.refs = await probeRefs(repo, remotes, signal);
-				return { fields: fields, baseMoves: baseMoves };
+				return { fields: fields, baseMoves: baseMoves, refs: probed.refs };
 			}
 
 			const probe = await this.probeUnwatched(repo, remotes, false, signal);
 			probed.refs = probe;
 			const head = { branch: probe.current };
-			if (!check) return { fields: fields, baseMoves: baseMoves, head: head };
+			if (!check) return { fields: fields, baseMoves: baseMoves, head: head, refs: probe };
 
 			const moved = getTipCheckFields(probe, previous, tips);
 			if (moved.baseMoves != null && baseMoves != null) {
@@ -956,7 +985,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 					moved.baseMoves.add(ref);
 				}
 			}
-			return { fields: fields | moved.fields, baseMoves: moved.baseMoves ?? baseMoves, head: head };
+			return {
+				fields: fields | moved.fields,
+				baseMoves: moved.baseMoves ?? baseMoves,
+				head: head,
+				refs: probe,
+			};
 		} catch (ex) {
 			// Cut short as well: a run reading the same things right after would only run past the limit again
 			if (isCancellationError(ex)) throw ex;
@@ -1005,6 +1039,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			entry.baseKeys = last.result.baseKeys;
 			entry.baseConfigKey = last.result.baseConfigKey;
 			entry.baseDefaultBranch = last.result.baseDefaultBranch;
+			entry.baseFullRead = last.result.baseFullRead;
 			// The tips the saved read was read from: the newer ones the probe below finds are of groups it queues unread
 			entry.tips = { base: last.inputs.baseTips };
 		} else {
@@ -1322,9 +1357,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				entry.baseKeys,
 				entry.baseConfigKey,
 				entry.baseDefaultBranch,
+				entry.baseFullRead,
 				baseMoves,
 				signal,
 				this.verifyBaseRemeasure,
+				tips?.base,
+				undefined,
 				(due, moves) => this.probeRead(repo, previous, tips, due, moves, probed, signal),
 			);
 		} catch (ex) {
@@ -1349,6 +1387,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.baseKeys = result.baseKeys;
 		entry.baseConfigKey = entry.pending & baseConfigField ? undefined : result.baseConfigKey;
 		entry.baseDefaultBranch = result.baseDefaultBranch;
+		entry.baseFullRead = result.baseFullRead;
 		entry.staleFields = result.summary.stale ? baseField : 0;
 		entry.baseRetry = getBaseRetry(entry.baseRetry, result);
 		// Any read of the dirty flag ends showing the saved one, even one a branch read adds on finding another branch
@@ -1430,6 +1469,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.baseKeys = undefined;
 		entry.baseConfigKey = undefined;
 		entry.baseDefaultBranch = undefined;
+		entry.baseFullRead = undefined;
 		entry.tips = undefined;
 		entry.staleFields = 0;
 		entry.baseRetry = undefined;
@@ -1464,6 +1504,7 @@ function dropSeed(entry: SummaryEntry): void {
 	entry.baseKeys = undefined;
 	entry.baseConfigKey = undefined;
 	entry.baseDefaultBranch = undefined;
+	entry.baseFullRead = undefined;
 	entry.tips = undefined;
 	entry.staleFields = 0;
 	entry.baseRetry = undefined;
@@ -1490,6 +1531,7 @@ function createEntry(key: string): SummaryEntry {
 		baseKeys: undefined,
 		baseConfigKey: undefined,
 		baseDefaultBranch: undefined,
+		baseFullRead: undefined,
 		tips: undefined,
 		error: undefined,
 		staleFields: 0,
@@ -1508,9 +1550,13 @@ function createEntry(key: string): SummaryEntry {
  * from `previousBaseKeys` read the base group. A base due only because `baseMoves` moved, with HEAD, the stored
  * values and the config inputs as before, is first re-measured from `previous` and the default branch its read
  * resolved, `previousBaseDefaultBranch` (see `getAheadOfBaseAfterBaseMove`), and read in full only when that can't
- * answer. A failed base read doesn't fail the rest: the summary comes back stale, keeping the previous
- * base and `baseDependsOn` only while the branch is the same. A stale `previous` stays stale unless the base is read,
- * and its base is read in full, never re-measured.
+ * answer. A base due because HEAD moved on the same branch, with the upstream, the stored values and the config inputs
+ * as before, and every ref the base depends on but the branch's own where `previousBaseTips` has it (as the probe's
+ * refs, or `probedRefs` without a probe, find them), is first carried past the commit (see `getAheadOfBaseAfterCommit`)
+ * the same way. Neither shortcut is tried once `previousBaseFullRead`, the base's last full read, is past its bounds
+ * (see {@link getCarriableBaseRead}). A failed base read doesn't fail the rest: the summary comes back stale, keeping
+ * the previous base and `baseDependsOn` only while the branch is the same. A stale `previous` stays stale unless the
+ * base is read, and its base is read in full, never re-measured.
  */
 async function readSummary(
 	repo: RepositoryService,
@@ -1520,9 +1566,12 @@ async function readSummary(
 	previousBaseKeys: BaseKeys | undefined,
 	previousBaseConfigKey: string | undefined,
 	previousBaseDefaultBranch: string | null | undefined,
+	previousBaseFullRead: BaseFullRead | undefined,
 	baseMoves: ReadonlySet<string> | undefined,
 	signal: AbortSignal | undefined,
 	verifyBaseRemeasure: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
+	previousBaseTips: ReadonlyMap<string, string | null | undefined> | undefined,
+	probedRefs: ProbedRefs | undefined,
 	probe?: ReadProbe,
 ): Promise<ReadResult> {
 	if (previous == null) {
@@ -1537,9 +1586,10 @@ async function readSummary(
 	let dirtyRead = fields & dirtyField ? startDirtyRead() : undefined;
 
 	let head: { readonly branch: GitBranch | undefined } | undefined;
+	let refs = probedRefs;
 	if (probe != null && fields & (branchField | baseField | baseMoveField | tipCheckField)) {
 		const probed = await probe(fields, baseMoves);
-		({ fields, baseMoves, head } = probed);
+		({ fields, baseMoves, head, refs } = probed);
 		if (fields & dirtyField) {
 			dirtyRead ??= startDirtyRead();
 		}
@@ -1574,6 +1624,7 @@ async function readSummary(
 	let baseConfig: BaseConfig | undefined;
 	let baseConfigRead = false;
 	let baseDefaultBranch = previousBaseDefaultBranch;
+	let baseFullRead = previousBaseFullRead;
 	let baseFailed = false;
 	let baseError: unknown;
 	// A detached HEAD is measured as `undefined`; an unborn HEAD with no name has nothing to measure
@@ -1607,6 +1658,7 @@ async function readSummary(
 			baseKeys = undefined;
 			baseConfigKey = undefined;
 			baseDefaultBranch = undefined;
+			baseFullRead = undefined;
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
@@ -1618,11 +1670,24 @@ async function readSummary(
 			}
 			try {
 				let aheadOfBase: AheadOfBase | undefined;
+				const verify = async (shortcut: AheadOfBase): Promise<void> => {
+					if (verifyBaseRemeasure == null) return;
+
+					let full: AheadOfBase | undefined;
+					try {
+						full = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
+					} catch (ex) {
+						if (isReadAborted(ex, signal)) throw ex;
+					}
+					verifyBaseRemeasure(shortcut, full);
+				};
+				const carriable = getCarriableBaseRead(previousBaseFullRead);
 				// The config inputs too, though no config change is due: a write can land between the last read and its
 				// event (core evicts its own write's caches before the event fires), and the re-measure reads no config,
 				// so the key kept with it would vouch for config the base never saw. A stale base kept from before its
 				// failed read may answer for other stored values or config than the ones kept with it
 				if (
+					carriable != null &&
 					!(fields & baseField) &&
 					baseMoves != null &&
 					baseMoves.size !== 0 &&
@@ -1644,21 +1709,78 @@ async function readSummary(
 							...(previousBaseDefaultBranch !== undefined
 								? { defaultBranch: previousBaseDefaultBranch }
 								: undefined),
+							...(carriable.measuredFrom !== undefined
+								? { measuredFrom: carriable.measuredFrom }
+								: undefined),
 						},
 						[...baseMoves],
 						signal,
 					);
-					if (aheadOfBase != null && verifyBaseRemeasure != null) {
-						let full: AheadOfBase | undefined;
-						try {
-							full = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
-						} catch (ex) {
-							if (isReadAborted(ex, signal)) throw ex;
-						}
-						verifyBaseRemeasure(aheadOfBase, full);
+					if (aheadOfBase != null) {
+						await verify(aheadOfBase);
+					}
+				} else if (
+					// Only HEAD moved, on the same branch: named moves of the base's refs aren't enough to tell, since a
+					// commit's read never names them, so every ref it depends on is compared with the tips it was read from
+					carriable != null &&
+					repo.branches.getAheadOfBaseAfterCommit != null &&
+					(baseMoves == null || baseMoves.size === 0) &&
+					previous?.base != null &&
+					!previous.stale &&
+					sha != null &&
+					previous.sha != null &&
+					sha !== previous.sha &&
+					branch != null &&
+					branch === previous.branch &&
+					!detached &&
+					!previous.detached &&
+					upstreamsEqual(upstream, previous.upstream) &&
+					baseKeys != null &&
+					previousBaseKeys != null &&
+					baseKeysEqual(baseKeys, previousBaseKeys) &&
+					previousBaseConfigKey != null &&
+					getBaseConfigKey(baseConfig, previous) === previousBaseConfigKey &&
+					isOnlyBranchMoved(refs, previousBaseTips, previous.baseDependsOn, branch, sha)
+				) {
+					try {
+						aheadOfBase = await repo.branches.getAheadOfBaseAfterCommit(
+							branch,
+							{
+								head: previous.sha,
+								base: previous.base,
+								dependsOn: previous.baseDependsOn,
+								...(previousBaseDefaultBranch !== undefined
+									? { defaultBranch: previousBaseDefaultBranch }
+									: undefined),
+								...(carriable.measuredFrom !== undefined
+									? { measuredFrom: carriable.measuredFrom }
+									: undefined),
+							},
+							sha,
+							signal,
+						);
+					} catch (ex) {
+						// A shortcut that failed is no answer; the full read below gives one
+						if (isReadAborted(ex, signal)) throw ex;
+					}
+					if (aheadOfBase != null) {
+						await verify(aheadOfBase);
 					}
 				}
-				aheadOfBase ??= await repo.branches.getAheadOfBase?.(branch, undefined, signal);
+				if (aheadOfBase != null && carriable != null) {
+					baseFullRead = {
+						at: carriable.at,
+						answers: carriable.answers + 1,
+						measuredFrom: aheadOfBase.measuredFrom,
+					};
+				} else {
+					const readAt = baseRetryClock.now();
+					aheadOfBase = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
+					// Kept as the best answer there is, but never carried
+					baseFullRead = aheadOfBase?.provisional
+						? undefined
+						: { at: readAt, answers: 0, measuredFrom: aheadOfBase?.measuredFrom };
+				}
 				base = aheadOfBase?.base;
 				dependsOn = aheadOfBase?.dependsOn ?? emptyRefs;
 				baseDefaultBranch = aheadOfBase?.defaultBranch;
@@ -1674,6 +1796,7 @@ async function readSummary(
 				base = sameBranch ? previous.base : undefined;
 				dependsOn = sameBranch ? previous.baseDependsOn : emptyRefs;
 				baseDefaultBranch = undefined;
+				baseFullRead = undefined;
 			}
 		}
 	}
@@ -1703,6 +1826,7 @@ async function readSummary(
 		baseKeys: baseKeys,
 		baseConfigKey: baseConfigKey,
 		baseDefaultBranch: baseDefaultBranch,
+		baseFullRead: baseFullRead,
 		baseError: baseError,
 		dirtyReadAt: dirtyReadAt,
 		fields: fields,
@@ -1879,6 +2003,34 @@ function getMovedBaseRefs(
 }
 
 /**
+ * Whether, of the refs in `baseDependsOn`, only `branch`'s own moved since `baseTips`, to `sha`, as `refs` finds them. A
+ * tip that's unknown (`null`, or not kept) counts as moved, and so does a ref that appeared or went.
+ */
+function isOnlyBranchMoved(
+	refs: ProbedRefs | undefined,
+	baseTips: ReadonlyMap<string, string | null | undefined> | undefined,
+	baseDependsOn: readonly string[],
+	branch: string,
+	sha: string,
+): boolean {
+	if (refs == null || baseTips == null) return false;
+
+	const own = `refs/heads/${branch}`;
+	for (const ref of baseDependsOn) {
+		const value = getBaseInput(refs, ref);
+		if (ref === own) {
+			if (value !== sha) return false;
+
+			continue;
+		}
+
+		const kept = baseTips.get(ref);
+		if (value === null || kept === null || !baseTips.has(ref) || value !== kept) return false;
+	}
+	return true;
+}
+
+/**
  * The tips a subscribed run leaves its summary read from: from the refs its probe found (`refs`) when it read the base,
  * unknown when it read it without a probe, and else `last`'s
  */
@@ -1915,6 +2067,18 @@ function getBaseRetry(last: BaseRetry | undefined, result: ReadResult): BaseRetr
 
 	const delay = last != null ? Math.min(last.delay * 2, maxBaseRetryDelayMs) : minBaseRetryDelayMs;
 	return { at: baseRetryClock.now() + delay, delay: delay };
+}
+
+/**
+ * `read` while a shortcut may still answer from it: less than {@link maxCarriedBaseAgeMs} old, by a clock that hasn't
+ * gone back since, and followed by fewer than {@link maxCarriedBaseAnswers} shortcut answers; else `undefined`, as for
+ * an unknown one
+ */
+function getCarriableBaseRead(read: BaseFullRead | undefined): BaseFullRead | undefined {
+	if (read == null || read.answers >= maxCarriedBaseAnswers) return undefined;
+
+	const age = baseRetryClock.now() - read.at;
+	return age >= 0 && age < maxCarriedBaseAgeMs ? read : undefined;
 }
 
 /** The upstream's tips as a remote-tracking and as a local branch, since its short name doesn't say which */

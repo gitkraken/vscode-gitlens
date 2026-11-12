@@ -26,6 +26,7 @@ import {
 	setConfig,
 	setRemoteHead,
 	supportsReftable,
+	validateReads,
 } from './helpers.js';
 
 // Every fixture is built before the provider's first read of it: the provider caches merge bases, ref lookups
@@ -41,6 +42,15 @@ function revParse(repoPath: string, ref: string): string {
 
 function mergeBase(repoPath: string, ref: string): string {
 	return execFileSync('git', ['merge-base', 'HEAD', ref], { cwd: repoPath, encoding: 'utf-8' }).trim();
+}
+
+/** Stands for the tip of the branch measured, which a read names in place of HEAD (see `AheadOfBase.measuredFrom`) */
+const branchTip = '<branch tip>';
+
+/** The git arguments `args`, with `branch`'s tip in `repoPath` as {@link branchTip} */
+function atBranchTip(repoPath: string, branch: string, args: string[]): string[] {
+	const tip = revParse(repoPath, `refs/heads/${branch}`);
+	return args.map(a => (a === tip ? branchTip : a));
 }
 
 function storeGk(repoPath: string, key: string, value: string): void {
@@ -79,6 +89,9 @@ function getAheadOfBase(
 	options?: { skipUserTarget?: boolean; preferredTarget?: string },
 	cancellation?: AbortSignal,
 ): Promise<AheadOfBase> {
+	// A read is measured from the branch's listed tip only for a host that validates its reads, as every host that
+	// keeps its cached lists current does (see `Cache.setReadValidator`)
+	validateReads(repo.provider);
 	return repo.provider.branches.getAheadOfBase(repo.path, branch, options, cancellation);
 }
 
@@ -1215,9 +1228,15 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// The reflog shows the base moved only forward since it last left the commit
 				const mergeBases = spy
 					.getCalls()
-					.map(c => c.args.slice(1).filter(a => typeof a === 'string'))
+					.map(c =>
+						atBranchTip(
+							clone.path,
+							'feature',
+							c.args.slice(1).filter(a => typeof a === 'string'),
+						),
+					)
 					.filter(args => args[0] === 'merge-base');
-				assert.deepStrictEqual(mergeBases, [['merge-base', '--fork-point', 'origin/main', 'HEAD']]);
+				assert.deepStrictEqual(mergeBases, [['merge-base', '--fork-point', 'origin/main', branchTip]]);
 			} finally {
 				cleanup();
 			}
@@ -1303,7 +1322,9 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
 			try {
 				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
-				const stub = failRuns(clone, args => args.includes(`${oldTip}...HEAD`));
+				// Counted from the branch's tip, which the read names in place of HEAD
+				const tip = revParse(clone.path, 'refs/heads/feature');
+				const stub = failRuns(clone, args => args.includes(`${oldTip}...${tip}`));
 				try {
 					const result = await getAheadOfBase(clone, 'feature');
 					assert.strictEqual(result.base?.forkPoint, mergeBase(clone.path, 'origin/main'));
@@ -1320,12 +1341,14 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			const { clone, oldTip, cleanup } = createRewrittenBase('rebased');
 			try {
 				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
+				// Counted from the branch's tip, which the read names in place of HEAD
+				const tip = revParse(clone.path, 'refs/heads/feature');
 				const stub = failRuns(
 					clone,
 					args =>
-						args.includes(`${oldTip}...HEAD`) ||
+						args.includes(`${oldTip}...${tip}`) ||
 						(args[0] === 'merge-base' &&
-							args.includes('HEAD') &&
+							args.includes(tip) &&
 							args.includes('origin/main') &&
 							!args.includes('--fork-point')),
 				);
@@ -1721,7 +1744,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 		});
 
 		test('reads the base reflog from its file: a base moved only forward adds no process', async () => {
-			const forkPointRead = ['merge-base', '--fork-point', 'origin/main', 'HEAD'];
+			const forkPointRead = ['merge-base', '--fork-point', 'origin/main', branchTip];
 			const cases: {
 				name: string;
 				/**
@@ -1798,7 +1821,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 						return {
 							clone: clone,
 							cleanup: cleanup,
-							mergeBases: [['merge-base', '--fork-point', 'main', 'HEAD'], forkPointRead],
+							mergeBases: [['merge-base', '--fork-point', 'main', branchTip], forkPointRead],
 							counts: 1,
 							detected: 'main',
 						};
@@ -1826,8 +1849,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 							clone: clone,
 							cleanup: cleanup,
 							mergeBases: [
-								['merge-base', '--fork-point', 'parent', 'HEAD'],
-								['merge-base', '--fork-point', 'main', 'HEAD'],
+								['merge-base', '--fork-point', 'parent', branchTip],
+								['merge-base', '--fork-point', 'main', branchTip],
 								forkPointRead,
 								['merge-base', '--is-ancestor', parentTip, revParse(clone.path, 'main')],
 							],
@@ -1853,8 +1876,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 							clone: clone,
 							cleanup: cleanup,
 							mergeBases: [
-								['merge-base', '--fork-point', 'parent', 'HEAD'],
-								['merge-base', '--fork-point', 'main', 'HEAD'],
+								['merge-base', '--fork-point', 'parent', branchTip],
+								['merge-base', '--fork-point', 'main', branchTip],
 								forkPointRead,
 								['merge-base', '--is-ancestor', stack.childCommits[0], stack.base],
 								['merge-base', stack.childCommits[0], stack.base],
@@ -1887,7 +1910,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 							mergeBases: [
 								forkPointRead,
 								['merge-base', commits[1], revParse(clone.path, 'origin/main')],
-								['merge-base', 'HEAD', 'origin/main'],
+								['merge-base', branchTip, 'origin/main'],
 							],
 							counts: 1,
 							patches: 1,
@@ -1920,7 +1943,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 							mergeBases: [
 								forkPointRead,
 								['merge-base', oldTip, revParse(clone.path, 'origin/main')],
-								['merge-base', 'HEAD', 'origin/main'],
+								['merge-base', branchTip, 'origin/main'],
 							],
 							counts: 1,
 							patches: 1,
@@ -1947,7 +1970,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 							mergeBases: [
 								forkPointRead,
 								['merge-base', commits[1], revParse(clone.path, 'origin/main')],
-								['merge-base', 'HEAD', 'origin/main'],
+								['merge-base', branchTip, 'origin/main'],
 							],
 							counts: 1,
 							patches: 1,
@@ -1978,7 +2001,13 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 						spy.restore();
 					}
 
-					const calls = spy.getCalls().map(c => c.args.slice(1).filter(a => typeof a === 'string'));
+					const calls = spy.getCalls().map(c =>
+						atBranchTip(
+							clone.path,
+							branch,
+							c.args.slice(1).filter(a => typeof a === 'string'),
+						),
+					);
 					assert.deepStrictEqual(
 						calls.filter(args => args[0] === 'merge-base'),
 						mergeBases,
@@ -2396,7 +2425,13 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 					spy.restore();
 				}
 
-				const calls = spy.getCalls().map(c => c.args.slice(1).filter(a => typeof a === 'string'));
+				const calls = spy.getCalls().map(c =>
+					atBranchTip(
+						clone.path,
+						'feature',
+						c.args.slice(1).filter(a => typeof a === 'string'),
+					),
+				);
 				assert.deepStrictEqual(
 					calls.filter(args => args[0] === 'reflog' || args.some(a => /@\{\d+\}$/.test(a))),
 					[],
@@ -2405,8 +2440,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				assert.deepStrictEqual(
 					calls.filter(args => args[0] === 'merge-base'),
 					[
-						['merge-base', '--fork-point', 'origin/main', 'HEAD'],
-						['merge-base', 'HEAD', 'origin/main'],
+						['merge-base', '--fork-point', 'origin/main', branchTip],
+						['merge-base', branchTip, 'origin/main'],
 					],
 				);
 			} finally {
