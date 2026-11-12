@@ -74,6 +74,35 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			});
 		}
 
+		for (const url of [
+			'https://example.com/x@github.com/owner/repo.git',
+			'https://example.com/x@gitlab.com/owner/repo.git',
+			'https://example.com/x@bitbucket.org/owner/repo.git',
+			'https://example.com?x@github.com/owner/repo.git',
+			'https://example.com#x@github.com/owner/repo.git',
+			'ssh://git@example.com/x@github.com/owner/repo.git',
+			'ssh://example.com/x@github.com/owner/repo.git',
+			'https://user@example.com/x@github.com/owner/repo.git',
+			'git@example.com:x@github.com/owner/repo.git',
+			'git@example.com:x@dev.azure.com:owner/repo.git',
+			'/srv/x@github.com:owner/repo.git',
+		]) {
+			test(`does not take the provider from an \`@\` in the path of ${url}`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				assert.strictEqual(provider, undefined);
+			});
+		}
+
+		test('matches GitHub URL with credentials', () => {
+			const url = 'https://user:pass@github.com/owner/repo.git';
+			const [scheme, domain, path] = parseGitRemoteUrl(url);
+			const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'github');
+			assert.strictEqual(provider.url({ type: RemoteResourceType.Repo }), 'https://github.com/owner/repo');
+		});
+
 		test('matches Azure DevOps URL', () => {
 			const matcher = createRemoteProviderMatcher();
 			const provider = matcher(
