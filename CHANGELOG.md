@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Commit Graph_ ref pills keeping highlights that no longer describe them ([#5764](https://github.com/gitkraken/vscode-gitlens/issues/5764))
   - Stops painting another branch or tag in the current branch's color when the current branch is hidden behind the _+N_ badge
   - Clears a branch, tag, or worktree's find highlight as soon as the query no longer matches it, instead of when the finder closes
-- Fixes Bitbucket repositories cloned through Bitbucket's SSH host for port 443 (`altssh.bitbucket.org`) not being recognized as Bitbucket ([#6174](https://github.com/gitkraken/vscode-gitlens/issues/6174))
+- Fixes opening and copying remote links for repositories cloned through the SSH hosts for port 443 of Bitbucket (`altssh.bitbucket.org`), GitHub (`ssh.github.com`), and GitLab (`altssh.gitlab.com`) &mdash; Bitbucket and GitHub repositories weren't recognized at all, and GitLab links pointed at the SSH host ([#6174](https://github.com/gitkraken/vscode-gitlens/issues/6174))
 
 ## [19.6.0] - 2026-11-10
 

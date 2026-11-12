@@ -83,6 +83,48 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			});
 		}
 
+		for (const [url, id, repoUrl] of [
+			['ssh://git@ssh.github.com:443/owner/repo.git', 'github', 'https://github.com/owner/repo'],
+			['ssh://git@ssh.github.com/owner/repo.git', 'github', 'https://github.com/owner/repo'],
+			['git@ssh.github.com:owner/repo.git', 'github', 'https://github.com/owner/repo'],
+			['ssh://git@SSH.GitHub.com:443/owner/repo.git', 'github', 'https://github.com/owner/repo'],
+			['ssh://git@altssh.gitlab.com:443/owner/repo.git', 'gitlab', 'https://gitlab.com/owner/repo'],
+			[
+				'ssh://git@altssh.gitlab.com:443/group/subgroup/repo.git',
+				'gitlab',
+				'https://gitlab.com/group/subgroup/repo',
+			],
+			['git@altssh.gitlab.com:owner/repo.git', 'gitlab', 'https://gitlab.com/owner/repo'],
+			['ssh://git@AltSSH.GitLab.com:443/owner/repo.git', 'gitlab', 'https://gitlab.com/owner/repo'],
+			// Self-managed GitLab hosts keep their own domain
+			[
+				'ssh://git@altssh.gitlab.example.com:443/owner/repo.git',
+				'gitlab',
+				'https://altssh.gitlab.example.com/owner/repo',
+			],
+		] as const) {
+			test(`builds ${repoUrl} for ${url}`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				assert.ok(provider);
+				assert.strictEqual(provider.id, id);
+				assert.strictEqual(provider.url({ type: RemoteResourceType.Repo }), repoUrl);
+			});
+		}
+
+		for (const url of [
+			'ssh://git@ssh.github.com.example.com:443/owner/repo.git',
+			'ssh://git@notssh.github.com:443/owner/repo.git',
+			'ssh://git@altssh.github.com:443/owner/repo.git',
+			'ssh://git@example.com:443/ssh.github.com/owner/repo.git',
+		]) {
+			test(`does not treat ${url} as GitHub`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				assert.strictEqual(provider, undefined);
+			});
+		}
+
 		test('matches Azure DevOps URL', () => {
 			const matcher = createRemoteProviderMatcher();
 			const provider = matcher(
