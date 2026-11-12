@@ -234,7 +234,9 @@ suite('pullRequest.utils', () => {
 			);
 		});
 
-		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000);
+		// Half a minute past the whole minute: the formatter truncates against its own later `Date.now()`, so an
+		// estimate exactly N minutes out reads as N-1 once the clock ticks between here and there.
+		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000 + 30 * 1000);
 
 		test('keeps a future estimate after the place in the queue', () => {
 			const text = formatPullRequestMergeQueueStatus({
