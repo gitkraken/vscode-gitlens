@@ -1072,7 +1072,8 @@ export class GraphInspectServices {
 
 			// Fallback: if no base branch matched but we have an upstream, use the
 			// upstream tip — preserves prior behavior so we never regress.
-			if (mergeBaseSha == null && hasUpstream && upstreamRef != null) {
+			const pastMergeBase = options?.includePastMergeBase === true;
+			if (mergeBaseSha == null && hasUpstream && upstreamRef != null && !pastMergeBase) {
 				mergeBaseSha = upstreamRef;
 			}
 
@@ -1080,7 +1081,6 @@ export class GraphInspectServices {
 			// history past the merge base is brought in — the merge base is still reported, so
 			// the picker knows where the branch ends. Otherwise scope to the
 			// merge-base..branch range so the picker shows the branch-divergence window.
-			const pastMergeBase = options?.includePastMergeBase === true;
 			let logRef = mergeBaseSha && !pastMergeBase ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
 			// Request one extra so we can detect "more available" without a separate count.
 			let log = await svc.commits.getLog(logRef, { limit: limit + 1 });
@@ -1094,8 +1094,19 @@ export class GraphInspectServices {
 				logRef = branch.ref;
 				log = await svc.commits.getLog(logRef, { limit: limit + 1 });
 				signal?.throwIfAborted();
-			} else if (pastMergeBase && log?.commits.keys().next().value === mergeBaseSha) {
-				mergeBaseSha = undefined;
+			} else if (pastMergeBase && mergeBaseSha != null && log != null) {
+				// The branch ends at its merge base only while its own commits are listed first: with the
+				// merge target merged in, they continue under it
+				const index = [...log.commits.keys()].indexOf(mergeBaseSha);
+				const ownCount =
+					index > 0
+						? await svc.commits.getCommitCount(branch.ref, { excluding: { refs: [mergeBaseSha] } }, signal)
+						: undefined;
+				signal?.throwIfAborted();
+
+				if (index === 0 || (index > 0 && ownCount !== index)) {
+					mergeBaseSha = undefined;
+				}
 			}
 
 			if (!log?.commits?.size) return { commits: [], hasMore: false };
