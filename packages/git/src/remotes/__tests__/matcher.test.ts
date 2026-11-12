@@ -46,6 +46,10 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			'ssh://git@ssh.bitbucket.org/owner/repo.git',
 			'ssh://git@ssh.bitbucket.org:22/owner/repo.git',
 			'git@SSH.Bitbucket.org:owner/repo.git',
+			'ssh://git@altssh.bitbucket.org:443/owner/repo.git',
+			'ssh://git@altssh.bitbucket.org/owner/repo.git',
+			'git@altssh.bitbucket.org:owner/repo.git',
+			'ssh://git@AltSSH.Bitbucket.org:443/owner/repo.git',
 		]) {
 			test(`builds Bitbucket web URLs without the SSH host, port, or .git suffix for ${url}`, () => {
 				const [scheme, domain, path] = parseGitRemoteUrl(url);
@@ -65,6 +69,11 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 		for (const url of [
 			'git@ssh.bitbucket.org.example.com:owner/repo.git',
 			'git@notssh.bitbucket.org:owner/repo.git',
+			'ssh://git@altssh.bitbucket.org.example.com:443/owner/repo.git',
+			'ssh://git@notaltssh.bitbucket.org:443/owner/repo.git',
+			'ssh://git@alt.bitbucket.org:443/owner/repo.git',
+			'ssh://git@altssh.ssh.bitbucket.org:443/owner/repo.git',
+			'ssh://git@example.com:443/altssh.bitbucket.org/owner/repo.git',
 			'git@example.com:ssh.bitbucket.org/owner/repo.git',
 		]) {
 			test(`does not treat ${url} as Bitbucket`, () => {

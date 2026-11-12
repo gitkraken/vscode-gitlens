@@ -50,8 +50,12 @@ interface ProviderEntry {
 	urls?: RemotesUrlsConfig;
 }
 
+// Bitbucket Cloud's SSH-only hosts: `ssh.bitbucket.org` and `altssh.bitbucket.org` (SSH over port 443).
+// Exact names only — other `*.bitbucket.org` subdomains are not SSH endpoints
+const bitbucketCloudSshDomainRegex = /^(?:alt)?ssh\.bitbucket\.org$/i;
+
 const builtInProviders: ProviderEntry[] = [
-	{ custom: false, matcher: /^(?:ssh\.)?bitbucket\.org$/i, type: 'bitbucket' },
+	{ custom: false, matcher: /^(?:(?:alt)?ssh\.)?bitbucket\.org$/i, type: 'bitbucket' },
 	{ custom: false, matcher: 'github.com', type: 'github' },
 	{ custom: false, matcher: 'gitlab.com', type: 'gitlab' },
 	{ custom: false, matcher: /\bdev\.azure\.com$/i, type: 'azure-devops' },
@@ -101,7 +105,8 @@ function createBuiltInProvider(
 			return new AzureDevOpsRemoteProvider(domain, path, protocol, name, isVsts(domain), context);
 		case 'bitbucket':
 			return new BitbucketRemoteProvider(
-				domain.toLowerCase() === 'ssh.bitbucket.org' ? 'bitbucket.org' : domain,
+				// Web links must point at the web host, never at an SSH-only one
+				bitbucketCloudSshDomainRegex.test(domain) ? 'bitbucket.org' : domain,
 				path,
 				protocol,
 				name,
