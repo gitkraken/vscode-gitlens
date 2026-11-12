@@ -202,6 +202,16 @@ fetches; teardown removes it from that config and deletes the clone, also when t
 PR titles and branch names from that repository can appear in the job log (the spec prints what the tools returned
 and, on failure, GitLens log lines), so keep nothing sensitive in its test data.
 
+The signed-in Start Work spec (`startWorkSignedIn.test.ts`) walks the wizard a person runs from the command palette on
+the same clone and issue, so it needs `E2E_GITHUB_REPO_URL` and `E2E_GITHUB_ISSUE_URL` (and the token for a private
+repository): it finds the issue in the picker, continues manually on the route step, creates and switches to the
+suggested branch from the default branch, and checks the issue association GitLens writes to `.git/gk/config`. Nothing
+is pushed. It derives the expected branch name from the issue's title as the picker shows it, so keep that title within
+60 characters (the picker cuts longer ones). The clone, its credential and the diagnosis printed on failure are shared with the MCP spec
+(`tests/e2e/fixtures/testRepository.ts`). The picker loads all of the account's issues, so a failure's snapshot and the
+GitLens log lines it prints can show other issues' titles. Each signed-in spec file is its own worker, so it costs one
+more sign-in per run.
+
 The signed-in Launchpad spec (`launchpadSignedIn.test.ts`) needs only `E2E_GITHUB_PR_URL`: it follows that PR through
 the Launchpad quick pick and view, and checks that the status bar item and the Commit Graph indicator show the loaded
 summary and that the indicator's popover offers Open Launchpad in its connected form. It expects Launchpad to file the PR under Blocked as "Unassigned Reviewers", so keep the PR open, non-draft,

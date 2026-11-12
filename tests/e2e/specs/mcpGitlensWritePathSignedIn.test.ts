@@ -27,7 +27,7 @@
  *   Review tracks a fork's branch on a remote named after the fork's owner, not `origin`)
  *
  * A private test repository also needs `GK_E2E_GITHUB_TOKEN` (a secret): a token that can only read that repository,
- * used to clone it and, through the clone's own config, for the editor's fetches (see {@link cloneTestRepository}).
+ * used to clone it and, through the clone's own config, for the editor's fetches (see `fixtures/testRepository.ts`).
  *
  * Both tools open the new worktree in a second window (the wizard defaults), which the worker closes only at
  * teardown, after `afterAll` — and on Windows files an editor holds open can't be deleted. So `afterAll` only
@@ -37,23 +37,25 @@
  * No traces, videos or screenshots (account UI), no retries (each retry is a new worker and a new
  * non-expiring account token).
  */
-import { execFileSync } from 'node:child_process';
-import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
-import path from 'node:path';
 import * as process from 'node:process';
 import { canSignIn, createTmpDir, MaxTimeout } from '../baseTest.js';
-import { withoutSignInSecrets } from '../fixtures/gkSignIn.js';
 import type { McpMessage } from '../fixtures/mcp.js';
 import { expect, mcpTest } from '../fixtures/mcp.js';
+import {
+	git,
+	gitlensLogDiagnosis,
+	localBranches,
+	normalizePath,
+	TestRepositoryClone,
+	testRepositoryUrl,
+	worktreePaths,
+} from '../fixtures/testRepository.js';
 
-const repoUrl = process.env.E2E_GITHUB_REPO_URL;
+const repoUrl = testRepositoryUrl;
 const issueUrl = process.env.E2E_GITHUB_ISSUE_URL;
 const prUrl = process.env.E2E_GITHUB_PR_URL;
-// Trimmed as the sign-in secrets are: a stored value often ends in a newline
-const repoToken = process.env.GK_E2E_GITHUB_TOKEN?.trim();
 
-let clonePath: string | undefined;
+const clone = new TestRepositoryClone('[5106]');
 
 const test = mcpTest.extend<object, { cloneCleanup: void }>({
 	// Removes the clone and its worktrees once the worker's editor is gone. Auto and independent of `vscode`, so it
@@ -62,18 +64,7 @@ const test = mcpTest.extend<object, { cloneCleanup: void }>({
 		// oxlint-disable-next-line no-empty-pattern -- Playwright fixtures declare their dependencies by destructuring
 		async ({}, use) => {
 			await use();
-			if (clonePath == null) return;
-
-			// Worktrees live next to the clone (`<repo>.worktrees/…`); `git worktree remove` leaves the intermediate
-			// directories of slashed branch names behind, so drop the whole tree with the clone. A clone left behind
-			// still holds the private test repository (and its credential, if `afterAll` couldn't remove it), so a
-			// failure fails the run rather than pass unnoticed.
-			await rm(path.dirname(clonePath), { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(
-				(ex: unknown) => {
-					console.warn(`[5106] could not remove the clone and its worktrees: ${String(ex)}`);
-					throw ex;
-				},
-			);
+			await clone.remove();
 		},
 		{ scope: 'worker', auto: true },
 	],
@@ -81,66 +72,13 @@ const test = mcpTest.extend<object, { cloneCleanup: void }>({
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
 			signIn: { requiredIntegrations: ['GitHub'] },
-			setup: async () => {
-				const parent = await createTmpDir();
-				clonePath = path.join(parent, path.basename(repoUrl!));
-				cloneTestRepository(repoUrl!, clonePath, repoToken);
-				return clonePath;
-			},
+			setup: async () => clone.create(await createTmpDir()),
 		},
 		{ scope: 'worker' },
 	],
 });
 
 const missingInputs = !repoUrl || !issueUrl || !prUrl;
-
-// The spec's git runs synchronously, so a stalled remote would block the event loop and with it Playwright's own
-// timeouts and the teardown that removes the credential: each call is bounded, and a timeout throws
-const cloneTimeout = 120_000;
-const gitTimeout = 60_000;
-
-/**
- * Clones the test repository. With a token, the credential is an `http.<repository>/.extraheader`, as
- * `actions/checkout` sets one: handed to `git clone` through `GIT_CONFIG_*` (not its arguments, which show in process
- * lists and error messages), then written to the clone's own config so the editor's later fetches (Start Review)
- * authenticate too. Never in the remote URL, which git and GitLens display and log. The credential is
- * removed from the clone's config first thing at teardown, the clone is then deleted, and the header is masked out of
- * the GitLens log diagnosis ({@link redactLog}).
- */
-function cloneTestRepository(url: string, dest: string, token: string | undefined): void {
-	// The sign-in credentials stay in this process, as they do for the editor (baseTest.ts)
-	const env = nonInteractiveGitEnv();
-	if (!token) {
-		execFileSync('git', ['clone', '--quiet', url, dest], { stdio: 'pipe', env: env, timeout: cloneTimeout });
-		return;
-	}
-
-	const key = `http.${url}/.extraheader`;
-	const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
-	execFileSync('git', ['clone', '--quiet', url, dest], {
-		stdio: 'pipe',
-		timeout: cloneTimeout,
-		env: {
-			...env,
-			GIT_CONFIG_COUNT: '1',
-			GIT_CONFIG_KEY_0: key,
-			GIT_CONFIG_VALUE_0: header,
-		},
-	});
-	appendFileSync(path.join(dest, '.git', 'config'), `[http "${url}/"]\n\textraheader = ${header}\n`);
-}
-
-/**
- * The environment the spec's own git runs in: no `GK_E2E_*`, and no credential prompts — a private repository
- * without a usable token fails instead of waiting on a terminal prompt or Git Credential Manager's dialog.
- */
-function nonInteractiveGitEnv(): NodeJS.ProcessEnv {
-	return {
-		...withoutSignInSecrets(),
-		GIT_TERMINAL_PROMPT: '0',
-		GCM_INTERACTIVE: 'never',
-	};
-}
 
 if (missingInputs && process.env.E2E_REQUIRE_SIGNIN) {
 	throw new Error(
@@ -194,108 +132,6 @@ function decodeStartResult(response: McpMessage): StartResult {
 	throw new Error(`no branchName in the start result: ${text}`);
 }
 
-function git(cwd: string, ...args: string[]): string {
-	return execFileSync('git', args, {
-		cwd: cwd,
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe'],
-		env: nonInteractiveGitEnv(),
-		timeout: gitTimeout,
-	}).trim();
-}
-
-function localBranches(repo: string): string[] {
-	return git(repo, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split('\n').filter(Boolean);
-}
-
-/** `git worktree list` paths, normalized — GitLens reports a lowercase drive and forward slashes on Windows. */
-function worktreePaths(repo: string): string[] {
-	return git(repo, 'worktree', 'list', '--porcelain')
-		.split('\n')
-		.filter(l => l.startsWith('worktree '))
-		.map(l => normalize(l.slice('worktree '.length)));
-}
-
-function normalize(p: string): string {
-	return path.resolve(p).replaceAll('\\', '/').toLowerCase();
-}
-
-/**
- * Masks what the GitLens log can carry from this worker's sign-in before any of it reaches the job log, where
- * GitHub masks only the configured secrets — never the account tokens a sign-in mints:
- * - the GK CLI sign-in, `gk auth login -t <token>`: a failed one is logged as `Command failed: <command>` with the
- *   CLI's stderr on the lines after it, and at debug level any stderr is logged with the command (`[EXEC] …`).
- *   Entries naming it are dropped whole, continuation lines included, so no quoting or echo of the token can
- *   slip past a pattern;
- * - the sign-in callback, logged as a link with its one-time `code` and `state`;
- * - anything token-shaped left over (`-t` / `--token` values, `token=`, bearer and basic authorization headers —
- *   the test repository's clone credential among them — and JWT-shaped strings), and e-mail addresses.
- */
-function redactLog(lines: string[]): string[] {
-	const entryStart = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/;
-	const cliSignIn = /auth\s+login/i;
-
-	const kept: string[] = [];
-	let dropping = false;
-	for (const line of lines) {
-		if (entryStart.test(line)) {
-			dropping = cliSignIn.test(line);
-		} else if (cliSignIn.test(line)) {
-			dropping = true;
-		}
-		if (dropping) continue;
-
-		kept.push(
-			line
-				.replace(/(\s-t\s+|--token[=\s]+)("[^"]*"|'[^']*'|\S+)/gi, '$1<redacted>')
-				.replace(/([?&](?:code|state|token)(?:=|%3D))[^&\s"')]+/gi, '$1<redacted>')
-				.replace(/(\b(?:Bearer|Basic)\s+)\S+/gi, '$1<redacted>')
-				.replace(/\b(?:gh[opsur]_[A-Za-z0-9]{20,}|github_pat_\w+)\b/g, '<redacted>')
-				.replace(/("?(?:access|refresh)_?token"?\s*[:=]\s*"?)[^"\s,}]+/gi, '$1<redacted>')
-				.replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, '<redacted>')
-				.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '<email>'),
-		);
-	}
-	return kept;
-}
-
-/**
- * On failure, the GitLens log lines that explain a wizard's decision (issue / PR lookup, launchpad, viewer
- * accounts, integrations) from this worker's profile, masked by {@link redactLog}.
- */
-function gitlensLogDiagnosis(electronArgs: string[]): string[] {
-	const userDataDir = electronArgs.find(a => a.startsWith('--user-data-dir='))?.slice('--user-data-dir='.length);
-	if (userDataDir == null) return ['<no --user-data-dir>'];
-
-	const files: string[] = [];
-	const walk = (dir: string): void => {
-		let entries;
-		try {
-			entries = readdirSync(dir, { withFileTypes: true });
-		} catch {
-			return;
-		}
-		for (const e of entries) {
-			const full = path.join(dir, e.name);
-			if (e.isDirectory()) {
-				walk(full);
-			} else if (full.includes('eamodio.gitlens') && e.name.endsWith('.log')) {
-				files.push(full);
-			}
-		}
-	};
-	walk(path.join(userDataDir, 'logs'));
-	if (!files.length) return ['<no GitLens log under the profile>'];
-
-	const relevant =
-		/launchpad|pullrequest|pull request|no current user|unsupported provider|startreview|startwork|start work|review|issue|viewer|integration|error|warn/i;
-	return files
-		.flatMap(f => redactLog(readFileSync(f, 'utf8').split('\n')))
-		.filter(l => relevant.test(l))
-		.map(l => l.slice(0, 400))
-		.slice(-80);
-}
-
 test.describe('MCP — GitLens write path (signed in, integration-backed)', { tag: '@signed-in' }, () => {
 	test.describe.configure({ mode: 'serial', retries: 0 });
 	// Live GitHub lookups, a fetch and a worktree per test, and the first one also waits out MCP readiness
@@ -321,13 +157,7 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 	// the clone itself is removed only after the editor closes (`cloneCleanup`), and must not hold the token until
 	// then (the worktrees share it).
 	test.afterAll(() => {
-		if (clonePath == null || !repoToken) return;
-
-		try {
-			git(clonePath, 'config', '--local', '--remove-section', `http.${repoUrl}/`);
-		} catch (ex) {
-			console.warn(`[5106] could not remove the clone credential: ${ex instanceof Error ? ex.name : 'error'}`);
-		}
+		clone.removeCredential();
 	});
 
 	// Review first: it looks the PR up by URL, while Start Work depends on the issue belonging to the bound
@@ -339,27 +169,27 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 		const sim = await vscode.gitlens.startSubscriptionSimulation();
 		expect(sim.success, 'Pro simulation started').toBe(true);
 
-		const response = await mcpClient.callTool('gitlens_start_review', { directory: clonePath, pr_url: prUrl });
+		const response = await mcpClient.callTool('gitlens_start_review', { directory: clone.path, pr_url: prUrl });
 		const started = decodeStartResult(response);
 
 		const prNumber = new URL(prUrl!).pathname.split('/').pop()!;
 		expect(started.branchName, 'branch named after the PR').toMatch(new RegExp(`^pr/${prNumber}-`));
 		expect(started.prUrl, 'the reported PR is the requested one').toBe(prUrl);
-		expect(localBranches(clonePath!), 'the branch now exists in git').toContain(started.branchName);
+		expect(localBranches(clone.path!), 'the branch now exists in git').toContain(started.branchName);
 
 		expect(started.worktreePath, 'a worktree path is reported').toBeTruthy();
-		expect(worktreePaths(clonePath!), 'git lists the reported worktree').toContain(
-			normalize(started.worktreePath!),
+		expect(worktreePaths(clone.path!), 'git lists the reported worktree').toContain(
+			normalizePath(started.worktreePath!),
 		);
 
 		// The PR head as the host publishes it — independent of how GitLens fetched it
-		const prHead = git(clonePath!, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
+		const prHead = git(clone.path!, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
 		expect(prHead, 'the host publishes the PR head').toMatch(/^[0-9a-f]{40}$/);
 		expect(git(started.worktreePath!, 'rev-parse', 'HEAD'), 'the worktree is at the PR head').toBe(prHead);
 		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork).
 		// The tip identifies it only while no other branch shares it, so the fixture must keep it unique: with two
 		// candidates an upstream on the wrong one would pass
-		const prBranches = git(clonePath!, 'ls-remote', '--heads', 'origin')
+		const prBranches = git(clone.path!, 'ls-remote', '--heads', 'origin')
 			.split('\n')
 			.filter(l => l.startsWith(prHead))
 			.map(l => `origin/${l.split(/\s+/)[1].slice('refs/heads/'.length)}`);
@@ -376,24 +206,24 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 		const sim = await vscode.gitlens.startSubscriptionSimulation();
 		expect(sim.success, 'Pro simulation started').toBe(true);
 
-		const before = localBranches(clonePath!);
-		const response = await mcpClient.callTool('gitlens_start_work', { directory: clonePath, issue_url: issueUrl });
+		const before = localBranches(clone.path!);
+		const response = await mcpClient.callTool('gitlens_start_work', { directory: clone.path, issue_url: issueUrl });
 		const started = decodeStartResult(response);
 
 		const issueNumber = new URL(issueUrl!).pathname.split('/').pop()!;
 		expect(started.branchName, 'branch named after the issue').toMatch(new RegExp(`^${issueNumber}-`));
 		expect(before, 'the branch did not exist before').not.toContain(started.branchName);
-		expect(localBranches(clonePath!), 'the branch now exists in git').toContain(started.branchName);
+		expect(localBranches(clone.path!), 'the branch now exists in git').toContain(started.branchName);
 
 		expect(started.worktreePath, 'a worktree path is reported').toBeTruthy();
-		expect(worktreePaths(clonePath!), 'git lists the reported worktree').toContain(
-			normalize(started.worktreePath!),
+		expect(worktreePaths(clone.path!), 'git lists the reported worktree').toContain(
+			normalizePath(started.worktreePath!),
 		);
 		expect(git(started.worktreePath!, 'branch', '--show-current'), 'the worktree is on the new branch').toBe(
 			started.branchName,
 		);
 		expect(git(started.worktreePath!, 'rev-parse', 'HEAD'), 'the issue branch starts from the default branch').toBe(
-			git(clonePath!, 'rev-parse', 'HEAD'),
+			git(clone.path!, 'rev-parse', 'HEAD'),
 		);
 
 		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
