@@ -2265,6 +2265,7 @@ export function createIntegrationService(ctx: IntegrationServiceContext): Integr
 	const auth = new IntegrationAuthenticationService(configured, ctx, () => service, cloud);
 	service = new IntegrationService(auth, configured, ctx);
 	void purgeRetiredIntegrationStorage(ctx, configured);
+	void purgeJiraDiscoveryStorage(ctx);
 	return service;
 }
 
@@ -2280,6 +2281,18 @@ async function purgeRetiredIntegrationStorage(
 		await ctx.storage.store(retiredIntegrationsStorageKey, true);
 	} catch {
 		// Best-effort cleanup retries on the next startup while the migration flag remains unset.
+	}
+}
+
+async function purgeJiraDiscoveryStorage(ctx: IntegrationServiceContext): Promise<void> {
+	const key = 'integrations:migrated:jiraDiscovery';
+	if (ctx.storage.get<boolean>(key)) return;
+
+	try {
+		await ctx.storage.deleteWithPrefix('jira:');
+		await ctx.storage.store(key, true);
+	} catch {
+		// Retry on the next startup if storage is unavailable.
 	}
 }
 
