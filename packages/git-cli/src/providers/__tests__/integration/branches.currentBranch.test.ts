@@ -870,7 +870,7 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 		});
 
 		for (const registered of [true, false]) {
-			test(`a checkout in ${registered ? 'a registered' : 'an unregistered'} linked worktree that the main checkout reports is seen, without reading the refs again`, async () => {
+			test(`a checkout in ${registered ? 'a registered' : 'an unregistered'} linked worktree that the main checkout reports is seen, ${registered ? 'through one ref listing for the repository, which names its branch' : 'by reading its HEAD alone'}`, async () => {
 				const repo = track(createTestRepo());
 				createBranch(repo.path, 'feature');
 				createBranch(repo.path, 'other');
@@ -893,8 +893,14 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 				assert.strictEqual(branch?.name, 'other');
 				assert.deepStrictEqual(branch?.worktree, { path: wt, isDefault: false });
 				assert.strictEqual((await provider.branches.getBranch(repo.path))?.name, 'main');
-				assert.strictEqual(spawnCount('rev-parse'), 1, 'only the linked worktree reads its HEAD');
-				assert.strictEqual(spawnCount('for-each-ref'), 0);
+				if (registered) {
+					// Where each branch is checked out was dropped for the repository, and its listing seeds the worktree's
+					assert.strictEqual(spawnCount('for-each-ref'), 1);
+					assert.strictEqual(spawnCount('rev-parse'), 0, 'no checkout reads its HEAD');
+				} else {
+					assert.strictEqual(spawnCount('rev-parse'), 1, 'only the linked worktree reads its HEAD');
+					assert.strictEqual(spawnCount('for-each-ref'), 0);
+				}
 			});
 
 			test(`a worktree the main checkout removes leaves ${registered ? 'a registered' : 'an unregistered'} linked worktree's current branch`, async () => {
@@ -959,7 +965,7 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			});
 		}
 
-		test('a checkout in a linked worktree the report names is seen there, and another linked worktree reads nothing', async () => {
+		test('a checkout in a linked worktree the report names is seen there through one ref listing for the repository, and another linked worktree reads nothing', async () => {
 			const repo = track(createTestRepo());
 			createBranch(repo.path, 'feature');
 			createBranch(repo.path, 'other');
@@ -982,11 +988,13 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 			});
 
 			assert.strictEqual((await provider.branches.getBranch(wt))?.name, 'other');
-			assert.strictEqual(spawnCount('rev-parse'), 1, 'only the worktree that moved reads its HEAD');
+			// The listing names the branch now checked out there, so no worktree reads its HEAD
+			assert.strictEqual(spawnCount('for-each-ref'), 1);
+			assert.strictEqual(spawnCount('rev-parse'), 0);
+			const launched = spawns.length;
 			assert.strictEqual((await provider.branches.getBranch(wt2))?.name, 'second');
 			assert.strictEqual((await provider.branches.getBranch(repo.path))?.name, 'main');
-			assert.strictEqual(spawnCount('rev-parse'), 1, 'the others read nothing');
-			assert.strictEqual(spawnCount('for-each-ref'), 0);
+			assert.strictEqual(spawns.length, launched, 'the others read nothing');
 		});
 
 		test('a caller aborted after the list is read rejects, rather than answering with no current branch', async () => {
