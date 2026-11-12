@@ -60,8 +60,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		const branchExists =
 			options?.branchName == null ||
 			currentBranch?.name === options.branchName ||
-			(await this.provider.branches.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values
-				?.length > 0;
+			(await this.provider.branches.getBranch(repoPath, options.branchName)) != null;
 		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
 
 		if (options?.createWorktreePath != null) {

@@ -27,7 +27,6 @@ import type {
 import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
 	formatDetachedHeadName,
-	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
 	parseBranchMetadataGkConfigKey,
@@ -51,7 +50,7 @@ import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
-import { emptyPagedResult, PageableResult } from '@gitlens/utils/paging.js';
+import { emptyPagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue, mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
@@ -488,7 +487,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			this.cache.evictCaches(repoPath, 'branches');
 		}
 
-		if (name != null) return (await this.getBranchFromSharedList(repoPath, name, scope, cancellation)).branch;
+		if (name != null) {
+			return (await this.getBranchFromSharedList(repoPath, b => b.name === name, false, scope, cancellation))
+				.branch;
+		}
 
 		const validation = this.cache.validateBeforeRead(repoPath);
 		if (validation != null) {
@@ -498,7 +500,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.branch.getOrCreate(
 			repoPath,
 			async (cacheable, signal) => {
-				const result = await this.getBranchFromSharedList(repoPath, undefined, scope, signal);
+				const result = await this.getBranchFromSharedList(repoPath, undefined, false, scope, signal);
 				const branch = result.branch ?? (await this.getCurrentBranch(repoPath, undefined, undefined, signal));
 				// An answer from a list that wasn't kept comes from `git log -n1`, without the ahead/behind counts and date
 				// a listing gives. An unborn branch with no upstream has no date either, and nothing a listing could add
@@ -515,12 +517,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * What `getBranches(repoPath)` would answer for the named branch, or for the current one when `name` is omitted,
-	 * without keeping that worktree's copy of the whole list, and whether the shared list it read is still kept
+	 * What `getBranches(repoPath)` would answer for the first branch `matches` accepts, or for the current one when
+	 * `matches` is omitted, without keeping that worktree's copy of the whole list, and whether the shared list it read
+	 * is still kept. `matches` sees each entry as the shared list holds it, or as `repoPath` sees it when `mapped`
 	 */
 	private async getBranchFromSharedList(
 		repoPath: string,
-		name: string | undefined,
+		matches: ((branch: GitBranch) => boolean) | undefined,
+		mapped: boolean,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
 	): Promise<{ branch: GitBranch | undefined; kept: boolean }> {
@@ -548,7 +552,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const isCurrent = (b: GitBranch): boolean => !b.remote && b.name === currentRef?.name && !isDetached;
 
-		if (name == null) {
+		if (matches == null) {
 			const current = values.find(isCurrent);
 			if (current != null) {
 				return {
@@ -578,24 +582,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// That branch replaces the entry with its id, keeping the list's order, otherwise it goes ahead of them all
 		const replaced =
 			special != null ? values.findIndex(b => b.remote === special.remote && b.name === special.name) : -1;
-		if (replaced === -1 && special?.name === name) return { branch: special, kept: kept };
+		if (replaced === -1 && special != null && matches(special)) return { branch: special, kept: kept };
 
-		const index = values.findIndex((b, i) => (i === replaced ? special?.name : b.name) === name);
-		if (index === -1) return { branch: undefined, kept: kept };
-		if (index === replaced) return { branch: special, kept: kept };
-
-		const branch = values[index];
-		return {
-			branch: mapSharedBranch(
-				branch,
+		const mapEntry = (b: GitBranch): GitBranch =>
+			mapSharedBranch(
+				b,
 				repoPath,
 				commonPath,
-				currentRef != null ? isCurrent(branch) : undefined,
+				currentRef != null ? isCurrent(b) : undefined,
 				defaultWorktreePath,
 				false,
-			),
-			kept: kept,
-		};
+			);
+
+		for (let i = 0; i < values.length; i++) {
+			if (i === replaced) {
+				if (special != null && matches(special)) return { branch: special, kept: kept };
+
+				continue;
+			}
+
+			const entry = mapped ? mapEntry(values[i]) : values[i];
+			if (matches(entry)) return { branch: mapped ? entry : mapEntry(entry), kept: kept };
+		}
+
+		return { branch: undefined, kept: kept };
 	}
 
 	/** The current ref of `repoPath` and the default worktree path of `commonPath`, rejecting if the caller aborted mid-read */
@@ -1914,10 +1924,42 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		remoteBranchName: string,
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined> {
-		const branches = new PageableResult<GitBranch>(p =>
-			this.getBranches(repoPath, p != null ? { paging: p } : undefined, cancellation),
+		const scope = getScopedLogger();
+
+		const qualifiedName = remoteBranchName.startsWith('remotes/')
+			? remoteBranchName
+			: `remotes/${remoteBranchName}`;
+		const name = qualifiedName.substring(8);
+
+		return (
+			await this.getBranchFromSharedList(
+				repoPath,
+				b =>
+					!b.remote &&
+					b.upstream?.name != null &&
+					(b.upstream.name === name || b.upstream.name === qualifiedName),
+				false,
+				scope,
+				cancellation,
+			)
+		).branch;
+	}
+
+	/**
+	 * Whether `getBranches(repoPath)` holds a branch `matches` accepts (any when omitted), judged on each as that list
+	 * would hold it, without keeping that worktree's copy of the list
+	 */
+	async hasBranch(
+		repoPath: string,
+		matches: ((branch: GitBranch) => boolean) | undefined,
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
+		const scope = getScopedLogger();
+
+		return (
+			(await this.getBranchFromSharedList(repoPath, matches ?? (() => true), true, scope, cancellation)).branch !=
+			null
 		);
-		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
 
 	@trace({ quiet: true, exit: true })
