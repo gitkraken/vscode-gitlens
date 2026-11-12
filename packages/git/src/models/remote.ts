@@ -75,7 +75,10 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			[, urlOrDomain, path] = parseGitRemoteUrl(urlOrDomain);
 		}
 
-		return equalsIgnoreCase(urlOrDomain, this.domain) && equalsIgnoreCase(path, this.path);
+		return (
+			(equalsIgnoreCase(urlOrDomain, this.domain) || equalsIgnoreCase(urlOrDomain, this._domain)) &&
+			equalsIgnoreCase(path, this.path)
+		);
 	}
 
 	/** Creates a copy of this remote with a different repoPath — ONLY used for worktree-aware caching */

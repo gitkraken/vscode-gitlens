@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { GitRemote } from '../../models/remote.js';
 import { RemoteResourceType } from '../../models/remoteResource.js';
 import { parseGitRemoteUrl } from '../../utils/remote.utils.js';
 import type { RemoteProviderConfig } from '../matcher.js';
@@ -122,6 +123,33 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 				const [scheme, domain, path] = parseGitRemoteUrl(url);
 				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
 				assert.strictEqual(provider, undefined);
+			});
+		}
+
+		for (const [url, webUrl] of [
+			['ssh://git@altssh.bitbucket.org:443/owner/repo.git', 'https://bitbucket.org/owner/repo'],
+			['ssh://git@ssh.github.com:443/owner/repo.git', 'https://github.com/owner/repo'],
+			['ssh://git@altssh.gitlab.com:443/owner/repo.git', 'https://gitlab.com/owner/repo'],
+		] as const) {
+			test(`a remote on ${url} matches both its SSH host and its web host`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				const provider = createRemoteProviderMatcher()(url, domain, path, scheme);
+				const remote = new GitRemote(
+					'/repo',
+					'origin',
+					scheme,
+					domain,
+					path,
+					[{ type: 'fetch', url: url }],
+					provider,
+				);
+
+				assert.strictEqual(remote.matches(domain, 'owner/repo'), true);
+				assert.strictEqual(remote.matches(url.replace(/\.git$/, '')), true);
+				assert.strictEqual(remote.matches(`git@${domain}:owner/repo.git`), true);
+				assert.strictEqual(remote.matches(webUrl), true);
+				assert.strictEqual(remote.matches(domain, 'owner/other'), false);
+				assert.strictEqual(remote.matches('example.com', 'owner/repo'), false);
 			});
 		}
 
