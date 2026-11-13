@@ -18,6 +18,8 @@ import { GraphInspectServices } from '../graphInspectServices.js';
 import type {
 	AddressReviewFindingsArgs,
 	AddressReviewFindingsResult,
+	BranchCommitsOptions,
+	BranchCommitsResult,
 	ComposeSessionKey,
 	DeepReviewArgs,
 	DeepReviewAvailability,
@@ -509,6 +511,85 @@ function reviewedDiff(stub: sinon.SinonStub): string {
 	assert.ok(stub.called, 'the AI review action should have been invoked');
 	return (stub.firstCall.args[0] as { diff: string }).diff;
 }
+
+suite('graphInspectServices — getBranchCommits past the merge base', () => {
+	type GetBranchCommits = (repoPath: string, options?: BranchCommitsOptions) => Promise<BranchCommitsResult>;
+
+	/** A branch's log, newest first: the `own` commits are the branch's, the rest its merge target's.
+	 *  `upstreamOnly` leaves it without a merge target, measured from its upstream. */
+	function branchCommits(own: string[], log: string[], options?: BranchCommitsOptions, upstreamOnly = false) {
+		const commit = (sha: string) => ({ sha: sha, message: sha });
+		const logOf = (shas: string[]) => ({ commits: new Map(shas.map(sha => [sha, commit(sha)])) });
+		const svc = {
+			branches: {
+				getBranch: async () => ({
+					name: 'feature',
+					ref: 'feature',
+					upstream: upstreamOnly ? { name: 'origin/feature', state: { ahead: own.length } } : undefined,
+				}),
+			},
+			refs: { getMergeBase: async () => (upstreamOnly ? undefined : log.find(sha => !own.includes(sha))) },
+			commits: {
+				getLog: async (ref: string) => logOf(ref.includes('..') ? own : log),
+				getCommit: async (sha: string) => commit(sha),
+				getCommitCount: async () => own.length,
+			},
+		};
+		const fakeThis = {
+			container: { git: { getRepositoryService: () => svc } },
+			setAvatarIfCached: () => {},
+		};
+
+		const fn = (GraphInspectServices.prototype as unknown as { getBranchCommits: GetBranchCommits })
+			.getBranchCommits;
+		return fn.call(fakeThis, '/repo', options);
+	}
+
+	const loadMore = { limit: 200, includePastMergeBase: true };
+	const rows = (result: BranchCommitsResult) =>
+		result.commits.map(c => `${c.sha}:${c.pushed ? 'pushed' : 'unpushed'}`);
+
+	test('the first page stops at the merge base and always offers more', async () => {
+		const result = await branchCommits(['f2', 'f1'], ['f2', 'f1', 'm2', 'm1']);
+		assert.deepStrictEqual(rows(result), ['f2:unpushed', 'f1:unpushed']);
+		assert.strictEqual(result.mergeBase?.sha, 'm2');
+		assert.strictEqual(result.hasMore, true);
+	});
+
+	test('Load more lists the history under the branch and still reports where the branch ends', async () => {
+		const result = await branchCommits(['f2', 'f1'], ['f2', 'f1', 'm2', 'm1'], loadMore);
+		// Without an upstream only the branch's own commits are unpushed
+		assert.deepStrictEqual(rows(result), ['f2:unpushed', 'f1:unpushed', 'm2:pushed', 'm1:pushed']);
+		assert.strictEqual(result.mergeBase?.sha, 'm2');
+		assert.strictEqual(result.hasMore, false);
+	});
+
+	test('Load more reports no merge base when the merge target was merged in above the branch commits', async () => {
+		// `git log` lists the merged-in tip of the target, the merge base, right under the merge commit
+		const result = await branchCommits(['merge', 'f2', 'f1'], ['merge', 'm3', 'f2', 'f1', 'm2'], loadMore);
+		assert.deepStrictEqual(
+			rows(result),
+			['merge', 'm3', 'f2', 'f1', 'm2'].map(sha => `${sha}:unpushed`),
+		);
+		assert.strictEqual(result.mergeBase, undefined);
+	});
+
+	test('Load more reports no merge base for a branch measured from its upstream', async () => {
+		const result = await branchCommits(['f1'], ['f1', 'm2', 'm1'], loadMore, true);
+		assert.deepStrictEqual(rows(result), ['f1:unpushed', 'm2:pushed', 'm1:pushed']);
+		assert.strictEqual(result.mergeBase, undefined);
+	});
+
+	test('a branch with no commits of its own reports no merge base on either page', async () => {
+		const first = await branchCommits([], ['m2', 'm1']);
+		const more = await branchCommits([], ['m2', 'm1'], loadMore);
+		for (const result of [first, more]) {
+			assert.deepStrictEqual(rows(result), ['m2:unpushed', 'm1:unpushed']);
+			assert.strictEqual(result.mergeBase, undefined);
+			assert.strictEqual(result.hasMore, false);
+		}
+	});
+});
 
 suite('graphInspectServices — review finding lines', () => {
 	test('re-points finding lines at the file the reader opens, by their quoted text', async () => {
