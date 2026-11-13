@@ -377,13 +377,19 @@ export function registerGraphWebviewCommands<T>(
 
 			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', { source: source }, showingArg);
 		}),
-		registerCommand('gitlens.showGraph', (...args: unknown[]) => {
+		registerCommand('gitlens.showGraph', async (...args: unknown[]) => {
 			const [arg] = args;
 
 			let showInGraphArg;
 			if (isScm(arg)) {
 				if (arg.rootUri != null) {
-					const repo = container.git.getRepository(arg.rootUri);
+					// The SCM provider's rootUri is a repo root, so resolve it exactly — registering it on demand, the
+					// same way the vscode.git open event does. `getRepository` falls back to the closest enclosing repo,
+					// which opens the parent's graph for a submodule or nested repo GitLens hasn't registered yet
+					const repo = await container.git.getOrAddRepository(arg.rootUri, {
+						opened: true,
+						detectNested: true,
+					});
 					if (repo != null) {
 						showInGraphArg = { repository: repo };
 					}
@@ -417,10 +423,11 @@ export function registerGraphWebviewCommands<T>(
 			if (configuration.get('graph.layout') === 'panel') {
 				// Panel-layout source-forwarding is deferred: `container.views.graph.show({ source }, ...args)`
 				// doesn't typecheck here since `args` is `unknown[]`, not the `WebviewShowingArgs` tuple.
-				return executeCommand('gitlens.showGraphView', ...args);
+				await executeCommand('gitlens.showGraphView', ...args);
+				return;
 			}
 
-			return executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', { source: source }, ...args);
+			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', { source: source }, ...args);
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
