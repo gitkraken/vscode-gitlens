@@ -50,6 +50,7 @@ import type { WebviewItemContext, WebviewItemGroupContext } from '../../../syste
 import type { WebviewState } from '../../protocol.js';
 import type {
 	OverviewBranch,
+	OverviewBranchMergeTarget,
 	OverviewRecentThreshold,
 	SerializedPullRequestMergeQueueEntry,
 	SerializedPullRequestMergeQueueRemoval,
@@ -546,6 +547,11 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  self-repairing — every fast-path trigger also queues a trailing full build whose re-read corrects
 	 *  the client within one cycle. Closing it fully needs a wire-carried revision the client drops on. */
 	branchStateRevision?: number;
+	/** The current branch's merge-target verdict — see {@link GraphCurrentBranchMergeTargetState}. Its own field, not
+	 *  part of {@link branchState}, so it's never ordered against (or stripped with) the ahead/behind counts. */
+	currentBranchMergeTarget?: GraphCurrentBranchMergeTargetState;
+	/** The latest merge-target change for the graph's repository — see {@link GraphMergeTargetsEpoch}. */
+	mergeTargetsEpoch?: GraphMergeTargetsEpoch;
 	/** Epoch-ms; `undefined`/`0` means never fetched. Bootstrap-seeded here, then kept fresh by
 	 *  `GraphRepoStatusService.onDidFetch` (see `applyLastFetched` in the app's `stateProvider.ts`). */
 	lastFetched?: number;
@@ -705,11 +711,6 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
-	/** `true` when {@link pr} merged into the branch's merge target (or into a base it doesn't name) and its head is
-	 *  this branch's tip, so the branch's work landed through it. Never set without a resolved merge target, nor for a
-	 *  pull request merged into another base. Head-sha equality only (no git counts), and the header hides Publish on
-	 *  it. */
-	landed?: boolean;
 	worktree?: boolean;
 	/** Whether the repo has any remotes. `false` is what turns the header's Publish Branch into Publish Repository
 	 *  (which creates the hosted repo via VS Code's `git.publish`). Absent when not probed. */
@@ -1506,6 +1507,65 @@ export interface DidRequestGraphActionParams {
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
+}
+
+/**
+ * The landed verdict for the Graph's bound repository's current branch, computed once on the host for every consumer
+ * (the header, and the WIP details of that branch). Trust it only for the branch and tip it names (see
+ * {@link isCurrentBranchMergeTargetFor}).
+ */
+export interface GraphCurrentBranchMergeTarget {
+	repoPath: string;
+	/** The branch's name */
+	branch: string;
+	tipSha: string;
+	/** The merge target the status was computed against; `undefined` until computed, or when none resolved */
+	targetRef: string | undefined;
+	/** Advances when the branch's merge target changes, which voids any verdict computed before it */
+	generation: number;
+	/** The merge-target status, without `potentialConflicts` (those are asked for only where they're shown).
+	 *  `undefined` until computed, or when no merge target resolved. */
+	status: OverviewBranchMergeTarget | undefined;
+	/** Set while the branch's upstream is gone and no verdict exists yet, so the header withholds Publish rather
+	 *  than offer to resurrect a branch that may have landed. Always settles. */
+	pending?: boolean;
+	/** Set when it was decided (or skipped) while the branch had a live upstream, when the header doesn't need it. Should
+	 *  the header see that upstream gone before the verdict catches up (a prune), it treats this like `pending`. */
+	liveUpstream?: boolean;
+}
+
+export interface GraphCurrentBranchMergeTargetState {
+	/** Host-monotonic, so the webview keeps the newest copy whichever channel (state push or event) delivers it */
+	revision: number;
+	/** `undefined` when there's no current branch (detached, or no repository) */
+	verdict: GraphCurrentBranchMergeTarget | undefined;
+}
+
+/** Whether `verdict` describes `branch` at its current tip, so it can be trusted for it */
+export function isCurrentBranchMergeTargetFor(
+	verdict: GraphCurrentBranchMergeTarget,
+	branch: { repoPath: string; name: string; sha?: string },
+): boolean {
+	return (
+		branch.sha != null &&
+		verdict.tipSha === branch.sha &&
+		verdict.branch === branch.name &&
+		verdict.repoPath === branch.repoPath
+	);
+}
+
+/**
+ * A change to the merge targets of the graph's repository (its whole worktree family shares them). Hovers, cards and
+ * details caches drop what they computed for the branches named in `refs`.
+ */
+export interface GraphMergeTargetsEpoch {
+	/** The graph's bound repository path when it changed */
+	repoPath: string;
+	/** Advances once per change. A consumer that sees it skip a value missed a change (a hidden webview keeps only
+	 *  the newest), and must treat that as every branch. */
+	epoch: number;
+	/** The branches whose merge targets changed; `undefined` means every branch */
+	refs: string[] | undefined;
 }
 
 /**

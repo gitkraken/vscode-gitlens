@@ -1004,12 +1004,6 @@ export class GraphProducersService {
 			) {
 				branchState.pr ??= last.pr;
 				branchState.upstreamSha ??= last.upstreamSha;
-				// Carried, not re-derived: the full build also checked the PR's base against the merge target, which
-				// the fast path doesn't resolve. Only while the PR's head is still THIS branch's tip, so a verdict
-				// can't outlive a new commit or vouch for another branch
-				if (last.landed && last.pr?.refs?.head?.sha === branch.sha) {
-					branchState.landed = true;
-				}
 			}
 		}
 

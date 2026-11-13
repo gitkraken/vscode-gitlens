@@ -70,12 +70,14 @@ import type {
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
+	GraphCurrentBranchMergeTargetState,
 	GraphDisplayMode,
 	GraphExcludedRef,
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphMergeTargetsEpoch,
 	GraphMissingRefsMetadata,
 	GraphOverviewData,
 	GraphPinnedRef,
@@ -1274,6 +1276,12 @@ export interface GraphRepoStatusService {
 	 *  of the full-state rebuild so push/pull/fetch land in the header immediately. `save-last` is correct
 	 *  because each payload is a complete replacement and only the newest matters to a hidden webview. */
 	readonly onBranchStateChanged: RpcEventSubscription<DidChangeBranchStateParams>;
+	/** The current branch's merge-target verdict, whenever it changes. `save-last`: each payload is complete, and
+	 *  stamped with a revision so the app keeps the newest of it and the full-state push's copy. */
+	readonly onCurrentBranchMergeTargetChanged: RpcEventSubscription<GraphCurrentBranchMergeTargetState>;
+	/** A change to the repository's merge targets. `save-last` can drop one while hidden, which the app detects as a
+	 *  skipped epoch (see {@link GraphMergeTargetsEpoch}). */
+	readonly onMergeTargetsChanged: RpcEventSubscription<GraphMergeTargetsEpoch>;
 	/** Complete repositories list refresh on integration connect/disconnect. `save-last`, complete
 	 *  snapshot: each payload replaces the whole list. */
 	readonly onRepoConnectionChanged: RpcEventSubscription<DidChangeRepoConnectionParams>;

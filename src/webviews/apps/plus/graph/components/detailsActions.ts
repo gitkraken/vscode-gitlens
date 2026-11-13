@@ -297,6 +297,7 @@ export interface ResolvedServices {
 	readonly branches: ResolvedSubService<'branches'>;
 	readonly pullRequests: ResolvedSubService<'pullRequests'>;
 	readonly repository: ResolvedSubService<'repository'>;
+	readonly repoStatus: ResolvedSubService<'repoStatus'>;
 	readonly config: ResolvedSubService<'config'>;
 	readonly storage: ResolvedSubService<'storage'>;
 	readonly subscription: ResolvedSubService<'subscription'>;
@@ -340,6 +341,8 @@ export interface DetailsResources {
 }
 
 interface WipBranchEnrichmentCacheEntry {
+	/** The branch tip the entry was fetched for; a cached entry for another tip is never shown */
+	tipSha?: string;
 	autolinks?: OverviewBranchIssue[];
 	issues?: OverviewBranchIssue[];
 	mergeTarget?: BranchMergeTargetStatus;
@@ -1485,24 +1488,16 @@ export class DetailsActions {
 		return reachable ? true : undefined;
 	}
 
-	/** Sets the WIP merge target and mirrors its landed verdict (stamped with the branch tip sha) onto the graph
-	 *  state so the header can hide Publish for a branch that landed per git evidence. */
-	private setWipMergeTarget(status: BranchMergeTargetStatus | undefined): void {
-		this.state.wipMergeTarget.set(status);
-
-		if (this.graphState == null) return;
-
-		const sha = status?.branch.reference.sha;
-		this.graphState.wipLanded =
-			status?.mergeTarget?.landed != null && sha != null
-				? { repoPath: status.branch.repoPath, sha: sha }
-				: undefined;
-	}
-
 	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {
 		const s = this.services;
 		const cacheKey = `${branchName}:${repoPath}`;
-		const cached = this._wipEnrichmentCache.get(cacheKey);
+		let cached = this._wipEnrichmentCache.get(cacheKey);
+		// Computed for another tip (a commit, pull or reset since), so it can't vouch for this one
+		const tipSha = this.getWipBranchTipSha(repoPath, branchName);
+		if (cached?.tipSha != null && tipSha != null && cached.tipSha !== tipSha) {
+			this._wipEnrichmentCache.delete(cacheKey);
+			cached = undefined;
+		}
 
 		// Hydrate from cache synchronously so chips are visible immediately. Partial-entry safety:
 		// each field hydrates from cache *or* explicitly clears (arrays) / falls back to "loading"
@@ -1515,10 +1510,10 @@ export class DetailsActions {
 			this.state.wipIssues.set(cached.issues);
 			// MergeTarget — undefined is a valid resolved value, so use the sentinel to distinguish.
 			if (cached.hasMergeTarget) {
-				this.setWipMergeTarget(cached.mergeTarget);
+				this.state.wipMergeTarget.set(cached.mergeTarget);
 				this.state.wipMergeTargetLoading.set(false);
 			} else {
-				this.setWipMergeTarget(undefined);
+				this.state.wipMergeTarget.set(undefined);
 				this.state.wipMergeTargetLoading.set(true);
 			}
 			// PullRequest — same sentinel convention as mergeTarget.
@@ -1533,7 +1528,7 @@ export class DetailsActions {
 			// First visit to this branch — clear any prior-branch values and show loading.
 			this.state.wipAutolinks.set(undefined);
 			this.state.wipIssues.set(undefined);
-			this.setWipMergeTarget(undefined);
+			this.state.wipMergeTarget.set(undefined);
 			this.state.wipMergeTargetLoading.set(true);
 			this.state.wipPullRequest.set(undefined);
 			this.state.wipPullRequestLoading.set(true);
@@ -1562,6 +1557,9 @@ export class DetailsActions {
 					this.keepCheckingShownQueuedPullRequest(repoPath, branchName, signal);
 					return;
 				}
+
+				// Every leg below is stored against the tip the host read the branch at
+				this._wipEnrichmentCache.update(cacheKey, { tipSha: enrichment.branch.reference.sha });
 
 				void enrichment.autolinks.then(
 					enrichmentGuard(this.resources.wip, autolinks => {
@@ -1596,7 +1594,7 @@ export class DetailsActions {
 								mergeTarget: status,
 								hasMergeTarget: true,
 							});
-							this.setWipMergeTarget(status);
+							this.state.wipMergeTarget.set(status);
 						}),
 						noopUnlessReal,
 					)
@@ -1773,11 +1771,40 @@ export class DetailsActions {
 		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
 		if (!branchName || !repoPath) return;
 
-		// Force a real network fetch — drop cached values so fetchWipBranchEnrichment sees a miss
-		// and goes through the loading-state path. Used in response to out-of-band git-config
-		// writes where the cache is known to be stale.
-		this._wipEnrichmentCache.delete(`${branchName}:${repoPath}`);
+		// Revalidates in place: the cached values stay shown (unless computed for another tip) until the fresh ones
+		// land, so a refresh doesn't flash the merge target through loading. A merge-target change drops the entry
+		// instead — see `onMergeTargetsChanged`.
 		this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
+	}
+
+	/**
+	 * Drops the cached enrichment of the branches whose merge targets changed (`undefined` is every branch), whether or
+	 * not the WIP is shown, and refetches the WIP's when `wipShown` and it's one of them.
+	 */
+	onMergeTargetsChanged(refs: readonly string[] | undefined, wipShown: boolean): void {
+		const matches = (branchName: string): boolean => refs == null || refs.includes(branchName);
+
+		// Keys are `${branchName}:${repoPath}`, and a branch name can't contain a `:`
+		for (const key of [...this._wipEnrichmentCache.keys()]) {
+			if (matches(key.slice(0, key.indexOf(':')))) {
+				this._wipEnrichmentCache.delete(key);
+			}
+		}
+
+		const wip = this.state.wip.get();
+		const branchName = wip?.branch?.name;
+		const repoPath = wip?.repo?.path ?? wip?.branch?.repoPath;
+		if (!wipShown || !branchName || !repoPath || !matches(branchName)) return;
+
+		this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
+	}
+
+	/** The WIP branch's tip, when the shown WIP is `branchName`'s in `repoPath` */
+	private getWipBranchTipSha(repoPath: string, branchName: string): string | undefined {
+		const wip = this.state.wip.get();
+		if (wip?.branch?.name !== branchName || (wip.repo?.path ?? wip.branch.repoPath) !== repoPath) return undefined;
+
+		return wip.branch.reference?.sha;
 	}
 
 	async removeAssociatedIssue(entityId: string): Promise<void> {

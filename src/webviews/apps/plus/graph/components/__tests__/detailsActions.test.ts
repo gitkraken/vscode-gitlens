@@ -883,6 +883,24 @@ suite('DetailsActions', () => {
 		assert.strictEqual(actions['_commitEnrichmentCache'].size, 0);
 		assert.strictEqual(actions['_wipEnrichmentCache'].size, 0);
 	});
+
+	test('a merge-target change drops the WIP enrichment of the branches it names, in every worktree', () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		actions['_wipEnrichmentCache'].set('feature:/repo1', {});
+		actions['_wipEnrichmentCache'].set('feature:/wt', {});
+		actions['_wipEnrichmentCache'].set('main:/repo1', {});
+
+		actions.onMergeTargetsChanged(['feature'], false);
+		assert.strictEqual(actions['_wipEnrichmentCache'].has('feature:/repo1'), false);
+		assert.strictEqual(actions['_wipEnrichmentCache'].has('feature:/wt'), false);
+		assert.strictEqual(actions['_wipEnrichmentCache'].has('main:/repo1'), true);
+
+		// No refs means any branch's may have changed
+		actions.onMergeTargetsChanged(undefined, false);
+		assert.strictEqual(actions['_wipEnrichmentCache'].size, 0);
+	});
 });
 
 suite('DetailsActions.revalidateWipIfStale', () => {

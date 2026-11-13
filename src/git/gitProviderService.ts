@@ -21,7 +21,7 @@ import {
 } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { getSupportedGitProviders } from '@env/providers.js';
-import type { CachedGitTypes, UriScopedCachedGitTypes } from '@gitlens/git/cache.js';
+import type { CachedGitTypes, MergeTargetsChangeEvent, UriScopedCachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '@gitlens/git/errors.js';
 import type { GitBlame, GitBlameLine, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
@@ -315,6 +315,14 @@ export class GitProviderService implements UnifiedDisposable {
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
+	}
+
+	/**
+	 * Fires when a branch's merge-relevant `.git/gk/config` keys changed, for providers that report it (never for
+	 * activity timestamps). `repoPath` is the repository's common path; see core's `GitService.onDidChangeMergeTargets`.
+	 */
+	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
+		return this._gitService.onDidChangeMergeTargets;
 	}
 
 	readonly supportedSchemes = new Set<string>();

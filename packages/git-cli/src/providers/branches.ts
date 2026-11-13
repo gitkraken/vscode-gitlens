@@ -1681,58 +1681,59 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return { merged: false };
 		}
 
-		// Hoisted so it can feed the cache key below (its tip is a 3rd key input) and the mapper
-		// below reuses it instead of resolving it a second time.
+		const merged = await this.getCachedBranchMergedStatus(repoPath, branch, into, cancellation);
+		if (merged.merged) return merged;
+
+		// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
 		const localInto = into.remote
 			? await this.getLocalBranchByUpstream(repoPath, into.name, cancellation)
 			: undefined;
+		if (localInto == null || localInto.name === branch.name) return { merged: false };
 
+		// Skip the second full merge-check cycle when the local branch points at the same commit as the remote —
+		// the merge-base/cherry/diff/apply pipeline would produce the same answer we already got for `into` above
+		if (localInto.sha != null && localInto.sha === into.sha) return { merged: false };
+
+		const localMerged = await this.getCachedBranchMergedStatus(repoPath, branch, localInto, cancellation);
+		if (!localMerged.merged) return { merged: false };
+
+		// Built here rather than cached, so it always names the requesting worktree
+		return {
+			...localMerged,
+			localBranchOnly: createReference(localInto.ref, repoPath, {
+				id: getBranchId(repoPath, localInto.remote, localInto.name),
+				refType: 'branch',
+				name: localInto.name,
+				remote: localInto.remote,
+				upstream: localInto.upstream,
+				sha: localInto.sha,
+			}),
+		};
+	}
+
+	/**
+	 * Whether `branch` is merged into `into`, cached per pair. `into` and its local counterpart are cached apart, so a
+	 * move of one (a fetch moving the remote target) doesn't recheck the other.
+	 */
+	private getCachedBranchMergedStatus(
+		repoPath: string,
+		branch: GitBranchReference,
+		into: GitBranchReference,
+		cancellation: AbortSignal | undefined,
+	): Promise<GitBranchMergedStatus> {
 		// Cache key omits repoPath so worktrees of the same common repo share the cached answer.
 		// Content-keyed on the involved tip shas (the result is a pure function of them), so tip
 		// movement mints a new key instead of relying on eviction; falls back to the name-only
 		// identity when a sha is missing (defensive — the sole caller always supplies both tips).
 		const cacheKey =
 			branch.sha != null && into.sha != null
-				? `${branch.remote ? 'r' : 'l'}:${branch.name}@${branch.sha}|${into.remote ? 'r' : 'l'}:${into.name}@${into.sha}${
-						localInto?.sha != null ? `|L:${localInto.name}@${localInto.sha}` : ''
-					}`
+				? `${branch.remote ? 'r' : 'l'}:${branch.name}@${branch.sha}|${into.remote ? 'r' : 'l'}:${into.name}@${into.sha}`
 				: `${branch.remote ? 'r' : 'l'}:${branch.name}|${into.remote ? 'r' : 'l'}:${into.name}`;
 
 		return this.cache.getBranchMergedStatus(
 			repoPath,
 			cacheKey,
-			async (commonPath, _cacheable, signal) => {
-				const result = await this.getBranchMergedStatusCore(commonPath, branch, into, signal);
-				if (result.merged) return result;
-
-				// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
-				if (localInto != null && localInto.name !== branch.name) {
-					// Skip the second full merge-check cycle when the local branch points at the same commit as the remote —
-					// the merge-base/cherry/diff/apply pipeline would produce the same answer we already got for `into` above
-					if (localInto.sha != null && localInto.sha === into.sha) {
-						return { merged: false };
-					}
-
-					const result = await this.getBranchMergedStatusCore(commonPath, branch, localInto, signal);
-					if (result.merged) {
-						// `localBranchOnly` is built against `commonPath` here; the cache mapper rewrites
-						// `repoPath`/`id` to the requesting worktree on retrieval.
-						return {
-							...result,
-							localBranchOnly: createReference(localInto.ref, commonPath, {
-								id: getBranchId(commonPath, localInto.remote, localInto.name),
-								refType: 'branch',
-								name: localInto.name,
-								remote: localInto.remote,
-								upstream: localInto.upstream,
-								sha: localInto.sha,
-							}),
-						};
-					}
-				}
-
-				return { merged: false };
-			},
+			(commonPath, _cacheable, signal) => this.getBranchMergedStatusCore(commonPath, branch, into, signal),
 			cancellation,
 		);
 	}

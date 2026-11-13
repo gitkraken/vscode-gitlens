@@ -13,6 +13,7 @@ import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import {
@@ -38,6 +39,7 @@ import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import {
 	getAutolinkIssuesInfo,
 	getBranchMergeTargetStatusInfo,
+	getMergeTargetPotentialConflicts,
 	getPullRequestInfo,
 } from '../../shared/overviewEnrichment.utils.js';
 
@@ -117,8 +119,19 @@ export function getPullBlockedFileCount(
 	return count;
 }
 
+/**
+ * Supplies the landed-only merge-target status (no `potentialConflicts`) for a branch whose status another owner
+ * already computes — the Graph's current-branch verdict. `undefined` for a branch it doesn't cover.
+ */
+export type SharedMergeTargetStatusSource = (
+	branch: GitBranch,
+) => Promise<OverviewBranchMergeTarget | undefined> | undefined;
+
 export class BranchesService {
-	constructor(private readonly container: Container) {}
+	constructor(
+		private readonly container: Container,
+		private readonly getSharedMergeTargetStatus?: SharedMergeTargetStatusSource,
+	) {}
 
 	/**
 	 * Predicts whether pulling the current branch will hurt, as one verdict for the Graph's Pull button.
@@ -322,7 +335,7 @@ export class BranchesService {
 			// in-flight cancellation checks honor the same abort.
 			autolinks: this.fetchAutolinksLeg(branch, signal),
 			issues: this.fetchIssuesLeg(branch, signal),
-			mergeTargetStatus: getBranchMergeTargetStatusInfo(this.container, branch, signal, associatedPR),
+			mergeTargetStatus: this.fetchMergeTargetStatusLeg(branch, associatedPR, signal),
 			pullRequest: this.fetchPullRequestLeg(branch, associatedPR, signal),
 			remote: this.fetchRemoteLeg(branch),
 		};
@@ -357,6 +370,28 @@ export class BranchesService {
 			),
 			signal,
 		);
+	}
+
+	/** The shared status when there is one — conflicts are then asked for here, since its owner never computes them */
+	private async fetchMergeTargetStatusLeg(
+		branch: GitBranch,
+		associatedPR: Promise<PullRequest | undefined>,
+		signal?: AbortSignal,
+	): Promise<OverviewBranchMergeTarget | undefined> {
+		const shared = this.getSharedMergeTargetStatus?.(branch);
+		if (shared == null) return getBranchMergeTargetStatusInfo(this.container, branch, signal, associatedPR);
+
+		const status = await shared;
+		signal?.throwIfAborted();
+		if (status == null) return undefined;
+
+		let potentialConflicts: ConflictDetectionResult | undefined;
+		try {
+			potentialConflicts = await getMergeTargetPotentialConflicts(this.container, branch, status.name, signal);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+		return potentialConflicts != null ? { ...status, potentialConflicts: potentialConflicts } : status;
 	}
 
 	/** Only name + provider name/icon — the sheet has no use for the provider URL, and resolving it

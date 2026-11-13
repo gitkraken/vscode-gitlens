@@ -469,14 +469,6 @@ export class GraphStateProvider implements Disposable {
 	@signalState(false)
 	accessor scopeLoading: boolean = false;
 
-	/**
-	 * Webview-local (never from the host): set by the details panel's WIP merge-target enrichment when the
-	 * checked-out branch landed per merge-target evidence (git heuristics included). Stamped with the tip
-	 * sha the verdict was computed for so the header can ignore it after a branch switch or new commit.
-	 */
-	@signalState()
-	accessor wipLanded: AppState['wipLanded'];
-
 	@signalState<AppState['navigating']>(false)
 	accessor navigating: AppState['navigating'] = false;
 
@@ -589,6 +581,12 @@ export class GraphStateProvider implements Disposable {
 
 	@signalState()
 	accessor branchState: State['branchState'];
+
+	@signalState()
+	accessor currentBranchMergeTarget: State['currentBranchMergeTarget'];
+
+	@signalState()
+	accessor mergeTargetsEpoch: State['mergeTargetsEpoch'];
 
 	@signalState()
 	accessor lastFetched: State['lastFetched'];
@@ -1157,6 +1155,22 @@ export class GraphStateProvider implements Disposable {
 					if (areEqual(next.branchState, this.branchState)) {
 						delete next.branchState;
 					}
+					// Both also arrive on their own events, so keep whichever copy is newer — a state built before
+					// an event can ship after it
+					if (
+						next.currentBranchMergeTarget != null &&
+						this.currentBranchMergeTarget != null &&
+						next.currentBranchMergeTarget.revision <= this.currentBranchMergeTarget.revision
+					) {
+						delete next.currentBranchMergeTarget;
+					}
+					if (
+						next.mergeTargetsEpoch != null &&
+						this.mergeTargetsEpoch != null &&
+						next.mergeTargetsEpoch.epoch <= this.mergeTargetsEpoch.epoch
+					) {
+						delete next.mergeTargetsEpoch;
+					}
 					// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
 					// stamp: it's a timestamp that only moves FORWARD within a repo, so the value carries its own
 					// ordering. `getState` reads it in the build-start `allSettled` and ships it after the rows
@@ -1213,6 +1227,23 @@ export class GraphStateProvider implements Disposable {
 			() =>
 				repoStatus.onBranchStateChanged(data => {
 					this.updateState({ branchState: data.branchState });
+				}),
+			() =>
+				repoStatus.onCurrentBranchMergeTargetChanged(data => {
+					if (
+						this.currentBranchMergeTarget != null &&
+						data.revision <= this.currentBranchMergeTarget.revision
+					) {
+						return;
+					}
+
+					this.updateState({ currentBranchMergeTarget: data });
+				}),
+			() =>
+				repoStatus.onMergeTargetsChanged(data => {
+					if (this.mergeTargetsEpoch != null && data.epoch <= this.mergeTargetsEpoch.epoch) return;
+
+					this.updateState({ mergeTargetsEpoch: data });
 				}),
 			() =>
 				repoStatus.onRepoConnectionChanged(data => {

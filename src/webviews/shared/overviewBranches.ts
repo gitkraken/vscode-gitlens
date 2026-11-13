@@ -282,6 +282,6 @@ export interface OverviewBranchLanded {
 	confidence: 'highest' | 'high' | 'medium';
 	/** `id` is the pull request number, as {@link OverviewBranchPullRequest.number} */
 	pullRequest?: { id: string; url: string; title?: string };
-	/** The branch tip the verdict was computed against; set for pull request evidence */
+	/** The branch tip the verdict was computed against, so a cached copy can't vouch for a later tip */
 	tipSha?: string;
 }

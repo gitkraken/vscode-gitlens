@@ -1,5 +1,6 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type {
 	PullRequest,
 	PullRequestMergeQueueEntry,
@@ -148,11 +149,35 @@ function getRemainingTimeout(deadline: number): number {
 	return Math.max(0, deadline - Date.now());
 }
 
+/**
+ * The branch's potential conflicts merging into `target`. Conflict detection is Pro — same gate as its siblings (the
+ * merge/cherry-pick/rebase wizards and the pull conflict preview), which the merge-target chip must agree with.
+ */
+export async function getMergeTargetPotentialConflicts(
+	container: Container,
+	branch: GitBranch,
+	target: string,
+	cancellation?: AbortSignal,
+): Promise<ConflictDetectionResult | undefined> {
+	const subscription = await container.subscription.getSubscription();
+	if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) return undefined;
+
+	return container.git
+		.getRepositoryService(branch.repoPath)
+		.branches.getPotentialMergeConflicts?.(branch.name, target, cancellation);
+}
+
+/**
+ * The branch's merge-target status. With `landedOnly`, it skips the potential conflicts (`potentialConflicts` stays
+ * unset) — for consumers that only decide whether the branch landed; ask {@link getMergeTargetPotentialConflicts}
+ * separately when they're shown.
+ */
 export async function getBranchMergeTargetStatusInfo(
 	container: Container,
 	branch: GitBranch,
 	cancellation?: AbortSignal,
 	associatedPullRequest?: Promise<PullRequest | undefined>,
+	options?: { landedOnly?: boolean },
 ): Promise<OverviewBranchMergeTarget | undefined> {
 	// Forward cancellation and bound the PR-based merge-target lookup. Without these the
 	// integration call (e.g. GitHub PR fetch) can take seconds-to-indefinite when slow,
@@ -176,21 +201,15 @@ export async function getBranchMergeTargetStatusInfo(
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
 
-	// Conflict detection is Pro — same gate as its siblings (the merge/cherry-pick/rebase wizards and
-	// the pull conflict preview), which this chip's field must agree with. The rest of the chip
-	// (ahead/behind, merged status) stays ungated.
-	const subscription = await container.subscription.getSubscription();
-	const conflictsAllowed = isSubscriptionTrialOrPaidFromState(subscription?.state);
-
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
 		svc.commits.getLeftRightCommitCount(
 			createRevisionRange(targetBranch.name, branch.ref, '...'),
 			{ excludeMerges: true },
 			cancellation,
 		),
-		conflictsAllowed
-			? svc.branches.getPotentialMergeConflicts?.(branch.name, targetBranch.name, cancellation)
-			: undefined,
+		options?.landedOnly
+			? undefined
+			: getMergeTargetPotentialConflicts(container, branch, targetBranch.name, cancellation),
 		svc.branches.getBranchMergedStatus?.(branch, targetBranch, cancellation),
 	]);
 
@@ -332,7 +351,7 @@ async function getBranchLandedVerdict(
 	}
 
 	if (mergedStatus?.merged) {
-		return { landed: { via: 'git', confidence: mergedStatus.confidence } };
+		return { landed: { via: 'git', confidence: mergedStatus.confidence, tipSha: tip } };
 	}
 
 	// Only a proven miss: a pull request that's still loading may yet decide

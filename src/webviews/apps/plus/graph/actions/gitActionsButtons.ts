@@ -18,6 +18,7 @@ import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { BranchState, GraphAutoFetchMode, GraphWipState, State } from '../../../../plus/graph/protocol.js';
+import { isCurrentBranchMergeTargetFor } from '../../../../plus/graph/protocol.js';
 import type { PullConflictPreview } from '../../../../rpc/services/branches.js';
 import { notifyService } from '../../../shared/actions/rpc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -189,9 +190,7 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 				.wipState=${this.wipState}
 			></gl-push-pull-button>
 			${
-				this.branchState != null &&
-				this.branchState.upstream == null &&
-				!isBranchLanded(this.branchState, this.state)
+				this.branchState != null && this.branchState.upstream == null && !isBranchLandedOrPending(this.state)
 					? html`<gl-publish-button
 							.branchState=${this.branchState}
 							.branchName=${this.branchName}
@@ -1512,19 +1511,16 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 }
 
-/** Landed by PR head-sha (host `branchState.landed`) or by the WIP merge-target verdict (git evidence), the latter
- *  only while it was computed for the branch tip currently shown. */
-function isBranchLanded(branchState: BranchState | undefined, state: AppState | undefined): boolean {
-	if (branchState?.landed) return true;
-
-	const wipLanded = state?.wipLanded;
+/** Whether the host's current-branch verdict says the branch landed (by pull request or git evidence), or is still
+ *  deciding for a gone upstream — trusted only while it describes the branch and tip the header shows. Only asked
+ *  when the header has no upstream, so a verdict decided while it had one means the upstream just went (a prune) and
+ *  the verdict hasn't caught up yet. */
+function isBranchLandedOrPending(state: AppState | undefined): boolean {
+	const verdict = state?.currentBranchMergeTarget?.verdict;
 	const branch = state?.branch;
-	return (
-		wipLanded != null &&
-		branch?.sha != null &&
-		wipLanded.sha === branch.sha &&
-		wipLanded.repoPath === branch.repoPath
-	);
+	if (verdict == null || branch == null || !isCurrentBranchMergeTargetFor(verdict, branch)) return false;
+
+	return verdict.pending === true || verdict.liveUpstream === true || verdict.status?.landed != null;
 }
 
 @customElement('gl-publish-button')
@@ -1582,13 +1578,10 @@ export class GlPublishButton extends LitElement {
 	state?: AppState;
 
 	override render() {
-		// Only when the current branch has no upstream (unpublished) — and never for a branch whose pull request
-		// already landed it: its upstream is gone because the PR merged, and publishing would resurrect it
-		if (
-			this.branchState == null ||
-			this.branchState.upstream != null ||
-			isBranchLanded(this.branchState, this.state)
-		) {
+		// Only when the current branch has no upstream (unpublished) — and never for a branch that landed (or may
+		// have, while that's being decided): its upstream is likely gone because it merged, and publishing would
+		// resurrect it
+		if (this.branchState == null || this.branchState.upstream != null || isBranchLandedOrPending(this.state)) {
 			return nothing;
 		}
 

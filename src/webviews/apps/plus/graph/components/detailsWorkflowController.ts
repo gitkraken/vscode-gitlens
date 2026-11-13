@@ -352,6 +352,8 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _subscribedRepoPath: string | undefined;
 	private readonly _subscriptionGen = getScopedCounter();
 	private _subscriptionUnsubscribe: (() => void) | undefined;
+	/** The last merge-targets epoch seen, to tell when one was missed */
+	private _mergeTargetsEpoch: number | undefined;
 	/** `markBranchCompareStale` watch — keyed on the Compare side's effective path (the
 	 *  checked-out worktree when distinct from the graph's repo), not `host.repoPath`. Separate
 	 *  lifecycle from the fields above because this path can change independently of
@@ -4342,6 +4344,14 @@ export class DetailsWorkflowController implements ReactiveController {
 						if (!this.host.isWipSelection()) return;
 
 						this.actions.refreshWipBranchEnrichment();
+					}),
+				() =>
+					this.actions.services.repoStatus.onMergeTargetsChanged(data => {
+						// A skipped epoch is a change this missed (the event keeps only the newest while hidden), which
+						// could have been any branch's
+						const missed = this._mergeTargetsEpoch != null && data.epoch > this._mergeTargetsEpoch + 1;
+						this._mergeTargetsEpoch = data.epoch;
+						this.actions.onMergeTargetsChanged(missed ? undefined : data.refs, this.host.isWipSelection());
 					}),
 			]);
 			if (typeof unsubscribe !== 'function') return;

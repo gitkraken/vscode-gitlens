@@ -28,7 +28,6 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
-import { getBranchLandedState, isPullRequestRelevantToMergeTarget } from '@gitlens/git/utils/branchLanded.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isPullRequestInMergeQueue, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -169,6 +168,7 @@ import {
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../../rpc/launchpadService.js';
+import { BranchesService } from '../../rpc/services/branches.js';
 import { createSharedServices } from '../../rpc/services/common.js';
 import { NotificationsRpcService } from '../../rpc/services/notifications.js';
 import { proxyServices } from '../../rpc/services/proxy.js';
@@ -185,6 +185,8 @@ import type { GraphDataControllerContext } from './graphDataController.js';
 import { GraphDataController } from './graphDataController.js';
 import type { GraphInspectServicesContext } from './graphInspectServices.js';
 import { GraphInspectServices } from './graphInspectServices.js';
+import type { GraphMergeTargetServiceContext } from './graphMergeTargetService.js';
+import { GraphMergeTargetService } from './graphMergeTargetService.js';
 import type { GraphPanelsServiceContext } from './graphPanelsService.js';
 import { GraphPanelsService } from './graphPanelsService.js';
 import type { GraphProducersServiceContext } from './graphProducersService.js';
@@ -254,6 +256,7 @@ import type {
 	GraphCompareSeed,
 	GraphComponentConfig,
 	GraphComposeScopeSeed,
+	GraphCurrentBranchMergeTargetState,
 	GraphDisplayMode,
 	GraphExcludedRef,
 	GraphExcludeRefs,
@@ -263,6 +266,7 @@ import type {
 	GraphIntent,
 	GraphIntentKind,
 	GraphItemContext,
+	GraphMergeTargetsEpoch,
 	GraphMinimapMarkerTypes,
 	GraphPinnedRef,
 	GraphRef,
@@ -621,6 +625,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private readonly _panels: GraphPanelsService;
 	private readonly _inspect: GraphInspectServices;
 	private readonly _searchService: GraphSearchService;
+	private readonly _mergeTarget: GraphMergeTargetService;
 
 	constructor(
 		private readonly container: Container,
@@ -635,6 +640,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._panels = new GraphPanelsService(this.createGraphPanelsContext());
 		this._inspect = new GraphInspectServices(this.createGraphInspectContext());
 		this._searchService = new GraphSearchService(this.createGraphSearchContext());
+		this._mergeTarget = new GraphMergeTargetService(this.createGraphMergeTargetContext());
 		this.ensureRepositorySubscriptions();
 
 		this._disposable = Disposable.from(
@@ -646,6 +652,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// view can filter to the one it's showing instead of re-fetching on every repo's change.
 			this.container.gitHealth.onDidChange(repoPath => this._gitHealthChangedEvent.fire({ repoPath: repoPath })),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
+			this.container.git.onDidChangeMergeTargets(e => this._mergeTarget.onMergeTargetsChanged(e)),
 			// The bar's primary continue swaps between automatic/manual with the session
 			this.container.autoRebase.onDidChange(e => {
 				if (e.repoPath === this.repository?.path) {
@@ -814,6 +821,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getSession: () => this._data.session,
 			fireBranchStateChanged: (params: DidChangeBranchStateParams) => this._branchStateChangedEvent.fire(params),
 			deferBranchStateRefresh: () => (this._pendingBranchStateRefresh = true),
+		};
+	}
+
+	/** Collaborator surface {@link GraphMergeTargetService} reaches for — its two RPC events stay here. */
+	private createGraphMergeTargetContext(): GraphMergeTargetServiceContext {
+		return {
+			container: this.container,
+			host: this.host,
+			fireCurrentBranchMergeTargetChanged: state => this._currentBranchMergeTargetChangedEvent.fire(state),
+			fireMergeTargetsChanged: epoch => this._mergeTargetsChangedEvent.fire(epoch),
 		};
 	}
 
@@ -1069,6 +1086,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._pendingBranchStateRefresh = false;
 			void this._producers.notifyDidChangeBranchStateOnly();
 		}
+
+		this._mergeTarget.onVisible();
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap, which carries NO rows plane — and
@@ -1107,6 +1126,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._data.cancelPendingRowsQuery();
 		// Cancels the pending refsMetadata debounced notify.
 		this._producers.dispose();
+		this._mergeTarget.dispose();
 		// Cancel the other debounced notifiers too — a trailing fire after dispose would push
 		// events through a torn-down host (the exact class of bug this dispose pass exists to fix).
 		this._data.cancelDebouncedNotifiers();
@@ -1163,6 +1183,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// webview — see `GraphRepoStatusService.onBranchStateChanged`.
 	private readonly _branchStateChangedEvent = createRpcEvent<DidChangeBranchStateParams>(
 		'branchStateChanged',
+		'save-last',
+	);
+	// `save-last`: each payload is the complete verdict, revision-stamped — see
+	// `GraphRepoStatusService.onCurrentBranchMergeTargetChanged`.
+	private readonly _currentBranchMergeTargetChangedEvent = createRpcEvent<GraphCurrentBranchMergeTargetState>(
+		'currentBranchMergeTargetChanged',
+		'save-last',
+	);
+	// `save-last`: a skipped epoch tells the app it missed one — see `GraphRepoStatusService.onMergeTargetsChanged`.
+	private readonly _mergeTargetsChangedEvent = createRpcEvent<GraphMergeTargetsEpoch>(
+		'mergeTargetsChanged',
 		'save-last',
 	);
 	// `save-last`: the payload is always a complete repositories snapshot — see
@@ -1248,6 +1279,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return proxyServices({
 			...base,
+			// The WIP details of the current branch read the header's verdict rather than compute their own
+			branches: new BranchesService(this.container, branch => this._mergeTarget.getStatus(branch)),
 			access: {
 				getAccess: () => this.getAccessState(),
 				onAccessChanged: this._accessChangedEvent.subscribe(buffer, tracker),
@@ -1350,6 +1383,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getLastFetched: () => this.getRepoStatus(),
 				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
 				onBranchStateChanged: this._branchStateChangedEvent.subscribe(buffer, tracker),
+				onCurrentBranchMergeTargetChanged: this._currentBranchMergeTargetChangedEvent.subscribe(
+					buffer,
+					tracker,
+				),
+				onMergeTargetsChanged: this._mergeTargetsChangedEvent.subscribe(buffer, tracker),
 				onRepoConnectionChanged: this._repoConnectionChangedEvent.subscribe(buffer, tracker),
 			},
 			state: {
@@ -2295,6 +2333,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		if (visible) {
+			this._mergeTarget.onVisible();
+		}
+
 		// Flush any rows-plane state the publisher accumulated while hidden/not-ready. Nothing was ever
 		// buffered — the flush gate kept every send off the wire, so the channel consumed no seq and the
 		// receiver sees no gap; this ships one up-to-date delta (or snapshot) for the whole hidden window.
@@ -2967,6 +3009,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (e.changed('head', 'heads', 'remotes', 'config')) {
 			void this._producers.notifyDidChangeBranchStateOnly();
 		}
+		this._mergeTarget.onRepositoryChanged(e);
 
 		// Unless we don't know what changed, update the state immediately
 		this._data.updateState(!e.changedExclusive('unknown'));
@@ -4367,79 +4410,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	/**
-	 * Whether `pr` landed the branch's work in its merge target, for the header's `BranchState.landed`. A pull request
-	 * merged into another base (a release branch, a stacked parent) doesn't count, as in the merge target status, and
-	 * with no merge target nothing landed — that status has no verdict without one either.
-	 *
-	 * The merge target lookup is bounded, so a slow one answers without the pull request first. When that answer says
-	 * not landed, `late` settles to the verdict for the full answer (its base can differ, e.g. a stacked parent).
-	 */
-	private async getPullRequestLandedVerdict(
-		branch: GitBranch,
-		pr: PullRequest,
-		cancellation?: AbortSignal,
-	): Promise<{ landed: boolean; late?: Promise<boolean> }> {
-		// Only a merged pull request at the tip can land it, so skip the merge-target lookup for every other one
-		if (getBranchLandedState(branch.sha, [{ pullRequest: pr }]).landed == null) return { landed: false };
-
-		// Already merged at the tip (above), so the base is all that's left to decide
-		const getVerdict = async (target: { ref: string } | undefined): Promise<boolean> => {
-			if (target == null) return false;
-
-			const targetBranch = await this.container.git
-				.getRepositoryService(branch.repoPath)
-				.branches.getBranch(target.ref, undefined, cancellation);
-			if (targetBranch == null) return false;
-
-			return isPullRequestRelevantToMergeTarget(pr, targetBranch.nameWithoutRemote);
-		};
-
-		// Shares core's cached answer with the merge target status' lookup
-		const { target, pending } = await getBranchMergeTarget(this.container, branch, {
-			associatedPullRequest: Promise.resolve(pr),
-			cancellation: cancellation,
-			timeout: 100,
-		});
-
-		const landed = await getVerdict(target);
-		if (landed || pending == null) return { landed: landed };
-
-		// `pending` settles to the differing target, or `undefined` when the full answer is the same one
-		return { landed: false, late: pending.then(getVerdict).catch(() => false) };
-	}
-
-	/** Applies a verdict that arrived after the branch state was built, onto the state last sent for this tip */
-	private async applyLateLandedVerdict(
-		branch: GitBranch,
-		late: Promise<boolean>,
-		cancellation: CancellationToken,
-		unsent?: BranchState,
-	): Promise<void> {
-		try {
-			if (!(await late) || cancellation.isCancellationRequested) return;
-
-			// Merge into the most recently sent branchState (see the paused pull request callback) and only while
-			// it still describes this tip, so a verdict can't outlive a new commit or vouch for another branch
-			const lastSent = this._producers.lastSentBranchState;
-			if (lastSent == null || lastSent.pr?.refs?.head?.sha !== branch.sha) {
-				// The build that asked hasn't sent yet, so it carries the verdict itself
-				if (unsent != null) {
-					unsent.landed = true;
-				}
-				return;
-			}
-			if (lastSent.landed) return;
-
-			void this._producers.notifyDidChangeBranchState(
-				{ ...lastSent, landed: true },
-				this._producers.nextBranchStateRevision(),
-			);
-		} catch {
-			// A failed lookup leaves it not landed
-		}
-	}
-
 	/** `GraphSelectionService.updateSelection` — the app's report of what the user selected. Runs
 	 *  undebounced: the coalescing now lives on the APP side of the wire (see the wrapper's
 	 *  `sendSelectionDebounced`), so an arrow-key scrub arrives here already collapsed to its final row. */
@@ -4651,6 +4621,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private ensureRepositorySubscriptions(force?: boolean) {
 		void this.ensureLastFetchedSubscription(force);
+		// Every binding change comes through here, rebinds included
+		this._mergeTarget.setRepository(this.repository);
 		if (!force && this._repositoryEventsDisposable != null) return;
 
 		if (this._repositoryEventsDisposable != null) {
@@ -6074,24 +6046,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const maybePr = getSettledValue(prResult);
 				if (maybePr?.paused) {
 					const fallbackBranchState: BranchState = branchState;
-					void maybePr.value.then(async pr => {
+					void maybePr.value.then(pr => {
 						if (branchStateCancellation?.token.isCancellationRequested) return;
 
 						if (pr != null) {
-							let landed = false;
-							let late: Promise<boolean> | undefined;
-							try {
-								({ landed, late } = await this.getPullRequestLandedVerdict(
-									branch,
-									pr,
-									toAbortSignal(branchStateCancellation.token),
-								));
-							} catch (ex) {
-								// A failed lookup leaves it not landed, as a cancelled one leaves the state alone
-								if (isCancellationError(ex)) return;
-							}
-							if (branchStateCancellation.token.isCancellationRequested) return;
-
 							// Merge `pr` into the most recently sent branchState so we don't clobber
 							// fresher ahead/behind/upstream values shipped by a later state notify.
 							const base = this._producers.lastSentBranchState ?? fallbackBranchState;
@@ -6104,40 +6062,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							// mid-flight here, this out-ranks it. The fast path carries `pr` forward
 							// (`pr ??=`), so the pill survives the correcting build.
 							void this._producers.notifyDidChangeBranchState(
-								{
-									...base,
-									pr: serializePullRequest(pr),
-									landed: landed,
-								},
+								{ ...base, pr: serializePullRequest(pr) },
 								this._producers.nextBranchStateRevision(),
 							);
-
-							if (late != null) {
-								void this.applyLateLandedVerdict(branch, late, branchStateCancellation.token);
-							}
 						}
 					});
 				} else {
 					const pr = maybePr?.value;
 					if (pr != null) {
 						branchState.pr = serializePullRequest(pr);
-						// A failed lookup leaves it not landed rather than fail the build; cancellation still throws
-						const { landed, late } = await this.getPullRequestLandedVerdict(
-							branch,
-							pr,
-							toAbortSignal(cancellation.token),
-						).catch((ex: unknown) => {
-							if (isCancellationError(ex)) throw ex;
-
-							return { landed: false, late: undefined };
-						});
-						if (landed) {
-							branchState.landed = true;
-						}
-						// Not sent yet: lands on the sent state, or on this build's own if it resolves first
-						if (late != null) {
-							void this.applyLateLandedVerdict(branch, late, branchStateCancellation.token, branchState);
-						}
 					}
 				}
 			}
@@ -6281,6 +6214,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			branchState: branchState,
 			branchStateRevision: branchStateRevision,
+			currentBranchMergeTarget: this._mergeTarget.state,
+			mergeTargetsEpoch: this._mergeTarget.epoch,
 			lastFetched: getSettledValue(lastFetchedResult)!,
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
