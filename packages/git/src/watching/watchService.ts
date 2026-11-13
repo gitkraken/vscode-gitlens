@@ -737,7 +737,11 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				return;
 			}
 
-			if (relativePath?.endsWith('/.gitignore') && !(filterReady && filter?.isIgnored(relativePath))) {
+			// Asks about the directory, not the file: a `.gitignore` that matches its own rules (a `*`) is still read
+			if (
+				relativePath?.endsWith('/.gitignore') &&
+				!(filterReady && filter?.isIgnored(relativePath.slice(0, -'.gitignore'.length)))
+			) {
 				onIgnoreRulesChanged(true);
 			}
 

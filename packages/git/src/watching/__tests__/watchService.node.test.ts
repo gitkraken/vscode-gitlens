@@ -741,6 +741,76 @@ describe('RepositoryWatchService', () => {
 			service.dispose();
 		});
 
+		it('gates a nested .gitignore change on whether its directory is ignored, not the file', async () => {
+			const files = new Map<string, string>([
+				['/repo/.gitignore', 'dist/\n'],
+				// Matches its own `*`, so the loaded rules call the file itself ignored
+				['/repo/cache/.gitignore', '*\n'],
+				['/repo/pkg/.gitignore', '*.gen.ts\n'],
+				// Inside an ignored directory — git never reads it
+				['/repo/dist/.gitignore', '!*\n'],
+			]);
+			const filter = new GitIgnoreFilter({
+				repoPath: '/repo',
+				gitDirPath: '/repo/.git',
+				fs: {
+					readFile: async uri => {
+						const content = files.get(uri.path);
+						if (content == null) throw new Error(`ENOENT: ${uri.path}`);
+						return new TextEncoder().encode(content);
+					},
+					stat: async () => undefined,
+					readDirectory: async () => [],
+				},
+				getGitIgnorePaths: async () => Array.from(files.keys(), p => p.slice('/repo/'.length)),
+			});
+			await filter.ready();
+			assert.ok(filter.isIgnored('cache/.gitignore'), 'fixture: the loaded rules ignore the file itself');
+			assert.ok(!filter.isIgnored('cache/'), "fixture: a directory's own rules don't ignore the directory");
+
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			let gitIgnoreChanges = 0;
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'), {
+				onGitIgnoreChanged: () => gitIgnoreChanges++,
+			});
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			await filter.ready();
+			const wtWatcher = watchers.find(w => w.basePath === '/repo')!;
+
+			files.set('/repo/cache/.gitignore', '*.bin\n');
+			wtWatcher.fire({ path: '/repo/cache/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 1, 'an edit of a .gitignore that ignores itself is an ignore change');
+			await filter.ready();
+			assert.ok(!filter.isIgnored('cache/a.txt'), 'the edit was read');
+
+			files.delete('/repo/cache/.gitignore');
+			wtWatcher.fire({ path: '/repo/cache/.gitignore', reason: 'delete' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 2, 'so is its deletion');
+			await filter.ready();
+			assert.ok(!filter.isIgnored('cache/a.bin'), 'the deleted rules no longer apply');
+
+			wtWatcher.fire({ path: '/repo/dist/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 2, 'a .gitignore in an ignored directory is not an ignore change');
+
+			wtWatcher.fire({ path: '/repo/pkg/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 3, 'an ordinary nested .gitignore is an ignore change');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
 		it('routes a .gitignore change through the repo channel as an `ignores` change (fences closed worktrees)', async () => {
 			const { factory, watchers } = createMockFactory();
 			const service = new RepositoryWatchService({
