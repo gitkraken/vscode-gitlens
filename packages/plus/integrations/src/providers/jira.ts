@@ -7,7 +7,6 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { chunk } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { areEqual } from '@gitlens/utils/object.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -29,7 +28,7 @@ import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js
 import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
-import { DiscoveryCache, isAutolinkSetExpired, isEmptyAutolinkFallback } from './utils/discoveryCache.js';
+import { DiscoveryCache, isAutolinkSetExpired } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
 import {
@@ -105,15 +104,6 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	 * from it in `_autolinks` (#6176). Cleared with `_projects`, whose generation then refuses those same writes.
 	 */
 	private readonly _projectEvictions = new Map<string, number>();
-	/**
-	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback
-	 * over lists it didn't read; the next render builds from them instead (#6183). Rule: every writer that stores a
-	 * different project list for a site must bump it and retire the token's build, through {@link onProjectListStored};
-	 * the same list stored again does neither while a complete set is kept (#6184). The connect's clear bumps it too.
-	 * Site-list stores deliberately don't: a build's own site store would then refuse its own fallback. Drops and
-	 * evictions need no bump: they fail a build's `isCurrent`.
-	 */
-	private _autolinksResets = 0;
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -124,9 +114,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		// A session kept through a failed refresh is expired: building with it would send that token to the provider
 		// on every render, so serve whatever was built before (none after a forced re-sync) until a read refreshes it.
 		if (this.connectionExpired === true) return cached?.autolinks ?? [];
-		if (cached == null) return this.buildAutolinks(session);
+		if (cached == null || (cached.builtAt === 0 && !cached.complete && cached.autolinks.length === 0)) {
+			return this.buildAutolinks(session);
+		}
 
-		if (isAutolinkSetExpired(cached)) {
+		if (cached.builtAt === 0 || isAutolinkSetExpired(cached)) {
 			void this.buildAutolinks(session);
 		}
 		return cached.autolinks;
@@ -143,7 +135,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const { accessToken } = session;
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
-			build = this.buildAutolinksCore(session).finally(() => {
+			build = this.buildAutolinksCore(session, () => build).finally(() => {
 				// A drop, an eviction or a list change meanwhile retired this build, and the entry may be a later
 				// one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
@@ -157,138 +149,81 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	private async buildAutolinksCore(
 		session: ProviderAuthenticationSession,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		const generation = this._projects.generation;
 		const evictions = this._projectEvictions.get(accessToken);
-		const resets = this._autolinksResets;
-		// What this build falls back on, and carries over for the sites it couldn't read
-		const held = this._autolinks.get(accessToken);
-		// False once the caches were dropped, or a site's list evicted, since this build started: what it read then is
-		// only an answer for the render that waited on it.
-		const isCurrent = (): boolean =>
-			this._projects.generation === generation && this._projectEvictions.get(accessToken) === evictions;
-		// Kept even when incomplete, to be retried sooner rather than by every render (#6183). Complete only when built
-		// wholly from the lists as stored now, the site list and every site's projects. Once a list change retired this
-		// build, another may have kept a set meanwhile: a complete set still replaces it, and any replaces an empty
-		// incomplete one, the fallback of a build that read none; otherwise, as it also rests on what only this build
-		// read (its site list, a site cut short) or held, it only replaces the set it held, or none (#6184). Refused, it
-		// still answers the renders waiting on it with its own result, a known limit.
-		const keep = (
-			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
-			complete: boolean,
-		): (AutolinkReference | DynamicAutolinkReference)[] => {
-			const kept = this._autolinks.get(accessToken);
-			if (isCurrent() && (complete || kept == null || kept === held || isEmptyAutolinkFallback(kept))) {
-				this._autolinks.set(accessToken, {
-					autolinks: autolinks,
-					builtAt: Date.now(),
-					complete: complete,
-				});
-			}
-			return autolinks;
-		};
-		// Serves the held set until the retry, unless a list was stored meanwhile
-		const keepHeld = (): (AutolinkReference | DynamicAutolinkReference)[] =>
-			this._autolinksResets === resets ? keep(held?.autolinks ?? [], false) : (held?.autolinks ?? []);
 		try {
-			const organizations = await this.getProviderResourcesForUser(session);
-			if (organizations == null) return keepHeld();
-
-			// Whether the site list is still the one stored, expired or not: a read storing a different one since
-			// replaced it
-			const sitesCached = (): boolean => areEqual(this._organizations.peek(accessToken), organizations);
-			if (!organizations.length) return keep([], sitesCached());
-
-			// Served from the cache for every site whose projects are still fresh; only the rest are read.
-			const { values: projects, metadata } = await this.getProviderProjectsForResourcesWithMetadata(
-				session,
-				organizations,
-			);
-
-			// Each site's projects as cached now, which any read during this build may have refreshed. A site with none
-			// cached fresh serves what the read answered for it, its newest list stored when read whole, and, where that
-			// read failed or got nothing, the prefixes it had, rather than losing its links until the retry.
-			const current = isCurrent();
-			// No set held, as once a list change dropped it, or only the empty fallback a build that read none kept
-			const heldNone = held == null || isEmptyAutolinkFallback(held);
-			const failedSites = new Set(metadata?.failures?.map(f => f.scope?.resourceId));
-			const refsOf = (
-				organization: JiraOrganizationDescriptor,
-				siteProjects: JiraProjectDescriptor[],
-			): AutolinkReference[] =>
-				siteProjects.flatMap(project =>
-					createIssueAutolinkReferences(
-						project.key,
-						`${organization.url}/browse/${project.key}-<num>`,
-						organization,
-					),
+			const organizations = await this.getProviderResourcesForUser(session, false, reader);
+			if (
+				organizations != null &&
+				this._projects.generation === generation &&
+				this._projectEvictions.get(accessToken) === evictions
+			) {
+				const projects = await this.getProviderProjectsForResourcesWithMetadata(
+					session,
+					organizations,
+					false,
+					reader,
 				);
-			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-			let complete = true;
-			for (const organization of organizations) {
-				const key = `${accessToken}:${organization.id}`;
-				const cachedProjects = current ? this._projects.get(key) : undefined;
-				const siteProjects = cachedProjects ?? projects.filter(p => p.resourceId === organization.id);
-				const refs = refsOf(organization, siteProjects);
-				autolinks.push(...refs);
-				if (cachedProjects != null) continue;
-
-				complete = false;
-				// A site whose read failed, or got nothing, keeps the prefixes it had; one only cut short has none missing
-				const failed = failedSites.has(organization.id) || !siteProjects.length;
-				if (!failed) continue;
-
-				// Those of the set held, keyed by the site's id (#6183); with none, those of the site's last list stored,
-				// expired or not, which a list change dropping the set leaves in place (#6184). Known limits, until the
-				// carry moves into the cache: that list is the last one read whole, so a site read cut short since can
-				// carry prefixes that read no longer lists; and a site never read whole carries none once the set it was
-				// carried in is dropped.
-				const stored = heldNone && current ? this._projects.peek(key) : undefined;
-				const had =
-					stored != null
-						? refsOf(organization, stored)
-						: (held?.autolinks.filter(
-								(ref): ref is AutolinkReference =>
-									'prefix' in ref && ref.descriptor?.key === organization.id,
-							) ?? []);
-				const prefixes = new Set(refs.map(r => r.prefix));
-				for (const ref of had) {
-					if (!prefixes.has(ref.prefix)) {
-						autolinks.push(ref);
-					}
+				if (
+					(this._projects.generation !== generation ||
+						this._projectEvictions.get(accessToken) !== evictions) &&
+					(projects.values.length > 0 || !projects.metadata?.failures?.length)
+				) {
+					// Existing waiters own this successful response, but the active generation must not retain it.
+					return organizations.flatMap(organization =>
+						getProjectAutolinks(
+							organization,
+							projects.values.filter(p => p.resourceId === organization.id),
+						),
+					);
 				}
 			}
-			return keep(autolinks, complete && sitesCached());
 		} catch (ex) {
-			// Autolinks are decoration: don't fail the render that asked
 			Logger.error(ex, 'JiraIntegration.autolinks');
-			return keepHeld();
 		}
+		return this.deriveAutolinks(accessToken, {
+			store: this._projects.generation === generation && this._projectEvictions.get(accessToken) === evictions,
+		});
 	}
 
-	/**
-	 * A site's project list was stored. A different one drops the autolinks built from the lists, so a build that then
-	 * fails keeps no fallback, and retires the build in flight, which may hold the list as it was. The same one again
-	 * keeps a complete set and the build in flight; otherwise it drops the incomplete set kept, if any, so the next
-	 * render builds from the lists again, and still fences a failing build's fallback (#6183, #6184). Other tokens' sets
-	 * and builds stay; only `_autolinksResets`, shared by all tokens, also stops their failing builds' fallback.
-	 *
-	 * A known limit: a build whose own read stores a different list, or a site's first one (with nothing seeded since a
-	 * start, a clear or an eviction, every first store reads as different), retires itself too. A render in the
-	 * microtasks before that build resumes then starts a second one rather than joining it; that one builds from the
-	 * cache, reading again only the sites the first couldn't read whole. A loss of the sharing core had, with no effect
-	 * on what is kept, and none on an identical list, which retires nothing.
-	 */
-	private onProjectListStored(accessToken: string, stored: 'changed' | 'unchanged'): void {
-		if (stored === 'changed') {
-			this._autolinksBuilds.delete(accessToken);
-		} else if (this._autolinks.get(accessToken)?.complete === true) {
-			return;
+	private deriveAutolinks(
+		accessToken: string,
+		options?: {
+			store?: boolean;
+			settled?: boolean;
+		},
+	): (AutolinkReference | DynamicAutolinkReference)[] {
+		const organizations = this._organizations.peek(accessToken);
+		let complete = this._organizations.get(accessToken) != null;
+		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+		for (const organization of organizations ?? []) {
+			const key = `${accessToken}:${organization.id}`;
+			complete &&= this._projects.get(key) != null;
+			autolinks.push(...getProjectAutolinks(organization, this._projects.peek(key) ?? []));
 		}
+		if (options?.store !== false) {
+			this._autolinks.set(accessToken, {
+				autolinks: autolinks,
+				complete: complete,
+				// Stores preserve the retry deadline; only a settled build restarts it.
+				builtAt:
+					options?.settled !== false
+						? Date.now()
+						: this._autolinks.get(accessToken)?.builtAt || (complete ? Date.now() : 0),
+			});
+		}
+		return autolinks;
+	}
 
-		this._autolinks.delete(accessToken);
-		this._autolinksResets++;
+	private onDiscoveryStored(accessToken: string, reader?: () => Promise<unknown> | undefined): void {
+		// A build's own store must not break sharing before its continuation runs.
+		if (this._autolinksBuilds.get(accessToken) !== reader?.()) {
+			this._autolinksBuilds.delete(accessToken);
+		}
+		this.deriveAutolinks(accessToken, { settled: false });
 	}
 
 	protected override async getProviderAccountForResource(
@@ -337,6 +272,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<JiraOrganizationDescriptor[] | undefined> {
 		const { accessToken } = session;
 
@@ -344,14 +280,17 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (cachedResources != null && !force) return cachedResources;
 
 		const generation = this._organizations.generation;
+		const started = this._organizations.startRead();
 		const organizations = await this.readOrganizations(session);
-		if (organizations == null) {
-			this._organizations.delete(accessToken);
-			return undefined;
-		}
+		if (organizations == null) return undefined;
 
-		this._organizations.set(accessToken, organizations, { generation: generation });
-		return organizations;
+		const stored = this._organizations.set(accessToken, organizations, { generation: generation, read: started });
+		if (stored === 'changed') {
+			this.onDiscoveryStored(accessToken, reader);
+		}
+		return stored === false && this._organizations.generation === generation
+			? this._organizations.peek(accessToken)
+			: organizations;
 	}
 
 	protected override getProviderUncachedResourcesForUser(
@@ -380,6 +319,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		session: ProviderAuthenticationSession,
 		resources: JiraOrganizationDescriptor[],
 		force: boolean = false,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const { accessToken } = session;
 		const projectsCache = this._projects;
@@ -401,8 +341,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			: resources.filter(resource => !cachedProjects.has(resource.id));
 
 		const read = await this.readProjects(session, resourcesWithoutProjects);
-		const values = [...read.partial];
-		for (const [resourceId, projects] of read.complete) {
+		const values: JiraProjectDescriptor[] = [];
+		let metadata = read.metadata;
+		let changed = false;
+		for (const [resourceId, projects] of [...read.complete, ...read.incomplete]) {
 			// Not stored when the cache was dropped, a list evicted, or a read started after this one stored it, while
 			// this read was in flight: what it found is then no longer trusted for the next read.
 			if (this._projectEvictions.get(accessToken) !== evictions) continue;
@@ -410,24 +352,33 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			const stored = projectsCache.set(`${accessToken}:${resourceId}`, projects, {
 				generation: generation,
 				read: started,
+				complete: read.complete.has(resourceId),
 			});
-			if (stored !== false) {
-				this.onProjectListStored(accessToken, stored);
+			if (stored === 'changed') {
+				changed = true;
 			}
 		}
+		if (changed) {
+			this.onDiscoveryStored(accessToken, reader);
+		}
+
 		// A site read whole, or served from the cache, answers with its newest list stored: this read's own, or the one
 		// a read started after it stored, which this older read must not stand in for, not even once expired (#6184).
 		// Once the cache was dropped or a list evicted meanwhile, only what it found itself.
 		const current =
 			projectsCache.generation === generation && this._projectEvictions.get(accessToken) === evictions;
 		for (const resource of resources) {
-			const resourceProjects = read.complete.get(resource.id) ?? cachedProjects.get(resource.id);
+			const resourceProjects =
+				read.complete.get(resource.id) ?? read.incomplete.get(resource.id) ?? cachedProjects.get(resource.id);
 			if (resourceProjects == null) continue;
 
 			const stored = current ? projectsCache.peek(`${accessToken}:${resource.id}`) : undefined;
 			values.push(...(stored ?? resourceProjects));
+			if (stored != null && projectsCache.get(`${accessToken}:${resource.id}`) == null) {
+				metadata = mergeCollectionMetadata(metadata, { completeness: 'unknown' });
+			}
 		}
-		return { values: uniqueProjects(values), metadata: read.metadata };
+		return { values: uniqueProjects(values), metadata: metadata };
 	}
 
 	protected override async getProviderUncachedProjectsForResourcesWithMetadata(
@@ -436,39 +387,48 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const read = await this.readProjects(session, resources);
 		return {
-			values: uniqueProjects([...read.partial, ...[...read.complete.values()].flat()]),
+			values: uniqueProjects([...read.incomplete.values(), ...read.complete.values()].flat()),
 			metadata: read.metadata,
 		};
 	}
 
 	/**
 	 * Reads the projects of each resource from the provider, apart by whether a resource's list came back complete:
-	 * only a complete one may be cached as the resource's project set.
+	 * incomplete lists remain available for decoration but cannot satisfy a fresh discovery read.
 	 */
 	private async readProjects(
 		session: ProviderAuthenticationSession,
 		resources: JiraOrganizationDescriptor[],
 	): Promise<{
 		complete: Map<string, JiraProjectDescriptor[]>;
-		partial: JiraProjectDescriptor[];
+		incomplete: Map<string, JiraProjectDescriptor[]>;
 		metadata: CollectionMetadata | undefined;
 	}> {
 		const complete = new Map<string, JiraProjectDescriptor[]>();
-		const partial: JiraProjectDescriptor[] = [];
+		const incompleteLists = new Map<string, JiraProjectDescriptor[]>();
 		let metadata: CollectionMetadata | undefined;
-		if (resources.length === 0) return { complete: complete, partial: partial, metadata: metadata };
+		if (resources.length === 0) {
+			return { complete: complete, incomplete: incompleteLists, metadata: metadata };
+		}
 
 		const api = await this.getProvidersApi();
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const drains = await Promise.allSettled(
-			resources.map(async resource => ({
-				resource: resource,
-				result: await collectProviderPagedResult(
-					cursor => api.getJiraProjectsForResource(tokenWithInfo, resource.id, { cursor: cursor }),
+			resources.map(async resource => {
+				let readPage = false;
+				const result = await collectProviderPagedResult(
+					async cursor => {
+						const page = await api.getJiraProjectsForResource(tokenWithInfo, resource.id, {
+							cursor: cursor,
+						});
+						readPage ||= page != null && (page.values.length > 0 || !page.metadata?.failures?.length);
+						return page;
+					},
 					maxPagesPerRequest,
 					{ providerId: this.id, resourceId: resource.id },
-				),
-			})),
+				);
+				return { resource: resource, result: result, readPage: readPage };
+			}),
 		);
 
 		drains.forEach((drain, index) => {
@@ -485,7 +445,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				return;
 			}
 
-			const { resource, result } = drain.value;
+			const { resource, result, readPage } = drain.value;
 			metadata = mergeCollectionMetadata(metadata, result.metadata);
 			const projects = result.values
 				.filter(project => project.resourceId === resource.id)
@@ -493,7 +453,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			const incomplete =
 				result.truncated === true || (result.metadata != null && result.metadata.completeness !== 'complete');
 			if (incomplete) {
-				partial.push(...projects);
+				if (readPage) {
+					incompleteLists.set(resource.id, projects);
+				}
 				if (
 					result.truncated === true &&
 					(result.metadata == null || result.metadata.completeness === 'complete')
@@ -505,7 +467,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 			complete.set(resource.id, projects);
 		});
-		return { complete: complete, partial: partial, metadata: metadata };
+		return { complete: complete, incomplete: incompleteLists, metadata: metadata };
 	}
 
 	protected override async getProviderIssuesForProject(
@@ -882,7 +844,6 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	protected override async providerOnConnect(): Promise<void> {
 		this._autolinks.clear();
-		this._autolinksResets++;
 		if (this._session == null) return;
 
 		const session = this._session;
@@ -906,6 +867,15 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		this._projectEvictions.clear();
 		this._autolinks.clear();
 	}
+}
+
+function getProjectAutolinks(
+	organization: JiraOrganizationDescriptor,
+	projects: readonly JiraProjectDescriptor[],
+): AutolinkReference[] {
+	return projects.flatMap(project =>
+		createIssueAutolinkReferences(project.key, `${organization.url}/browse/${project.key}-<num>`, organization),
+	);
 }
 
 /** The projects once each, by site and id. */
