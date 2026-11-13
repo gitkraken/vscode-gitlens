@@ -3248,6 +3248,7 @@ export class DetailsActions {
 		}
 
 		const branchCommits = this.state.branchCommits.get();
+		const mergeBase = this.state.branchMergeBase.get();
 		if (branchCommits?.length) {
 			for (const commit of branchCommits) {
 				items.push({
@@ -3257,6 +3258,7 @@ export class DetailsActions {
 					additions: commit.additions || undefined,
 					deletions: commit.deletions || undefined,
 					state: commit.pushed ? 'pushed' : 'unpushed',
+					mergeBase: commit.sha === mergeBase?.sha || undefined,
 					author: commit.author,
 					avatarUrl: commit.avatarUrl,
 					date: commit.date ? new Date(commit.date).getTime() : undefined,
@@ -3279,8 +3281,7 @@ export class DetailsActions {
 			});
 		}
 
-		const mergeBase = this.state.branchMergeBase.get();
-		if (mergeBase) {
+		if (mergeBase && !items.some(i => i.mergeBase)) {
 			items.push({
 				id: `merge-base:${mergeBase.sha}`,
 				label: mergeBase.message || mergeBase.sha.substring(0, 7),

@@ -540,11 +540,15 @@ suite('GlDetailsReviewModePanel scope presets', () => {
 	const wip = [row('unstaged', 'uncommitted'), row('staged', 'uncommitted')];
 	const mergeBase = row('merge-base:m', 'merge-base');
 
-	/** The presets shown — label and whether it is the scope now — and the ids each one picks. */
-	function presets(items: object[], includeShas: string[] = []) {
+	function presets(items: object[], includeShas: string[] = [], includeUncommitted = true) {
 		const panel = {
 			scopeItems: items,
-			scope: { type: 'wip', includeStaged: true, includeUnstaged: true, includeShas: includeShas },
+			scope: {
+				type: 'wip',
+				includeStaged: includeUncommitted,
+				includeUnstaged: includeUncommitted,
+				includeShas: includeShas,
+			},
 			scopeSelectionIds: scopeSelectionIds,
 			selectScopePreset: () => {},
 		};
@@ -577,7 +581,7 @@ suite('GlDetailsReviewModePanel scope presets', () => {
 		);
 	});
 
-	test('leaves out a preset that picks what another does, and shows nothing for a single choice', () => {
+	test('leaves out a preset that picks what another does, and shows nothing when there is no choice', () => {
 		// No upstream: nothing is pushed, so the unpushed commits are the branch
 		const unpublished = [...wip, row('c2', 'unpushed'), row('c1', 'unpushed'), mergeBase];
 		assert.deepStrictEqual(
@@ -592,7 +596,23 @@ suite('GlDetailsReviewModePanel scope presets', () => {
 			['Uncommitted', 'Unpushed'],
 		);
 
-		// Only uncommitted changes on a branch with nothing of its own
 		assert.deepStrictEqual(presets([...wip]), []);
+	});
+
+	test('shows a lone Branch preset on a pushed branch with a clean tree', () => {
+		const pushed = [row('c2', 'pushed'), row('c1', 'pushed'), row('load-more', 'load-more'), mergeBase];
+		assert.deepStrictEqual(presets(pushed, ['c2'], false), [['Branch', 'false']]);
+		assert.deepStrictEqual(presets(pushed, ['c2', 'c1'], false), [['Branch', 'true']]);
+	});
+
+	test('keeps Branch to the commits above the merge base once Load more lists it', () => {
+		const loaded = [
+			row('c2', 'pushed'),
+			row('c1', 'pushed'),
+			{ ...row('m2', 'pushed'), mergeBase: true },
+			row('m1', 'pushed'),
+		];
+		assert.deepStrictEqual(presets(loaded, ['c2', 'c1', 'm2'], false), [['Branch', 'false']]);
+		assert.deepStrictEqual(presets(loaded, ['c2', 'c1'], false), [['Branch', 'true']]);
 	});
 });

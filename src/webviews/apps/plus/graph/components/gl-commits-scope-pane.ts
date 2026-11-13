@@ -29,6 +29,7 @@ export interface ScopeItem {
 	modified?: number;
 	loading?: boolean;
 	state: ScopeItemState;
+	mergeBase?: boolean;
 	author?: string;
 	avatarUrl?: string;
 	date?: number;
