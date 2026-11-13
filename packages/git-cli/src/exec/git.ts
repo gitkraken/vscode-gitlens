@@ -124,7 +124,28 @@ export function batchLiteralPathspecs(
 }
 
 export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
-export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
+// Settings that change the shape of the output, so every caller sees the same hunks whatever the repository's config:
+// every file header carries the `a/` and `b/` prefixes the parser expects, hunks join by git's default rule only, a
+// blank context line keeps its leading space, and a submodule change is a normal diff section rather than a log glued
+// onto the previous file. A git older than `diff.srcPrefix`/`diff.dstPrefix` ignores them
+export const gitConfigsDiff = [
+	'-c',
+	'color.diff=false',
+	'-c',
+	'diff.mnemonicPrefix=false',
+	'-c',
+	'diff.noprefix=false',
+	'-c',
+	'diff.srcPrefix=a/',
+	'-c',
+	'diff.dstPrefix=b/',
+	'-c',
+	'diff.interHunkContext=0',
+	'-c',
+	'diff.suppressBlankEmpty=false',
+	'-c',
+	'diff.submodule=short',
+] as const;
 // These are background reads, so they must never rewrite the index or take its lock (a stat-dirty file otherwise makes
 // git refresh and write it). Only for a git supporting `git:diff:autoRefreshIndex:off`. Caveat: a
 // `--name-status`/`--name-only`/`--raw` diff against the working tree reports a file whose timestamps moved but whose
