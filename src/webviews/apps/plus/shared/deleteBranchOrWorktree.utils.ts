@@ -1,4 +1,6 @@
 import * as l10n from '@vscode/l10n';
+import type { DeleteBranchOrWorktreeRefs } from '../../../shared/branchRefs.js';
+import type { OverviewBranchLanded } from '../../../shared/overviewBranches.js';
 
 /**
  * The label for `gitlens.deleteBranchOrWorktree`, naming what it will actually delete. It follows the command's own
@@ -20,4 +22,20 @@ export function getDeleteBranchOrWorktreeLabel(
 		default:
 			return deletesWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Branch');
 	}
+}
+
+/**
+ * The evidence `gitlens.deleteBranchOrWorktree` gets for a landed branch, stamped with the tip it was decided for.
+ * Only PR evidence may pre-select Force Delete; git evidence can't prove the work is safe to drop, so it only lets the
+ * delete explain why the branch counts as merged.
+ */
+export function getDeleteBranchOrWorktreeEvidence(
+	landed: OverviewBranchLanded | undefined,
+): Pick<DeleteBranchOrWorktreeRefs, 'mergedPullRequest' | 'mergedByGit'> | undefined {
+	if (landed?.tipSha == null) return undefined;
+	if (landed.via === 'git') return { mergedByGit: { confidence: landed.confidence, sha: landed.tipSha } };
+
+	return landed.pullRequest != null
+		? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
+		: undefined;
 }

@@ -270,6 +270,11 @@ export interface OverviewBranchMergeTarget {
 	landed?: OverviewBranchLanded;
 	/** The branch's pull request merged, but the branch has commits after its head — so it is NOT landed */
 	successor?: { pullRequest: { id: string; url: string }; newCommits: number };
+	/**
+	 * Informational: when nothing landed, the branch's pull request that merged into another base than the merge target
+	 * (`base`, without its remote). `id` is the pull request's display number where its url names one
+	 */
+	mergedElsewhere?: { pullRequest: { id: string; url: string }; base: string };
 	potentialConflicts?: ConflictDetectionResult;
 	targetBranch: string | undefined;
 	baseBranch: string | undefined;

@@ -40,6 +40,7 @@ import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
+import { getDeleteBranchDeepLinkDefaults } from '../../webviews/plus/shared/branchRefCommands.js';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink.js';
 import {
 	AccountDeepLinkTypes,
@@ -1849,12 +1850,21 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
+					// The link's landed evidence is only a claim; this revalidates it before it can explain the delete or
+					// pre-select Force Delete
+					const defaults = await getDeleteBranchDeepLinkDefaults(this.container, branch, {
+						landed: this._context.params?.get('landed') ?? undefined,
+						prId: this._context.params?.get('landedPr') ?? undefined,
+						sha: this._context.params?.get('landedSha') ?? undefined,
+					}).catch(() => undefined);
+
 					void executeGitCommand({
 						command: 'branch',
 						state: {
 							subcommand: 'delete',
 							repo: repoPath || repo!.uri.fsPath,
 							references: branch,
+							...defaults,
 						},
 					});
 					action = DeepLinkServiceAction.DeepLinkResolved;

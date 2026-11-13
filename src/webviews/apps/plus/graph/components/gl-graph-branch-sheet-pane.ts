@@ -44,7 +44,10 @@ import {
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
-import { getDeleteBranchOrWorktreeLabel } from '../../shared/deleteBranchOrWorktree.utils.js';
+import {
+	getDeleteBranchOrWorktreeEvidence,
+	getDeleteBranchOrWorktreeLabel,
+} from '../../shared/deleteBranchOrWorktree.utils.js';
 import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
 import {
 	formatQueueHandledBehind,
@@ -1094,6 +1097,16 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			// The merge-target card's Delete is the single destructive action for a landed branch
 			status = l10n.t('Missing from the remote');
 			actions = nothing;
+		} else if (upstream.missing && mergeTarget?.successor != null) {
+			// A successor's PR merged and its remote branch went with it, but the new commits since exist only
+			// here: publishing them leads and there is no Delete. Create PR follows once they're published.
+			status = l10n.t('Missing from the remote');
+			actions = html`<gl-button appearance="secondary" href=${publish.href}
+				>${formatPlural(
+					l10n.t('{count, plural, one{Publish {count} New Commit} other{Publish {count} New Commits}}'),
+					{ count: mergeTarget.successor.newCommits },
+				)}</gl-button
+			>`;
 		} else if (upstream.missing) {
 			// Usually means the PR merged and the remote branch was auto-deleted, so deleting the
 			// local branch leads and re-publishing is the fallback — unless the work landed, when there
@@ -1453,17 +1466,6 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		return 'in-sync';
 	}
 
-	/** `mergedPullRequest` pre-selects Force Delete, so only PR evidence may pass it — git evidence can't prove the
-	 *  work is safe to drop. */
-	private deleteOptions(
-		mergeTarget: OverviewBranchMergeTarget | undefined,
-	): { mergedPullRequest?: { id: string; sha: string } } | undefined {
-		const landed = mergeTarget?.landed;
-		return landed?.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
-			? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
-			: undefined;
-	}
-
 	/** Whether the verdict is one the Rebase/Merge pair applies to. */
 	private isBehindVerdict(verdict: MergeTargetVerdict): boolean {
 		return verdict === 'clean' || verdict === 'unknown' || verdict === 'conflicts';
@@ -1505,6 +1507,21 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					),
 				})}
 			</div>
+			${
+				// Informational: the PR merged into another base, so it doesn't count here; the target token above
+				// is where to change the merge target if that base is the real one
+				mergeTarget.mergedElsewhere != null
+					? html`<div class="relationship-card__note">
+							<code-icon icon="info" size="12"></code-icon>${l10n.t(
+								'Pull request #{id} was merged into {base}',
+								{
+									id: mergeTarget.mergedElsewhere.pullRequest.id,
+									base: mergeTarget.mergedElsewhere.base,
+								},
+							)}
+						</div>`
+					: nothing
+			}
 			<div class="relationship-card__foot">
 				${this.renderMergeTargetChip(mergeTarget, verdict)}${
 					verdict === 'successor' && this.mergeTargetGitVerdict(mergeTarget) === 'conflicts'
@@ -1771,7 +1788,11 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 									tooltip=${deleteLabel}
 									href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 										'gitlens.deleteBranchOrWorktree:',
-										{ ...branchRef, mergeTarget: localTargetRef },
+										{
+											...branchRef,
+											mergeTarget: localTargetRef,
+											...getDeleteBranchOrWorktreeEvidence(mergeTarget.landed),
+										},
 									)}
 									>${deleteLabel}</gl-button
 								>`
@@ -1782,19 +1803,20 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 			if (!canDelete) return nothing;
 
-			const deleteOptions = this.deleteOptions(mergeTarget);
 			return html`<gl-button
 				appearance="secondary"
 				href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
 					...branchRef,
 					mergeTarget: targetRef,
-					...deleteOptions,
+					...getDeleteBranchOrWorktreeEvidence(mergeTarget.landed),
 				})}
 				>${deleteLabel}</gl-button
 			>`;
 		}
 
 		if (!this.isBehindVerdict(actionVerdict)) return nothing;
+		// Catching up with the branch's own upstream is a sync, not a merge — the Upstream card's Pull does it
+		if (mergeTarget.name === branch.upstream?.name) return nothing;
 		// While queued, conflicts stay a warning (the chip) and behind is the queue's job — no Merge/Rebase either way.
 		if (
 			getMergeTargetQueueTreatment(this._pullRequest, actionVerdict === 'conflicts' ? 'conflicts' : 'behind') !==

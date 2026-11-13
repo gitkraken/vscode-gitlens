@@ -25,7 +25,10 @@ import type {
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
-import { getDeleteBranchOrWorktreeLabel } from '../../shared/deleteBranchOrWorktree.utils.js';
+import {
+	getDeleteBranchOrWorktreeEvidence,
+	getDeleteBranchOrWorktreeLabel,
+} from '../../shared/deleteBranchOrWorktree.utils.js';
 import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import { graphServicesContext } from '../context.js';
 import {
@@ -822,10 +825,7 @@ export class GlGraphOverviewCard extends LitElement {
 			href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
 				...this.branchRef,
 				mergeTarget: { repoPath: mergeTarget.repoPath, branchId: mergeTarget.id, branchName: mergeTarget.name },
-				// Only PR evidence may pre-select Force Delete — git evidence can't prove the work is safe to drop
-				...(landed.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
-					? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
-					: undefined),
+				...getDeleteBranchOrWorktreeEvidence(landed),
 			})}
 		></action-item>`;
 	}

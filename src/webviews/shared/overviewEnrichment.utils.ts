@@ -252,6 +252,7 @@ export async function getBranchMergeTargetStatusInfo(
 		mergedStatus: mergedStatus,
 		landed: verdict.landed,
 		successor: verdict.successor,
+		mergedElsewhere: verdict.mergedElsewhere,
 		potentialConflicts: getSettledValue(conflictResult),
 		targetBranch: targetBranch.name,
 		baseBranch: info.baseBranch,
@@ -319,7 +320,11 @@ async function getBranchLandedVerdict(
 	getReflogWork: () => Promise<BranchReflogWork>,
 	deadline: number,
 	cancellation?: AbortSignal,
-): Promise<{ landed?: OverviewBranchLanded; successor?: BranchLandedState['successor'] }> {
+): Promise<{
+	landed?: OverviewBranchLanded;
+	successor?: BranchLandedState['successor'];
+	mergedElsewhere?: OverviewBranchMergeTarget['mergedElsewhere'];
+}> {
 	const tip = branch.sha;
 	if (!tip) return {};
 
@@ -355,7 +360,8 @@ async function getBranchLandedVerdict(
 	}
 
 	// Only a proven miss: a pull request that's still loading may yet decide
-	if (pr.paused || pr.value != null) return {};
+	if (pr.paused) return {};
+	if (pr.value != null) return { mergedElsewhere: getMergedElsewhere([pr.value], targetWithoutRemote) };
 
 	const byName = await pauseOnCancelOrTimeout(
 		getBranchPullRequestsByHeadName(container, branch).catch(() => undefined),
@@ -368,6 +374,9 @@ async function getBranchLandedVerdict(
 	const prs = byName.value;
 	const state = await getPullRequestsLandedState(ctx, prs);
 	if (state.live) return {};
+	if (state.landed == null && state.successor == null) {
+		return { mergedElsewhere: getMergedElsewhere(prs, targetWithoutRemote) };
+	}
 
 	// So the branch's pull request pill agrees with the verdict, rather than keep the by-ref read's "none"
 	const decidingUrl = state.landed?.pullRequest?.url ?? state.successor?.pullRequest.url;
@@ -377,6 +386,21 @@ async function getBranchLandedVerdict(
 	}
 
 	return { landed: withTipSha(state.landed, tip), successor: state.successor };
+}
+
+/**
+ * The first merged pull request whose base isn't the merge target, which can't vouch for the work landing there but
+ * may explain where it went (into a release branch, or the branch below in a stack). Informational only.
+ */
+function getMergedElsewhere(
+	prs: readonly PullRequest[],
+	targetWithoutRemote: string,
+): OverviewBranchMergeTarget['mergedElsewhere'] {
+	const pr = prs.find(p => p.state === 'merged' && !isPullRequestRelevantToMergeTarget(p, targetWithoutRemote));
+	const base = pr?.refs?.base?.branch;
+	if (pr == null || !base) return undefined;
+
+	return { pullRequest: { id: getPullRequestNumberFromUrl(pr.url) ?? pr.id, url: pr.url }, base: base };
 }
 
 /** Stamps a pull request verdict with the tip it was decided for, so a cached copy can't vouch for a later tip */

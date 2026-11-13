@@ -23,6 +23,9 @@ export type DeleteBranchOrWorktreeRefs = BranchRef & {
 	mergeTarget?: BranchRef;
 	/** Only PR evidence may pass this — it pre-selects Force Delete */
 	mergedPullRequest?: { id: string; sha: string };
+	/** Git evidence (a squash, rebase or fast-forward merge) only explains why the branch counts as merged — it never
+	 *  pre-selects Force Delete */
+	mergedByGit?: { confidence: 'highest' | 'high' | 'medium'; sha: string };
 };
 
 export interface OpenWorktreeCommandArgs extends BranchRef {

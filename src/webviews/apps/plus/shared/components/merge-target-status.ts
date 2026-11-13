@@ -11,7 +11,7 @@ import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shar
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
-import { getDeleteBranchOrWorktreeLabel } from '../deleteBranchOrWorktree.utils.js';
+import { getDeleteBranchOrWorktreeEvidence, getDeleteBranchOrWorktreeLabel } from '../deleteBranchOrWorktree.utils.js';
 import type { QueueablePullRequest } from '../mergeQueue.utils.js';
 import { getMergeQueueNote, getMergeTargetQueueTreatment } from '../mergeQueue.utils.js';
 import { chipStyles } from './chipStyles.js';
@@ -123,6 +123,10 @@ export const mergeTargetStyles = css`
 
 	.status--upgrade {
 		color: var(--color-foreground--50);
+	}
+
+	.status--merged-elsewhere {
+		color: var(--color-foreground--85);
 	}
 
 	.status-indicator {
@@ -324,14 +328,6 @@ export class GlMergeTargetStatus extends LitElement {
 		return this.target?.successor;
 	}
 
-	/** Only PR evidence may pre-select Force Delete — git evidence can't prove the work is safe to drop */
-	private get deleteOptions(): { mergedPullRequest?: { id: string; sha: string } } | undefined {
-		const landed = this.landed;
-		return landed?.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
-			? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
-			: undefined;
-	}
-
 	private get status() {
 		return this.target?.status;
 	}
@@ -364,9 +360,21 @@ export class GlMergeTargetStatus extends LitElement {
 		const target = this.target?.name ?? l10n.t('the merge target');
 		const landed = this.landed;
 		if (landed != null) {
-			return landed.via === 'pr' && landed.pullRequest != null
-				? l10n.t('Merged via Pull Request #{id}', { id: landed.pullRequest.id })
-				: l10n.t('Merged into {target}', { target: target });
+			if (landed.via === 'pr' && landed.pullRequest != null) {
+				return l10n.t('Merged via Pull Request #{id}', { id: landed.pullRequest.id });
+			}
+
+			// Same verdicts as the popover's header, so "likely" and "locally" aren't dropped here
+			const likely = landed.confidence !== 'highest';
+			if (landed.via === 'git' && this.mergedStatus?.merged && this.mergedStatus.localBranchOnly != null) {
+				return likely
+					? l10n.t('Branch Likely Merged Locally into {target}', { target: target })
+					: l10n.t('Branch Merged Locally into {target}', { target: target });
+			}
+
+			return likely
+				? l10n.t('Branch Likely Merged into {target}', { target: target })
+				: l10n.t('Branch Merged into {target}', { target: target });
 		}
 
 		const successor = this.successor;
@@ -431,16 +439,32 @@ export class GlMergeTargetStatus extends LitElement {
 
 		// Compact: a plain tooltip with a one-line summary rather than the interactive popover.
 		if (this.compact) {
+			// Not interactive, so it's a status image, named by the same summary its tooltip shows
 			return html`<gl-tooltip content=${this.compactStatusLabel} placement="bottom">
-				<span class="chip status--${status} compact" tabindex="0"
+				<span
+					class="chip status--${status} compact"
+					tabindex="0"
+					role="img"
+					aria-label=${l10n.t('Merge Target: {status}', { status: this.compactStatusLabel })}
 					><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 					><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 				</span>
 			</gl-tooltip>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus">
-			<span slot="anchor" class="chip status--${status}" tabindex="0"
+		return html`<gl-popover
+			placement="bottom"
+			trigger="hover click focus"
+			interactive
+			label=${l10n.t('Merge Target')}
+		>
+			<span
+				slot="anchor"
+				class="chip status--${status}"
+				tabindex="0"
+				role="button"
+				aria-haspopup="dialog"
+				aria-label=${l10n.t('Merge Target: {status}', { status: this.compactStatusLabel })}
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
 			</span>
@@ -512,7 +536,11 @@ export class GlMergeTargetStatus extends LitElement {
 								appearance="secondary"
 								href="${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 									'gitlens.deleteBranchOrWorktree:',
-									{ ...this.branchRef!, mergeTarget: mergeTargetRef },
+									{
+										...this.branchRef!,
+										mergeTarget: mergeTargetRef,
+										...getDeleteBranchOrWorktreeEvidence(landed),
+									},
 								)}"
 								><span
 									>${localizedContent(getDeleteBranchOrWorktreeLabel(this.branch.worktree, 'named'), {
@@ -572,7 +600,7 @@ export class GlMergeTargetStatus extends LitElement {
 								{
 									...this.branchRef!,
 									mergeTarget: mergeTargetRef,
-									...this.deleteOptions,
+									...getDeleteBranchOrWorktreeEvidence(landed),
 								},
 							)}"
 							><span
@@ -617,7 +645,8 @@ export class GlMergeTargetStatus extends LitElement {
 			return html`${this.renderHeader(l10n.t('Potential Conflicts with Merge Target'), 'warning', 'warning')}
 				<div class="body">
 					${this.status ? html`<p>${this.renderBehindDescription(this.status.behind)}</p>` : nothing}
-					${this.renderMergeActions(this.conflicts.branch, queued)} ${this.renderConflictCheck()}
+					${this.renderMergedElsewhere()} ${this.renderMergeActions(this.conflicts.branch, queued)}
+					${this.renderConflictCheck()}
 				</div>`;
 		}
 
@@ -639,7 +668,8 @@ export class GlMergeTargetStatus extends LitElement {
 					)}
 					<div class="body">
 						<p>${this.renderBehindDescription(this.status.behind)}</p>
-						${this.renderMergeActions(this.branch.name, queued)} ${this.renderConflictCheck()}
+						${this.renderMergedElsewhere()} ${this.renderMergeActions(this.branch.name, queued)}
+						${this.renderConflictCheck()}
 					</div>`;
 			}
 
@@ -654,14 +684,32 @@ export class GlMergeTargetStatus extends LitElement {
 							},
 						)}
 					</p>
+					${this.renderMergedElsewhere()}
 				</div>`;
 		}
 
 		return nothing;
 	}
 
+	/** Informational: the branch's pull request merged into another base, so it doesn't count toward the merge target.
+	 *  The description's inline target and the header's pencil are where to change the merge target if that's wrong. */
+	private renderMergedElsewhere() {
+		const mergedElsewhere = this.target?.mergedElsewhere;
+		if (mergedElsewhere == null) return nothing;
+
+		return html`<p class="status--merged-elsewhere">
+			<code-icon icon="info"></code-icon>
+			${localizedContent(l10n.t('Pull request #{id} was merged into {base}'), {
+				id: mergedElsewhere.pullRequest.id,
+				base: renderBranchName(mergedElsewhere.base),
+			})}
+		</p>`;
+	}
+
 	/** Rebase/Merge buttons (or the merge-queue note when queued) for a branch that's behind its merge target */
 	private renderMergeActions(branchName: string, queued: boolean) {
+		// Catching up with the branch's own upstream is a sync, not a merge — Pull does it, so there's nothing to offer
+		if (this.target != null && this.target.name === this.branch.upstream?.name) return nothing;
 		if (queued) return html`<p>${getMergeQueueNote()}</p>`;
 
 		const target = renderBranchName(this.target?.name);

@@ -9,6 +9,7 @@
 
 import { env, l10n, Uri, window } from 'vscode';
 import { PushError } from '@gitlens/git/errors.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import type { BranchGitCommandArgs } from '../../../commands/git/branch.js';
 import type { Container } from '../../../container.js';
@@ -22,7 +23,8 @@ import { executeCommand, executeCoreCommand } from '../../../system/-webview/com
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { UriTypes } from '../../../uris/deepLinks/deepLink.js';
 import { DeepLinkServiceState, DeepLinkType } from '../../../uris/deepLinks/deepLink.js';
-import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
+import type { BranchAndTargetRefs, BranchRef, DeleteBranchOrWorktreeRefs } from '../../shared/branchRefs.js';
+import { getBranchMergeTargetStatusInfo } from '../../shared/overviewEnrichment.utils.js';
 
 async function resolveRepoAndBranch(container: Container, ref: BranchRef | { repoPath: string; branchName?: string }) {
 	// A branch checked out in a worktree other than the primary one isn't necessarily surfaced as
@@ -117,11 +119,76 @@ export async function fetchBranch(container: Container, ref?: BranchRef): Promis
 	void RepoActions.fetch(repo, getReferenceFromBranch(branch));
 }
 
+type DeleteEvidence = Pick<DeleteBranchOrWorktreeRefs, 'mergedPullRequest' | 'mergedByGit'>;
+
+/**
+ * The delete wizard's defaults from the evidence that the branch landed. Evidence only vouches for the tip it was
+ * checked against — a commit since may not be in it. Only a merged pull request pre-selects Force Delete; git evidence
+ * (a squash, rebase or fast-forward merge) only explains why a branch git calls "not fully merged" counts as merged.
+ * @param targetName The branch the work landed in, which the git evidence's reason names
+ */
+function getDeleteWizardDefaults(
+	branch: GitBranch,
+	evidence: DeleteEvidence | undefined,
+	targetName: string | undefined,
+): { flags?: ('--force' | '--remotes')[]; reason?: string } | undefined {
+	const { mergedPullRequest, mergedByGit } = evidence ?? {};
+	if (mergedPullRequest != null && mergedPullRequest.sha === branch.sha) {
+		return { flags: ['--force'], reason: l10n.t('Pull request #{0} was merged', mergedPullRequest.id) };
+	}
+
+	if (mergedByGit != null && mergedByGit.sha === branch.sha && targetName) {
+		return {
+			reason:
+				mergedByGit.confidence === 'highest'
+					? l10n.t("Its commits are in '{0}'", targetName)
+					: l10n.t("Its changes are in '{0}' (likely squash or rebase merged)", targetName),
+		};
+	}
+
+	return undefined;
+}
+
+/**
+ * Revalidates the landed evidence a delete-branch deep link claims, then returns the delete wizard's defaults. The link
+ * is a URI anyone can craft, so its claim is never trusted: it only says which verdict to expect, and the branch's
+ * landed status is recomputed here — the same check the surfaces that offered Delete ran — and must agree with it,
+ * for the same tip, before a reason or Force Delete is derived.
+ */
+export async function getDeleteBranchDeepLinkDefaults(
+	container: Container,
+	branch: GitBranch,
+	claim: { landed: string | undefined; prId: string | undefined; sha: string | undefined },
+): Promise<{ flags?: ('--force' | '--remotes')[]; reason?: string } | undefined> {
+	const tip = claim.sha;
+	if ((claim.landed !== 'pr' && claim.landed !== 'git') || !tip || tip !== branch.sha) return undefined;
+	if (claim.landed === 'pr' && !claim.prId) return undefined;
+
+	const status = await getBranchMergeTargetStatusInfo(container, branch, undefined, undefined, { landedOnly: true });
+	const landed = status?.landed;
+	if (status == null || landed == null || landed.via !== claim.landed || landed.tipSha !== tip) {
+		return undefined;
+	}
+
+	if (landed.via === 'pr') {
+		const pullRequest = landed.pullRequest;
+		if (pullRequest == null || pullRequest.id !== claim.prId) return undefined;
+
+		return getDeleteWizardDefaults(branch, { mergedPullRequest: { id: pullRequest.id, sha: tip } }, status.name);
+	}
+
+	// Merged into the target's local branch only, so that's the branch it landed in
+	const targetName = status.mergedStatus?.merged
+		? (status.mergedStatus.localBranchOnly?.name ?? status.name)
+		: status.name;
+	return getDeleteWizardDefaults(branch, { mergedByGit: { confidence: landed.confidence, sha: tip } }, targetName);
+}
+
 export async function deleteBranchOrWorktree(
 	container: Container,
 	ref: BranchRef,
 	mergeTarget?: BranchRef,
-	options?: { mergedPullRequest?: { id: string; sha: string } },
+	evidence?: DeleteEvidence,
 ): Promise<void> {
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) return;
@@ -131,22 +198,11 @@ export async function deleteBranchOrWorktree(
 	const worktree =
 		branch.worktree === false ? undefined : (branch.worktree ?? (await getBranchWorktree(container, branch)));
 
-	// The merged pull request only vouches for the tip it was checked against — a commit since may not be in it
-	const mergedPullRequest =
-		options?.mergedPullRequest != null && options.mergedPullRequest.sha === branch.sha
-			? options.mergedPullRequest
-			: undefined;
-
 	const deleteWizardState = {
 		subcommand: 'delete',
 		repo: ref.repoPath,
 		references: branch,
-		...(mergedPullRequest != null
-			? {
-					flags: ['--force'] as ('--force' | '--remotes')[],
-					reason: l10n.t('Pull request #{0} was merged', mergedPullRequest.id),
-				}
-			: undefined),
+		...getDeleteWizardDefaults(branch, evidence, mergeTarget?.branchName),
 	} as const;
 
 	if (!worktree || worktree.isDefault) {
@@ -213,10 +269,13 @@ export async function deleteBranchOrWorktree(
 
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = typeof schemeOverride === 'string' ? schemeOverride : env.uriScheme;
+		// The landed evidence rides along so the default worktree's window can explain the delete, but only as a claim
+		// that window revalidates (see `getDeleteBranchDeepLinkDefaults`) — a link carries no trust of its own
+		const evidenceParams = getDeleteDeepLinkEvidenceParams(branch, evidence);
 		const deleteBranchDeepLink = {
 			url: `${scheme}://${container.context.extension.id}/${'link' satisfies UriTypes}/${
 				DeepLinkType.Repository
-			}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(commonRepo.path)}&action=delete-branch`,
+			}/-/${DeepLinkType.Branch}/${encodeURIComponent(branch.name)}?path=${encodeURIComponent(commonRepo.path)}&action=delete-branch${evidenceParams}`,
 			repoPath: commonRepo.path,
 			useProgress: false,
 			state: DeepLinkServiceState.GoToTarget,
@@ -238,4 +297,19 @@ export async function deleteBranchOrWorktree(
 			},
 		});
 	}
+}
+
+/**
+ * The delete-branch deep link's evidence query params (`landed`, `landedSha`, `landedPr`), for the tip it was checked
+ * against. Named apart from `prId`, which other deep links act on
+ */
+function getDeleteDeepLinkEvidenceParams(branch: GitBranch, evidence: DeleteEvidence | undefined): string {
+	const { mergedPullRequest, mergedByGit } = evidence ?? {};
+	if (mergedPullRequest != null && mergedPullRequest.sha === branch.sha) {
+		return `&landed=pr&landedSha=${encodeURIComponent(mergedPullRequest.sha)}&landedPr=${encodeURIComponent(mergedPullRequest.id)}`;
+	}
+	if (mergedByGit != null && mergedByGit.sha === branch.sha) {
+		return `&landed=git&landedSha=${encodeURIComponent(mergedByGit.sha)}`;
+	}
+	return '';
 }

@@ -346,6 +346,14 @@ export const graphBranchSheetPaneStyles = css`
 		margin-top: auto;
 	}
 
+	.relationship-card__note {
+		display: flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
 	.relationship-card__status {
 		flex: 1 1 auto;
 		min-width: 0;

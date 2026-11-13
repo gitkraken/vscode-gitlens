@@ -57,7 +57,8 @@ interface State<Repo = string | GlRepository, Refs = GitBranchReference | GitBra
 	repo: Repo;
 	references: Refs;
 	flags: Flags[];
-	/** Already-localized reason the delete was suggested, shown as the confirm step's placeholder */
+	/** Already-localized reason the delete was suggested, shown as the confirm step's placeholder and as the detail of
+	 *  the not-fully-merged prompt */
 	reason?: string;
 }
 export type BranchDeleteState = State;
@@ -256,7 +257,8 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 								"Unable to delete branch '{0}' as it is not fully merged. Do you want to delete it anyway?",
 								name,
 							),
-							{ modal: true },
+							// Why it was suggested — e.g. a squash or rebase merge, whose commits git doesn't count as merged
+							{ modal: true, detail: state.reason },
 							confirm,
 							cancel,
 						);
