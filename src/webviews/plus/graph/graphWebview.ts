@@ -5708,8 +5708,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Cold-start default: seed the WIP selection only on a FRESH webview/repo (`_selectedId == null`).
 		// Once any intent sets the anchor, getState never re-asserts WIP — the webview owns the anchor and
-		// there is no reconciliation to pull a default row back in. The seed rides the `selectedRows` prop,
-		// which the webview echoes into its anchor.
+		// there is no reconciliation to pull a default row back in. The seed rides the `selectedRows` prop as a
+		// highlight only; the webview's details anchor stays unset and falls back to WIP.
 		if (
 			searchRequest == null &&
 			this._selectedId == null &&

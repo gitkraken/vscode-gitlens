@@ -215,6 +215,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  the captured `_modeBeforeScope` — otherwise repo B's scope-applied (or another path that
 	 *  triggers restore) could restore a mode that was meant for repo A. */
 	private _wasSelectedRepository: string | undefined;
+	/** The repo family (`commonPath ?? path`) as of the last update, so a repo switch can tell a
+	 *  cross-family switch from a same-family worktree rebind. */
+	private _wasSelectedRepoFamily: string | undefined;
 
 	/** Set by the popover's fallback path when it couldn't find the focal branch tip locally
 	 *  (branch's tip wasn't in `graphState.rows`). Drained in `updated` once the async scope-anchor
@@ -1765,6 +1768,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._nav.reset();
 				this._navExpectedSha = undefined;
 			}
+			// Across families the details anchor names a commit the new graph doesn't have. The host's seeded
+			// selection for the new repo only becomes a row highlight and never raises a selection change, so
+			// nothing else moves the anchor. Clearing it gives the same result as a cold open: details falls
+			// back to the new repo's working changes. A same-family rebind (scope/unscope a worktree) shares
+			// the commit graph and the host keeps its selection, so the anchor stays. An unknown family on
+			// either side takes the clear, matching the state provider's cross-family default.
+			const repoFamily = this.fallbackRepoFamily;
+			if (
+				isRepoSwitch &&
+				(repoFamily == null ||
+					this._wasSelectedRepoFamily == null ||
+					repoFamily !== this._wasSelectedRepoFamily)
+			) {
+				this._selectedCommit = undefined;
+				this._selectedCommits = undefined;
+				this._altModeSelectedCommit = undefined;
+			}
 			// The minimap's brush/scope zoom window is timeline-relative, not repo-relative — carrying
 			// it across a switch re-clamps the old repo's window against the new repo's bounds instead
 			// of showing the full new timeline. `resetZoom()` no-ops when already unzoomed.
@@ -1773,6 +1793,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 			this._wasSelectedRepository = selectedRepository;
 		}
+		// Refreshed every update, not only on a switch: `repositories` can land after `selectedRepository`,
+		// and a family recorded as unknown would make the next same-family rebind clear the anchor.
+		this._wasSelectedRepoFamily = this.fallbackRepoFamily;
 
 		// Drain a pending focal-tip selection once the scope-anchor resolver lands the tip on the
 		// active scope. branchRef equality guards against a fast re-scope landing the wrong branch's
