@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `Cache.setRepoPathRegistrar`, which has a checkout registered before its first read through `GitService.forRepo`, so a host that registers checkouts in the background no longer has a linked worktree read as a repository of its own and its reads thrown away at registration. A host sets it once it has the service, as a function that resolves the checkout's git dir through `forRepo(path).config.getGitDir()` and calls `registerRepoPath`, and that answers `undefined`, synchronously, for a path it declines. Each per-repository sub-provider method that answers only a promise then starts once the registration settles; the others (synchronous ones, async iterables, and the git dir reads a registrar makes) call straight through. Concurrent first reads share one ask, a failing registrar lets the read go ahead unregistered, and a slow one is waited on for at most 10 seconds. The watch service's gitignore filter waits the same way before it reads the shared ignore config. Adds `GitProvider.ensureRegistered` and `Cache.ensureRegistered`; a host that sets no registrar sees no change (git, git-cli)
+
 ### Changed
 
 - **Breaking (git)** — `shouldIgnoreWorkingTreePath` (`git/watching/watcherPatterns.js`) takes a path relative to the checkout's root rather than an absolute one, and matches only whole `.git` and `node_modules` segments and a segment starting `.watchman-cookie-`: given an absolute path it would again judge the folders above the checkout. Adds `createWorkingTreeNoiseFilter(repoPath)`, which returns the check for absolute event paths under that checkout
