@@ -9,7 +9,6 @@ import { chunk } from '@gitlens/utils/array.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { areEqual } from '@gitlens/utils/object.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -42,7 +41,7 @@ import type {
 	ProviderLinearProject,
 } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
-import { DiscoveryCache, isAutolinkSetExpired, isEmptyAutolinkFallback } from './utils/discoveryCache.js';
+import { DiscoveryCache, isAutolinkSetExpired } from './utils/discoveryCache.js';
 import { createIssueAutolinkReferences } from './utils/issueAutolinks.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -111,15 +110,6 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number; complete: boolean }
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
-	/**
-	 * Moves whenever `_autolinks` is dropped for a list a build reads, so a build that then fails keeps no fallback
-	 * over a list it didn't read; the next render builds from it instead (#6183). Rule: every writer that stores a
-	 * different team list must bump it and retire the token's build, through {@link onTeamListStored}, today only
-	 * `getTeamsWithMetadata`'s store; the same list stored again does neither while a complete set is kept (#6184). The
-	 * organization map deliberately doesn't: it only changes the links' url, on a forced read. Drops need no bump: they
-	 * move `_teams.generation`, which fails the build.
-	 */
-	private _autolinksResets = 0;
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -132,9 +122,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// A session kept through a failed refresh is expired: building with it would send that token to the provider
 		// on every render, so serve whatever was built before (none after a forced re-sync) until a read refreshes it.
 		if (this.connectionExpired === true) return cached?.autolinks ?? [];
-		if (cached == null) return this.buildAutolinks(session);
+		if (cached == null || (cached.builtAt === 0 && !cached.complete && cached.autolinks.length === 0)) {
+			return this.buildAutolinks(session);
+		}
 
-		if (isAutolinkSetExpired(cached)) {
+		if (cached.builtAt === 0 || isAutolinkSetExpired(cached)) {
 			void this.buildAutolinks(session);
 		}
 		return cached.autolinks;
@@ -151,7 +143,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const { accessToken } = session;
 		let build = this._autolinksBuilds.get(accessToken);
 		if (build == null) {
-			build = this.buildAutolinksCore(session).finally(() => {
+			build = this.buildAutolinksCore(session, () => build).finally(() => {
 				// A drop or a list change meanwhile retired this build, and the entry may be a later one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
 					this._autolinksBuilds.delete(accessToken);
@@ -164,67 +156,56 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	private async buildAutolinksCore(
 		session: ProviderAuthenticationSession,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		const generation = this._teams.generation;
-		const resets = this._autolinksResets;
-		// What this build falls back on when it can't read the organization or the teams
-		const held = this._autolinks.get(accessToken);
-		// Kept even when incomplete, to be retried sooner rather than by every render (#6183); not when built from
-		// teams read before the caches were dropped. Complete only when built from the team list and the organization
-		// as stored now. Once a list change retired this build, another may have kept a set meanwhile: a complete set
-		// still replaces it, and any replaces an empty incomplete one, the fallback of a build that read none;
-		// otherwise, as it also rests on what only this build read (an organization since read again and changed, a
-		// read cut short) or held, it only replaces the set it held, or none (#6184). Refused, it still answers the
-		// renders waiting on it with its own result, a known limit.
-		const keep = (
-			autolinks: (AutolinkReference | DynamicAutolinkReference)[],
-			complete: boolean,
-		): (AutolinkReference | DynamicAutolinkReference)[] => {
-			const kept = this._autolinks.get(accessToken);
-			if (
-				this._teams.generation === generation &&
-				(complete || kept == null || kept === held || isEmptyAutolinkFallback(kept))
-			) {
-				this._autolinks.set(accessToken, {
-					autolinks: autolinks,
-					builtAt: Date.now(),
-					complete: complete,
-				});
-			}
-			return autolinks;
-		};
-		// Serves the held set until the retry, unless a team list was stored meanwhile
-		const keepHeld = (): (AutolinkReference | DynamicAutolinkReference)[] =>
-			this._autolinksResets === resets ? keep(held?.autolinks ?? [], false) : (held?.autolinks ?? []);
 		try {
-			const organization = await this.getOrganization(session);
-			if (organization == null) return keepHeld();
-
-			const teams = await this.getTeamsWithMetadata(session);
-			if (teams == null) return keepHeld();
-
-			// While this build is current, a team list cached meanwhile outranks its read, as with Jira's sites
-			const cached = this._teams.generation === generation ? this._teams.get(accessToken) : undefined;
-			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-			for (const team of cached ?? teams.values) {
-				autolinks.push(
-					...createIssueAutolinkReferences(
-						team.key,
-						`${organization.url}/issue/${team.key}-<num>`,
-						organization,
-					),
-				);
+			const organization = await this.getOrganization(session, false, reader);
+			if (organization != null && this._teams.generation === generation) {
+				const teams = await this.getTeamsWithMetadata(session, false, reader);
+				if (teams != null && this._teams.generation !== generation) {
+					// Existing waiters own this successful response, but the active generation must not retain it.
+					return getTeamAutolinks(organization, teams.values);
+				}
 			}
-
-			// Built from teams not cached now, an incomplete read or a newer list since expired, or with an organization
-			// that differs from the one stored now, the set is served, and read again after the retry delay
-			return keep(autolinks, cached != null && areEqual(this._organizations?.get(accessToken), organization));
 		} catch (ex) {
-			// Autolinks are decoration: don't fail the render that asked
 			Logger.error(ex, 'LinearIntegration.autolinks');
-			return keepHeld();
 		}
+		return this.deriveAutolinks(accessToken, { store: this._teams.generation === generation });
+	}
+
+	private deriveAutolinks(
+		accessToken: string,
+		options?: {
+			store?: boolean;
+			settled?: boolean;
+		},
+	): (AutolinkReference | DynamicAutolinkReference)[] {
+		const organization = this._organizations.peek(accessToken);
+		const complete = this._organizations.get(accessToken) != null && this._teams.get(accessToken) != null;
+		const autolinks =
+			organization != null ? getTeamAutolinks(organization, this._teams.peek(accessToken) ?? []) : [];
+		if (options?.store !== false) {
+			this._autolinks.set(accessToken, {
+				autolinks: autolinks,
+				complete: complete,
+				// Stores preserve the retry deadline; only a settled build restarts it.
+				builtAt:
+					options?.settled !== false
+						? Date.now()
+						: this._autolinks.get(accessToken)?.builtAt || (complete ? Date.now() : 0),
+			});
+		}
+		return autolinks;
+	}
+
+	private onDiscoveryStored(accessToken: string, reader?: () => Promise<unknown> | undefined): void {
+		// A build's own store must not break sharing before its continuation runs.
+		if (this._autolinksBuilds.get(accessToken) !== reader?.()) {
+			this._autolinksBuilds.delete(accessToken);
+		}
+		this.deriveAutolinks(accessToken, { settled: false });
 	}
 
 	/** The workspace is the token's organization; kept only as a complete, trimmed pair. */
@@ -237,7 +218,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return id && name ? { id: id, name: name } : undefined;
 	}
 
-	private _organizations: Map<string, LinearOrganizationDescriptor | undefined> | undefined;
+	private readonly _organizations = new DiscoveryCache<LinearOrganizationDescriptor>();
 	/**
 	 * In flight by token and discovery generation. The request can't be aborted (provider-apis takes no signal), so a
 	 * lookup that outlives its caller's timeout is joined by the next one rather than piling another request on top of
@@ -247,28 +228,30 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	private async getOrganization(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<LinearOrganizationDescriptor | undefined> {
 		const { accessToken } = session;
-		// Held across the await: a re-sync drops `_organizations` meanwhile, and this read must still complete.
-		const organizations = (this._organizations ??= new Map<string, LinearOrganizationDescriptor | undefined>());
+		const cached = this._organizations.get(accessToken);
+		if (cached != null && !force) return cached;
 
-		const cachedResources = organizations.get(accessToken);
-
-		if (cachedResources == null || force) {
-			const requestKey = `${this.discoveryGeneration}:${accessToken}`;
-			let request = this._organizationRequests.get(requestKey);
-			if (request == null) {
-				request = this.fetchOrganization(session).finally(() => this._organizationRequests.delete(requestKey));
-				this._organizationRequests.set(requestKey, request);
-			}
-
-			const descriptor = await request;
-			if (descriptor) {
-				organizations.set(accessToken, descriptor);
-			}
+		const generation = this._organizations.generation;
+		const started = this._organizations.startRead();
+		const requestKey = `${this.discoveryGeneration}:${accessToken}`;
+		let request = this._organizationRequests.get(requestKey);
+		if (request == null) {
+			request = this.fetchOrganization(session).finally(() => this._organizationRequests.delete(requestKey));
+			this._organizationRequests.set(requestKey, request);
 		}
+		const organization = await request;
+		if (organization == null) return undefined;
 
-		return organizations.get(accessToken);
+		const stored = this._organizations.set(accessToken, organization, { generation: generation, read: started });
+		if (stored === 'changed') {
+			this.onDiscoveryStored(accessToken, reader);
+		}
+		return stored === false && this._organizations.generation === generation
+			? this._organizations.peek(accessToken)
+			: organization;
 	}
 
 	private async fetchOrganization(
@@ -298,6 +281,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	private async getTeamsWithMetadata(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
+		reader?: () => Promise<unknown> | undefined,
 	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const { accessToken } = session;
 
@@ -307,43 +291,26 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const generation = this._teams.generation;
 		const started = this._teams.startRead();
 		const read = await this.readTeams(session);
-		if (read == null || read.metadata != null) return read;
+		if (read == null) return read;
 
 		// Not stored when the cache was dropped, or a read started after this one stored the teams, while this read
 		// was in flight.
-		const stored = this._teams.set(accessToken, read.values, { generation: generation, read: started });
-		if (stored !== false) {
-			this.onTeamListStored(accessToken, stored);
-		} else if (this._teams.generation === generation) {
+		const stored = this._teams.set(accessToken, read.values, {
+			generation: generation,
+			read: started,
+			complete: read.metadata == null || read.metadata.completeness === 'complete',
+		});
+		if (stored === 'changed') {
+			this.onDiscoveryStored(accessToken, reader);
+		} else if (stored === false && this._teams.generation === generation) {
 			// Refused for a read started after it: answers with that read's newer list, which this older one must not
 			// stand in for, not even once expired (#6184).
-			return { values: this._teams.peek(accessToken) ?? read.values };
+			return {
+				values: this._teams.peek(accessToken) ?? read.values,
+				metadata: this._teams.get(accessToken) == null ? { completeness: 'unknown' } : undefined,
+			};
 		}
 		return read;
-	}
-
-	/**
-	 * The team list was stored, and the autolinks are built from it. A different one drops them, so a build that then
-	 * fails keeps no fallback, and retires the build in flight, which may hold the list as it was. The same one again
-	 * keeps a complete set and the build in flight; otherwise it drops the incomplete set kept, if any, so the next
-	 * render builds from the list again, and still fences a failing build's fallback (#6183, #6184). Other tokens' sets
-	 * and builds stay; only `_autolinksResets`, shared by all tokens, also stops their failing builds' fallback.
-	 *
-	 * A known limit: a build whose own read stores a different list, or the first one (with nothing stored since a start
-	 * or a clear, every first store reads as different), retires itself too. A render in the microtasks before that
-	 * build resumes then starts a second one rather than joining it; that one builds from the team list just stored and
-	 * the organization cached, without reading the network. A loss of the sharing core had, with no effect on what is
-	 * kept, and none on an identical list, which retires nothing.
-	 */
-	private onTeamListStored(accessToken: string, stored: 'changed' | 'unchanged'): void {
-		if (stored === 'changed') {
-			this._autolinksBuilds.delete(accessToken);
-		} else if (this._autolinks.get(accessToken)?.complete === true) {
-			return;
-		}
-
-		this._autolinks.delete(accessToken);
-		this._autolinksResets++;
 	}
 
 	private async readTeams(
@@ -361,7 +328,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		// provider-apis currently requests Linear's teams connection without pageInfo or a cursor. Linear's
 		// implicit page size is 50, so exactly a full page cannot prove there is no team 51. Preserve the useful
-		// prefix, but mark it unknown and leave it uncached so the next read retries instead of treating it as
+		// prefix, but mark it unknown so the next discovery read retries instead of treating it as
 		// authoritative. Once provider-apis exposes a paged primitive, replace this fail-closed guard with a drain.
 		if (descriptors.length >= linearImplicitTeamsPageSize) {
 			return { values: descriptors, metadata: { completeness: 'unknown' } };
@@ -515,7 +482,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	}
 
 	protected override clearDiscoveryCaches(): void {
-		this._organizations = undefined;
+		this._organizations.clear();
 		this._teams.clear();
 		this._workspaceProjects.clear();
 		this._workspaceProjectsReads.clear();
@@ -1091,4 +1058,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 		return url.substring(0, url.length - lastSegment.length - 1);
 	}
+}
+
+function getTeamAutolinks(
+	organization: LinearOrganizationDescriptor,
+	teams: readonly LinearTeamDescriptor[],
+): AutolinkReference[] {
+	return teams.flatMap(team =>
+		createIssueAutolinkReferences(team.key, `${organization.url}/issue/${team.key}-<num>`, organization),
+	);
 }

@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes Jira Cloud and Linear autolinks losing known links after failed discovery or restoring older partial lists during overlapping reads. Links now follow the latest cached sites, projects, teams and organization, including site removals and renamed workspace URLs ([#6202](https://github.com/gitkraken/vscode-gitlens/issues/6202)) (plus/integrations)
+
 - Fixes Linear autolinks keeping an incomplete team list cached for the whole discovery TTL instead of retrying discovery ([#6177](https://github.com/gitkraken/vscode-gitlens/issues/6177)) (plus/integrations)
 - Fixes Jira Cloud and Linear autolinks re-reading, and waiting on, the provider on every call while the sites, a site's projects, the Linear organization or its teams can't be read whole; that set is now kept, with the last prefixes of a site that failed, and retried in the background after a minute ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183)) (plus/integrations)
 - Fixes Jira Cloud and Linear autolinks after a newer read replaces a site's project list or the team list while an autolink build is in flight: a render no longer joins the build started before the replacement, an older read landing last no longer puts its list back for the discovery TTL nor answers with it, a later build's empty fallback no longer blocks the set the retired build kept, a Jira site whose projects keep failing keeps the prefixes of its last list stored once the replacement dropped the set, and the same list read again no longer drops a complete set nor retires the build in flight ([#6184](https://github.com/gitkraken/vscode-gitlens/issues/6184)) (plus/integrations)
