@@ -90,8 +90,36 @@ suite('Chord Test Suite', () => {
 			assert.strictEqual(chord.matchOn, 'key');
 		});
 
-		test('named keys are exact-case', () => {
+		test('named keys resolve to their canonical spelling', () => {
 			assert.strictEqual(parseChord('ArrowLeft', false).token, 'ArrowLeft');
+			assert.strictEqual(parseChord('alt+arrowup', false).token, 'ArrowUp');
+			assert.strictEqual(parseChord('f3', false).token, 'F3');
+			assert.strictEqual(parseChord('pageup', false).token, 'PageUp');
+			assert.strictEqual(parseChord('ESCAPE', false).token, 'Escape');
+		});
+
+		test('code tokens are case-insensitive and resolve to canonical spelling', () => {
+			for (const input of ['Alt+KeyM', 'ALT+keym', 'alt+KEYM']) {
+				const chord = parseChord(input, false);
+				assert.strictEqual(chord.token, 'KeyM', input);
+				assert.strictEqual(chord.matchOn, 'code', input);
+				assert.strictEqual(chord.alt, true, input);
+			}
+
+			assert.strictEqual(parseChord('digit1', false).token, 'Digit1');
+			assert.strictEqual(parseChord('DIGIT1', false).matchOn, 'code');
+		});
+
+		test('modifier names are case-insensitive', () => {
+			const chord = parseChord('Mod+c', false);
+			assert.strictEqual(chord.ctrl, true);
+			assert.strictEqual(chord.meta, false);
+			assert.strictEqual(parseChord('MOD+c', true).meta, true);
+		});
+
+		test('single-character tokens stay case-sensitive', () => {
+			assert.strictEqual(parseChord('h', false).token, 'h');
+			assert.strictEqual(parseChord('H', false).token, 'H');
 		});
 
 		test('empty input throws', () => {
@@ -106,14 +134,17 @@ suite('Chord Test Suite', () => {
 			assert.throws(() => parseChord('ctrl+ctrl+c', false), /duplicate modifier 'ctrl'/);
 		});
 
+		test('duplicate modifier throws regardless of case', () => {
+			assert.throws(() => parseChord('ctrl+Ctrl+c', false), /duplicate modifier 'ctrl'/);
+		});
+
 		test('unknown modifier throws', () => {
 			assert.throws(() => parseChord('foo+c', false), /unknown modifier 'foo'/);
 		});
 
 		test('unknown key throws', () => {
 			assert.throws(() => parseChord('alt+Bogus', false), /unknown key 'Bogus'/);
-			// Named keys are case-sensitive `KeyboardEvent.key` values; `Space` is not one (the key is ' ').
-			assert.throws(() => parseChord('alt+arrowup', false), /unknown key 'arrowup'/);
+			// `Space` is not a `KeyboardEvent.key` value (the key is ' ').
 			assert.throws(() => parseChord('alt+Space', false), /unknown key 'Space'/);
 		});
 
@@ -158,6 +189,11 @@ suite('Chord Test Suite', () => {
 			const chord = parseChord('alt+KeyM', false);
 			assert.strictEqual(matchesChord(chord, event({ code: 'KeyM', key: 'µ', altKey: true })), true);
 			assert.strictEqual(matchesChord(chord, event({ code: 'KeyM', key: 'ß', altKey: true })), true);
+		});
+
+		test('chord parsed from a lowercase name matches the canonical key', () => {
+			const chord = parseChord('alt+arrowup', false);
+			assert.strictEqual(matchesChord(chord, event({ key: 'ArrowUp', altKey: true })), true);
 		});
 
 		test('Digit3 does not match Numpad3', () => {

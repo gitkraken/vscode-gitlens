@@ -12,7 +12,7 @@ export type ChordModifier = 'mod' | 'ctrl' | 'alt' | 'shift' | 'meta';
 
 /** A single parsed key combination, ready to match against key events. */
 export type Chord = {
-	/** The original token, e.g. `'ArrowUp'`, `'c'`, `'KeyM'`. */
+	/** The canonical token spelling, e.g. `'ArrowUp'`, `'c'`, `'KeyM'`. */
 	token: string;
 	/** Whether the token is matched against `event.code` (layout-independent) or `event.key`. */
 	matchOn: 'key' | 'code';
@@ -29,31 +29,36 @@ export type Chord = {
 
 const codeTokenPattern = /^(?:Key[A-Z]|Digit[0-9])$/;
 
-/** Multi-character `KeyboardEvent.key` values a chord token may name; anything else could never match. */
-const namedKeyTokens = new Set<string>([
-	'ArrowUp',
-	'ArrowDown',
-	'ArrowLeft',
-	'ArrowRight',
-	'Backspace',
-	'BrowserBack',
-	'BrowserForward',
-	'Clear',
-	'ContextMenu',
-	'Delete',
-	'End',
-	'Enter',
-	'Escape',
-	'Help',
-	'Home',
-	'Insert',
-	'PageDown',
-	'PageUp',
-	'Pause',
-	'ScrollLock',
-	'Tab',
-	...Array.from({ length: 24 }, (_, i) => `F${i + 1}`),
-]);
+/**
+ * Multi-character `KeyboardEvent.key` values a chord token may name (anything else could never match),
+ * keyed by lowercased name so lookups are case-insensitive and resolve to the canonical spelling.
+ */
+const namedKeyTokens = new Map<string, string>(
+	[
+		'ArrowUp',
+		'ArrowDown',
+		'ArrowLeft',
+		'ArrowRight',
+		'Backspace',
+		'BrowserBack',
+		'BrowserForward',
+		'Clear',
+		'ContextMenu',
+		'Delete',
+		'End',
+		'Enter',
+		'Escape',
+		'Help',
+		'Home',
+		'Insert',
+		'PageDown',
+		'PageUp',
+		'Pause',
+		'ScrollLock',
+		'Tab',
+		...Array.from({ length: 24 }, (_, i) => `F${i + 1}`),
+	].map(name => [name.toLowerCase(), name]),
+);
 
 const readableTokens = new Map<string, string>([
 	['ArrowUp', '↑'],
@@ -68,7 +73,9 @@ const readableTokens = new Map<string, string>([
 
 /**
  * Parses a `+`-separated key combination such as `'mod+c'` or `'alt+KeyM'` into a {@link Chord}.
- * Throws on malformed input. `isMac` resolves the `'mod'` modifier (`meta` on mac, `ctrl` otherwise).
+ * Modifier and multi-character key names are case-insensitive (`'Alt+keym'` is `'alt+KeyM'`); a
+ * single-character token is matched exactly. Throws on malformed input. `isMac` resolves the `'mod'`
+ * modifier (`meta` on mac, `ctrl` otherwise).
  */
 export function parseChord(input: string, isMac: boolean): Chord {
 	if (!input) throw new Error(`Invalid key chord '${input}': empty input`);
@@ -82,9 +89,9 @@ export function parseChord(input: string, isMac: boolean): Chord {
 	}
 
 	const modifiers = parts.slice(0, -1);
-	const token = parts.at(-1)!;
+	const rawToken = parts.at(-1)!;
 
-	if (token === '') throw new Error(`Invalid key chord '${input}': empty token`);
+	if (rawToken === '') throw new Error(`Invalid key chord '${input}': empty token`);
 
 	let mod = false;
 	let ctrl = false;
@@ -93,7 +100,7 @@ export function parseChord(input: string, isMac: boolean): Chord {
 	let meta = false;
 
 	for (const modifier of modifiers) {
-		switch (modifier) {
+		switch (modifier.toLowerCase()) {
 			case 'mod':
 				if (mod) throw new Error(`Invalid key chord '${input}': duplicate modifier 'mod'`);
 
@@ -136,12 +143,29 @@ export function parseChord(input: string, isMac: boolean): Chord {
 		}
 	}
 
-	const matchOn: Chord['matchOn'] = codeTokenPattern.test(token) ? 'code' : 'key';
-	const isSingleChar = [...token].length === 1;
+	const isSingleChar = [...rawToken].length === 1;
 
-	if (matchOn === 'key' && !isSingleChar && !namedKeyTokens.has(token)) {
-		throw new Error(`Invalid key chord '${input}': unknown key '${token}'`);
+	// Single characters stay case-sensitive (`h` and `H` are distinct bindings); multi-character names are
+	// resolved to their canonical spelling, since that is what `matchesChord` and the display compare on.
+	let token = rawToken;
+	if (!isSingleChar) {
+		const keyMatch = /^key([a-z])$/i.exec(rawToken);
+		const digitMatch = /^digit([0-9])$/i.exec(rawToken);
+		if (keyMatch != null) {
+			token = `Key${keyMatch[1].toUpperCase()}`;
+		} else if (digitMatch != null) {
+			token = `Digit${digitMatch[1]}`;
+		} else {
+			const named = namedKeyTokens.get(rawToken.toLowerCase());
+			if (named == null) {
+				throw new Error(`Invalid key chord '${input}': unknown key '${rawToken}'`);
+			}
+
+			token = named;
+		}
 	}
+
+	const matchOn: Chord['matchOn'] = codeTokenPattern.test(token) ? 'code' : 'key';
 
 	let resolvedShift: Chord['shift'];
 	if (matchOn === 'code') {
