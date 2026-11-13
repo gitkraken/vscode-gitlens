@@ -44,6 +44,7 @@ import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
+import { HoldOffMap } from '@gitlens/utils/holdOffMap.js';
 import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -95,6 +96,15 @@ const nonInteractiveNetworkOptions = {
 	},
 	timeout: 10_000,
 } as const satisfies GitRunOptions;
+
+/**
+ * How long after a failed read of a remote's default branch off the network (an unreachable host, a refused login, a
+ * timeout) the network isn't tried again for that remote
+ */
+const failedDefaultBranchLookupWait = 60 * 1000;
+
+/** The clock a failed default branch lookup's wait is measured on, exported for testing */
+export const defaultBranchLookupClock = { now: (): number => Date.now() };
 
 const branchActivityKeys = ['gk-last-accessed', 'gk-last-modified', 'gk-agent-last-activity'] as const;
 type BranchActivityKey = (typeof branchActivityKeys)[number];
@@ -440,6 +450,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * run again on every full read of the base while the machine is likely still as busy
 	 */
 	private readonly unfinishedPatchChecks = new LruMap<string, number>(256);
+
+	/**
+	 * Failed network reads of a remote's default branch, by common path and remote (see {@link getDefaultBranchName}),
+	 * each with the drop stamp taken before it. A drop of the repository's cached default branch since (a change to its
+	 * remotes or branches, a close or reset) ends it, so a fixed remote is tried again straight away
+	 */
+	private readonly failedDefaultBranchLookups = new HoldOffMap<string, number>(
+		failedDefaultBranchLookupWait,
+		256,
+		defaultBranchLookupClock,
+	);
 	/**
 	 * When each `commonPath\0branch\0key` was last stamped by this process. Bounded: a dropped entry only costs a
 	 * read of the stored stamp, which still holds off a write under 5 minutes old
@@ -1453,6 +1474,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			repoPath,
 			remote,
 			async (commonPath, cacheable, signal) => {
+				const failedKey = `${commonPath}\0${remote}`;
+				let dropStamp = this.cache.getDropStamp('defaultBranchName', commonPath);
+				const networkOptions = {
+					cwd: commonPath,
+					cancellation: signal ?? cancellation,
+					...priorityOpts,
+					...nonInteractiveNetworkOptions,
+				};
+
 				let retried = false;
 				while (true) {
 					try {
@@ -1462,6 +1492,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							'--short',
 							`refs/remotes/${remote}/HEAD`,
 						);
+						this.failedDefaultBranchLookups.release(failedKey);
 						return result.stdout.trim() || undefined;
 					} catch (ex) {
 						// Only "no HEAD ref configured" is an ANSWER here; every other throw means the lookup
@@ -1469,31 +1500,39 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						// being the likely one — would pin "no default branch" for the session.
 						let answered = false;
 						if (/is not a symbolic ref/.test(ex.stderr)) {
+							const failedDropStamp = this.failedDefaultBranchLookups.get(failedKey);
+							if (failedDropStamp != null && !retried) {
+								if (!this.cache.isDroppedSince('defaultBranchName', commonPath, failedDropStamp)) {
+									cacheable.invalidate();
+									return undefined;
+								}
+
+								this.failedDefaultBranchLookups.release(failedKey);
+							}
+
 							try {
 								if (!retried) {
 									retried = true;
-									await this.git.run(
-										{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
-										'remote',
-										'set-head',
-										'-a',
-										remote,
-									);
+									await this.git.run(networkOptions, 'remote', 'set-head', '-a', remote);
+									this.failedDefaultBranchLookups.release(failedKey);
 									// This just created `refs/remotes/<remote>/HEAD`, which the `local` variant
 									// may already have cached a miss for. The watcher would also catch the new
 									// ref, but evict directly so consumers of this package that don't wire up a
 									// watcher aren't stuck with that miss.
 									this.cache.deleteDefaultBranchName(commonPath, `${remote}:local`);
+									// That drop is this lookup's own, so it mustn't void a failure of the read that follows
+									dropStamp = this.cache.getDropStamp('defaultBranchName', commonPath);
 									continue;
 								}
 
 								const result = await this.git.run(
-									{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+									networkOptions,
 									'ls-remote',
 									'--symref',
 									remote,
 									'HEAD',
 								);
+								this.failedDefaultBranchLookups.release(failedKey);
 								if (result.stdout) {
 									const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
 									if (match != null) {
@@ -1504,8 +1543,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 								// `ls-remote` ran and the remote advertised no HEAD — a real "none".
 								answered = true;
-							} catch {
-								if (isCancellationError(ex)) throw ex;
+							} catch (networkEx) {
+								// Running out of time is a `CancellationError` too, but it is the network failing
+								// rather than the caller leaving
+								if (isCancellationError(networkEx) && networkEx.reason !== 'timeout') throw networkEx;
+
+								// A change mid-attempt may have fixed what failed, so the failure is not held against it;
+								// nor may its older stamp replace the hold of an attempt that started after the change
+								if (!this.cache.isDroppedSince('defaultBranchName', commonPath, dropStamp)) {
+									this.failedDefaultBranchLookups.hold(failedKey, dropStamp);
+								}
 							}
 						}
 

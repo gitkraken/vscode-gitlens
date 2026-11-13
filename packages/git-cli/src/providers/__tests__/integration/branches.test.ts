@@ -183,7 +183,7 @@ suite('BranchesSubProvider — default branch caching', () => {
 	});
 });
 
-suite('BranchesSubProvider.setRemoteHeadIfMissing — never prompts', () => {
+suite('BranchesSubProvider — remote default branch reads never prompt', () => {
 	let server: Server;
 	let dir: string;
 	let marker: string;
@@ -232,9 +232,7 @@ suite('BranchesSubProvider.setRemoteHeadIfMissing — never prompts', () => {
 		rmSync(marker, { force: true });
 	});
 
-	// Runs first on purpose: a failed lookup must not be cached, or the control below would be served its
-	// answer instead of prompting.
-	test('cannot prompt for credentials', async () => {
+	test('setRemoteHeadIfMissing cannot prompt for credentials', async () => {
 		const start = Date.now();
 		await assert.rejects(repo.provider.branches.setRemoteHeadIfMissing(repo.path, 'origin'));
 
@@ -242,11 +240,13 @@ suite('BranchesSubProvider.setRemoteHeadIfMissing — never prompts', () => {
 		assert.strictEqual(existsSync(marker), false, 'the askpass program must not be invoked');
 	});
 
-	test('control: an interactive lookup does invoke the askpass program', async () => {
+	test('the networked default branch lookup cannot prompt for credentials either', async () => {
+		const start = Date.now();
 		const name = await repo.provider.branches.getDefaultBranchName(repo.path, 'origin');
 
 		assert.strictEqual(name, undefined);
-		assert.strictEqual(existsSync(marker), true, 'the askpass program should have been invoked');
+		assert.ok(Date.now() - start < 8000, 'should fail fast rather than wait out the timeout');
+		assert.strictEqual(existsSync(marker), false, 'the askpass program must not be invoked');
 	});
 });
 
