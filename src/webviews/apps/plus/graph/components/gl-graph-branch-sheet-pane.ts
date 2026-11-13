@@ -44,6 +44,7 @@ import {
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
+import { getDeleteBranchOrWorktreeLabel } from '../../shared/deleteBranchOrWorktree.utils.js';
 import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
 import {
 	formatQueueHandledBehind,
@@ -1103,7 +1104,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 						? html`<gl-button
 								appearance="secondary"
 								href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', branchRef)}
-								>${l10n.t('Delete Local Branch')}</gl-button
+								>${getDeleteBranchOrWorktreeLabel(branch.worktree, 'local')}</gl-button
 							>`
 						: nothing
 				}<gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>`;
@@ -1734,7 +1735,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	): TemplateResult | typeof nothing {
 		const branchRef = this.toBranchRef(branch);
 		const isWorktree = this.isOtherWorktree(branch.worktree);
-		const deleteLabel = isWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Branch');
+		const deleteLabel = getDeleteBranchOrWorktreeLabel(branch.worktree);
 		// Delete only ever removes a local branch or worktree, never a remote branch on the server
 		const canDelete = this.ref?.refType !== 'remote';
 

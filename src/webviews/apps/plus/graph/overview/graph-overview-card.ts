@@ -15,11 +15,18 @@ import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../const
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { GraphOverviewBranch } from '../../../../plus/graph/protocol.js';
-import type { BranchRef } from '../../../../shared/branchRefs.js';
-import type { OverviewBranchEnrichment, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
+import type { BranchRef, DeleteBranchOrWorktreeRefs } from '../../../../shared/branchRefs.js';
+import type {
+	OverviewBranchEnrichment,
+	OverviewBranchLanded,
+	OverviewBranchMergeTarget,
+	OverviewBranchWip,
+} from '../../../../shared/overviewBranches.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
+import { getDeleteBranchOrWorktreeLabel } from '../../shared/deleteBranchOrWorktree.utils.js';
+import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import { graphServicesContext } from '../context.js';
 import {
 	getLaunchpadItemGroup,
@@ -45,8 +52,8 @@ import '../../../shared/components/actions/action-nav.js';
 
 function getBranchCardIndicator(
 	branch: GraphOverviewBranch,
-	wip?: OverviewBranchWip,
-	enrichment?: OverviewBranchEnrichment,
+	wip: OverviewBranchWip | undefined,
+	landed: OverviewBranchLanded | undefined,
 ): string | undefined {
 	if (branch.opened) {
 		if (wip?.pausedOpStatus != null) {
@@ -72,10 +79,8 @@ function getBranchCardIndicator(
 				wip.workingTreeState.added + wip.workingTreeState.changed + wip.workingTreeState.deleted > 0);
 		if (hasWip) return 'branch-changes';
 
-		// Merge-target is fetched lazily by <gl-branch-hover> on first hover and published into shared
-		// `overviewEnrichment`, which `graph-overview` passes straight back down as our `enrichment` prop.
-		// So this stays absent until someone hovers the branch — by design, it's expensive.
-		if (enrichment?.mergeTarget?.landed != null) return 'branch-merged';
+		// See `GlGraphOverviewCard.landed` for where this comes from, and when it's absent
+		if (landed != null) return 'branch-merged';
 	}
 
 	if (branch.upstream?.missing) return 'branch-missingUpstream';
@@ -348,6 +353,16 @@ export class GlGraphOverviewCard extends LitElement {
 	@property({ type: Object })
 	enrichment?: OverviewBranchEnrichment;
 
+	/** The host's merge-target verdict, for the Graph's current branch's card only, and only while it describes this
+	 *  branch at its tip. The other cards get theirs lazily, from a hover (see {@link landed}). */
+	@property({ attribute: false })
+	currentMergeTarget?: OverviewBranchMergeTarget;
+
+	/** Whether the host's verdict for this (current) branch is still being decided after its upstream went, during
+	 *  which, as in the header, Publish is withheld rather than offered for a branch that may have landed */
+	@property({ type: Boolean, attribute: false })
+	currentMergeTargetPending = false;
+
 	@property({ type: Array })
 	agentSessions?: AgentSessionState[];
 
@@ -398,6 +413,21 @@ export class GlGraphOverviewCard extends LitElement {
 		return wts != null && wts.added + wts.changed + wts.deleted > 0;
 	}
 
+	private get mergeTarget(): OverviewBranchMergeTarget | undefined {
+		return this.currentMergeTarget ?? this.enrichment?.mergeTarget;
+	}
+
+	/**
+	 * Set when the branch's work landed in its merge target. The current branch's card has the host's verdict; any
+	 * other card's is fetched lazily by <gl-branch-hover> and published into the shared `overviewEnrichment` (which
+	 * `graph-overview` passes back down as `enrichment`), so it stays absent until someone hovers the branch — by
+	 * design, it's expensive. Trusted only for the tip it was computed against, so a commit since voids it.
+	 */
+	private get landed(): OverviewBranchLanded | undefined {
+		const landed = this.mergeTarget?.landed;
+		return landed?.tipSha != null && landed.tipSha === this.branch.reference.sha ? landed : undefined;
+	}
+
 	private get launchpadGrouping() {
 		return getLaunchpadItemGrouping(getLaunchpadItemGroup(this.enrichment?.pr, this.enrichment?.resolvedLaunchpad));
 	}
@@ -406,7 +436,7 @@ export class GlGraphOverviewCard extends LitElement {
 		const branch = this.branch;
 		if (branch == null) return nothing;
 
-		const branchIndicator = getBranchCardIndicator(this.branch, this.wip, this.enrichment);
+		const branchIndicator = getBranchCardIndicator(this.branch, this.wip, this.landed);
 		const grouping = this.launchpadGrouping;
 		const cardClasses = classMap({
 			'branch-item': true,
@@ -694,7 +724,8 @@ export class GlGraphOverviewCard extends LitElement {
 		// (and PR-specific actions) live in the rich hover. Per #5170:
 		// - Opened (current/active) branches: state-aware sync (Pull/Push/Fetch). One action,
 		//   no alt-toggle — Pull/Fetch stay distinct so the click is unambiguous. NEVER Switch
-		//   or Open Worktree — the user is already on this branch.
+		//   or Open Worktree — the user is already on this branch. A landed branch has nothing left
+		//   to sync or publish, so it offers its cleanup instead.
 		// - Non-opened worktree branches: Open Worktree (new window default; alt-toggle to
 		//   open in current window).
 		// - Non-opened main-repo branches: Switch to Branch.
@@ -705,7 +736,10 @@ export class GlGraphOverviewCard extends LitElement {
 		const hasUpstream = upstream != null && !upstream.missing;
 
 		if (opened) {
-			if (hasUpstream) {
+			const landed = this.landed;
+			if (landed != null) {
+				actions.push(this.renderDeleteAction(landed));
+			} else if (hasUpstream) {
 				if (tracking?.behind) {
 					actions.push(
 						html`<action-item
@@ -714,7 +748,8 @@ export class GlGraphOverviewCard extends LitElement {
 							href=${this.createCommandLink('gitlens.graph.pull')}
 						></action-item>`,
 					);
-				} else if (tracking?.ahead) {
+				} else if (tracking?.ahead && !isPullRequestQueued(this.enrichment?.pr)) {
+					// While queued, the merge queue owns the branch, so it's not offered a push
 					actions.push(
 						html`<action-item
 							label=${l10n.t('Push')}
@@ -731,27 +766,26 @@ export class GlGraphOverviewCard extends LitElement {
 						></action-item>`,
 					);
 				}
-			} else if (this.enrichment?.mergeTarget?.landed == null) {
-				// A landed branch's work is already in the merge target, so there is nothing to publish
-				if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
-					// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
-					// opened in another worktree) can be offered
-					actions.push(
-						html`<action-item
-							label=${l10n.t('Publish Repository')}
-							icon="cloud-upload"
-							href=${this.createCommandLink('gitlens.publishRepository:')}
-						></action-item>`,
-					);
-				} else {
-					actions.push(
-						html`<action-item
-							label=${l10n.t('Publish Branch')}
-							icon="cloud-upload"
-							href=${this.createCommandLink('gitlens.publishBranch:')}
-						></action-item>`,
-					);
-				}
+			} else if (this.currentMergeTargetPending) {
+				// Deciding whether a gone upstream means it landed; offers nothing until that settles
+			} else if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
+				// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
+				// opened in another worktree) can be offered
+				actions.push(
+					html`<action-item
+						label=${l10n.t('Publish Repository')}
+						icon="cloud-upload"
+						href=${this.createCommandLink('gitlens.publishRepository:')}
+					></action-item>`,
+				);
+			} else {
+				actions.push(
+					html`<action-item
+						label=${l10n.t('Publish Branch')}
+						icon="cloud-upload"
+						href=${this.createCommandLink('gitlens.publishBranch:')}
+					></action-item>`,
+				);
 			}
 		} else if (this.isWorktree) {
 			actions.push(
@@ -776,6 +810,24 @@ export class GlGraphOverviewCard extends LitElement {
 
 		if (actions.length === 0) return nothing;
 		return html`<action-nav class="branch-item__inline-actions">${actions}</action-nav>`;
+	}
+
+	/** The same Delete as the branch sheet's merge-target card, with the same evidence */
+	private renderDeleteAction(landed: OverviewBranchLanded): TemplateResult {
+		const mergeTarget = this.mergeTarget!;
+		const label = getDeleteBranchOrWorktreeLabel(this.branch.worktree);
+		return html`<action-item
+			label=${label}
+			icon="trash"
+			href=${this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>('gitlens.deleteBranchOrWorktree:', {
+				...this.branchRef,
+				mergeTarget: { repoPath: mergeTarget.repoPath, branchId: mergeTarget.id, branchName: mergeTarget.name },
+				// Only PR evidence may pre-select Force Delete — git evidence can't prove the work is safe to drop
+				...(landed.via === 'pr' && landed.pullRequest != null && landed.tipSha != null
+					? { mergedPullRequest: { id: landed.pullRequest.id, sha: landed.tipSha } }
+					: undefined),
+			})}
+		></action-item>`;
 	}
 
 	private createCommandLink<T>(

@@ -3884,11 +3884,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
+		const epoch = this.graphState.mergeTargetsEpoch?.epoch ?? 0;
 		try {
 			const branches = await services.branches;
 			const enrichment = await branches.getBranchEnrichment(branch.repoPath, branch.name);
 			const mergeTarget = await enrichment?.mergeTargetStatus;
-			this.graphState.mergeMergeTargetIntoEnrichment(branchId, mergeTarget);
+			this.graphState.mergeMergeTargetIntoEnrichment(branchId, mergeTarget, epoch);
 		} catch {
 			// Swallow — the scope-anchor flow tolerates an absent tip SHA.
 		}

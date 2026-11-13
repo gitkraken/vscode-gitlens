@@ -14,6 +14,7 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { BranchRef, DeleteBranchOrWorktreeRefs } from '../../../../shared/branchRefs.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import { getDeleteBranchOrWorktreeLabel } from '../../shared/deleteBranchOrWorktree.utils.js';
 import type { MergeQueueEntryLike } from '../../shared/mergeQueue.utils.js';
 import {
 	formatQueueHandledBehind,
@@ -223,7 +224,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				label: l10n.t('{branch} is missing from the remote', {
 					branch: branch.name,
 				}),
-				actionLabel: l10n.t('Delete Local Branch'),
+				// The branch is the WIP's own repo's HEAD, so a linked worktree's goes with its worktree
+				actionLabel: getDeleteBranchOrWorktreeLabel({ isDefault: this.wip?.repo.isWorktree !== true }, 'local'),
 				href: this._webview.createCommandLink<DeleteBranchOrWorktreeRefs>(
 					'gitlens.deleteBranchOrWorktree:',
 					branchRef,
@@ -435,8 +437,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			branchName: mergeTarget.name,
 		};
 
-		const isWorktree = branch.worktree != null && !branch.worktree.isDefault;
-		const deleteLabel = isWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Branch');
+		const deleteLabel = getDeleteBranchOrWorktreeLabel(branch.worktree);
 
 		const landed = mergeTarget.landed;
 		const mergedStatus = mergeTarget.mergedStatus;

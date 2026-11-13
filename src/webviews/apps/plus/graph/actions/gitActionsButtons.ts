@@ -25,6 +25,7 @@ import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
+import { isPullRequestQueued } from '../../shared/mergeQueue.utils.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { actionButton, linkBase } from '../styles/graph.css.js';
@@ -1482,7 +1483,9 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		if (!this.branchState || (!this.isAhead && !this.isBehind)) {
+		// While queued, the merge queue owns the branch, so it's not offered a push or force push — Pull stays
+		const queued = isPullRequestQueued(this.branchState?.pr);
+		if (!this.branchState || (!this.isBehind && (!this.isAhead || queued))) {
 			return nothing;
 		}
 
@@ -1491,7 +1494,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		return html`
 			${action === 'pull' ? this.renderPull() : this.renderPush()}
 			${
-				this.isAhead && this.isBehind
+				this.isAhead && this.isBehind && !queued
 					? html`
 							<gl-button
 								appearance="toolbar"

@@ -118,9 +118,14 @@ export interface AppState extends State {
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC skips merge-target fetching; the click-to-scope path and the shared branch
 	 * hover (`gl-branch-hover`, backing both the overview card and the graph WIP-bar pills) fetch it and
-	 * call this so the scope-anchor's `reconcileScopeMergeTarget` hook backfills the tip SHA.
+	 * call this so the scope-anchor's `reconcileScopeMergeTarget` hook backfills the tip SHA. Pass the
+	 * `mergeTargetsEpoch` the fetch started at, so an answer a merge-target change has since voided is dropped.
 	 */
-	mergeMergeTargetIntoEnrichment(branchId: string, mergeTarget: OverviewBranchMergeTarget | undefined): void;
+	mergeMergeTargetIntoEnrichment(
+		branchId: string,
+		mergeTarget: OverviewBranchMergeTarget | undefined,
+		fetchedAtEpoch?: number,
+	): void;
 
 	/**
 	 * Fetch enrichment for the overview's active/recent branches. Called lazily by consumers such as

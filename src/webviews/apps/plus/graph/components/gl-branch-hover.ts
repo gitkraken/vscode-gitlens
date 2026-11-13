@@ -142,6 +142,8 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	@state() private _mergeTargetLoading = false;
 	private _mergeTargetPromise?: Promise<OverviewBranchMergeTarget | undefined>;
 	private _mergeTargetFetchedFor?: string;
+	/** The `mergeTargetsEpoch` the cached merge target is current as of — a later change naming its branch voids it */
+	private _mergeTargetEpoch = 0;
 	/** The `wip` object we last requested a breakdown for — keyed by reference, not branch id, so a WIP
 	 *  push (which replaces the object) re-enables the request. A branch id alone never changes, so once a
 	 *  fetch failed it would suppress every retry for the branch's lifetime. */
@@ -219,12 +221,35 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		// must count rather than be suppressed by the prior branch's emit. (The overview card used to own
 		// this via its own willUpdate.)
 		if (changed.has('branchId')) {
-			this._mergeTarget = undefined;
-			this._mergeTargetPromise = undefined;
-			this._mergeTargetLoading = false;
-			this._mergeTargetFetchedFor = undefined;
+			this.resetMergeTarget();
 			this._hoverShownEmitted = false;
 		}
+	}
+
+	private resetMergeTarget(): void {
+		this._mergeTarget = undefined;
+		this._mergeTargetPromise = undefined;
+		this._mergeTargetLoading = false;
+		this._mergeTargetFetchedFor = undefined;
+	}
+
+	/** The current `mergeTargetsEpoch`, and whether a change after `epoch` may have changed `branchName`'s merge
+	 *  target. Read outside render, so it adds no signal dependency. */
+	private checkMergeTargetsEpoch(epoch: number, branchName: string): { epoch: number; invalidated: boolean } {
+		const current = this._graphState?.mergeTargetsEpoch;
+		if (current == null || current.epoch <= epoch) return { epoch: epoch, invalidated: false };
+
+		return {
+			epoch: current.epoch,
+			// A skipped epoch is a change this didn't see, which could have been any branch's
+			invalidated: current.epoch > epoch + 1 || current.refs == null || current.refs.includes(branchName),
+		};
+	}
+
+	/** Whether a resolved merge target vouches for its branch landing at a tip it no longer has */
+	private isLandedForOtherTip(mergeTarget: OverviewBranchMergeTarget | undefined, branch: OverviewBranch): boolean {
+		const landed = mergeTarget?.landed;
+		return landed != null && (landed.tipSha == null || landed.tipSha !== branch.reference.sha);
 	}
 
 	override updated(changed: PropertyValues<this>): void {
@@ -312,14 +337,24 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		if (branch == null) return;
 
 		// Already fetched (or in flight) for this branch. The promise is reused across hovers;
-		// <gl-merge-target-status> handles its own loading state.
-		if (this._mergeTargetFetchedFor === branch.id && this._mergeTargetPromise != null) return;
+		// <gl-merge-target-status> handles its own loading state. Refetched once a merge-target change names the
+		// branch, or once a commit moves it off the tip its landed verdict was for.
+		if (this._mergeTargetFetchedFor === branch.id && this._mergeTargetPromise != null) {
+			const { epoch, invalidated } = this.checkMergeTargetsEpoch(this._mergeTargetEpoch, branch.name);
+			this._mergeTargetEpoch = epoch;
+			if (!invalidated && !this.isLandedForOtherTip(this._mergeTarget, branch)) return;
+
+			this.resetMergeTarget();
+		}
+
+		const fetchedAtEpoch = this._graphState?.mergeTargetsEpoch?.epoch ?? 0;
 
 		// Shared `overviewEnrichment` may already have it — published by a sibling anchor's fetch or the
-		// click-to-scope path. Adopt it without re-fetching.
+		// click-to-scope path (and dropped there when a merge-target change voids it). Adopt it without re-fetching.
 		const shared = this._graphState?.overviewEnrichment?.[branch.id]?.mergeTarget;
-		if (shared != null) {
+		if (shared != null && !this.isLandedForOtherTip(shared, branch)) {
 			this._mergeTargetFetchedFor = branch.id;
+			this._mergeTargetEpoch = fetchedAtEpoch;
 			this._mergeTarget = shared;
 			this._mergeTargetPromise = Promise.resolve(shared);
 			return;
@@ -333,6 +368,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		if (services == null) return;
 
 		this._mergeTargetFetchedFor = branch.id;
+		this._mergeTargetEpoch = fetchedAtEpoch;
 		this._mergeTargetLoading = true;
 		const branchId = branch.id;
 		const repoPath = branch.repoPath;
@@ -350,14 +386,24 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		this._mergeTargetPromise = promise;
 
 		const result = await promise;
-		// A `branchId` transition while awaiting may have moved us onto a different branch.
-		if (this._mergeTargetFetchedFor !== branchId) return;
+		// A `branchId` transition (or a reset) while awaiting may have moved us onto a different branch or request.
+		if (this._mergeTargetFetchedFor !== branchId || this._mergeTargetPromise !== promise) return;
+
+		// A merge-target change for the branch while awaiting voids the answer, so it can't be cached or published;
+		// ask again while the hover is still showing
+		if (this.checkMergeTargetsEpoch(fetchedAtEpoch, branchName).invalidated) {
+			this.resetMergeTarget();
+			if (this.open) {
+				void this.ensureMergeTargetFetched();
+			}
+			return;
+		}
 
 		this._mergeTarget = result;
 		this._mergeTargetLoading = false;
 		// Publish so the scope-anchor's `reconcileScopeMergeTarget` hook backfills the tip SHA — and so the
 		// overview card's own `branch-merged` indicator can read it back out of shared state.
-		this._graphState?.mergeMergeTargetIntoEnrichment(branchId, result);
+		this._graphState?.mergeMergeTargetIntoEnrichment(branchId, result, fetchedAtEpoch);
 	}
 
 	override render(): unknown {

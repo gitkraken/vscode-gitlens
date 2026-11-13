@@ -235,6 +235,12 @@ export function reconcileScopeMergeTarget(
 	return { ...scope, mergeTargetTipSha: sha };
 }
 
+/** The branch name in an `overviewEnrichment` key, a local branch id (`{repoPath}|heads/{name}`, see `getBranchId`) */
+function getBranchNameFromId(branchId: string): string {
+	const index = branchId.indexOf('|heads/');
+	return index !== -1 ? branchId.slice(index + 7) : branchId;
+}
+
 /** The row marker's merge target as carried by a resolved anchor — undefined when the anchor named no
  *  target tip (detached, or a resolve that bailed). */
 function rowMarkerTargetFromAnchor(anchor: ResolvedScopeAnchor | undefined): AppState['rowMarkerMergeTarget'] {
@@ -585,8 +591,14 @@ export class GraphStateProvider implements Disposable {
 	@signalState()
 	accessor currentBranchMergeTarget: State['currentBranchMergeTarget'];
 
-	@signalState()
+	@signalState<State['mergeTargetsEpoch']>(undefined, {
+		// Whichever channel delivers it (its event, or a full state push), drop the merge targets it voids
+		afterChange: (target: GraphStateProvider, value) => target.dropInvalidatedMergeTargets(value),
+	})
 	accessor mergeTargetsEpoch: State['mergeTargetsEpoch'];
+
+	/** The last merge-targets epoch {@link dropInvalidatedMergeTargets} applied */
+	private _appliedMergeTargetsEpoch = 0;
 
 	@signalState()
 	accessor lastFetched: State['lastFetched'];
@@ -1788,13 +1800,61 @@ export class GraphStateProvider implements Disposable {
 	 * and the graph WIP-bar pills) fetch it via `getBranchEnrichment(...).mergeTargetStatus` and call this
 	 * to publish the result so the existing `reconcileScopeMergeTarget` hook backfills the scope's tip SHA.
 	 */
-	mergeMergeTargetIntoEnrichment(branchId: string, mergeTarget: OverviewBranchMergeTarget | undefined): void {
+	mergeMergeTargetIntoEnrichment(
+		branchId: string,
+		mergeTarget: OverviewBranchMergeTarget | undefined,
+		fetchedAtEpoch?: number,
+	): void {
+		// A merge-target change since the fetch started voids its answer; keep it out, so the next ask refetches
+		if (
+			fetchedAtEpoch != null &&
+			this.isMergeTargetInvalidatedSince(fetchedAtEpoch, getBranchNameFromId(branchId))
+		) {
+			return;
+		}
+
 		const current = this.overviewEnrichment;
 		const existing = current?.[branchId];
 		this.overviewEnrichment = {
 			...current,
 			[branchId]: { ...existing, mergeTarget: mergeTarget },
 		};
+	}
+
+	/** Whether a merge-target change after `epoch` may have changed `branchName`'s merge target */
+	private isMergeTargetInvalidatedSince(epoch: number, branchName: string): boolean {
+		const current = this.mergeTargetsEpoch;
+		if (current == null || current.epoch <= epoch) return false;
+
+		// A skipped epoch is a change this missed (the event keeps only the newest while hidden), which could have been
+		// any branch's
+		return current.epoch > epoch + 1 || current.refs == null || current.refs.includes(branchName);
+	}
+
+	/** Drops the shared merge targets of the branches `epoch` names (all of them, when it names none), so the cards
+	 *  stop trusting them and the next hover or click refetches them */
+	private dropInvalidatedMergeTargets(epoch: State['mergeTargetsEpoch']): void {
+		if (epoch == null || epoch.epoch <= this._appliedMergeTargetsEpoch) return;
+
+		// A skipped epoch is a change this missed, which could have been any branch's
+		const refs = epoch.epoch > this._appliedMergeTargetsEpoch + 1 ? undefined : epoch.refs;
+		this._appliedMergeTargetsEpoch = epoch.epoch;
+
+		const enrichment = this.overviewEnrichment;
+		if (enrichment == null) return;
+
+		let next: typeof enrichment | undefined;
+		for (const branchId in enrichment) {
+			const entry = enrichment[branchId];
+			if (entry?.mergeTarget == null) continue;
+			if (refs != null && !refs.includes(getBranchNameFromId(branchId))) continue;
+
+			next ??= { ...enrichment };
+			next[branchId] = { ...entry, mergeTarget: undefined };
+		}
+		if (next != null) {
+			this.overviewEnrichment = next;
+		}
 	}
 
 	/**

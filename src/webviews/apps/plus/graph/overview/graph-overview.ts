@@ -20,6 +20,7 @@ import type {
 	GraphOverviewData,
 	OverviewRecentThreshold,
 } from '../../../../plus/graph/protocol.js';
+import { isCurrentBranchMergeTargetFor } from '../../../../plus/graph/protocol.js';
 import { isConnectionClosedError, notifyService } from '../../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -983,6 +984,16 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const scopedBranchId = this._state.scope?.branchRef;
 		const graphRepoPath = getSelectedRepoPath(this._state);
 		const roving = group === 'active' ? this._rovingActive : this._rovingRecent;
+		// The host computes the current branch's verdict anyway (for the header), so its card needs no hover for it
+		const currentVerdict = this._state.currentBranchMergeTarget?.verdict;
+		const isCurrentVerdictFor = (b: GraphOverviewData['active'][number]) =>
+			currentVerdict != null &&
+			isCurrentBranchMergeTargetFor(currentVerdict, { repoPath: b.repoPath, name: b.name, sha: b.reference.sha });
+		const currentMergeTarget = (b: GraphOverviewData['active'][number]) =>
+			isCurrentVerdictFor(b) ? currentVerdict?.status : undefined;
+		// As the header: still deciding for a gone upstream, or not yet caught up with a prune
+		const currentMergeTargetPending = (b: GraphOverviewData['active'][number]) =>
+			isCurrentVerdictFor(b) && (currentVerdict?.pending === true || currentVerdict?.liveUpstream === true);
 
 		return html`
 			<div
@@ -1020,6 +1031,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								.branch=${b}
 								.wip=${this._wipData[b.id]}
 								.enrichment=${this._state.overviewEnrichment?.[b.id]}
+								.currentMergeTarget=${currentMergeTarget(b)}
+								.currentMergeTargetPending=${currentMergeTargetPending(b)}
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
 								.scoped=${scopedBranchId != null && b.id === scopedBranchId}

@@ -11,6 +11,7 @@ import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shar
 import { renderBranchName } from '../../../shared/components/branch-name.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import { getDeleteBranchOrWorktreeLabel } from '../deleteBranchOrWorktree.utils.js';
 import type { QueueablePullRequest } from '../mergeQueue.utils.js';
 import { getMergeQueueNote, getMergeTargetQueueTreatment } from '../mergeQueue.utils.js';
 import { chipStyles } from './chipStyles.js';
@@ -514,12 +515,9 @@ export class GlMergeTargetStatus extends LitElement {
 									{ ...this.branchRef!, mergeTarget: mergeTargetRef },
 								)}"
 								><span
-									>${localizedContent(
-										this.branch.worktree != null && !this.branch.worktree.isDefault
-											? l10n.t('Delete Worktree {branch}')
-											: l10n.t('Delete Branch {branch}'),
-										{ branch: renderBranchName(this.branch.name, this.branch.worktree != null) },
-									)}</span
+									>${localizedContent(getDeleteBranchOrWorktreeLabel(this.branch.worktree, 'named'), {
+										branch: renderBranchName(this.branch.name, this.branch.worktree != null),
+									})}</span
 								></gl-button
 							>
 						</div>
@@ -578,12 +576,9 @@ export class GlMergeTargetStatus extends LitElement {
 								},
 							)}"
 							><span
-								>${localizedContent(
-									this.branch.worktree != null && !this.branch.worktree.isDefault
-										? l10n.t('Delete Worktree {branch}')
-										: l10n.t('Delete Branch {branch}'),
-									{ branch: renderBranchName(this.branch.name, this.branch.worktree != null) },
-								)}</span
+								>${localizedContent(getDeleteBranchOrWorktreeLabel(this.branch.worktree, 'named'), {
+									branch: renderBranchName(this.branch.name, this.branch.worktree != null),
+								})}</span
 							></gl-button
 						>
 					</div>
