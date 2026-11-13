@@ -9,7 +9,7 @@ import type { Container } from '../../container.js';
 import { getFeaturePreviewStatus } from '../../features.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
-import { executeCommand } from '../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { isDescendant } from '../../system/-webview/path.js';
 import type { GitRepositoryService } from '../gitRepositoryService.js';
 import { openRebaseEditor } from '../utils/-webview/rebase.utils.js';
@@ -290,15 +290,17 @@ async function hasPausedOperationProgressed(
 }
 
 export interface ShowPausedOperationStatusOptions {
-	/** When set, the request comes from inside the rebase editor, so always surface the graph */
+	/** When set, the request comes from inside the rebase editor, so it is never the surface to open */
 	fromRebaseEditor?: boolean;
 	source?: Source;
 }
 
 /**
  * Surfaces a paused operation (merge/rebase/cherry-pick/revert) in a single, consistent place:
- * the Graph's WIP details (which renders the paused-op/conflict banner), except for a paused
- * rebase when the graph is gated — then the rebase editor, since it's the only usable surface.
+ * the Graph's WIP details (which renders the paused-op/conflict banner). When the graph is gated
+ * it can't show the conflict at all, so a paused rebase falls back to the rebase editor, and
+ * everything else — including a request from the rebase editor itself, or a rebase the editor
+ * can't open — to the Source Control view.
  */
 export async function showPausedOperationStatus(
 	container: Container,
@@ -312,21 +314,24 @@ export async function showPausedOperationStatus(
 	const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
 	if (status == null) return;
 
-	const toGraph =
-		options?.fromRebaseEditor || status.type !== 'rebase' || (await isGraphAccessible(container, repoPath));
-	if (toGraph) {
+	if (await isGraphAccessible(container, repoPath)) {
 		revealPausedOperationInGraph(repoPath, options?.source);
 		return;
 	}
 
-	await openRebaseEditor(container, repoPath);
+	if (status.type === 'rebase' && !options?.fromRebaseEditor) {
+		// A rebase on the apply backend has no todo for the editor to open
+		if (await openRebaseEditor(container, repoPath)) return;
+	}
+
+	await revealPausedOperationInScm(svc, options?.source);
 }
 
 async function isGraphAccessible(container: Container, repoPath: string): Promise<boolean> {
 	if (!arePlusFeaturesEnabled()) return false;
 
 	// An unverified account walls the Graph with the account screen regardless of plan or repo
-	// visibility, so it can't surface a conflict at all — keep the rebase editor instead
+	// visibility, so it can't surface a conflict at all
 	const subscription = await container.subscription.getSubscription();
 	if (subscription.account?.verified === false) return false;
 
@@ -345,4 +350,10 @@ function revealPausedOperationInGraph(repoPath: string, source?: Source): void {
 		target: { sha: uncommitted, worktreePath: repoPath },
 		source: source,
 	});
+}
+
+async function revealPausedOperationInScm(svc: GitRepositoryService, source?: Source): Promise<void> {
+	await executeCoreCommand('workbench.view.scm');
+	// A worktree outside the workspace isn't listed in the SCM until it is opened there
+	await svc.getOrOpenScmRepository(source);
 }

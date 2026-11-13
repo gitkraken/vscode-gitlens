@@ -74,23 +74,24 @@ export interface OpenRebaseEditorOptions {
 	viewColumn?: ViewColumn;
 }
 
+/** @returns whether the rebase editor is showing the paused rebase */
 export async function openRebaseEditor(
 	container: Container,
 	repoPath: string,
 	options?: OpenRebaseEditorOptions,
-): Promise<void> {
+): Promise<boolean> {
 	const svc = container.git.getRepositoryService(repoPath);
 	const status = await svc.pausedOps?.getPausedOperationStatus?.();
-	if (status?.type !== 'rebase') return;
+	if (status?.type !== 'rebase') return false;
 
 	const gitDir = await svc.config.getGitDir?.();
-	if (gitDir == null) return;
+	if (gitDir == null) return false;
 
 	const rebaseTodoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 	const existingTab = getOpenRebaseEditorTab(rebaseTodoUri);
 	if (existingTab != null) {
 		// Leave the existing tab as-is when a background open was requested — don't activate it
-		if (options?.background) return;
+		if (options?.background) return true;
 
 		// Focus the existing rebase editor tab
 		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
@@ -98,11 +99,11 @@ export async function openRebaseEditor(
 			preserveFocus: options?.preserveFocus,
 			viewColumn: existingTab.group.viewColumn,
 		});
-		return;
+		return true;
 	}
 
 	// Ensure the file exists before attempting to open it (avoids race condition during rebase setup)
-	if (!(await exists(rebaseTodoUri))) return;
+	if (!(await exists(rebaseTodoUri))) return false;
 
 	// Only try to open beside if there is an active tab
 	if (options?.viewColumn === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
@@ -117,6 +118,7 @@ export async function openRebaseEditor(
 		preserveFocus: options?.preserveFocus,
 		viewColumn: options?.viewColumn,
 	});
+	return true;
 }
 
 export async function setRebaseTodoEditorEnablement(enabled: boolean): Promise<void> {
