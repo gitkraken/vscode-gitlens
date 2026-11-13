@@ -672,6 +672,7 @@ suite('Tracker project cache (#5907)', () => {
 					const values = state.projects
 						.filter(p => !state.deletedOnSite.has(`${resourceId}:${p.key}`))
 						.map(p => ({ ...p, resourceId: resourceId, resourceName: site.name }));
+					const truncated = state.truncatedSites.has(resourceId);
 					await state.projectsGate;
 					if (state.failingSites.has(resourceId)) throw new Error('(503) Service Unavailable.');
 
@@ -683,7 +684,6 @@ suite('Tracker project cache (#5907)', () => {
 					}
 
 					// A truncated site's list advertises a continuation that leads nowhere, so the drain stops short.
-					const truncated = state.truncatedSites.has(resourceId);
 					return { values: values, paging: truncated ? { more: true, cursor: '{}' } : undefined };
 				},
 				// Addressed by key; the names differ from the keys so a read by name finds nothing.
@@ -713,6 +713,223 @@ suite('Tracker project cache (#5907)', () => {
 				});
 			return { service: service, runtime: runtime, integration: integration, state: state, read: read };
 		}
+
+		for (const previouslyComplete of [false, true]) {
+			test(`cache-derived links retain the latest partial site after a sibling changes (previously complete: ${previouslyComplete})`, async () => {
+				const { service, integration, state } = await jiraCloud();
+				try {
+					const internals = integration as unknown as JiraCloudInternals;
+					state.sites = [site, otherSite];
+					integration.invalidateDiscoveryCaches();
+					if (previouslyComplete) {
+						await prefixesOf(integration);
+					}
+					state.projects = [{ id: 'p2', key: 'BETA', name: 'Beta' }];
+					state.truncatedSites.add(site.id);
+					await internals.getProviderResourcesForUser(internals._session, true);
+					await internals.getProviderProjectsForResourcesWithMetadata(internals._session, state.sites, true);
+					assert.deepEqual(
+						internals._projects.peek(`tok-1:${site.id}`)?.map(p => p.key),
+						['BETA'],
+					);
+					state.failingSites.add(site.id);
+					state.projects = [{ id: 'p3', key: 'GAMMA', name: 'Gamma' }];
+					await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [otherSite], true);
+					state.sitesError = new Error('site lookup failed');
+					advanceClock(discoveryCacheTtl);
+					const links = await internals.buildAutolinks(internals._session);
+					assert.deepEqual(links.map(a => a.prefix).sort(), ['BETA-', 'BETA_', 'GAMMA-', 'GAMMA_']);
+				} finally {
+					service.dispose();
+				}
+			});
+		}
+
+		test('cache-derived links follow site removal and URL changes immediately', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				await prefixesOf(integration);
+				const internals = integration as unknown as JiraCloudInternals;
+				state.sites = [{ ...site, url: 'https://renamed.atlassian.net' }];
+				await internals.getProviderResourcesForUser(internals._session, true);
+				assert.ok(
+					(await integration.autolinks()).every(a => 'url' in a && a.url.startsWith(state.sites[0].url)),
+				);
+				state.sites = [];
+				await internals.getProviderResourcesForUser(internals._session, true);
+				assert.deepEqual(await prefixesOf(integration), []);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a build keeps its sharing slot through its own first project store', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as JiraCloudInternals;
+				const set = internals._projects.set.bind(internals._projects);
+				let slot: Promise<unknown> | undefined;
+				internals._projects.set = (...args) => {
+					const stored = set(...args);
+					queueMicrotask(() => {
+						slot = internals._autolinksBuilds.get('tok-1');
+					});
+					return stored;
+				};
+				const build = internals.buildAutolinks(internals._session);
+				await build;
+				assert.equal(slot, build);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a later site-list read wins when an earlier read settles last', async () => {
+			const { service, integration, state } = await jiraCloud();
+			let release!: () => void;
+			try {
+				await prefixesOf(integration);
+				const internals = integration as unknown as JiraCloudInternals;
+				state.sitesGate = new Promise<void>(resolve => {
+					release = resolve;
+				});
+				const reads = state.siteReads;
+				const earlier = internals.getProviderResourcesForUser(internals._session, true);
+				await until(() => state.siteReads === reads + 1, 'the earlier site read started');
+				state.sitesGate = undefined;
+				state.sites = [];
+				await internals.getProviderResourcesForUser(internals._session, true);
+				release();
+				assert.deepEqual(await earlier, []);
+				assert.deepEqual(await prefixesOf(integration), []);
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		for (const stalled of [false, true]) {
+			test(`a retired partial build answers the newer partial cache (stalled past TTL: ${stalled})`, async () => {
+				const { service, integration, state } = await jiraCloud();
+				let release!: () => void;
+				try {
+					await prefixesOf(integration);
+					advanceClock(discoveryCacheTtl);
+					const internals = integration as unknown as JiraCloudInternals;
+					state.truncatedSites.add(site.id);
+					state.projectsGate = new Promise<void>(resolve => {
+						release = resolve;
+					});
+					const reads = state.projectReads;
+					const retired = internals.buildAutolinks(internals._session);
+					await until(() => state.projectReads === reads + 1, 'the older partial read started');
+					state.projectsGate = undefined;
+					state.projects = [{ id: 'p2', key: 'BETA', name: 'Beta' }];
+					await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site], true);
+					if (stalled) {
+						advanceClock(discoveryCacheTtl);
+					}
+					release();
+					assert.deepEqual((await retired).map(a => a.prefix).sort(), ['BETA-', 'BETA_']);
+					state.failingSites.add(site.id);
+					assert.deepEqual((await internals.buildAutolinks(internals._session)).map(a => a.prefix).sort(), [
+						'BETA-',
+						'BETA_',
+					]);
+					assert.equal(internals._autolinks.get('tok-1')?.complete, false);
+				} finally {
+					release?.();
+					service.dispose();
+				}
+			});
+		}
+
+		test('a shared project read replaced by a partial list cannot report it as complete', async () => {
+			const { service, integration, state } = await jiraCloud();
+			let release!: () => void;
+			try {
+				const internals = integration as unknown as JiraCloudInternals;
+				state.projectsGate = new Promise<void>(resolve => {
+					release = resolve;
+				});
+				const reads = state.projectReads;
+				const earlier = internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site], true);
+				await until(() => state.projectReads === reads + 1, 'the complete read started');
+				state.projectsGate = undefined;
+				state.projects = [{ id: 'p2', key: 'BETA', name: 'Beta' }];
+				state.truncatedSites.add(site.id);
+				await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site], true);
+				release();
+				const result = (await earlier) as { values: { key: string }[]; metadata?: { completeness: string } };
+				assert.deepEqual(
+					result.values.map(p => p.key),
+					['BETA'],
+				);
+				assert.equal(result.metadata?.completeness, 'unknown');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('an empty successful page followed by failure replaces the prior site list', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				await prefixesOf(integration);
+				state.projects = [];
+				state.secondPageFailingSites.add(site.id);
+				const internals = integration as unknown as JiraCloudInternals;
+				await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site], true);
+				assert.deepEqual(internals._projects.peek(`tok-1:${site.id}`), []);
+				assert.equal(internals._projects.get(`tok-1:${site.id}`), undefined);
+				assert.deepEqual(await prefixesOf(integration), []);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a failed pre-clear read answers current discovery without changing its retry stamp', async () => {
+			const { service, integration, state } = await jiraCloud();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as JiraCloudInternals;
+				state.projectsGate = new Promise<void>(resolve => {
+					release = resolve;
+				});
+				const reads = state.projectReads;
+				const before = internals.buildAutolinks(internals._session);
+				await until(() => state.projectReads === reads + 1, 'the old read started');
+				integration.invalidateDiscoveryCaches();
+				state.projectsGate = undefined;
+				state.projects = [{ id: 'new', key: 'NEW', name: 'New' }];
+				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
+				const newest = internals._autolinks.get('tok-1');
+				state.failingSites.add(site.id);
+				release();
+				assert.deepEqual((await before).map(a => a.prefix).sort(), ['NEW-', 'NEW_']);
+				assert.equal(internals._autolinks.get('tok-1'), newest);
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a synchronous cache clear fences a build before its first continuation', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as JiraCloudInternals;
+				const build = internals.buildAutolinks(internals._session);
+				integration.invalidateDiscoveryCaches();
+				assert.deepEqual(await build, []);
+				assert.equal(internals._projects.peek('tok-1:site-1'), undefined);
+				assert.equal(internals._autolinks.get('tok-1'), undefined);
+			} finally {
+				service.dispose();
+			}
+		});
 
 		test('a real unforced connect reads discovery despite fresh persisted lists', async () => {
 			const { service, runtime } = await jiraCloud();
@@ -1040,7 +1257,7 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
-		test('a first build that fails keeps no fallback over lists another read stored meanwhile', async () => {
+		test('a first build that fails answers lists another read stored meanwhile', async () => {
 			const { service, integration, state, read } = await jiraCloud();
 			let release!: () => void;
 			try {
@@ -1056,7 +1273,7 @@ suite('Tracker project cache (#5907)', () => {
 				const reads = { sites: state.siteReads, projects: state.projectReads };
 				state.sitesError = new Error('(503) Service Unavailable.');
 				release();
-				assert.deepEqual(await first, [], 'the render that waited on the failed build gets none');
+				assert.deepEqual(await first, ['ALPHA-', 'ALPHA_'], 'the waiting render derives the stored list');
 				state.sitesError = undefined;
 
 				assert.deepEqual(
@@ -1132,7 +1349,7 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
-		test('a site whose later page fails keeps the prefixes it held beyond the pages read', async () => {
+		test('a site whose later page fails replaces its prior list with the pages read', async () => {
 			const { service, integration, state } = await jiraCloud();
 			try {
 				state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
@@ -1147,13 +1364,17 @@ suite('Tracker project cache (#5907)', () => {
 				assert.deepEqual(await prefixesOf(integration), before, 'the expired set, without waiting');
 				await until(() => state.projectReads === reads + 2, 'the background rebuild read both pages');
 				await flush();
-				assert.deepEqual(await prefixesOf(integration), before, 'BETA is kept from the set it had');
+				assert.deepEqual(
+					await prefixesOf(integration),
+					['ALPHA-', 'ALPHA_'],
+					'the latest partial replaces the whole list',
+				);
 			} finally {
 				service.dispose();
 			}
 		});
 
-		test('a connect warm-up drops a fallback a build kept without project lists', async () => {
+		test('a failed build derives the project lists stored by a concurrent connect warm-up', async () => {
 			const { service, integration, state } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals & {
 				_organizations: DiscoveryCache<unknown>;
@@ -1180,7 +1401,7 @@ suite('Tracker project cache (#5907)', () => {
 				await connecting;
 				state.sitesError = new Error('(503) Service Unavailable.');
 				releaseBuild();
-				assert.deepEqual(await render, [], 'the render that waited on the failed build gets none');
+				assert.deepEqual(await render, ['ALPHA-', 'ALPHA_'], 'the waiting render derives the warmed lists');
 				state.sitesError = undefined;
 
 				assert.deepEqual(
@@ -1322,7 +1543,11 @@ suite('Tracker project cache (#5907)', () => {
 			release();
 
 			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
-			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_'],
+				'the earlier render answers its successful pre-clear read',
+			);
 
 			service.dispose();
 		});
@@ -1345,7 +1570,11 @@ suite('Tracker project cache (#5907)', () => {
 
 			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
 			releaseEarlier();
-			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_'],
+				'the pre-clear response is returned only to its waiters',
+			);
 			reads = state.projectReads;
 			const joined = prefixesOf(integration);
 			await flush();
@@ -1360,7 +1589,6 @@ suite('Tracker project cache (#5907)', () => {
 
 		type JiraCloudInternals = {
 			_session: ProviderAuthenticationSession;
-			_autolinksResets: number;
 			getProviderResourcesForUser: (session: ProviderAuthenticationSession, force?: boolean) => Promise<unknown>;
 			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
 			_autolinksBuilds: Map<string, Promise<{ prefix?: string }[]>>;
@@ -1412,7 +1640,7 @@ suite('Tracker project cache (#5907)', () => {
 			assert.deepEqual(
 				(await earlier).map(a => a.prefix).sort(),
 				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
-				'the earlier rebuild answers what it read',
+				'the evicted read can answer its original waiters',
 			);
 			assert.ok(
 				!internals._autolinks.get('tok-1')?.autolinks.some(a => a.prefix?.startsWith('BETA')),
@@ -1558,6 +1786,7 @@ suite('Tracker project cache (#5907)', () => {
 
 			// Site 2's list is due for a re-read, so the rebuild takes site 1's from the cache and reads site 2's.
 			internals._projects.delete('tok-1:site-2');
+			internals._autolinks.delete('tok-1');
 			const reads = state.projectReads;
 			let release!: () => void;
 			state.projectsGate = new Promise<void>(resolve => (release = resolve));
@@ -1643,7 +1872,12 @@ suite('Tracker project cache (#5907)', () => {
 				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
 				'the retired rebuild answers the newer list, not its own older read, even once that list expired',
 			);
-			assert.equal(internals._autolinks.get('tok-1'), newer, 'the set the later rebuild kept stays');
+			assert.deepEqual(
+				internals._autolinks.get('tok-1')?.autolinks,
+				newer.autolinks,
+				'the latest cached values stay',
+			);
+			assert.equal(internals._autolinks.get('tok-1')?.complete, false, 'the cached inputs have expired');
 
 			service.dispose();
 		});
@@ -1659,9 +1893,11 @@ suite('Tracker project cache (#5907)', () => {
 			const kept = internals._autolinks.get('tok-1');
 			assert.equal(kept?.complete, false, 'kept to be retried after the delay');
 
-			// The same list stored again drops that incomplete set, so the next render builds it again from the list.
+			// An identical store preserves the set until its scheduled retry.
 			await read();
-			assert.notEqual(internals._autolinks.get('tok-1'), kept, 'the incomplete set is dropped');
+			assert.equal(internals._autolinks.get('tok-1'), kept, 'identical stores leave the derived set alone');
+			advanceClock(incompleteAutolinksRetryDelay);
+			await internals.buildAutolinks(internals._session);
 			assert.deepEqual(await prefixesOf(integration), newer);
 			assert.equal(internals._autolinks.get('tok-1')?.complete, true);
 
@@ -1757,7 +1993,11 @@ suite('Tracker project cache (#5907)', () => {
 			};
 			const settleLater = async () => {
 				releaseSites();
-				assert.deepEqual(await later, [], 'the later rebuild answers the fallback it held');
+				assert.deepEqual(
+					await later,
+					['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
+					'the later render derives the current cache',
+				);
 			};
 			if (settleFirst === 'retired') {
 				await settleRetired();
@@ -1781,7 +2021,7 @@ suite('Tracker project cache (#5907)', () => {
 						['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
 						'the set built from the lists cached when it settled',
 					);
-					assert.equal(kept?.complete, !incomplete);
+					assert.equal(kept?.complete, false, 'the site list has expired');
 
 					service.dispose();
 				});
@@ -1823,7 +2063,7 @@ suite('Tracker project cache (#5907)', () => {
 				].sort();
 			assert.deepEqual(sitesOf(), ['site-1', 'site-2']);
 
-			// The retired rebuild settles with every site it listed cached, but from the site list it read.
+			// The retired rebuild derives the current site list.
 			release();
 			await retired;
 			assert.deepEqual(sitesOf(), ['site-1', 'site-2'], 'the set for both sites stays');
@@ -1831,7 +2071,7 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		test('a rebuild retired while holding a site list since replaced keeps its set incomplete when it settles first (#6184)', async () => {
+		test('a retired build settling first derives the newer site list and its completeness', async () => {
 			const { service, integration, state, read } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals;
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
@@ -1854,8 +2094,8 @@ suite('Tracker project cache (#5907)', () => {
 			await retired;
 			assert.equal(
 				internals._autolinks.get('tok-1')?.complete,
-				false,
-				'built from the site list it read, not the stored one: retried after the delay',
+				true,
+				'built from the current site list and its fresh project lists',
 			);
 
 			advanceClock(incompleteAutolinksRetryDelay);
@@ -1877,16 +2117,15 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		test("a project list stored again with no set kept still fences a failing build's fallback (#6183, #6184)", async () => {
+		test('an identical project list store remains available when no derived set is kept', async () => {
 			const { service, integration, read } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals;
 			await prefixesOf(integration);
 			internals._autolinks.delete('tok-1');
-			const resets = internals._autolinksResets;
 
 			advanceClock(discoveryCacheTtl);
 			await read();
-			assert.equal(internals._autolinksResets, resets + 1);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the next render derives the cache');
 
 			service.dispose();
 		});
@@ -1914,7 +2153,7 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		test("a site that keeps failing keeps its last list's prefixes through the empty fallback a build kept after a list change (#6184)", async () => {
+		test('a failed site lookup retains every cached site after a sibling project list changes', async () => {
 			const { service, integration, state } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals;
 			integration.invalidateDiscoveryCaches();
@@ -1929,11 +2168,17 @@ suite('Tracker project cache (#5907)', () => {
 			advanceClock(discoveryCacheTtl);
 			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 			await internals.getProviderProjectsForResourcesWithMetadata(internals._session, [site1], true);
-			assert.equal(internals._autolinks.get('tok-1'), undefined, 'the replacement dropped the set');
+			assert.deepEqual(
+				internals._autolinks
+					.get('tok-1')
+					?.autolinks.map(a => a.prefix)
+					.sort(),
+				['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_'],
+			);
 
-			// The next render's build fails to read the sites, and keeps the fallback it held, none.
+			// The next render keeps the cached lists while its site lookup fails.
 			state.sitesError = new Error('(503) Service Unavailable.');
-			assert.deepEqual(await prefixesOf(integration), []);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA-', 'ALPHA_', 'ALPHA_', 'BETA-', 'BETA_']);
 			state.sitesError = undefined;
 
 			// At the retry the sites read again, site 2 still failing.
@@ -1949,7 +2194,7 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		test('a project list stored again drops an incomplete set, so the next render builds it again (#6183, #6184)', async () => {
+		test('an identical project list store preserves an incomplete set and its retry schedule', async () => {
 			const { service, integration, state, read } = await jiraCloud();
 			const internals = integration as unknown as JiraCloudInternals;
 			integration.invalidateDiscoveryCaches();
@@ -1961,7 +2206,11 @@ suite('Tracker project cache (#5907)', () => {
 			// Once the lists expired, an issue read stores the same list for the site that read, the other still failing.
 			advanceClock(discoveryCacheTtl);
 			await read();
-			assert.equal(internals._autolinks.get('tok-1'), undefined, 'the incomplete set is dropped');
+			assert.equal(
+				internals._autolinks.get('tok-1')?.complete,
+				false,
+				'an identical store leaves the retry schedule intact',
+			);
 
 			service.dispose();
 		});
@@ -2618,6 +2867,116 @@ suite('Tracker project cache (#5907)', () => {
 			return { service: service, integration: integration, state: state, read: read, runtime: runtime };
 		}
 
+		test('cache-derived links refresh the organization URL after its TTL', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				await prefixesOf(integration);
+				state.organization.url = 'https://linear.app/renamed';
+				advanceClock(discoveryCacheTtl);
+				await (integration as unknown as LinearInternals).buildAutolinks(
+					(integration as unknown as LinearInternals)._session,
+				);
+				assert.ok(
+					(await integration.autolinks()).every(a => 'url' in a && a.url.startsWith(state.organization.url)),
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a build keeps its sharing slot through its own first team store', async () => {
+			const { service, integration } = await linear();
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as LinearInternals;
+				const set = internals._teams.set.bind(internals._teams);
+				let slot: Promise<unknown> | undefined;
+				internals._teams.set = (...args) => {
+					const stored = set(...args);
+					queueMicrotask(() => {
+						slot = internals._autolinksBuilds.get('tok-1');
+					});
+					return stored;
+				};
+				const build = internals.buildAutolinks(internals._session);
+				await build;
+				assert.equal(slot, build);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a shared team read replaced by a partial list cannot report it as complete', async () => {
+			const { service, integration, state } = await linear();
+			let release!: () => void;
+			try {
+				const internals = integration as unknown as LinearInternals;
+				state.teamsGate = new Promise<void>(resolve => {
+					release = resolve;
+				});
+				const reads = state.teamReads;
+				const earlier = internals.getTeamsWithMetadata(internals._session, true);
+				await until(() => state.teamReads === reads + 1, 'the complete team read started');
+				state.teamsGate = undefined;
+				state.teams = Array.from({ length: 50 }, (_, index) => ({
+					id: `t${index}`,
+					key: `T${index}`,
+					name: `Team ${index}`,
+					iconUrl: null,
+				}));
+				await internals.getTeamsWithMetadata(internals._session, true);
+				release();
+				const result = (await earlier) as { values: { key: string }[]; metadata?: { completeness: string } };
+				assert.equal(result.values.length, 50);
+				assert.equal(result.metadata?.completeness, 'unknown');
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a failed pre-clear read answers current discovery without changing its retry stamp', async () => {
+			const { service, integration, state } = await linear();
+			let release!: () => void;
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as LinearInternals;
+				state.teamsGate = new Promise<void>(resolve => {
+					release = resolve;
+				});
+				const reads = state.teamReads;
+				const before = internals.buildAutolinks(internals._session);
+				await until(() => state.teamReads === reads + 1, 'the old read started');
+				integration.invalidateDiscoveryCaches();
+				state.teamsGate = undefined;
+				state.teams = [{ id: 'new', key: 'NEW', name: 'New', iconUrl: null }];
+				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
+				const newest = internals._autolinks.get('tok-1');
+				state.teamsError = new Error('late failure');
+				release();
+				assert.deepEqual((await before).map(a => a.prefix).sort(), ['NEW-', 'NEW_']);
+				assert.equal(internals._autolinks.get('tok-1'), newest);
+			} finally {
+				release?.();
+				service.dispose();
+			}
+		});
+
+		test('a synchronous cache clear fences a build before its first continuation', async () => {
+			const { service, integration } = await linear();
+			try {
+				integration.invalidateDiscoveryCaches();
+				const internals = integration as unknown as LinearInternals;
+				const build = internals.buildAutolinks(internals._session);
+				integration.invalidateDiscoveryCaches();
+				assert.deepEqual(await build, []);
+				assert.equal(internals._teams.peek('tok-1'), undefined);
+				assert.equal(internals._autolinks.get('tok-1'), undefined);
+			} finally {
+				service.dispose();
+			}
+		});
+
 		test('autolinks from a full implicit teams page are served, and retried in the background after the delay', async () => {
 			const { service, integration, state } = await linear();
 			try {
@@ -2773,7 +3132,7 @@ suite('Tracker project cache (#5907)', () => {
 				state.teams = [{ id: 'new', key: 'NEW', name: 'New', iconUrl: null }];
 				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
 				release();
-				assert.equal((await earlier).length, 100);
+				assert.equal((await earlier).length, 100, 'the retired read answers its original partial response');
 				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
 				assert.equal(state.teamReads, reads + 2, 'the newer complete set remains cached');
 			} finally {
@@ -2932,7 +3291,7 @@ suite('Tracker project cache (#5907)', () => {
 			}
 		});
 
-		test('a first build that fails keeps no fallback over a team list another read stored meanwhile', async () => {
+		test('a first build that fails answers a team list another read stored meanwhile', async () => {
 			const { service, integration, state, read } = await linear();
 			let release!: () => void;
 			try {
@@ -2948,7 +3307,7 @@ suite('Tracker project cache (#5907)', () => {
 				const teamReads = state.teamReads;
 				state.teamsError = new Error('(503) Service Unavailable.');
 				release();
-				assert.deepEqual(await first, [], 'the render that waited on the failed build gets none');
+				assert.deepEqual(await first, ['ALPHA-', 'ALPHA_'], 'the waiting render derives the stored list');
 				state.teamsError = undefined;
 
 				assert.deepEqual(
@@ -3154,7 +3513,11 @@ suite('Tracker project cache (#5907)', () => {
 			release();
 
 			assert.deepEqual(await later, ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'], 'the later render rebuilt');
-			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_'], 'the earlier render answers what it read');
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_'],
+				'the earlier render answers its successful pre-clear read',
+			);
 
 			service.dispose();
 		});
@@ -3177,7 +3540,11 @@ suite('Tracker project cache (#5907)', () => {
 
 			// The earlier rebuild settles while the later one is still pending; a render then still joins the later.
 			releaseEarlier();
-			assert.deepEqual(await earlier, ['ALPHA-', 'ALPHA_']);
+			assert.deepEqual(
+				await earlier,
+				['ALPHA-', 'ALPHA_'],
+				'the pre-clear response is returned only to its waiters',
+			);
 			reads = state.teamReads;
 			const joined = prefixesOf(integration);
 			await flush();
@@ -3192,7 +3559,6 @@ suite('Tracker project cache (#5907)', () => {
 
 		type LinearInternals = {
 			_session: ProviderAuthenticationSession;
-			_autolinksResets: number;
 			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
 			_autolinksBuilds: Map<string, Promise<{ prefix?: string }[]>>;
 			_teams: DiscoveryCache<{ key: string }[]>;
@@ -3296,7 +3662,12 @@ suite('Tracker project cache (#5907)', () => {
 				['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_'],
 				'the retired rebuild answers the newer list, not its own older read, even once that list expired',
 			);
-			assert.equal(internals._autolinks.get('tok-1'), newer, 'the set the later rebuild kept stays');
+			assert.deepEqual(
+				internals._autolinks.get('tok-1')?.autolinks,
+				newer.autolinks,
+				'the latest cached values stay',
+			);
+			assert.equal(internals._autolinks.get('tok-1')?.complete, false, 'the cached inputs have expired');
 
 			service.dispose();
 		});
@@ -3312,25 +3683,27 @@ suite('Tracker project cache (#5907)', () => {
 			const kept = internals._autolinks.get('tok-1');
 			assert.equal(kept?.complete, false, 'kept to be retried after the delay');
 
-			// The same list stored again drops that incomplete set, so the next render builds it again from the list.
+			// An identical store preserves the set until its scheduled retry.
 			await read();
-			assert.notEqual(internals._autolinks.get('tok-1'), kept, 'the incomplete set is dropped');
+			assert.equal(internals._autolinks.get('tok-1'), kept, 'identical stores leave the derived set alone');
+			advanceClock(incompleteAutolinksRetryDelay);
+			await internals.buildAutolinks(internals._session);
 			assert.deepEqual(await prefixesOf(integration), newer);
 			assert.equal(internals._autolinks.get('tok-1')?.complete, true);
 
 			service.dispose();
 		});
 
-		test('a rebuild retired by a team list replacement replaces the empty fallback a later failing rebuild kept (#6184)', async () => {
+		test('a retired build and a later failed build both derive the latest team list', async () => {
 			const { service, integration, internals, state, earlier, release } = await replaceListDuringRebuild();
 
-			// Once that list expired, a render's rebuild fails to read the teams, and keeps the fallback it held, none.
+			// Once the list expires, a failed refresh still derives the last cached teams.
 			advanceClock(discoveryCacheTtl);
 			state.teamsError = new Error('(503) Service Unavailable.');
-			assert.deepEqual(await prefixesOf(integration), []);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
 			state.teamsError = undefined;
 
-			// The retired rebuild settles with the newer list its own read was refused for, and replaces that fallback.
+			// The retired rebuild derives the same latest list.
 			release();
 			await earlier;
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_', 'BETA-', 'BETA_']);
@@ -3354,7 +3727,7 @@ suite('Tracker project cache (#5907)', () => {
 			await prefixesOf(integration);
 			assert.deepEqual(urlsOf(), ['https://linear.app/acme-2']);
 
-			// The retired rebuild settles from the team list as cached, but with the organization it read.
+			// The retired rebuild derives both inputs from the current cache.
 			release();
 			await earlier;
 			assert.deepEqual(urlsOf(), ['https://linear.app/acme-2'], 'the links to the new url stay');
@@ -3362,16 +3735,15 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
-		test("a team list stored again with no set kept still fences a failing build's fallback (#6183, #6184)", async () => {
+		test('an identical team list store remains available when no derived set is kept', async () => {
 			const { service, integration, read } = await linear();
 			const internals = integration as unknown as LinearInternals;
 			await prefixesOf(integration);
 			internals._autolinks.delete('tok-1');
-			const resets = internals._autolinksResets;
 
 			advanceClock(discoveryCacheTtl);
 			await read();
-			assert.equal(internals._autolinksResets, resets + 1);
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'the next render derives the cache');
 
 			service.dispose();
 		});
@@ -3716,6 +4088,17 @@ suite('Tracker project cache (#5907)', () => {
 	});
 
 	suite('DiscoveryCache', () => {
+		test('partial entries replace the last value but remain cache misses', () => {
+			const cache = new DiscoveryCache<string[]>();
+			cache.set('a', ['old']);
+			const options = { complete: false, read: cache.startRead() };
+			assert.equal(cache.set('a', ['new'], options), 'changed');
+			assert.deepEqual(cache.peek('a'), ['new']);
+			assert.equal(cache.get('a'), undefined);
+			assert.equal(cache.set('a', ['new']), 'changed', 'completeness changes the entry');
+			assert.deepEqual(cache.get('a'), ['new']);
+		});
+
 		test('expires entries after the TTL, counted from storedAt', () => {
 			// Frozen, so a slow runner can't age the entry seeded 1ms short of the TTL before it is read.
 			advanceClock(0);

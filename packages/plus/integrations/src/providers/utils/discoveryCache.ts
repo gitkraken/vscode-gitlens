@@ -20,14 +20,6 @@ export function isAutolinkSetExpired(set: { builtAt: number; complete: boolean }
 }
 
 /**
- * Whether a kept autolink set is empty and incomplete: the fallback of a failing build that held none, built from no
- * list, so it stands for no set to any set built from the lists (#6184).
- */
-export function isEmptyAutolinkFallback(set: { autolinks: readonly unknown[]; complete: boolean }): boolean {
-	return !set.complete && !set.autolinks.length;
-}
-
-/**
  * A per-key cache of discovery results that expires entries after {@link discoveryCacheTtl} and can be dropped
  * wholesale when the connection is re-synced.
  *
@@ -46,7 +38,7 @@ export function isEmptyAutolinkFallback(set: { autolinks: readonly unknown[]; co
  * the read that replaces it found anything new.
  */
 export class DiscoveryCache<V> {
-	private readonly entries = new Map<string, { value: V; storedAt: number; read: number }>();
+	private readonly entries = new Map<string, { value: V; storedAt: number; read: number; complete: boolean }>();
 	private _generation = 0;
 	private reads = 0;
 
@@ -64,7 +56,7 @@ export class DiscoveryCache<V> {
 
 	get(key: string): V | undefined {
 		const entry = this.entries.get(key);
-		if (entry == null || Date.now() - entry.storedAt >= this.ttl) return undefined;
+		if (entry == null || !entry.complete || Date.now() - entry.storedAt >= this.ttl) return undefined;
 
 		return entry.value;
 	}
@@ -78,12 +70,13 @@ export class DiscoveryCache<V> {
 	 * Stores `value` unless the cache was cleared since `generation` was taken, or, for a `read` from
 	 * {@link startRead}, a read started after it stored `key`. `storedAt` backdates an entry seeded from persisted
 	 * storage, so it expires on the schedule of the read that produced it rather than of the seeding. Returns `false`
-	 * when refused, `'unchanged'` when `value` equals the one it replaces, expired or not, and `'changed'` otherwise.
+	 * when refused, `'unchanged'` when value and completeness match, expired or not, and `'changed'` otherwise.
+	 * Incomplete entries are retained by `peek`, but never satisfy `get`.
 	 */
 	set(
 		key: string,
 		value: V,
-		options?: { generation?: number; read?: number; storedAt?: number },
+		options?: { generation?: number; read?: number; storedAt?: number; complete?: boolean },
 	): 'changed' | 'unchanged' | false {
 		if (options?.generation != null && options.generation !== this._generation) return false;
 
@@ -96,8 +89,11 @@ export class DiscoveryCache<V> {
 			value: value,
 			storedAt: options?.storedAt ?? Date.now(),
 			read: read ?? previous?.read ?? 0,
+			complete: options?.complete ?? true,
 		});
-		return previous != null && areEqual(previous.value, value) ? 'unchanged' : 'changed';
+		return previous?.complete === (options?.complete ?? true) && areEqual(previous.value, value)
+			? 'unchanged'
+			: 'changed';
 	}
 
 	delete(key: string): void {
