@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes merge, cherry-pick, and revert conflicts &mdash; and _Show conflicts_ in the _Interactive Rebase Editor_ &mdash; opening a _Commit Graph_ that can't show them when it isn't available for the account or repository; the conflict now opens in the _Source Control_ view instead ([#5675](https://github.com/gitkraken/vscode-gitlens/issues/5675))
 - Fixes the _Delay Loading File Details_ setting (`gitlens.advanced.commits.delayLoadingFileDetails`) not being editable from the Settings editor &mdash; it now shows a dropdown again ([#5816](https://github.com/gitkraken/vscode-gitlens/issues/5816))
 - Fixes errors in blame, views, and remote links when a custom remote's (`gitlens.remotes`) `regex` matches the full remote URL without capturing both the domain and the path &mdash; the entry is now skipped for that remote, and the _Settings_ editor explains that full URL matches need two capture groups ([#4852](https://github.com/gitkraken/vscode-gitlens/issues/4852))
+- Fixes _Compare Working Tree to Here_ doing nothing on a commit, stash, or tag in the _Commit Graph_ &mdash; it only worked on branches ([#5352](https://github.com/gitkraken/vscode-gitlens/issues/5352))
 
 ## [19.6.0] - 2026-11-10
 
