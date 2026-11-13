@@ -1671,7 +1671,7 @@
 	"config.remotes.items.ignoreSSLErrors.description": "指定連線到遠端服務時是否忽略無效的 SSL 憑證錯誤",
 	"config.remotes.items.name.description": "指定自訂遠端服務的可選友好名稱",
 	"config.remotes.items.protocol.description": "指定自訂遠端服務的可選 URL 協議",
-	"config.remotes.items.regex.description": "指定用於將此自訂設定匹配到 Git 遠端並捕獲「域名」和「路徑」的正規表示式",
+	"config.remotes.items.regex.description": "指定用於將此自訂設定匹配到 Git 遠端的正規表示式，可匹配遠端的域名或完整的遠端 URL；匹配完整 URL 時，必須在第一個分組中擷取「域名」，在第二個分組中擷取「路徑」",
 	"config.remotes.items.type.description": "指定自訂遠端服務的型別",
 	"config.remotes.markdownDescription": "指定要與 Git 遠端匹配的自訂遠端服務，用於偵測內建遠端服務的自訂域，或為自訂遠端服務提供支援",
 	"config.section.advanced.title": "高階",

@@ -587,6 +587,12 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		const matcherValue = isRegex ? (draft.regex ?? '') : (draft.domain ?? '');
 		const matcherMissing = !matcherValue;
 		const regexBroken = isRegex && draft.regex != null && draft.regex.length > 0 && !regexCompiles(draft.regex);
+		const regexMissingGroups =
+			isRegex &&
+			draft.regex != null &&
+			draft.regex.length > 0 &&
+			!regexBroken &&
+			countCaptureGroups(draft.regex) < 2;
 		const serverStyleDomain = draft.matcherMode === 'domain' && serverStyleTypes.has(draft.type);
 		const typeLabel = typeLabels.get(draft.type) ?? draft.type;
 		const urlsIncomplete = isCustom && !urlsComplete(draft.urls);
@@ -674,6 +680,18 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 								<span
 									>${l10n.t(
 										"This regular expression isn't valid, so this remote is ignored until it's fixed.",
+									)}</span
+								>
+							</p>`
+						: nothing
+				}
+				${
+					regexMissingGroups
+						? html`<p class="notice notice--hint">
+								<code-icon icon="info" aria-hidden="true"></code-icon>
+								<span
+									>${l10n.t(
+										"Without two capture groups, this regex is only used to match a remote's domain. To match the full remote URL, capture the domain in the first group and the path in the second.",
 									)}</span
 								>
 							</p>`
@@ -825,4 +843,9 @@ function regexCompiles(pattern: string): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/** Number of capture groups in `pattern`; the trailing `|` alternative always matches empty, so `exec` never returns null. */
+function countCaptureGroups(pattern: string): number {
+	return (new RegExp(`${pattern}|`, 'i').exec('')?.length ?? 1) - 1;
 }

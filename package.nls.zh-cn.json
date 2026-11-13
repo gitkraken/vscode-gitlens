@@ -1671,7 +1671,7 @@
 	"config.remotes.items.ignoreSSLErrors.description": "指定连接到远程服务时是否忽略无效的 SSL 证书错误",
 	"config.remotes.items.name.description": "指定自定义远程服务的可选友好名称",
 	"config.remotes.items.protocol.description": "指定自定义远程服务的可选 URL 协议",
-	"config.remotes.items.regex.description": "指定用于将此自定义配置匹配到 Git 远程并捕获“域名”和“路径”的正则表达式",
+	"config.remotes.items.regex.description": "指定用于将此自定义配置匹配到 Git 远程的正则表达式，可匹配远程的域名或完整的远程 URL；匹配完整 URL 时，必须在第一个分组中捕获“域名”，在第二个分组中捕获“路径”",
 	"config.remotes.items.type.description": "指定自定义远程服务的类型",
 	"config.remotes.markdownDescription": "指定要与 Git 远程匹配的自定义远程服务，用于检测内置远程服务的自定义域，或为自定义远程服务提供支持",
 	"config.section.advanced.title": "高级",

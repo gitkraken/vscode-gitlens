@@ -1671,7 +1671,7 @@
 	"config.remotes.items.ignoreSSLErrors.description": "Especifica si se ignoran los errores de certificados SSL no válidos al conectarse al servicio remoto",
 	"config.remotes.items.name.description": "Especifica un nombre descriptivo opcional para el servicio remoto personalizado",
 	"config.remotes.items.protocol.description": "Especifica un protocolo de URL opcional para el servicio remoto personalizado",
-	"config.remotes.items.regex.description": "Especifica una expresión regular usada para hacer coincidir esta configuración personalizada con un remoto de Git y capturar el \"nombre de dominio\" y la \"ruta\"",
+	"config.remotes.items.regex.description": "Especifica una expresión regular usada para hacer coincidir esta configuración personalizada con un remoto de Git, ya sea con el nombre de dominio del remoto o con la URL completa del remoto; en este último caso debe capturar el \"nombre de dominio\" en el primer grupo y la \"ruta\" en el segundo",
 	"config.remotes.items.type.description": "Especifica el tipo del servicio remoto personalizado",
 	"config.remotes.markdownDescription": "Especifica servicios remotos personalizados que se emparejarán con remotos de Git para detectar dominios personalizados de los servicios remotos integrados o para proporcionar compatibilidad con servicios remotos personalizados",
 	"config.section.advanced.title": "Opciones avanzadas",

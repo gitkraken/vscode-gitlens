@@ -5813,6 +5813,7 @@
 	"With GitLens Pro, you can accelerate PR reviews, visualize code history in-depth, and enhance collaboration across your team. It's the perfect upgrade to streamline your VS Code workflow.": "藉助 GitLens Pro，你可以加速 PR 審查、深入視覺化程式碼歷史，並增強團隊協作。這是簡化 VS Code 工作流的完美升級。",
 	"With agents running across multiple worktrees, working changes used to mean opening another window or directory just to remember what you (or your agent) left half-finished. Not anymore. {emphasis} every worktree's working changes are visible at the same time, in the same Graph. {emphasis2} when you're heads-down on one branch, scope the Graph to just the commits that matter — the bigger picture is always one click away.": "當代理在多個工作樹中執行時，工作樹變更過去意味著要開啟另一個視窗或目錄才能記起你（或你的代理）留下了哪些未完成的工作。現在不用了。{emphasis} 每個工作樹的工作樹變更都同時顯示在同一個認可圖中。{emphasis2} 當你專注於一個分支時，可將認可圖限定為只顯示重要的認可 — 更大的圖景只需點選一下即可看到。",
 	"With {emphasis} (Free 14-Day Trial), you’ll get full access to advanced visualization, collaboration, and built-in AI:": "使用 {emphasis}（免費 14 天試用），你將獲得高階視覺化、協作和內建 AI 的完整存取權限：",
+	"Without two capture groups, this regex is only used to match a remote's domain. To match the full remote URL, capture the domain in the first group and the path in the second.": "如果沒有兩個擷取分組，此正規表示式僅用於匹配遠端的域名。若要匹配完整的遠端 URL，請在第一個分組中擷取域名，在第二個分組中擷取路徑。",
 	"Working": "工作中",
 	"Working Changes": "工作樹變更",
 	"Working Changes ({0})": "工作樹變更（{0}）",

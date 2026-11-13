@@ -473,6 +473,66 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			assert.strictEqual(provider.id, 'github');
 		});
 
+		suite('full URL regex matching', () => {
+			const url = 'git@github.com:gitkraken/vscode-gitlens.git';
+			const match = (regex: string) => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				return createRemoteProviderMatcher([{ regex: regex, type: 'gitlab' }])(url, domain, path, scheme);
+			};
+
+			test('uses the captured domain and path when the regex has two capture groups', () => {
+				const provider = match('^git@(github\\.com):(.+)$');
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'gitlab');
+				assert.strictEqual(provider.domain, 'github.com');
+				assert.strictEqual(provider.owner, 'gitkraken');
+			});
+
+			for (const regex of ['^git@github\\.com:(.+)$', '^git@github\\.com:.+$', '^git@(github\\.com)(x)?:.+$']) {
+				test(`falls back to built-in providers when ${regex} doesn't capture both the domain and path`, () => {
+					const provider = match(regex);
+					assert.ok(provider);
+					assert.strictEqual(provider.id, 'github');
+					assert.strictEqual(provider.owner, 'gitkraken');
+					assert.strictEqual(provider.repoName, 'vscode-gitlens');
+				});
+			}
+
+			test('falls back to built-in providers when a capture group is empty', () => {
+				const provider = match('^git@(github\\.com):(.*?)gitkraken/vscode-gitlens\\.git$');
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'github');
+			});
+
+			test('moves on to the next custom config when one is missing capture groups', () => {
+				const selfHostedUrl = 'git@ssh.git.example.internal:group/project.git';
+				const [scheme, domain, path] = parseGitRemoteUrl(selfHostedUrl);
+				const provider = createRemoteProviderMatcher([
+					{ regex: 'ssh\\.git\\.example\\.internal:(.+)$', type: 'github' },
+					{ regex: '^git@(ssh\\.git\\.example\\.internal):(.+)$', type: 'gitlab' },
+				])(selfHostedUrl, domain, path, scheme);
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'gitlab');
+				assert.strictEqual(provider.domain, 'ssh.git.example.internal');
+			});
+
+			test('returns no provider when nothing else matches a host', () => {
+				const selfHostedUrl = 'git@ssh.git.example.internal:group/project.git';
+				const [scheme, domain, path] = parseGitRemoteUrl(selfHostedUrl);
+				const provider = createRemoteProviderMatcher([
+					{ regex: 'ssh\\.git\\.example\\.internal:(.+)$', type: 'github' },
+				])(selfHostedUrl, domain, path, scheme);
+				assert.strictEqual(provider, undefined);
+			});
+
+			test('still matches a regex without capture groups against the domain', () => {
+				const provider = match('^github\\.com$');
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'gitlab');
+				assert.strictEqual(provider.path, 'gitkraken/vscode-gitlens');
+			});
+		});
+
 		test('handles config with no domain or regex gracefully', () => {
 			const configs: RemoteProviderConfig[] = [{ type: 'github' }];
 			const matcher = createRemoteProviderMatcher(configs);

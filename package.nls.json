@@ -1681,7 +1681,7 @@
 	"config.remotes.items.ignoreSSLErrors.description": "Specifies whether to ignore invalid SSL certificate errors when connecting to the remote service",
 	"config.remotes.items.name.description": "Specifies an optional friendly name for the custom remote service",
 	"config.remotes.items.protocol.description": "Specifies an optional URL protocol for the custom remote service",
-	"config.remotes.items.regex.description": "Specifies a regular expression used to match this custom configuration to a Git remote and capture the \"domain name\" and \"path\"",
+	"config.remotes.items.regex.description": "Specifies a regular expression used to match this custom configuration to a Git remote, either against the remote's domain name or against the full remote URL — in which case it must capture the \"domain name\" in the first group and the \"path\" in the second",
 	"config.remotes.items.type.description": "Specifies the type of the custom remote service",
 	"config.remotes.markdownDescription": "Specifies custom remote services to be matched with Git remotes to detect custom domains for built-in remote services or provide support for custom remote services",
 	"config.section.advanced.title": "Advanced",

@@ -50,6 +50,9 @@ interface ProviderEntry {
 	urls?: RemotesUrlsConfig;
 }
 
+/** Regex sources already warned about for missing capture groups; module-level because entries are rebuilt on every remotes load */
+const warnedMissingGroups = new Set<string>();
+
 const builtInProviders: ProviderEntry[] = [
 	{ custom: false, matcher: /^(?:ssh\.)?bitbucket\.org$/i, type: 'bitbucket' },
 	{ custom: false, matcher: 'github.com', type: 'github' },
@@ -178,10 +181,23 @@ function matchEntries(
 		if (!entry.matchUrl) continue;
 
 		const match = entry.matcher.exec(url);
-		if (match != null) {
-			const matchDomain = match[1].replace(/^[a-zA-Z][\w+.-]*:\/\//, '');
-			return createProvider(entry, matchDomain, match[2], scheme, hooks);
+		if (match == null) continue;
+
+		// A full-URL match must capture a non-empty domain (group 1) and path (group 2) — without
+		// them there is nothing to build the provider from, so skip to the next entry
+		if (!match[1] || !match[2]) {
+			if (!warnedMissingGroups.has(entry.matcher.source)) {
+				warnedMissingGroups.add(entry.matcher.source);
+				// Don't log the regex itself — users can embed credentials in it
+				Logger.warn(
+					`Remote provider config '${entry.name ?? entry.type}' regex matched a remote URL but didn't capture both the domain (group 1) and path (group 2); ignoring it for full URL matches`,
+				);
+			}
+			continue;
 		}
+
+		const matchDomain = match[1].replace(/^[a-zA-Z][\w+.-]*:\/\//, '');
+		return createProvider(entry, matchDomain, match[2], scheme, hooks);
 	}
 
 	return undefined;
