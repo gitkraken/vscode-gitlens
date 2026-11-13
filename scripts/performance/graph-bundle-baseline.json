@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "2e2557ef827b6782282f1695c8c418791590e195",
+	"sourceCommit": "caaf7efe0ad8aa2da70a9d8b29e508a8fe9e369c",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for Review Changes carrying across history rewrites and stepping through files not yet viewed (#116): +17.4 KiB on the entrypoint against the merge-queue pin, all of it graph.js (+20.5 KiB) while shared.js shrank 1.5 KiB and graph.css 1.6 KiB. Of that, +6.6 KiB had already accrued on main since the merge-queue pin (main measured 3,237,665 bytes at 9029768, inside its ceiling; 2e2557e adds no graph bytes) and +10.8 KiB is this change, all graph.js: remapping a review scope onto rewritten commits by patch id, subject and position; holding the scope while the remap runs and scrolling the picker to it after; moving commit and comparison reviews onto their rewritten commits, deferred while the review is busy; re-selecting the moved commit in the graph; the reading controls that skip viewed files, with Alt+click stepping in list order; the scope picker tooltip that tells a commit's line counts from its file count; and their localized messages. Not a new dependency or a module moving between chunks. Before it: GitHub merge-queue support (+11.7 KiB) on top of review mode as a review session (+72.8 KiB, see their commits). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-pinned for three Commit Graph quick fixes (#5352, #5607, #2925): the entrypoint grows +9.2 KiB against the Review Changes pin, but only about 0.6 KiB of it is this change (graph.js +0.25 KiB, graph.css +0.39 KiB): main measured 3,257,438 bytes at caaf7ef (and the same at 1e435c5), inside its ceiling, so +8.5 KiB (mostly graph.js) had already accrued there since 2e2557e. This change's bytes are Compare Working Tree to Here using a commit, stash or tag row's own ref; the Changes column opt-in overlay's shrinkable spacers and size container queries that drop its help copy and Hide link whole on a short rows area; and the hidden branches/tags popover's capped, scrollable list with the shared scrollbar styles. Not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3248764,
-		"graph.js": 2096282,
-		"graph.css": 164171,
-		"shared.js": 988311
+		"entrypoint": 3258007,
+		"graph.js": 2102680,
+		"graph.css": 165789,
+		"shared.js": 989538
 	},
 	"maximumBytes": {
-		"entrypoint": 3261052,
-		"graph.js": 2096282,
-		"graph.css": 171052,
-		"shared.js": 992407
+		"entrypoint": 3270295,
+		"graph.js": 2102680,
+		"graph.css": 172670,
+		"shared.js": 993634
 	}
 }
