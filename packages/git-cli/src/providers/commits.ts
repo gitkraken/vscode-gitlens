@@ -37,6 +37,7 @@ import { chunk as chunkArray } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import { HoldOffMap } from '@gitlens/utils/holdOffMap.js';
 import { filterMap, findLast, first, join, last, some } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { isFolderGlob, normalizePath, splitPath, stripFolderGlob } from '@gitlens/utils/path.js';
@@ -46,9 +47,16 @@ import { escapeRegex, iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
+import { CancelledRunError } from '../exec/exec.errors.js';
 import type { GitResult, GitRunOptions } from '../exec/exec.types.js';
 import type { Git, GitError } from '../exec/git.js';
-import { classifySigningError, gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../exec/git.js';
+import {
+	classifySigningError,
+	defaultGitTimeout,
+	gitConfigsLog,
+	gitConfigsLogWithFiles,
+	GitErrors,
+} from '../exec/git.js';
 import type {
 	CommitsInFileRangeLogParser,
 	CommitsLogParser,
@@ -168,7 +176,32 @@ function getCommitCountKey(rev: string, excluding: GitRefExclusions | undefined)
 	return `${rev}\0${getRefExclusionsKey(excluding)}`;
 }
 
+/**
+ * How long a repository's commit reads, after one ran out of time with unlimited rename detection, are read with
+ * {@link renameLimit} straight away. Running out of time can be the machine being busy rather than a commit being too
+ * costly, so unlimited renames are tried again later rather than given up on for good
+ */
+const limitedRenamesWait = 10 * 60 * 1000;
+
+/**
+ * The number of files git considers in the exhaustive (inexact) part of rename detection (`-l`) for a commit read again
+ * after running out of time. It is git's own default for `diff.renameLimit`, not a tuned number; core's reads set
+ * `diff.renameLimit=0` (unlimited) and a larger commit then skips only that part of the detection
+ */
+const renameLimit = 1000;
+
+/** The clock a repository's limited-renames wait is measured on, exported for testing */
+export const commitReadClock = { now: (): number => Date.now() };
+
+/** Whether `ex` is a git read running out of its time limit: a stream's `CancelledRunError` or a run's `CancellationError` */
+function isTimeout(ex: unknown): boolean {
+	return (ex instanceof CancelledRunError || isCancellationError(ex)) && ex.reason === 'timeout';
+}
+
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
+	/** When a commit read of each repository (by common path) last ran out of time with unlimited rename detection */
+	private readonly limitedRenamesSince = new HoldOffMap<string, true>(limitedRenamesWait, 256, commitReadClock);
+
 	constructor(
 		private readonly context: GitServiceContext,
 		private readonly git: Git,
@@ -1114,7 +1147,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const args = ['log', ...parser.arguments];
 
 			const similarityThreshold = options?.similarityThreshold ?? cfg?.commits.similarityThreshold;
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--use-mailmap');
+			const renamesArg = `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`;
+			args.push(renamesArg, '--use-mailmap');
 
 			if (options?.all) {
 				args.push('--all');
@@ -1238,15 +1272,34 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					: undefined),
 				...(isEagerPagedFileLog ? { slownessCategory: 'commitFiles' as const } : undefined),
 			};
-			let { commits, count } = await parseCommits(
-				parser,
-				isSingleCommit ? this.git.run(cmdOpts, ...args) : this.git.stream(cmdOpts, ...args),
-				repoPath,
-				pathspec,
-				limit,
-				undefined,
-				currentUser,
-			);
+			const parse = (output: Promise<GitResult> | AsyncGenerator<string>) =>
+				parseCommits(parser, output, repoPath, pathspec, limit, undefined, currentUser);
+
+			let { commits, count } =
+				// Only a read with a page size: one of a whole range can rightly take longer than the limit a page is given
+				isEagerPagedFileLog && limit > 0
+					? await this.readWithRenameFallback(
+							repoPath,
+							args,
+							renamesArg,
+							cancellation,
+							(readArgs, firstAttempt) =>
+								parse(
+									this.git.stream(
+										firstAttempt
+											? { ...cmdOpts, timeout: this.git.options.gitTimeout ?? defaultGitTimeout }
+											: cmdOpts,
+										...readArgs,
+									),
+								),
+						)
+					: isSingleCommit && !options?.path?.pathspec
+						? await this.readWithRenameFallback(repoPath, args, renamesArg, cancellation, readArgs =>
+								parse(this.git.run(cmdOpts, ...readArgs)),
+							)
+						: await parse(
+								isSingleCommit ? this.git.run(cmdOpts, ...args) : this.git.stream(cmdOpts, ...args),
+							);
 
 			// If we didn't find any history from the working tree, check to see if the file was renamed
 			if (rev == null && pathspec && !commits.size) {
@@ -1361,6 +1414,37 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			debugger;
 
 			return undefined;
+		}
+	}
+
+	/**
+	 * Reads commits with unlimited rename detection, which git can take very long over for a commit that moves and edits
+	 * a great many files. A read that runs out of time is read once more with `-l{@link renameLimit}` straight after
+	 * the rename argument: only a commit with more rename candidates than that loses its inexact renames (exact and
+	 * same-name moves, and every other commit read, keep theirs). The repository's later reads then use it straight away
+	 * for a while (see {@link commitReadClock}) rather than waiting out the limit again. A caller leaving is not running
+	 * out of time, and is not remembered. `read` is told whether it is the first attempt, which is the one a time limit
+	 * applies to.
+	 */
+	private async readWithRenameFallback<T>(
+		repoPath: string,
+		args: readonly string[],
+		renamesArg: string,
+		cancellation: AbortSignal | undefined,
+		read: (args: readonly string[], firstAttempt: boolean) => Promise<T>,
+	): Promise<T> {
+		const limitedArgs = args.flatMap(a => (a === renamesArg ? [a, `-l${renameLimit}`] : [a]));
+		const commonPath = this.cache.getCommonPath(repoPath);
+
+		if (this.limitedRenamesSince.isHeld(commonPath)) return read(limitedArgs, false);
+
+		try {
+			return await read(args, true);
+		} catch (ex) {
+			if (cancellation?.aborted || !isTimeout(ex)) throw ex;
+
+			this.limitedRenamesSince.hold(commonPath, true);
+			return read(limitedArgs, false);
 		}
 	}
 
