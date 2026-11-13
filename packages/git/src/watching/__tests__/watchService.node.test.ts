@@ -635,7 +635,8 @@ describe('RepositoryWatchService', () => {
 				watchers.find(w => w.basePath === basePath && (pattern == null || w.pattern === pattern))?.options
 					?.excludes;
 			assert.ok(excludes('/repo/.git', dotGitGlobCombined)?.includes('sync-tools-worktrees'));
-			assert.ok(excludes('/repo/.git', dotGitGlobCommon)?.includes('sync-tools-worktrees'));
+			// Beside the main checkout, linked worktrees hear the common files through its root watcher
+			assert.strictEqual(excludes('/repo/.git', dotGitGlobCommon), undefined);
 			assert.ok(!excludes('/repo/.git/worktrees/A')?.includes('sync-tools-worktrees'));
 			assert.ok(watchers.every(w => !w.options?.excludes?.includes('worktrees')));
 			assert.deepStrictEqual(asked, ['/repo']);

@@ -35,8 +35,14 @@ interface MockWatcher extends FileWatcher {
 	disposed: boolean;
 }
 
-/** `initialReliability` is reported synchronously inside `createWatcher`, for the watchers it returns one for */
-function createMockFactory(initialReliability?: (basePath: string) => FileWatcherReliability | undefined): {
+/**
+ * `initialReliability` is reported synchronously inside `createWatcher`, for the watchers it returns one for;
+ * `onDispose` runs as a watcher is disposed, before it is marked so
+ */
+function createMockFactory(
+	initialReliability?: (basePath: string, pattern: string) => FileWatcherReliability | undefined,
+	onDispose?: (watcher: MockWatcher) => void,
+): {
 	factory: FileWatchingProvider;
 	watchers: MockWatcher[];
 } {
@@ -63,10 +69,13 @@ function createMockFactory(initialReliability?: (basePath: string) => FileWatche
 						options?.onDidChangeReliability?.(state);
 					},
 				},
-				() => (w.disposed = true),
+				() => {
+					onDispose?.(w);
+					w.disposed = true;
+				},
 			);
 			watchers.push(w);
-			const initial = initialReliability?.(w.basePath);
+			const initial = initialReliability?.(w.basePath, pattern);
 			if (initial != null) {
 				options?.onDidChangeReliability?.(initial);
 			}
@@ -217,10 +226,13 @@ describe('WatchGroup', () => {
 			assert.deepStrictEqual(watchers.find(w => w.pattern === dotGitGlobCombined)?.options, {
 				excludes: folders,
 			});
-			assert.deepStrictEqual(watchers.find(w => w.pattern === dotGitGlobCommon)?.options, { excludes: folders });
 			assert.deepStrictEqual(watchers.find(w => w.pattern === dotGitGlobRoot)?.options, {
 				excludes: gitDirExcludes,
 			});
+
+			// The common watcher takes the common files over once the main checkout goes
+			group.removeSession('/repo');
+			assert.deepStrictEqual(watchers.find(w => w.pattern === dotGitGlobCommon)?.options, { excludes: folders });
 			group.dispose();
 		});
 
@@ -728,7 +740,6 @@ describe('WatchGroup', () => {
 			/** Fails each listing while set; `missing`, as a directory that isn't there */
 			listing: { fails: boolean; missing: boolean };
 			mainRoot: MockWatcher;
-			common: MockWatcher;
 			main: WatchGroupHooks;
 			linkedA: WatchGroupHooks;
 			linkedB: WatchGroupHooks;
@@ -788,31 +799,17 @@ describe('WatchGroup', () => {
 			await flushReads();
 
 			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
-			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
 			assert.ok(mainRoot);
-			assert.ok(common);
 			return {
 				group: group,
 				reads: reads,
 				listings: listings,
 				listing: listing,
 				mainRoot: mainRoot,
-				common: common,
 				main: main,
 				linkedA: linkedA,
 				linkedB: linkedB,
 			};
-		}
-
-		/** Reports `path` from both watchers, as a recursive watcher of the common dir and the main checkout's root does */
-		function reportBoth(
-			mainRoot: MockWatcher,
-			common: MockWatcher,
-			path: string,
-			reason: FileWatchEvent['reason'],
-		) {
-			mainRoot.fire({ path: path, reason: reason });
-			common.fire({ path: path, reason: reason });
 		}
 
 		/** How many changes each of the sessions heard */
@@ -846,10 +843,10 @@ describe('WatchGroup', () => {
 		});
 
 		it("tells a real worktree's HEAD move at once, reading nothing", async () => {
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 			const baselineReads = reads.length;
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
 
 			// The owner hears its own HEAD from its root watcher
 			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
@@ -874,13 +871,13 @@ describe('WatchGroup', () => {
 		});
 
 		it("tells no session of an ignored worktree's HEAD moves, reading nothing", async () => {
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 			const baselineReads = reads.length;
 
 			for (const file of ['HEAD', 'locked']) {
-				reportBoth(mainRoot, common, `/repo/.git/worktrees/x-1/${file}`, 'change');
+				mainRoot.fire({ path: `/repo/.git/worktrees/x-1/${file}`, reason: 'change' });
 			}
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
@@ -891,13 +888,13 @@ describe('WatchGroup', () => {
 		it('tells no session of an ignored worktree added after it started', async () => {
 			const entries = adminEntries();
 			delete entries['x-1'];
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 			const baselineReads = reads.length;
 
 			entries['x-1'] = '/repo/.git/sync-tools-worktrees/x/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'create');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/gitdir', 'create');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'create');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/gitdir', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'create' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
@@ -906,11 +903,11 @@ describe('WatchGroup', () => {
 		});
 
 		it('tells no session of an ignored worktree whose entry names it relative to the entry', async () => {
-			const { group, mainRoot, common, main, linkedA } = await createGroup({
+			const { group, mainRoot, main, linkedA } = await createGroup({
 				'x-1': '../../sync-tools-worktrees/x/.git\n',
 			});
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA), [0, 0]);
@@ -918,12 +915,12 @@ describe('WatchGroup', () => {
 		});
 
 		it('tells no session of an ignored worktree named by the path its folder resolves to', async () => {
-			const { group, mainRoot, common, main, linkedA } = await createGroup(
+			const { group, mainRoot, main, linkedA } = await createGroup(
 				{ 'x-1': '/private/repo/.git/sync-tools-worktrees/x/.git\n' },
 				{ roots: ['/repo/.git/sync-tools-worktrees', '/private/repo/.git/sync-tools-worktrees'] },
 			);
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA), [0, 0]);
@@ -931,18 +928,18 @@ describe('WatchGroup', () => {
 		});
 
 		it("tells a real worktree's HEAD deleted and created again at once, reading nothing, and keeps it known", async () => {
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 			const baselineReads = reads.length;
 
 			// Git's lock file renamed over HEAD, as some watchers report it
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'delete');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'create');
+			mainRoot.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'delete' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'create' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 0, 2]);
 			for (const i of [0, 1]) {
 				assert.strictEqual(callArgs(linkedB.onRepoChanged, i)[5], 'A');
 			}
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/A/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [3, 0, 3]);
 			await flushReads();
 			assert.strictEqual(reads.length, baselineReads);
@@ -950,11 +947,11 @@ describe('WatchGroup', () => {
 		});
 
 		it("tells nothing of an ignored worktree's HEAD deleted and created again, reading nothing", async () => {
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 			const baselineReads = reads.length;
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'delete');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'create');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'delete' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'create' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
@@ -963,9 +960,9 @@ describe('WatchGroup', () => {
 		});
 
 		it("delivers a worktree's admin entry inside the git dir but under no ignored folder", async () => {
-			const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/mine/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/mine/HEAD', reason: 'change' });
 
 			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
 				'/repo',
@@ -981,14 +978,14 @@ describe('WatchGroup', () => {
 
 		it('tells no session of the removal of an ignored worktree it found as it started', async () => {
 			const entries = adminEntries();
-			const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			delete entries['x-1'];
 			for (const file of ['HEAD', 'locked', 'gitdir']) {
-				reportBoth(mainRoot, common, `/repo/.git/worktrees/x-1/${file}`, 'delete');
+				mainRoot.fire({ path: `/repo/.git/worktrees/x-1/${file}`, reason: 'delete' });
 			}
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
@@ -996,9 +993,9 @@ describe('WatchGroup', () => {
 		});
 
 		it('delivers the removal of an entry it never knew', async () => {
-			const { group, mainRoot, common, main, linkedA } = await createGroup(adminEntries());
+			const { group, mainRoot, main, linkedA } = await createGroup(adminEntries());
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/gone', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees/gone', reason: 'delete' });
 
 			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), [
 				'/repo',
@@ -1014,23 +1011,20 @@ describe('WatchGroup', () => {
 
 		it('rereads an id created again, so one reused by a regular worktree is delivered', async () => {
 			const entries = adminEntries();
-			const { group, reads, mainRoot, common, main, linkedA } = await createGroup(entries);
+			const { group, reads, mainRoot, main, linkedA } = await createGroup(entries);
 
 			delete entries['x-1'];
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
 			entries['x-1'] = '/worktrees/x/.git\n';
 			const beforeCreate = reads.length;
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'create');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'create' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA), [1, 1]);
-			assert.deepStrictEqual(reads.slice(beforeCreate), [
-				'/repo/.git/worktrees/x-1/gitdir',
-				'/repo/.git/worktrees/x-1/gitdir',
-			]);
+			assert.deepStrictEqual(reads.slice(beforeCreate), ['/repo/.git/worktrees/x-1/gitdir']);
 
 			// Known as real now: its HEAD moves are told at once
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 			assert.deepStrictEqual(heard(main, linkedA), [2, 2]);
 			group.dispose();
 		});
@@ -1038,16 +1032,16 @@ describe('WatchGroup', () => {
 		it("holds a new entry read before its gitdir is written until that write's report reads it", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, common, linkedA } = await createGroup(entries);
+				const { group, reads, mainRoot, linkedA } = await createGroup(entries);
 
 				entries.y = null;
-				common.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 				await flushReads();
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 0);
 
 				// The write's report reads the entry, telling the held report with its own
 				entries.y = '/worktrees/y/.git\n';
-				common.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'create' });
 				await flushReads();
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 2);
 
@@ -1063,10 +1057,10 @@ describe('WatchGroup', () => {
 		it("reads an entry it doesn't know and can't read once more a moment later, then tells its report", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, common, linkedA } = await createGroup(entries);
+				const { group, reads, mainRoot, linkedA } = await createGroup(entries);
 
 				entries.y = null;
-				common.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 				await flushReads();
 				mock.timers.tick(249);
 				await flushReads();
@@ -1089,10 +1083,10 @@ describe('WatchGroup', () => {
 		it("tells nothing of an entry it couldn't read that turns out an ignored worktree's when read again", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				entries['x-2'] = null;
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-2', 'create');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-2', reason: 'create' });
 				await flushReads();
 
 				// Its gitdir was written, the write unseen
@@ -1103,27 +1097,30 @@ describe('WatchGroup', () => {
 
 				// Known as ignored now: its HEAD moves are dropped, unread
 				const known = reads.length;
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-2/HEAD', 'change');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-2/HEAD', reason: 'change' });
 				assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
 				assert.strictEqual(reads.length, known);
 				group.dispose();
 			});
 		});
 
-		it("holds both watchers' reports of an entry it can't read on one read again", async () => {
+		it("holds every report of an entry it can't read on one read again", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				entries.y = null;
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/y', 'create');
+				// Reported twice, as by a watcher and a poll
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 				await flushReads();
 				assert.strictEqual(readsOf(reads, 'y'), 2);
 
 				mock.timers.tick(250);
 				await flushReads();
 				assert.strictEqual(readsOf(reads, 'y'), 3);
-				assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
+				// Each report, told once the read again settles
+				assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 2, 2]);
 				group.dispose();
 			});
 		});
@@ -1131,14 +1128,14 @@ describe('WatchGroup', () => {
 		it('reads an entry it held no more once a removal of it is told', async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, common, linkedA } = await createGroup(entries);
+				const { group, reads, mainRoot, linkedA } = await createGroup(entries);
 
 				entries.y = null;
-				common.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 				await flushReads();
 				// Never known, so its removal is told as a real worktree's
 				delete entries.y;
-				common.fire({ path: '/repo/.git/worktrees/y', reason: 'delete' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'delete' });
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 1);
 
 				mock.timers.tick(250);
@@ -1152,10 +1149,10 @@ describe('WatchGroup', () => {
 		it("forgets an ignored worktree's entry whose gitdir can't be read again, so its later reports are read", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, common, linkedA } = await createGroup(entries);
+				const { group, reads, mainRoot, linkedA } = await createGroup(entries);
 
 				entries['x-1'] = null;
-				common.fire({ path: '/repo/.git/worktrees/x-1/gitdir', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1/gitdir', reason: 'change' });
 				await flushReads();
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 0);
 				mock.timers.tick(250);
@@ -1163,7 +1160,7 @@ describe('WatchGroup', () => {
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 1);
 
 				const forgotten = readsOf(reads, 'x-1');
-				common.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 				await flushReads();
 				mock.timers.tick(250);
 				await flushReads();
@@ -1176,10 +1173,10 @@ describe('WatchGroup', () => {
 		it("delivers a change of an entry it still can't read a moment later", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, common, linkedA } = await createGroup(entries);
+				const { group, mainRoot, linkedA } = await createGroup(entries);
 
 				entries.y = null;
-				common.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
 				await flushReads();
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 0);
 
@@ -1193,14 +1190,14 @@ describe('WatchGroup', () => {
 		it('keeps an entry removed while its gitdir was read unknown, so a worktree reusing its id is told', async () => {
 			let settle!: (content: string) => void;
 			const entries = adminEntries();
-			const { group, common, linkedA } = await createGroup(entries);
+			const { group, mainRoot, linkedA } = await createGroup(entries);
 
 			entries.y = new Promise<string>(resolve => {
 				settle = resolve;
 			});
-			common.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 			// Never known, so its removal is told as a real worktree's
-			common.fire({ path: '/repo/.git/worktrees/y', reason: 'delete' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'delete' });
 			assert.strictEqual(callCount(linkedA.onRepoChanged), 1);
 
 			settle('/repo/.git/sync-tools-worktrees/y/.git\n');
@@ -1209,7 +1206,7 @@ describe('WatchGroup', () => {
 
 			// A regular worktree takes the id, its entry's creation coalesced away
 			entries.y = '/worktrees/y/.git\n';
-			common.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'create' });
 			await flushReads();
 			assert.strictEqual(callCount(linkedA.onRepoChanged), 2);
 			group.dispose();
@@ -1218,15 +1215,15 @@ describe('WatchGroup', () => {
 		it('decides a report whose read a later one superseded by what the later read found', async () => {
 			let settleFirst!: (content: string) => void;
 			const entries = adminEntries();
-			const { group, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			// A tool moves a worktree into its folder while the read from before the move is still pending
 			entries.y = new Promise<string>(resolve => {
 				settleFirst = resolve;
 			});
-			common.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'create' });
 			entries.y = '/repo/.git/sync-tools-worktrees/y/.git\n';
-			common.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
 			await flushReads();
 			settleFirst('/worktrees/y/.git\n');
 			await flushReads();
@@ -1237,19 +1234,19 @@ describe('WatchGroup', () => {
 
 		it('reads an entry removed before once another report of its id comes in, and tells it when real', async () => {
 			const entries = adminEntries();
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			delete entries['x-1'];
 			for (const file of ['HEAD', 'gitdir']) {
-				reportBoth(mainRoot, common, `/repo/.git/worktrees/x-1/${file}`, 'delete');
+				mainRoot.fire({ path: `/repo/.git/worktrees/x-1/${file}`, reason: 'delete' });
 			}
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
 
 			// A regular worktree takes the id, its entry's creation unseen
 			entries['x-1'] = '/worktrees/x/.git\n';
 			const removed = readsOf(reads, 'x-1');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 			await flushReads();
 
 			assert.ok(readsOf(reads, 'x-1') > removed);
@@ -1260,19 +1257,19 @@ describe('WatchGroup', () => {
 		it("takes a change of a removed entry it can't read for the removal's own, reading it no more", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				delete entries['x-1'];
 				for (const file of ['HEAD', 'gitdir']) {
-					reportBoth(mainRoot, common, `/repo/.git/worktrees/x-1/${file}`, 'delete');
+					mainRoot.fire({ path: `/repo/.git/worktrees/x-1/${file}`, reason: 'delete' });
 				}
 				await flushReads();
 				// The entry's directory is reported changed beside the files the removal deleted, once they are gone
 				const before = readsOf(reads, 'x-1');
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'change');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'change' });
 				await flushReads();
 				const removed = readsOf(reads, 'x-1');
-				assert.strictEqual(removed, before + 2);
+				assert.strictEqual(removed, before + 1);
 				mock.timers.tick(250);
 				await flushReads();
 
@@ -1285,12 +1282,12 @@ describe('WatchGroup', () => {
 		it("reads a removed entry created again once more a moment later when it can't read it yet, then tells it", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				delete entries['x-1'];
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
 				entries['x-1'] = null;
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'create');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'create' });
 				await flushReads();
 				assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
 				const created = readsOf(reads, 'x-1');
@@ -1307,16 +1304,16 @@ describe('WatchGroup', () => {
 			await withFakeTimers(async () => {
 				let settleCreated!: (content: string) => void;
 				const entries = adminEntries();
-				const { group, common, linkedA } = await createGroup(entries);
+				const { group, mainRoot, linkedA } = await createGroup(entries);
 
 				delete entries['x-1'];
-				common.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
 				entries['x-1'] = new Promise<string>(resolve => {
 					settleCreated = resolve;
 				});
-				common.fire({ path: '/repo/.git/worktrees/x-1', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'create' });
 				entries['x-1'] = null;
-				common.fire({ path: '/repo/.git/worktrees/x-1', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'change' });
 				await flushReads();
 				settleCreated('/repo/.git/sync-tools-worktrees/x/.git\n');
 				await flushReads();
@@ -1334,17 +1331,17 @@ describe('WatchGroup', () => {
 		it("tells nothing of the removal of an ignored worktree's entry a read couldn't read just before", async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				// The entry's `gitdir` report is read as git removes the entry
 				entries['x-1'] = null;
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/gitdir', 'change');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1/gitdir', reason: 'change' });
 				await flushReads();
 				delete entries['x-1'];
 				for (const file of ['HEAD', 'gitdir']) {
-					reportBoth(mainRoot, common, `/repo/.git/worktrees/x-1/${file}`, 'delete');
+					mainRoot.fire({ path: `/repo/.git/worktrees/x-1/${file}`, reason: 'delete' });
 				}
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
 				mock.timers.tick(250);
 				await flushReads();
 
@@ -1355,13 +1352,13 @@ describe('WatchGroup', () => {
 
 		it('tells every session of a real worktree moved into an ignored folder, then nothing of it', async () => {
 			const entries = adminEntries();
-			const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			entries.B = '/repo/.git/sync-tools-worktrees/B/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/gitdir', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/gitdir', reason: 'change' });
 			await flushReads();
 
-			// Every list lost it, the owner's included; the other watcher's report finds it told
+			// Every list lost it, the owner's included
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			// As a list change, which names no worktree whose HEAD moved
 			assert.deepStrictEqual(callArgs(linkedA.onRepoChanged, 0), [
@@ -1370,21 +1367,21 @@ describe('WatchGroup', () => {
 				undefined,
 			]);
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/HEAD', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/HEAD', reason: 'change' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			group.dispose();
 		});
 
 		it('tells every session of a real worktree moved into an ignored folder once unlocked', async () => {
 			const entries = adminEntries();
-			const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/locked', 'create');
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/locked', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/locked', reason: 'create' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/locked', reason: 'delete' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 2, 2]);
 
 			entries.B = '/repo/.git/sync-tools-worktrees/B/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/B/gitdir', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/gitdir', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [3, 3, 3]);
@@ -1393,17 +1390,17 @@ describe('WatchGroup', () => {
 
 		it('tells every session once of a real entry the worktrees directory gained, and none of an ignored one', async () => {
 			const entries = adminEntries();
-			const { group, reads, listings, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, reads, listings, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 			const baselineReads = reads.length;
 
 			entries['x-2'] = '/repo/.git/sync-tools-worktrees/x2/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
 			assert.deepStrictEqual(reads.slice(baselineReads), ['/repo/.git/worktrees/x-2/gitdir']);
 
 			entries.C = '/worktrees/C/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			// A listing can't tell an entry added from one moved out of an ignored folder, so it tells of its HEAD too
@@ -1414,7 +1411,7 @@ describe('WatchGroup', () => {
 			]);
 
 			// Nothing changed since
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 			assert.ok(listings.length > 1);
@@ -1423,12 +1420,12 @@ describe('WatchGroup', () => {
 
 		it('counts no entry for a file the worktrees directory lists', async () => {
 			const entries = adminEntries();
-			const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries, {
+			const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries, {
 				files: ['.DS_Store'],
 			});
 			assert.strictEqual(readsOf(reads, '.DS_Store'), 0);
 
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.strictEqual(readsOf(reads, '.DS_Store'), 0);
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
@@ -1437,10 +1434,10 @@ describe('WatchGroup', () => {
 
 		it('tells every session of a real entry the worktrees directory lost', async () => {
 			const entries = adminEntries();
-			const { group, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			delete entries.mine;
-			common.fire({ path: '/repo/.git/worktrees', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
@@ -1450,10 +1447,10 @@ describe('WatchGroup', () => {
 		it('counts an entry the worktrees directory gained whose gitdir is still unreadable a moment later as real', async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, common, linkedA } = await createGroup(entries);
+				const { group, reads, mainRoot, linkedA } = await createGroup(entries);
 
 				entries.y = null;
-				common.fire({ path: '/repo/.git/worktrees', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 				await flushReads();
 				assert.strictEqual(callCount(linkedA.onRepoChanged), 0);
 
@@ -1468,10 +1465,10 @@ describe('WatchGroup', () => {
 		it('reads an entry the worktrees directory gained once more before counting it', async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				entries['x-2'] = null;
-				common.fire({ path: '/repo/.git/worktrees', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'create' });
 				await flushReads();
 
 				entries['x-2'] = '/repo/.git/sync-tools-worktrees/x2/.git\n';
@@ -1484,32 +1481,32 @@ describe('WatchGroup', () => {
 
 		for (const reason of ['create', 'change'] as const) {
 			it(`delivers the worktrees directory's ${reason} to its own sessions when it can't be listed`, async () => {
-				const { group, listing, common, main, linkedA, linkedB } = await createGroup(adminEntries());
+				const { group, listing, mainRoot, main, linkedA, linkedB } = await createGroup(adminEntries());
 
 				listing.fails = true;
-				common.fire({ path: '/repo/.git/worktrees', reason: reason });
+				mainRoot.fire({ path: '/repo/.git/worktrees', reason: reason });
 				await flushReads();
 
-				assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 1, 1]);
+				assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 				group.dispose();
 			});
 		}
 
 		it('takes a worktrees directory that is gone for an empty one whatever the report, so an entry added again is told', async () => {
 			const entries: Record<string, string | null> = { C: '/worktrees/C/.git\n' };
-			const { group, listing, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, listing, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			// Git removed the directory with its last entry, which a poll sees as a change of it
 			delete entries.C;
 			listing.missing = true;
-			common.fire({ path: '/repo/.git/worktrees', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 
 			// The same id added again
 			listing.missing = false;
 			entries.C = '/worktrees/C/.git\n';
-			common.fire({ path: '/repo/.git/worktrees', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 2, 2]);
 			group.dispose();
@@ -1517,25 +1514,25 @@ describe('WatchGroup', () => {
 
 		it("takes a removal of the worktrees directory it can't list for an empty one", async () => {
 			const entries: Record<string, string | null> = { 'x-1': '/repo/.git/sync-tools-worktrees/x/.git\n' };
-			const { group, listing, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, listing, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			// Git removed the directory with its last entry, an ignored worktree's
 			delete entries['x-1'];
 			listing.fails = true;
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'delete' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [0, 0, 0]);
 
 			listing.fails = false;
 			entries.C = '/worktrees/C/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'create');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'create' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 
 			// The last entry, a real worktree's
 			delete entries.C;
 			listing.fails = true;
-			reportBoth(mainRoot, common, '/repo/.git/worktrees', 'delete');
+			mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'delete' });
 			await flushReads();
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 2, 2]);
 			group.dispose();
@@ -1543,14 +1540,14 @@ describe('WatchGroup', () => {
 
 		it('tells a report arriving before the admin entries are first listed and read at once', async () => {
 			let list!: () => void;
-			const { group, reads, common, linkedA, linkedB } = await createGroup(adminEntries(), {
+			const { group, reads, mainRoot, linkedA, linkedB } = await createGroup(adminEntries(), {
 				firstListing: new Promise<void>(resolve => {
 					list = resolve;
 				}),
 			});
 
-			common.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
-			common.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
 			assert.deepStrictEqual(heard(linkedA, linkedB), [1, 2]);
 
 			list();
@@ -1569,11 +1566,11 @@ describe('WatchGroup', () => {
 			entries.y = new Promise<string>(resolve => {
 				settle = resolve;
 			});
-			const { group, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+			const { group, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 			// A real worktree is moved out of the folder while the baseline still reads where it was
 			entries.y = '/worktrees/y/.git\n';
-			reportBoth(mainRoot, common, '/repo/.git/worktrees/y/gitdir', 'change');
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 1, 1]);
 
 			settle('/repo/.git/sync-tools-worktrees/y/.git\n');
@@ -1582,25 +1579,25 @@ describe('WatchGroup', () => {
 			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 2, 2]);
 
 			// Known as real: its HEAD moves are told
-			common.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
-			assert.deepStrictEqual(heard(main, linkedA, linkedB), [2, 3, 3]);
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
+			assert.deepStrictEqual(heard(main, linkedA, linkedB), [3, 3, 3]);
 			group.dispose();
 		});
 
 		it('lists and reads the admin entries again after a watcher dropped events', async () => {
 			const entries = adminEntries();
-			const { group, reads, listings, common, linkedA, linkedB } = await createGroup(entries);
+			const { group, reads, listings, mainRoot, linkedA, linkedB } = await createGroup(entries);
 
 			// Added while the watcher dropped its events
 			entries['x-2'] = '/repo/.git/sync-tools-worktrees/x2/.git\n';
-			common.fire({ path: '/repo/.git', reason: 'overflow' });
+			mainRoot.fire({ path: '/repo/.git', reason: 'overflow' });
 			await flushReads();
 			assert.strictEqual(listings.length, 2);
 			assert.ok(reads.includes('/repo/.git/worktrees/x-2/gitdir'));
 			const overflowed = heard(linkedA, linkedB);
 
 			const rebaselineReads = reads.length;
-			common.fire({ path: '/repo/.git/worktrees/x-2/HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/x-2/HEAD', reason: 'change' });
 			assert.deepStrictEqual(heard(linkedA, linkedB), overflowed);
 			assert.strictEqual(reads.length, rebaselineReads);
 			group.dispose();
@@ -1609,15 +1606,15 @@ describe('WatchGroup', () => {
 		it('keeps only the latest read of an id when reads settle out of order', async () => {
 			let settleInside!: (content: string) => void;
 			const entries = adminEntries();
-			const { group, common, linkedA } = await createGroup(entries);
+			const { group, mainRoot, linkedA } = await createGroup(entries);
 
 			// The worktree moves out of the ignored folder while the read from before the move is still pending
 			entries.y = new Promise<string>(resolve => {
 				settleInside = resolve;
 			});
-			common.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
 			entries.y = '/worktrees/y/.git\n';
-			common.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/gitdir', reason: 'change' });
 			await flushReads();
 			assert.strictEqual(callCount(linkedA.onRepoChanged), 1);
 
@@ -1626,7 +1623,7 @@ describe('WatchGroup', () => {
 			// The stale read's report is decided by what the latest read found, and doesn't make the regular worktree
 			// look ignored
 			assert.strictEqual(callCount(linkedA.onRepoChanged), 2);
-			common.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/y/HEAD', reason: 'change' });
 			assert.strictEqual(callCount(linkedA.onRepoChanged), 3);
 			group.dispose();
 		});
@@ -1634,20 +1631,20 @@ describe('WatchGroup', () => {
 		it('tells no session removed, or group disposed, while the entry was read', async () => {
 			await withFakeTimers(async () => {
 				const entries = adminEntries();
-				const { group, reads, mainRoot, common, main, linkedA, linkedB } = await createGroup(entries);
+				const { group, reads, mainRoot, main, linkedA, linkedB } = await createGroup(entries);
 
 				entries.y = '/worktrees/y/.git\n';
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/y', 'create');
+				mainRoot.fire({ path: '/repo/.git/worktrees/y', reason: 'create' });
 				group.removeSession('/worktrees/A');
 				await flushReads();
 
 				assert.deepStrictEqual(heard(main, linkedA, linkedB), [1, 0, 1]);
 
 				entries.z = '/worktrees/z/.git\n';
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/z', 'create');
+				mainRoot.fire({ path: '/repo/.git/worktrees/z', reason: 'create' });
 				// Nor reads again, once disposed, an entry it couldn't read
 				entries.w = null;
-				common.fire({ path: '/repo/.git/worktrees/w', reason: 'create' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/w', reason: 'create' });
 				group.dispose();
 				await flushReads();
 				mock.timers.tick(250);
@@ -1665,14 +1662,11 @@ describe('WatchGroup', () => {
 			['when no folder is asked for', { roots: null }],
 		] as const) {
 			it(`delivers every admin entry report at once, reading nothing, ${name}`, async () => {
-				const { group, reads, listings, mainRoot, common, main, linkedA } = await createGroup(
-					adminEntries(),
-					options,
-				);
+				const { group, reads, listings, mainRoot, main, linkedA } = await createGroup(adminEntries(), options);
 
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1/HEAD', 'change');
-				reportBoth(mainRoot, common, '/repo/.git/worktrees/x-1', 'delete');
-				reportBoth(mainRoot, common, '/repo/.git/worktrees', 'change');
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1/HEAD', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/worktrees/x-1', reason: 'delete' });
+				mainRoot.fire({ path: '/repo/.git/worktrees', reason: 'change' });
 
 				assert.deepStrictEqual(heard(main, linkedA), [3, 3]);
 				assert.deepStrictEqual(reads, []);
@@ -1735,27 +1729,25 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(b.onRepoChanged), 0);
 		});
 
-		it('a common watcher overflow reaches linked sessions but not a main checkout it duplicates', () => {
+		it('a common watcher overflow reaches every linked session', () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
-			const main = hooks();
-			const linked = hooks();
-			group.addSession('/repo', standardGitDir('/repo/.git'), main);
-			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), linked);
+			const a = hooks();
+			const b = hooks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), a);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), b);
 
 			watchers.find(w => w.pattern === dotGitGlobCommon)!.fire({ path: '/repo/.git', reason: 'overflow' });
 
-			assert.strictEqual(callCount(main.onRepoChanged), 0);
-			assert.strictEqual(callCount(main.onFetchHeadChanged), 0);
-			assert.strictEqual(callCount(linked.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(linked.onRepoChanged, 0), ['/worktrees/B', fullKinds, undefined, true]);
-			assert.strictEqual(callCount(linked.onFetchHeadChanged), 1);
-			assert.strictEqual(callCount(linked.onIgnoresChanged), 1);
-
-			// The main checkout's own root watcher still reports it
-			watchers.find(w => w.pattern === dotGitGlobCombined)!.fire({ path: '/repo/.git', reason: 'overflow' });
-			assert.strictEqual(callCount(main.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', fullKinds, undefined, true]);
+			for (const [linked, repoPath] of [
+				[a, '/worktrees/A'],
+				[b, '/worktrees/B'],
+			] as const) {
+				assert.strictEqual(callCount(linked.onRepoChanged), 1);
+				assert.deepStrictEqual(callArgs(linked.onRepoChanged, 0), [repoPath, fullKinds, undefined, true]);
+				assert.strictEqual(callCount(linked.onFetchHeadChanged), 1);
+				assert.strictEqual(callCount(linked.onIgnoresChanged), 1);
+			}
 		});
 	});
 
@@ -1782,16 +1774,11 @@ describe('WatchGroup', () => {
 			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), cbB);
 
 			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
-			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
 			assert.ok(mainRoot);
-			assert.ok(common);
 
-			// A recursive watcher reports the same file on both
-			for (const w of [mainRoot, common]) {
-				w.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
-				w.fire({ path: '/repo/.git/FETCH_HEAD', reason: 'change' });
-				w.fire({ path: '/repo/.git/info/exclude', reason: 'change' });
-			}
+			mainRoot.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/FETCH_HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/info/exclude', reason: 'change' });
 
 			// refs/heads/x + info/exclude
 			assert.strictEqual(callCount(mainChanged), 2);
@@ -1799,7 +1786,7 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(mainFetch), 1);
 			assert.strictEqual(callCount(mainIgnores), 1);
 
-			// The linked worktree still hears the common watcher
+			// The linked worktree hears the common files through the main checkout's root watcher
 			assert.strictEqual(callCount(cbB.onRepoChanged), 2);
 			assert.strictEqual(callCount(cbB.onFetchHeadChanged), 1);
 			assert.strictEqual(callCount(cbB.onIgnoresChanged), 1);
@@ -1813,14 +1800,10 @@ describe('WatchGroup', () => {
 			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), makeCallbacks());
 
 			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
-			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
 			assert.ok(mainRoot);
-			assert.ok(common);
 
-			for (const w of [mainRoot, common]) {
-				w.fire({ path: '/repo/.git/worktrees/B/HEAD', reason: 'change' });
-				w.fire({ path: '/repo/.git/worktrees/B/index', reason: 'change' });
-			}
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/HEAD', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/worktrees/B/index', reason: 'change' });
 
 			assert.strictEqual(callCount(mainChanged), 1);
 			// Its combined root watcher names the worktree that moved too
@@ -1832,6 +1815,776 @@ describe('WatchGroup', () => {
 				undefined,
 				'B',
 			]);
+		});
+	});
+
+	describe('the common dir watched once beside a main checkout', () => {
+		/** Lets the group's reads (promises around a fake file) run to completion */
+		async function flushReads(): Promise<void> {
+			for (let i = 0; i < 5; i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+		}
+
+		/** Hooks that log what reached them */
+		function loggingHooks(log: string[], refs: readonly string[] = []): WatchGroupHooks {
+			return {
+				onRepoChanged: (repoPath, changes, ref, overflow, configBranches, movedWorktree) =>
+					log.push(
+						`${repoPath} ${changes.join(',')} ${ref ?? '-'}${overflow ? ' overflow' : ''}${
+							configBranches != null ? ` ${[...configBranches].join(',')}` : ''
+						}${movedWorktree != null ? ` moved:${movedWorktree}` : ''}`,
+					),
+				onFetchHeadChanged: repoPath => log.push(`${repoPath} fetch`),
+				onIgnoresChanged: repoPath => log.push(`${repoPath} ignores`),
+				getProbeRefs: () => refs,
+				onUnwatchableChanged: repoPath => log.push(`${repoPath} mode`),
+			};
+		}
+
+		/** The watchers on the common dir not yet disposed */
+		function liveCommonDirWatchers(watchers: MockWatcher[]): string[] {
+			return watchers.filter(w => w.basePath === '/repo/.git' && !w.disposed).map(w => w.pattern);
+		}
+
+		const overflow = allWatchedRepositoryChanges.join(',');
+		const sessions = ['/repo', '/worktrees/A', '/worktrees/B'];
+
+		/** What each of `repoPaths` hears of a dropped watch */
+		function overflowed(repoPaths: readonly string[], mode?: boolean): string[] {
+			return repoPaths.flatMap(p => [
+				`${p} ${overflow} - overflow`,
+				`${p} fetch`,
+				`${p} ignores`,
+				...(mode ? [`${p} mode`] : []),
+			]);
+		}
+
+		function addMain(group: WatchGroup, log: string[], refs?: readonly string[]): void {
+			group.addSession('/repo', standardGitDir('/repo/.git'), loggingHooks(log, refs));
+		}
+
+		function addLinked(group: WatchGroup, id: string, log: string[], refs?: readonly string[]): void {
+			group.addSession(
+				`/worktrees/${id}`,
+				worktreeGitDir(`/repo/.git/worktrees/${id}`, '/repo/.git'),
+				loggingHooks(log, refs),
+			);
+		}
+
+		it("watches the common dir once, through the main checkout's root watcher, whatever linked sessions come and go", () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const log: string[] = [];
+
+			addMain(group, log);
+			addLinked(group, 'A', log);
+			addLinked(group, 'B', log);
+			assert.deepStrictEqual(
+				watchers.map(w => [w.basePath, w.pattern]),
+				[
+					['/repo/.git', dotGitGlobCombined],
+					['/repo/.git/worktrees/A', dotGitGlobRoot],
+					['/repo/.git/worktrees/B', dotGitGlobRoot],
+				],
+			);
+
+			group.removeSession('/worktrees/A');
+			addLinked(group, 'C', log);
+			assert.strictEqual(watchers.length, 4);
+			assert.strictEqual(watchers[3].pattern, dotGitGlobRoot);
+			assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCombined]);
+			group.dispose();
+		});
+
+		it('tells every session, once, of each shared change the main checkout reports', async () => {
+			const { factory, watchers } = createMockFactory();
+			const reads: string[] = [];
+			let config = '[core]\n\tbare = false\n';
+			const group = new WatchGroup('/repo/.git', factory, undefined, path => {
+				reads.push(normalizePath(path));
+				return Promise.resolve(new TextEncoder().encode(config));
+			});
+			const log: string[] = [];
+			addMain(group, log);
+			addLinked(group, 'A', log);
+			addLinked(group, 'B', log);
+			await flushReads();
+			assert.strictEqual(reads.length, 1, 'the baseline');
+			const mainRoot = watchers[0];
+
+			for (const [file, reason, expected] of [
+				['refs/heads/x', 'change', sessions.map(p => `${p} heads refs/heads/x`)],
+				['packed-refs', 'change', sessions.map(p => `${p} heads,remotes,tags -`)],
+				['gk/config', 'change', sessions.map(p => `${p} gkConfig -`)],
+				['FETCH_HEAD', 'change', sessions.map(p => `${p} fetch`)],
+				['info/exclude', 'change', sessions.flatMap(p => [`${p} ignores -`, `${p} ignores`])],
+				// The owner hears its own HEAD from its root watcher
+				[
+					'worktrees/A/HEAD',
+					'change',
+					['/repo', '/worktrees/B'].map(p => `${p} worktrees,worktreeHead - moved:A`),
+				],
+				['worktrees/A/locked', 'create', sessions.map(p => `${p} worktrees -`)],
+				['worktrees', 'change', sessions.map(p => `${p} worktrees,worktreeHead -`)],
+			] as const) {
+				log.length = 0;
+				mainRoot.fire({ path: `/repo/.git/${file}`, reason: reason });
+				assert.deepStrictEqual(log.sort(), [...expected].sort(), file);
+			}
+
+			log.length = 0;
+			config += '[branch "feature"]\n\tremote = origin\n\tmerge = refs/heads/feature\n';
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+			assert.deepStrictEqual(
+				log.sort(),
+				sessions.map(p => `${p} config false refs/heads/feature`),
+			);
+			assert.strictEqual(reads.length, 2, 'the shared config is read once for the report');
+			group.dispose();
+		});
+
+		it('tells only the main checkout of its own HEAD, index and operation state', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const log: string[] = [];
+			addMain(group, log);
+			addLinked(group, 'A', log);
+			addLinked(group, 'B', log);
+
+			for (const file of [
+				'HEAD',
+				'index',
+				'ORIG_HEAD',
+				'MERGE_HEAD',
+				'rebase-merge/head-name',
+				'sequencer/todo',
+			]) {
+				watchers[0].fire({ path: `/repo/.git/${file}`, reason: 'change' });
+			}
+
+			assert.ok(log.length > 0);
+			assert.ok(
+				log.every(l => l.startsWith('/repo ')),
+				log.join('\n'),
+			);
+			group.dispose();
+		});
+
+		it("tells the main checkout's own config file to it alone without a reader", () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const log: string[] = [];
+			addMain(group, log);
+			addLinked(group, 'A', log);
+
+			watchers[0].fire({ path: '/repo/.git/config.worktree', reason: 'change' });
+			watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+
+			assert.deepStrictEqual(log, [
+				'/repo config,remotes false',
+				'/repo config,remotes false',
+				'/worktrees/A config,remotes false',
+			]);
+			group.dispose();
+		});
+
+		/** A main checkout and linked worktrees A and B, over admin entries the group lists (none) to tell ignored ones */
+		async function createListingGroup(): Promise<{
+			group: WatchGroup;
+			watchers: MockWatcher[];
+			log: string[];
+			listing: { count: number; fails: boolean };
+		}> {
+			const { factory, watchers } = createMockFactory();
+			const listing = { count: 0, fails: false };
+			const group = new WatchGroup(
+				'/repo/.git',
+				factory,
+				undefined,
+				() => Promise.reject(new Error('ENOENT')),
+				() => {
+					listing.count++;
+					return listing.fails
+						? Promise.reject(Object.assign(new Error('EACCES'), { code: 'EACCES' }))
+						: Promise.resolve([]);
+				},
+				Promise.resolve(['/repo/.git/tools']),
+			);
+			const log: string[] = [];
+			addMain(group, log);
+			addLinked(group, 'A', log);
+			addLinked(group, 'B', log);
+			await flushReads();
+			assert.strictEqual(listing.count, 1, 'the baseline');
+			return { group: group, watchers: watchers, log: log, listing: listing };
+		}
+
+		it('lists the worktrees directory once for a report of it, telling every session', async () => {
+			const { group, watchers, log, listing } = await createListingGroup();
+
+			// A listing that fails tells the report to the sessions it reaches
+			listing.fails = true;
+			watchers[0].fire({ path: '/repo/.git/worktrees', reason: 'change' });
+			await flushReads();
+
+			assert.strictEqual(listing.count, 2);
+			assert.deepStrictEqual(
+				log.sort(),
+				sessions.map(p => `${p} worktrees,worktreeHead -`),
+			);
+			group.dispose();
+		});
+
+		it("tells every session of an overflow of the main checkout's root watcher, and lists the admin entries again once", async () => {
+			const { group, watchers, log, listing } = await createListingGroup();
+
+			watchers[0].fire({ path: '/repo/.git', reason: 'overflow' });
+			await flushReads();
+
+			assert.deepStrictEqual(log, overflowed(sessions));
+			assert.strictEqual(listing.count, 2);
+			group.dispose();
+		});
+
+		describe('reliability', () => {
+			function createFs(paths: readonly string[]): {
+				stat: (path: string) => Promise<{ mtime: number; size: number } | undefined>;
+				touch: (path: string) => void;
+			} {
+				const files = new Map(paths.map(p => [p, { mtime: 1, size: 1 }]));
+				return {
+					stat: path => Promise.resolve(files.get(normalizePath(path))),
+					touch: path => {
+						files.set(path, { mtime: (files.get(path)?.mtime ?? 0) + 1, size: 1 });
+					},
+				};
+			}
+
+			function createPoller(fs: ReturnType<typeof createFs>): GitDirPoller {
+				return new GitDirPoller({ stat: fs.stat, intervalMs: 0, activeCheckMs: 60_000, isActive: () => true });
+			}
+
+			it("takes linked sessions' watch of the shared files from the main checkout's root watcher", () => {
+				const poller = createPoller(createFs([]));
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory, poller);
+				const log: string[] = [];
+				addMain(group, log);
+				addLinked(group, 'A', log);
+				addLinked(group, 'B', log);
+
+				watchers[0].report('unwatchable');
+				assert.deepStrictEqual(log, overflowed(sessions, true));
+				for (const p of sessions) {
+					assert.ok(group.isUnwatchable(p), p);
+				}
+
+				log.length = 0;
+				watchers[0].report('unreliable');
+				assert.deepStrictEqual(log, overflowed(sessions, true));
+				for (const p of sessions) {
+					assert.ok(!group.isUnwatchable(p), p);
+				}
+
+				// No longer polled beside, which tells no session
+				log.length = 0;
+				watchers[0].report('reliable');
+				assert.deepStrictEqual(log, []);
+				group.dispose();
+				poller.dispose();
+			});
+
+			it("tells linked sessions of a shared file the main checkout's poll saw move", async () => {
+				const fs = createFs(['/repo/.git/packed-refs', '/repo/.git/refs/heads/a', '/repo/.git/refs/heads']);
+				const poller = createPoller(fs);
+				const { factory } = createMockFactory((basePath, pattern) =>
+					pattern === dotGitGlobRoot ? undefined : 'unwatchable',
+				);
+				const group = new WatchGroup('/repo/.git', factory, poller);
+				const log: string[] = [];
+				addMain(group, log);
+				addLinked(group, 'A', log, ['refs/heads/a']);
+				addLinked(group, 'B', log);
+				assert.strictEqual(poller.size, 1, 'only the main checkout is polled');
+				assert.ok(group.isUnwatchable('/worktrees/A'));
+
+				await poller.tick();
+				log.length = 0;
+				fs.touch('/repo/.git/packed-refs');
+				fs.touch('/repo/.git/refs/heads/a');
+				await poller.tick();
+
+				assert.deepStrictEqual(
+					log.sort(),
+					sessions.flatMap(p => [`${p} heads refs/heads/a`, `${p} heads,remotes,tags -`]).sort(),
+				);
+				group.dispose();
+				poller.dispose();
+			});
+
+			it('tells linked sessions the shared files are watched again once the main checkout takes them over', () => {
+				mock.timers.enable({ apis: ['setTimeout'] });
+				try {
+					const poller = createPoller(createFs([]));
+					const { factory } = createMockFactory((basePath, pattern) =>
+						pattern === dotGitGlobCommon ? 'unwatchable' : undefined,
+					);
+					const group = new WatchGroup('/repo/.git', factory, poller);
+					const log: string[] = [];
+					addLinked(group, 'A', log);
+					assert.ok(group.isUnwatchable('/worktrees/A'));
+					assert.strictEqual(poller.size, 1, 'the common dir');
+
+					log.length = 0;
+					addMain(group, log);
+
+					assert.deepStrictEqual(log, overflowed(['/worktrees/A'], true));
+					assert.ok(!group.isUnwatchable('/worktrees/A'));
+					// The common dir is still polled beside the main checkout's watcher for a moment
+					assert.strictEqual(poller.size, 1);
+					mock.timers.tick(60_000);
+					assert.strictEqual(poller.size, 0);
+					group.dispose();
+					poller.dispose();
+				} finally {
+					mock.timers.reset();
+				}
+			});
+
+			it("tells linked sessions the shared files are watched again once the main checkout's unwatchable root goes", () => {
+				mock.timers.enable({ apis: ['setTimeout'] });
+				try {
+					const poller = createPoller(createFs([]));
+					const { factory, watchers } = createMockFactory();
+					const group = new WatchGroup('/repo/.git', factory, poller);
+					const log: string[] = [];
+					addMain(group, log);
+					addLinked(group, 'A', log);
+					watchers[0].report('unwatchable');
+					assert.ok(group.isUnwatchable('/worktrees/A'));
+
+					log.length = 0;
+					group.removeSession('/repo');
+
+					assert.deepStrictEqual(log, overflowed(['/worktrees/A'], true));
+					assert.ok(!group.isUnwatchable('/worktrees/A'));
+					// The main checkout's poll keeps going beside the common watcher for a moment
+					assert.strictEqual(poller.size, 1);
+					mock.timers.tick(60_000);
+					assert.strictEqual(poller.size, 0);
+					group.dispose();
+					poller.dispose();
+				} finally {
+					mock.timers.reset();
+				}
+			});
+
+			it("keeps the main checkout's poll telling linked sessions of the shared files for a moment after its unwatchable root goes", async () => {
+				mock.timers.enable({ apis: ['setTimeout'] });
+				try {
+					const fs = createFs(['/repo/.git/refs/heads/a', '/repo/.git/refs/heads']);
+					const poller = createPoller(fs);
+					const { factory, watchers } = createMockFactory();
+					const group = new WatchGroup('/repo/.git', factory, poller);
+					const log: string[] = [];
+					addMain(group, log);
+					addLinked(group, 'A', log, ['refs/heads/a']);
+					watchers[0].report('unwatchable');
+					await poller.tick();
+
+					group.removeSession('/repo');
+					// The common watcher that takes over may not be live yet, and the root watcher can't watch
+					assert.strictEqual(poller.size, 1, "the main checkout's root");
+					log.length = 0;
+					fs.touch('/repo/.git/refs/heads/a');
+					await poller.tick();
+					assert.deepStrictEqual(log, ['/worktrees/A heads refs/heads/a']);
+
+					mock.timers.tick(60_000);
+					assert.strictEqual(poller.size, 0);
+					group.dispose();
+					poller.dispose();
+				} finally {
+					mock.timers.reset();
+				}
+			});
+
+			it('tells linked sessions of a common watcher that can no more watch the shared files than the main checkout could', () => {
+				mock.timers.enable({ apis: ['setTimeout'] });
+				try {
+					for (const mainUnwatchable of [false, true]) {
+						const poller = createPoller(createFs([]));
+						const { factory, watchers } = createMockFactory((basePath, pattern) =>
+							pattern === dotGitGlobCommon ? 'unwatchable' : undefined,
+						);
+						const group = new WatchGroup('/repo/.git', factory, poller);
+						const log: string[] = [];
+						addMain(group, log);
+						addLinked(group, 'A', log);
+						if (mainUnwatchable) {
+							watchers[0].report('unwatchable');
+						}
+
+						log.length = 0;
+						group.removeSession('/repo');
+
+						// A rescan either way, since the poll that takes over only records at first
+						assert.deepStrictEqual(
+							log,
+							overflowed(['/worktrees/A'], !mainUnwatchable),
+							String(mainUnwatchable),
+						);
+						assert.ok(group.isUnwatchable('/worktrees/A'));
+						// The main checkout's poll, if any, keeps going beside the common dir's for a moment
+						assert.strictEqual(poller.size, mainUnwatchable ? 2 : 1, String(mainUnwatchable));
+						mock.timers.tick(60_000);
+						assert.strictEqual(poller.size, 1, 'the common dir');
+						group.dispose();
+						poller.dispose();
+					}
+				} finally {
+					mock.timers.reset();
+				}
+			});
+		});
+
+		describe('hand-over', () => {
+			/** Past any overlap of a watcher being replaced */
+			const pastOverlapMs = 60_000;
+			/** How long a watcher being replaced keeps delivering beside the new one, as the group has it */
+			const handOverOverlapMs = 5000;
+
+			/** Runs `test` with `setTimeout` faked, so an overlap ends only as the test ticks */
+			function withFakeTimers(test: () => void): void {
+				mock.timers.enable({ apis: ['setTimeout'] });
+				try {
+					test();
+				} finally {
+					mock.timers.reset();
+				}
+			}
+
+			/** A factory that counts each watcher's disposals */
+			function createCountingFactory(onDispose?: (watcher: MockWatcher, watchers: MockWatcher[]) => void): {
+				factory: FileWatchingProvider;
+				watchers: MockWatcher[];
+				disposals: Map<MockWatcher, number>;
+			} {
+				const disposals = new Map<MockWatcher, number>();
+				const { factory, watchers } = createMockFactory(undefined, w => {
+					disposals.set(w, (disposals.get(w) ?? 0) + 1);
+					onDispose?.(w, watchers);
+				});
+				return { factory: factory, watchers: watchers, disposals: disposals };
+			}
+
+			it('keeps the common watcher telling linked sessions for a moment after the main checkout takes over', () => {
+				withFakeTimers(() => {
+					const { factory, watchers, disposals } = createCountingFactory();
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addLinked(group, 'A', log);
+					addLinked(group, 'B', log);
+					const common = watchers.find(w => w.pattern === dotGitGlobCommon)!;
+
+					addMain(group, log);
+
+					// The main checkout's watch may not be live yet
+					assert.ok(!common.disposed);
+					common.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+					assert.deepStrictEqual(log.sort(), [
+						'/worktrees/A heads refs/heads/x',
+						'/worktrees/B heads refs/heads/x',
+					]);
+
+					mock.timers.tick(pastOverlapMs);
+					assert.strictEqual(disposals.get(common), 1);
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCombined]);
+
+					// The main checkout's root watcher tells them now
+					log.length = 0;
+					watchers
+						.find(w => w.pattern === dotGitGlobCombined)!
+						.fire({
+							path: '/repo/.git/refs/heads/x',
+							reason: 'change',
+						});
+					assert.deepStrictEqual(
+						log.sort(),
+						sessions.map(p => `${p} heads refs/heads/x`),
+					);
+					group.dispose();
+				});
+			});
+
+			it("keeps the main checkout's root watcher telling linked sessions of the common files for a moment after it goes", () => {
+				withFakeTimers(() => {
+					const liveAtDispose: string[][] = [];
+					const { factory, watchers, disposals } = createCountingFactory((w, all) => {
+						if (w.pattern === dotGitGlobCombined) {
+							liveAtDispose.push(liveCommonDirWatchers(all));
+						}
+					});
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addMain(group, log);
+					addLinked(group, 'A', log);
+					addLinked(group, 'B', log);
+					const mainRoot = watchers[0];
+
+					group.removeSession('/repo');
+
+					assert.ok(!mainRoot.disposed);
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCombined, dotGitGlobCommon]);
+					mainRoot.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+					// Its own files are no one's now
+					mainRoot.fire({ path: '/repo/.git/HEAD', reason: 'change' });
+					mainRoot.fire({ path: '/repo/.git/index', reason: 'change' });
+					assert.deepStrictEqual(log.sort(), [
+						'/worktrees/A heads refs/heads/x',
+						'/worktrees/B heads refs/heads/x',
+					]);
+
+					mock.timers.tick(pastOverlapMs);
+					assert.strictEqual(disposals.get(mainRoot), 1);
+					assert.deepStrictEqual(liveAtDispose, [[dotGitGlobCombined, dotGitGlobCommon]]);
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCommon]);
+
+					log.length = 0;
+					watchers
+						.find(w => w.pattern === dotGitGlobCommon)!
+						.fire({
+							path: '/repo/.git/refs/heads/x',
+							reason: 'change',
+						});
+					assert.deepStrictEqual(log.sort(), [
+						'/worktrees/A heads refs/heads/x',
+						'/worktrees/B heads refs/heads/x',
+					]);
+					group.dispose();
+				});
+			});
+
+			it('keeps the common watcher the main checkout took over from until its own overlap ends, when the main checkout goes inside it', () => {
+				withFakeTimers(() => {
+					const { factory, watchers, disposals } = createCountingFactory();
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addLinked(group, 'A', log);
+					addLinked(group, 'B', log);
+					const oldCommon = watchers.find(w => w.pattern === dotGitGlobCommon)!;
+					mock.timers.tick(pastOverlapMs);
+
+					addMain(group, log);
+					const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined)!;
+					mock.timers.tick(100);
+					group.removeSession('/repo');
+
+					assert.strictEqual(disposals.get(oldCommon), undefined);
+					assert.strictEqual(disposals.get(mainRoot), undefined);
+					log.length = 0;
+					oldCommon.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+					assert.deepStrictEqual(log.sort(), [
+						'/worktrees/A heads refs/heads/x',
+						'/worktrees/B heads refs/heads/x',
+					]);
+
+					mock.timers.tick(handOverOverlapMs - 101);
+					assert.strictEqual(disposals.get(oldCommon), undefined);
+					mock.timers.tick(1);
+					assert.strictEqual(disposals.get(oldCommon), 1);
+					assert.strictEqual(disposals.get(mainRoot), undefined);
+					mock.timers.tick(100);
+					assert.strictEqual(disposals.get(mainRoot), 1);
+
+					mock.timers.tick(pastOverlapMs);
+					assert.ok([...disposals.values()].every(n => n === 1));
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCommon]);
+					assert.notStrictEqual(
+						watchers.find(w => w.pattern === dotGitGlobCommon && !w.disposed),
+						oldCommon,
+					);
+					group.dispose();
+				});
+			});
+
+			it("keeps the main checkout's old root watcher telling linked sessions until its own overlap ends, when the main checkout comes back inside it", () => {
+				withFakeTimers(() => {
+					const { factory, watchers, disposals } = createCountingFactory();
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addMain(group, log);
+					addLinked(group, 'A', log);
+					addLinked(group, 'B', log);
+					const oldRoot = watchers[0];
+
+					group.removeSession('/repo');
+					const common = watchers.find(w => w.pattern === dotGitGlobCommon)!;
+					mock.timers.tick(100);
+					addMain(group, log);
+					const newRoot = watchers.find(w => w.pattern === dotGitGlobCombined && w !== oldRoot)!;
+
+					assert.strictEqual(disposals.get(oldRoot), undefined);
+					log.length = 0;
+					oldRoot.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+					// The main checkout hears its own files from its new root watcher alone
+					oldRoot.fire({ path: '/repo/.git/HEAD', reason: 'change' });
+					oldRoot.fire({ path: '/repo/.git/index', reason: 'change' });
+					assert.deepStrictEqual(log.sort(), [
+						'/worktrees/A heads refs/heads/x',
+						'/worktrees/B heads refs/heads/x',
+					]);
+
+					log.length = 0;
+					newRoot.fire({ path: '/repo/.git/HEAD', reason: 'change' });
+					assert.deepStrictEqual(log, ['/repo head,heads HEAD']);
+
+					mock.timers.tick(handOverOverlapMs - 101);
+					assert.strictEqual(disposals.get(oldRoot), undefined);
+					mock.timers.tick(1);
+					assert.strictEqual(disposals.get(oldRoot), 1);
+					assert.strictEqual(disposals.get(common), undefined);
+					mock.timers.tick(100);
+					assert.strictEqual(disposals.get(common), 1);
+
+					mock.timers.tick(pastOverlapMs);
+					assert.ok([...disposals.values()].every(n => n === 1));
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCombined]);
+					assert.ok(!newRoot.disposed);
+					group.dispose();
+				});
+			});
+
+			it('ends each overlap at its own time when the main checkout comes, goes and comes back', () => {
+				withFakeTimers(() => {
+					const { factory, watchers, disposals } = createCountingFactory();
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addLinked(group, 'A', log);
+					const firstCommon = watchers.find(w => w.pattern === dotGitGlobCommon)!;
+
+					addMain(group, log);
+					const firstRoot = watchers.find(w => w.pattern === dotGitGlobCombined)!;
+					mock.timers.tick(1000);
+					group.removeSession('/repo');
+					const secondCommon = watchers.find(w => w.pattern === dotGitGlobCommon && w !== firstCommon)!;
+					mock.timers.tick(1000);
+					addMain(group, log);
+					const secondRoot = watchers.find(w => w.pattern === dotGitGlobCombined && w !== firstRoot)!;
+
+					assert.strictEqual(disposals.size, 0);
+					mock.timers.tick(handOverOverlapMs - 2000);
+					assert.deepStrictEqual([...disposals], [[firstCommon, 1]]);
+					mock.timers.tick(1000);
+					assert.deepStrictEqual(
+						[...disposals],
+						[
+							[firstCommon, 1],
+							[firstRoot, 1],
+						],
+					);
+					mock.timers.tick(1000);
+					assert.deepStrictEqual(
+						[...disposals],
+						[
+							[firstCommon, 1],
+							[firstRoot, 1],
+							[secondCommon, 1],
+						],
+					);
+
+					mock.timers.tick(pastOverlapMs);
+					assert.strictEqual(disposals.size, 3);
+					assert.deepStrictEqual(liveCommonDirWatchers(watchers), [dotGitGlobCombined]);
+					assert.ok(!secondRoot.disposed);
+					group.dispose();
+				});
+			});
+
+			it('ends every overlap at once when the last linked session goes, or the group, while two run', () => {
+				withFakeTimers(() => {
+					for (const end of ['last linked', 'group'] as const) {
+						const { factory, watchers, disposals } = createCountingFactory();
+						const group = new WatchGroup('/repo/.git', factory);
+						const log: string[] = [];
+						addLinked(group, 'A', log);
+						addMain(group, log);
+						mock.timers.tick(100);
+						group.removeSession('/repo');
+						assert.strictEqual(disposals.size, 0, end);
+
+						if (end === 'last linked') {
+							group.removeSession('/worktrees/A');
+						} else {
+							group.dispose();
+						}
+						assert.ok(
+							watchers.every(w => w.disposed),
+							end,
+						);
+
+						mock.timers.tick(pastOverlapMs);
+						assert.ok(
+							[...disposals.values()].every(n => n === 1),
+							end,
+						);
+						assert.strictEqual(disposals.size, watchers.length, end);
+						group.dispose();
+					}
+				});
+			});
+
+			it('ends an overlap at once when the last linked session goes inside it', () => {
+				withFakeTimers(() => {
+					const { factory, watchers, disposals } = createCountingFactory();
+					const group = new WatchGroup('/repo/.git', factory);
+					const log: string[] = [];
+					addMain(group, log);
+					addLinked(group, 'A', log);
+
+					group.removeSession('/repo');
+					group.removeSession('/worktrees/A');
+					assert.ok(watchers.every(w => w.disposed));
+
+					mock.timers.tick(pastOverlapMs);
+					assert.ok([...disposals.values()].every(n => n === 1));
+					assert.strictEqual(disposals.size, watchers.length);
+					group.dispose();
+				});
+			});
+
+			it('ends an overlap with the group', () => {
+				withFakeTimers(() => {
+					for (const mainJoins of [true, false]) {
+						const { factory, watchers, disposals } = createCountingFactory();
+						const group = new WatchGroup('/repo/.git', factory);
+						const log: string[] = [];
+						if (mainJoins) {
+							addLinked(group, 'A', log);
+							addMain(group, log);
+						} else {
+							addMain(group, log);
+							addLinked(group, 'A', log);
+							group.removeSession('/repo');
+						}
+
+						group.dispose();
+						assert.ok(
+							watchers.every(w => w.disposed),
+							String(mainJoins),
+						);
+
+						mock.timers.tick(pastOverlapMs);
+						assert.ok(
+							[...disposals.values()].every(n => n === 1),
+							String(mainJoins),
+						);
+						assert.strictEqual(disposals.size, watchers.length);
+					}
+				});
+			});
 		});
 	});
 
@@ -1983,7 +2736,6 @@ describe('WatchGroup', () => {
 			group: WatchGroup;
 			file: { content: string | undefined; reads: string[] };
 			mainRoot: MockWatcher;
-			common: MockWatcher;
 			linkedRoot: MockWatcher;
 			main: WatchGroupHooks;
 			linked: WatchGroupHooks;
@@ -2004,16 +2756,13 @@ describe('WatchGroup', () => {
 			await flushReads();
 
 			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
-			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
 			const linkedRoot = watchers.find(w => w.basePath === '/repo/.git/worktrees/A');
 			assert.ok(mainRoot);
-			assert.ok(common);
 			assert.ok(linkedRoot);
 			return {
 				group: group,
 				file: file,
 				mainRoot: mainRoot,
-				common: common,
 				linkedRoot: linkedRoot,
 				main: main,
 				linked: linked,
@@ -2024,7 +2773,7 @@ describe('WatchGroup', () => {
 			};
 		}
 
-		/** What git and the watchers do for one write: the lock, then the file it's renamed over, seen by both watchers */
+		/** What git and a watcher do for one write: the lock, then the file it's renamed over */
 		function reportWrite(...watchers: MockWatcher[]): void {
 			for (const w of watchers) {
 				w.fire({ path: '/repo/.git/config.lock', reason: 'create' });
@@ -2033,11 +2782,11 @@ describe('WatchGroup', () => {
 		}
 
 		it("tells every session, once, that only a branch's section changed, with no remotes", async () => {
-			const { group, file, mainRoot, common, main, linked, calls } = await createGroup();
+			const { group, file, mainRoot, main, linked, calls } = await createGroup();
 			assert.deepStrictEqual(file.reads, ['/repo/.git/config'], 'the baseline is read as the group starts');
 
 			file.content = base + featureSection;
-			reportWrite(mainRoot, common);
+			reportWrite(mainRoot);
 			await flushReads();
 
 			for (const [hooks, repoPath] of [
@@ -2060,10 +2809,10 @@ describe('WatchGroup', () => {
 				`${base}[branch]\n\tautoSetupMerge = always\n`,
 				`${base + featureSection}[core]\n\tfilemode = false\n`,
 			]) {
-				const { group, file, common, main, linked, calls } = await createGroup();
+				const { group, file, mainRoot, main, linked, calls } = await createGroup();
 
 				file.content = edit;
-				reportWrite(common);
+				reportWrite(mainRoot);
 				await flushReads();
 
 				assert.deepStrictEqual(calls(main), [['/repo', ['config', 'remotes'], false]], edit);
@@ -2078,7 +2827,7 @@ describe('WatchGroup', () => {
 			file.content = base + featureSection;
 			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 			await flushReads();
-			// The same write, reported again later (a polled watcher, or the other watcher)
+			// The same write, reported again later (a polled watcher)
 			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 			await flushReads();
 
@@ -2087,12 +2836,12 @@ describe('WatchGroup', () => {
 		});
 
 		it('classifies a report by what changed since the last read, however long ago that was', async () => {
-			const { group, file, common, linked, calls } = await createGroup();
+			const { group, file, mainRoot, linked, calls } = await createGroup();
 
 			// Two writes, the first never reported (a poll that saw only the second): both are in the comparison
 			file.content = base + featureSection;
 			file.content += '[branch "other"]\n\tremote = origin\n';
-			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(calls(linked), [
@@ -2132,10 +2881,10 @@ describe('WatchGroup', () => {
 				`${base}[branch "feature\n\tmerge = x\n`, // a header git rejects
 				`${base}\tstray = before any header`.replace('[core]', ''), // a variable outside any section
 			]) {
-				const { group, file, common, linked, calls } = await createGroup();
+				const { group, file, mainRoot, linked, calls } = await createGroup();
 
 				file.content = failure;
-				common.fire({ path: '/repo/.git/config', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 				await flushReads();
 				assert.deepStrictEqual(
 					calls(linked),
@@ -2144,7 +2893,7 @@ describe('WatchGroup', () => {
 				);
 
 				file.content = base + featureSection;
-				common.fire({ path: '/repo/.git/config', reason: 'change' });
+				mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 				await flushReads();
 				assert.deepStrictEqual(
 					calls(linked)[1],
@@ -2156,13 +2905,13 @@ describe('WatchGroup', () => {
 		});
 
 		it('is unconfined for every report when the baseline could not be read, until a read succeeds', async () => {
-			const { group, file, common, linked, calls } = await createGroup(null);
+			const { group, file, mainRoot, linked, calls } = await createGroup(null);
 
 			file.content = base + featureSection;
-			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 			await flushReads();
 			file.content = base;
-			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
 			await flushReads();
 
 			assert.deepStrictEqual(calls(linked), [
@@ -2226,9 +2975,9 @@ describe('WatchGroup', () => {
 		});
 
 		it('delivers an overflow as every kind, unclassified', async () => {
-			const { group, common, linked, calls } = await createGroup();
+			const { group, mainRoot, linked, calls } = await createGroup();
 
-			common.fire({ path: '/repo/.git', reason: 'overflow' });
+			mainRoot.fire({ path: '/repo/.git', reason: 'overflow' });
 			await flushReads();
 
 			assert.deepStrictEqual(calls(linked)[0], [
@@ -2279,25 +3028,23 @@ describe('WatchGroup', () => {
 			assert.strictEqual(group.sessions.size, 0);
 		});
 
-		it('disposes the common watcher when only a main checkout is left, and re-creates it for a new linked session', () => {
+		it('creates the common watcher for linked sessions only once no main checkout is left', () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
 
 			group.addSession('/repo', standardGitDir('/repo/.git'), makeCallbacks());
 			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), makeCallbacks());
 
-			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
-			assert.ok(common);
-
-			// The main checkout hears every common file from its own root watcher, so nothing needs the common one
+			// The main checkout hears every common file from its own root watcher, for linked sessions too
 			group.removeSession('/worktrees/A');
-			assert.ok(common.disposed);
-			assert.strictEqual(group.sessions.size, 1);
-
 			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), makeCallbacks());
+			assert.strictEqual(watchers.filter(w => w.pattern === dotGitGlobCommon).length, 0);
+			assert.strictEqual(group.sessions.size, 2);
+
+			group.removeSession('/repo');
 			const commons = watchers.filter(w => w.pattern === dotGitGlobCommon);
-			assert.strictEqual(commons.length, 2);
-			assert.ok(!commons[1].disposed);
+			assert.strictEqual(commons.length, 1);
+			assert.ok(!commons[0].disposed);
 		});
 
 		it('is a no-op for unknown repoPath', () => {
@@ -2783,10 +3530,10 @@ describe('WatchGroup', () => {
 					poller.dispose();
 				});
 
-				it('stats each common file once per pass for the main checkout and the common dir', async () => {
+				it('stats each common file once per pass for the main checkout and linked sessions', async () => {
 					const { group, poller, fs } = createPolledMainAndLinkedRepo();
-					// Each root, and the common dir
-					assert.strictEqual(poller.size, 3);
+					// Each root: linked sessions hear the common files through the main checkout's
+					assert.strictEqual(poller.size, 2);
 					await poller.tick();
 
 					fs.stats.clear();
@@ -2809,7 +3556,7 @@ describe('WatchGroup', () => {
 					poller.dispose();
 				});
 
-				it('reports the common files to both sessions, and a ref only the main checkout names to it', async () => {
+				it('reports the common files to both sessions, a ref only the main checkout names included', async () => {
 					const { group, poller, fs, log } = createPolledMainAndLinkedRepo();
 					await poller.tick();
 
@@ -2817,7 +3564,8 @@ describe('WatchGroup', () => {
 						['packed-refs', ['/repo heads,remotes,tags -', '/worktrees/A heads,remotes,tags -']],
 						['config', ['/repo config,remotes false', '/worktrees/A config,remotes false']],
 						['refs/remotes', ['/repo remotes refs/remotes', '/worktrees/A remotes refs/remotes']],
-						['refs/heads/main', ['/repo heads refs/heads/main']],
+						// As the main checkout's watcher would report it to both
+						['refs/heads/main', ['/repo heads refs/heads/main', '/worktrees/A heads refs/heads/main']],
 					] as const) {
 						log.length = 0;
 						fs.touch(`/repo/.git/${file}`);
