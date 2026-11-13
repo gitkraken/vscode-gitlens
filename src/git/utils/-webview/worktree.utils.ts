@@ -174,7 +174,9 @@ export async function getWorktreesByBranch(
 	if (repos == null) return worktreesByBranch;
 
 	async function addWorktrees(repo: GlRepository) {
-		if (repo.git.worktrees == null) return;
+		// GitLens can't read worktrees on a git older than 2.17, so there are none to map, rather than an error
+		// that would sink callers like the Commit Graph's state build
+		if (repo.git.worktrees == null || !(await repo.git.supports('git:worktrees'))) return;
 
 		groupWorktreesByBranch(await repo.git.worktrees.getWorktrees(undefined, cancellation), {
 			includeDefault: options?.includeDefault,

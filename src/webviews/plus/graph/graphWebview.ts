@@ -6007,9 +6007,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (branch != null) {
 			branchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 
+			// A failed worktree read only loses the branch's worktree flag rather than fail the build (#4363);
+			// cancellation still throws
 			const worktreesByBranch =
 				data?.worktreesByBranch ??
-				(await getWorktreesByBranch(this.repository, undefined, toAbortSignal(cancellation.token)));
+				(await getWorktreesByBranch(this.repository, undefined, toAbortSignal(cancellation.token)).catch(
+					(ex: unknown) => {
+						if (isCancellationError(ex)) throw ex;
+
+						return undefined;
+					},
+				));
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
 
 			const remotes = getSettledValue(remotesResult);

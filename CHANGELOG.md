@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the _Commit Graph_ showing a blank view and editor with a Git version older than 2.17, which lacks worktree support ([#4363](https://github.com/gitkraken/vscode-gitlens/issues/4363))
 - Fixes the _Show Commit Graph_ button in _Source Control_ opening the parent repository's graph for a submodule or nested repository that GitLens hasn't detected yet ([#4566](https://github.com/gitkraken/vscode-gitlens/issues/4566))
 - Fixes the _Commit Graph_ details panel continuing to show the previous repository's commit after switching repositories ([#5362](https://github.com/gitkraken/vscode-gitlens/issues/5362))
 - Fixes _Commit Graph_ branch and tag pills expanding past the graph's right edge on hover when the _Branches / Tags_ column is last &mdash; the expanded pill now grows leftward when that keeps it inside the graph ([#2667](https://github.com/gitkraken/vscode-gitlens/issues/2667))
