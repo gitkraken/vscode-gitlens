@@ -47,7 +47,6 @@ import { escapeRegex, iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
-import { CancelledRunError } from '../exec/exec.errors.js';
 import type { GitResult, GitRunOptions } from '../exec/exec.types.js';
 import type { Git, GitError } from '../exec/git.js';
 import {
@@ -193,9 +192,9 @@ const renameLimit = 1000;
 /** The clock a repository's limited-renames wait is measured on, exported for testing */
 export const commitReadClock = { now: (): number => Date.now() };
 
-/** Whether `ex` is a git read running out of its time limit: a stream's `CancelledRunError` or a run's `CancellationError` */
+/** Whether `ex` is a git read, run or stream, running out of its time limit */
 function isTimeout(ex: unknown): boolean {
-	return (ex instanceof CancelledRunError || isCancellationError(ex)) && ex.reason === 'timeout';
+	return isCancellationError(ex) && ex.reason === 'timeout';
 }
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
@@ -2379,7 +2378,8 @@ async function parseCommits(
 		return { commits: commits, count: count, countStashChildCommits: countStashChildCommits };
 	}
 
-	using _streamDisposer = createDisposable(() => void resultOrStream.return?.(undefined));
+	// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+	using _streamDisposer = createDisposable(() => void resultOrStream.return?.(undefined)?.catch(() => {}));
 
 	if (stashes?.size) {
 		const allowFilteredFiles = searchFilters?.files ?? false;

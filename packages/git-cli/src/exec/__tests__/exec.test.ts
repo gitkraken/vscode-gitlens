@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { CacheController, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { CommandChanges } from '../commandClassifier.js';
@@ -1680,7 +1681,11 @@ suite('Git options.spawn', () => {
 					// drain
 				}
 			},
-			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+			(ex: unknown) =>
+				isCancellationError(ex) &&
+				ex.reason === 'timeout' &&
+				ex.original instanceof CancelledRunError &&
+				ex.original.reason === 'timeout',
 		);
 	});
 
@@ -1697,6 +1702,251 @@ suite('Git options.spawn', () => {
 			},
 			(ex: unknown) => ex instanceof Error && ex.message.includes('without a stdout pipe'),
 		);
+	});
+});
+
+suite('Git.stream cancellation', () => {
+	/**
+	 * A process that writes `first` and then keeps writing for as long as it lives, unless `once`. A closed pipe ends
+	 * it with the exit code git's SIGPIPE death reports, since node ignores the signal.
+	 */
+	function writerGit(options?: { once?: boolean }): Git {
+		const script = options?.once
+			? "process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"
+			: "process.stdout.on('error', () => process.exit(141)); process.stdout.write('first\\n'); setInterval(() => process.stdout.write('x'.repeat(65536)), 5)";
+		const spawner: ProcessSpawner = (_command, _args, options) => spawn(execPath, nodeArgs(script), options);
+		return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+	}
+
+	/** Rejections no one handled while `fn` ran, and for a turn of the event loop after it */
+	async function unhandledRejectionsDuring(fn: () => Promise<void>): Promise<unknown[]> {
+		const reasons: unknown[] = [];
+		const onUnhandled = (reason: unknown) => reasons.push(reason);
+		process.on('unhandledRejection', onUnhandled);
+		try {
+			await fn();
+			await new Promise(resolve => setTimeout(resolve, 50));
+		} finally {
+			process.off('unhandledRejection', onUnhandled);
+		}
+		return reasons;
+	}
+
+	test('rejects with a cancellation when its caller aborts while it is still being read', async () => {
+		const git = writerGit({ once: true });
+		const controller = new AbortController();
+		const chunks: string[] = [];
+
+		await assert.rejects(
+			async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+					chunks.push(chunk);
+					controller.abort();
+				}
+			},
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
+		assert.deepStrictEqual(chunks, ['first\n'], 'what arrived before the abort was still handed over');
+	});
+
+	test('rejects with a cancellation when its caller aborted before it started', async () => {
+		const git = writerGit({ once: true });
+		const controller = new AbortController();
+		controller.abort();
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+					// drain
+				}
+			},
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
+	});
+
+	test('ends cleanly when its reader stops early', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+				assert.ok(chunk.length > 0);
+				break;
+			}
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	test('ends cleanly when its reader aborts the signal itself and then stops', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+				assert.ok(chunk.length > 0);
+				controller.abort();
+				break;
+			}
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	test('ends cleanly when its reader aborts the signal, leaves by throwing, and closes it without waiting', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+		const stream = git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log');
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			await assert.rejects(async () => {
+				try {
+					for await (const _chunk of { [Symbol.asyncIterator]: () => ({ next: () => stream.next() }) }) {
+						controller.abort();
+						throw new Error('left');
+					}
+				} finally {
+					void stream.return(undefined);
+				}
+			}, /left/);
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	for (const leave of ['stops', 'reads on'] as const) {
+		test(`leaves no rejection unhandled when its reader holds a chunk past the process's end, then ${leave}`, async () => {
+			const controller = new AbortController();
+			/** Settles a turn after the process's `close`, once the stream has seen it */
+			let closed: Promise<void> | undefined;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				const child = spawn(
+					execPath,
+					nodeArgs("process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"),
+					options,
+				);
+				closed = new Promise(resolve => child.once('close', () => setImmediate(resolve)));
+				return child;
+			};
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				await assert.rejects(
+					async () => {
+						for await (const _chunk of git.stream(
+							{ cwd: tmpdir(), cancellation: controller.signal },
+							'log',
+						)) {
+							controller.abort();
+							await closed;
+							if (leave === 'stops') break;
+						}
+						throw new Error('stopped');
+					},
+					leave === 'stops' ? /stopped/ : (ex: unknown) => isCancellationError(ex),
+				);
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+	}
+
+	suite('a process its time limit kills after one chunk', () => {
+		function stalledGit(): Git {
+			const spawner: ProcessSpawner = (_command, _args, options) =>
+				spawn(execPath, nodeArgs("process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"), options);
+			return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		}
+
+		test('ends cleanly for a reader that already stopped', async () => {
+			const git = stalledGit();
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, 'log')) {
+					assert.strictEqual(chunk, 'first\n');
+					break;
+				}
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+
+		test('leaves nothing unhandled when a disposer closes it without waiting', async () => {
+			const git = stalledGit();
+			const stream = git.stream({ cwd: tmpdir(), timeout: 300 }, 'log');
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				assert.strictEqual((await stream.next()).value, 'first\n');
+				const closed = stream.return(undefined);
+				void closed;
+				// Outlive the time limit, so the kill lands while nothing awaits the close
+				await new Promise(resolve => setTimeout(resolve, 600));
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+
+		test('still rejects with the timeout for a reader still reading', async () => {
+			const git = stalledGit();
+			const chunks: string[] = [];
+
+			await assert.rejects(
+				async () => {
+					for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, 'log')) {
+						chunks.push(chunk);
+					}
+				},
+				(ex: unknown) =>
+					isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+			);
+			assert.deepStrictEqual(chunks, ['first\n']);
+		});
+	});
+
+	suite('a process that exits with a git error after its reader left', () => {
+		function failingGit(): Git {
+			const script =
+				"process.stdout.write('first\\n'); setTimeout(() => { process.stderr.write('fatal: boom'); process.exit(3); }, 100)";
+			const spawner: ProcessSpawner = (_command, _args, options) => spawn(execPath, nodeArgs(script), options);
+			return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		}
+
+		const isBoom = (ex: unknown) => ex instanceof GitError && ex.exitCode === 3 && ex.stderr === 'fatal: boom';
+
+		test('fails a reader that breaks out of the stream itself', async () => {
+			const git = failingGit();
+
+			await assert.rejects(async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir() }, 'log')) {
+					assert.strictEqual(chunk, 'first\n');
+					break;
+				}
+			}, isBoom);
+		});
+
+		test('leaves nothing unhandled when a disposer closes it without waiting, as the providers do', async () => {
+			const git = failingGit();
+			const stream = git.stream({ cwd: tmpdir() }, 'log');
+			let closeError: unknown;
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				assert.strictEqual((await stream.next()).value, 'first\n');
+				void stream.return(undefined).catch((ex: unknown) => {
+					closeError = ex;
+				});
+				// Outlive the process's exit, so the error lands while nothing awaits the close
+				await new Promise(resolve => setTimeout(resolve, 500));
+			});
+			assert.ok(isBoom(closeError), 'the close still carries the git error');
+			assert.deepStrictEqual(unhandled, []);
+		});
+	});
+
+	test('still hands over everything when the process ends normally', async () => {
+		const spawner: ProcessSpawner = (_command, _args, options) =>
+			spawn(execPath, nodeArgs("process.stdout.write('a'); process.stdout.write('b')"), options);
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		const controller = new AbortController();
+
+		const chunks: string[] = [];
+		for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+			chunks.push(chunk);
+		}
+		assert.strictEqual(chunks.join(''), 'ab');
 	});
 });
 

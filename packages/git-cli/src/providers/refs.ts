@@ -258,7 +258,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			'--all',
 			`^${oldestSha}^@`,
 		);
-		using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+		// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+		using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 
 		// Topological propagation: `--topo-order` emits all children of X before X's own line, so
 		// by the time we process "X P1 P2..." every child has already merged its set into X. We

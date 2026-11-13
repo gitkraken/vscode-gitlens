@@ -53,6 +53,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 			signal ??= cancellation;
 
 			const contributors = new Map<string, Mutable<GitContributor>>();
+			let timeoutSignal: AbortSignal | undefined;
 
 			try {
 				const currentUser = await this.provider.config.getCurrentUser(repoPath);
@@ -87,7 +88,7 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					args.push('--');
 				}
 
-				const timeoutSignal = timeout ? AbortSignal.timeout(timeout) : undefined;
+				timeoutSignal = timeout ? AbortSignal.timeout(timeout) : undefined;
 				const combinedSignal =
 					signal && timeoutSignal ? AbortSignal.any([signal, timeoutSignal]) : (signal ?? timeoutSignal);
 
@@ -96,7 +97,8 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 					'log',
 					...args,
 				);
-				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 
 				for await (const c of parser.parseAsync(stream)) {
 					if (combinedSignal?.aborted) {
@@ -182,10 +184,16 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 				};
 			} catch (ex) {
 				cacheable?.invalidate();
-				scope?.error(ex);
 
-				if (!isCancellationError(ex)) return { contributors: [] };
-				return { contributors: [...contributors.values()], cancelled: { reason: 'cancelled' } };
+				if (!isCancellationError(ex)) {
+					scope?.error(ex);
+					return { contributors: [] };
+				}
+
+				return {
+					contributors: [...contributors.values()],
+					cancelled: { reason: timeoutSignal?.aborted ? 'timedout' : 'cancelled' },
+				};
 			}
 		};
 
