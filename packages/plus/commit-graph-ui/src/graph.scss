@@ -4270,6 +4270,11 @@ gl-commit-graph {
 			bottom: anchor(bottom);
 			left: anchor(left);
 			position-anchor: --gl-ref-pill;
+			// Grow from the opposite edge when this side would overflow the row (the containing block, so the
+			// graph's right edge): a pill in a trailing Refs column otherwise expands past the graph into
+			// whatever sits beside it (#2667). Only flips when the flipped side fits, so pills with room
+			// keep extending rightward over the message.
+			position-try-fallbacks: flip-inline;
 		}
 
 		// Re-declared so it outranks the abspos `--expand-right` variant above (whose specificity beats
