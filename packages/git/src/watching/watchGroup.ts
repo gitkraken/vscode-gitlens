@@ -26,6 +26,7 @@ import {
 	gitDirExcludes,
 	gitDirProbesByEmittedPath,
 	gitDirRootProbes,
+	isGitDirCommonPath,
 	shouldIgnoreRepoPath,
 } from './watcherPatterns.js';
 
@@ -37,8 +38,8 @@ import {
 const readTimeoutMs = 5000;
 
 /**
- * How many removed admin entries are remembered. Each watcher reports a removal once for each file it watched in the
- * entry, and two watchers see the common dir beside a main checkout, so its reports outlive any single one of them
+ * How many removed admin entries are remembered. A watcher reports a removal once for each file it watched in the entry,
+ * and a poll may report it too, so its reports outlive any single one of them
  */
 const removedWorktreeIdsLimit = 64;
 
@@ -47,6 +48,13 @@ const removedWorktreeIdsLimit = 64;
  * git wrote its `gitdir`, and then miss the write itself (a new directory's files go unseen until it is watched)
  */
 const worktreeRetryDelayMs = 250;
+
+/**
+ * How long a watcher on the common dir that another takes over from keeps delivering to linked sessions beside it. A
+ * host may place a `.git` watch asynchronously, with no signal for when it is live, so the new watcher can miss what
+ * changes at first
+ */
+const handOverOverlapMs = 5000;
 
 function noop(): void {}
 
@@ -83,13 +91,13 @@ export interface WatchGroupHooks {
 
 /**
  * Tracks one session's connection to a WatchGroup.
- * Each session has its own root watcher but shares the common watcher.
+ * Each session has its own root watcher; linked sessions share the watch of the common files.
  */
 interface SessionEntry {
 	readonly repoPath: string;
 	readonly gitDirPath: string;
 	readonly rootWatcher: FileWatcher;
-	/** True when the root watcher is on the common dir itself, so it already sees every common file */
+	/** True when the root watcher is on the common dir itself, so it sees every common file, for linked sessions too */
 	readonly coversCommon: boolean;
 	/** For a linked session, its `<n>` in `<common>/worktrees/<n>`; otherwise `undefined` */
 	readonly worktreeId: string | undefined;
@@ -104,12 +112,14 @@ interface SessionEntry {
  * shared across all worktrees that reference it.
  *
  * Structure:
- * - 1 common watcher: config, refs/**, info/exclude, etc. Delivers to linked sessions only; a
- *   session rooted at the common dir hears the same files from its own combined root watcher.
- * - N root watchers: one per worktree (index, HEAD, *_HEAD, etc.)
- *
- * For a standard (non-worktree) repo, the common and root directories
- * are the same, but we still create separate watchers for clean separation.
+ * - N root watchers: one per session, on its own `.git` directory (index, HEAD, *_HEAD, etc.). A session rooted at the
+ *   common dir (a main checkout) watches it with the combined glob, so it sees every common file too (config,
+ *   refs/**, info/exclude, etc.), and linked sessions hear those through it.
+ * - 1 common watcher on the common dir, for the common files only, while there are linked sessions and no session
+ *   rooted at the common dir for them to hear those through. It delivers to linked sessions only. When one of the two
+ *   takes the common files over from the other, the old one keeps delivering to linked sessions for a moment beside
+ *   the new one (see {@link handOverOverlapMs}), however many hand-overs follow within it, so only once each such
+ *   moment has passed is a single watcher left on the common dir.
  *
  * Given a `readFile`, the group keeps the shared `.git/config` as it last read it, section by section. A report of
  * that file (or its lock), from whichever watcher, is read and compared with it once, and every session hears what
@@ -141,7 +151,7 @@ interface SessionEntry {
  * when a real entry was added or removed since the last listing, and to none when only ignored ones were. Git removes
  * the directory with its last entry, so a directory that isn't there is an empty listing, as is a removal of it that
  * can't be listed. Since a listing (or a worktree moved into or out of a folder) changes what every session shows, it
- * is told to all of them; the other watcher's report of the same change then finds nothing left to tell. Where only a
+ * is told to all of them; another report of the same change (a poll's) then finds nothing left to tell. Where only a
  * poll watches the common dir, it sees just the `worktrees` directory, so an entry removed and added again under the
  * same id between two polls, or an entry's HEAD or lock changed in place, goes untold.
  *
@@ -154,6 +164,15 @@ export class WatchGroup implements UnifiedDisposable {
 	private _commonWatcher: FileWatcher | undefined;
 	private _commonReliability: FileWatcherReliability = 'reliable';
 	private _commonTarget: GitDirProbeTarget | undefined;
+	/**
+	 * The watchers on the common dir that were taken over from, each still delivering to linked sessions until its own
+	 * overlap ends: a common watcher (with its poll, if any), or the root watcher of a session rooted at the common dir
+	 * that went. A hand-over inside another's overlap leaves the earlier one running, since only it may be live yet
+	 */
+	private readonly _retiring = new Map<
+		FileWatcher,
+		{ readonly target: GitDirProbeTarget | undefined; readonly timer: ReturnType<typeof setTimeout> }
+	>();
 	private _disposed = false;
 
 	/** The shared `.git/config`, by section, as the last read that could parse it found it */
@@ -273,6 +292,7 @@ export class WatchGroup implements UnifiedDisposable {
 		this._sessions.clear();
 
 		this.disposeCommonWatcher();
+		this.endAllRetiring();
 
 		for (const retry of this._worktreeRetries.values()) {
 			clearTimeout(retry.timer);
@@ -285,13 +305,17 @@ export class WatchGroup implements UnifiedDisposable {
 		return this._sessions;
 	}
 
-	/** True when a watcher the session hears through — its root watcher, or a linked session's common one — can't watch */
+	/**
+	 * True when a watcher the session hears through — its root watcher, or for a linked session the watch of the common
+	 * files (see {@link getCommonReliability}) — can't watch
+	 */
 	isUnwatchable(repoPath: string): boolean {
 		const entry = this._sessions.get(repoPath);
 		if (entry == null) return false;
 
 		return (
-			entry.reliability === 'unwatchable' || (!entry.coversCommon && this._commonReliability === 'unwatchable')
+			entry.reliability === 'unwatchable' ||
+			(!entry.coversCommon && this.getCommonReliability() === 'unwatchable')
 		);
 	}
 
@@ -303,21 +327,26 @@ export class WatchGroup implements UnifiedDisposable {
 		// Determine the glob pattern for the root watcher
 		const isStandard = gitDir.commonUri == null;
 		const rootPattern = isStandard ? dotGitGlobCombined : dotGitGlobRoot;
+		// What linked sessions hear the common files through until this session's root watcher takes them over
+		const commonReliability = isStandard ? this.getCommonReliability() : undefined;
 
 		// The watcher can report its reliability before `createWatcher` returns, so before the entry exists
 		let entry: SessionEntry | undefined;
 		let initialReliability: FileWatcherReliability = 'reliable';
-
 		const rootWatcher = this.provider.createWatcher(
 			gitDir.uri.fsPath,
 			rootPattern,
 			(event: FileWatchEvent) => {
-				const e = this._sessions.get(repoPath);
-				if (e != null) {
+				if (entry == null) return;
+
+				// A session of the same path added again has a root watcher of its own
+				if (this._sessions.get(repoPath) === entry) {
 					if (event.reason !== 'overflow') {
-						e.target?.forget(event.path);
+						entry.target?.forget(event.path);
 					}
-					this.onRootEvent(event, e);
+					this.onRootEvent(event, entry);
+				} else if (this._retiring.has(entry.rootWatcher)) {
+					this.onCommonEvent(event, true);
 				}
 			},
 			this.getWatcherOptions(gitDir.uri.fsPath, state => {
@@ -345,10 +374,11 @@ export class WatchGroup implements UnifiedDisposable {
 			this.setRootReliability(entry, initialReliability, true);
 		}
 
-		// Start the common watcher if this is a worktree repo and we haven't yet.
-		// Standard repos don't need a separate common watcher because their root
-		// watcher uses dotGitGlobCombined which already covers all patterns.
-		if (!isStandard) {
+		if (commonReliability != null) {
+			// Its root watcher sees every common file, for linked sessions too, once its watch is live
+			this.retireCommonWatcher();
+			this.handOverCommon(commonReliability);
+		} else if (!some(this._sessions.values(), e => e.coversCommon)) {
 			this.ensureCommonWatcher();
 		}
 	}
@@ -358,13 +388,26 @@ export class WatchGroup implements UnifiedDisposable {
 		const entry = this._sessions.get(repoPath);
 		if (entry == null) return;
 
-		entry.rootWatcher.dispose();
-		this.stopPolling(entry);
+		const commonReliability = entry.coversCommon ? this.getCommonReliability() : undefined;
 		this._sessions.delete(repoPath);
 
-		// Once no linked session is left, dispose the common watcher — it delivers to linked sessions only
-		if (this._commonWatcher != null && !some(this._sessions.values(), e => !e.coversCommon)) {
+		const linked = some(this._sessions.values(), e => !e.coversCommon);
+		if (commonReliability != null && linked && !some(this._sessions.values(), e => e.coversCommon)) {
+			// The root watcher, and its poll if it has one, keep telling linked sessions of the common files while the
+			// common watcher's watch may not be live, or its own poll has yet to take a first reading
+			this.ensureCommonWatcher(true);
+			this.retire(entry.rootWatcher, entry.target);
+		} else {
+			this.stopPolling(entry);
+			entry.rootWatcher.dispose();
+		}
+
+		if (!linked) {
+			// Both deliver to linked sessions only
 			this.disposeCommonWatcher();
+			this.endAllRetiring();
+		} else if (commonReliability != null) {
+			this.handOverCommon(commonReliability);
 		}
 	}
 
@@ -372,7 +415,8 @@ export class WatchGroup implements UnifiedDisposable {
 		return getWorktreeAdminId(gitDirPath, this.commonGitDir);
 	}
 
-	private ensureCommonWatcher(): void {
+	/** `handingOver`: it takes the common files over from a session's root watcher, which tells linked sessions itself */
+	private ensureCommonWatcher(handingOver?: boolean): void {
 		if (this._commonWatcher != null || this._disposed) return;
 
 		// The watcher can report its reliability before `createWatcher` returns
@@ -399,8 +443,63 @@ export class WatchGroup implements UnifiedDisposable {
 		);
 		this._commonWatcher = watcher;
 		if (initialReliability !== 'reliable') {
-			this.setCommonReliability(initialReliability, true);
+			if (handingOver) {
+				this.setCommonPolling(initialReliability);
+			} else {
+				this.setCommonReliability(initialReliability, true);
+			}
 		}
+	}
+
+	/** The common watcher keeps delivering to linked sessions until a root watcher's watch on the common dir is live */
+	private retireCommonWatcher(): void {
+		const watcher = this._commonWatcher;
+		if (watcher == null) return;
+
+		const target = this._commonTarget;
+		this._commonWatcher = undefined;
+		this._commonTarget = undefined;
+		this._commonReliability = 'reliable';
+		this.retire(watcher, target);
+	}
+
+	/**
+	 * Keeps `watcher` (and its poll) delivering to linked sessions for {@link handOverOverlapMs}, beside any earlier one
+	 * still in its own overlap. A watcher retires once: the group never makes one current again
+	 */
+	private retire(watcher: FileWatcher, target: GitDirProbeTarget | undefined): void {
+		const timer = setTimeout(() => {
+			if (this._retiring.get(watcher)?.timer === timer) {
+				this.endRetiring(watcher);
+			}
+		}, handOverOverlapMs);
+		// An overlap alone must not keep a (Node) process alive; in the browser timers are numbers
+		if (typeof timer !== 'number') {
+			timer.unref();
+		}
+		this._retiring.set(watcher, { target: target, timer: timer });
+	}
+
+	private endRetiring(watcher: FileWatcher): void {
+		const retiring = this._retiring.get(watcher);
+		if (retiring == null) return;
+
+		this._retiring.delete(watcher);
+		clearTimeout(retiring.timer);
+		watcher.dispose();
+		if (retiring.target != null) {
+			this.poller?.delete(retiring.target);
+		}
+	}
+
+	private endAllRetiring(): void {
+		for (const watcher of [...this._retiring.keys()]) {
+			this.endRetiring(watcher);
+		}
+	}
+
+	private isRetiringTarget(target: GitDirProbeTarget): boolean {
+		return some(this._retiring.values(), r => r.target === target);
 	}
 
 	private disposeCommonWatcher(): void {
@@ -441,6 +540,8 @@ export class WatchGroup implements UnifiedDisposable {
 		const previous = entry.reliability;
 		if (previous === state || this.poller == null) return;
 
+		// Linked sessions hear the common files through it; its first report reaches them with the hand-over that adds it
+		const commonPrevious = entry.coversCommon && !initial ? this.getCommonReliability() : undefined;
 		entry.reliability = state;
 		if (state === 'reliable') {
 			this.stopPolling(entry);
@@ -452,6 +553,13 @@ export class WatchGroup implements UnifiedDisposable {
 				gitDirProbesByEmittedPath,
 				(event, probe) => {
 					if (entry.target !== target) return;
+
+					if (this._sessions.get(entry.repoPath) !== entry) {
+						if (this.isRetiringTarget(target)) {
+							this.onCommonEvent(event, true);
+						}
+						return;
+					}
 
 					this.onRootEvent(event, entry);
 					if (probe.path === 'logs/HEAD' && !entry.coversCommon) {
@@ -473,36 +581,55 @@ export class WatchGroup implements UnifiedDisposable {
 			}
 		}
 		entry.hooks.onUnwatchableChanged?.(entry.repoPath);
+
+		if (
+			commonPrevious != null &&
+			(commonPrevious === 'unwatchable') !== (this.getCommonReliability() === 'unwatchable')
+		) {
+			this.tellLinkedUnwatchableChanged();
+		}
 	}
 
 	private setCommonReliability(state: FileWatcherReliability, initial?: boolean): void {
 		const previous = this._commonReliability;
 		if (previous === state || this.poller == null) return;
 
+		this.setCommonPolling(state);
+		if ((state === 'unwatchable') === (previous === 'unwatchable')) return;
+
+		this.tellLinkedUnwatchableChanged(initial);
+	}
+
+	/** Polls the common dir in place of (or beside) the common watcher while it isn't `reliable` */
+	private setCommonPolling(state: FileWatcherReliability): void {
+		const poller = this.poller;
+		if (poller == null) return;
+
 		this._commonReliability = state;
 		if (state === 'reliable') {
 			if (this._commonTarget != null) {
-				this.poller.delete(this._commonTarget);
+				poller.delete(this._commonTarget);
 				this._commonTarget = undefined;
 			}
 		} else if (this._commonTarget == null) {
 			const target = new GitDirProbeTarget(
 				this.commonGitDir,
-				this.poller,
+				poller,
 				() => this.getCommonProbes(),
 				gitDirProbesByEmittedPath,
 				event => {
-					if (this._commonTarget === target) {
+					if (this._commonTarget === target || this.isRetiringTarget(target)) {
 						this.onCommonEvent(event);
 					}
 				},
 			);
 			this._commonTarget = target;
-			this.poller.add(target);
+			poller.add(target);
 		}
+	}
 
-		if ((state === 'unwatchable') === (previous === 'unwatchable')) return;
-
+	/** The watch linked sessions hear the common files through went down or came back: whatever changed meanwhile went unseen */
+	private tellLinkedUnwatchableChanged(initial?: boolean): void {
 		for (const entry of this._sessions.values()) {
 			if (entry.coversCommon) continue;
 
@@ -516,6 +643,49 @@ export class WatchGroup implements UnifiedDisposable {
 		}
 	}
 
+	/**
+	 * How much of the common files linked sessions hear: what the root watcher of a session rooted at the common dir
+	 * reports while there is one (the most reliable, should there be several), the common watcher's otherwise. A watcher
+	 * kept delivering beside the one that took over from it doesn't count: it is about to go
+	 */
+	private getCommonReliability(): FileWatcherReliability {
+		let reliability: FileWatcherReliability | undefined;
+		for (const entry of this._sessions.values()) {
+			if (!entry.coversCommon) continue;
+			if (entry.reliability === 'reliable') return 'reliable';
+
+			if (reliability !== 'unreliable') {
+				reliability = entry.reliability;
+			}
+		}
+		return reliability ?? this._commonReliability;
+	}
+
+	/**
+	 * Linked sessions now hear the common files through another watcher than one that was `previous`. Where either isn't
+	 * `reliable`, what changed between the two may have gone unseen (a poll's first pass only records), so each rescans,
+	 * and hears whether the watch went down or came back
+	 */
+	private handOverCommon(previous: FileWatcherReliability): void {
+		const current = this.getCommonReliability();
+		if (previous === 'reliable' && current === 'reliable') return;
+
+		const unwatchableChanged = (previous === 'unwatchable') !== (current === 'unwatchable');
+		let told = false;
+		for (const entry of this._sessions.values()) {
+			if (entry.coversCommon) continue;
+
+			told = true;
+			this.deliverOverflow(entry);
+			if (unwatchableChanged) {
+				entry.hooks.onUnwatchableChanged?.(entry.repoPath);
+			}
+		}
+		if (told) {
+			this.rebaselineWorktrees();
+		}
+	}
+
 	private stopPolling(entry: SessionEntry): void {
 		if (entry.target == null) return;
 
@@ -525,8 +695,7 @@ export class WatchGroup implements UnifiedDisposable {
 
 	/**
 	 * A session rooted at the common dir polls the common files too, with the refs of every session in the group: its
-	 * combined watcher would hear them all. While the common dir is polled too, the poller stats each shared file once
-	 * for both, and each keeps its own readings, so what one watcher reported is held back from its own sessions only
+	 * combined watcher would hear them all, for linked sessions too
 	 */
 	private getRootProbes(entry: SessionEntry): readonly GitDirProbe[] {
 		if (!entry.coversCommon) return gitDirRootProbes;
@@ -565,7 +734,11 @@ export class WatchGroup implements UnifiedDisposable {
 		return [...gitDirCommonProbes, ...getGitDirRefProbes(refs)];
 	}
 
-	private onCommonEvent(event: FileWatchEvent): void {
+	/**
+	 * An event of a watcher on the common dir that delivers to linked sessions only: the common watcher, or a root watcher
+	 * whose session went (`sharedOnly`, since it watched that session's own files too)
+	 */
+	private onCommonEvent(event: FileWatchEvent, sharedOnly?: boolean): void {
 		if (event.reason === 'overflow') {
 			for (const entry of this._sessions.values()) {
 				if (entry.coversCommon) continue;
@@ -581,59 +754,9 @@ export class WatchGroup implements UnifiedDisposable {
 
 		const relativePath = relative(this.commonGitDir, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
+		if (sharedOnly && !isGitDirCommonPath(relativePath)) return;
 
-		if (this.readFile != null && isConfigFile(relativePath)) {
-			this.onConfigReported();
-			return;
-		}
-
-		const isFetchHead = relativePath === 'FETCH_HEAD';
-		const isExclude = relativePath === 'info/exclude';
-		const changes = isFetchHead
-			? undefined
-			: withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, event.reason);
-		if (changes == null && !isFetchHead && !isExclude) return;
-
-		const ref = changes != null ? getChangedRef(relativePath) : undefined;
-
-		// `worktrees/<n>/HEAD`: the owner hears its own HEAD from its root watcher. Its `locked` and `gitdir` aren't in
-		// the root glob, so the owner hears those only from here
-		const ownerId = changes != null ? getMovedWorktreeId(relativePath) : undefined;
-		const movedWorktree = getReportedWorktreeId(relativePath, changes);
-
-		if (changes != null && this.isWorktreesReport(changes)) {
-			const sessions = [...this._sessions.values()].filter(
-				e => !e.coversCommon && (ownerId == null || e.worktreeId !== ownerId),
-			);
-			this.onWorktreesReported(relativePath, event.reason, () => {
-				for (const entry of sessions) {
-					if (this._disposed || this._sessions.get(entry.repoPath) !== entry) continue;
-
-					deliverRepoChanged(entry, changes, ref, movedWorktree);
-				}
-			});
-			return;
-		}
-
-		for (const entry of this._sessions.values()) {
-			// A session rooted at the common dir sees every common file (hooks included) through its own
-			// combined root watcher, so delivering here too would duplicate it
-			if (entry.coversCommon) continue;
-
-			if (isFetchHead) {
-				// FETCH_HEAD lives in the main .git dir; each worktree updates its last-fetched state
-				entry.hooks.onFetchHeadChanged?.(entry.repoPath);
-				continue;
-			}
-
-			if (changes != null && (ownerId == null || entry.worktreeId !== ownerId)) {
-				deliverRepoChanged(entry, changes, ref, movedWorktree);
-			}
-
-			if (isExclude) {
-				entry.hooks.onIgnoresChanged?.(entry.repoPath);
-			}
-		}
+		this.onGitDirChanged(relativePath, event.reason, undefined, true, true);
 	}
 
 	private deliverOverflow(entry: SessionEntry): void {
@@ -647,6 +770,11 @@ export class WatchGroup implements UnifiedDisposable {
 		if (event.reason === 'overflow') {
 			this.deliverOverflow(entry);
 			if (entry.coversCommon) {
+				for (const e of this._sessions.values()) {
+					if (e.coversCommon) continue;
+
+					this.deliverOverflow(e);
+				}
 				this.rebaselineWorktrees();
 			}
 			return;
@@ -657,33 +785,101 @@ export class WatchGroup implements UnifiedDisposable {
 		const relativePath = relative(entry.gitDirPath, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
 
-		// Check for FETCH_HEAD before interpretation
+		// Linked sessions hear a common file through a root watcher on the common dir, and nothing else it sees
+		this.onGitDirChanged(
+			relativePath,
+			event.reason,
+			entry,
+			entry.coversCommon && isGitDirCommonPath(relativePath),
+			entry.coversCommon,
+		);
+	}
+
+	/**
+	 * Tells `entry`, and the linked sessions when `linked`, of a change at `relativePath`, relative to the `.git`
+	 * directory whose watcher (or poll) reported it; `common` when that is the common dir
+	 */
+	private onGitDirChanged(
+		relativePath: string,
+		reason: FileWatchEvent['reason'],
+		entry: SessionEntry | undefined,
+		linked: boolean,
+		common: boolean,
+	): void {
 		if (relativePath === 'FETCH_HEAD') {
-			entry.hooks.onFetchHeadChanged?.(entry.repoPath);
+			// Each worktree updates its last-fetched state
+			this.callHook(entry, linked, 'onFetchHeadChanged');
 			return;
 		}
 
 		// A linked worktree's git dir isn't the common one, so no file there is the shared config
-		if (entry.coversCommon && this.readFile != null && isConfigFile(relativePath)) {
+		if (common && this.readFile != null && isConfigFile(relativePath)) {
 			this.onConfigReported();
 			return;
 		}
 
-		const changes = withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, event.reason);
-		// A linked worktree's git dir isn't the common one, so no path there is a worktree's admin entry
-		const movedWorktree = entry.coversCommon ? getReportedWorktreeId(relativePath, changes) : undefined;
-		if (changes != null && entry.coversCommon && this.isWorktreesReport(changes)) {
-			this.onWorktreesReported(relativePath, event.reason, () => {
-				if (this._disposed || this._sessions.get(entry.repoPath) !== entry) return;
+		const changes = withWorktreeEntryHead(classifyGitDirChange(relativePath), relativePath, reason);
+		if (changes != null) {
+			const ref = getChangedRef(relativePath);
+			// A linked worktree's git dir isn't the common one, so no path there is a worktree's admin entry
+			const movedWorktree = common ? getReportedWorktreeId(relativePath, changes) : undefined;
+			// `worktrees/<n>/HEAD`: the owner hears its own HEAD from its root watcher. Its `locked` and `gitdir` aren't in
+			// the root glob, so the owner hears those only from here
+			const ownerId = common ? getMovedWorktreeId(relativePath) : undefined;
 
-				deliverRepoChanged(entry, changes, getChangedRef(relativePath), movedWorktree);
-			});
-		} else if (changes != null) {
-			deliverRepoChanged(entry, changes, getChangedRef(relativePath), movedWorktree);
+			if (common && this.isWorktreesReport(changes)) {
+				const reached: SessionEntry[] = [];
+				if (entry != null && (ownerId == null || entry.worktreeId !== ownerId)) {
+					reached.push(entry);
+				}
+				if (linked) {
+					for (const e of this._sessions.values()) {
+						if (e.coversCommon || (ownerId != null && e.worktreeId === ownerId)) continue;
+
+						reached.push(e);
+					}
+				}
+				this.onWorktreesReported(relativePath, reason, () => {
+					for (const e of reached) {
+						if (this._disposed || this._sessions.get(e.repoPath) !== e) continue;
+
+						deliverRepoChanged(e, changes, ref, movedWorktree);
+					}
+				});
+			} else {
+				if (entry != null && (ownerId == null || entry.worktreeId !== ownerId)) {
+					deliverRepoChanged(entry, changes, ref, movedWorktree);
+				}
+				if (linked) {
+					for (const e of this._sessions.values()) {
+						if (e.coversCommon || (ownerId != null && e.worktreeId === ownerId)) continue;
+
+						deliverRepoChanged(e, changes, ref, movedWorktree);
+					}
+				}
+			}
 		}
 
 		if (relativePath === 'info/exclude') {
-			entry.hooks.onIgnoresChanged?.(entry.repoPath);
+			this.callHook(entry, linked, 'onIgnoresChanged');
+		}
+	}
+
+	/** Calls `hook` of `entry`, and of the linked sessions when `linked` */
+	private callHook(
+		entry: SessionEntry | undefined,
+		linked: boolean,
+		hook: 'onFetchHeadChanged' | 'onIgnoresChanged',
+	): void {
+		if (entry != null) {
+			entry.hooks[hook]?.(entry.repoPath);
+		}
+		if (!linked) return;
+
+		for (const e of this._sessions.values()) {
+			if (e.coversCommon) continue;
+
+			e.hooks[hook]?.(e.repoPath);
 		}
 	}
 
@@ -859,8 +1055,9 @@ export class WatchGroup implements UnifiedDisposable {
 
 	/**
 	 * A report whose read couldn't read the entry waits on the entry's next read, and `deliver` is told then, unless that
-	 * read finds an ignored worktree's; one still unreadable is told. Both watchers report each change of an entry, so
-	 * the reports of one id wait on one read. Resolves with what it found, as {@link settleWorktreeRetry} does
+	 * read finds an ignored worktree's; one still unreadable is told. One change of an entry can be reported more than
+	 * once (by a watcher and a poll, or for each file it touched), so the reports of one id wait on one read. Resolves
+	 * with what it found, as {@link settleWorktreeRetry} does
 	 */
 	private waitForWorktreeRetry(id: string, deliver?: () => void): Promise<boolean | undefined> {
 		// A later read may already have found what the entry is

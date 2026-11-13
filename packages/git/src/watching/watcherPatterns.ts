@@ -22,7 +22,7 @@ const dotGitWorktreeFiles = 'worktrees,worktrees/*,worktrees/*/HEAD,worktrees/*/
 
 const dotGitCommonFiles = `config,gk/config,refs/**,packed-refs,shallow,info/exclude,FETCH_HEAD,${dotGitWorktreeFiles}`;
 
-/** For standard repos (no worktrees): single watcher covering all .git files */
+/** For a checkout whose `.git` directory is the common one (a standard repo or a main checkout): every .git file */
 export const dotGitGlobCombined = `{${dotGitFiles},${dotGitCommonFiles}}`;
 
 /** For worktree repos: root watcher (worktree-specific files only) */
@@ -30,6 +30,25 @@ export const dotGitGlobRoot = `{${dotGitFiles}}`;
 
 /** For worktree repos: common watcher (shared config, refs, info, etc.) */
 export const dotGitGlobCommon = `{${dotGitCommonFiles}}`;
+
+const dotGitCommonPathRegex = new RegExp(
+	`^(?:${dotGitCommonFiles
+		.split(',')
+		.map(p =>
+			p
+				.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+				.replace(/\/\*\*$|\*/g, glob => (glob === '*' ? '[^/]*' : '(?:/.*)?')),
+		)
+		.join('|')})$`,
+);
+
+/**
+ * Whether a path relative to the common `.git` directory is one {@link dotGitGlobCommon} reads: a file every checkout of
+ * the repository shares. A trailing `/**` takes in the directory itself, as a watcher's globstar may
+ */
+export function isGitDirCommonPath(relativePath: string): boolean {
+	return dotGitCommonPathRegex.test(relativePath);
+}
 
 /**
  * Directories to leave unwatched under the `.git` directory (relative to it), for a provider that prunes natively.

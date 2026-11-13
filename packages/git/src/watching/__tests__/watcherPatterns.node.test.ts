@@ -6,6 +6,9 @@ import {
 	dotGitGlobCombined,
 	dotGitGlobCommon,
 	dotGitGlobRoot,
+	gitDirCommonProbes,
+	gitDirRootProbes,
+	isGitDirCommonPath,
 	shouldIgnoreRepoPath,
 	shouldIgnoreWorkingTreePath,
 } from '../watcherPatterns.js';
@@ -173,5 +176,97 @@ describe('worktrees glob contract', () => {
 		}
 
 		assert.ok(!dotGitGlobCommon.includes('worktrees/**'));
+	});
+});
+
+describe('isGitDirCommonPath', () => {
+	const { matchesGlob } = path as typeof path & { matchesGlob(path: string, pattern: string): boolean };
+
+	// Every pattern of both globs, a path each matches, and paths near them that match neither or only the other
+	const paths = [
+		'config',
+		'gk/config',
+		'refs/heads/main',
+		'refs/heads/feature/x',
+		'refs/heads/main.lock',
+		'refs/remotes/origin/main',
+		'refs/tags/v1',
+		'refs/stash',
+		'refs/stash.lock',
+		'refs/replace/0123456789abcdef',
+		'refs/undo/x',
+		'packed-refs',
+		'shallow',
+		'info/exclude',
+		'FETCH_HEAD',
+		'worktrees',
+		'worktrees/A',
+		'worktrees/A/HEAD',
+		'worktrees/A/locked',
+		'worktrees/A/gitdir',
+		'worktrees/A/index',
+		'worktrees/A/MERGE_HEAD',
+		'worktrees/A/rebase-merge/onto',
+		'index',
+		'HEAD',
+		'ORIG_HEAD',
+		'MERGE_HEAD',
+		'CHERRY_PICK_HEAD',
+		'REVERT_HEAD',
+		'REBASE_HEAD',
+		'MERGE_MSG',
+		'MERGE_MODE',
+		'rebase-apply',
+		'rebase-apply/next',
+		'rebase-merge',
+		'rebase-merge/head-name',
+		'sequencer',
+		'sequencer/todo',
+		'config.lock',
+		'config.worktree',
+		'packed-refs.lock',
+		'shallow.lock',
+		'HEAD.lock',
+		'gk',
+		'info',
+		'info/attributes',
+		'logs/HEAD',
+		'objects/ab/cd',
+		'Config',
+		'xconfig',
+		'configx',
+		'worktreesx',
+	];
+
+	it('agrees with the common glob, so a main checkout tells linked worktrees just what their own watcher would hear', () => {
+		for (const p of paths) {
+			assert.strictEqual(isGitDirCommonPath(p), matchesGlob(p, dotGitGlobCommon), p);
+		}
+	});
+
+	it("never takes a path only a checkout's own glob reads for a shared one", () => {
+		for (const p of paths) {
+			if (matchesGlob(p, dotGitGlobRoot) && !matchesGlob(p, dotGitGlobCommon)) {
+				assert.strictEqual(isGitDirCommonPath(p), false, p);
+			}
+		}
+	});
+
+	it("takes `refs` itself for shared, as a watcher's trailing globstar may", () => {
+		assert.strictEqual(isGitDirCommonPath('refs'), true);
+		assert.strictEqual(isGitDirCommonPath('refsx'), false);
+	});
+
+	it('takes what a poll of the common dir emits for shared, and what a poll of a checkout emits for its own', () => {
+		for (const probe of gitDirCommonProbes) {
+			for (const p of probe.emitAs ?? [probe.path]) {
+				assert.strictEqual(isGitDirCommonPath(p), true, p);
+			}
+		}
+		for (const probe of gitDirRootProbes) {
+			for (const p of probe.emitAs ?? [probe.path]) {
+				assert.strictEqual(isGitDirCommonPath(p), false, p);
+			}
+		}
 	});
 });
