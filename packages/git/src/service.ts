@@ -7,11 +7,12 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { MergeTargetsChangeEvent } from './cache.js';
 import type { GitProvider } from './providers/provider.js';
-import type { RepositoryService, SubProviderForRepo } from './repositoryService.js';
+import type { RepositoryService, SubProviderForRepo, SubProviderName } from './repositoryService.js';
 import {
 	clearGlobalRepositoryServiceResolver,
 	createSubProviderProxyForRepo,
 	setGlobalRepositoryServiceResolver,
+	subProviderCallThroughMethods,
 } from './repositoryService.js';
 import type { FileWatchingProvider } from './watching/provider.js';
 import type { WatchPollingOptions } from './watching/watchService.js';
@@ -388,13 +389,25 @@ function createRepositoryService(
 	watchService?: RepositoryWatchService,
 ): RepositoryService {
 	const proxies = new Map<string, SubProviderForRepo<unknown>>();
+	// A provider with no registration to ask about gets proxies that only bind `repoPath`
+	const ensureRegistered =
+		provider.ensureRegistered != null ? () => provider.ensureRegistered?.(repoPath) : undefined;
 
-	function getProxy<T extends object>(prop: string, subProvider: T | undefined): SubProviderForRepo<T> | undefined {
+	function getProxy<T extends object>(
+		prop: SubProviderName,
+		subProvider: T | undefined,
+	): SubProviderForRepo<T> | undefined {
 		if (subProvider == null) return undefined;
 
 		let proxy = proxies.get(prop);
 		if (proxy == null) {
-			proxy = createSubProviderProxyForRepo(subProvider, repoPath);
+			proxy = createSubProviderProxyForRepo(
+				subProvider,
+				repoPath,
+				ensureRegistered != null
+					? { ensureRegistered: ensureRegistered, callThrough: subProviderCallThroughMethods[prop] }
+					: undefined,
+			);
 			proxies.set(prop, proxy);
 		}
 		return proxy as SubProviderForRepo<T>;

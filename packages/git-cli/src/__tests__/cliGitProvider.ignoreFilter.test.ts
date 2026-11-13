@@ -1,9 +1,11 @@
 import * as assert from 'assert';
 import { resolve } from 'node:path';
 import { env } from 'node:process';
+import * as sinon from 'sinon';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
 import { Git } from '../exec/git.js';
@@ -89,5 +91,41 @@ suite('CliGitProvider — ignore rules that change while nothing watches the rep
 		ignore('dropped.txt', 1);
 		assert.deepStrictEqual(await provider.excludeIgnoredUris(repoPath, [kept, dropped]), [kept]);
 		assert.deepStrictEqual(await provider.excludeIgnoredUris(repoPath, [kept, dropped]), [kept]);
+	});
+
+	test("loads an unregistered checkout's ignore config only once its registration settled", async () => {
+		const linkedPath = normalizePath(resolve('/test/repo-linked'));
+		const linkedGitDir = {
+			uri: fileUri(`${repoPath}/.git/worktrees/repo-linked`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		};
+		cache.gitDir.set(linkedPath, linkedGitDir);
+		const asked: string[] = [];
+		const registration = defer<void>();
+		cache.setRepoPathRegistrar(path => {
+			asked.push(path);
+			return registration.promise;
+		});
+		const reads: string[] = [];
+		const getIgnoreConfig = sinon.stub(provider.config, 'getIgnoreConfig').callsFake(path => {
+			reads.push(path);
+			return Promise.resolve({ excludesFile: undefined, ignoreCase: undefined });
+		});
+		try {
+			const ready = provider.getIgnoreFilter(linkedPath).ready();
+			for (let i = 0; i < 5; i++) {
+				await new Promise<void>(r => setImmediate(r));
+			}
+			assert.deepStrictEqual(asked, [linkedPath]);
+			assert.deepStrictEqual(reads, [], 'waits for the registration');
+
+			cache.registerRepoPath(fileUri(linkedPath), linkedGitDir);
+			registration.fulfill();
+			await ready;
+			assert.ok(reads.length > 0);
+			assert.ok(reads.every(path => path === linkedPath));
+		} finally {
+			getIgnoreConfig.restore();
+		}
 	});
 });

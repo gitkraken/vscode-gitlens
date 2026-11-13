@@ -100,6 +100,21 @@ export interface CliGitServiceOptions {
  *
  * git.dispose(); // cleans up provider, cache, and module-level state
  * ```
+ *
+ * The cache shares a repository's data between its checkouts only once each checkout is registered
+ * (`cache.registerRepoPath`). A host that registers checkouts in the background can have each one registered before
+ * its first read through `forRepo` by setting a registrar once it has the service (see
+ * `Cache.setRepoPathRegistrar`; `undefined` declines a path):
+ *
+ * ```typescript
+ * cache.setRepoPathRegistrar(path =>
+ * 	isKnownCheckout(path)
+ * 		? git.forRepo(path)!.config.getGitDir!().then(gitDir => {
+ * 				if (gitDir != null) cache.registerRepoPath(fileUri(path), gitDir);
+ * 			})
+ * 		: undefined,
+ * );
+ * ```
  */
 export function createCliGitService(options: CliGitServiceOptions): GitService {
 	const service = GitService.createSingleton(options.watchingProvider, {

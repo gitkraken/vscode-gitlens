@@ -5,6 +5,7 @@ import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
@@ -142,6 +143,13 @@ const dropsTracked = 128;
 
 /** Repositories whose shared evictions are tracked (see {@link sharedCacheSources}); the oldest beyond this are forgotten */
 const sharedEvictionsTracked = 128;
+
+/**
+ * How long a read waits for the host to register its checkout (see {@link Cache.setRepoPathRegistrar}) before going
+ * ahead unregistered, so a registrar that never settles delays each checkout's first reads once rather than holding
+ * them for good
+ */
+const registrationWaitMs = 10 * 1000; // 10 seconds
 
 /**
  * Caches whose drops are stamped, so a read can tell its entry was dropped mid-flight (see {@link Cache.isDroppedSince}).
@@ -543,6 +551,17 @@ export class Cache implements Disposable {
 	/** What the read validator reports among {@link getResourceUsage}'s */
 	private _readValidatorUsage: (() => ResourceUsage) | undefined;
 
+	/** Asked to register a checkout before its first read (see {@link setRepoPathRegistrar}) */
+	private _repoPathRegistrar: ((repoPath: string) => Promise<void> | undefined) | undefined;
+	/**
+	 * Registrations still in flight, by checkout. `wait` is what a read waits on, `undefined` while the registrar runs
+	 * synchronously (so its own reads go ahead) and once the wait timed out
+	 */
+	private _registrations = new Map<
+		RepoPath,
+		{ wait: Promise<void> | undefined; release: () => void; timer: ReturnType<typeof setTimeout> | undefined }
+	>();
+
 	[Symbol.dispose](): void {
 		this.dispose();
 	}
@@ -551,6 +570,7 @@ export class Cache implements Disposable {
 		this.reset();
 		this._readValidator = undefined;
 		this._readValidatorUsage = undefined;
+		this._repoPathRegistrar = undefined;
 		this._onDidChangeMergeTargets.dispose();
 	}
 
@@ -577,6 +597,92 @@ export class Cache implements Disposable {
 	/** Whether a read validator is set (see {@link setReadValidator}), so the host keeps the caches it covers current */
 	get readsAreValidated(): boolean {
 		return this._readValidator != null;
+	}
+
+	/**
+	 * Registers what registers a checkout (see {@link registerRepoPath}) before its first read through the service's
+	 * per-repository sub-providers, since a checkout read before it is registered keeps its own copy of what its
+	 * repository's checkouts share, which its registration then throws away. Asked by {@link ensureRegistered}, one ask
+	 * at a time per checkout, until the checkout is registered. It registers the checkout itself, then answers a
+	 * promise that settles once it did; it answers `undefined`, cheaply and synchronously, for a path it declines (one
+	 * it doesn't know or trust), and is asked again at that path's next read. Its own reads of the checkout's git dir
+	 * (`config.getGitDir`, `getRepositoryInfo`) go ahead without waiting on it, as does every read it makes before its
+	 * first `await`; any other read it makes of that checkout through the service waits on it. `undefined` removes it.
+	 * Kept across {@link reset}: it is host wiring, not cached state.
+	 */
+	setRepoPathRegistrar(registrar: ((repoPath: string) => Promise<void> | undefined) | undefined): void {
+		this._repoPathRegistrar = registrar;
+	}
+
+	/**
+	 * Asks the registrar (see {@link setRepoPathRegistrar}) to register `repoPath` unless it is registered: `undefined`
+	 * when there is nothing to wait for (no registrar, a path already registered or declined), or a promise, never
+	 * rejecting, to read after. Concurrent calls for one path share one ask. A registrar that fails is logged and the
+	 * read goes ahead unregistered; one that is slow is waited on for a while, after which reads go ahead and the path
+	 * isn't asked again until it settles.
+	 */
+	ensureRegistered(repoPath: string): Promise<void> | undefined {
+		const registrar = this._repoPathRegistrar;
+		if (registrar == null || this._commonPathRegistry.has(repoPath)) return undefined;
+
+		const inFlight = this._registrations.get(repoPath);
+		if (inFlight != null) return inFlight.wait;
+
+		const registration: {
+			wait: Promise<void> | undefined;
+			release: () => void;
+			timer: ReturnType<typeof setTimeout> | undefined;
+		} = {
+			wait: undefined,
+			release: () => {},
+			timer: undefined,
+		};
+		// Before asking, so the registrar's own reads of the path find it in flight rather than asking again
+		this._registrations.set(repoPath, registration);
+		const forget = () => {
+			if (this._registrations.get(repoPath) === registration) {
+				this._registrations.delete(repoPath);
+			}
+		};
+
+		let pending: Promise<void> | undefined;
+		try {
+			pending = registrar(repoPath);
+		} catch (ex) {
+			Logger.warn(`Cache: registering '${repoPath}' failed: ${String(ex)}`);
+		}
+		if (pending == null) {
+			forget();
+			return undefined;
+		}
+
+		registration.wait = new Promise<void>(resolve => {
+			registration.release = resolve;
+		});
+		const timer = setTimeout(() => {
+			registration.timer = undefined;
+			registration.wait = undefined;
+			registration.release();
+		}, registrationWaitMs);
+		// A slow registration alone must not keep a (Node) process alive; in the browser timers are numbers
+		if (typeof timer !== 'number') {
+			timer.unref();
+		}
+		registration.timer = timer;
+
+		const settle = () => {
+			if (registration.timer != null) {
+				clearTimeout(registration.timer);
+				registration.timer = undefined;
+			}
+			registration.release();
+			forget();
+		};
+		Promise.resolve(pending).then(settle, (ex: unknown) => {
+			Logger.warn(`Cache: registering '${repoPath}' failed: ${String(ex)}`);
+			settle();
+		});
+		return registration.wait;
 	}
 
 	/**
@@ -1891,6 +1997,16 @@ export class Cache implements Disposable {
 		this._sharedEvictions.clear();
 		this._basesOwedOnCheckout.clear();
 		this._gkConfigReconciler = undefined;
+		// Reads waiting on a registration go ahead; one settling after this finds nothing of its own to drop
+		for (const registration of this._registrations.values()) {
+			if (registration.timer != null) {
+				clearTimeout(registration.timer);
+				registration.timer = undefined;
+			}
+			registration.wait = undefined;
+			registration.release();
+		}
+		this._registrations.clear();
 		this._caches = createEmptyCaches();
 		this.onDropped(undefined);
 	}
