@@ -76,6 +76,9 @@ const queueWaitAnnotationThreshold = 100;
 const eventLoopDelayAnnotationThreshold = 500;
 export const maxGitCliLength = 30000;
 
+/** The time limit, in milliseconds, of a run that sets none of its own when `GitOptions.gitTimeout` isn't set either */
+export const defaultGitTimeout = 60000;
+
 /** Rejections from a host's `beforeIndexLockRetry` — typed writes rethrow these as thrown instead of mapping them to their own error. */
 const runHookFailures = new WeakSet<object>();
 
@@ -705,7 +708,7 @@ export interface GitOptions {
 	env?: Record<string, string | undefined>;
 	/** Dynamic environment provider called for each command (e.g., host-discovered SCM credentials) */
 	getEnvironment?: () => Record<string, string | undefined> | undefined;
-	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to 60000. Set to 0 to disable. */
+	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to {@link defaultGitTimeout}. Set to 0 to disable. */
 	gitTimeout?: number;
 	/**
 	 * Returns whether git may be run in `repoPath`. Defaults to trusted when not provided. Called on every exec/stream,
@@ -1438,7 +1441,7 @@ export class Git {
 		} = options;
 
 		// A run's own timeout holds even when the default is disabled (0), so an unrequested background run stays capped
-		const runTimeout = opts.timeout ?? this.options.gitTimeout ?? 60000;
+		const runTimeout = opts.timeout ?? this.options.gitTimeout ?? defaultGitTimeout;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: runTimeout === 0 ? undefined : runTimeout,
