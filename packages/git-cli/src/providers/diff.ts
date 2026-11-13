@@ -139,7 +139,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		_cancellation?: AbortSignal,
 	): Promise<GitDiff | undefined> {
 		const scope = getScopedLogger();
-		const args = [`-U${options?.context ?? 3}`];
+		// An external diff tool (`diff.external` or a `diff=<driver>` attribute's command) would replace the patch
+		const args = [`-U${options?.context ?? 3}`, '--no-ext-diff'];
 
 		// Left to `diff.renames` unless the caller says which
 		if (options?.renames === true) {

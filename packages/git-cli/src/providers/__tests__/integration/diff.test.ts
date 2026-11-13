@@ -1091,3 +1091,82 @@ suite('DiffSubProvider.getDiff — renames', () => {
 		}
 	});
 });
+
+suite('DiffSubProvider.getDiff — repository diff settings', () => {
+	let repo: TestRepo;
+	let submoduleOrigin: string;
+
+	const git = (cwd: string, ...args: string[]) =>
+		execFileSync('git', args, {
+			cwd: cwd,
+			stdio: 'pipe',
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				GIT_AUTHOR_NAME: 'Test User',
+				GIT_AUTHOR_EMAIL: 'test@gitlens.test',
+				GIT_COMMITTER_NAME: 'Test User',
+				GIT_COMMITTER_EMAIL: 'test@gitlens.test',
+			},
+		});
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		submoduleOrigin = mkdtempSync(join(tmpdir(), 'gitlens-test-submodule-'));
+		git(submoduleOrigin, 'init', '-b', 'main');
+		git(submoduleOrigin, 'config', 'commit.gpgsign', 'false');
+		writeFileSync(join(submoduleOrigin, 'inner.txt'), 'one\n');
+		git(submoduleOrigin, 'add', 'inner.txt');
+		git(submoduleOrigin, 'commit', '-m', 'Add inner');
+
+		// Two changes 8 unchanged lines apart, and a blank context line next to the first
+		const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
+		lines[3] = '';
+		addCommit(repo.path, 'a.txt', `${lines.join('\n')}\n`, 'Add a.txt');
+		git(repo.path, '-c', 'protocol.file.allow=always', 'submodule', 'add', submoduleOrigin, 'sub');
+		git(repo.path, 'commit', '-m', 'Add submodule');
+
+		lines[4] = 'line 5 changed';
+		lines[13] = 'line 14 changed';
+		addCommit(repo.path, 'a.txt', `${lines.join('\n')}\n`, 'Change a.txt');
+		writeFileSync(join(repo.path, 'sub', 'inner.txt'), 'one\ntwo\n');
+		git(join(repo.path, 'sub'), 'commit', '-am', 'Change inner');
+		git(repo.path, 'commit', '-am', 'Move submodule');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+		rmSync(submoduleOrigin, { recursive: true, force: true });
+	});
+
+	test('ignores the repository settings that change the shape of a diff', async () => {
+		const expected = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~2');
+		assert.ok(expected != null);
+
+		const settings: [string, string][] = [
+			['diff.interHunkContext', '5'],
+			['diff.suppressBlankEmpty', 'true'],
+			['diff.submodule', 'log'],
+			['diff.noprefix', 'true'],
+			['diff.srcPrefix', 'x/'],
+			['diff.dstPrefix', 'y/'],
+			// A tool that fails, so a diff that runs it rejects
+			['diff.external', 'false'],
+		];
+		for (const [key, value] of settings) {
+			git(repo.path, 'config', key, value);
+		}
+		try {
+			// The fixture must be one the settings alter, or the assertion below proves nothing
+			const raw = git(repo.path, 'diff', '--no-ext-diff', '-U3', 'HEAD~2', 'HEAD');
+			assert.notStrictEqual(raw, expected.contents);
+
+			const actual = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~2');
+			assert.strictEqual(actual?.contents, expected.contents);
+		} finally {
+			for (const [key] of settings) {
+				git(repo.path, 'config', '--unset', key);
+			}
+		}
+	});
+});
