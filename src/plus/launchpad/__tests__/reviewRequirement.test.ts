@@ -93,7 +93,7 @@ function createPullRequest(options?: {
 /** What the Launchpad provider does: the shared verdict, the merge-queue override, then the review demotion. */
 function categorize(
 	pr: PullRequest,
-	fetched?: { reviewDecision: PullRequestReviewDecision | undefined },
+	fetched?: { reviewDecision: PullRequestReviewDecision | undefined; hasReviewRequests: boolean },
 ): { category: LaunchpadActionCategory; item: ActionablePullRequest } {
 	const [item] = getActionablePullRequests([toActionablePullRequestInput(pr)], { id: me.id });
 	let category = getLaunchpadActionCategory(item.suggestedActionCategory, pr);
@@ -152,9 +152,15 @@ suite('Launchpad review requirement', () => {
 
 	test('a decision fetched by a follow-up read is used where the row has none', () => {
 		const pr = createPullRequest({ projection: 'repos' });
-		assert.strictEqual(categorize(pr, { reviewDecision: undefined }).category, 'mergeable');
 		assert.strictEqual(
-			categorize(pr, { reviewDecision: PullRequestReviewDecision.ReviewRequired }).category,
+			categorize(pr, { reviewDecision: undefined, hasReviewRequests: false }).category,
+			'mergeable',
+		);
+		assert.strictEqual(
+			categorize(pr, {
+				reviewDecision: PullRequestReviewDecision.ReviewRequired,
+				hasReviewRequests: false,
+			}).category,
 			'unassigned-reviewers',
 		);
 	});
@@ -180,7 +186,18 @@ suite('Launchpad review requirement', () => {
 				assert.strictEqual(getReviewNotRequiredActionCategory('unassigned-reviewers', item, pr), undefined);
 				// Not even a fetched decision speaks for a host that doesn't report one.
 				assert.strictEqual(
-					getReviewNotRequiredActionCategory('unassigned-reviewers', item, pr, { reviewDecision: undefined }),
+					getReviewNotRequiredActionCategory('unassigned-reviewers', item, pr, {
+						reviewDecision: undefined,
+						hasReviewRequests: false,
+					}),
+					undefined,
+				);
+				// Nor do review requests.
+				assert.strictEqual(
+					getReviewNotRequiredActionCategory('unassigned-reviewers', item, pr, {
+						reviewDecision: undefined,
+						hasReviewRequests: true,
+					}),
 					undefined,
 				);
 			}
@@ -232,6 +249,56 @@ suite('Launchpad review requirement', () => {
 				assert.strictEqual(getReviewNotRequiredActionCategory('unassigned-reviewers', item, pr), expected);
 			});
 		}
+	});
+
+	suite('pending review requests the panel read dropped (#6206)', () => {
+		const pr = createPullRequest({ projection: 'repos' });
+		const requested = { reviewDecision: undefined, hasReviewRequests: true };
+		const requestedRequired = {
+			reviewDecision: PullRequestReviewDecision.ReviewRequired,
+			hasReviewRequests: true,
+		};
+		const get = (
+			item: ReviewRequirementActionablePullRequest,
+			fetched: { reviewDecision: PullRequestReviewDecision | undefined; hasReviewRequests: boolean },
+			category: LaunchpadActionCategory = 'unassigned-reviewers',
+			target: PullRequest = pr,
+		): LaunchpadActionCategory | undefined => getReviewNotRequiredActionCategory(category, item, target, fetched);
+
+		test('a pull request waiting on requested reviewers is Waiting for Review, not Ready to Merge', () => {
+			assert.strictEqual(get(flags({ shouldMerge: true }), requested), 'waiting-for-review');
+		});
+
+		test('requests make it Waiting for Review whatever the decision', () => {
+			assert.strictEqual(get(flags({ shouldMerge: true }), requestedRequired), 'waiting-for-review');
+		});
+
+		test('failing checks still outrank waiting for review', () => {
+			assert.strictEqual(get(flags({ failingCI: true }), requested), 'failed-checks');
+		});
+
+		test('conflicts still outrank waiting for review', () => {
+			assert.strictEqual(get(flags({ failingCI: true, hasConflicts: true }), requested), 'conflicts');
+		});
+
+		test("a draft is Waiting for Review because the shared cascade's waiting step comes after its draft step", () => {
+			assert.strictEqual(get(flags({ isDraft: true }), requested), 'waiting-for-review');
+		});
+
+		test('a GitHub Enterprise pull request is judged like a GitHub one', () => {
+			assert.strictEqual(
+				get(flags(), requested, 'unassigned-reviewers', createPullRequest({ provider: providers.ghe })),
+				'waiting-for-review',
+			);
+		});
+
+		test('every other category is left as it was', () => {
+			for (const category of launchpadActionCategories) {
+				if (category === 'unassigned-reviewers') continue;
+
+				assert.strictEqual(get(flags({ shouldMerge: true }), requested, category), undefined, category);
+			}
+		});
 	});
 
 	test('every other category is left as it was', () => {

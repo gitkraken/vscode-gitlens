@@ -1116,11 +1116,11 @@ export class GraphPanelsService {
 	}
 
 	/**
-	 * GitHub's own review decision for the rows the shared cascade calls "needs reviewers", keyed by the pull request
-	 * itself. This panel's GitHub rows come from provider-apis' fragment, which doesn't select the decision, so
-	 * without it none of them could be judged the way Launchpad judges its own (see
-	 * `getReviewNotRequiredActionCategory`). Only rows with a real viewer — viewer-less ones drop the category anyway —
-	 * and only when one needs it: ONE batched read for the integration, none at all when no row is a candidate.
+	 * GitHub's own review decision, and whether any review is still requested, for the rows the shared cascade calls
+	 * "needs reviewers", keyed by the pull request itself. This panel's GitHub rows come from provider-apis' fragment,
+	 * which doesn't select the decision and drops code owner and team review requests, so without this none of them
+	 * could be judged the way Launchpad judges its own (see `getReviewNotRequiredActionCategory`). Only rows with a
+	 * real viewer — viewer-less ones drop the category anyway — and only when one needs it: ONE batched read for the integration, none at all when no row is a candidate.
 	 * Best-effort: any failure is logged and yields `undefined` (a target that couldn't be checked yields no entry),
 	 * so those rows keep their category.
 	 */
@@ -1129,7 +1129,10 @@ export class GraphPanelsService {
 		prsByUuid: ReadonlyMap<string, PullRequest>,
 		integration: GitHostIntegration,
 		mergeQueueByNumber: Map<number, PullRequestMergeQueueEntry> | undefined,
-	): Promise<Map<PullRequest, { reviewDecision: PullRequestReviewDecision | undefined }> | undefined> {
+	): Promise<
+		| Map<PullRequest, { reviewDecision: PullRequestReviewDecision | undefined; hasReviewRequests: boolean }>
+		| undefined
+	> {
 		if (!isReviewDecisionReportingProvider(integration.id)) return undefined;
 
 		const candidates: PullRequest[] = [];
@@ -1173,21 +1176,26 @@ export class GraphPanelsService {
 				);
 			}
 
-			const decisions = new Map<PullRequest, { reviewDecision: PullRequestReviewDecision | undefined }>();
+			const decisions = new Map<
+				PullRequest,
+				{ reviewDecision: PullRequestReviewDecision | undefined; hasReviewRequests: boolean }
+			>();
 			for (const row of result.items) {
 				// A target the read couldn't check has no row, and a row without a pull request is one it couldn't
-				// find — neither says anything about its decision, nor does a row whose read didn't select it.
-				if (
-					row.pullRequest == null ||
-					getPullRequestFieldPresence(row.pullRequest)?.reviewDecision !== 'fetched'
-				) {
-					continue;
-				}
+				// find — neither says anything, nor does a row whose read didn't select both the decision and the
+				// review requests.
+				if (row.pullRequest == null) continue;
+
+				const presence = getPullRequestFieldPresence(row.pullRequest);
+				if (presence?.reviewDecision !== 'fetched' || presence.reviewRequests !== 'fetched') continue;
 
 				const candidate = candidates[Number(row.key)];
 				if (candidate == null) continue;
 
-				decisions.set(candidate, { reviewDecision: row.pullRequest.reviewDecision });
+				decisions.set(candidate, {
+					reviewDecision: row.pullRequest.reviewDecision,
+					hasReviewRequests: (row.pullRequest.reviewRequests?.length ?? 0) > 0,
+				});
 			}
 			return decisions;
 		} catch (ex) {

@@ -32,15 +32,34 @@ export function isReviewDecisionReportingProvider(providerId: string): boolean {
  * The shared categorizer gives `unassignedReviewers` to any author-side pull request with no reviews, overwriting
  * whatever it set before; this replays its cascade without that rule (later wins). The review-driven categories can't
  * apply — they need reviews (or a review decision), and the row has neither.
+ *
+ * One exception: when the follow-up read (`fetched`) shows GitHub has pending review requests — code owner and team
+ * ones, which the panel's own read drops — "nobody was asked to review" is false, whatever the decision. The
+ * categorizer would then have said `waiting-for-review` (it outranks mergeable and draft; failing checks and
+ * conflicts still outrank it), so that is the replay's starting point.
  */
 export function getReviewNotRequiredActionCategory(
 	category: LaunchpadActionCategory,
 	item: ReviewRequirementActionablePullRequest,
 	pr: PullRequestShape,
-	fetched?: { readonly reviewDecision: PullRequestReviewDecision | undefined },
+	fetched?: {
+		readonly reviewDecision: PullRequestReviewDecision | undefined;
+		readonly hasReviewRequests: boolean;
+	},
 ): LaunchpadActionCategory | undefined {
 	if (category !== 'unassigned-reviewers') return undefined;
 	if (!isReviewDecisionReportingProvider(pr.provider.id)) return undefined;
+
+	if (fetched?.hasReviewRequests) {
+		let waiting: LaunchpadActionCategory = 'waiting-for-review';
+		if (item.failingCI) {
+			waiting = 'failed-checks';
+		}
+		if (item.hasConflicts) {
+			waiting = 'conflicts';
+		}
+		return waiting;
+	}
 
 	if (fetched != null) {
 		if (fetched.reviewDecision != null) return undefined;
