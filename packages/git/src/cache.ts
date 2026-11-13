@@ -467,6 +467,8 @@ export class Cache implements Disposable {
 	private _mergeTargetCheckoutGeneration = 0;
 	/** Each merge target answer's entry as `mergeTargets` stored it, so dropping a stale answer can't drop its successor */
 	private _mergeTargetStored = new WeakMap<CachedMergeTarget, Promise<CachedMergeTarget>>();
+	/** Each worktree's mapped entry of a shared read, to the shared entry it was mapped from */
+	private _mappedFrom = new WeakMap<Promise<unknown>, Promise<unknown>>();
 	/** Advanced each time a drop-stamped cache's entries are dropped (see {@link getDropStamp}) */
 	private _drops = 0;
 	/**
@@ -3434,16 +3436,21 @@ export class Cache implements Disposable {
 		void sharedPromise.catch(() => {});
 
 		if (commonPath !== repoPath) {
-			// Reuse the cached mapped entry for this worktree if present; otherwise derive it off
-			// the raw inner shared promise so subsequent cache hits don't inherit the first
-			// caller's signal wrap.
+			// Already rejected without a read, so it must not replace this worktree's entry
+			if (cancellation?.aborted) return sharedPromise;
+
+			// Reuse this worktree's mapped entry only while it maps the shared entry current now: once every caller
+			// of a shared read has cancelled, `getSharedEntry` above starts another, and a copy mapped from the
+			// abandoned one would reject too. A new copy maps the raw inner shared promise so later cache hits
+			// don't inherit this caller's signal wrap.
+			const rawShared = cache.get(commonPath) ?? sharedPromise;
 			const existing = cache.get(repoPath);
-			if (existing != null) {
+			if (existing != null && this._mappedFrom.get(existing) === rawShared) {
 				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
 
-			const rawShared = cache.get(commonPath) ?? sharedPromise;
 			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			this._mappedFrom.set(mappedPromise, rawShared);
 			cache.set(repoPath, mappedPromise);
 			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}
@@ -3494,13 +3501,17 @@ export class Cache implements Disposable {
 		void sharedPromise.catch(() => {});
 
 		if (commonPath !== repoPath) {
+			// The early return and the reuse rule are those of `getSharedOrCreate`
+			if (cancellation?.aborted) return sharedPromise;
+
+			const rawShared = cache.get(commonPath, cacheKey) ?? sharedPromise;
 			const existing = cache.get(repoPath, cacheKey);
-			if (existing != null) {
+			if (existing != null && this._mappedFrom.get(existing) === rawShared) {
 				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
 
-			const rawShared = cache.get(commonPath, cacheKey) ?? sharedPromise;
 			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			this._mappedFrom.set(mappedPromise, rawShared);
 			cache.set(repoPath, cacheKey, mappedPromise, options);
 			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}

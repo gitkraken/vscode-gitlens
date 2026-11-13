@@ -1138,7 +1138,8 @@ export class GraphSearchService {
 				{ limit: e.limit ?? configuration.get('graph.searchItemLimit') ?? 0 },
 				signal,
 			);
-			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
+			// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!)?.catch(() => {}));
 
 			({ search } = await this.processSearchStream(searchStream, signal, progressive, graph, {
 				seed: search,
@@ -1188,7 +1189,7 @@ export class GraphSearchService {
 				},
 				signal,
 			);
-			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
+			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!)?.catch(() => {}));
 
 			try {
 				({ search, firstResultSelected, revealSha } = await this.processSearchStream(
@@ -1227,7 +1228,7 @@ export class GraphSearchService {
 							signal,
 						);
 						using _fallbackStreamDisposer = createDisposable(
-							() => void fallbackStream.return?.(undefined!),
+							() => void fallbackStream.return?.(undefined!)?.catch(() => {}),
 						);
 
 						({ search, firstResultSelected, revealSha } = await this.processSearchStream(

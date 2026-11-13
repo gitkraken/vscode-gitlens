@@ -18,8 +18,10 @@ const wait = 10 * 60 * 1000;
 // Git's own default for `diff.renameLimit`
 const renameLimit = 1000;
 
-const streamTimedOut = () => new CancelledRunError('git log', true, undefined, 'SIGTERM', 'timeout');
+const streamTimedOut = () =>
+	new CancellationError(new CancelledRunError('git log', true, undefined, 'SIGTERM', 'timeout'), 'timeout');
 const runTimedOut = () => new CancellationError(new Error('Timed out'), 'timeout');
+const isTimedOut = (ex: unknown) => isCancellationError(ex) && ex.reason === 'timeout';
 
 type Call = { kind: 'stream' | 'run'; options: { timeout?: number }; args: string[] };
 
@@ -119,12 +121,19 @@ suite('CommitsGitSubProvider.getLog — a read that runs out of time with unlimi
 		test('a failure that is not running out of time is not read again', async () => {
 			outcomes = [
 				() => new Error('fatal: bad revision'),
-				() => new CancelledRunError('git log', true, undefined, 'SIGTERM', 'unknown'),
+				() =>
+					new CancellationError(
+						new CancelledRunError('git log', true, undefined, 'SIGTERM', 'unknown'),
+						'unknown',
+					),
 			];
 			const provider = createProvider();
 
 			assert.strictEqual(await provider.getLog(repoPath, 'HEAD', page), undefined);
-			assert.strictEqual(await provider.getLog(repoPath, 'v1', page), undefined);
+			await assert.rejects(
+				provider.getLog(repoPath, 'v1', page),
+				(ex: unknown) => isCancellationError(ex) && ex.reason === 'unknown',
+			);
 			assert.strictEqual(calls.length, 2, 'one read each');
 		});
 
@@ -162,7 +171,7 @@ suite('CommitsGitSubProvider.getLog — a read that runs out of time with unlimi
 			outcomes = [streamTimedOut];
 			const provider = createProvider();
 
-			assert.strictEqual(await provider.getLog(repoPath, 'HEAD', { limit: 0, includeFiles: true }), undefined);
+			await assert.rejects(provider.getLog(repoPath, 'HEAD', { limit: 0, includeFiles: true }), isTimedOut);
 			assert.strictEqual(calls.length, 1);
 			assert.strictEqual(calls[0].options.timeout, undefined);
 			assert.strictEqual(isUnlimited(calls[0]), true);
@@ -172,7 +181,7 @@ suite('CommitsGitSubProvider.getLog — a read that runs out of time with unlimi
 			outcomes = [streamTimedOut];
 			const provider = createProvider();
 
-			assert.strictEqual(await provider.getLog(repoPath, 'HEAD', { limit: 10, includeFiles: false }), undefined);
+			await assert.rejects(provider.getLog(repoPath, 'HEAD', { limit: 10, includeFiles: false }), isTimedOut);
 			assert.strictEqual(calls.length, 1);
 			assert.strictEqual(calls[0].options.timeout, undefined);
 		});
