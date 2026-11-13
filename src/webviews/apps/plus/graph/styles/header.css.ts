@@ -418,6 +418,23 @@ export const graphHeaderControlStyles = css`
 		margin-left: -0.5rem;
 	}
 
+	/* The hidden-refs popover body is capped to the view (auto-size-vertical) but stays overflow: hidden, so
+	   only the list scrolls and the title and Show All stay pinned however many refs are hidden. */
+	.hidden-refs {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.hidden-refs > :not(.hidden-refs__list) {
+		flex: none;
+	}
+
+	.hidden-refs__list {
+		min-height: 0;
+		overflow-y: auto;
+	}
+
 	/* Rows in the hidden-refs popover. The outer tree wins over menu-item's own :host { display: block },
 	   so laying the row out from here is what gives the icon, label and restore glyph their alignment. */
 	.hidden-ref {

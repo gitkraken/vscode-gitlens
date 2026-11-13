@@ -11,7 +11,7 @@ import { when } from 'lit/directives/when.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
+import { inlineCode, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/search.js';
@@ -132,6 +132,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	static override styles = [
 		inlineCode,
 		linkBase,
+		scrollableBase,
 		ruleStyles,
 		srOnly,
 		actionButton,
@@ -1501,6 +1502,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			appearance="menu"
 			placement="bottom-start"
 			trigger="click focus"
+			auto-size-vertical
 			?arrow=${false}
 			.distance=${0}
 		>
@@ -1512,13 +1514,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</button>
 				<span slot="content">${countLabel}</span>
 			</gl-tooltip>
-			<div slot="content">
+			<div slot="content" class="hidden-refs">
 				<menu-label>${l10n.t('Hidden Branches / Tags')}</menu-label>
-				${repeat(
-					refs,
-					ref => ref.id,
-					ref => this.renderHiddenRef(ref),
-				)}
+				<div class="hidden-refs__list scrollable">
+					${repeat(
+						refs,
+						ref => ref.id,
+						ref => this.renderHiddenRef(ref),
+					)}
+				</div>
 				<menu-divider></menu-divider>
 				<menu-item
 					@click=${(event: CustomEvent) => {
