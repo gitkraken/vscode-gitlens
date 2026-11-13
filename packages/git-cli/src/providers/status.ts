@@ -7,7 +7,7 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '@gitlens/git/providers/status.js';
 import type { GitCommandPriority, GitErrorHandling } from '@gitlens/git/run.types.js';
-import { CancellationError, raceWithTimeout } from '@gitlens/utils/cancellation.js';
+import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { chunkByStringLength } from '@gitlens/utils/iterable.js';
@@ -19,7 +19,6 @@ import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
-import { CancelledRunError } from '../exec/exec.errors.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
 import {
@@ -66,27 +65,19 @@ function getStatusReadKey(options?: { untracked?: 'no' | 'normal' | 'all'; branc
 }
 
 /**
- * Whether `stream` yields anything, stopping at the first chunk. A stream the time limit killed rejects as the
- * process's `CancelledRunError`; it is rethrown as the `CancellationError` a timed-out `git.run` (and the backstop
- * above) reject with, so a caller that already tells those apart from a failure still does.
+ * Whether `stream` yields anything, stopping at the first chunk. A stream the time limit killed rejects with the same
+ * `CancellationError` a timed-out `git.run` (and the backstop above) reject with.
  */
 async function hasOutput(stream: AsyncGenerator<string>): Promise<boolean> {
-	using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+	// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+	using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 
-	try {
-		// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-		for await (const _chunk of stream) {
-			return true;
-		}
-
-		return false;
-	} catch (ex) {
-		if (ex instanceof CancelledRunError && ex.reason === 'timeout') {
-			throw new CancellationError(ex, 'timeout');
-		}
-
-		throw ex;
+	// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+	for await (const _chunk of stream) {
+		return true;
 	}
+
+	return false;
 }
 
 export class StatusGitSubProvider implements GitStatusSubProvider {

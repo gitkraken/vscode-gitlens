@@ -11,6 +11,7 @@ import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { BranchMetadata } from '../models/branch.js';
 import { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
+import { GitContributor } from '../models/contributor.js';
 import type { GitBranchReference, GitRefTip, RefRecord } from '../models/reference.js';
 import type { RepositoryChange } from '../models/repository.js';
 import type { GitTag } from '../models/tag.js';
@@ -3768,6 +3769,157 @@ suite('Cache.getWorktrees — force', () => {
 
 		assert.strictEqual(await cache.getWorktrees(repoPath, factory), cached);
 		assert.strictEqual(factoryCount, 1);
+	});
+});
+
+suite("Cache — a worktree's copy of a shared read", () => {
+	const repoPath = '/test/repo';
+	const siblingPath = '/test/repo-wt';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(siblingPath), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	/** A factory whose runs settle only once released, each rejecting if every caller abandoned it by then */
+	function createGatedFactory<T>(valueOf: (commonPath: string, run: number) => T): {
+		factory: (commonPath: string, cacheable: unknown, signal?: AbortSignal) => Promise<T>;
+		releases: (() => void)[];
+	} {
+		const releases: (() => void)[] = [];
+		const factory = (commonPath: string, _cacheable: unknown, signal?: AbortSignal): Promise<T> => {
+			const run = releases.length + 1;
+			const gate = defer<void>();
+			releases.push(() => gate.fulfill());
+			return gate.promise.then(() => {
+				if (signal?.aborted) throw new CancellationError();
+
+				return valueOf(commonPath, run);
+			});
+		};
+		return { factory: factory, releases: releases };
+	}
+
+	const tagsOf = (_commonPath: string, run: number): PagedResult<GitTag> => ({
+		values: [],
+		paging: { cursor: `run${run}`, more: false },
+	});
+	const contributorsOf = (commonPath: string, run: number): GitContributor[] => [
+		new GitContributor(commonPath, `run${run}`, undefined, false, run),
+	];
+	const branchesOf = (_commonPath: string, run: number): PagedResult<GitBranch> => ({
+		values: [],
+		paging: { cursor: `run${run}`, more: false },
+	});
+
+	suite('after every caller of the read abandoned it', () => {
+		test('a later tag read there gets a new read, not the abandoned one', async () => {
+			const { factory, releases } = createGatedFactory(tagsOf);
+
+			const controller = new AbortController();
+			const abandoned = assert.rejects(cache.getTags(siblingPath, factory, controller.signal), (ex: unknown) =>
+				isCancellationError(ex),
+			);
+			controller.abort();
+
+			const later = cache.getTags(siblingPath, factory);
+			assert.strictEqual(releases.length, 2, 'the later read starts its own run');
+
+			releases[0]();
+			await abandoned;
+			releases[1]();
+			assert.strictEqual((await later).paging?.cursor, 'run2');
+
+			assert.strictEqual((await cache.getTags(siblingPath, factory)).paging?.cursor, 'run2');
+			assert.strictEqual(releases.length, 2, "the abandoned run's late settle kept the new copy");
+		});
+
+		test('a later contributor read there gets a new read, not the abandoned one', async () => {
+			const { factory, releases } = createGatedFactory(contributorsOf);
+
+			const controller = new AbortController();
+			const abandoned = assert.rejects(
+				cache.getContributorsLite(siblingPath, 'all', factory, { cancellation: controller.signal }),
+				(ex: unknown) => isCancellationError(ex),
+			);
+			controller.abort();
+
+			const later = cache.getContributorsLite(siblingPath, 'all', factory);
+			assert.strictEqual(releases.length, 2, 'the later read starts its own run');
+
+			releases[0]();
+			await abandoned;
+			releases[1]();
+			const contributors = await later;
+			assert.strictEqual(contributors[0].name, 'run2');
+			assert.strictEqual(contributors[0].repoPath, siblingPath);
+
+			assert.strictEqual((await cache.getContributorsLite(siblingPath, 'all', factory))[0].name, 'run2');
+			assert.strictEqual(releases.length, 2, "the abandoned run's late settle kept the new copy");
+		});
+
+		test('a later branch list read there gets a new read, not the abandoned one', async () => {
+			const { factory, releases } = createGatedFactory(branchesOf);
+			const mapper = (branches: PagedResult<GitBranch>): PagedResult<GitBranch> => ({ ...branches });
+
+			const controller = new AbortController();
+			const abandoned = assert.rejects(
+				cache.getBranches(siblingPath, factory, mapper, controller.signal),
+				(ex: unknown) => isCancellationError(ex),
+			);
+			controller.abort();
+
+			const later = cache.getBranches(siblingPath, factory, mapper);
+			assert.strictEqual(releases.length, 2, 'the later read starts its own run');
+
+			releases[0]();
+			await abandoned;
+			releases[1]();
+			assert.strictEqual((await later).paging?.cursor, 'run2');
+		});
+	});
+
+	suite('when nothing was cancelled', () => {
+		test('a second tag read there reuses the copy, in flight and settled', async () => {
+			const { factory, releases } = createGatedFactory(tagsOf);
+
+			const first = cache.getTags(siblingPath, factory);
+			const second = cache.getTags(siblingPath, factory, new AbortController().signal);
+			releases[0]();
+
+			const firstResult = await first;
+			assert.strictEqual(await second, firstResult, 'an in-flight copy is joined');
+			assert.strictEqual(await cache.getTags(siblingPath, factory), firstResult, 'a settled copy is reused');
+			assert.strictEqual(releases.length, 1);
+		});
+
+		test('a second contributor read there reuses the copy, in flight and settled', async () => {
+			const { factory, releases } = createGatedFactory(contributorsOf);
+
+			const first = cache.getContributorsLite(siblingPath, 'all', factory);
+			const second = cache.getContributorsLite(siblingPath, 'all', factory, {
+				cancellation: new AbortController().signal,
+			});
+			releases[0]();
+
+			const firstResult = await first;
+			assert.strictEqual(await second, firstResult, 'an in-flight copy is joined');
+			assert.strictEqual(
+				await cache.getContributorsLite(siblingPath, 'all', factory),
+				firstResult,
+				'a settled copy is reused',
+			);
+			assert.strictEqual(releases.length, 1);
+		});
 	});
 });
 

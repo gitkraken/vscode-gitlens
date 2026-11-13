@@ -1,6 +1,7 @@
 import type { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { CancellationTokenSource, EventEmitter, RelativePattern, workspace } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import type {
@@ -250,7 +251,7 @@ class TreemapEntry {
 			})
 			.catch((ex: unknown) => {
 				this._treePromise = undefined;
-				if (ex instanceof Error && ex.name === 'AbortError') throw ex;
+				if ((ex instanceof Error && ex.name === 'AbortError') || isCancellationError(ex)) throw ex;
 
 				Logger.error(ex, 'TreemapAggregator.buildTree');
 				return undefined;
@@ -283,7 +284,7 @@ class TreemapEntry {
 				// On cancellation, re-throw so callers see a rejected promise instead of an
 				// empty-but-successful CommitFrequencyData (the webview would otherwise cache
 				// the empty stub as a real result and lock the fingerprint).
-				if (ex instanceof Error && ex.name === 'AbortError') throw ex;
+				if ((ex instanceof Error && ex.name === 'AbortError') || isCancellationError(ex)) throw ex;
 
 				Logger.error(ex, 'TreemapAggregator.buildCommitFrequencies');
 				return { frequencies: {}, folderFrequencies: {}, maxFrequency: 0, totalCommits: 0 };

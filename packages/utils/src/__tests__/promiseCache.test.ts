@@ -750,6 +750,52 @@ suite('PromiseCache Test Suite', () => {
 			dB.resolve(7);
 			assert.strictEqual(await b, 7);
 		});
+
+		test('PromiseMap: get hides the entry while it is doomed, then returns the fresh one', async () => {
+			const map = new PromiseMap<string, number>();
+			const dA = deferred<number>();
+			const ctrlA = new AbortController();
+			const a = map.getOrCreate('k', () => dA.promise, ctrlA.signal);
+			a.catch(() => {});
+			assert.strictEqual(map.get('k'), dA.promise);
+
+			ctrlA.abort();
+			assert.strictEqual(map.get('k'), undefined, 'a run every caller cancelled is not handed out');
+
+			const dB = deferred<number>();
+			void map.getOrCreate('k', () => dB.promise);
+			assert.strictEqual(map.get('k'), dB.promise);
+
+			dA.reject(new CancellationError());
+			await flush();
+			assert.strictEqual(map.get('k'), dB.promise, "the doomed run's late settle keeps the fresh entry");
+
+			dB.resolve(7);
+			assert.strictEqual(await map.get('k'), 7);
+		});
+
+		test('PromiseCache: get hides the entry while it is doomed, then returns the fresh one', async () => {
+			const cache = new PromiseCache<string, number>();
+			const dA = deferred<number>();
+			const ctrlA = new AbortController();
+			const a = cache.getOrCreate('k', () => dA.promise, { cancellation: ctrlA.signal });
+			a.catch(() => {});
+			assert.strictEqual(cache.get('k'), dA.promise);
+
+			ctrlA.abort();
+			assert.strictEqual(cache.get('k'), undefined, 'a run every caller cancelled is not handed out');
+
+			const dB = deferred<number>();
+			void cache.getOrCreate('k', () => dB.promise);
+			assert.strictEqual(cache.get('k'), dB.promise);
+
+			dA.reject(new CancellationError());
+			await flush();
+			assert.strictEqual(cache.get('k'), dB.promise, "the doomed run's late settle keeps the fresh entry");
+
+			dB.resolve(7);
+			assert.strictEqual(await cache.get('k'), 7);
+		});
 	});
 
 	suite('delete() keeps in-flight cancellation wired', () => {

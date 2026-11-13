@@ -1827,20 +1827,16 @@ export class Git {
 				}
 
 				if (signal === 'SIGTERM') {
-					// If the caller aborted, just resolve
-					if (cancellation?.aborted) {
-						resolve();
-					} else {
-						reject(
-							new CancelledRunError(
-								proc.spawnargs.join(' '),
-								true,
-								code ?? undefined,
-								signal,
-								proc.killed ? 'timeout' : 'unknown',
-							),
-						);
-					}
+					// Rejected as `run` rejects a killed process; output cut short must not read as complete. Only
+					// the caller's abort and the time limit kill it from here (`killed`); any other SIGTERM came
+					// from outside
+					const reason = cancellation?.aborted ? 'aborted' : proc.killed ? 'timeout' : 'unknown';
+					reject(
+						new CancellationError(
+							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal, reason),
+							reason,
+						),
+					);
 					return;
 				}
 
@@ -1871,6 +1867,9 @@ export class Git {
 				);
 			});
 		});
+		// The process can end while the consumer holds a chunk, a turn or more before the `finally` below awaits this;
+		// that await still delivers the rejection
+		void promise.catch(() => {});
 
 		let cleanedUp = false;
 		const cleanup = () => {
@@ -1905,6 +1904,9 @@ export class Git {
 		// setup (e.g. locating git) throws.
 		this.beginActiveCommand();
 
+		// Set while the consumer holds a chunk: if it closes the generator there, it has stopped reading by choice
+		let consumerLeft = false;
+
 		try {
 			this.logGitCommandStart(gitCommand, streamId);
 
@@ -1916,7 +1918,10 @@ export class Git {
 				if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
 					proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
 					for await (const chunk of proc.stdout) {
+						consumerLeft = true;
 						yield chunk;
+
+						consumerLeft = false;
 					}
 				} else {
 					// Non-UTF-8 encoding: collect raw buffers and decode at the end.
@@ -1933,7 +1938,11 @@ export class Git {
 					for await (const chunk of proc.stdout) {
 						buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 					}
-					yield await decode(Buffer.concat(buffers), { encoding: enc });
+					const decoded = await decode(Buffer.concat(buffers), { encoding: enc });
+					consumerLeft = true;
+					yield decoded;
+
+					consumerLeft = false;
 				}
 			} finally {
 				// This await MUST be in this inner finally block to ensure the child process close event completes
@@ -1941,7 +1950,15 @@ export class Git {
 				// async generator (e.g., reading only the first chunk), the git process receives SIGPIPE and triggers
 				// the close handler asynchronously. Without awaiting here, removeAllListeners() would execute before
 				// the close handler finishes, causing a race condition and potential resource leaks.
-				await promise;
+				await promise.catch((ex: unknown) => {
+					// A consumer that stopped reading took what it wanted, even when it (or its caller) aborted the
+					// signal as it left, or git ran on until its time limit killed it; failing its `break`, or the
+					// `return()` a disposer fires without waiting, would only surface an error nobody handles. Every
+					// kill rejects as a cancellation (above), while a git error still fails it
+					if (consumerLeft && isCancellationError(ex)) return;
+
+					throw ex;
+				});
 			}
 		} catch (ex) {
 			exception = ex;
@@ -2190,7 +2207,7 @@ export class Git {
 				undefined,
 				`${formatLoggableScopeBlock(id ? `GIT:\u2190${id}` : 'GIT')} ${command} \u00b7 ${
 					isCancellationError(ex)
-						? 'cancelled'
+						? `cancelled${ex.reason != null ? ` (${ex.reason === 'aborted' ? 'cancellation' : ex.reason})` : ''}`
 						: (ex.message || String(ex) || '')
 								.trim()
 								.replace(/fatal:\s*/g, '')

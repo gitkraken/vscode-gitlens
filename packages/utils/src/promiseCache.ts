@@ -109,12 +109,12 @@ export class PromiseCache<K, V> {
 	/**
 	 * Gets a promise from the cache without creating it and updates accessed time
 	 * @param key - The cache key
-	 * @returns The cached promise, or undefined if not cached or expired
+	 * @returns The cached promise, or undefined if not cached, expired, or in flight with every caller cancelled
 	 */
 	get(key: K): Promise<V> | undefined {
 		const now = Date.now();
 		const entry = this.cache.get(key);
-		if (entry == null || this.expired(entry, now)) {
+		if (entry == null || this.expired(entry, now) || this.aborts.get(key)?.signal.aborted) {
 			return undefined;
 		}
 
@@ -520,9 +520,11 @@ export class PromiseMap<K, V> {
 	}
 
 	/**
-	 * Gets a promise from the cache, or undefined if not found.
+	 * Gets a promise from the cache, or undefined if not found or in flight with every caller cancelled.
 	 */
 	get(key: K): Promise<V> | undefined {
+		if (this.aborts.get(key)?.signal.aborted) return undefined;
+
 		return this.cache.get(key);
 	}
 
