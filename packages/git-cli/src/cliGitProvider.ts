@@ -297,6 +297,10 @@ export class CliGitProvider implements GitProvider {
 		return { roots: [...roots], resolved: true };
 	}
 
+	ensureRegistered(repoPath: string): Promise<void> | undefined {
+		return this._cache.ensureRegistered(repoPath);
+	}
+
 	getCommonPath(repoPath: string): string | undefined {
 		// An unregistered path is its own common path in the cache, which would hide a sibling worktree's writes
 		return this._cache.isRegistered(repoPath) ? this._cache.getCommonPath(repoPath) : undefined;
@@ -934,13 +938,19 @@ export class CliGitProvider implements GitProvider {
 		if (filter == null) {
 			const gitDir = this._cache.gitDir.get(repoPath);
 			const gitDirPath = gitDir?.uri.fsPath ?? `${repoPath}/.git`;
+			// The watch service asks for the filter directly, not through the per-repository sub-providers, and its
+			// config listing is shared by the repository's checkouts once this one is registered
+			const getIgnoreConfig = async () => {
+				await this._cache.ensureRegistered(repoPath);
+				return this.config.getIgnoreConfig(repoPath);
+			};
 			filter = new GitIgnoreFilter({
 				repoPath: repoPath,
 				gitDirPath: gitDirPath,
 				fs: this.context.fs,
 				// Resolved the way git resolves it; unset, git reads its default location instead
 				getGlobalExcludesPath: async () => {
-					const { excludesFile: configured } = await this.config.getIgnoreConfig(repoPath);
+					const { excludesFile: configured } = await getIgnoreConfig();
 					return configured != null
 						? resolveGitPathConfig(configured, repoPath)
 						: getDefaultGlobalExcludesPath();
@@ -954,7 +964,7 @@ export class CliGitProvider implements GitProvider {
 				},
 				getGitIgnorePaths: () => this.getGitIgnorePaths(repoPath),
 				getIgnoreCase: async () => {
-					const { ignoreCase: value } = await this.config.getIgnoreConfig(repoPath);
+					const { ignoreCase: value } = await getIgnoreConfig();
 					if (value == null) return undefined;
 					if (parseGitBoolean(value)) return true;
 

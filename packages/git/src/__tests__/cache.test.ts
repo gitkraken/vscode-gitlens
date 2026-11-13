@@ -4456,6 +4456,77 @@ suite('Cache read validator resource usage', () => {
 	});
 });
 
+suite('Cache repo path registrar', () => {
+	const repoPath = '/test/repo-a';
+
+	test('asks once for a registered path, never, and shares one ask between concurrent calls', async () => {
+		const cache = new Cache();
+		try {
+			assert.strictEqual(cache.ensureRegistered(repoPath), undefined, 'no registrar');
+
+			const asked: string[] = [];
+			const registration = defer<void>();
+			cache.setRepoPathRegistrar(path => {
+				asked.push(path);
+				return registration.promise;
+			});
+			const first = cache.ensureRegistered(repoPath);
+			assert.ok(first != null);
+			assert.strictEqual(cache.ensureRegistered(repoPath), first);
+			assert.deepStrictEqual(asked, [repoPath]);
+
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			registration.fulfill();
+			await first;
+			assert.strictEqual(cache.ensureRegistered(repoPath), undefined);
+			assert.deepStrictEqual(asked, [repoPath]);
+		} finally {
+			cache.dispose();
+		}
+	});
+
+	test("answers the registrar's own synchronous reads of the path without asking again", () => {
+		const cache = new Cache();
+		try {
+			const inner: (Promise<void> | undefined)[] = [];
+			let asks = 0;
+			cache.setRepoPathRegistrar(path => {
+				asks++;
+				inner.push(cache.ensureRegistered(path));
+				return new Promise<void>(() => {});
+			});
+			assert.ok(cache.ensureRegistered(repoPath) != null);
+			assert.deepStrictEqual(inner, [undefined]);
+			assert.strictEqual(asks, 1);
+		} finally {
+			cache.dispose();
+		}
+	});
+
+	test('lets reads waiting on a registration go ahead on reset, and asks again after it', async () => {
+		const cache = new Cache();
+		try {
+			let asks = 0;
+			cache.setRepoPathRegistrar(() => {
+				asks++;
+				return new Promise<void>(() => {});
+			});
+			const waiting = cache.ensureRegistered(repoPath);
+			assert.ok(waiting != null);
+
+			cache.reset();
+			await waiting;
+			assert.ok(cache.ensureRegistered(repoPath) != null, 'the registrar is kept across a reset');
+			assert.strictEqual(asks, 2);
+
+			cache.dispose();
+			assert.strictEqual(cache.ensureRegistered(repoPath), undefined, 'dispose removes the registrar');
+		} finally {
+			cache.dispose();
+		}
+	});
+});
+
 suite('Cache git results read validation', () => {
 	test('a cached git run waits for the read validator, then runs', async () => {
 		const cache = new Cache();

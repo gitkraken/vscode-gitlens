@@ -1,3 +1,4 @@
+import { exhaustiveArray } from '@gitlens/utils/array.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { GitProvider, GitProviderDescriptor } from './providers/provider.js';
 
@@ -147,6 +148,77 @@ export type SubProviderForRepo<T> = {
 	[K in keyof T]: NonNullable<T[K]> extends (...args: any[]) => any ? OmitFirstArg<NonNullable<T[K]>, string> : T[K];
 };
 
+/** The names of {@link RepositoryService}'s sub-providers */
+export type SubProviderName = Exclude<
+	keyof RepositoryService,
+	'path' | 'provider' | 'getAbsoluteUri' | 'etagWorkingTree'
+>;
+
+/** The return types of a method's signatures (up to 4 overloads, as {@link OmitFirstArg}) */
+type ReturnTypesOf<F> = F extends {
+	(...args: never[]): infer R1;
+	(...args: never[]): infer R2;
+	(...args: never[]): infer R3;
+	(...args: never[]): infer R4;
+}
+	? R1 | R2 | R3 | R4
+	: F extends (...args: never[]) => infer R
+		? R
+		: never;
+
+/** The members of `R` that are not a plain `Promise`: not one at all, or one carrying more (a cancel method, say) */
+type NotPlainPromise<R> = R extends Promise<infer V> ? ([Promise<V>] extends [R] ? never : R) : R;
+
+/**
+ * The methods of sub-provider `T` that must not wait on a registration (see `Cache.setRepoPathRegistrar`): every one
+ * whose signatures answer anything other than a plain `Promise` (a value, `void`, a union with one, an async
+ * iterable), since wrapping it in `.then` would change what it answers
+ */
+type CallThroughMethodsOf<T> = {
+	[K in keyof T]-?: NonNullable<T[K]> extends (...args: never[]) => unknown
+		? [NotPlainPromise<ReturnTypesOf<NonNullable<T[K]>>>] extends [never]
+			? never
+			: K
+		: never;
+}[keyof T];
+
+/**
+ * Per sub-provider, the methods that call straight through while their checkout's registration is in flight; every
+ * other method waits on it. Each list must name exactly the sub-provider's {@link CallThroughMethodsOf}, which the
+ * build checks.
+ */
+export const subProviderCallThroughMethods: { readonly [K in SubProviderName]: ReadonlySet<string> } = {
+	branches: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['branches']>>()([])),
+	commits: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['commits']>>()([])),
+	config: new Set<string>([
+		...exhaustiveArray<CallThroughMethodsOf<GitProvider['config']>>()(['getSigningConfigFlags']),
+		// What a registrar resolves the git dir it registers with: waiting would wait on its own registration
+		'getGitDir',
+		'getRepositoryInfo',
+		'resolveGitDirWithoutGit',
+	]),
+	contributors: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['contributors']>>()([])),
+	diff: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['diff']>>()([])),
+	graph: new Set(
+		exhaustiveArray<CallThroughMethodsOf<GitProvider['graph']>>()(['searchGraph', 'continueSearchGraph']),
+	),
+	refs: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['refs']>>()([])),
+	remotes: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['remotes']>>()([])),
+	revision: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['revision']>>()([])),
+	status: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['status']>>()([])),
+	tags: new Set(exhaustiveArray<CallThroughMethodsOf<GitProvider['tags']>>()([])),
+	blame: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['blame']>>>()([])),
+	maintenance: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['maintenance']>>>()(['request'])),
+	ops: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['ops']>>>()(['scheduleIndexRefresh'])),
+	patch: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['patch']>>>()([])),
+	pausedOps: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['pausedOps']>>>()([])),
+	staging: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['staging']>>>()([])),
+	stash: new Set(exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['stash']>>>()([])),
+	worktrees: new Set(
+		exhaustiveArray<CallThroughMethodsOf<NonNullable<GitProvider['worktrees']>>>()(['getWorktreesDefaultUri']),
+	),
+};
+
 /**
  * Creates a repo-scoped wrapper for a sub-provider.
  * Returns a plain object where every method is pre-bound with `repoPath` as the first argument.
@@ -155,11 +227,19 @@ export type SubProviderForRepo<T> = {
  * The proxy automatically injects `repoPath` as the first argument to all method calls.
  * Operations that don't take `repoPath` (like `clone`) belong on `GitProvider` directly.
  *
+ * With `registration`, each call first asks `ensureRegistered` (see `GitProvider.ensureRegistered`); while it answers
+ * a promise, a method not in `callThrough` starts once it settles, and one in it starts at once.
+ *
  * @param target The sub-provider to wrap
  * @param repoPath The repository path to auto-inject
+ * @param registration How to ask that `repoPath` be registered, and the methods that must not wait on it
  * @returns A wrapped sub-provider where repoPath is pre-bound to all methods
  */
-export function createSubProviderProxyForRepo<T extends object>(target: T, repoPath: string): SubProviderForRepo<T> {
+export function createSubProviderProxyForRepo<T extends object>(
+	target: T,
+	repoPath: string,
+	registration?: { ensureRegistered: () => Promise<void> | undefined; callThrough: ReadonlySet<string> },
+): SubProviderForRepo<T> {
 	const bound: Record<string | symbol, unknown> = Object.create(null);
 
 	let proto: object | null = target;
@@ -170,11 +250,36 @@ export function createSubProviderProxyForRepo<T extends object>(target: T, repoP
 			const desc = Object.getOwnPropertyDescriptor(proto, key);
 			if (desc?.value != null && typeof desc.value === 'function') {
 				const fn = desc.value as (...args: unknown[]) => unknown;
-				bound[key] = (...args: unknown[]) => fn.call(target, repoPath, ...args);
+				bound[key] = bindMethod(target, repoPath, key, fn, registration);
 			}
 		}
 		proto = Object.getPrototypeOf(proto) as object | null;
 	}
 
 	return bound as unknown as SubProviderForRepo<T>;
+}
+
+function bindMethod(
+	target: object,
+	repoPath: string,
+	key: string | symbol,
+	fn: (...args: unknown[]) => unknown,
+	registration: { ensureRegistered: () => Promise<void> | undefined; callThrough: ReadonlySet<string> } | undefined,
+): (...args: unknown[]) => unknown {
+	if (registration == null) return (...args: unknown[]) => fn.call(target, repoPath, ...args);
+
+	const { ensureRegistered } = registration;
+	if (typeof key !== 'string' || registration.callThrough.has(key)) {
+		return (...args: unknown[]) => {
+			void ensureRegistered();
+			return fn.call(target, repoPath, ...args);
+		};
+	}
+
+	return (...args: unknown[]) => {
+		const pending = ensureRegistered();
+		return pending != null
+			? pending.then(() => fn.call(target, repoPath, ...args))
+			: fn.call(target, repoPath, ...args);
+	};
 }
