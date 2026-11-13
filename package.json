@@ -2127,6 +2127,7 @@
 					},
 					"gitlens.views.formats.commits.tooltip": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": "${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "%config.views.formats.commits.tooltip.markdownDescription%",
 						"scope": "window",
@@ -2134,6 +2135,7 @@
 					},
 					"gitlens.views.formats.commits.tooltipWithStatus": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": "${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 						"markdownDescription": "%config.views.formats.commits.tooltipWithStatus.markdownDescription%",
 						"scope": "window",
@@ -2169,6 +2171,7 @@
 					},
 					"gitlens.views.formats.stashes.tooltip": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": "${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${agoAndDate} ${message}${\n\n---\n\nfootnotes}",
 						"markdownDescription": "%config.views.formats.stashes.tooltip.markdownDescription%",
 						"scope": "window",
@@ -4786,6 +4789,7 @@
 					},
 					"gitlens.ai.explainChanges.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.explainChanges.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4796,6 +4800,7 @@
 					},
 					"gitlens.ai.reviewChanges.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.reviewChanges.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4806,6 +4811,7 @@
 					},
 					"gitlens.ai.generateChangelog.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateChangelog.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4816,6 +4822,7 @@
 					},
 					"gitlens.ai.generateCommitMessage.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateCommitMessage.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4826,6 +4833,7 @@
 					},
 					"gitlens.ai.generateCommits.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateCommits.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4858,6 +4866,7 @@
 					},
 					"gitlens.ai.resolveConflicts.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.resolveConflicts.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4935,6 +4944,7 @@
 					},
 					"gitlens.ai.generateStashMessage.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateStashMessage.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4945,6 +4955,7 @@
 					},
 					"gitlens.ai.generateCreateCloudPatch.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateCreateCloudPatch.customInstructions.markdownDescription%",
 						"scope": "window",
@@ -4955,6 +4966,7 @@
 					},
 					"gitlens.ai.generateCreatePullRequest.customInstructions": {
 						"type": "string",
+						"editPresentation": "multilineText",
 						"default": null,
 						"markdownDescription": "%config.ai.generateCreatePullRequest.customInstructions.markdownDescription%",
 						"scope": "window",
