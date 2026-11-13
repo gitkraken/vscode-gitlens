@@ -1,9 +1,12 @@
 import * as assert from 'node:assert';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 // Imported for its side effect, FIRST and deliberately — see agentStatusService.test.ts: letting
 // container initialize first breaks the decorator-registry import cycle.
 import '../../../container.js';
 import * as sinon from 'sinon';
-import { window } from 'vscode';
+import { commands, Uri, window } from 'vscode';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../gitRepositoryService.js';
@@ -11,6 +14,7 @@ import {
 	continuePausedOperation,
 	isContinuingPausedOperation,
 	onDidChangeContinuingPausedOperation,
+	showPausedOperationStatus,
 } from '../pausedOperation.js';
 
 suite('pausedOperation Test Suite', () => {
@@ -108,4 +112,132 @@ suite('pausedOperation Test Suite', () => {
 		resolveContinue!();
 		await pending;
 	});
+});
+
+suite('showPausedOperationStatus Test Suite', () => {
+	const repoPath = 'c:/repo';
+
+	type Surface = 'graph' | 'rebaseEditor' | 'scm';
+	interface Scenario {
+		type: GitPausedOperationStatus['type'];
+		/** `undefined` is signed out */
+		account?: { verified: boolean };
+		graphAllowed: boolean;
+		previewExpired?: boolean;
+		fromRebaseEditor?: boolean;
+		/** A rebase on the apply backend keeps no todo */
+		noRebaseTodo?: boolean;
+	}
+
+	let sandbox: sinon.SinonSandbox;
+	let executeCommandStub: sinon.SinonStub;
+	let gitDir: string;
+
+	setup(async () => {
+		sandbox = sinon.createSandbox();
+		executeCommandStub = sandbox.stub(commands, 'executeCommand').resolves();
+		gitDir = await mkdtemp(join(tmpdir(), 'gitlens-paused-op-'));
+
+		const { Container: ContainerClass } = await import('../../../container.js');
+		sandbox.stub(ContainerClass, 'instance').get(() => ({ telemetry: { sendEvent: () => {} } }));
+	});
+
+	teardown(async () => {
+		sandbox.restore();
+		await rm(gitDir, { recursive: true, force: true });
+	});
+
+	async function surfaceFor(scenario: Scenario): Promise<Surface[]> {
+		const surfaces: Surface[] = [];
+
+		if (!scenario.noRebaseTodo) {
+			await mkdir(join(gitDir, 'rebase-merge'));
+			await writeFile(join(gitDir, 'rebase-merge', 'git-rebase-todo'), '');
+		}
+
+		const svc = {
+			path: repoPath,
+			pausedOps: {
+				getPausedOperationStatus: () =>
+					Promise.resolve({ type: scenario.type } as unknown as GitPausedOperationStatus),
+			},
+			config: { getGitDir: () => Promise.resolve({ uri: Uri.file(gitDir) }) },
+			getOrOpenScmRepository: () => Promise.resolve(undefined),
+		} as unknown as GitRepositoryService;
+
+		const container = {
+			git: {
+				getRepositoryService: () => svc,
+				access: () => Promise.resolve({ allowed: scenario.graphAllowed }),
+			},
+			subscription: {
+				getSubscription: () => Promise.resolve({ account: scenario.account }),
+				getFeaturePreview: () => ({
+					feature: 'graph',
+					usages: scenario.previewExpired
+						? [{ startedOn: '2020-01-01T00:00:00.000Z', expiresOn: '2020-01-04T00:00:00.000Z' }]
+						: [],
+				}),
+			},
+		} as unknown as Container;
+
+		await showPausedOperationStatus(container, repoPath, { fromRebaseEditor: scenario.fromRebaseEditor });
+
+		for (const call of executeCommandStub.getCalls()) {
+			if (call.args[0] === 'gitlens.showGraph') {
+				surfaces.push('graph');
+			} else if (call.args[0] === 'vscode.openWith') {
+				surfaces.push('rebaseEditor');
+			} else if (call.args[0] === 'workbench.view.scm') {
+				surfaces.push('scm');
+			}
+		}
+
+		return surfaces;
+	}
+
+	const verified = { verified: true };
+	const unverified = { verified: false };
+
+	const scenarios: [name: string, scenario: Scenario, expected: Surface][] = [
+		['a merge with an accessible graph', { type: 'merge', account: verified, graphAllowed: true }, 'graph'],
+		[
+			'a merge signed out on a private repo while the preview is available',
+			{ type: 'merge', graphAllowed: false },
+			'graph',
+		],
+		['a merge with an unverified account', { type: 'merge', account: unverified, graphAllowed: true }, 'scm'],
+		[
+			'a cherry-pick signed out on a private repo after the preview ended',
+			{ type: 'cherry-pick', graphAllowed: false, previewExpired: true },
+			'scm',
+		],
+		[
+			'a revert signed in without access to the graph',
+			{ type: 'revert', account: verified, graphAllowed: false },
+			'scm',
+		],
+		['a rebase with a gated graph', { type: 'rebase', account: verified, graphAllowed: false }, 'rebaseEditor'],
+		[
+			'a rebase with a gated graph and no todo to edit',
+			{ type: 'rebase', account: verified, graphAllowed: false, noRebaseTodo: true },
+			'scm',
+		],
+		[
+			'a rebase with a gated graph, asked from the rebase editor',
+			{ type: 'rebase', account: verified, graphAllowed: false, fromRebaseEditor: true },
+			'scm',
+		],
+		[
+			'a rebase with an accessible graph, asked from the rebase editor',
+			{ type: 'rebase', account: verified, graphAllowed: true, fromRebaseEditor: true },
+			'graph',
+		],
+	];
+
+	for (const [name, scenario, expected] of scenarios) {
+		test(`${name} is shown in the ${expected}`, async () => {
+			assert.deepStrictEqual(await surfaceFor(scenario), [expected]);
+		});
+	}
 });
