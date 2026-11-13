@@ -3481,6 +3481,81 @@ suite('Cache.isDroppedSince', () => {
 			assert.ok(cache.isDroppedSince('currentUser', paths[0], stamp));
 		});
 	});
+
+	suite("a repository's default branch, which its checkouts share", () => {
+		const worktree = '/test/repo-wt';
+		const otherWorktree = '/test/repo-wt2';
+
+		function registered(): Cache {
+			const cache = new Cache();
+			cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+			for (const [path, id] of [
+				[worktree, 'wt'],
+				[otherWorktree, 'wt2'],
+			] as const) {
+				cache.registerRepoPath(fileUri(path), {
+					uri: fileUri(`${repoPath}/.git/worktrees/${id}`),
+					commonUri: fileUri(`${repoPath}/.git`),
+				});
+			}
+			return cache;
+		}
+
+		for (const type of ['remotes', 'branches'] as const) {
+			test(`a '${type}' clear through any checkout drops it for all of them`, () => {
+				using cache = registered();
+				const stamp = cache.getDropStamp('defaultBranchName', repoPath);
+				cache.clearCaches(worktree, type);
+
+				for (const path of [repoPath, worktree, otherWorktree]) {
+					assert.ok(cache.isDroppedSince('defaultBranchName', path, stamp), path);
+				}
+				assert.strictEqual(
+					cache.getDropStamp('defaultBranchName', otherWorktree),
+					cache.getDropStamp('defaultBranchName', repoPath),
+				);
+				assert.strictEqual(cache.isDroppedSince('defaultBranchName', sibling, stamp), false);
+			});
+		}
+
+		test('a clear that keeps it, or a report its checkout alone owns, does not drop it', () => {
+			using cache = registered();
+			const stamp = cache.getDropStamp('defaultBranchName', repoPath);
+			cache.clearCaches(repoPath, 'config');
+			cache.clearCaches(repoPath, 'stashes');
+			cache.applyRepositoryChanges(worktree, ['head'], 'share', { worktreeOnly: true });
+
+			assert.strictEqual(cache.isDroppedSince('defaultBranchName', repoPath, stamp), false);
+		});
+
+		test("deleting one remote's entry drops the repository's, for every remote", () => {
+			using cache = registered();
+			const stamp = cache.getDropStamp('defaultBranchName', repoPath);
+			cache.deleteDefaultBranchName(worktree, 'origin:local');
+
+			assert.ok(cache.isDroppedSince('defaultBranchName', repoPath, stamp));
+		});
+
+		test('unregistering a checkout drops it only with the last one', () => {
+			using cache = registered();
+			const stamp = cache.getDropStamp('defaultBranchName', repoPath);
+			cache.unregisterRepoPath(worktree);
+			cache.unregisterRepoPath(otherWorktree);
+
+			assert.strictEqual(cache.isDroppedSince('defaultBranchName', repoPath, stamp), false);
+
+			cache.unregisterRepoPath(repoPath);
+			assert.ok(cache.isDroppedSince('defaultBranchName', repoPath, stamp));
+		});
+
+		test('a reset drops it', () => {
+			using cache = registered();
+			const stamp = cache.getDropStamp('defaultBranchName', repoPath);
+			cache.reset();
+
+			assert.ok(cache.isDroppedSince('defaultBranchName', repoPath, stamp));
+		});
+	});
 });
 
 suite('Cache.applyRepositoryChanges', () => {

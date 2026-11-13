@@ -144,11 +144,15 @@ const dropsTracked = 128;
 const sharedEvictionsTracked = 128;
 
 /**
- * Per-path caches whose drops are stamped, so a read can tell its entry was dropped mid-flight
- * (see {@link Cache.isDroppedSince})
+ * Caches whose drops are stamped, so a read can tell its entry was dropped mid-flight (see {@link Cache.isDroppedSince}).
+ * A shared cache's drops are stamped by common path, whichever of its checkouts' paths is asked about
  */
-export type DropStampedCacheKey = 'currentBranchReference' | 'currentUser';
-const dropStampedCacheKeys = exhaustiveArray<DropStampedCacheKey>()(['currentBranchReference', 'currentUser']);
+export type DropStampedCacheKey = 'currentBranchReference' | 'currentUser' | 'defaultBranchName';
+const dropStampedCacheKeys = exhaustiveArray<DropStampedCacheKey>()([
+	'currentBranchReference',
+	'currentUser',
+	'defaultBranchName',
+]);
 
 export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlame | undefined): Promise<boolean> {
 	if (progressive == null) return false;
@@ -464,6 +468,7 @@ export class Cache implements Disposable {
 	private readonly _droppedAt: Record<DropStampedCacheKey, { byPath: Map<RepoPath, number>; all: number }> = {
 		currentBranchReference: { byPath: new Map(), all: 0 },
 		currentUser: { byPath: new Map(), all: 0 },
+		defaultBranchName: { byPath: new Map(), all: 0 },
 	};
 	/**
 	 * Each ref listing's records checked out in a worktree, with the value of {@link _drops} when the listing started
@@ -612,6 +617,7 @@ export class Cache implements Disposable {
 		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
 		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
 		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
+		usage['cache.defaultBranchNameDroppedAt.entries.count'] = this._droppedAt.defaultBranchName.byPath.size;
 		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
 		usage['cache.sharedEvictions.entries.count'] = this._sharedEvictions.size;
 		usage['cache.basesOwedOnCheckout.entries.count'] = this._basesOwedOnCheckout.size;
@@ -958,13 +964,18 @@ export class Cache implements Disposable {
 		if (key == null || repoPath == null) return this._drops;
 
 		const droppedAt = this._droppedAt[key];
-		return Math.max(droppedAt.all, droppedAt.byPath.get(repoPath) ?? 0);
+		return Math.max(droppedAt.all, droppedAt.byPath.get(this.getDropStampedPath(key, repoPath)) ?? 0);
 	}
 
 	/** Whether `key`'s entry for `repoPath` was dropped after `stamp` was taken by {@link getDropStamp} */
 	isDroppedSince(key: DropStampedCacheKey, repoPath: string, stamp: number): boolean {
 		const droppedAt = this._droppedAt[key];
-		return stamp < droppedAt.all || stamp < (droppedAt.byPath.get(repoPath) ?? 0);
+		return stamp < droppedAt.all || stamp < (droppedAt.byPath.get(this.getDropStampedPath(key, repoPath)) ?? 0);
+	}
+
+	/** The path `key`'s drops for `repoPath` are stamped by: its common path for a shared cache */
+	private getDropStampedPath(key: DropStampedCacheKey, repoPath: string): string {
+		return isSharedCacheKey(key) ? this.getCommonPath(repoPath) : repoPath;
 	}
 
 	/** Stamps a drop of `keys`' entries for `repoPath`, or for every path when `undefined` */
@@ -981,8 +992,9 @@ export class Cache implements Disposable {
 			}
 
 			// Re-inserted so the map stays ordered oldest drop first
-			droppedAt.byPath.delete(repoPath);
-			droppedAt.byPath.set(repoPath, this._drops);
+			const path = this.getDropStampedPath(key, repoPath);
+			droppedAt.byPath.delete(path);
+			droppedAt.byPath.set(path, this._drops);
 			if (droppedAt.byPath.size > dropsTracked) {
 				const [oldestPath, oldestAt] = droppedAt.byPath.entries().next().value!;
 				droppedAt.byPath.delete(oldestPath);
@@ -1413,7 +1425,8 @@ export class Cache implements Disposable {
 
 		this.onDropped(
 			repoPath,
-			dropStampedCacheKeys.filter(k => keysToClear.has(k)),
+			// `worktreeOnly` leaves the shared entries in place
+			dropStampedCacheKeys.filter(k => keysToClear.has(k) && !(worktreeOnly && isSharedCacheKey(k))),
 		);
 
 		if (repoPath == null) {
@@ -1775,7 +1788,6 @@ export class Cache implements Disposable {
 		// Advance the close clock so an async step that captured it before its read (see `getCloseGeneration`)
 		// can tell its target went away mid-flight.
 		this._closeGenerations.set(repoPath, (this._closeGenerations.get(repoPath) ?? 0) + 1);
-		this.onDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
 		this._sharedEvictions.delete(commonPath);
@@ -1783,6 +1795,11 @@ export class Cache implements Disposable {
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
 		// After removing repoPath, would the commonPath have any worktrees left?
 		const isLastWorktree = worktrees == null || worktrees.size <= 1;
+		// A shared entry is dropped below only with the last worktree
+		this.onDropped(
+			repoPath,
+			dropStampedCacheKeys.filter(k => isLastWorktree || !isSharedCacheKey(k)),
+		);
 
 		// Targeted per-repoPath cleanup: for per-worktree caches, clear this repoPath's
 		// entries. For shared caches, clear this repoPath's mapper entry (if it's a worktree
@@ -3020,6 +3037,7 @@ export class Cache implements Disposable {
 	/** Clears the cached default branch for one `remote` key (the networked lookup or its `:local` variant). */
 	deleteDefaultBranchName(repoPath: string, remote: string): void {
 		this._caches.defaultBranchName?.delete(this.getCommonPath(repoPath), remote);
+		this.onDropped(repoPath, ['defaultBranchName']);
 	}
 
 	getInitialCommitSha(
