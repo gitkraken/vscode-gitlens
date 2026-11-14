@@ -17,11 +17,25 @@ type ProbeStat = { readonly mtime: number; readonly size: number };
 type StatMemo = Map<string, Promise<ProbeStat | undefined>>;
 /** The reading of a path whose stat failed; never a whole second, so never racy */
 const unreadable: ProbeStat = { mtime: -1, size: -1 };
+/** What a batched stat reads of one path (see {@link UnwatchedCacheValidatorOptions.statMany}) */
+export type BatchedStat = ProbeStat | 'missing' | 'unreadable';
 
 export interface UnwatchedCacheValidatorOptions {
 	readonly cache: Cache;
-	/** A path's modification time (ms since the epoch) and size; `undefined` when it doesn't exist */
+	/**
+	 * A path's modification time (ms since the epoch) and size; `undefined` when it doesn't exist. With
+	 * {@link statMany}, only for the paths of a batch that failed and for the stats made while batching backs off
+	 * after one, so both must read a file alike
+	 */
 	readonly stat: (path: string) => Promise<ProbeStat | undefined>;
+	/**
+	 * Stats many paths as one file-system call, answering one reading per path in order: `'missing'` for one that isn't
+	 * there (or under a path that is a file), `'unreadable'` for one whose stat failed otherwise. A rejection fails the
+	 * whole batch, whose paths are then read by {@link stat} one at a time, as are all stats for 30 seconds after.
+	 * When given, the stats a validation needs at once for a repository are made as one call (of at most 128 paths)
+	 * rather than one call each; without it, each is a call of its own
+	 */
+	readonly statMany?: (paths: readonly string[]) => Promise<readonly BatchedStat[]>;
 	/** A directory's entries with their `FileType`s; a rejection whose `code` is `ENOENT` or `FileNotFound` means it isn't there */
 	readonly readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	/** A file's bytes; `undefined` when it doesn't exist. Without it, no worktree is ignored */
@@ -53,8 +67,9 @@ export interface UnwatchedCacheValidatorOptions {
 	 */
 	readonly timeoutMs?: number;
 	/**
-	 * How many of Node's file-system threads (libuv's pool) the validator's calls may hold at once, counting those hung
-	 * past {@link timeoutMs}; at most two run at once. Default: 2, which leaves a host two of the pool's default four
+	 * How many threads the validator's file-system calls may hold at once, counting those hung past {@link timeoutMs}:
+	 * Node's file-system threads (libuv's pool), or, for a {@link statMany} batch, whatever thread the host runs it on;
+	 * at most two run at once. Default: 2, which leaves a host two of the pool's default four
 	 */
 	readonly maxFsThreads?: number;
 }
@@ -72,7 +87,7 @@ const unresolvableRetryMs = 30_000;
 /** Targets kept per kind; one dropped just takes a new baseline */
 const maxTargets = 512;
 /**
- * Other worktrees' first baselines one validation takes with its own. Their stats run one at a time per repository
+ * Other worktrees' first baselines one validation takes with its own. Their stats run one call at a time per repository
  * inside the read that triggered them, so the batch is kept small enough that a slow file system doesn't push that read
  * past its timeout; the worktrees left out batch the rest at their own first validation. Never more than fit under
  * {@link maxTargets}, as a target dropped for them would clear the shared entries again
@@ -102,13 +117,21 @@ const defaultValidationTimeoutMs = 1000;
 /** The longest delay `setTimeout` keeps; a longer one (`Infinity` included) fires at once */
 const maxValidationTimeoutMs = 2 ** 31 - 1;
 /**
- * A stat or listing holds one of Node's file-system threads (libuv's pool, 4 by default) until it returns, which on a
- * hung mount is never, as it can't be cancelled. A repository makes one at a time and the validator two, holding no more
- * threads than it's allowed counting those outstanding past the timeout
+ * A stat, a batch of them or a listing holds a thread (one of Node's file-system threads, libuv's pool of 4 by default,
+ * or the one a batch runs on) until it returns, which on a hung mount is never, as it can't be cancelled. A repository
+ * makes one call at a time and the validator two, holding no more threads than it's allowed counting those outstanding
+ * past the timeout
  */
 const maxFsCallsPerRepo = 1;
 const maxFsCalls = 2;
 const defaultMaxFsThreads = 2;
+/** Paths one batch of stats holds at most; more asked together are split into batches of this many */
+const maxBatchPaths = 128;
+/**
+ * How long after a batch of stats failed each stat is a call of its own, before batching is tried again: what failed it
+ * (a worker that can't start or keeps dying) likely fails the next one too
+ */
+const failedBatchBackoffMs = 30_000;
 
 const refNamespaces: readonly string[] = ['refs/heads', 'refs/remotes', 'refs/tags'];
 const reftableProbePath = 'reftable/tables.list';
@@ -216,6 +239,12 @@ interface ResolutionState extends Waitable {
  * again rarely, and one whose resolution failed within the validation window. A read waits at most
  * {@link UnwatchedCacheValidatorOptions.timeoutMs} for a validation (and a resolution before it); one that outlasts it
  * is left to finish on its own, and the reads meanwhile are served as is.
+ *
+ * Each file-system call goes through a gate, one at a time per repository, so what a validation costs is mostly how
+ * many calls it makes, each a round trip to a file-system thread. With
+ * {@link UnwatchedCacheValidatorOptions.statMany}, the stats a repository's git dirs ask for together (a poll's, and the
+ * root and common git dirs' first polls of one validation) are one call, or one per {@link maxBatchPaths} paths;
+ * listings and file reads stay a call each.
  */
 export class UnwatchedCacheValidator {
 	private readonly cache: Cache;
@@ -261,9 +290,12 @@ export class UnwatchedCacheValidator {
 			this.timeoutMs,
 			Number.isNaN(maxFsThreads) ? defaultMaxFsThreads : Math.max(1, maxFsThreads),
 		);
+		const stat = options.stat;
+		const statMany = options.statMany;
 		this.dirOptions = {
 			gate: this.gate,
-			stat: options.stat,
+			stat: stat,
+			batcher: statMany != null ? new StatBatcher(this.gate, statMany, stat, this.now) : undefined,
 			readDirectory: options.readDirectory,
 			readFile: options.readFile,
 			getIgnoredWorktreeRoots: options.getIgnoredWorktreeRoots,
@@ -539,7 +571,8 @@ export class UnwatchedCacheValidator {
 	/**
 	 * What validating has cost, for a host to weigh against watching: counts since the validator was created of the
 	 * validations run, those that cleared something, the reads served as is after their wait timed out, the git dir
-	 * lookups, and the file-system calls made; and, as of now, the calls stuck on a hung mount and the git dirs kept
+	 * lookups, the file-system calls made (a batch of stats counting as one) and the batches of stats that failed;
+	 * and, as of now, the calls stuck on a hung mount and the git dirs kept
 	 */
 	getResourceUsage(): ResourceUsage {
 		return {
@@ -549,6 +582,7 @@ export class UnwatchedCacheValidator {
 			'unwatchedValidation.gitDirLookups.count': this.counts.gitDirLookups,
 			'unwatchedValidation.fsCalls.count': this.gate.calls,
 			'unwatchedValidation.fsCallsStuck.count': this.gate.stuckCalls,
+			'unwatchedValidation.statBatchesFailed.count': this.dirOptions.batcher?.failedBatches ?? 0,
 			'unwatchedValidation.gitDirs.count': this.roots.size + this.commons.size,
 		};
 	}
@@ -973,10 +1007,134 @@ class FileSystemGate {
 	}
 }
 
+/**
+ * Collects the stats asked for a gate key in one synchronous run (a poll's probes, the root and common git dirs' first
+ * polls of a validation) and makes them, once that run is over, as one call through the gate per {@link maxBatchPaths}
+ * paths. A batch that fails has its paths read one at a time, each a call of its own, once it gave its slot back: a key
+ * runs one call at a time. For {@link failedBatchBackoffMs} after, every stat is read that way
+ */
+class StatBatcher {
+	/** By gate key, the paths asked for since its last batch went out, each with its reading and what settles it */
+	private readonly pending = new Map<string, Map<string, PendingStat>>();
+	/** When the last batch failed */
+	private failedAt: number | undefined;
+	/** The batches that failed since it was created */
+	failedBatches = 0;
+
+	constructor(
+		private readonly gate: FileSystemGate,
+		private readonly statMany: (paths: readonly string[]) => Promise<readonly BatchedStat[]>,
+		private readonly stat: (path: string) => Promise<ProbeStat | undefined>,
+		private readonly now: () => number,
+	) {}
+
+	/** `path`'s reading, as {@link statThroughGate} reads it; never rejects */
+	read(gateKey: string, path: string): Promise<ProbeStat | undefined> {
+		if (this.failedAt != null) {
+			const backingOff = this.now() - this.failedAt < failedBatchBackoffMs;
+			if (backingOff) return statThroughGate(this.gate, gateKey, this.stat, path);
+
+			this.failedAt = undefined;
+		}
+
+		let batch = this.pending.get(gateKey);
+		if (batch == null) {
+			batch = new Map();
+			this.pending.set(gateKey, batch);
+			// A microtask, not a timer: it runs as soon as the synchronous run that asked is over
+			void Promise.resolve().then(() => this.flush(gateKey));
+		}
+
+		// Asked again in the same batch only by git dirs that don't share a memo, which read it alike
+		let pending = batch.get(path);
+		if (pending == null) {
+			let settle!: PendingStat['settle'];
+			const reading = new Promise<ProbeStat | undefined>(resolve => {
+				settle = resolve;
+			});
+			pending = { reading: reading, settle: settle };
+			batch.set(path, pending);
+		}
+		return pending.reading;
+	}
+
+	private flush(gateKey: string): void {
+		const batch = this.pending.get(gateKey);
+		if (batch == null) return;
+
+		this.pending.delete(gateKey);
+		const paths = [...batch.keys()];
+		for (let i = 0; i < paths.length; i += maxBatchPaths) {
+			this.send(gateKey, batch, paths.slice(i, i + maxBatchPaths));
+		}
+	}
+
+	/** Makes the stats of `paths` as one call through the gate, settling each one's reading in `batch` */
+	private send(gateKey: string, batch: Map<string, PendingStat>, paths: readonly string[]): void {
+		void this.gate
+			.run(gateKey, async () => {
+				const readings = await this.statMany(paths);
+				if (readings.length !== paths.length) {
+					throw new Error(`Expected ${paths.length} stats, got ${readings.length}`);
+				}
+				return readings;
+			})
+			.then(
+				readings => {
+					for (const [i, path] of paths.entries()) {
+						const reading = readings[i];
+						batch
+							.get(path)
+							?.settle(
+								reading === 'missing' ? undefined : reading === 'unreadable' ? unreadable : reading,
+							);
+					}
+				},
+				() => {
+					this.failedBatches++;
+					this.failedAt = this.now();
+					// The batch gave its slot back before this runs, so each waits its turn rather than for itself
+					for (const path of paths) {
+						batch.get(path)?.settle(statThroughGate(this.gate, gateKey, this.stat, path));
+					}
+				},
+			);
+	}
+}
+
+interface PendingStat {
+	readonly reading: Promise<ProbeStat | undefined>;
+	readonly settle: (reading: ProbeStat | undefined | Promise<ProbeStat | undefined>) => void;
+}
+
+/**
+ * `path`'s reading as one call through the gate: `undefined` when it isn't there, {@link unreadable} when its stat
+ * failed otherwise; never rejects
+ */
+function statThroughGate(
+	gate: FileSystemGate,
+	gateKey: string,
+	stat: (path: string) => Promise<ProbeStat | undefined>,
+	path: string,
+): Promise<ProbeStat | undefined> {
+	return gate
+		.run(gateKey, () => stat(path))
+		.catch((ex: unknown) => {
+			// A path under one that is now a file (a ref directory replaced by a ref of its name) isn't there
+			if (isNotFound(ex) || isNotADirectory(ex)) return undefined;
+
+			// Read as a reading of its own rather than skipped (as the probe target skips a stat that throws), so the
+			// path moves as it becomes unreadable and as it becomes readable again
+			return unreadable;
+		});
+}
+
 interface ProbedGitDirOptions {
 	/** Shared by every git dir the validator reads */
 	readonly gate: FileSystemGate;
 	readonly stat: (path: string) => Promise<ProbeStat | undefined>;
+	/** Shared by every git dir the validator reads; without it, each stat is a call of its own */
+	readonly batcher: StatBatcher | undefined;
 	readonly readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	readonly readFile: ((path: string) => Promise<Uint8Array | undefined>) | undefined;
 	readonly getIgnoredWorktreeRoots: ((repoPath: string) => Promise<readonly string[]>) | undefined;
@@ -1154,16 +1312,11 @@ class ProbedGitDir {
 		let stat = this.memo?.get(path);
 		if (stat == null) {
 			// Mapped before it's shared, so the root and common git dirs read the same
-			stat = this.options.gate
-				.run(this.gateKey, () => this.options.stat(path))
-				.catch((ex: unknown) => {
-					// A path under one that is now a file (a ref directory replaced by a ref of its name) isn't there
-					if (isNotFound(ex) || isNotADirectory(ex)) return undefined;
-
-					// Read as a reading of its own rather than skipped (as the probe target skips a stat that throws), so
-					// the path moves as it becomes unreadable and as it becomes readable again
-					return unreadable;
-				});
+			const { gate, batcher } = this.options;
+			stat =
+				batcher != null
+					? batcher.read(this.gateKey, path)
+					: statThroughGate(gate, this.gateKey, this.options.stat, path);
 			this.memo?.set(path, stat);
 		}
 

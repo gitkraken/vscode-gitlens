@@ -1,4 +1,4 @@
-import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { Disposable, UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
@@ -90,6 +90,7 @@ export class GitService implements UnifiedDisposable {
 	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`),
 	 * and with it `options.readDirectory` lets it drop the reports of ignored worktrees (see
 	 * `WatchServiceOptions.readDirectory`).
+	 * `options.disposables` are disposed with the service.
 	 * `options.verifyBaseRemeasure` is for tests only (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`)
 	 */
 	static createSingleton(
@@ -98,6 +99,7 @@ export class GitService implements UnifiedDisposable {
 			watchPolling?: WatchPollingOptions;
 			readFile?: (path: string) => Promise<Uint8Array>;
 			readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>;
+			disposables?: readonly Disposable[];
 			verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 		},
 	): GitService {
@@ -111,6 +113,7 @@ export class GitService implements UnifiedDisposable {
 			options?.readFile,
 			options?.readDirectory,
 			options?.verifyBaseRemeasure,
+			options?.disposables,
 		);
 		GitService._instance = instance;
 		return instance;
@@ -146,6 +149,7 @@ export class GitService implements UnifiedDisposable {
 		readFile?: (path: string) => Promise<Uint8Array>,
 		readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>,
 		verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
+		private readonly _disposables?: readonly Disposable[],
 	) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
@@ -201,6 +205,10 @@ export class GitService implements UnifiedDisposable {
 
 		this._onDidChangeProviders.dispose();
 		this._onDidChangeMergeTargets.dispose();
+
+		for (const disposable of this._disposables ?? []) {
+			disposable.dispose();
+		}
 	}
 
 	/** Monotonically increasing counter incremented on structural changes. */

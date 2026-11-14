@@ -1,4 +1,8 @@
 import * as assert from 'assert';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import * as sinon from 'sinon';
 import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -11,6 +15,7 @@ import { first } from '@gitlens/utils/iterable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
+import { StatWorkerPool } from '../exec/statWorkers.js';
 import { createCliGitService } from '../service.js';
 
 suite('createCliGitService — watch bridging', () => {
@@ -211,38 +216,44 @@ suite('createCliGitService — worktree admin entries', () => {
 });
 
 suite('createCliGitService — unwatched cache validation', () => {
-	const repoPath = '/test/repo';
-	const gitDirPath = `${repoPath}/.git`;
+	let repoPath: string;
+	let gitDirPath: string;
 
 	let cache: Cache;
 	let service: GitService;
-	let files: Map<string, number>;
-	let stats: string[];
 	let now: number;
 	const dateNow = Date.now;
+
+	/** Sets `path`'s modification time to `seconds` since the epoch */
+	function setMtime(path: string, seconds: number): void {
+		utimesSync(path, seconds, seconds);
+	}
+
+	/** The file-system calls the validator made since it was created */
+	function getFsCalls(): number {
+		return cache.getResourceUsage()['unwatchedValidation.fsCalls.count'] ?? 0;
+	}
 
 	setup(() => {
 		now = 1_000_123;
 		Date.now = () => now;
 
-		files = new Map([
-			[`${gitDirPath}/HEAD`, 1],
-			[`${gitDirPath}/logs/HEAD`, 1],
-			[`${gitDirPath}/refs/heads`, 1],
-		]);
-		stats = [];
+		// The validator stats the local file system itself, as git reads it
+		repoPath = normalizePath(realpathSync(mkdtempSync(join(tmpdir(), 'gitlens-validation-'))));
+		gitDirPath = `${repoPath}/.git`;
+		mkdirSync(`${gitDirPath}/logs`, { recursive: true });
+		mkdirSync(`${gitDirPath}/refs/heads`, { recursive: true });
+		writeFileSync(`${gitDirPath}/HEAD`, 'ref: refs/heads/main\n');
+		writeFileSync(`${gitDirPath}/logs/HEAD`, '');
+		for (const path of ['HEAD', 'logs/HEAD', 'logs', 'refs/heads', 'refs', '']) {
+			setMtime(`${gitDirPath}/${path}`, 1);
+		}
+
 		const notFound = () => Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 		const fs: FileSystemProvider = {
 			readDirectory: notFound,
 			readFile: notFound,
-			stat: uri => {
-				const path = normalizePath(toFsPath(uri));
-				stats.push(path);
-				const mtime = files.get(path);
-				return Promise.resolve(
-					mtime != null ? { type: FileType.File, ctime: 0, mtime: mtime, size: 10 } : undefined,
-				);
-			},
+			stat: () => Promise.resolve(undefined),
 		};
 
 		cache = new Cache();
@@ -260,6 +271,19 @@ suite('createCliGitService — unwatched cache validation', () => {
 		Date.now = dateNow;
 		service.dispose();
 		cache.dispose();
+		rmSync(repoPath, { recursive: true, force: true });
+	});
+
+	test('stops its stat workers once the service is disposed', async () => {
+		await cache.validateBeforeRead(repoPath);
+
+		const dispose = sinon.spy(StatWorkerPool.prototype, 'dispose');
+		try {
+			service.dispose();
+			assert.strictEqual(dispose.callCount, 1);
+		} finally {
+			dispose.restore();
+		}
 	});
 
 	test("drops an unwatched repository's current branch once its HEAD's reflog moved", async () => {
@@ -267,7 +291,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 
 		cache.branch.set(repoPath, Promise.resolve(undefined));
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 
 		const validation = cache.validateBeforeRead(repoPath);
 		assert.ok(validation != null);
@@ -282,7 +306,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 
 		// A checkout can change what `includeIf.onbranch` includes
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 		assert.strictEqual(await read(), 'key2');
 	});
 
@@ -298,7 +322,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 		assert.strictEqual(reads, 1, 'served from the cache until something changes');
 
 		now += 300;
-		files.set(`${gitDirPath}/refs/heads`, 2);
+		setMtime(`${gitDirPath}/refs/heads`, 2);
 		await read();
 		assert.strictEqual(reads, 2);
 	});
@@ -315,7 +339,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 		assert.strictEqual(reads, 1, 'served from the cache until something changes');
 
 		now += 300;
-		files.set(`${gitDirPath}/refs/heads`, 2);
+		setMtime(`${gitDirPath}/refs/heads`, 2);
 		await read();
 		assert.strictEqual(reads, 2);
 	});
@@ -327,7 +351,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 		assert.strictEqual(await read(), 'listing1', 'served from the cache until something changes');
 
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 		assert.strictEqual(await read(), 'listing2');
 	});
 
@@ -337,7 +361,7 @@ suite('createCliGitService — unwatched cache validation', () => {
 		assert.strictEqual(await read(), 'listing1');
 
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 		assert.strictEqual(await read(), 'listing2');
 	});
 
@@ -349,21 +373,21 @@ suite('createCliGitService — unwatched cache validation', () => {
 		const handoff = cache.validateBeforeRead(repoPath);
 		assert.ok(handoff != null);
 		await handoff;
-		stats.length = 0;
+		let fsCalls = getFsCalls();
 
 		service.watchService!.suspendAll();
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 		const validation = cache.validateBeforeRead(repoPath);
 		assert.ok(validation != null);
 		await validation;
-		assert.ok(stats.length > 0);
+		assert.ok(getFsCalls() > fsCalls);
 
 		service.watchService!.resumeAll();
-		stats.length = 0;
+		fsCalls = getFsCalls();
 		now += 300;
 		assert.strictEqual(cache.validateBeforeRead(repoPath), undefined);
-		assert.deepStrictEqual(stats, []);
+		assert.strictEqual(getFsCalls(), fsCalls);
 
 		sub.dispose();
 		handle.dispose();
@@ -378,13 +402,13 @@ suite('createCliGitService — unwatched cache validation', () => {
 		const handoff = cache.validateBeforeRead(repoPath);
 		assert.ok(handoff != null);
 		await handoff;
-		stats.length = 0;
+		const fsCalls = getFsCalls();
 
 		now += 300;
-		files.set(`${gitDirPath}/logs/HEAD`, 2);
+		setMtime(`${gitDirPath}/logs/HEAD`, 2);
 		assert.strictEqual(cache.validateBeforeRead(repoPath), undefined);
 		await cache.getRemotes(repoPath, () => []);
-		assert.deepStrictEqual(stats, []);
+		assert.strictEqual(getFsCalls(), fsCalls);
 
 		sub.dispose();
 		handle.dispose();
