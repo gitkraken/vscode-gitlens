@@ -93,6 +93,9 @@ export abstract class IssuesIntegration<
 	private _globalRetirement = 0;
 	private _primaryPublication = 0;
 	private readonly _actualPublications = new Map<string, number>();
+	private readonly _actualCredentials = new Map<string, { cloud: boolean; accessToken?: string }>();
+	private readonly _retiredCredentialVariants = new Set<boolean>();
+	private _discoveryDisposed = false;
 	private readonly _selectorPublications = new Map<string, number>();
 	private readonly _selectorSessions = new Map<string, { id: string; cloud?: boolean }>();
 	private readonly _sessionPublications = new WeakMap<
@@ -144,14 +147,56 @@ export abstract class IssuesIntegration<
 		this.clearDiscoveryCaches();
 	}
 
+	protected captureDiscoveryLifetime(session: ProviderAuthenticationSession): () => boolean {
+		const { id, cloud } = session;
+		const key = sessionPublicationKey(id, cloud);
+		// A caller can retain a resolved session across awaits that publish a different credential.
+		const ownsCredential =
+			!this._discoveryDisposed &&
+			(this._actualCredentials.has(key)
+				? this._actualCredentials.get(key)?.accessToken === session.accessToken
+				: !this._retiredCredentialVariants.has(cloud));
+		// An explicit actual-session selector avoids retiring secondary ownership when only the primary changes.
+		const generation = this.getSessionDiscoveryGeneration(id, id, cloud);
+		return () => ownsCredential && this.getSessionDiscoveryGeneration(id, id, cloud) === generation;
+	}
+
 	protected clearDiscoveryCaches(): void {}
+
+	override dispose(): void {
+		this._discoveryDisposed = true;
+		for (const [key, credential] of this._actualCredentials) {
+			this._actualCredentials.set(key, { cloud: credential.cloud });
+		}
+		super.dispose();
+	}
 
 	protected override invalidatePublishedSession(publication: SessionPublication, affectsPrimary: boolean): void {
 		const stamp = ++this._discoverySequence;
 		const cloud = publication.session != null ? publication.session.cloud : publication.cloud;
+		if (publication.retireAll) {
+			const variants = cloud == null ? [true, false] : [cloud];
+			for (const variant of variants) {
+				this._retiredCredentialVariants.add(variant);
+			}
+			for (const [key, credential] of this._actualCredentials) {
+				if (variants.includes(credential.cloud)) {
+					this._actualCredentials.set(key, { cloud: credential.cloud });
+					this._actualPublications.set(key, stamp);
+				}
+			}
+			this._globalRetirement = stamp;
+			this.clearDiscoveryCaches();
+		}
 		for (const id of [publication.session?.id, publication.previousSessionId]) {
 			if (id != null) {
 				this._actualPublications.set(sessionPublicationKey(id, cloud), stamp);
+				for (const variant of cloud == null ? [true, false] : [cloud]) {
+					this._actualCredentials.set(sessionPublicationKey(id, variant), {
+						cloud: variant,
+						accessToken: id === publication.session?.id ? publication.session.accessToken : undefined,
+					});
+				}
 			}
 		}
 		if (publication.connectionId != null) {
@@ -170,6 +215,8 @@ export abstract class IssuesIntegration<
 	}
 
 	override onSessionPublishing(publication: SessionPublication): void {
+		if (this._discoveryDisposed) return;
+
 		const session = publication.session;
 		const transitions = session != null ? (this._sessionPublications.get(session) ?? new Map()) : undefined;
 		const selectors = new Set([

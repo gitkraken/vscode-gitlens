@@ -608,6 +608,18 @@ export abstract class IntegrationBase<
 		this.invalidateDiscoveryCaches();
 	}
 
+	onSessionsRemoving(connectionId?: string, cloud?: boolean): void {
+		this.invalidatePublishedSession(
+			{
+				previousSessionId: connectionId,
+				connectionId: connectionId,
+				cloud: cloud,
+				retireAll: connectionId == null,
+			},
+			false,
+		);
+	}
+
 	private static readonly requestExceptionLimit = 5;
 	/** The primary connection's strikes (see {@link trackRequestException}). */
 	private requestExceptionCount = 0;

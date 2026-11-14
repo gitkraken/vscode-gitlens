@@ -56,6 +56,12 @@ type IntegrationSessionChangeEvent = {
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
 	private readonly _onWillChangeSession = new Emitter<IntegrationSessionChangeEvent>();
+	private readonly _onWillRemoveSessions = new Emitter<{
+		integrationId: IntegrationIds;
+		connectionId?: string;
+		cloud?: boolean;
+		domain?: string;
+	}>();
 	private storeConfiguredQueue: Promise<void> = Promise.resolve();
 	/**
 	 * One provider's secret and descriptor mutations run one at a time, so a sign-out never interleaves with a
@@ -73,12 +79,16 @@ export class ConfiguredIntegrationService implements Disposable {
 	get onWillChangeSession(): Event<IntegrationSessionChangeEvent> {
 		return this._onWillChangeSession.event;
 	}
+	get onWillRemoveSessions(): typeof this._onWillRemoveSessions.event {
+		return this._onWillRemoveSessions.event;
+	}
 
 	constructor(private readonly ctx: IntegrationServiceContext) {}
 
 	dispose(): void {
 		this._onDidChange.dispose();
 		this._onWillChangeSession.dispose();
+		this._onWillRemoveSessions.dispose();
 	}
 
 	private _configured?: Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>;
@@ -412,7 +422,14 @@ export class ConfiguredIntegrationService implements Disposable {
 						: id,
 				);
 			}
-			await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud, options);
+			const connectionId = this.resolveConnectionId(id, descriptor);
+			this._onWillRemoveSessions.fire({
+				integrationId: id,
+				connectionId: connectionId,
+				cloud: cloud,
+				domain: descriptor.domain,
+			});
+			await this.deleteSecrets(id, connectionId, cloud, options);
 		});
 	}
 
@@ -420,6 +437,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
 		return this.withLock(id, async () => {
 			this.markSignOut(isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id);
+			this._onWillRemoveSessions.fire({ integrationId: id, cloud: cloud, domain: domain });
 			await this.deleteAllSecrets(id, cloud, domain);
 		});
 	}
@@ -779,6 +797,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		return this.withLock(id, async () => {
 			// The connection is gone, so a token of it fetched before must not be stored back.
 			this.markSignOut(`${id}|connection:${connectionId}`);
+			this._onWillRemoveSessions.fire({ integrationId: id, connectionId: connectionId, cloud: cloud });
 			await this.deleteSecrets(id, connectionId, cloud);
 		});
 	}

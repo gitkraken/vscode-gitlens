@@ -123,7 +123,12 @@ import type {
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
-import { getRemoteHostMatcher, hostFromDomain, sameConfiguredBaseUrl } from './utils/domain.utils.js';
+import {
+	areDomainsOnSameHost,
+	getRemoteHostMatcher,
+	hostFromDomain,
+	sameConfiguredBaseUrl,
+} from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
@@ -180,6 +185,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		this._disposable = fromDisposables(
 			configuredIntegrationService.onWillChangeSession(({ integrationId, session, previousDomain }) => {
 				this.onSessionPublishing(integrationId, { session: session }, [session.domain, previousDomain]);
+			}),
+			configuredIntegrationService.onWillRemoveSessions(({ integrationId, connectionId, cloud, domain }) => {
+				for (const integration of this._integrations.values()) {
+					if (integration.id !== integrationId) continue;
+					if (
+						domain != null &&
+						isSelfManagedHostIntegrationId(integrationId) &&
+						!areDomainsOnSameHost(integration.domain, domain)
+					) {
+						continue;
+					}
+
+					integration.onSessionsRemoving(connectionId, cloud);
+				}
 			}),
 			ctx.config.onDidChange(e => {
 				if (e.remotes) {

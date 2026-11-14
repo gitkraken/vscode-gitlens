@@ -113,9 +113,15 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	 */
 	private readonly _autolinks = new Map<
 		string,
-		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number; complete: boolean }
+		{
+			autolinks: (AutolinkReference | DynamicAutolinkReference)[];
+			builtAt: number;
+			complete: boolean;
+			isCurrent?: () => boolean;
+		}
 	>();
 	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
+	private readonly _autolinksBuildLifetimes = new WeakMap<Promise<unknown>, () => boolean>();
 
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -125,6 +131,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		const session = this._session;
 		const cached = this._autolinks.get(session.accessToken);
+		if (!this.captureDiscoveryLifetime(session)() || cached?.isCurrent?.() === false) {
+			this._autolinks.delete(session.accessToken);
+			return [];
+		}
+
 		// A session kept through a failed refresh is expired: building with it would send that token to the provider
 		// on every render, so serve whatever was built before (none after a forced re-sync) until a read refreshes it.
 		if (this.connectionExpired === true) return cached?.autolinks ?? [];
@@ -148,7 +159,8 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
 		let build = this._autolinksBuilds.get(accessToken);
-		if (build == null) {
+		if (build == null || this._autolinksBuildLifetimes.get(build)?.() === false) {
+			const isCurrent = this.captureDiscoveryLifetime(session);
 			build = this.buildAutolinksCore(session, () => build).finally(() => {
 				// A drop or a list change meanwhile retired this build, and the entry may be a later one's now.
 				if (this._autolinksBuilds.get(accessToken) === build) {
@@ -156,6 +168,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				}
 			});
 			this._autolinksBuilds.set(accessToken, build);
+			this._autolinksBuildLifetimes.set(build, isCurrent);
 		}
 		return build;
 	}
@@ -165,12 +178,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		reader?: () => Promise<unknown> | undefined,
 	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const { accessToken } = session;
+		const isCurrent = this.captureDiscoveryLifetime(session);
 		const generation = this._teams.generation;
 		try {
-			const organization = await this.getOrganization(session, false, reader);
-			if (organization != null && this._teams.generation === generation) {
-				const teams = await this.getTeamsWithMetadata(session, false, reader);
-				if (teams != null && this._teams.generation !== generation) {
+			const organization = await this.getOrganization(session, false, reader, isCurrent);
+			if (organization != null && isCurrent() && this._teams.generation === generation) {
+				const teams = await this.getTeamsWithMetadata(session, false, reader, isCurrent);
+				if (teams != null && (!isCurrent() || this._teams.generation !== generation)) {
 					// Existing waiters own this successful response, but the active generation must not retain it.
 					return getTeamAutolinks(organization, teams.values);
 				}
@@ -178,7 +192,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		} catch (ex) {
 			Logger.error(ex, 'LinearIntegration.autolinks');
 		}
-		return this.deriveAutolinks(accessToken, { store: this._teams.generation === generation });
+		return this.deriveAutolinks(accessToken, {
+			isCurrent: isCurrent,
+			store: isCurrent() && this._teams.generation === generation,
+		});
 	}
 
 	private deriveAutolinks(
@@ -186,15 +203,22 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		options?: {
 			store?: boolean;
 			settled?: boolean;
+			isCurrent?: () => boolean;
 		},
 	): (AutolinkReference | DynamicAutolinkReference)[] {
 		const organization = this._organizations.peek(accessToken);
 		const complete = this._organizations.get(accessToken) != null && this._teams.get(accessToken) != null;
 		const autolinks =
 			organization != null ? getTeamAutolinks(organization, this._teams.peek(accessToken) ?? []) : [];
+		for (const [token, cached] of this._autolinks) {
+			if (cached.isCurrent?.() === false) {
+				this._autolinks.delete(token);
+			}
+		}
 		if (options?.store !== false) {
 			this._autolinks.set(accessToken, {
 				autolinks: autolinks,
+				isCurrent: options?.isCurrent,
 				complete: complete,
 				// Stores preserve the retry deadline; only a settled build restarts it.
 				builtAt:
@@ -206,12 +230,16 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return autolinks;
 	}
 
-	private onDiscoveryStored(accessToken: string, reader?: () => Promise<unknown> | undefined): void {
+	private onDiscoveryStored(
+		accessToken: string,
+		reader: (() => Promise<unknown> | undefined) | undefined,
+		isCurrent: () => boolean,
+	): void {
 		// A build's own store must not break sharing before its continuation runs.
 		if (this._autolinksBuilds.get(accessToken) !== reader?.()) {
 			this._autolinksBuilds.delete(accessToken);
 		}
-		this.deriveAutolinks(accessToken, { settled: false });
+		this.deriveAutolinks(accessToken, { settled: false, isCurrent: isCurrent });
 	}
 
 	/** The workspace is the token's organization; kept only as a complete, trimmed pair. */
@@ -235,6 +263,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 		reader?: () => Promise<unknown> | undefined,
+		isCurrent: () => boolean = this.captureDiscoveryLifetime(session),
 	): Promise<LinearOrganizationDescriptor | undefined> {
 		const { accessToken } = session;
 		const cached = this._organizations.get(accessToken);
@@ -251,11 +280,15 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const organization = await request;
 		if (organization == null) return undefined;
 
-		const stored = this._organizations.set(accessToken, organization, { generation: generation, read: started });
+		const stored = this._organizations.set(accessToken, organization, {
+			generation: generation,
+			read: started,
+			isCurrent: isCurrent,
+		});
 		if (stored === 'changed') {
-			this.onDiscoveryStored(accessToken, reader);
+			this.onDiscoveryStored(accessToken, reader, isCurrent);
 		}
-		return stored === false && this._organizations.generation === generation
+		return stored === false && isCurrent() && this._organizations.generation === generation
 			? this._organizations.peek(accessToken)
 			: organization;
 	}
@@ -288,6 +321,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 		reader?: () => Promise<unknown> | undefined,
+		isCurrent: () => boolean = this.captureDiscoveryLifetime(session),
 	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const { accessToken } = session;
 
@@ -304,11 +338,12 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const stored = this._teams.set(accessToken, read.values, {
 			generation: generation,
 			read: started,
+			isCurrent: isCurrent,
 			complete: read.metadata == null || read.metadata.completeness === 'complete',
 		});
 		if (stored === 'changed') {
-			this.onDiscoveryStored(accessToken, reader);
-		} else if (stored === false && this._teams.generation === generation) {
+			this.onDiscoveryStored(accessToken, reader, isCurrent);
+		} else if (stored === false && isCurrent() && this._teams.generation === generation) {
 			// Refused for a read started after it: answers with that read's newer list, which this older one must not
 			// stand in for, not even once expired (#6184).
 			return {
@@ -383,7 +418,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	 */
 	private readonly _workspaceProjectsReads = new Map<
 		string,
-		{ generation: number; read: Promise<ProviderHierarchyResult<ProviderLinearProject>> }
+		{ generation: number; isCurrent: () => boolean; read: Promise<ProviderHierarchyResult<ProviderLinearProject>> }
 	>();
 	private getWorkspaceProjects(
 		session: ProviderAuthenticationSession,
@@ -391,22 +426,26 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<ProviderHierarchyResult<ProviderLinearProject>> {
 		const { accessToken } = session;
 		const generation = this._workspaceProjects.generation;
+		const isCurrent = this.captureDiscoveryLifetime(session);
 		if (!fresh) {
 			const cached = this._workspaceProjects.get(accessToken);
 			if (cached != null) return Promise.resolve({ values: cached });
 
 			const inFlight = this._workspaceProjectsReads.get(accessToken);
-			if (inFlight?.generation === generation) return inFlight.read;
+			if (inFlight?.generation === generation && inFlight.isCurrent()) return inFlight.read;
 		}
 
-		const entry = { generation: generation, read: this.readWorkspaceProjects(session) };
+		const entry = { generation: generation, isCurrent: isCurrent, read: this.readWorkspaceProjects(session) };
 		entry.read = entry.read.then(result => {
 			if (
 				this._workspaceProjectsReads.get(accessToken) === entry &&
 				result.truncated !== true &&
 				(result.metadata == null || result.metadata.completeness === 'complete')
 			) {
-				this._workspaceProjects.set(accessToken, result.values, { generation: generation });
+				this._workspaceProjects.set(accessToken, result.values, {
+					generation: generation,
+					isCurrent: isCurrent,
+				});
 			}
 			return result;
 		});

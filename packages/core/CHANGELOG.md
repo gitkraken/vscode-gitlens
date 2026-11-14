@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes `blame.getBlame` (and the streamed blame) naming a file git C-quotes, and the path it was renamed from, by their quoted forms (git-cli)
 - Fixes `diff.getDiffStatus` leaving a created, deleted, copied or type-changed file at status `M` or `R` when git quotes its name in the `--summary` lines it reads statuses from (git)
 - Fixes `diff.getDiffFiles` throwing for a created or deleted file whose name holds a tab, listing a created or deleted file whose name holds a `\` twice, and naming a renamed one with its `\` turned into `/` (git)
+- Reclaims Jira Cloud and Linear discovery data for retired credentials during later cache writes, while preserving active-account last-known autolinks and rejecting delayed reads from retired sessions (integrations)
 
 ## [0.38.2] - 2026-11-14
 
