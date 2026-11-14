@@ -8,7 +8,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `statMany` to `UnwatchedCacheValidatorOptions`: the stats a validation needs together for a repository are made as one call of at most 128 paths, one reading per path (`BatchedStat`), where each was a call of its own. A batch that fails is read one path at a time with `stat`, which must read a file the same way, as are all stats for 30 seconds after; failed batches count in `unwatchedValidation.statBatchesFailed.count`. Adds `StatWorkerPool` (`git-cli/exec/statWorkers.js`), up to 4 worker threads that make a batch's stats back to back, serving a batch on the calling thread while no worker is free or one is starting, and `statLocal`, which reads a path as its workers do. Adds `disposables` to `GitService.createSingleton`'s options, disposed with the service (git, git-cli)
 - Adds `plus/integrations/constants.js` to the published entry points: integration ids, enums and pure id predicates, with no runtime imports, so it is safe in browser bundles (plus/integrations)
 - Expands the `plus/integrations/index.js` facade into the full integrations API GitLens itself now consumes. `IntegrationManager` adds `get` (interface-only `GitHostIntegration`/`IssuesIntegration` views, no provider classes; a git host's view carries `mergePullRequest`, `enqueuePullRequest` and `dequeuePullRequest`, which 0.34.0 left unreachable from the facade, and the optional `getMergeQueueEntriesByPullRequestNumber`), `getIntegrationsForAccountWideRead`, `isConnectedForAccountWideRead`, `connectCloudIntegrations`, `manageCloudIntegrations`, `reset`, `getMyPullRequests`, `getMyIssues`, `ignoreSSLErrors` and `github`. The facade also exports:
   - the `isIntegration`/`isGitHostIntegration`/`isIssuesIntegration` guards
@@ -22,9 +21,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Speeds up the reads `validateUnwatchedCaches` checks for a repository no `.git` watcher covers: its git dirs' stats are one batch on a worker thread rather than one thread-pool round trip each, about 1.4 ms instead of 15 ms for an idle repository with 80 worktrees. The validator now stats, lists and reads the local file system directly, as git reads it, rather than through `context.fs`. A batch counts once in `unwatchedValidation.fsCalls.count`, and a worker stuck on a hung mount holds a thread as a stuck stat did (git, git-cli)
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
+
+## [0.38.2] - 2026-11-14
+
+### Added
+
+- Adds `statMany` to `UnwatchedCacheValidatorOptions`: the stats a validation needs together for a repository are made as one call of at most 128 paths, one reading per path (`BatchedStat`), where each was a call of its own. A batch that fails is read one path at a time with `stat`, which must read a file the same way, as are all stats for 30 seconds after; failed batches count in `unwatchedValidation.statBatchesFailed.count`. Adds `StatWorkerPool` (`git-cli/exec/statWorkers.js`), up to 4 worker threads that make a batch's stats back to back, serving a batch on the calling thread while no worker is free or one is starting, and `statLocal`, which reads a path as its workers do. Adds `disposables` to `GitService.createSingleton`'s options, disposed with the service (git, git-cli)
+
+### Changed
+
+- Speeds up the reads `validateUnwatchedCaches` checks for a repository no `.git` watcher covers: its git dirs' stats are one batch on a worker thread rather than one thread-pool round trip each, about 1.4 ms instead of 15 ms for an idle repository with 80 worktrees. The validator now stats, lists and reads the local file system directly, as git reads it, rather than through `context.fs`. A batch counts once in `unwatchedValidation.fsCalls.count`, and a worker stuck on a hung mount holds a thread as a stuck stat did (git, git-cli)
 
 ### Fixed
 
@@ -1316,7 +1324,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...HEAD
+[0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
 [0.38.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...gitkraken:releases/core/v0.38.1
 [0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
 [0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
