@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-13
+
 ### Added
 
 - Adds `Cache.setRepoPathRegistrar`, which has a checkout registered before its first read through `GitService.forRepo`, so a host that registers checkouts in the background no longer has a linked worktree read as a repository of its own and its reads thrown away at registration. A host sets it once it has the service, as a function that resolves the checkout's git dir through `forRepo(path).config.getGitDir()` and calls `registerRepoPath`, and that answers `undefined`, synchronously, for a path it declines. Each per-repository sub-provider method that answers only a promise then starts once the registration settles; the others (synchronous ones, async iterables, and the git dir reads a registrar makes) call straight through. Concurrent first reads share one ask, a failing registrar lets the read go ahead unregistered, and a slow one is waited on for at most 10 seconds. The watch service's gitignore filter waits the same way before it reads the shared ignore config. Adds `GitProvider.ensureRegistered` and `Cache.ensureRegistered`; a host that sets no registrar sees no change (git, git-cli)
@@ -1282,7 +1284,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...HEAD
+[0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
 [0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
 [0.37.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...gitkraken:releases/core/v0.37.0
 [0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
