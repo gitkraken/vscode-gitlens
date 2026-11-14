@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- Fixes git time limits and cancellation not stopping git on Windows when it waits on something other than its input, such as a remote that accepts the connection and never answers. Git for Windows' `cmd\git.exe` runs the real git as its child, and killing only that launcher left git running with the output pipes open, so the run settled only when git ended on its own. The default spawner now ends the whole process tree (`taskkill /T /F`, launched only when it kills) and reports the kill as Node does. A host `spawn` (`GitOptions.spawn`) has to end the tree itself (utils, git-cli)
+
 ## [0.38.0] - 2026-11-13
 
 ### Added

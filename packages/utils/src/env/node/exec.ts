@@ -207,6 +207,9 @@ export interface ProcessSpawnOptions {
  *   unless the process has already exited
  * - honour `timeout`: kill with SIGTERM and set `killed`, without emitting `'error'`
  * - report a killed process's `'close'` with a null code and its signal, not an exit code such as 143
+ * - on Windows, end the process's whole tree when killing it (timeout, abort, or `kill`): a launcher such as Git for
+ *   Windows' `cmd\git.exe` runs the real git as a child holding the same pipes, so killing only the launcher leaves
+ *   them open and `'close'` never comes
  * - emit no event before returning, `'error'` at most once, and `'close'` exactly once and last: also after `'error'`
  *   (a failed launch, an abort), and only after `stdout` and `stderr` have ended or been destroyed, with `exitCode`
  *   and `killed` already set
@@ -233,6 +236,9 @@ export function spawnProcess(command: string, args: readonly string[], options: 
 	}
 
 	const child = spawn(command, args, spawnOptions);
+	if (isWindows) {
+		killTreeOnKill(child);
+	}
 
 	if (timeout != null && timeout > 0) {
 		let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
@@ -258,6 +264,87 @@ export function spawnProcess(command: string, args: readonly string[], options: 
 	}
 
 	return child;
+}
+
+const taskkillTimeout = 5000;
+
+/**
+ * Makes `kill` end the child's whole tree (Windows only). There `kill` terminates just the child, and a launcher such
+ * as Git for Windows' `cmd\git.exe` runs the real git as its own child on the same stdout and stderr, so the pipes
+ * stay open and `'close'` never comes. Node's abort and timeout paths call the instance's `kill`, so this covers them.
+ */
+function killTreeOnKill(child: ChildProcess): void {
+	const kill = child.kill.bind(child);
+	const mutable = child as { killed: boolean; exitCode: number | null; signalCode: NodeJS.Signals | null };
+	let killing = false;
+
+	child.kill = (signal?: NodeJS.Signals | number): boolean => {
+		if (child.pid == null || child.exitCode !== null || child.signalCode !== null || typeof signal === 'number') {
+			return kill(signal);
+		}
+		if (killing) return true;
+
+		killing = true;
+		const killSignal = signal ?? 'SIGTERM';
+		mutable.killed = true;
+
+		// Killed from outside, the child exits with taskkill's code 1 and no signal; report it as Node's own kill
+		// would, a null code and the signal, which is what every caller keys on
+		let exitCode: number | null = child.exitCode;
+		Object.defineProperty(child, 'exitCode', {
+			configurable: true,
+			enumerable: true,
+			get: () => exitCode,
+			set: (value: number | null) => {
+				if (value === 1) {
+					exitCode = null;
+					mutable.signalCode = killSignal;
+				} else {
+					exitCode = value;
+				}
+			},
+		});
+
+		// Once it's killed, a descendant left alive (taskkill failed, or its parent was already gone) can still hold the
+		// pipes; destroying them lets `'close'` come anyway. A child that exited on its own keeps its output
+		child.once('exit', (_code, exitSignal) => {
+			if (exitSignal == null) return;
+
+			child.stdout?.destroy();
+			child.stderr?.destroy();
+		});
+
+		// taskkill failed: fall back to Node's kill, unless the child already exited on its own
+		let failed = false;
+		const fail = () => {
+			if (failed || child.exitCode !== null || child.signalCode !== null) return;
+
+			failed = true;
+			try {
+				kill(killSignal);
+			} catch {}
+		};
+
+		try {
+			// By absolute path: Windows searches the current directory before PATH for a bare name. Its own time limit
+			// keeps a stalled taskkill from leaving the kill, and so the run, hanging
+			const taskkill = spawn(
+				joinPaths(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+				['/T', '/F', '/PID', String(child.pid)],
+				{ stdio: 'ignore', windowsHide: true, timeout: taskkillTimeout },
+			);
+			taskkill.once('error', fail);
+			taskkill.once('exit', code => {
+				if (code !== 0) {
+					fail();
+				}
+			});
+		} catch {
+			fail();
+		}
+
+		return true;
+	};
 }
 
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {

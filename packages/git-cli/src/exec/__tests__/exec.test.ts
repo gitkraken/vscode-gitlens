@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import { spawn } from 'child_process';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
+import type { Socket } from 'net';
+import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { execPath } from 'process';
@@ -22,6 +24,20 @@ function nodeArgs(script: string): string[] {
 
 function bufferLiteral(bytes: readonly number[]): string {
 	return `Buffer.from([${bytes.join(', ')}])`;
+}
+
+async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+	let timer: NodeJS.Timeout | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error(message)), 5000);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 suite('Shell Test Suite', () => {
@@ -1964,20 +1980,6 @@ suite('Git locator failure', () => {
 		};
 	}
 
-	async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
-		let timer: NodeJS.Timeout | undefined;
-		try {
-			return await Promise.race([
-				promise,
-				new Promise<never>((_, reject) => {
-					timer = setTimeout(() => reject(new Error(message)), 5000);
-				}),
-			]);
-		} finally {
-			clearTimeout(timer);
-		}
-	}
-
 	test('retries the locator after a failure instead of memoizing the rejection', async () => {
 		const { locator, calls } = flakyLocator();
 		const git = new Git(locator);
@@ -2010,5 +2012,103 @@ suite('Git locator failure', () => {
 			'identical run hung on an abandoned pending command',
 		);
 		assert.ok(result.stdout.startsWith('git version'));
+	});
+});
+
+// On Windows, Git for Windows' `cmd\git.exe` is a launcher whose child, the real git, holds its pipes; a kill that
+// misses that child leaves these hanging instead of settling
+suite('Git killed while waiting on a remote that never answers', () => {
+	const sockets = new Set<Socket>();
+	const server = createServer(socket => {
+		socket.on('error', () => {});
+		sockets.add(socket);
+		socket.once('close', () => sockets.delete(socket));
+	});
+	let url: string;
+	// Empty until set up, so a failed setup leaves nothing for the teardown to remove
+	let cwd = '';
+
+	suiteSetup(async () => {
+		await new Promise<void>((resolve, reject) => {
+			server.once('error', reject);
+			server.listen(0, '127.0.0.1', () => resolve());
+		});
+		const address = server.address();
+		assert.ok(address != null && typeof address === 'object');
+		url = `git://127.0.0.1:${address.port}/repo`;
+		cwd = await mkdtemp(join(tmpdir(), 'gitlens-exec-test-'));
+	});
+
+	suiteTeardown(async () => {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+		await new Promise<void>(resolve => server.close(() => resolve()));
+		if (cwd) {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
+	test('runSpawn rejects as a timeout', async () => {
+		await assert.rejects(
+			withTimeout(runSpawn('git', ['ls-remote', url], 'utf8', { timeout: 200 }), 'runSpawn never settled'),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('runSpawn rejects as aborted', async () => {
+		const controller = new AbortController();
+		const promise = runSpawn('git', ['ls-remote', url], 'utf8', { cancellation: controller.signal });
+		setTimeout(() => controller.abort(), 200);
+		await assert.rejects(
+			withTimeout(promise, 'runSpawn never settled'),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('Git.run rejects as a timeout cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		await assert.rejects(
+			withTimeout(git.run({ cwd: cwd, timeout: 200 }, 'ls-remote', url), 'Git.run never settled'),
+			(ex: unknown) =>
+				isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+		);
+	});
+
+	test('Git.stream rejects as a timeout cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		await assert.rejects(
+			withTimeout(
+				(async () => {
+					for await (const _chunk of git.stream({ cwd: cwd, timeout: 200 }, 'ls-remote', url)) {
+						// drain
+					}
+				})(),
+				'Git.stream never settled',
+			),
+			(ex: unknown) =>
+				isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+		);
+	});
+
+	test('Git.stream rejects as an aborted cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const controller = new AbortController();
+		setTimeout(() => controller.abort(), 200);
+		await assert.rejects(
+			withTimeout(
+				(async () => {
+					for await (const _chunk of git.stream(
+						{ cwd: cwd, cancellation: controller.signal },
+						'ls-remote',
+						url,
+					)) {
+						// drain
+					}
+				})(),
+				'Git.stream never settled',
+			),
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
 	});
 });
