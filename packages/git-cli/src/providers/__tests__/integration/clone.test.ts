@@ -1,15 +1,14 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 suite('CliGitProvider.clone', () => {
 	let parent: string;
 
 	setup(() => {
-		parent = mkdtempSync(join(tmpdir(), 'gitlens-clone-parent-'));
+		parent = makeTempDir('gitlens-clone-parent-');
 	});
 
 	teardown(() => {

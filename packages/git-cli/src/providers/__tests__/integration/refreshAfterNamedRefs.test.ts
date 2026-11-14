@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { AnnouncedRepositoryChanges } from '@gitlens/git/providers/provider.js';
@@ -22,6 +21,7 @@ import {
 	createShadowCheckedGitService,
 	createTestRepo,
 	createWorktree,
+	makeTempDir,
 } from './helpers.js';
 
 const fs: FileSystemProvider = {
@@ -199,7 +199,7 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 	}
 
 	setup(async () => {
-		root = mkdtempSync(join(tmpdir(), 'gitlens-refresh-'));
+		root = makeTempDir('gitlens-refresh-');
 		origin = join(root, 'origin.git');
 		git(root, 'init', '--bare', '-b', 'main', origin);
 

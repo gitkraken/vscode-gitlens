@@ -1,12 +1,11 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import * as sinon from 'sinon';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 suite('CliGitProvider getIgnoredEntries / getIgnoredPaths', () => {
 	let repo: TestRepo;
@@ -479,7 +478,7 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 	});
 
 	test('getIgnoredPaths throws a failure other than a refused path after one run', async () => {
-		const notARepo = mkdtempSync(join(tmpdir(), 'gl-ignored-not-a-repo-'));
+		const notARepo = makeTempDir('gl-ignored-not-a-repo-');
 		const run = sinon.spy(repo.provider.git, 'run');
 		try {
 			await assert.rejects(

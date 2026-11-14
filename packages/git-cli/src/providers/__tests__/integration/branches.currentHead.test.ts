@@ -1,11 +1,10 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { lstatSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { lstatSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createProvider, createTestRepo, createWorktree, supportsReftable } from './helpers.js';
+import { addCommit, createProvider, createTestRepo, createWorktree, makeTempDir, supportsReftable } from './helpers.js';
 
 function git(cwd: string, ...args: string[]): string {
 	return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -24,7 +23,7 @@ function statusHead(cwd: string): { branch: string | undefined; sha: string | un
 
 /** A scratch repository with commit config set but no commits, optionally with extra `git init` arguments */
 function initEmptyRepo(...initArgs: string[]): { path: string; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), 'gitlens-currenthead-'));
+	const dir = makeTempDir('gitlens-currenthead-');
 	try {
 		git(dir, 'init', '-q', ...initArgs);
 		git(dir, 'config', 'user.email', 'test@gitlens.test');
@@ -95,7 +94,7 @@ suite('BranchesSubProvider.getCurrentHead (real git)', () => {
 
 	/** Starts an interactive rebase of `repoPath`'s whole history that stops to edit its first commit */
 	function pauseRebaseAtRoot(repoPath: string): void {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-currenthead-editor-'));
+		const dir = makeTempDir('gitlens-currenthead-editor-');
 		cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 		const editor = join(dir, 'mark-edit.cjs');
 		writeFileSync(
@@ -194,7 +193,7 @@ suite('BranchesSubProvider.getCurrentHead (real git)', () => {
 	});
 
 	test('rejects when the folder is not a repository', async () => {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-notrepo-'));
+		const dir = makeTempDir('gitlens-notrepo-');
 		cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 
 		await assert.rejects(newProvider().branches.getCurrentHead(dir));

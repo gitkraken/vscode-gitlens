@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -22,6 +21,7 @@ import {
 	createWorktree,
 	fetch,
 	getHeadSha,
+	makeTempDir,
 	setBranchGkDisposition,
 	setUpstream,
 } from './helpers.js';
@@ -357,7 +357,7 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 		});
 
 		test('a repository with no commits', async () => {
-			const dir = mkdtempSync(join(tmpdir(), 'gitlens-empty-'));
+			const dir = makeTempDir('gitlens-empty-');
 			cleanups.unshift(() => rmSync(dir, { recursive: true, force: true }));
 			git(dir, 'init', '-q', '-b', 'main');
 
@@ -368,10 +368,10 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 		});
 
 		test('a linked worktree of a repository with no commits', async function () {
-			const dir = mkdtempSync(join(tmpdir(), 'gitlens-empty-'));
+			const dir = makeTempDir('gitlens-empty-');
 			cleanups.unshift(() => rmSync(dir, { recursive: true, force: true }));
 			git(dir, 'init', '-q', '-b', 'main');
-			const parent = mkdtempSync(join(tmpdir(), 'gitlens-worktree-'));
+			const parent = makeTempDir('gitlens-worktree-');
 			cleanups.unshift(() => rmSync(parent, { recursive: true, force: true }));
 			const wt = join(parent, 'wt');
 			try {
@@ -691,7 +691,7 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 		});
 
 		test('a repository with no commits keeps its current branch', async () => {
-			const dir = mkdtempSync(join(tmpdir(), 'gitlens-empty-'));
+			const dir = makeTempDir('gitlens-empty-');
 			cleanups.unshift(() => rmSync(dir, { recursive: true, force: true }));
 			git(dir, 'init', '-q', '-b', 'main');
 			const provider = await newProvider([dir]);
@@ -706,10 +706,10 @@ suite('BranchesSubProvider.getBranch without a per-worktree list (real git)', ()
 		});
 
 		test("a linked worktree's read in a repository with no commits leaves its siblings' current branches", async function () {
-			const dir = mkdtempSync(join(tmpdir(), 'gitlens-empty-'));
+			const dir = makeTempDir('gitlens-empty-');
 			cleanups.unshift(() => rmSync(dir, { recursive: true, force: true }));
 			git(dir, 'init', '-q', '-b', 'main');
-			const parent = mkdtempSync(join(tmpdir(), 'gitlens-worktree-'));
+			const parent = makeTempDir('gitlens-worktree-');
 			cleanups.unshift(() => rmSync(parent, { recursive: true, force: true }));
 			const wt = join(parent, 'wt');
 			try {

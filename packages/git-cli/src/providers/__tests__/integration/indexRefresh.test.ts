@@ -1,11 +1,18 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createBranch, createStash, createTestRepo, getHeadSha } from './helpers.js';
+import {
+	addCommit,
+	cloneTestRepo,
+	createBranch,
+	createStash,
+	createTestRepo,
+	getHeadSha,
+	makeTempDir,
+} from './helpers.js';
 
 function git(cwd: string, ...args: string[]): string {
 	return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' });
@@ -140,7 +147,7 @@ suite('Index refresh', () => {
 		}
 
 		test('createWorktree schedules a refresh of the new worktree, waiting for the clock to pass its index', async () => {
-			worktreeParent = mkdtempSync(join(tmpdir(), 'gitlens-index-refresh-'));
+			worktreeParent = makeTempDir('gitlens-index-refresh-');
 			const worktreePath = join(worktreeParent, 'wt');
 
 			await repo.provider.worktrees.createWorktree(repo.path, worktreePath, { createBranch: 'feature' });
@@ -178,7 +185,7 @@ suite('Index refresh', () => {
 		});
 
 		test('clone schedules a refresh of the clone', async () => {
-			worktreeParent = mkdtempSync(join(tmpdir(), 'gitlens-index-refresh-'));
+			worktreeParent = makeTempDir('gitlens-index-refresh-');
 
 			const clonePath = await repo.provider.clone(repo.path, worktreeParent, { folderName: 'cloned' });
 
@@ -346,7 +353,7 @@ suite('Index refresh', () => {
 	suite('by default', () => {
 		test("core's own writes schedule no refresh", async () => {
 			const repo = createTestRepo({ indexRefresh: { now: () => Date.now(), setTimer: () => () => {} } });
-			const worktreeParent = mkdtempSync(join(tmpdir(), 'gitlens-index-refresh-'));
+			const worktreeParent = makeTempDir('gitlens-index-refresh-');
 			try {
 				const worktreePath = join(worktreeParent, 'wt');
 				await repo.provider.worktrees.createWorktree(repo.path, worktreePath, { createBranch: 'feature' });

@@ -1,8 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { rmSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import type { FileSystemProvider, GitServiceContext, GitServiceHooks } from '@gitlens/git/context.js';
@@ -10,7 +9,7 @@ import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import { findGitPath } from '../../../exec/locator.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 // Cache git location across this file's tests (see helpers.ts — findGitPath does no caching of its own).
 let gitLocationPromise: ReturnType<typeof findGitPath>;
@@ -54,7 +53,7 @@ function createBareProvider(hooks?: GitServiceHooks): CliGitProvider {
 
 suite('CliGitProvider.init', () => {
 	test('creates a repository at a path that does not yet exist, with the given default branch', async () => {
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-init-'));
+		const parent = makeTempDir('gitlens-test-init-');
 		const target = join(parent, 'nested', 'repo');
 		const provider = createBareProvider();
 		try {
@@ -75,7 +74,7 @@ suite('CliGitProvider.init', () => {
 	});
 
 	test('bare option creates a bare repository', async () => {
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-init-bare-'));
+		const parent = makeTempDir('gitlens-test-init-bare-');
 		const target = join(parent, 'bare.git');
 		const provider = createBareProvider();
 		try {
@@ -97,7 +96,7 @@ suite('PatchGitSubProvider.createEmptyInitialCommit', () => {
 	// It hashes the empty tree from an EMPTY stdin — which never closed git's stdin pipe, so the call waited
 	// until the command timeout killed it.
 	test('commits the empty tree to a repository with no commits', async () => {
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-empty-initial-'));
+		const parent = makeTempDir('gitlens-test-empty-initial-');
 		const target = join(parent, 'repo');
 		const provider = createBareProvider();
 		try {

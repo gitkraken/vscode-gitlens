@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
@@ -20,6 +19,7 @@ import {
 	createWorktree,
 	getHeadSha,
 	getRefTips,
+	makeTempDir,
 	revParse,
 } from './helpers.js';
 
@@ -348,7 +348,7 @@ suite('OperationsGitSubProvider signing', () => {
 suite('OperationsGitSubProvider.push', () => {
 	function createRepoWithRemote() {
 		const r = createTestRepo();
-		const bareDir = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+		const bareDir = makeTempDir('gitlens-test-bare-');
 		execFileSync('git', ['clone', '--bare', r.path, bareDir], { stdio: 'pipe' });
 		execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: r.path, stdio: 'pipe' });
 		execFileSync('git', ['fetch', 'origin'], { cwd: r.path, stdio: 'pipe' });
@@ -1100,7 +1100,7 @@ suite('OperationsGitSubProvider.pull — fastForward', () => {
 });
 
 function createBareRemoteFrom(sourceRepoPath: string): { path: string; cleanup: () => void } {
-	const bareDir = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+	const bareDir = makeTempDir('gitlens-test-bare-');
 	execFileSync('git', ['clone', '--bare', sourceRepoPath, bareDir], { stdio: 'pipe' });
 	return { path: bareDir, cleanup: () => rmSync(bareDir, { recursive: true, force: true }) };
 }

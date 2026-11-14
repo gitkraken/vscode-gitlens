@@ -1,12 +1,11 @@
 import * as assert from 'assert';
 import { execFileSync, execSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 suite('StatusSubProvider', () => {
 	let repo: TestRepo;
@@ -89,7 +88,7 @@ suite('StatusSubProvider — untracked/branch options', () => {
 	suiteSetup(() => {
 		repo = createTestRepo();
 
-		bareDir = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+		bareDir = makeTempDir('gitlens-test-bare-');
 		execFileSync('git', ['clone', '--bare', repo.path, bareDir], { stdio: 'pipe' });
 		execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: repo.path, stdio: 'pipe' });
 		execFileSync('git', ['fetch', 'origin'], { cwd: repo.path, stdio: 'pipe' });
@@ -164,7 +163,7 @@ function isNotARepositoryError(ex: unknown): boolean {
 }
 
 function createUnbornRepo(): string {
-	const path = mkdtempSync(join(tmpdir(), 'gitlens-unborn-'));
+	const path = makeTempDir('gitlens-unborn-');
 	execFileSync('git', ['init', '-b', 'main'], { cwd: path, stdio: 'pipe' });
 	return path;
 }
@@ -176,8 +175,8 @@ suite('StatusSubProvider — reads reject when git fails', () => {
 
 	suiteSetup(() => {
 		repo = createTestRepo();
-		notARepoPath = mkdtempSync(join(tmpdir(), 'gitlens-not-a-repo-'));
-		bareRepoPath = mkdtempSync(join(tmpdir(), 'gitlens-bare-repo-'));
+		notARepoPath = makeTempDir('gitlens-not-a-repo-');
+		bareRepoPath = makeTempDir('gitlens-bare-repo-');
 		execFileSync('git', ['init', '--bare'], { cwd: bareRepoPath });
 	});
 

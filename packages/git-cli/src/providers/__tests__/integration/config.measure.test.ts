@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
@@ -10,7 +9,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { gkConfigFingerprintClock } from '../../config.js';
 import type { TestRepo } from './helpers.js';
-import { createBranch, createTestRepo, createWorktree } from './helpers.js';
+import { createBranch, createTestRepo, createWorktree, makeTempDir } from './helpers.js';
 
 /**
  * The whole `.git/gk/config` is read once (`git config --get-regexp .`) and every per-key
@@ -594,7 +593,7 @@ suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared by every checkout)', 
 
 	suiteSetup(() => {
 		// The machine's own global config could hold a conditional include that tells checkouts apart
-		scratch = mkdtempSync(join(tmpdir(), 'gitlens-config-key-'));
+		scratch = makeTempDir('gitlens-config-key-');
 		globalConfig = join(scratch, 'gitconfig');
 		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
 		process.env.GIT_CONFIG_GLOBAL = globalConfig;

@@ -1,16 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import {
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	statSync,
-	writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
@@ -35,6 +25,7 @@ import {
 	createShadowCheckedGitService,
 	createTestRepo,
 	createWorktree,
+	makeTempDir,
 	noCommitGraphWritesConfig,
 	supportsReftable,
 } from './helpers.js';
@@ -260,7 +251,7 @@ suite('WorktreeSummaryService against real git', () => {
 	});
 
 	test('refreshes a linked worktree base when a different branch changes its worktree-specific upstream', async () => {
-		const linkedRoot = mkdtempSync(join(tmpdir(), 'gitlens-summary-config-'));
+		const linkedRoot = makeTempDir('gitlens-summary-config-');
 		const linkedPath = normalizePath(join(linkedRoot, 'checkout'));
 		const provider = service.getProvider(repo.path)?.provider;
 		assert.ok(provider instanceof CliGitProvider);
@@ -326,7 +317,7 @@ suite('WorktreeSummaryService against real git', () => {
 	});
 
 	test('registered sibling checkouts retain distinct effective config in either reader order', async () => {
-		const linkedRoot = mkdtempSync(join(tmpdir(), 'gitlens-summary-linked-'));
+		const linkedRoot = makeTempDir('gitlens-summary-linked-');
 		const linkedPath = normalizePath(join(linkedRoot, 'checkout'));
 		const getKey = (path: string) => repo.provider.branches.getAheadOfBaseConfigKey(path);
 		let added = false;
@@ -763,7 +754,7 @@ suite('Re-measuring a base after only its own ref moved', () => {
 	}
 
 	setup(() => {
-		root = mkdtempSync(join(tmpdir(), 'gitlens-base-move-'));
+		root = makeTempDir('gitlens-base-move-');
 		origin = join(root, 'origin.git');
 		git(root, 'init', '-q', '--bare', '-b', 'main', origin);
 

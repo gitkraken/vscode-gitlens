@@ -6,7 +6,16 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,12 +31,23 @@ import type { CliGitServiceOptions } from '../../../service.js';
 import { createCliGitService } from '../../../service.js';
 import { verifyBaseRemeasure } from './shadowCheck.js';
 
+/**
+ * A fresh temp dir by its real path. Git reports the paths it resolves (`worktree list`, `rev-parse
+ * --show-toplevel`) with symlinks resolved, and in production the provider is only ever handed that
+ * resolved path (the host maps symlinked workspace paths onto it itself). macOS's `tmpdir()` sits under
+ * the `/var` -> `/private/var` symlink, so an unresolved temp path would hand the provider a path git
+ * never reports, and every comparison against git's own answer would miss.
+ */
+export function makeTempDir(prefix: string): string {
+	return realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+}
+
 let reftableSupported: boolean | undefined;
 
 /** Whether the installed git can create a repository with `--ref-format=reftable` (git 2.45 and later) */
 export function supportsReftable(): boolean {
 	if (reftableSupported == null) {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-reftable-probe-'));
+		const dir = makeTempDir('gitlens-reftable-probe-');
 		try {
 			execFileSync('git', ['init', '--ref-format=reftable'], { cwd: dir, stdio: 'pipe' });
 			reftableSupported = true;
@@ -137,7 +157,7 @@ export function createTestRepo(options?: {
 }): TestRepo {
 	ensureLogger();
 
-	const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
+	const dir = makeTempDir('gitlens-test-');
 
 	// Everything below can throw (a spawned `git` failing, or the provider constructor) — without the
 	// catch, a failure here leaks `dir` forever, since nothing else ever calls cleanup() for it.
@@ -496,7 +516,7 @@ export function addWorktree(repoPath: string, dir: string, branch: string): void
  * ref ids with when the graph walks from there.
  */
 export function createWorktree(repoPath: string, branch: string): { path: string; cleanup: () => void } {
-	const parent = mkdtempSync(join(tmpdir(), 'gitlens-worktree-'));
+	const parent = makeTempDir('gitlens-worktree-');
 	// `git worktree add` creates the leaf itself, so point it at a not-yet-existing child of the temp dir.
 	const path = join(parent, 'wt');
 	try {
@@ -561,7 +581,7 @@ export function cloneTestRepo(
 ): TestRepo {
 	ensureLogger();
 
-	const dir = mkdtempSync(join(tmpdir(), 'gitlens-clone-'));
+	const dir = makeTempDir('gitlens-clone-');
 
 	// See `createTestRepo` on why setup runs inside a try/catch: a failure below must not leak `dir`.
 	try {

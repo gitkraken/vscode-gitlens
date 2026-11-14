@@ -1,8 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import * as sinon from 'sinon';
 import { ReferenceUpdateError } from '@gitlens/git/errors.js';
 import { fileUri } from '@gitlens/utils/uri.js';
@@ -16,6 +14,7 @@ import {
 	createTestRepo,
 	createWorktree,
 	getHeadSha,
+	makeTempDir,
 	revParse,
 } from './helpers.js';
 
@@ -246,7 +245,7 @@ suite('RefsSubProvider ref updates', () => {
 
 	test('deleteReference refuses a branch checked out in a worktree, and leaves it in place', async () => {
 		createBranch(repo.path, 'in-use');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-delete-ref-checked-out-'));
+		const worktreePath = makeTempDir('gitlens-delete-ref-checked-out-');
 		addWorktree(repo.path, worktreePath, 'in-use');
 		try {
 			await assert.rejects(repo.provider.refs.deleteReference(repo.path, 'refs/heads/in-use'), (err: unknown) =>

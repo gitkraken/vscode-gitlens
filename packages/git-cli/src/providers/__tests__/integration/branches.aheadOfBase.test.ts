@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
@@ -22,6 +21,7 @@ import {
 	fetch,
 	getHeadSha,
 	gkConfig,
+	makeTempDir,
 	mergeBranch,
 	setConfig,
 	setRemoteHead,
@@ -2317,7 +2317,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 		test('shares one ancestry check of the fork point between worktrees of one repository', async () => {
 			const { clone, oldTip, cleanup } = createRewrittenBase('rebased', 0, reftable);
-			const worktrees = mkdtempSync(join(tmpdir(), 'gitlens-reftable-worktrees-'));
+			const worktrees = makeTempDir('gitlens-reftable-worktrees-');
 			try {
 				storeTargets(clone.path, 'feature', { detected: 'origin/main' });
 				storeTargets(clone.path, 'second', { detected: 'origin/main' });
@@ -2997,7 +2997,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 		test('answers no base in a repository with no commit yet', async () => {
 			const repo = createTestRepo();
-			const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
+			const dir = makeTempDir('gitlens-test-');
 			try {
 				git(dir, 'init', '-b', 'main');
 

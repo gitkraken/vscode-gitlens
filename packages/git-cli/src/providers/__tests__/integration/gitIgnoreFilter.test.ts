@@ -1,10 +1,9 @@
 import * as assert from 'assert';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 /**
  * Cross-checks the in-memory `GitIgnoreFilter` (root + nested `.gitignore`, `info/exclude`, `core.excludesFile`)
@@ -128,7 +127,7 @@ suite('GitIgnoreFilter reads global excludes where git does', () => {
 
 	setup(() => {
 		savedEnv = Object.fromEntries(envKeys.map(k => [k, process.env[k]]));
-		sandbox = mkdtempSync(join(tmpdir(), 'gitlens-excludes-'));
+		sandbox = makeTempDir('gitlens-excludes-');
 		// Isolate from the machine's own global and system config, which may set `core.excludesFile`
 		process.env.GIT_CONFIG_GLOBAL = join(sandbox, 'gitconfig');
 		process.env.GIT_CONFIG_NOSYSTEM = '1';

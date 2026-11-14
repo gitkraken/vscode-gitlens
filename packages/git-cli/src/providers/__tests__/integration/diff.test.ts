@@ -1,13 +1,12 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createTestRepo } from './helpers.js';
+import { addCommit, createTestRepo, makeTempDir } from './helpers.js';
 
 suite('DiffSubProvider', () => {
 	let repo: TestRepo;
@@ -681,7 +680,7 @@ suite('DiffSubProvider — root commit in a SHA-256 repository', () => {
 	suiteSetup(function () {
 		repo = createTestRepo();
 
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-sha256-diff-'));
+		const dir = makeTempDir('gitlens-test-sha256-diff-');
 		try {
 			execFileSync('git', ['init', '-b', 'main', '--object-format=sha256', dir], { stdio: 'pipe' });
 		} catch {
@@ -789,7 +788,7 @@ suite("DiffSubProvider — errors: 'throw'", () => {
 
 	test('getDiffStatus and getChangedFilesCount reject outside a repository', async () => {
 		// git's "not a git repository" is a warning a default run swallows into empty output
-		const outside = mkdtempSync(join(tmpdir(), 'gitlens-not-a-repo-'));
+		const outside = makeTempDir('gitlens-not-a-repo-');
 		try {
 			assert.strictEqual(await repo.provider.diff.getChangedFilesCount(outside, 'HEAD'), undefined);
 			await assert.rejects(
@@ -819,7 +818,7 @@ suite('DiffSubProvider.getDiff — unborn HEAD', () => {
 	suiteSetup(async () => {
 		// `createTestRepo` always commits, so it only supplies the provider; the repository under test is a plain `git init` with nothing committed
 		repo = createTestRepo();
-		unbornPath = mkdtempSync(join(tmpdir(), 'gitlens-unborn-'));
+		unbornPath = makeTempDir('gitlens-unborn-');
 		execFileSync('git', ['init', '-b', 'main'], { cwd: unbornPath, stdio: 'pipe' });
 		writeFileSync(join(unbornPath, 'a.txt'), 'one\n');
 		execFileSync('git', ['add', 'a.txt'], { cwd: unbornPath, stdio: 'pipe' });

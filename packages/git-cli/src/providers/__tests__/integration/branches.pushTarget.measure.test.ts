@@ -1,12 +1,11 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GitPushTarget } from '@gitlens/git/providers/branches.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createTestRepo, createWorktree } from './helpers.js';
+import { addCommit, cloneTestRepo, createTestRepo, createWorktree, makeTempDir } from './helpers.js';
 
 function git(repoPath: string, ...args: string[]): string {
 	return execFileSync('git', args, { cwd: repoPath, encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -51,7 +50,7 @@ suite('BranchesGitSubProvider.getPushTarget (checked-out branch from HEAD, spawn
 
 	suiteSetup(() => {
 		// The machine's own `push.default` or `remote.pushDefault` would otherwise decide these cases
-		scratch = mkdtempSync(join(tmpdir(), 'gitlens-push-target-measure-'));
+		scratch = makeTempDir('gitlens-push-target-measure-');
 		const globalConfig = join(scratch, 'gitconfig');
 		writeFileSync(globalConfig, '');
 		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
@@ -233,7 +232,7 @@ suite('BranchesGitSubProvider.getPushTarget (checked-out branch from HEAD, spawn
 	});
 
 	test('a reftable repository, whose HEAD file is a placeholder, falls back to resolving the branch', async function () {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-reftable-'));
+		const dir = makeTempDir('gitlens-test-reftable-');
 		try {
 			try {
 				execFileSync('git', ['init', '-q', '-b', 'main', '--ref-format=reftable', dir], { stdio: 'pipe' });

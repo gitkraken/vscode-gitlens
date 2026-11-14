@@ -1,19 +1,27 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { PushError } from '@gitlens/git/errors.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, checkout, createBranch, createTestRepo, getHeadSha, getRefTips, revParse } from './helpers.js';
+import {
+	addCommit,
+	checkout,
+	createBranch,
+	createTestRepo,
+	getHeadSha,
+	getRefTips,
+	makeTempDir,
+	revParse,
+} from './helpers.js';
 
 function git(cwd: string, ...args: string[]): void {
 	execFileSync('git', args, { cwd: cwd, stdio: 'pipe' });
 }
 
 function createBare(): { path: string; cleanup: () => void } {
-	const path = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+	const path = makeTempDir('gitlens-test-bare-');
 	git(path, 'init', '--bare', '-b', 'main');
 	return { path: path, cleanup: () => rmSync(path, { recursive: true, force: true }) };
 }

@@ -1,13 +1,12 @@
 import * as assert from 'assert';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import type { TestRepo } from './helpers.js';
-import { createBranch, createProvider, createTestRepo, createWorktree, setConfig } from './helpers.js';
+import { createBranch, createProvider, createTestRepo, createWorktree, makeTempDir, setConfig } from './helpers.js';
 
 /**
  * Every checkout of a repository shares one read of the config its gitignore filter loads (`core.excludesFile`,
@@ -40,7 +39,7 @@ suite('Ignore config is read once per repository', () => {
 
 	setup(() => {
 		// The user's own global config would put `core.excludesFile` and `core.ignorecase` in every listing
-		sandbox = mkdtempSync(join(tmpdir(), 'gitlens-ignore-config-'));
+		sandbox = makeTempDir('gitlens-ignore-config-');
 		previousEnv = {
 			GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL,
 			GIT_CONFIG_NOSYSTEM: process.env.GIT_CONFIG_NOSYSTEM,

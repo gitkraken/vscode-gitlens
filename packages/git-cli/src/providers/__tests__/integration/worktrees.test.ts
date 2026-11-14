@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
@@ -9,7 +8,7 @@ import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
-import { addWorktree, createBranch, createTestRepo } from './helpers.js';
+import { addWorktree, createBranch, createTestRepo, makeTempDir } from './helpers.js';
 
 suite('WorktreesSubProvider', () => {
 	let repo: TestRepo;
@@ -77,7 +76,7 @@ suite('WorktreesSubProvider mutations', () => {
 		const before = porcelainWorktreeCount();
 
 		createBranch(repo.path, 'prune-target');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-prune-'));
+		const worktreePath = makeTempDir('gitlens-worktree-prune-');
 		addWorktree(repo.path, worktreePath, 'prune-target');
 		assert.strictEqual(porcelainWorktreeCount(), before + 1, 'the new worktree should be listed');
 
@@ -102,7 +101,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('pruneWorktrees unregisters the cache entry for a worktree it removes', async () => {
 		createBranch(repo.path, 'prune-unregister-target');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-prune-unregister-'));
+		const worktreePath = makeTempDir('gitlens-worktree-prune-unregister-');
 		addWorktree(repo.path, worktreePath, 'prune-unregister-target');
 
 		// Register the worktree's path the way the host does for an opened repo.
@@ -128,7 +127,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('lockWorktree records a reason and unlockWorktree clears it', async () => {
 		createBranch(repo.path, 'lock-target');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-lock-'));
+		const worktreePath = makeTempDir('gitlens-worktree-lock-');
 		addWorktree(repo.path, worktreePath, 'lock-target');
 
 		try {
@@ -172,7 +171,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test("locking and unlocking a worktree keeps a sibling worktree's cached git results", async () => {
 		createBranch(repo.path, 'lock-sibling');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-lock-sibling-'));
+		const worktreePath = makeTempDir('gitlens-worktree-lock-sibling-');
 		addWorktree(repo.path, worktreePath, 'lock-sibling');
 		const gitDir = await repo.provider.config.getGitDir(worktreePath);
 		repo.provider.cache.registerRepoPath(fileUri(worktreePath), gitDir);
@@ -212,7 +211,7 @@ suite('WorktreesSubProvider mutations', () => {
 		await repo.provider.worktrees.getWorktrees(repo.path);
 		await repo.provider.branches.getBranches(repo.path);
 
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-fresh-'));
+		const worktreePath = makeTempDir('gitlens-worktree-fresh-');
 		const spy = sinon.spy(repo.provider.git, 'run');
 		try {
 			execFileSync('git', ['worktree', 'add', '-b', 'fresh-branch', worktreePath], {
@@ -245,7 +244,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('a forced getWorktrees sees the main checkout detach from a branch the cached list still places there', async function () {
 		const own = createTestRepo();
-		const linkedPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-linked-'));
+		const linkedPath = makeTempDir('gitlens-worktree-linked-');
 		try {
 			createBranch(own.path, 'linked-branch');
 			addWorktree(own.path, linkedPath, 'linked-branch');
@@ -288,8 +287,8 @@ suite('WorktreesSubProvider mutations', () => {
 	test('a forced getWorktrees of an unchanged repository re-reads only the worktree list', async () => {
 		assert.ok(repo.provider.worktrees);
 		createBranch(repo.path, 'steady-branch');
-		const branchPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-steady-'));
-		const detachedPath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-detached-'));
+		const branchPath = makeTempDir('gitlens-worktree-steady-');
+		const detachedPath = makeTempDir('gitlens-worktree-detached-');
 		let spy: sinon.SinonSpy | undefined;
 		try {
 			addWorktree(repo.path, branchPath, 'steady-branch');
@@ -335,7 +334,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('deleteWorktree accepts run options', async () => {
 		createBranch(repo.path, 'delete-target');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-delete-'));
+		const worktreePath = makeTempDir('gitlens-worktree-delete-');
 		addWorktree(repo.path, worktreePath, 'delete-target');
 
 		await repo.provider.worktrees.deleteWorktree(repo.path, worktreePath, undefined, { timeout: 0 });
@@ -346,7 +345,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('a cancelled createWorktree rejects as CancellationError, not WorktreeCreateError', async () => {
 		createBranch(repo.path, 'create-cancelled-target');
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-worktree-create-cancelled-'));
+		const parent = makeTempDir('gitlens-worktree-create-cancelled-');
 		const isCancellation = (err: unknown) => err instanceof Error && err.name === 'CancellationError';
 
 		try {
@@ -382,7 +381,7 @@ suite('WorktreesSubProvider mutations', () => {
 
 	test('a cancelled deleteWorktree rejects as CancellationError, not WorktreeDeleteError', async () => {
 		createBranch(repo.path, 'delete-cancelled-target');
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-worktree-delete-cancelled-'));
+		const worktreePath = makeTempDir('gitlens-worktree-delete-cancelled-');
 		addWorktree(repo.path, worktreePath, 'delete-cancelled-target');
 
 		try {

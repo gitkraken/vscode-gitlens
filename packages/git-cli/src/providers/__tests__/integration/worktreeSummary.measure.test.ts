@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
@@ -13,7 +12,14 @@ import { fileUri, getRepositoryKey, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createTestRepo, createWorktree, noCommitGraphWritesConfig } from './helpers.js';
+import {
+	addCommit,
+	cloneTestRepo,
+	createTestRepo,
+	createWorktree,
+	makeTempDir,
+	noCommitGraphWritesConfig,
+} from './helpers.js';
 
 const fs: FileSystemProvider = {
 	readFile: async uri => readFileSync(toFsPath(uri)),
@@ -93,7 +99,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 	let subs: WorktreeSummarySubscription[];
 
 	setup(async () => {
-		root = mkdtempSync(join(tmpdir(), 'gitlens-summary-measure-'));
+		root = makeTempDir('gitlens-summary-measure-');
 		origin = join(root, 'origin.git');
 		git(root, 'init', '--bare', '-b', 'main', origin);
 
@@ -333,7 +339,7 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 
 	suiteSetup(() => {
 		// A conditional include in the machine's own global config could make the config differ by checkout
-		scratch = mkdtempSync(join(tmpdir(), 'gitlens-summary-config-'));
+		scratch = makeTempDir('gitlens-summary-config-');
 		const globalConfig = join(scratch, 'gitconfig');
 		writeFileSync(globalConfig, '');
 		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
@@ -573,7 +579,7 @@ suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', functi
 	let watchers: { basePath: string; fire: (e: { path: string; reason: 'change' }) => void }[];
 
 	setup(async () => {
-		root = mkdtempSync(join(tmpdir(), 'gitlens-summary-packed-'));
+		root = makeTempDir('gitlens-summary-packed-');
 		origin = join(root, 'origin.git');
 		git(root, 'init', '--bare', '-b', 'main', origin);
 

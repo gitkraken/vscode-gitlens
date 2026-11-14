@@ -1,16 +1,16 @@
 import * as assert from 'assert';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Git, GitError } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, makeTempDir } from './helpers.js';
 
 suite('Git.rev_parse__git_dir (real git)', () => {
 	const git = new Git(() => findGitPath(null));
 
 	test('resolves undefined outside a repository', async () => {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-notrepo-'));
+		const dir = makeTempDir('gitlens-notrepo-');
 		try {
 			// Stop git from discovering a repository in a parent of the temp dir
 			const prev = process.env.GIT_CEILING_DIRECTORIES;

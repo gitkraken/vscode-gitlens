@@ -1,13 +1,12 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { Git } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
 import type { TestRepo } from './helpers.js';
-import { createBranch, createTestRepo, createWorktree } from './helpers.js';
+import { createBranch, createTestRepo, createWorktree, makeTempDir } from './helpers.js';
 
 function git(cwd: string, ...args: string[]): void {
 	execFileSync('git', args, { cwd: cwd, stdio: 'pipe' });
@@ -61,7 +60,7 @@ suite('Repository root from inside a git dir (real git)', () => {
 	});
 
 	test('resolves a bare repository outside any working tree to itself', async () => {
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+		const parent = makeTempDir('gitlens-test-bare-');
 		try {
 			const bare = join(parent, 'bare.git');
 			git(parent, 'clone', '-q', '--bare', repo.path, bare);

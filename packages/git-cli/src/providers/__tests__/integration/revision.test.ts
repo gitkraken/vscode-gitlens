@@ -1,12 +1,11 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createTestRepo, getHeadSha, revParse } from './helpers.js';
+import { addCommit, createTestRepo, getHeadSha, makeTempDir, revParse } from './helpers.js';
 
 suite('RevisionSubProvider.resolveShas', () => {
 	let repo: TestRepo;
@@ -119,7 +118,7 @@ suite('RevisionSubProvider.getEmptyTreeSha', () => {
 	});
 
 	test('a SHA-256 repository (git >= 2.29)', async function () {
-		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-sha256-'));
+		const parent = makeTempDir('gitlens-test-sha256-');
 		try {
 			execFileSync('git', ['init', '-b', 'main', '--object-format=sha256', parent], { stdio: 'pipe' });
 		} catch {
@@ -446,7 +445,7 @@ suite('RevisionSubProvider.getTrackedFilesRaw', () => {
 	});
 
 	test('rejects outside a repository', async () => {
-		const dir = mkdtempSync(join(tmpdir(), 'gitlens-notrepo-'));
+		const dir = makeTempDir('gitlens-notrepo-');
 		try {
 			await assert.rejects(repo.provider.revision.getTrackedFilesRaw(dir));
 		} finally {

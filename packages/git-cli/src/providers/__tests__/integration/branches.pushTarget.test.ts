@@ -1,13 +1,12 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { GitPushTarget, GitPushTargetRef } from '@gitlens/git/providers/branches.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createTestRepo, createWorktree } from './helpers.js';
+import { addCommit, cloneTestRepo, createTestRepo, createWorktree, makeTempDir } from './helpers.js';
 
 function git(repoPath: string, ...args: string[]): void {
 	execFileSync('git', args, { cwd: repoPath, stdio: 'pipe' });
@@ -82,7 +81,7 @@ suite('BranchesGitSubProvider.getPushTarget', () => {
 
 	suiteSetup(() => {
 		// The machine's own `push.default` or `remote.pushDefault` would otherwise decide these cases
-		scratch = mkdtempSync(join(tmpdir(), 'gitlens-push-target-'));
+		scratch = makeTempDir('gitlens-push-target-');
 		const globalConfig = join(scratch, 'gitconfig');
 		writeFileSync(globalConfig, '');
 		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;

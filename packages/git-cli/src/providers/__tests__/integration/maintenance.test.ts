@@ -4,7 +4,6 @@ import {
 	appendFileSync,
 	existsSync,
 	mkdirSync,
-	mkdtempSync,
 	readdirSync,
 	readFileSync,
 	renameSync,
@@ -12,7 +11,7 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
-import { hostname, tmpdir } from 'node:os';
+import { hostname } from 'node:os';
 import { join } from 'node:path';
 import type { GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import { Git } from '../../../exec/git.js';
@@ -25,6 +24,7 @@ import {
 	createTestRepo,
 	gkConfig,
 	maintenanceOf,
+	makeTempDir,
 	setConfig,
 } from './helpers.js';
 
@@ -358,7 +358,7 @@ suite('MaintenanceSubProvider', () => {
 
 	test('getHealthSnapshot finds a linked worktree split index in its per-worktree git dir', async () => {
 		const splitRepo = createTestRepo();
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-split-worktree-'));
+		const worktreePath = makeTempDir('gitlens-split-worktree-');
 		try {
 			execFileSync('git', ['branch', 'linked-split'], { cwd: splitRepo.path, stdio: 'pipe' });
 			addWorktree(splitRepo.path, worktreePath, 'linked-split');
@@ -380,7 +380,7 @@ suite('MaintenanceSubProvider', () => {
 
 	test('getHealthSnapshot marks a depth-limited clone as shallow', async () => {
 		const source = createTestRepo();
-		const cloneRoot = mkdtempSync(join(tmpdir(), 'gitlens-shallow-clone-'));
+		const cloneRoot = makeTempDir('gitlens-shallow-clone-');
 		const shallowPath = join(cloneRoot, 'shallow');
 		try {
 			addCommit(source.path, 'second.txt', 'second', 'second');
@@ -796,7 +796,7 @@ suite('MaintenanceSubProvider', () => {
 		}
 
 		const sparseRepo = createTestRepo();
-		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-sparse-worktree-'));
+		const worktreePath = makeTempDir('gitlens-sparse-worktree-');
 		try {
 			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
 			addCommit(sparseRepo.path, 'area-b/b.txt', 'b', 'add area b');
@@ -1355,7 +1355,7 @@ suite('MaintenanceSubProvider', () => {
 		// never run them here. Instead seed the exact post-apply state (local maintenance.auto=false + the
 		// ownership markers recording the prior) and exercise ONLY the revert path. Use an isolated
 		// GIT_CONFIG_GLOBAL so the revert's tolerated `git maintenance unregister` can't touch the real global.
-		const isoDir = mkdtempSync(join(tmpdir(), 'gitlens-maint-global-'));
+		const isoDir = makeTempDir('gitlens-maint-global-');
 		const isoGlobal = join(isoDir, 'gitconfig');
 		writeFileSync(isoGlobal, '');
 		const autoRepo = createTestRepo({ gitOptions: { env: { GIT_CONFIG_GLOBAL: isoGlobal } } });
@@ -1391,7 +1391,7 @@ suite('MaintenanceSubProvider', () => {
 		// Isolated GLOBAL config so the direct `maintenance register` below (simulating another tool, or the
 		// user, registering the repo between the probe and the click) never touches the developer's real
 		// global config, and so the provider's own registration read targets the same isolated file.
-		const isoDir = mkdtempSync(join(tmpdir(), 'gitlens-maint-global-'));
+		const isoDir = makeTempDir('gitlens-maint-global-');
 		const isoGlobal = join(isoDir, 'gitconfig');
 		writeFileSync(isoGlobal, '');
 		const freshRepo = createTestRepo({ gitOptions: { env: { GIT_CONFIG_GLOBAL: isoGlobal } } });

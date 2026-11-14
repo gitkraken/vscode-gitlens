@@ -1,10 +1,9 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import { BranchError } from '@gitlens/git/errors.js';
@@ -20,6 +19,7 @@ import {
 	createTestRepo,
 	fetch,
 	getHeadSha,
+	makeTempDir,
 	mergeBranch,
 } from './helpers.js';
 
@@ -258,7 +258,7 @@ suite('BranchesSubProvider.setRemoteHeadIfMissing — never prompts', () => {
 		});
 		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 
-		dir = mkdtempSync(join(tmpdir(), 'gitlens-askpass-'));
+		dir = makeTempDir('gitlens-askpass-');
 		marker = join(dir, 'prompted');
 		const script = join(dir, 'askpass.sh');
 		writeFileSync(script, `#!/bin/sh\necho prompted > "${marker}"\necho secret\n`, { mode: 0o755 });

@@ -1,8 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitMaintenanceTask } from '@gitlens/git/providers/maintenance.js';
 import type { TestRepo } from './helpers.js';
@@ -14,6 +13,7 @@ import {
 	createTestRepo,
 	gkConfig,
 	maintenanceOf,
+	makeTempDir,
 	setConfig,
 } from './helpers.js';
 
@@ -315,7 +315,7 @@ suite('maintenance commit-graph changed-path Bloom filters', () => {
 		}
 
 		const source = createTestRepo();
-		const cloneRoot = mkdtempSync(join(tmpdir(), 'gitlens-partial-clone-'));
+		const cloneRoot = makeTempDir('gitlens-partial-clone-');
 		const partialPath = join(cloneRoot, 'partial');
 		try {
 			for (let i = 0; i < 12; i++) {

@@ -1,23 +1,13 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import {
-	existsSync,
-	promises as fs,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-	symlinkSync,
-	writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, promises as fs, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
-import { createBranch, createProvider, createTestRepo, createWorktree, gkConfig } from './helpers.js';
+import { createBranch, createProvider, createTestRepo, createWorktree, gkConfig, makeTempDir } from './helpers.js';
 
 suite('ConfigSubProvider', () => {
 	let repo: TestRepo;
@@ -55,7 +45,7 @@ suite('ConfigSubProvider', () => {
 	});
 
 	test('getRepositoryInfo returns [] for a non-git directory', async () => {
-		const outside = mkdtempSync(join(tmpdir(), 'gitlens-test-nonrepo-'));
+		const outside = makeTempDir('gitlens-test-nonrepo-');
 		try {
 			const info = await repo.provider.config.getRepositoryInfo(outside);
 			assert.deepStrictEqual(info, []);
@@ -501,7 +491,7 @@ suite('ConfigSubProvider strict association persistence', () => {
 	});
 
 	test('strict writes reject a lock failure even when its path matches a Git warning', async () => {
-		const root = mkdtempSync(join(tmpdir(), 'gitlens-no such path-'));
+		const root = makeTempDir('gitlens-no such path-');
 		const path = join(root, 'repo');
 		const provider = createProvider();
 		const key = 'branch.main.gk-associated-issues';
