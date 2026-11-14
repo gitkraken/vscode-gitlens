@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a Windows kill whose `taskkill` fails to launch keeping Node alive for 5 seconds, from a time limit that was cleared only when `taskkill` exited (utils)
+
 ## [0.38.1] - 2026-11-14
 
 ### Fixed
