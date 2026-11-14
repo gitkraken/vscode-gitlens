@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes git time limits and cancellation not stopping git on Windows when it waits on something other than its input, such as a remote that accepts the connection and never answers. Git for Windows' `cmd\git.exe` runs the real git as its child, and killing only that launcher left git running with the output pipes open, so the run settled only when git ended on its own. The default spawner now ends the whole process tree (`taskkill /T /F`, launched only when it kills) and reports the kill as Node does. A host `spawn` (`GitOptions.spawn`) has to end the tree itself (utils, git-cli)
+
 ## [0.38.0] - 2026-11-13
 
 ### Added

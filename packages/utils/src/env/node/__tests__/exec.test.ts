@@ -421,3 +421,83 @@ suite('runSpawn maxBuffer Test Suite', () => {
 		);
 	});
 });
+
+// A launcher like Git for Windows' `cmd\git.exe`: its child shares its stdout and stderr, so they stay open after
+// only the launcher is killed. The child is `detached` because Node otherwise puts it in a job that dies with the
+// launcher, which Git's launcher doesn't. On POSIX `kill` is not a tree kill, so this would hang there by design
+const launcher = [
+	'-e',
+	"require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { stdio: 'inherit', detached: true }); setTimeout(() => {}, 10000)",
+];
+
+(process.platform === 'win32' ? suite : suite.skip)('spawnProcess Windows tree kill Test Suite', () => {
+	function closed(proc: ReturnType<typeof spawnProcess>): Promise<[number | null, NodeJS.Signals | null]> {
+		return new Promise(resolve => {
+			proc.once('error', () => {});
+			proc.once('close', (code, signal) => resolve([code, signal]));
+		});
+	}
+
+	test('runSpawn rejects as a timeout when a launcher is timed out', async () => {
+		await assert.rejects(
+			neverHangs(runSpawn(process.execPath, launcher, 'utf8', { timeout: 300 })),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('runSpawn rejects as aborted when a launcher is aborted', async () => {
+		const controller = new AbortController();
+		const promise = runSpawn(process.execPath, launcher, 'utf8', { cancellation: controller.signal });
+		setTimeout(() => controller.abort(), 300);
+		await assert.rejects(
+			neverHangs(promise),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('runSpawn resolves an exit-code-only timed-out launcher as killed by SIGTERM', async () => {
+		const result = await neverHangs(
+			runSpawn(process.execPath, launcher, 'utf8', { exitCodeOnly: true, timeout: 300 }),
+		);
+		assert.strictEqual(result.exitCode, undefined);
+		assert.strictEqual(result.signal, 'SIGTERM');
+		assert.strictEqual(result.killed, true);
+	});
+
+	test('spawnProcess closes a timed-out launcher as killed by SIGTERM', async () => {
+		const proc = spawnProcess(process.execPath, launcher, { timeout: 300 });
+		const [code, signal] = await neverHangs(closed(proc));
+
+		assert.strictEqual(code, null);
+		assert.strictEqual(signal, 'SIGTERM');
+		assert.strictEqual(proc.exitCode, null);
+		assert.strictEqual(proc.signalCode, 'SIGTERM');
+		assert.strictEqual(proc.killed, true);
+	});
+
+	test('spawnProcess still closes a timed-out launcher as killed by SIGTERM when taskkill fails', async () => {
+		const systemRoot = process.env.SystemRoot;
+		process.env.SystemRoot = 'C:\\gitlens-no-such-dir';
+		try {
+			const proc = spawnProcess(process.execPath, launcher, { timeout: 300 });
+			const [code, signal] = await neverHangs(closed(proc));
+
+			assert.strictEqual(code, null);
+			assert.strictEqual(signal, 'SIGTERM');
+			assert.strictEqual(proc.killed, true);
+		} finally {
+			process.env.SystemRoot = systemRoot;
+		}
+	});
+
+	test('spawnProcess closes an aborted launcher as killed by SIGTERM', async () => {
+		const controller = new AbortController();
+		const proc = spawnProcess(process.execPath, launcher, { signal: controller.signal });
+		setTimeout(() => controller.abort(), 300);
+		const [code, signal] = await neverHangs(closed(proc));
+
+		assert.strictEqual(code, null);
+		assert.strictEqual(signal, 'SIGTERM');
+		assert.strictEqual(proc.killed, true);
+	});
+});
