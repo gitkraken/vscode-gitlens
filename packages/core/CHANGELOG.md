@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-11-14
+
 ### Added
 
 - Adds `statMany` to `UnwatchedCacheValidatorOptions`: the stats a validation needs together for a repository are made as one call of at most 128 paths, one reading per path (`BatchedStat`), where each was a call of its own. A batch that fails is read one path at a time with `stat`, which must read a file the same way, as are all stats for 30 seconds after; failed batches count in `unwatchedValidation.statBatchesFailed.count`. Adds `StatWorkerPool` (`git-cli/exec/statWorkers.js`), up to 4 worker threads that make a batch's stats back to back, serving a batch on the calling thread while no worker is free or one is starting, and `statLocal`, which reads a path as its workers do. Adds `disposables` to `GitService.createSingleton`'s options, disposed with the service (git, git-cli)
@@ -1304,7 +1306,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...HEAD
+[0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
 [0.38.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...gitkraken:releases/core/v0.38.1
 [0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
 [0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
