@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-11-14
+
 ### Fixed
 
 - Fixes git time limits and cancellation not stopping git on Windows when it waits on something other than its input, such as a remote that accepts the connection and never answers. Git for Windows' `cmd\git.exe` runs the real git as its child, and killing only that launcher left git running with the output pipes open, so the run settled only when git ended on its own. The default spawner now ends the whole process tree (`taskkill /T /F`, launched only when it kills) and reports the kill as Node does. A host `spawn` (`GitOptions.spawn`) has to end the tree itself (utils, git-cli)
@@ -1290,7 +1292,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...HEAD
+[0.38.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...gitkraken:releases/core/v0.38.1
 [0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
 [0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
 [0.37.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...gitkraken:releases/core/v0.37.0
