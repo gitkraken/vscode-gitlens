@@ -8,9 +8,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `Cache.setRepoPathRegistrar`, which has a checkout registered before its first read through `GitService.forRepo`, so a host that registers checkouts in the background no longer has a linked worktree read as a repository of its own and its reads thrown away at registration. A host sets it once it has the service, as a function that resolves the checkout's git dir through `forRepo(path).config.getGitDir()` and calls `registerRepoPath`, and that answers `undefined`, synchronously, for a path it declines. Each per-repository sub-provider method that answers only a promise then starts once the registration settles; the others (synchronous ones, async iterables, and the git dir reads a registrar makes) call straight through. Concurrent first reads share one ask, a failing registrar lets the read go ahead unregistered, and a slow one is waited on for at most 10 seconds. The watch service's gitignore filter waits the same way before it reads the shared ignore config. Adds `GitProvider.ensureRegistered` and `Cache.ensureRegistered`; a host that sets no registrar sees no change (git, git-cli)
-- Adds `paths` to `diff.getDiffStatus`: limits the status to those paths, matched literally (a name with glob characters matches only itself), batched to fit the command line. An empty list resolves `undefined` without running git, `paths` wins over `path` (for the untracked files `includeUntracked` merges in too), and a file reached by overlapping paths is listed once. A rename whose two sides fall in different batches reads as a delete and an add. A GitHub repository filters its comparison by the same rule, keeping a rename whole when either side is among the paths (git, git-cli, git-github)
-- Adds `renames` and `similarityThreshold` to `diff.getDiff` and `diff.getParsedDiff`: `renames: true` passes `-M` (at `similarityThreshold` or the configured one), as `getDiffStatus` always does, so the hunks agree with its list; `renames: false` passes `--no-renames`; omitted, `diff.renames` decides as before (git, git-cli)
 - Adds `plus/integrations/constants.js` to the published entry points: integration ids, enums and pure id predicates, with no runtime imports, so it is safe in browser bundles (plus/integrations)
 - Expands the `plus/integrations/index.js` facade into the full integrations API GitLens itself now consumes. `IntegrationManager` adds `get` (interface-only `GitHostIntegration`/`IssuesIntegration` views, no provider classes; a git host's view carries `mergePullRequest`, `enqueuePullRequest` and `dequeuePullRequest`, which 0.34.0 left unreachable from the facade, and the optional `getMergeQueueEntriesByPullRequestNumber`), `getIntegrationsForAccountWideRead`, `isConnectedForAccountWideRead`, `connectCloudIntegrations`, `manageCloudIntegrations`, `reset`, `getMyPullRequests`, `getMyIssues`, `ignoreSSLErrors` and `github`. The facade also exports:
   - the `isIntegration`/`isGitHostIntegration`/`isIssuesIntegration` guards
@@ -21,6 +18,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   None of these signatures reference `@gitkraken/provider-apis` types (plus/integrations)
 
 - Adds optional pull request, issue and repository lookups to `IntegrationManagerCacheProvider`. A lookup the cache omits runs uncached. Each one receives an `IntegrationCacheDescriptor`, which adds `maybeConnected` and `sessionFingerprint` to `IntegrationAccountCacheDescriptor` (now an alias of it) so a cache can invalidate on a reconnect or a token change (plus/integrations)
+
+### Changed
+
+- `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
+- `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
+
+## [0.38.0] - 2026-11-13
+
+### Added
+
+- Adds `Cache.setRepoPathRegistrar`, which has a checkout registered before its first read through `GitService.forRepo`, so a host that registers checkouts in the background no longer has a linked worktree read as a repository of its own and its reads thrown away at registration. A host sets it once it has the service, as a function that resolves the checkout's git dir through `forRepo(path).config.getGitDir()` and calls `registerRepoPath`, and that answers `undefined`, synchronously, for a path it declines. Each per-repository sub-provider method that answers only a promise then starts once the registration settles; the others (synchronous ones, async iterables, and the git dir reads a registrar makes) call straight through. Concurrent first reads share one ask, a failing registrar lets the read go ahead unregistered, and a slow one is waited on for at most 10 seconds. The watch service's gitignore filter waits the same way before it reads the shared ignore config. Adds `GitProvider.ensureRegistered` and `Cache.ensureRegistered`; a host that sets no registrar sees no change (git, git-cli)
+- Adds `paths` to `diff.getDiffStatus`: limits the status to those paths, matched literally (a name with glob characters matches only itself), batched to fit the command line. An empty list resolves `undefined` without running git, `paths` wins over `path` (for the untracked files `includeUntracked` merges in too), and a file reached by overlapping paths is listed once. A rename whose two sides fall in different batches reads as a delete and an add. A GitHub repository filters its comparison by the same rule, keeping a rename whole when either side is among the paths (git, git-cli, git-github)
+- Adds `renames` and `similarityThreshold` to `diff.getDiff` and `diff.getParsedDiff`: `renames: true` passes `-M` (at `similarityThreshold` or the configured one), as `getDiffStatus` always does, so the hunks agree with its list; `renames: false` passes `--no-renames`; omitted, `diff.renames` decides as before (git, git-cli)
 
 ### Changed
 
@@ -44,8 +54,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes `diff.getDiffStatus` to read an unborn `HEAD` (a repository before its first commit) and a root commit's missing parent (`<sha>^` against `<sha>`, as a pair or a range) against the empty tree, as `diff.getDiff` already does for an unborn `HEAD`, instead of failing; a root commit is told by having no parent (`rev-list --parents`), never from git's error text (git-cli)
 - Changes `diff.getDiff` of a single commit with no `from` to diff a root commit against the empty tree instead of failing on its missing `<sha>^` (git-cli)
 - Changes git diff reads to ignore a repository's `diff.noprefix`, `diff.srcPrefix`, `diff.dstPrefix`, `diff.interHunkContext`, `diff.suppressBlankEmpty` and `diff.submodule`, as they already ignore `diff.mnemonicPrefix`, and `diff.getDiff` to skip an external diff tool (`--no-ext-diff`), as `getDiffStatus` already does, so every caller gets the same hunks whatever the config: file headers keep their `a/` and `b/` prefixes, hunks join by git's default rule, a blank context line keeps its leading space, and a submodule change is a normal `diff --git` section rather than a log glued onto the previous file. This also fixes `getParsedDiff` finding no files under `diff.noprefix` or custom prefixes, numbering every line after a blank context line one too low under `diff.suppressBlankEmpty`, and reading a submodule's log as context lines of the previous file under `diff.submodule=log`, and `getDiff` failing or answering the tool's output under `diff.external` (git-cli)
-- `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
-- `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
 ### Fixed
 
@@ -1294,7 +1302,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...HEAD
+[0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
 [0.37.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.0...gitkraken:releases/core/v0.37.1
 [0.37.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.36.0...gitkraken:releases/core/v0.37.0
 [0.36.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.35.0...gitkraken:releases/core/v0.36.0
