@@ -6,6 +6,7 @@ import { Cache } from '../../cache.js';
 import { FileType } from '../../context.js';
 import type { RepositoryChange } from '../../models/repository.js';
 import { allWatchedRepositoryChanges } from '../classifyChange.js';
+import type { BatchedStat } from '../unwatchedCacheValidator.js';
 import { UnwatchedCacheValidator } from '../unwatchedCacheValidator.js';
 
 type Stat = { mtime: number; size: number };
@@ -30,6 +31,12 @@ function createFakeFs(): {
 	contents: Map<string, string>;
 	stats: string[];
 	stat: (path: string) => Promise<Stat | undefined>;
+	/** Reads as `stat` does, as one call: a batch with a hung path settles only once `release` is called */
+	statMany: (paths: readonly string[]) => Promise<readonly BatchedStat[]>;
+	/** The paths of each `statMany` call */
+	batches: string[][];
+	/** Whether `statMany` rejects a batch of these paths, as a batch whose worker died would */
+	failBatches: boolean | ((paths: readonly string[]) => boolean);
 	readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	readFile: (path: string) => Promise<Uint8Array | undefined>;
 	/** Bumps a path's reading and its directory's, as a write by lockfile and rename, a create or a delete would */
@@ -44,6 +51,7 @@ function createFakeFs(): {
 	const unlistable = new Set<string>();
 	const contents = new Map<string, string>();
 	const stats: string[] = [];
+	const batches: string[][] = [];
 	const hung: ((reading: Stat | undefined) => void)[] = [];
 	const maxInFlight = { overall: 0, byRepo: new Map<string, number>() };
 	const inFlight = new Map<string, number>();
@@ -63,12 +71,14 @@ function createFakeFs(): {
 		});
 	}
 
-	return {
+	const fake: ReturnType<typeof createFakeFs> = {
 		files: files,
 		dirs: dirs,
 		unlistable: unlistable,
 		contents: contents,
 		stats: stats,
+		batches: batches,
+		failBatches: false,
 		stat: function (path) {
 			const p = normalizePath(path);
 			stats.push(p);
@@ -79,6 +89,30 @@ function createFakeFs(): {
 				if (file === 'enotdir') return notADirectory();
 
 				return Promise.resolve(file);
+			});
+		},
+		statMany: function (paths) {
+			const normalized = paths.map(p => normalizePath(p));
+			batches.push(normalized);
+			stats.push(...normalized);
+			return track(normalized[0], () => {
+				const fail = typeof fake.failBatches === 'function' ? fake.failBatches(normalized) : fake.failBatches;
+				if (fail) return Promise.reject(new Error('The stat worker exited'));
+
+				const read = (p: string, hungReading?: Stat): BatchedStat => {
+					const file = files.get(p);
+					if (file === 'hang') return hungReading ?? 'missing';
+					if (file === 'throw') return 'unreadable';
+					if (file === 'enotdir' || file == null) return 'missing';
+
+					return file;
+				};
+				if (normalized.some(p => files.get(p) === 'hang')) {
+					return new Promise<readonly BatchedStat[]>(resolve =>
+						hung.push(reading => resolve(normalized.map(p => read(p, reading)))),
+					);
+				}
+				return Promise.resolve(normalized.map(p => read(p)));
 			});
 		},
 		readDirectory: function (path) {
@@ -118,6 +152,7 @@ function createFakeFs(): {
 		},
 		maxInFlight: maxInFlight,
 	};
+	return fake;
 }
 
 /** Lets every validation whose file-system calls already settled run to its end */
@@ -154,8 +189,9 @@ function addRepo(cache: Cache, fs: ReturnType<typeof createFakeFs>, repoPath: st
 	}
 }
 
-/** A standard repository at `/repo`, with nothing in its git dir until a test adds it */
-function createHarness(options?: {
+interface HarnessOptions {
+	/** Batches the stats through the fake `statMany`. Default: false */
+	batched?: boolean;
 	register?: boolean;
 	timeoutMs?: number;
 	maxFsThreads?: number;
@@ -166,7 +202,10 @@ function createHarness(options?: {
 	resolveGitDir?: (repoPath: string) => Promise<boolean>;
 	/** In place of answering {@link ignoredRoots} */
 	getIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[]>;
-}): Harness {
+}
+
+/** A standard repository at `/repo`, with nothing in its git dir until a test adds it */
+function createHarness(options?: HarnessOptions): Harness {
 	const cache = new Cache();
 	if (options?.register) {
 		cache.registerRepoPath(fileUri('/repo'), { uri: fileUri('/repo/.git') });
@@ -183,6 +222,7 @@ function createHarness(options?: {
 	const validator = new UnwatchedCacheValidator({
 		cache: cache,
 		stat: fs.stat,
+		statMany: options?.batched ? fs.statMany : undefined,
 		readDirectory: fs.readDirectory,
 		readFile: fs.readFile,
 		getIgnoredWorktreeRoots:
@@ -277,9 +317,24 @@ const allWatched = [...allWatchedRepositoryChanges].sort();
 /** What a worktree's own git dir can report */
 const rootReportable: RepositoryChange[] = ['cherryPick', 'head', 'heads', 'merge', 'pausedOp', 'rebase', 'revert'];
 
-describe('UnwatchedCacheValidator', () => {
-	it('reports what validating cost in its resource usage', async () => {
+// Every test again with the stats batched, which must read and report alike
+for (const batched of [false, true]) {
+	describe(batched ? 'UnwatchedCacheValidator, with its stats batched' : 'UnwatchedCacheValidator', () =>
+		defineTests(batched, options => createHarness({ ...options, batched: options?.batched ?? batched })),
+	);
+}
+
+/** Defines the suite's tests, each harness batching its stats as `batched` says unless its options say otherwise */
+function defineTests(batched: boolean, createHarness: (options?: HarnessOptions) => Harness): void {
+	it(batched ? 'batches its stats' : 'makes each stat a call of its own', async () => {
 		const h = createHarness();
+		await h.validate();
+		assert.strictEqual(h.fs.batches.length > 0, batched);
+	});
+
+	it('reports what validating cost in its resource usage', async () => {
+		// Each stat a call of its own
+		const h = createHarness({ batched: false });
 		await h.validate();
 		h.advance();
 		await h.validate();
@@ -295,6 +350,7 @@ describe('UnwatchedCacheValidator', () => {
 		assert.strictEqual(usage['unwatchedValidation.gitDirs.count'], 2, 'its root and common git dirs');
 		assert.ok((usage['unwatchedValidation.fsCalls.count'] ?? 0) >= h.fs.stats.length, 'every stat goes through it');
 		assert.strictEqual(usage['unwatchedValidation.fsCallsStuck.count'], 0);
+		assert.strictEqual(usage['unwatchedValidation.statBatchesFailed.count'], 0);
 	});
 
 	it('applies every change a watcher reports when there is no baseline, then only what moved', async () => {
@@ -2331,5 +2387,201 @@ describe('UnwatchedCacheValidator', () => {
 			await h.validator.validate('/b');
 			assert.strictEqual(h.cache.refs.has('/repo'), false);
 		});
+	});
+}
+
+describe('UnwatchedCacheValidator, batching its stats', () => {
+	afterEach(() => {
+		mock.timers.reset();
+	});
+
+	it('stats a poll as one call, the root and common git dirs of a validation together', async () => {
+		const h = createHarness({ batched: true, register: true });
+		addLinkedWorktree(h);
+		await h.validate('/wt');
+
+		const [first] = h.fs.batches;
+		assert.ok(first.includes('/repo/.git/worktrees/wt1/logs/HEAD'), "the worktree's own git dir");
+		assert.ok(first.includes('/repo/.git/refs/heads'), 'and the common one');
+		for (const batch of h.fs.batches) {
+			assert.strictEqual(new Set(batch).size, batch.length, 'each path once');
+		}
+
+		// An idle validation polls each git dir once, and reads nothing behind a gate that held still
+		h.advance();
+		h.fs.batches.length = 0;
+		const fsCalls = h.validator.getResourceUsage()['unwatchedValidation.fsCalls.count'] ?? 0;
+		await h.validate('/wt');
+		assert.strictEqual(h.fs.batches.length, 1);
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCalls.count'], fsCalls + 1);
+	});
+
+	it('stats a path two concurrent validations of a repository ask for in the same batch once', async () => {
+		const h = createHarness({ batched: true, register: true });
+		addWorktreeEntry(h, 'wt1', '/wt');
+		await h.validate();
+
+		registerLinkedWorktree(h, '/wt', 'wt1');
+		h.advance();
+		h.fs.batches.length = 0;
+		await Promise.all([h.validate('/repo'), h.validate('/wt')]);
+		for (const batch of h.fs.batches) {
+			assert.strictEqual(new Set(batch).size, batch.length, 'each path once');
+		}
+		assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1);
+	});
+
+	it('reads what moved alike, batched or not, for paths found, missing, unreadable and under a file', async () => {
+		const run = async (batched: boolean): Promise<Harness> => {
+			const h = createHarness({ batched: batched, register: true });
+			addLinkedWorktree(h);
+			h.fs.dirs.set('/repo/.git/refs/heads', ['feature']);
+			h.fs.dirs.set('/repo/.git/refs/heads/feature', ['sub']);
+			h.fs.dirs.set('/repo/.git/refs/heads/feature/sub', []);
+			h.fs.files.set('/repo/.git/refs/heads/feature', { mtime: 1, size: 10 });
+			h.fs.files.set('/repo/.git/refs/heads/feature/sub', { mtime: 1, size: 10 });
+			await h.validate();
+
+			// `packed-refs` becomes unreadable and `logs/HEAD` goes
+			h.advance();
+			h.fs.touch('/repo/.git/packed-refs');
+			h.fs.files.set('/repo/.git/packed-refs', 'throw');
+			h.fs.files.delete('/repo/.git/logs/HEAD');
+			await h.validate();
+
+			// A ref directory replaced by a ref of its name, and the linked worktree's HEAD moves
+			h.advance();
+			h.fs.dirs.set('/repo/.git/refs/heads', []);
+			h.fs.dirs.delete('/repo/.git/refs/heads/feature');
+			h.fs.dirs.delete('/repo/.git/refs/heads/feature/sub');
+			h.fs.files.set('/repo/.git/refs/heads/feature', { mtime: 2, size: 41 });
+			h.fs.files.set('/repo/.git/refs/heads/feature/sub', 'enotdir');
+			h.fs.touch('/repo/.git/refs/heads');
+			h.fs.touch('/repo/.git/worktrees/wt1/HEAD');
+			await h.validate('/wt');
+
+			// `packed-refs` reads again
+			h.advance();
+			h.fs.files.set('/repo/.git/packed-refs', { mtime: 3, size: 10 });
+			h.fs.touch('/repo/.git/index');
+			await h.validate();
+			return h;
+		};
+
+		const perPath = await run(false);
+		const batched = await run(true);
+		assert.ok(batched.fs.batches.length > 0);
+		assert.deepStrictEqual(perPath.applied().slice(1), [
+			['/repo', ['head', 'heads', 'remotes', 'tags'], undefined],
+			['/wt', ['head', 'heads', 'worktreeHead', 'worktrees'], ['wt1']],
+			['/repo', ['heads', 'remotes', 'tags'], undefined],
+		]);
+		assert.deepStrictEqual(batched.applied(), perPath.applied());
+		assert.deepStrictEqual(batched.ownApplied(), perPath.ownApplied());
+	});
+
+	it('reads the paths of a batch that failed one at a time, as it would without batching', async () => {
+		const h = createHarness({ batched: true });
+		h.fs.failBatches = true;
+		await h.validate();
+		assert.deepStrictEqual(h.applied(), [['/repo', allWatched, undefined]]);
+		// The rest of the validation backs off, so each path is read on its own as without batching
+		const perPath = createHarness();
+		await perPath.validate();
+		assert.strictEqual(h.fs.batches.length, 1);
+		assert.strictEqual(h.fs.stats.length - h.fs.batches[0].length, perPath.fs.stats.length);
+		assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1, 'one call at a time');
+		const failed = h.fs.batches.length;
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], failed);
+
+		// Backing off, each stat is a call of its own
+		h.advance();
+		h.fs.touch('/repo/.git/packed-refs');
+		await h.validate();
+		assert.deepStrictEqual(h.applied()[1], ['/repo', ['heads', 'remotes', 'tags'], undefined]);
+		assert.strictEqual(h.fs.batches.length, failed, 'no batch tried while backing off');
+
+		// A reading taken one at a time matches the batch's next one, once batching is tried again
+		h.clock.now += 30_000;
+		h.fs.failBatches = false;
+		h.fs.touch('/repo/.git/index');
+		await h.validate();
+		assert.ok(h.fs.batches.length > failed, 'batched again');
+		assert.strictEqual(h.applied().length, 2, 'nothing more moved');
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], failed);
+	});
+
+	it('splits the stats asked together past 128 paths into batches, and reads one at a time only those of one that failed', async () => {
+		const run = async (failFirstFull: boolean): Promise<Harness> => {
+			const h = createHarness({ batched: true });
+			for (let i = 0; i < 80; i++) {
+				addWorktreeEntry(h, `wt${i}`);
+			}
+			let failedOne = false;
+			h.fs.failBatches = paths => {
+				if (!failFirstFull || failedOne || paths.length !== 128) return false;
+
+				failedOne = true;
+				return true;
+			};
+			await h.validate();
+			h.advance();
+			for (let i = 0; i < 80; i++) {
+				h.fs.touch(`/repo/.git/worktrees/wt${i}/HEAD`);
+			}
+			await h.validate();
+			return h;
+		};
+
+		const h = await run(false);
+		const full = h.fs.batches.findIndex(b => b.length === 128);
+		assert.ok(full !== -1, 'a full batch');
+		assert.ok(h.fs.batches[full + 1].length > 0, 'and the rest asked with it, a batch of its own');
+		assert.ok(h.fs.batches.every(b => b.length <= 128));
+		assert.strictEqual(h.fs.stats.length, h.fs.batches.flat().length, 'no stat on its own');
+
+		const failing = await run(true);
+		assert.strictEqual(failing.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], 1);
+		const failed = failing.fs.batches[full];
+		const rest = failing.fs.batches[full + 1];
+		assert.deepStrictEqual(rest, h.fs.batches[full + 1], 'the rest still made as a batch');
+		const start = failing.fs.batches.slice(0, full).flat().length;
+		assert.deepStrictEqual(
+			failing.fs.stats.slice(start + failed.length + rest.length, start + failed.length * 2 + rest.length),
+			failed,
+			'then only the failed batch read again, one at a time',
+		);
+		assert.deepStrictEqual(failing.applied(), h.applied());
+	});
+
+	it('counts a hung batch as one stuck call, and validates other repositories while it hangs', async () => {
+		mock.timers.enable({ apis: ['setTimeout'] });
+		const h = createHarness({ batched: true, maxFsThreads: 3 });
+		addRepo(h.cache, h.fs, '/b');
+		await Promise.all([h.validate('/repo'), h.validate('/b')]);
+
+		h.advance();
+		h.fs.touch('/repo/.git/packed-refs');
+		h.fs.files.set('/repo/.git', 'hang');
+		let settled = false;
+		void h.validator.validate('/repo')!.then(() => {
+			settled = true;
+		});
+		await settle();
+		mock.timers.tick(1000);
+		await settle();
+		assert.ok(settled, 'served as is once the wait timed out');
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCallsStuck.count'], 1);
+
+		h.fs.touch('/b/.git/packed-refs');
+		await h.validate('/b');
+		assert.deepStrictEqual(h.applied().slice(2), [['/b', ['heads', 'remotes', 'tags'], undefined]]);
+
+		h.fs.files.set('/repo/.git', { mtime: 2, size: 10 });
+		h.fs.release({ mtime: 2, size: 10 });
+		await settle();
+		await settle();
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCallsStuck.count'], 0);
+		assert.deepStrictEqual(h.applied().slice(3), [['/repo', ['heads', 'remotes', 'tags'], undefined]]);
 	});
 });
