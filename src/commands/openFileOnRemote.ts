@@ -104,7 +104,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		}
 
 		if (context.command === 'gitlens.openFileOnRemoteFrom' || context.command === 'gitlens.copyRemoteFileUrlFrom') {
-			args = { ...args, pickBranchOrTag: true, range: false }; // Override range since it can be wrong at a different commit
+			args = { ...args, pickBranchOrTag: true };
 		}
 
 		return this.execute(context.editor, uri, args);
