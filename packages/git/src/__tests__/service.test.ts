@@ -45,6 +45,15 @@ suite('GitService.forRepo / closeRepo', () => {
 		service.dispose();
 	});
 
+	test('disposes the disposables it was created with as it is disposed', () => {
+		service.dispose();
+		let disposed = 0;
+		service = GitService.createSingleton(undefined, { disposables: [{ dispose: () => disposed++ }] });
+		assert.strictEqual(disposed, 0);
+		service.dispose();
+		assert.strictEqual(disposed, 1);
+	});
+
 	test('forRepo with local path returns a proxy', () => {
 		const repo = service.forRepo('/home/user/repo');
 		assert.ok(repo != null, 'should return a RepositoryService');
