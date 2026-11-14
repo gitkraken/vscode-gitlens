@@ -462,7 +462,12 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			assert.ok(readsOf(bCo) > 0, 'feature-b re-read its base');
 		});
 
-		test("a remote's HEAD moving to another branch at the same commit is announced by name", async () => {
+		test("a remote's HEAD moving to another branch at the same commit is announced by name", async function () {
+			// `followRemoteHEAD` needs git >= 2.48; older git's fetch never moves origin/HEAD, its fallback covered by operations.test.ts's 'git < 2.48' tests
+			if (!(await provider.supports('git:fetch:follow-remote-head'))) {
+				this.skip();
+			}
+
 			git(main.path, 'config', 'remote.origin.followRemoteHEAD', 'always');
 			git(origin, 'branch', 'trunk', 'main');
 			await repoOf(main.path).ops!.fetch({ remote: 'origin' });

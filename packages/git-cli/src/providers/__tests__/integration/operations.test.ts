@@ -1359,7 +1359,12 @@ suite('OperationsGitSubProvider.fetch — remote HEAD symref', () => {
 		assert.deepStrictEqual(setHeadRemotes(setHeads), ['team/fork']);
 	});
 
-	test('git < 2.48: a bare fetch with fetch.all handles every remote but skipFetchAll ones', async () => {
+	test('git < 2.48: a bare fetch with fetch.all handles every remote but skipFetchAll ones', async function () {
+		// `fetch.all` needs git >= 2.44; older git fetches only the default remote, covered by 'git < 2.48: a bare fetch ignores fetch.all when git has no fetch.all config'
+		if (!(await clone.provider.git.supports('git:fetch:all-config'))) {
+			this.skip();
+		}
+
 		simulateOldGit(clone);
 		addSecondRemote('other');
 		addSecondRemote('skipped', { 'remote.skipped.skipFetchAll': 'true' });
