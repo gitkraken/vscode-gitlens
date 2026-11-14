@@ -34,11 +34,14 @@ export function isAutolinkSetExpired(set: { builtAt: number; complete: boolean }
  * read replaces it, at most the TTL, and what is built from it with its own TTL, like autolinks, up to about twice
  * that. A deletion keeps no such order: Jira Cloud fences the reads in flight across its evictions itself (#6176).
  *
- * An expired entry is no longer served, but is kept until replaced, for that order and so {@link set} can tell whether
- * the read that replaces it found anything new.
+ * An expired entry is no longer served, but is kept until replaced or its credential is retired, for that order and
+ * so {@link set} can tell whether the read that replaces it found anything new.
  */
 export class DiscoveryCache<V> {
-	private readonly entries = new Map<string, { value: V; storedAt: number; read: number; complete: boolean }>();
+	private readonly entries = new Map<
+		string,
+		{ value: V; storedAt: number; read: number; complete: boolean; isCurrent?: () => boolean }
+	>();
 	private _generation = 0;
 	private reads = 0;
 
@@ -56,14 +59,22 @@ export class DiscoveryCache<V> {
 
 	get(key: string): V | undefined {
 		const entry = this.entries.get(key);
-		if (entry == null || !entry.complete || Date.now() - entry.storedAt >= this.ttl) return undefined;
+		if (
+			entry == null ||
+			entry.isCurrent?.() === false ||
+			!entry.complete ||
+			Date.now() - entry.storedAt >= this.ttl
+		) {
+			return undefined;
+		}
 
 		return entry.value;
 	}
 
 	/** The value stored under `key`, expired or not: what a reader that can't wait for a re-read last knew of it. */
 	peek(key: string): V | undefined {
-		return this.entries.get(key)?.value;
+		const entry = this.entries.get(key);
+		return entry?.isCurrent?.() === false ? undefined : entry?.value;
 	}
 
 	/**
@@ -71,14 +82,30 @@ export class DiscoveryCache<V> {
 	 * {@link startRead}, a read started after it stored `key`. `storedAt` backdates an entry seeded from persisted
 	 * storage, so it expires on the schedule of the read that produced it rather than of the seeding. Returns `false`
 	 * when refused, `'unchanged'` when value and completeness match, expired or not, and `'changed'` otherwise.
-	 * Incomplete entries are retained by `peek`, but never satisfy `get`.
+	 * Incomplete entries are retained by `peek`, but never satisfy `get`. An optional `isCurrent` lifetime must be
+	 * captured before reading: retired lifetimes refuse stores and are swept on subsequent stores, without discarding
+	 * live credentials' last-known values or ordering barriers.
 	 */
 	set(
 		key: string,
 		value: V,
-		options?: { generation?: number; read?: number; storedAt?: number; complete?: boolean },
+		options?: {
+			generation?: number;
+			read?: number;
+			storedAt?: number;
+			complete?: boolean;
+			isCurrent?: () => boolean;
+		},
 	): 'changed' | 'unchanged' | false {
 		if (options?.generation != null && options.generation !== this._generation) return false;
+
+		// Expiry alone cannot discard last-known ownership or the ordering barrier of a live credential.
+		for (const [entryKey, entry] of this.entries) {
+			if (entry.isCurrent?.() === false) {
+				this.entries.delete(entryKey);
+			}
+		}
+		if (options?.isCurrent?.() === false) return false;
 
 		const previous = this.entries.get(key);
 		const read = options?.read;
@@ -90,6 +117,7 @@ export class DiscoveryCache<V> {
 			storedAt: options?.storedAt ?? Date.now(),
 			read: read ?? previous?.read ?? 0,
 			complete: options?.complete ?? true,
+			isCurrent: options?.isCurrent ?? previous?.isCurrent,
 		});
 		return previous?.complete === (options?.complete ?? true) && areEqual(previous.value, value)
 			? 'unchanged'

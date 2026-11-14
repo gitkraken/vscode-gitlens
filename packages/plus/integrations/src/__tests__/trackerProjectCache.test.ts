@@ -1587,6 +1587,191 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		for (const expired of [false, true]) {
+			test(`targeted deletion stops serving retired autolinks while storage waits (expired: ${expired})`, async () => {
+				const { service, integration, runtime, state } = await jiraCloud();
+				let release: (() => void) | undefined;
+				let deletion: Promise<void> | undefined;
+				try {
+					assert.ok((await prefixesOf(integration)).length > 0);
+					if (expired) {
+						advanceClock(24 * 60 * 60 * 1000);
+					}
+					const gate = new Promise<void>(resolve => (release = resolve));
+					const remove = runtime.storage.deleteSecret.bind(runtime.storage);
+					let entered = false;
+					runtime.storage.deleteSecret = async key => {
+						entered = true;
+						await gate;
+						return remove(key);
+					};
+					deletion = service.deleteConnection(IssuesCloudHostIntegrationId.Jira, 't1');
+					await until(() => entered, 'targeted deletion reached secret storage');
+					const reads = state.siteReads;
+					assert.deepEqual(await prefixesOf(integration), []);
+					assert.deepEqual(await prefixesOf(integration), []);
+					assert.equal(state.siteReads, reads, 'repeated renders do not read with the retired token');
+				} finally {
+					release?.();
+					await deletion;
+					service.dispose();
+				}
+			});
+		}
+
+		test('cache clears preserve live credential authority and broad removal releases every variant', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				const internals = integration as unknown as JiraCloudInternals & {
+					_actualCredentials: Map<string, { cloud: boolean; accessToken?: string }>;
+				};
+				const old = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				const current = { ...old, accessToken: 'secondary-b' };
+				integration.onSessionPublishing({ session: old, connectionId: 'secondary' });
+				integration.onSessionPublishing({ session: current, connectionId: 'secondary' });
+				integration.invalidateDiscoveryCaches();
+				integration.invalidateDiscoveryForConnection('secondary');
+				await internals.buildAutolinks(old);
+				assert.equal(internals._autolinks.has(old.accessToken), false);
+				await internals.buildAutolinks(current);
+				assert.ok(internals._autolinks.has(current.accessToken));
+				integration.onSessionPublishing({ session: { ...old, cloud: false }, connectionId: 'secondary-local' });
+				integration.onSessionPublishing({ previousSessionId: 'secondary', connectionId: 'secondary' });
+				integration.invalidateDiscoveryForConnection('secondary');
+				await internals.buildAutolinks(current);
+				assert.equal(internals._autolinks.has(current.accessToken), false);
+				assert.ok(
+					![...internals._actualCredentials.values()].some(
+						credential =>
+							credential.accessToken === old.accessToken ||
+							credential.accessToken === current.accessToken,
+					),
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('sign-out and disposal retire configured-only credential ownership', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				const internals = integration as unknown as JiraCloudInternals & {
+					_actualCredentials: Map<string, { cloud: boolean; accessToken?: string }>;
+				};
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary });
+				await integration.disconnect({ silent: true });
+				integration.invalidateDiscoveryCaches();
+				await internals.buildAutolinks(secondary);
+				await internals.buildAutolinks({ ...secondary, id: 'unobserved' });
+				assert.equal(internals._autolinks.has(secondary.accessToken), false);
+				assert.ok(
+					[...internals._actualCredentials.values()].every(credential => credential.accessToken == null),
+				);
+				integration.onSessionPublishing({ session: secondary });
+				await internals.buildAutolinks(secondary);
+				assert.ok(internals._autolinks.has(secondary.accessToken));
+				integration.dispose();
+				await internals.buildAutolinks({ ...secondary, id: 'after-dispose' });
+				assert.equal(internals._autolinks.has(secondary.accessToken), false);
+				assert.ok(
+					[...internals._actualCredentials.values()].every(credential => credential.accessToken == null),
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('discovery entered after replacement cannot retain a retired credential', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				const internals = integration as unknown as JiraCloudInternals;
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				integration.onSessionPublishing({
+					session: { ...secondary, accessToken: 'secondary-b' },
+					connectionId: 'secondary',
+				});
+				for (const candidate of [secondary, { ...secondary, accessToken: 'not-yet-published' }]) {
+					const resources = await internals.getProviderResourcesForUser(candidate, true);
+					assert.ok(Array.isArray(resources) && resources.length > 0);
+					assert.equal(
+						(integration as unknown as { _organizations: DiscoveryCache<unknown> })._organizations.peek(
+							candidate.accessToken,
+						),
+						undefined,
+					);
+				}
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('reclaims retired secondary discovery without losing dormant live owners', async () => {
+			const { service, integration } = await jiraCloud();
+			try {
+				const internals = integration as unknown as JiraCloudInternals;
+				await internals.buildAutolinks(internals._session);
+				const primary = internals._projects.peek('tok-1:site-1');
+				let secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-0' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				await internals.buildAutolinks(secondary);
+				const firstKey = 'secondary-0:site-1';
+				const secondaryValue = internals._projects.peek(firstKey);
+				advanceClock(discoveryCacheTtl * 20);
+				await internals.buildAutolinks({ ...internals._session, id: 'unrelated', accessToken: 'unrelated' });
+				assert.deepEqual(internals._projects.peek('tok-1:site-1'), primary);
+				assert.deepEqual(internals._projects.peek(firstKey), secondaryValue);
+				for (let i = 1; i <= 12; i++) {
+					const oldToken = secondary.accessToken;
+					secondary = { ...secondary, accessToken: `secondary-${i}` };
+					integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+					await internals.buildAutolinks(secondary);
+					assert.equal(internals._projects.peek(`${oldToken}:site-1`), undefined);
+					assert.equal(internals._autolinks.has(oldToken), false);
+					for (const [field, cache] of Object.entries(integration)) {
+						if (!(cache instanceof DiscoveryCache)) continue;
+
+						const entries = (cache as unknown as { entries: Map<string, unknown> }).entries;
+						assert.ok(
+							![...entries.keys()].some(key => key === oldToken || key.startsWith(`${oldToken}:`)),
+							`${field} physically releases the retired token`,
+						);
+					}
+				}
+				assert.deepEqual(internals._projects.peek('tok-1:site-1'), primary);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a retired secondary build cannot store after its token is reused', async () => {
+			const { service, integration, state } = await jiraCloud();
+			try {
+				const internals = integration as unknown as JiraCloudInternals;
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				let release!: () => void;
+				state.sitesGate = new Promise<void>(resolve => (release = resolve));
+				const oldBuild = internals.buildAutolinks(secondary);
+				await flush();
+				integration.onSessionPublishing({
+					session: { ...secondary, accessToken: 'secondary-b' },
+					connectionId: 'secondary',
+				});
+				const replacement = { ...secondary };
+				integration.onSessionPublishing({ session: replacement, connectionId: 'secondary' });
+				state.sitesGate = undefined;
+				await internals.buildAutolinks(replacement);
+				const kept = internals._autolinks.get(secondary.accessToken);
+				release();
+				await oldBuild;
+				assert.equal(internals._autolinks.get(secondary.accessToken), kept);
+			} finally {
+				service.dispose();
+			}
+		});
+
 		type JiraCloudInternals = {
 			_session: ProviderAuthenticationSession;
 			getProviderResourcesForUser: (session: ProviderAuthenticationSession, force?: boolean) => Promise<unknown>;
@@ -1692,7 +1877,7 @@ suite('Tracker project cache (#5907)', () => {
 			const reads = state.projectReads;
 			let release!: () => void;
 			state.projectsGate = new Promise<void>(resolve => (release = resolve));
-			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			const other = internals.buildAutolinks({ ...internals._session, id: 'secondary', accessToken: 'tok-2' });
 			await until(() => state.projectReads === reads + 1, "the other token's rebuild read the projects");
 			state.projectsGate = undefined;
 
@@ -2353,7 +2538,7 @@ suite('Tracker project cache (#5907)', () => {
 			const reads = state.projectReads;
 			let release!: () => void;
 			state.projectsGate = new Promise<void>(resolve => (release = resolve));
-			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			const other = internals.buildAutolinks({ ...internals._session, id: 'secondary', accessToken: 'tok-2' });
 			await until(() => state.projectReads === reads + 1, "the other token's rebuild read the projects");
 			state.projectsGate = undefined;
 
@@ -2823,6 +3008,7 @@ suite('Tracker project cache (#5907)', () => {
 				organizationGate: undefined as Promise<void> | undefined,
 			};
 			stubApi(integration, {
+				getLinearProjects: () => Promise.resolve({ values: [], paging: { more: false } }),
 				getLinearOrganization: async () => {
 					state.organizationReads++;
 					const snapshot = state.noOrganizationData ? undefined : { ...state.organization };
@@ -3557,7 +3743,202 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		for (const expired of [false, true]) {
+			test(`targeted deletion stops serving retired autolinks while storage waits (expired: ${expired})`, async () => {
+				const { service, integration, runtime, state } = await linear();
+				let release: (() => void) | undefined;
+				let deletion: Promise<void> | undefined;
+				try {
+					assert.ok((await prefixesOf(integration)).length > 0);
+					if (expired) {
+						advanceClock(24 * 60 * 60 * 1000);
+					}
+					const gate = new Promise<void>(resolve => (release = resolve));
+					const remove = runtime.storage.deleteSecret.bind(runtime.storage);
+					let entered = false;
+					runtime.storage.deleteSecret = async key => {
+						entered = true;
+						await gate;
+						return remove(key);
+					};
+					deletion = service.deleteConnection(IssuesCloudHostIntegrationId.Linear, 't1');
+					await until(() => entered, 'targeted deletion reached secret storage');
+					const reads = state.organizationReads;
+					assert.deepEqual(await prefixesOf(integration), []);
+					assert.deepEqual(await prefixesOf(integration), []);
+					assert.equal(state.organizationReads, reads, 'repeated renders do not read with the retired token');
+				} finally {
+					release?.();
+					await deletion;
+					service.dispose();
+				}
+			});
+		}
+
+		test('cache clears preserve live credential authority and broad removal releases every variant', async () => {
+			const { service, integration } = await linear();
+			try {
+				const internals = integration as unknown as LinearInternals & {
+					_actualCredentials: Map<string, { cloud: boolean; accessToken?: string }>;
+				};
+				const old = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				const current = { ...old, accessToken: 'secondary-b' };
+				integration.onSessionPublishing({ session: old, connectionId: 'secondary' });
+				integration.onSessionPublishing({ session: current, connectionId: 'secondary' });
+				integration.invalidateDiscoveryCaches();
+				integration.invalidateDiscoveryForConnection('secondary');
+				await internals.buildAutolinks(old);
+				assert.equal(internals._autolinks.has(old.accessToken), false);
+				await internals.buildAutolinks(current);
+				assert.ok(internals._autolinks.has(current.accessToken));
+				integration.onSessionPublishing({ session: { ...old, cloud: false }, connectionId: 'secondary-local' });
+				integration.onSessionPublishing({ previousSessionId: 'secondary', connectionId: 'secondary' });
+				integration.invalidateDiscoveryForConnection('secondary');
+				await internals.buildAutolinks(current);
+				assert.equal(internals._autolinks.has(current.accessToken), false);
+				assert.ok(
+					![...internals._actualCredentials.values()].some(
+						credential =>
+							credential.accessToken === old.accessToken ||
+							credential.accessToken === current.accessToken,
+					),
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('sign-out and disposal retire configured-only credential ownership', async () => {
+			const { service, integration } = await linear();
+			try {
+				const internals = integration as unknown as LinearInternals & {
+					_actualCredentials: Map<string, { cloud: boolean; accessToken?: string }>;
+				};
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary });
+				await integration.disconnect({ silent: true });
+				integration.invalidateDiscoveryCaches();
+				await internals.buildAutolinks(secondary);
+				await internals.buildAutolinks({ ...secondary, id: 'unobserved' });
+				assert.equal(internals._autolinks.has(secondary.accessToken), false);
+				assert.ok(
+					[...internals._actualCredentials.values()].every(credential => credential.accessToken == null),
+				);
+				integration.onSessionPublishing({ session: secondary });
+				await internals.buildAutolinks(secondary);
+				assert.ok(internals._autolinks.has(secondary.accessToken));
+				integration.dispose();
+				await internals.buildAutolinks({ ...secondary, id: 'after-dispose' });
+				assert.equal(internals._autolinks.has(secondary.accessToken), false);
+				assert.ok(
+					[...internals._actualCredentials.values()].every(credential => credential.accessToken == null),
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('discovery entered after replacement cannot retain a retired credential', async () => {
+			const { service, integration } = await linear();
+			try {
+				const internals = integration as unknown as LinearInternals;
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				integration.onSessionPublishing({
+					session: { ...secondary, accessToken: 'secondary-b' },
+					connectionId: 'secondary',
+				});
+				for (const candidate of [secondary, { ...secondary, accessToken: 'not-yet-published' }]) {
+					const resource = await integration.getProviderResourceForSession(candidate);
+					assert.ok(resource);
+					await internals.getWorkspaceProjects(candidate, true);
+					assert.equal(
+						(integration as unknown as { _organizations: DiscoveryCache<unknown> })._organizations.peek(
+							candidate.accessToken,
+						),
+						undefined,
+					);
+					assert.equal(
+						(
+							integration as unknown as { _workspaceProjects: DiscoveryCache<unknown> }
+						)._workspaceProjects.peek(candidate.accessToken),
+						undefined,
+					);
+				}
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('reclaims retired secondary discovery without losing dormant live owners', async () => {
+			const { service, integration } = await linear();
+			try {
+				const internals = integration as unknown as LinearInternals;
+				await internals.buildAutolinks(internals._session);
+				const primary = internals._teams.peek('tok-1');
+				let secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-0' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				await internals.buildAutolinks(secondary);
+				await internals.getWorkspaceProjects(secondary, false);
+				const firstKey = 'secondary-0';
+				const secondaryValue = internals._teams.peek(firstKey);
+				advanceClock(discoveryCacheTtl * 20);
+				await internals.buildAutolinks({ ...internals._session, id: 'unrelated', accessToken: 'unrelated' });
+				assert.deepEqual(internals._teams.peek('tok-1'), primary);
+				assert.deepEqual(internals._teams.peek(firstKey), secondaryValue);
+				for (let i = 1; i <= 12; i++) {
+					const oldToken = secondary.accessToken;
+					secondary = { ...secondary, accessToken: `secondary-${i}` };
+					integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+					await internals.buildAutolinks(secondary);
+					await internals.getWorkspaceProjects(secondary, false);
+					assert.equal(internals._teams.peek(oldToken), undefined);
+					assert.equal(internals._autolinks.has(oldToken), false);
+					for (const [field, cache] of Object.entries(integration)) {
+						if (!(cache instanceof DiscoveryCache)) continue;
+
+						const entries = (cache as unknown as { entries: Map<string, unknown> }).entries;
+						assert.ok(
+							![...entries.keys()].some(key => key === oldToken || key.startsWith(`${oldToken}:`)),
+							`${field} physically releases the retired token`,
+						);
+					}
+				}
+				assert.deepEqual(internals._teams.peek('tok-1'), primary);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('a retired secondary build cannot store after its token is reused', async () => {
+			const { service, integration, state } = await linear();
+			try {
+				const internals = integration as unknown as LinearInternals;
+				const secondary = { ...internals._session, id: 'secondary', accessToken: 'secondary-a' };
+				integration.onSessionPublishing({ session: secondary, connectionId: 'secondary' });
+				let release!: () => void;
+				state.organizationGate = new Promise<void>(resolve => (release = resolve));
+				const oldBuild = internals.buildAutolinks(secondary);
+				await flush();
+				integration.onSessionPublishing({
+					session: { ...secondary, accessToken: 'secondary-b' },
+					connectionId: 'secondary',
+				});
+				const replacement = { ...secondary };
+				integration.onSessionPublishing({ session: replacement, connectionId: 'secondary' });
+				state.organizationGate = undefined;
+				await internals.buildAutolinks(replacement);
+				const kept = internals._autolinks.get(secondary.accessToken);
+				release();
+				await oldBuild;
+				assert.equal(internals._autolinks.get(secondary.accessToken), kept);
+			} finally {
+				service.dispose();
+			}
+		});
+
 		type LinearInternals = {
+			getWorkspaceProjects: (session: ProviderAuthenticationSession, fresh: boolean) => Promise<unknown>;
 			_session: ProviderAuthenticationSession;
 			_autolinks: Map<string, { autolinks: { prefix?: string }[]; complete?: boolean }>;
 			_autolinksBuilds: Map<string, Promise<{ prefix?: string }[]>>;
@@ -3879,7 +4260,7 @@ suite('Tracker project cache (#5907)', () => {
 			const reads = state.teamReads;
 			let release!: () => void;
 			state.teamsGate = new Promise<void>(resolve => (release = resolve));
-			const other = internals.buildAutolinks({ ...internals._session, accessToken: 'tok-2' });
+			const other = internals.buildAutolinks({ ...internals._session, id: 'secondary', accessToken: 'tok-2' });
 			await until(() => state.teamReads === reads + 1, "the other token's rebuild read the teams");
 			state.teamsGate = undefined;
 
@@ -4088,6 +4469,25 @@ suite('Tracker project cache (#5907)', () => {
 	});
 
 	suite('DiscoveryCache', () => {
+		test('retired owners are swept without discarding live values or independent read ordering', () => {
+			const cache = new DiscoveryCache<number>(1000);
+			let current = true;
+			const isCurrent = () => current;
+			const retiredRead = cache.startRead();
+			const unrelatedRead = cache.startRead();
+			cache.set('retired', 1, { isCurrent: isCurrent, read: cache.startRead() });
+			cache.set('live', 2, { read: cache.startRead(), complete: false });
+			advanceClock(20000);
+			current = false;
+			cache.set('new-token', 3);
+			assert.equal(cache.peek('retired'), undefined);
+			assert.equal(cache.peek('live'), 2);
+			assert.equal(cache.set('retired', 4, { isCurrent: isCurrent, read: retiredRead }), false);
+			assert.equal(cache.set('unrelated', 5, { read: unrelatedRead }), 'changed');
+			assert.equal(cache.set('live', 6, { read: unrelatedRead }), false);
+			assert.equal(cache.peek('live'), 2);
+		});
+
 		test('partial entries replace the last value but remain cache misses', () => {
 			const cache = new DiscoveryCache<string[]>();
 			cache.set('a', ['old']);

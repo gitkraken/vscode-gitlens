@@ -301,9 +301,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			);
 		}
 
-		if (targets.length === 0) {
-			this.publish({ replacePrimary: true }, [domain]);
-		}
+		this.publish({ replacePrimary: true, retireAll: true }, [domain]);
 
 		this.removeTargets(targets);
 		this.markRetirement(retirement);
