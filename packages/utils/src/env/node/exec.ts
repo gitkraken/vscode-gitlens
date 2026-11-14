@@ -241,29 +241,34 @@ export function spawnProcess(command: string, args: readonly string[], options: 
 	}
 
 	if (timeout != null && timeout > 0) {
-		let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-			if (timeoutId != null) {
-				try {
-					child.kill();
-				} catch (ex) {
-					child.emit('error', ex);
-				}
-				timeoutId = undefined;
-			}
-		}, timeout);
-
-		const clear = () => {
-			if (timeoutId != null) {
-				clearTimeout(timeoutId);
-				timeoutId = undefined;
-			}
-		};
-		// `'exit'` keeps Node's timing; `'close'` covers a launch that fails and never exits
-		child.once('exit', clear);
-		child.once('close', clear);
+		killOnTimeout(child, timeout);
 	}
 
 	return child;
+}
+
+/** Node's spawn `timeout`, but also cleared on `'close'`; see {@link spawnProcess} */
+function killOnTimeout(child: ChildProcess, timeout: number): void {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+		if (timeoutId != null) {
+			try {
+				child.kill();
+			} catch (ex) {
+				child.emit('error', ex);
+			}
+			timeoutId = undefined;
+		}
+	}, timeout);
+
+	const clear = () => {
+		if (timeoutId != null) {
+			clearTimeout(timeoutId);
+			timeoutId = undefined;
+		}
+	};
+	// `'exit'` keeps Node's timing; `'close'` covers a launch that fails and never exits
+	child.once('exit', clear);
+	child.once('close', clear);
 }
 
 const taskkillTimeout = 5000;
@@ -331,8 +336,9 @@ function killTreeOnKill(child: ChildProcess): void {
 			const taskkill = spawn(
 				joinPaths(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
 				['/T', '/F', '/PID', String(child.pid)],
-				{ stdio: 'ignore', windowsHide: true, timeout: taskkillTimeout },
+				{ stdio: 'ignore', windowsHide: true },
 			);
+			killOnTimeout(taskkill, taskkillTimeout);
 			taskkill.once('error', fail);
 			taskkill.once('exit', code => {
 				if (code !== 0) {

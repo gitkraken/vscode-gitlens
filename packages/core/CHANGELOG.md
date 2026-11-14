@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- Fixes a Windows kill whose `taskkill` fails to launch keeping Node alive for 5 seconds, from a time limit that was cleared only when `taskkill` exited (utils)
+
 ## [0.38.1] - 2026-11-14
 
 ### Fixed
