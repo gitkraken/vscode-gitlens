@@ -27,7 +27,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug()
-	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
+	getRevisionContent(
+		repoPath: string,
+		path: string,
+		rev: string,
+		// The path goes into the URI as given, with no separator rewriting, so a literal path needs nothing more
+		_options?: { literalPath?: boolean },
+	): Promise<Uint8Array | undefined> {
 		const uri = rev
 			? this.provider.createProviderUri(repoPath, rev, path)
 			: this.provider.createVirtualUri(repoPath, rev, path);
