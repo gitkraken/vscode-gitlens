@@ -25,7 +25,7 @@ rename to new-file.ts`;
 	});
 
 	test('parses new file', () => {
-		const diffContent = `a/dev/null b/new-file.ts
+		const diffContent = `a/new-file.ts b/new-file.ts
 new file mode 100644
 index 0000000..abc123
 --- /dev/null
@@ -37,13 +37,13 @@ index 0000000..abc123
 
 		const file = result.files[0];
 		assert.strictEqual(file.path, 'new-file.ts', 'Should have correct path');
-		assert.strictEqual(file.originalPath, 'dev/null', 'Should have no original path');
+		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
 		assert.strictEqual(file.status, 'A', 'Should have added status');
 		assert.strictEqual(file.hunks.length, 0, 'Should have no hunks without @@ markers');
 	});
 
 	test('parses deleted file', () => {
-		const diffContent = `a/old-file.ts b/dev/null
+		const diffContent = `a/old-file.ts b/old-file.ts
 deleted file mode 100644
 index abc123..0000000
 --- a/old-file.ts
@@ -54,8 +54,8 @@ index abc123..0000000
 		assert.strictEqual(result.files.length, 1, 'Should parse one file');
 
 		const file = result.files[0];
-		assert.strictEqual(file.path, 'dev/null', 'Should have correct path');
-		assert.strictEqual(file.originalPath, 'old-file.ts', 'Should have correct original path');
+		assert.strictEqual(file.path, 'old-file.ts', 'Should have correct path');
+		assert.strictEqual(file.originalPath, undefined, 'Should have no original path');
 		assert.strictEqual(file.status, 'D', 'Should have deleted status');
 		assert.strictEqual(file.hunks.length, 0, 'Should have no hunks without @@ markers');
 	});

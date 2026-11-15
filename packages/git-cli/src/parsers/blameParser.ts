@@ -8,7 +8,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
+import { iterateAsyncByDelimiter, iterateByDelimiter, unquoteCString } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 
@@ -126,7 +126,7 @@ export function parseGitBlame(
 
 			case 0x66 /* f — filename */: {
 				// Don't trim — spaces in filenames are valid
-				entry.path = line.substring(valueStart);
+				entry.path = unquoteCString(line.substring(valueStart));
 
 				// Assemble model immediately — no intermediate storage
 				const entryPath = entry.path;
@@ -255,7 +255,7 @@ export function parseGitBlame(
 				const shaEnd = value.indexOf(' ');
 				if (shaEnd !== -1) {
 					entry.previousSha = value.substring(0, shaEnd);
-					entry.previousPath = value.substring(shaEnd + 1);
+					entry.previousPath = unquoteCString(value.substring(shaEnd + 1));
 				}
 				break;
 			}
@@ -340,7 +340,7 @@ export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncG
 				break;
 
 			case 0x66 /* f — filename */:
-				entry.path = line.substring(valueStart);
+				entry.path = unquoteCString(line.substring(valueStart));
 				yield entry;
 
 				entry = undefined;
@@ -355,7 +355,7 @@ export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncG
 				const shaEnd = value.indexOf(' ');
 				if (shaEnd !== -1) {
 					entry.previousSha = value.substring(0, shaEnd);
-					entry.previousPath = value.substring(shaEnd + 1);
+					entry.previousPath = unquoteCString(value.substring(shaEnd + 1));
 				}
 				break;
 			}

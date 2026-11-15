@@ -477,6 +477,107 @@ suite('Status Parser Test Suite', () => {
 		assert.strictEqual(result.branch, 'feature-branch', 'Should parse branch name');
 		assert.strictEqual(result.upstream, undefined, 'Should have no upstream');
 	});
+
+	// `status -z` tests: records end with NUL and a name is exactly as it is on disk
+
+	test('-z V2: reads untracked names git would C-quote', () => {
+		const data = [
+			'# branch.oid abc',
+			'# branch.head main',
+			'? u-quo"te.txt',
+			'? back\\slash.txt',
+			'? tab\there.txt',
+			'? new\nline.txt',
+			'? a -> b.txt',
+			'',
+		].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.deepStrictEqual(
+			result?.files.map(f => f.path),
+			['u-quo"te.txt', 'back\\slash.txt', 'tab\there.txt', 'new\nline.txt', 'a -> b.txt'],
+		);
+		assert.ok(result.files.every(f => f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked));
+	});
+
+	test('-z V2: reads a rename whose original path is the next record', () => {
+		const data = [
+			'# branch.oid abc',
+			'# branch.head main',
+			`2 R. N... 100644 100644 100644 ${'a'.repeat(40)} ${'b'.repeat(40)} R100 ren"ame\tnew.txt`,
+			'old "name".txt',
+			'1 .M N... 100644 100644 100644 aaaa bbbb mod"ified.txt',
+			'',
+		].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 2);
+		assert.strictEqual(result.files[0].path, 'ren"ame\tnew.txt');
+		assert.strictEqual(result.files[0].originalPath, 'old "name".txt');
+		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Renamed);
+		assert.strictEqual(result.files[1].path, 'mod"ified.txt');
+		assert.strictEqual(result.files[1].originalPath, undefined);
+	});
+
+	test('-z V2: reads an unmerged path', () => {
+		const data = ['# branch.head main', 'u UU N... 100644 100644 100644 100644 a b c conf"lict.txt', ''].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].path, 'conf"lict.txt');
+	});
+
+	test('-z V1: reads names git would C-quote', () => {
+		const data = [
+			'## main...origin/main [ahead 1]',
+			'?? u-quo"te.txt',
+			' M tab\there.txt',
+			'A  new\nline.txt',
+			'',
+		].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 1);
+
+		assert.strictEqual(result?.branch, 'main');
+		assert.strictEqual(result.upstream?.name, 'origin/main');
+		assert.strictEqual(result.upstream.state.ahead, 1);
+		assert.deepStrictEqual(
+			result.files.map(f => f.path),
+			['u-quo"te.txt', 'tab\there.txt', 'new\nline.txt'],
+		);
+	});
+
+	test('-z V1: reads a rename, whose new path comes first and original path is the next record', () => {
+		const data = ['## main', 'R  new "name" -> x.txt', 'old\tname.txt', ' M after.txt', ''].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 1);
+
+		assert.strictEqual(result?.files.length, 2);
+		assert.strictEqual(result.files[0].path, 'new "name" -> x.txt');
+		assert.strictEqual(result.files[0].originalPath, 'old\tname.txt');
+		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Renamed);
+		assert.strictEqual(result.files[1].path, 'after.txt');
+	});
+
+	test('-z V1: reads a working tree rename, whose original path is the next record too', () => {
+		const data = ['## main', ' R new.txt', 'old.txt', '?? u.txt', ''].join('\0');
+
+		const result = parseGitStatus(data, repoPath, 1);
+
+		assert.deepStrictEqual(
+			result?.files.map(f => [f.path, f.originalPath]),
+			[
+				['new.txt', 'old.txt'],
+				['u.txt', undefined],
+			],
+		);
+	});
+
+	test('-z: returns undefined when there are no records', () => {
+		assert.strictEqual(parseGitStatus('\0', repoPath, 2), undefined);
+	});
 });
 
 suite('foldMatchingIgnored Test Suite', () => {
