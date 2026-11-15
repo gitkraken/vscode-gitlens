@@ -192,7 +192,20 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug({ quiet: true })
-	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
+	getRevisionContent(
+		repoPath: string,
+		path: string,
+		rev: string,
+		options?: { literalPath?: boolean },
+	): Promise<Uint8Array | undefined> {
+		if (options?.literalPath) {
+			return this.showContentCore<Buffer>(repoPath, path, rev, {
+				encoding: 'buffer',
+				errors: 'throw',
+				literalPath: true,
+			});
+		}
+
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.showContentCore<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
@@ -372,9 +385,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		options?: {
 			encoding?: string;
 			errors?: GitErrorHandling;
+			/** `path` is repo-relative and used exactly as given, with no separator rewriting */
+			literalPath?: boolean;
 		},
 	): Promise<T | undefined> {
-		const [file, root] = splitPath(path, repoPath, true);
+		// `splitPath` turns every `\` into `/`, which on Linux and macOS splits a file name that holds one
+		const [file, root] = options?.literalPath ? [path, repoPath] : splitPath(path, repoPath, true);
 
 		if (isUncommittedStaged(rev)) {
 			rev = ':';

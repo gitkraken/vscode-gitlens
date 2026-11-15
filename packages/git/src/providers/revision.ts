@@ -33,7 +33,17 @@ export interface GitRevisionSubProvider {
 	): Promise<Map<string, string>>;
 	/** The empty tree's id in this repository's object format (SHA-1 or SHA-256). */
 	getEmptyTreeSha(repoPath: string): Promise<string>;
-	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;
+	/**
+	 * The bytes of `path` at `rev`. `path` is an absolute path, a URI or a repo-relative path, with `\` taken as a
+	 * separator (what a Windows path holds), unless `literalPath` is set: then it is a repo-relative path exactly
+	 * as given, so a file name holding a backslash on Linux or macOS is read as itself
+	 */
+	getRevisionContent(
+		repoPath: string,
+		path: string,
+		rev: string,
+		options?: { literalPath?: boolean },
+	): Promise<Uint8Array | undefined>;
 	getSubmoduleHead?(repoPath: string, submodulePath: string): Promise<string | undefined>;
 	/**
 	 * Gets tracked file paths from the index (reflects working tree state, even during rebase).
