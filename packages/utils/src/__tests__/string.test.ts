@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '../string.js';
+import { iterateAsyncByDelimiter, iterateByDelimiter, readCQuotedString, unquoteCString } from '../string.js';
 
 suite('String Delimiter Iteration Test Suite', () => {
 	suite('iterateByDelimiter - Basic Functionality', () => {
@@ -471,6 +471,64 @@ suite('String Delimiter Iteration Test Suite', () => {
 			const data = asyncGen([]);
 			const result = await collectAsync(iterateAsyncByDelimiter(data, '\n'));
 			assert.deepStrictEqual(result, []);
+		});
+	});
+});
+
+suite('C-quoted string reading', () => {
+	suite('readCQuotedString', () => {
+		test('reads the escapes git writes', () => {
+			const text = '"a\\"b\\\\c\\td\\ne\\af\\bg\\fh\\ri\\vj"';
+			assert.deepStrictEqual(readCQuotedString(text, 0), {
+				value: 'a"b\\c\td\ne\x07f\bg\fh\ri\vj',
+				end: text.length,
+			});
+		});
+
+		test('reads octal escapes as the bytes of UTF-8', () => {
+			assert.strictEqual(
+				readCQuotedString('"caf\\303\\251 \\346\\227\\245 \\360\\237\\230\\200"', 0)?.value,
+				'café 日 😀',
+			);
+		});
+
+		test('reads an octal escape of a control character', () => {
+			assert.strictEqual(readCQuotedString('"ctl\\001"', 0)?.value, 'ctl\x01');
+		});
+
+		test('keeps characters git left raw', () => {
+			assert.strictEqual(readCQuotedString('"café \\"日\\" 😀"', 0)?.value, 'café "日" 😀');
+		});
+
+		test('reads from the given index and stops at the closing quote', () => {
+			assert.deepStrictEqual(readCQuotedString('x => "a\\"b" (100%)', 5), { value: 'a"b', end: 11 });
+		});
+
+		test('returns undefined for an unterminated string or an unknown escape', () => {
+			assert.strictEqual(readCQuotedString('"abc', 0), undefined);
+			assert.strictEqual(readCQuotedString('"a\\qb"', 0), undefined);
+			assert.strictEqual(readCQuotedString('"abc\\', 0), undefined);
+		});
+	});
+
+	suite('unquoteCString', () => {
+		test('unquotes a whole quoted value', () => {
+			assert.strictEqual(unquoteCString('"tab\\there \\"x\\".txt"'), 'tab\there "x".txt');
+		});
+
+		test('returns an unquoted value as it is', () => {
+			assert.strictEqual(unquoteCString('Plan b/sp ace.txt'), 'Plan b/sp ace.txt');
+			assert.strictEqual(unquoteCString(''), '');
+		});
+
+		test('returns a malformed or partly quoted value as it is', () => {
+			assert.strictEqual(unquoteCString('"abc'), '"abc');
+			assert.strictEqual(unquoteCString('"a" => "b"'), '"a" => "b"');
+		});
+
+		test('keeps a leading U+FEFF, escaped or raw', () => {
+			assert.strictEqual(unquoteCString('"\\357\\273\\277bom\\".txt"'), '﻿bom".txt');
+			assert.strictEqual(unquoteCString('"﻿bom\\".txt"'), '﻿bom".txt');
 		});
 	});
 });
