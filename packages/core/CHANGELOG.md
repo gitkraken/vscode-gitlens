@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `paths` to `diff.getDiff` and `diff.getParsedDiff`: limits the diff to those repo-relative paths, matched literally and exactly as given (a name with glob characters matches only itself, and a backslash is a file-name character rather than a separator), batched to fit the command line, with each batch's output joined in order. A host that already holds exact names, such as the ones `diff.getDiffStatus` returns, can now read the hunks of a file whose name holds a backslash on Linux or macOS, where `uris` rewrote it to a different path and found nothing. An empty list resolves `undefined` without running git, `paths` wins over `uris`, and a rename whose two sides fall in different batches reads as a delete and an add (git, git-cli)
+- Adds `literalPath` to the options of `revision.getRevisionContent`: reads `path` as a repo-relative path exactly as given, with no splitting or separator rewriting, so a host can read the bytes of a file whose name holds a backslash on Linux or macOS, at a commit or from the index. Without it a `\` is still read as a separator (git, git-cli, git-github)
+
 ## [0.38.3] - 2026-11-15
 
 ### Fixed

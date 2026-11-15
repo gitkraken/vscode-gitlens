@@ -134,11 +134,16 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			renames?: boolean;
 			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			paths?: string[];
 			errors?: GitErrorHandling;
 		},
 		_cancellation?: AbortSignal,
 	): Promise<GitDiff | undefined> {
 		const scope = getScopedLogger();
+		// `paths` are literal and exact; an empty list asks for no files rather than all of them
+		const literalPaths = options?.paths;
+		if (literalPaths != null && !literalPaths.length) return undefined;
+
 		// An external diff tool (`diff.external` or a `diff=<driver>` attribute's command) would replace the patch
 		const args = [`-U${options?.context ?? 3}`, '--no-ext-diff'];
 
@@ -162,25 +167,33 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		const hasFrom = from != null;
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
-		let paths: Set<string> | undefined;
-		if (options?.uris) {
-			paths = new Set<string>(options.uris.map(p => this.provider.getRelativePath(p, repoPath)));
+		if (literalPaths == null && options?.uris) {
+			const paths = new Set<string>(options.uris.map(p => this.provider.getRelativePath(p, repoPath)));
 			args.push('--', ...paths);
 		}
 
-		let result;
+		let contents: string;
 		try {
-			result = await this.git.run(
-				{
-					cwd: repoPath,
-					configs: await this.git.getDiffReadConfigs(),
-					errors: 'throw',
-					env: options?.index?.env,
-				},
-				'diff',
-				...args,
-				args.includes('--') ? undefined : '--',
-			);
+			const runOptions = {
+				cwd: repoPath,
+				configs: await this.git.getDiffReadConfigs(),
+				errors: 'throw',
+				env: options?.index?.env,
+			} as const;
+
+			if (literalPaths != null) {
+				// One run per batch keeps each command line inside the OS limit (a rename whose sides fall in
+				// different batches reads as a delete and an add)
+				const results = await Promise.all(
+					Array.from(batchLiteralPathspecs(literalPaths, ['diff', ...args]), batch =>
+						this.git.run(runOptions, 'diff', ...args, '--', ...batch),
+					),
+				);
+				contents = results.map(r => r.stdout).join('');
+			} else {
+				const result = await this.git.run(runOptions, 'diff', ...args, args.includes('--') ? undefined : '--');
+				contents = result.stdout;
+			}
 		} catch (ex) {
 			// Before its first commit HEAD names nothing, so a diff from it fails; the empty tree is what it is against
 			if (isHead(from) && (await isUnbornHeadFailure(this.provider, repoPath, ex))) {
@@ -209,7 +222,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			return undefined;
 		}
 
-		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
+		const diff: GitDiff = { contents: contents, from: from, to: to, notation: options?.notation };
 		return diff;
 	}
 
@@ -224,6 +237,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			renames?: boolean;
 			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			paths?: string[];
 			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
