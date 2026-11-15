@@ -24,6 +24,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- Fixes `diff.getParsedDiff` (and `filterDiffFiles`) misreading the paths of some files. A path holding ` b/` (`Plan b/notes.md`) was split at the wrong place, so the file came back under a shorter path and as a rename of a longer one, and a path git C-quotes (one holding a `"`, `\`, tab or newline) kept its quotes and escapes, with the `a/` or `b/` prefix inside them. The paths now come from the `+++`, `---`, `rename` and `copy` lines, and the `diff --git` line only for a section with none of them, split where its two halves match, so a file is named exactly as `git diff --numstat -z` names it (git)
+- Fixes `status.getStatus` returning an untracked, modified or renamed file whose name git C-quotes (`"u-quo\"te.txt"`) under its quoted form, so the name matched no file on disk. The status is now read with `-z`, which git never quotes (git-cli)
+- Fixes `revision.getTreeForRevision` and `revision.getTreeEntryForRevision` returning the entry of a path git C-quotes under its quoted form, and splitting a path holding a tab at it. The tree is now read with `-z` (git-cli)
+- Fixes `diff.getPreviousComparisonUrisForRange` not finding the file in the log of a line range when its path holds ` b/` or git C-quotes it, which read that file's paths from the same split (git-cli)
+- Fixes the file lists read from `git log` (the files of `commits.getLog` and `commits.getCommit` commits and of `stash.getStash` and `stash.getStashCommitFiles` stashes, the file names of the graph's rows, and the lookups that follow a file through its history, such as `diff.getPreviousComparisonUris`) naming a file git C-quotes (one holding a `"`, `\`, tab or newline) by its quoted form, so the name matched no file on disk. Each name is now unquoted as git writes it, including a rename in which git quoted one side or both, which it writes as `old => new` rather than the compact `prefix/{old => new}`. A name holding a newline can still split a record (git-cli)
+- Fixes `blame.getBlame` (and the streamed blame) naming a file git C-quotes, and the path it was renamed from, by their quoted forms (git-cli)
+- Fixes `diff.getDiffStatus` leaving a created, deleted, copied or type-changed file at status `M` or `R` when git quotes its name in the `--summary` lines it reads statuses from (git)
+- Fixes `diff.getDiffFiles` throwing for a created or deleted file whose name holds a tab, listing a created or deleted file whose name holds a `\` twice, and naming a renamed one with its `\` turned into `/` (git)
+
 ## [0.38.2] - 2026-11-14
 
 ### Added

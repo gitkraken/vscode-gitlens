@@ -11,7 +11,7 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 		return trees;
 	}
 
-	// Format: <mode> <type> <oid> <size>\t<path>
+	// Format (`-z`, so a path is as it is on disk rather than C-quoted): <mode> <type> <oid> <size>\t<path>\0
 
 	let metadata: string;
 	let oid: string;
@@ -23,11 +23,15 @@ export function parseGitTree(data: string | undefined, ref: string, singleEntry:
 	let endIndex: number;
 
 	// Avoid generator if we are only parsing a single entry
-	for (let line of singleEntry ? data.split('\n') : iterateByDelimiter(data, '\n')) {
-		line = line.trim();
+	for (const line of singleEntry ? data.split('\0') : iterateByDelimiter(data, '\0')) {
 		if (!line) continue;
 
-		[metadata, path] = line.split('\t');
+		// The first tab ends the metadata; a path can hold tabs itself
+		startIndex = line.indexOf('\t');
+		if (startIndex === -1) continue;
+
+		metadata = line.substring(0, startIndex);
+		path = line.substring(startIndex + 1);
 
 		// Skip mode
 		startIndex = metadata.indexOf(' ');

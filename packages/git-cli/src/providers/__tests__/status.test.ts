@@ -410,6 +410,16 @@ suite('StatusGitSubProvider.getStatus — untracked/branch options', () => {
 		assert.deepStrictEqual(calls[0].args.slice(0, 4), ['status', '--porcelain=v2', '--branch', '-u']);
 	});
 
+	test('reads names as they are on disk with -z', async () => {
+		const { git, calls } = createArgvRecordingGit();
+		const provider = createProvider(cache, git);
+
+		await provider.getStatus(repoPath);
+
+		assert.ok(calls[0].args.includes('-z'));
+		assert.ok(calls[0].args.indexOf('-z') < calls[0].args.indexOf('--'));
+	});
+
 	test("untracked: 'no' passes -uno instead of -u", async () => {
 		const { git, calls } = createArgvRecordingGit();
 		const provider = createProvider(cache, git);

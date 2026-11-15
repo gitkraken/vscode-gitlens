@@ -3,7 +3,7 @@ import type { WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { iterateByDelimiter } from '@gitlens/utils/string.js';
+import { iterateByDelimiter, unquoteCString } from '@gitlens/utils/string.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 
 interface WorktreeEntry {
@@ -112,48 +112,4 @@ export function parseGitWorktrees(
 	sw?.stop({ suffix: ` parsed ${worktrees.length} worktrees` });
 
 	return worktrees;
-}
-
-const cEscapes: Record<string, number> = { a: 7, b: 8, f: 12, n: 10, r: 13, t: 9, v: 11, '\\': 92, '"': 34 };
-
-/** Reverses Git's C-style quoting (`"a\nb"`, `\303\251` octal UTF-8 bytes); returns unquoted values as-is */
-function unquoteCString(value: string): string {
-	if (!value.startsWith('"')) return value;
-
-	const end = value.length > 1 && value.endsWith('"') ? value.length - 1 : value.length;
-	const encoder = new TextEncoder();
-	const bytes: number[] = [];
-
-	let i = 1;
-	while (i < end) {
-		const ch = value[i];
-		if (ch !== '\\' || i + 1 >= end) {
-			// A whole code point, so surrogate pairs encode correctly
-			const cp = String.fromCodePoint(value.codePointAt(i)!);
-			bytes.push(...encoder.encode(cp));
-			i += cp.length;
-			continue;
-		}
-
-		const next = value[i + 1];
-		if (next >= '0' && next <= '7') {
-			let j = i + 1;
-			while (j < i + 4 && j < end && value[j] >= '0' && value[j] <= '7') {
-				j++;
-			}
-			bytes.push(Number.parseInt(value.substring(i + 1, j), 8) & 0xff);
-			i = j;
-			continue;
-		}
-
-		const code = cEscapes[next];
-		if (code != null) {
-			bytes.push(code);
-		} else {
-			bytes.push(...encoder.encode(next));
-		}
-		i += 2;
-	}
-
-	return new TextDecoder().decode(new Uint8Array(bytes));
 }

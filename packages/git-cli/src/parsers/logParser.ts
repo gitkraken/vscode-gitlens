@@ -1,8 +1,8 @@
 import type { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
-import { diffHunkRegex, diffRegex } from '@gitlens/git/parsers/diffParser.js';
+import { diffHunkRegex, parseDiffFilePaths, parseQuotedRenameOrCopyPaths } from '@gitlens/git/parsers/diffParser.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { flattenString, iterateByDelimiter } from '@gitlens/utils/string.js';
+import { flattenString, iterateByDelimiter, unquoteCString } from '@gitlens/utils/string.js';
 import type { ExtractAll } from '@gitlens/utils/types.js';
 
 const commitsMapping = {
@@ -656,20 +656,21 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 				let path: string;
 				let originalPath: string | undefined;
 
+				// Each field is trimmed as written, to match parseCopyOrRename, which trims an unquoted name. A
+				// quoted name's whitespace is inside its quotes, so it is part of the name and kept
 				const pathTabIndex = pathPart.indexOf('\t');
 				if ((status === 'R' || status === 'C') && pathTabIndex !== -1) {
 					// For renames/copies: old_path\tnew_path
-					originalPath = pathPart.substring(0, pathTabIndex);
-					path = pathPart.substring(pathTabIndex + 1);
+					originalPath = unquoteCString(pathPart.substring(0, pathTabIndex).trim());
+					path = unquoteCString(pathPart.substring(pathTabIndex + 1).trim());
 				} else {
-					path = pathPart;
+					path = unquoteCString(pathPart.trim());
 				}
 
-				// Trim to match parseCopyOrRename which trims renamed paths
-				infoMap.set(path.trim(), {
+				infoMap.set(path, {
 					mode: newMode,
 					status: status,
-					originalPath: originalPath?.trim(),
+					originalPath: originalPath,
 					oid: oid,
 					previousOid: previousOid,
 				});
@@ -696,11 +697,11 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 				let path = line.substring(endIndex + 1);
 				let originalPath: string | undefined;
 
-				// Parse rename format from numstat (e.g., "{old => new}/path")
+				// Parse rename format from numstat (e.g., "{old => new}/path"), which comes back trimmed as --raw's is
 				({ path, originalPath } = parseCopyOrRename(path, false));
 
-				// Look up --raw info for this path (keyed by trimmed new/destination path)
-				const info = infoMap.get(path.trim());
+				// Look up --raw info for this path (keyed by the new/destination path)
+				const info = infoMap.get(path);
 
 				// Use status from --raw if available; provides accurate status (A/D/M/R/C/T)
 				const status = info?.status ?? (originalPath ? 'R' : 'M');
@@ -712,8 +713,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 				const file: LogParsedFileWithStats = {
 					status: status,
-					path: path.trim(),
-					originalPath: originalPath?.trim(),
+					path: path,
+					originalPath: originalPath,
 					additions: additions === '-' ? 0 : parseInt(additions, 10) || 0,
 					deletions: deletions === '-' ? 0 : parseInt(deletions, 10) || 0,
 					// Store mode for consumers to derive file type (160000=submodule, 100755=executable, etc.)
@@ -818,7 +819,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 
 				startIndex = line.indexOf(' ', 13 /* move past 'create mode <num>' or 'delete mode <num>' */);
 				if (startIndex > -1) {
-					path = line.substring(startIndex + 1);
+					path = unquoteCString(line.substring(startIndex + 1));
 					files.push({ path: path, status: status });
 				} else {
 					debugger;
@@ -847,7 +848,17 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 	};
 }
 
-function parseCopyOrRename(path: string, stripPercentage: boolean): { path: string; originalPath?: string } {
+/**
+ * Reads a numstat or summary name, or the two names of a rename or copy, trimmed as git wrote them: an unquoted name
+ * is trimmed, while a quoted one keeps the whitespace inside its quotes
+ */
+function parseCopyOrRename(field: string, stripPercentage: boolean): { path: string; originalPath?: string } {
+	const path = field.trim();
+	if (path.includes('"')) {
+		const quoted = parseQuotedRenameOrCopyPaths(path, stripPercentage);
+		if (quoted != null) return quoted;
+	}
+
 	const renameIndex = path.indexOf(' => ');
 	if (renameIndex === -1) return { path: path };
 
@@ -925,8 +936,13 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 		let line = lines.next();
 		if (line.done) return undefined;
 
-		const fileMatch = diffRegex.exec(line.value);
-		if (fileMatch == null) return undefined;
+		if (!content.startsWith('diff --git ')) return undefined;
+
+		// KEEP: a truncated payload's last line is partial, so a header path read from it would be cut short
+		const paths = parseDiffFilePaths(
+			content.endsWith('\n') ? content : content.substring(0, content.lastIndexOf('\n') + 1) || content,
+		);
+		if (paths == null) return undefined;
 
 		while (!line.done && !line.value.startsWith('@@ ')) {
 			line = lines.next();
@@ -949,9 +965,9 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 		}
 
 		return {
-			status: (fileMatch[1] === 'rename' ? 'R' : 'M') satisfies GitFileIndexStatus,
-			path: fileMatch[2],
-			originalPath: fileMatch[1] === 'rename' ? fileMatch[3] : undefined,
+			status: 'M' satisfies GitFileIndexStatus,
+			path: paths.path,
+			originalPath: undefined,
 			range: range,
 			originalRange: originalRange,
 		};
@@ -1078,7 +1094,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 			const trimmed = line.trim();
 			if (!trimmed) continue;
 
-			files.push({ path: trimmed });
+			files.push({ path: unquoteCString(trimmed) });
 		}
 
 		return files;

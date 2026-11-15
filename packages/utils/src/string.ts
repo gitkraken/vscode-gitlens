@@ -785,6 +785,75 @@ export function sanitizeForFileSystem(s: string, replacement: string = '_'): str
 	return s.replace(illegalCharsForFSRegex, replacement);
 }
 
+const cStyleEscapes: Readonly<Record<string, number>> = {
+	a: 0x07,
+	b: 0x08,
+	t: 0x09,
+	n: 0x0a,
+	v: 0x0b,
+	f: 0x0c,
+	r: 0x0d,
+	'"': 0x22,
+	'\\': 0x5c,
+};
+const octalEscapeRegex = /^[0-7]{3}/;
+const utf8Encoder = new TextEncoder();
+// A name can start with U+FEFF, which the decoder would otherwise drop as a byte order mark
+const utf8Decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+
+/**
+ * Reads the string git C-quotes (`"a\"b\tc"`) whose opening quote is at `from`, returning it with the index just
+ * past its closing quote, or `undefined` when it is malformed. Git writes a quoted name byte by byte, so an octal
+ * escape is one byte of the name's UTF-8, while a character it left as it was (every non-ASCII one with
+ * `core.quotePath` off) is already text
+ */
+export function readCQuotedString(text: string, from: number): { value: string; end: number } | undefined {
+	const bytes: number[] = [];
+	for (let i = from + 1; i < text.length; i++) {
+		const char = text[i];
+		if (char === '"') return { value: utf8Decoder.decode(new Uint8Array(bytes)), end: i + 1 };
+
+		if (char !== '\\') {
+			const code = char.charCodeAt(0);
+			if (code < 0x80) {
+				bytes.push(code);
+				continue;
+			}
+
+			// A whole code point, so a surrogate pair encodes as one character
+			const codePoint = String.fromCodePoint(text.codePointAt(i)!);
+			bytes.push(...utf8Encoder.encode(codePoint));
+			i += codePoint.length - 1;
+			continue;
+		}
+
+		const octal = octalEscapeRegex.exec(text.substring(i + 1, i + 4));
+		if (octal != null) {
+			bytes.push(parseInt(octal[0], 8) & 0xff);
+			i += 3;
+			continue;
+		}
+
+		const escaped = cStyleEscapes[text[i + 1]];
+		if (escaped == null) return undefined;
+
+		bytes.push(escaped);
+		i++;
+	}
+	return undefined;
+}
+
+/**
+ * Reverses git's C-style quoting of a whole value: a value git didn't quote, which can't start with a `"`, and one
+ * that isn't well-formed are returned as they are
+ */
+export function unquoteCString(value: string): string {
+	if (!value.startsWith('"')) return value;
+
+	const quoted = readCQuotedString(value, 0);
+	return quoted != null && quoted.end === value.length ? quoted.value : value;
+}
+
 export function splitLast(s: string, splitter: string): string[] {
 	const index = s.lastIndexOf(splitter);
 	if (index === -1) return [s];

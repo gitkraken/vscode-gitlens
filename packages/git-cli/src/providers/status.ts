@@ -336,6 +336,9 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			);
 		}
 
+		// `-z` so a name git would C-quote (`"`, `\`, tab, newline) comes as it is on disk
+		params.push('-z');
+
 		return this.git.run(
 			{
 				cwd: repoPath,

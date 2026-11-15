@@ -3,6 +3,8 @@ import { GitFileIndexStatus } from '../../models/fileStatus.js';
 import {
 	countDiffInsertionsAndDeletions,
 	countDiffLines,
+	filterDiffFiles,
+	parseGitApplyFiles,
 	parseGitDiff,
 	parseGitDiffNumStatFiles,
 	parseGitDiffShortStat,
@@ -296,6 +298,485 @@ suite('Diff Parser Test Suite', () => {
 				assert.strictEqual(file.metadata.modeChanged.newMode, '100755');
 			}
 			assert.strictEqual(file.hunks.length, 1);
+		});
+	});
+
+	suite('parseGitDiff file paths', () => {
+		// Sections are as `git diff` writes them with `core.quotepath=false`, a tab ending an unquoted `---`/`+++` name
+		// that holds a space
+		const hunk = ['@@ -1 +1,2 @@', ' one', '+two'];
+
+		function parseOne(lines: string[]) {
+			const result = parseGitDiff(lines.join('\n'));
+			assert.strictEqual(result.files.length, 1);
+			return result.files[0];
+		}
+
+		test('reads a path holding " b/" from an edit', () => {
+			const file = parseOne([
+				'diff --git a/Plan b/notes.md b/Plan b/notes.md',
+				'index 1111111..2222222 100644',
+				'--- a/Plan b/notes.md\t',
+				'+++ b/Plan b/notes.md\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/notes.md');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.status, GitFileIndexStatus.Modified);
+		});
+
+		test('reads a path holding " b/" from a mode change', () => {
+			const file = parseOne(['diff --git a/Plan b/run.sh b/Plan b/run.sh', 'old mode 100644', 'new mode 100755']);
+
+			assert.strictEqual(file.path, 'Plan b/run.sh');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.status, GitFileIndexStatus.TypeChanged);
+		});
+
+		test('reads both sides of a rename with edits that holds " b/"', () => {
+			const file = parseOne([
+				'diff --git a/ren ame.txt b/Plan b/ren ame.txt',
+				'similarity index 85%',
+				'rename from ren ame.txt',
+				'rename to Plan b/ren ame.txt',
+				'index 1111111..2222222 100644',
+				'--- a/ren ame.txt\t',
+				'+++ b/Plan b/ren ame.txt\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/ren ame.txt');
+			assert.strictEqual(file.originalPath, 'ren ame.txt');
+			assert.strictEqual(file.status, GitFileIndexStatus.Renamed);
+		});
+
+		test('reads both sides of a pure rename that holds " b/"', () => {
+			const file = parseOne([
+				'diff --git a/Plan a/x.md b/Plan b/y.md',
+				'similarity index 100%',
+				'rename from Plan a/x.md',
+				'rename to Plan b/y.md',
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/y.md');
+			assert.strictEqual(file.originalPath, 'Plan a/x.md');
+			assert.strictEqual(file.status, GitFileIndexStatus.Renamed);
+			assert.strictEqual(file.hunks.length, 0);
+		});
+
+		test('reads both sides of a copy that holds " b/"', () => {
+			const file = parseOne([
+				'diff --git a/Plan a/x.md b/Plan b/y.md',
+				'similarity index 100%',
+				'copy from Plan a/x.md',
+				'copy to Plan b/y.md',
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/y.md');
+			assert.strictEqual(file.originalPath, 'Plan a/x.md');
+			assert.strictEqual(file.status, GitFileIndexStatus.Copied);
+		});
+
+		test('unquotes a path holding a double quote', () => {
+			const file = parseOne([
+				'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/q\\"uote.txt"',
+				'+++ "b/q\\"uote.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'q"uote.txt');
+			assert.strictEqual(file.originalPath, undefined);
+		});
+
+		test('unquotes a path holding a backslash', () => {
+			const file = parseOne([
+				'diff --git "a/back\\\\slash.txt" "b/back\\\\slash.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/back\\\\slash.txt"',
+				'+++ "b/back\\\\slash.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'back\\slash.txt');
+		});
+
+		test('unquotes a path holding a tab', () => {
+			const file = parseOne([
+				'diff --git "a/tab\\there.txt" "b/tab\\there.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/tab\\there.txt"',
+				'+++ "b/tab\\there.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'tab\there.txt');
+		});
+
+		test('unquotes a path holding a newline', () => {
+			const file = parseOne([
+				'diff --git "a/new\\nline.txt" "b/new\\nline.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/new\\nline.txt"',
+				'+++ "b/new\\nline.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'new\nline.txt');
+		});
+
+		test('unquotes the other C escapes', () => {
+			const file = parseOne([
+				'diff --git "a/\\a\\b\\f\\r\\v.txt" "b/\\a\\b\\f\\r\\v.txt"',
+				'old mode 100644',
+				'new mode 100755',
+			]);
+
+			assert.strictEqual(file.path, '\x07\b\f\r\v.txt');
+		});
+
+		test('reads a quoted path that also holds a space, which git ends with a tab', () => {
+			const file = parseOne([
+				'diff --git "a/sp \\"ace\\".txt" "b/sp \\"ace\\".txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/sp \\"ace\\".txt"\t',
+				'+++ "b/sp \\"ace\\".txt"\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'sp "ace".txt');
+		});
+
+		test('reads a path holding a space, which git ends with a tab', () => {
+			const file = parseOne([
+				'diff --git a/sp ace.txt b/sp ace.txt',
+				'index 1111111..2222222 100644',
+				'--- a/sp ace.txt\t',
+				'+++ b/sp ace.txt\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'sp ace.txt');
+		});
+
+		test('reads a non-ASCII path left raw', () => {
+			const file = parseOne([
+				'diff --git a/café 日本.txt b/café 日本.txt',
+				'index 1111111..2222222 100644',
+				'--- a/café 日本.txt\t',
+				'+++ b/café 日本.txt\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'café 日本.txt');
+		});
+
+		test('decodes octal escapes as the bytes of a UTF-8 path', () => {
+			const file = parseOne([
+				'diff --git "a/caf\\303\\251 \\346\\227\\245.txt" "b/caf\\303\\251 \\346\\227\\245.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/caf\\303\\251 \\346\\227\\245.txt"\t',
+				'+++ "b/caf\\303\\251 \\346\\227\\245.txt"\t',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'café 日.txt');
+		});
+
+		test('decodes an octal escape of a control character', () => {
+			const file = parseOne([
+				'diff --git "a/ctl\\001.txt" "b/ctl\\001.txt"',
+				'index 1111111..2222222 100644',
+				'--- "a/ctl\\001.txt"',
+				'+++ "b/ctl\\001.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(file.path, 'ctl\x01.txt');
+		});
+
+		test('reads a deleted path from the old side', () => {
+			const file = parseOne([
+				'diff --git "a/move \\"me\\".txt" "b/move \\"me\\".txt"',
+				'deleted file mode 100644',
+				'index 1111111..0000000',
+				'--- "a/move \\"me\\".txt"\t',
+				'+++ /dev/null',
+				'@@ -1 +0,0 @@',
+				'-one',
+			]);
+
+			assert.strictEqual(file.path, 'move "me".txt');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.status, GitFileIndexStatus.Deleted);
+		});
+
+		test('reads an added path from the new side', () => {
+			const file = parseOne([
+				'diff --git a/Plan b/new.md b/Plan b/new.md',
+				'new file mode 100644',
+				'index 0000000..1111111',
+				'--- /dev/null',
+				'+++ b/Plan b/new.md\t',
+				'@@ -0,0 +1 @@',
+				'+one',
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/new.md');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.status, GitFileIndexStatus.Added);
+		});
+
+		test('reads a binary file whose section has no ---/+++ lines', () => {
+			const file = parseOne([
+				'diff --git a/Plan b/bin.dat b/Plan b/bin.dat',
+				'index 1111111..2222222 100644',
+				'Binary files a/Plan b/bin.dat and b/Plan b/bin.dat differ',
+			]);
+
+			assert.strictEqual(file.path, 'Plan b/bin.dat');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.metadata.binary, true);
+		});
+
+		test('reads a quoted binary file whose section has no ---/+++ lines', () => {
+			const file = parseOne([
+				'diff --git "a/bi\\"n.dat" "b/bi\\"n.dat"',
+				'index 1111111..2222222 100644',
+				'Binary files "a/bi\\"n.dat" and "b/bi\\"n.dat" differ',
+			]);
+
+			assert.strictEqual(file.path, 'bi"n.dat');
+			assert.strictEqual(file.metadata.binary, true);
+		});
+
+		test('reads a pure rename to a quoted path from the rename lines, whose old side git leaves unquoted', () => {
+			const file = parseOne([
+				'diff --git a/del me.txt "b/moved \\"it\\".txt"',
+				'similarity index 100%',
+				'rename from del me.txt',
+				'rename to "moved \\"it\\".txt"',
+			]);
+
+			assert.strictEqual(file.path, 'moved "it".txt');
+			assert.strictEqual(file.originalPath, 'del me.txt');
+			assert.strictEqual(file.status, GitFileIndexStatus.Renamed);
+		});
+
+		test('reads a pure rename between quoted paths', () => {
+			const file = parseOne([
+				'diff --git "a/tab\\told.txt" "b/new\\nline.txt"',
+				'similarity index 100%',
+				'rename from "tab\\told.txt"',
+				'rename to "new\\nline.txt"',
+			]);
+
+			assert.strictEqual(file.path, 'new\nline.txt');
+			assert.strictEqual(file.originalPath, 'tab\told.txt');
+		});
+
+		test('reads a mode change of a quoted path', () => {
+			const file = parseOne(['diff --git "a/q\\"uote.sh" "b/q\\"uote.sh"', 'old mode 100644', 'new mode 100755']);
+
+			assert.strictEqual(file.path, 'q"uote.sh');
+			assert.strictEqual(file.originalPath, undefined);
+			assert.strictEqual(file.status, GitFileIndexStatus.TypeChanged);
+		});
+
+		test('reads each file of a diff of several awkward paths', () => {
+			const result = parseGitDiff(
+				[
+					'diff --git a/Plan b/notes.md b/Plan b/notes.md',
+					'--- a/Plan b/notes.md\t',
+					'+++ b/Plan b/notes.md\t',
+					...hunk,
+					'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"',
+					'--- "a/q\\"uote.txt"',
+					'+++ "b/q\\"uote.txt"',
+					...hunk,
+					'diff --git a/mode.sh b/mode.sh',
+					'old mode 100644',
+					'new mode 100755',
+				].join('\n'),
+			);
+
+			assert.deepStrictEqual(
+				result.files.map(f => f.path),
+				['Plan b/notes.md', 'q"uote.txt', 'mode.sh'],
+			);
+		});
+
+		test('keeps the header of a quoted path whole', () => {
+			const file = parseOne([
+				'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"',
+				'--- "a/q\\"uote.txt"',
+				'+++ "b/q\\"uote.txt"',
+				...hunk,
+			]);
+
+			assert.strictEqual(
+				file.header,
+				'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"\n--- "a/q\\"uote.txt"\n+++ "b/q\\"uote.txt"',
+			);
+		});
+
+		test('skips a section whose paths cannot be read', () => {
+			assert.strictEqual(parseGitDiff('diff --git garbage\nindex 1111111..2222222 100644').files.length, 0);
+		});
+	});
+
+	suite('filterDiffFiles paths', () => {
+		test('names each file by its new-side path', async () => {
+			const diff = [
+				'diff --git a/Plan b/notes.md b/Plan b/notes.md\n--- a/Plan b/notes.md\t\n+++ b/Plan b/notes.md\t\n@@ -1 +1,2 @@\n one\n+two\n',
+				'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"\n--- "a/q\\"uote.txt"\n+++ "b/q\\"uote.txt"\n@@ -1 +1,2 @@\n one\n+two\n',
+				'diff --git a/del me.txt "b/moved \\"it\\".txt"\nsimilarity index 100%\nrename from del me.txt\nrename to "moved \\"it\\".txt"\n',
+			].join('');
+
+			let seen: string[] = [];
+			const filtered = await filterDiffFiles(diff, paths => {
+				seen = paths;
+				return ['q"uote.txt'];
+			});
+
+			assert.deepStrictEqual(seen, ['Plan b/notes.md', 'q"uote.txt', 'moved "it".txt']);
+			assert.ok(filtered.startsWith('diff --git "a/q\\"uote.txt"'));
+			assert.ok(!filtered.includes('Plan b'));
+		});
+	});
+
+	// `--summary` C-quotes a name even with `-z`, which only leaves the numstat names raw
+	suite('summary paths git quotes', () => {
+		test('parseGitDiffNumStatFiles promotes a created and a deleted path', () => {
+			const data = [
+				'1\t0\tnew "n".txt\0',
+				'0\t1\tmove "me".txt\0',
+				'1\t0\ttab\there.txt\0',
+				' create mode 100644 "new \\"n\\".txt"\n',
+				' delete mode 100644 "move \\"me\\".txt"\n',
+				' delete mode 100644 "tab\\there.txt"\n',
+			].join('');
+
+			const files = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.deepStrictEqual(
+				files?.map(f => [f.path, f.status]),
+				[
+					['new "n".txt', 'A'],
+					['move "me".txt', 'D'],
+					['tab\there.txt', 'D'],
+				],
+			);
+		});
+
+		test('parseGitDiffNumStatFiles promotes a copy to a quoted path and a type change of one', () => {
+			const data = [
+				'0\t0\t\0dir b/plain.txt\0dir b/c"opy.txt\0',
+				'0\t0\tq"uote.lnk\0',
+				' copy dir b/plain.txt => "dir b/c\\"opy.txt" (100%)\n',
+				' mode change 100644 => 120000 "q\\"uote.lnk"\n',
+			].join('');
+
+			const files = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.deepStrictEqual(
+				files?.map(f => [f.path, f.originalPath, f.status]),
+				[
+					['dir b/c"opy.txt', 'dir b/plain.txt', 'C'],
+					['q"uote.lnk', undefined, 'T'],
+				],
+			);
+		});
+
+		test('parseGitDiffNumStatFiles promotes a copy whose quoted names hold braces', () => {
+			const data = [
+				'0\t0\t\0a{b".txt\0c".txt\0',
+				'0\t0\t\0x".txt\0n}e".txt\0',
+				' copy "a{b\\".txt" => "c\\".txt" (90%)\n',
+				' copy "x\\".txt" => "n}e\\".txt" (90%)\n',
+			].join('');
+
+			const files = parseGitDiffNumStatFiles(data, '/repo');
+
+			assert.deepStrictEqual(
+				files?.map(f => [f.path, f.status]),
+				[
+					['c".txt', 'C'],
+					['n}e".txt', 'C'],
+				],
+			);
+		});
+	});
+
+	// `git apply --summary` writes names as they are, never C-quoted, with or without `-z`
+	suite('parseGitApplyFiles paths', () => {
+		test('reads a created and a deleted path that git would quote elsewhere', () => {
+			const data = [
+				'1\t0\tnew "n".txt\0',
+				'0\t1\tmove "me".txt\0',
+				' create mode 100644 new "n".txt\n',
+				' delete mode 100644 move "me".txt\n',
+			].join('');
+
+			const files = parseGitApplyFiles(data, '/repo');
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status]),
+				[
+					['new "n".txt', 'A'],
+					['move "me".txt', 'D'],
+				],
+			);
+		});
+
+		test('reads a created path that looks quoted as it is', () => {
+			const files = parseGitApplyFiles('1\t0\t"q"\0 create mode 100644 "q"\n', '/repo');
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status]),
+				[['"q"', 'A']],
+			);
+		});
+
+		test('reads a created path holding a tab', () => {
+			const files = parseGitApplyFiles('1\t0\ttab\there.txt\0 create mode 100644 tab\there.txt\n', '/repo');
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status, f.stats?.additions]),
+				[['tab\there.txt', 'A', 1]],
+			);
+		});
+
+		test('lists a created path holding a backslash once', () => {
+			const files = parseGitApplyFiles('1\t0\tnew\\file.txt\0 create mode 100644 new\\file.txt\n', '/repo');
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status]),
+				[['new\\file.txt', 'A']],
+			);
+		});
+
+		test('reads a rename of a path holding a backslash as it is', () => {
+			const files = parseGitApplyFiles(
+				'0\t0\tback\\slash2.txt\0 rename back\\slash.txt => back\\slash2.txt (100%)\n',
+				'/repo',
+			);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.originalPath, f.status]),
+				[['back\\slash2.txt', 'back\\slash.txt', 'R']],
+			);
+		});
+
+		test('skips a summary line naming no listed file', () => {
+			const files = parseGitApplyFiles('1\t0\ta.txt\0 create mode 100644 b.txt\n', '/repo');
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status]),
+				[['a.txt', 'M']],
+			);
 		});
 	});
 
