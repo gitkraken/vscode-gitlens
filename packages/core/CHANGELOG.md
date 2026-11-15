@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.38.4] - 2026-11-15
+
 ### Added
 
 - Adds `paths` to `diff.getDiff` and `diff.getParsedDiff`: limits the diff to those repo-relative paths, matched literally and exactly as given (a name with glob characters matches only itself, and a backslash is a file-name character rather than a separator), batched to fit the command line, with each batch's output joined in order. A host that already holds exact names, such as the ones `diff.getDiffStatus` returns, can now read the hunks of a file whose name holds a backslash on Linux or macOS, where `uris` rewrote it to a different path and found nothing. An empty list resolves `undefined` without running git, `paths` wins over `uris`, and a rename whose two sides fall in different batches reads as a delete and an add (git, git-cli)
@@ -1325,7 +1327,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...HEAD
+[0.38.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...gitkraken:releases/core/v0.38.4
 [0.38.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...gitkraken:releases/core/v0.38.3
 [0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
 [0.38.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...gitkraken:releases/core/v0.38.1
