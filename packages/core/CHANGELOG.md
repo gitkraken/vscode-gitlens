@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+## [0.38.3] - 2026-11-15
+
 ### Fixed
 
 - Fixes `diff.getParsedDiff` (and `filterDiffFiles`) misreading the paths of some files. A path holding ` b/` (`Plan b/notes.md`) was split at the wrong place, so the file came back under a shorter path and as a rename of a longer one, and a path git C-quotes (one holding a `"`, `\`, tab or newline) kept its quotes and escapes, with the `a/` or `b/` prefix inside them. The paths now come from the `+++`, `---`, `rename` and `copy` lines, and the `diff --git` line only for a section with none of them, split where its two halves match, so a file is named exactly as `git diff --numstat -z` names it (git)
@@ -1336,7 +1338,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...HEAD
+[0.38.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...gitkraken:releases/core/v0.38.3
 [0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
 [0.38.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.0...gitkraken:releases/core/v0.38.1
 [0.38.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.37.1...gitkraken:releases/core/v0.38.0
