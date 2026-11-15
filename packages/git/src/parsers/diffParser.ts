@@ -97,32 +97,55 @@ export function parseDiffFilePaths(section: string): { path: string; originalPat
 		if (end === -1) {
 			end = section.length;
 		}
-		const line = section.substring(start, end);
+		const lineStart = start;
 		start = end + 1;
 
-		if (line.startsWith('+++ ')) {
-			const rest = line.substring(4);
-			if (rest !== '/dev/null') {
-				newName = readHeaderPath(rest, 'b/');
-			}
-		} else if (line.startsWith('--- ')) {
-			const rest = line.substring(4);
-			if (rest !== '/dev/null') {
-				oldName = readHeaderPath(rest, 'a/');
-			}
-		} else if (line.startsWith('rename to ')) {
-			renamedTo = readHeaderPath(line.substring(10), '');
-		} else if (line.startsWith('copy to ')) {
-			renamedTo = readHeaderPath(line.substring(8), '');
-		} else if (line.startsWith('rename from ')) {
-			renamedFrom = readHeaderPath(line.substring(12), '');
-		} else if (line.startsWith('copy from ')) {
-			renamedFrom = readHeaderPath(line.substring(10), '');
-		} else if (line.startsWith('diff --git ')) {
-			gitLine ??= line.substring(11);
-		} else if (line.startsWith('@@ ') || line === 'GIT binary patch') {
-			// The header ends at the first hunk or at the data of a binary patch, which can run long
-			break;
+		switch (section.charCodeAt(lineStart)) {
+			case 0x2b /* + */:
+				if (section.startsWith('+++ ', lineStart)) {
+					const rest = section.substring(lineStart + 4, end);
+					if (rest !== '/dev/null') {
+						newName = readHeaderPath(rest, 'b/');
+					}
+				}
+				break;
+			case 0x2d /* - */:
+				if (section.startsWith('--- ', lineStart)) {
+					const rest = section.substring(lineStart + 4, end);
+					if (rest !== '/dev/null') {
+						oldName = readHeaderPath(rest, 'a/');
+					}
+				}
+				break;
+			case 0x72 /* r */:
+				if (section.startsWith('rename to ', lineStart)) {
+					renamedTo = readHeaderPath(section.substring(lineStart + 10, end), '');
+				} else if (section.startsWith('rename from ', lineStart)) {
+					renamedFrom = readHeaderPath(section.substring(lineStart + 12, end), '');
+				}
+				break;
+			case 0x63 /* c */:
+				if (section.startsWith('copy to ', lineStart)) {
+					renamedTo = readHeaderPath(section.substring(lineStart + 8, end), '');
+				} else if (section.startsWith('copy from ', lineStart)) {
+					renamedFrom = readHeaderPath(section.substring(lineStart + 10, end), '');
+				}
+				break;
+			case 0x64 /* d */:
+				if (section.startsWith('diff --git ', lineStart)) {
+					gitLine ??= section.substring(lineStart + 11, end);
+				}
+				break;
+			case 0x40 /* @ */:
+				if (section.startsWith('@@ ', lineStart)) {
+					start = section.length;
+				}
+				break;
+			case 0x47 /* G */:
+				if (end - lineStart === 16 && section.startsWith('GIT binary patch', lineStart)) {
+					start = section.length;
+				}
+				break;
 		}
 	}
 
