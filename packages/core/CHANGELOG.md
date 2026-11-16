@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `getPullRequestsForCommits` to `IntegrationManager`: the pull request each of several commits of one repository belongs to, so a host can map a history window to its pull requests in a few requests instead of one per commit. Takes `{ providerId, owner, repo, project?, shas, connectionId?, domain?, mergeQueue?, cancellation? }` and returns `{ sha, pullRequest? }` rows: a row without a `pullRequest` is a resolved none (the host answered; on Bitbucket Cloud a `404` only once another commit of the repository answered), safe to cache per SHA, while a SHA whose read failed has no row and sets `fetchFailed` with a warning naming it in `targetKeys`. Every SHA must be a full 40-character commit SHA, or the whole call is refused; the working tree's all-zero SHA is a resolved none and never sent. GitHub/GHE resolve up to 25 commits per request and Azure DevOps up to 100 per query plus one read per pull request found, while GitLab and Bitbucket cost one request per commit, with bounded concurrency; after a rate limit, a refused credential, or a `403` before any SHA answered (on every host but GitLab, which can't check the credential, a refusal scoped to the repository), and on Bitbucket Cloud an answer that the repository's links aren't indexed yet, the requests not yet sent are skipped and their SHAs fail with it. A credential refused after some SHAs answered fails the rest as the credential's failure, not as the repository's refusal. A commit with several pull requests resolves to the one `getPullRequestForCommit` picks, which differs by host. Uncached (plus/integrations, plus/git-github)
+
 ### Fixed
 
 - Fixes GitHub's single-commit pull request lookup (`getPullRequestForCommit`) comparing the repository owner with GitHub's login case-sensitively: an `owner` in another letter case dropped a pull request opened against the owner's own fork, and didn't prefer the owner's pull request over another's (plus/git-github)

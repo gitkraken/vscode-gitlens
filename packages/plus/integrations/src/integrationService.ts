@@ -121,6 +121,8 @@ import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
 import type { PullRequestCheckLogResult, PullRequestCheckLogTarget } from './reads/pullRequestCheckLogs.js';
 import { getPullRequestCheckLogs } from './reads/pullRequestCheckLogs.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
+import type { PullRequestForCommitResult } from './reads/pullRequestsForCommits.js';
+import { getPullRequestsForCommits } from './reads/pullRequestsForCommits.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
 import { searchPullRequestsPage } from './reads/searchPullRequests.js';
@@ -1445,6 +1447,24 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		limit?: number;
 	}): Promise<ProviderResult<PullRequestActivityResult>> {
 		return getPullRequestActivity(this, options);
+	}
+
+	async getPullRequestsForCommits(options: {
+		providerId: IntegrationIds;
+		owner: string;
+		repo: string;
+		project?: string;
+		shas: readonly string[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+		mergeQueue?: boolean;
+		cancellation?: AbortSignal;
+	}): Promise<ProviderResult<PullRequestForCommitResult>> {
+		return getPullRequestsForCommits(this, options);
 	}
 
 	/**

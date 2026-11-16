@@ -261,6 +261,7 @@ export type {
 } from '@gitlens/git/models/pullRequestActivity.js';
 export type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
 export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+export type { PullRequestForCommitResult } from './reads/pullRequestsForCommits.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
 export type { CurrentAccountResult } from './reads/currentAccount.js';
 export type { Account } from '@gitlens/git/models/author.js';

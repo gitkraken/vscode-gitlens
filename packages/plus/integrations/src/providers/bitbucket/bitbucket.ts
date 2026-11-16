@@ -28,12 +28,13 @@ import {
 	toRateLimitError,
 } from '../../errors.js';
 import type { PullRequestEtagInclude } from '../../models/integration.js';
+import { encodePathSegment } from '../../utils/domain.utils.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
-import { CommitReadRefusedError, isCommitReadRefusal } from '../providerErrors.js';
+import { CommitReadRefusedError, isCommitReadRefusal, isNotFoundResponse } from '../providerErrors.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
 import type {
 	BitbucketCommit,
@@ -50,11 +51,6 @@ import {
 	fromBitbucketPullRequest,
 	parseRawBitbucketAuthor,
 } from './models.js';
-
-/** `handleRequestError` maps 410 and 422 to the same error as a 404, but only a 404 proves the resource absent. */
-function isNotFoundResponse(ex: unknown): boolean {
-	return RequestNotFoundError.is(ex) && ex.original instanceof ProviderFetchError && ex.original.status === 404;
-}
 
 /** KEEP: reads the message `ProviderFetchError.fromResponse` folds the body into; the body is already consumed. */
 function isCommitLinksAppMissing(ex: unknown): boolean {
@@ -947,8 +943,14 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		rev: string,
 		baseUrl: string,
-		_options?: {
+		options?: {
 			avatarSize?: number;
+			/**
+			 * For a batch read: a failed request throws (a missing repository or commit still answers `undefined`)
+			 * instead of answering `undefined`, which a caller can't tell from a commit without a pull request, and the
+			 * batch reports the failure once rather than each request showing its own.
+			 */
+			deferFailure?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -959,13 +961,18 @@ export class BitbucketApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`projects/${owner}/repos/${repo}/commits/${rev}/pull-requests`, //?fields=${fieldsParam}`,
+				`projects/${encodePathSegment(owner)}/repos/${encodePathSegment(repo)}/commits/${rev}/pull-requests`, //?fields=${fieldsParam}`,
 				{
 					method: 'GET',
 				},
 				scope,
 				cancellation,
+				options?.deferFailure,
 			);
+			if (options?.deferFailure && response?.values == null) {
+				throw new Error(`Bitbucket returned no pull requests for ${owner}/${repo}@${rev}`);
+			}
+
 			const prResponse = response?.values?.reduce<BitbucketServerPullRequest | undefined>(
 				(acc, pr) => (!acc || pr.updatedDate > acc.updatedDate ? pr : acc),
 				undefined,
@@ -976,6 +983,12 @@ export class BitbucketApi implements Disposable {
 			const gitlensPr = fromProviderPullRequest(providersPr, provider, { projection: 'point' });
 			return gitlensPr;
 		} catch (ex) {
+			if (options?.deferFailure) {
+				if (isNotFoundResponse(ex)) return undefined;
+
+				throw ex;
+			}
+
 			scope?.error(ex);
 			return undefined;
 		}
@@ -998,8 +1011,10 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		rev: string,
 		baseUrl: string,
-		_options?: {
+		options?: {
 			avatarSize?: number;
+			/** For a batch read: the batch reports a failed request once rather than each request showing its own. */
+			deferFailure?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -1020,12 +1035,13 @@ export class BitbucketApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`repositories/${owner}/${repo}/commit/${rev}/pullrequests?fields=${fieldsParam}`,
+				`repositories/${encodePathSegment(owner)}/${encodePathSegment(repo)}/commit/${rev}/pullrequests?fields=${fieldsParam}`,
 				{
 					method: 'GET',
 				},
 				scope,
 				cancellation,
+				options?.deferFailure,
 			);
 			// SEE: api.bitbucket.org/swagger.json getPullrequestsForCommit: 404 is a missing repository or links not yet indexed, 202 is still indexing.
 			// SEE: observed 2026-11-22: an unknown commit and a missing repository both answer 404 "Resource not found"; an indexed repository answers 200 with repo_indexed true.
@@ -1046,14 +1062,16 @@ export class BitbucketApi implements Disposable {
 		} catch (ex) {
 			if (isCommitLinksAppMissing(ex)) {
 				const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
-				// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
-				// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
-				this.notifyCommitLinksAppMissing(owner, commitWebUrl);
+				if (!options?.deferFailure) {
+					// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
+					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
+					this.notifyCommitLinksAppMissing(owner, commitWebUrl);
+				}
 				throw new BitbucketCommitLinksAppMissingError(commitWebUrl);
 			}
 
 			if (isNotFoundResponse(ex)) {
-				if (this.isRepositoryIndexed(token, owner, repo)) return undefined;
+				if (!options?.deferFailure && this.isRepositoryIndexed(token, owner, repo)) return undefined;
 
 				throw new BitbucketCommitNotFoundError(
 					`Bitbucket has no such commit in ${owner}/${repo}, or no such repository`,
@@ -1061,7 +1079,7 @@ export class BitbucketApi implements Disposable {
 				);
 			}
 
-			if (isCommitReadRefusal(ex)) {
+			if (!options?.deferFailure && isCommitReadRefusal(ex)) {
 				throw new CommitReadRefusedError(ex.message, ex);
 			}
 
