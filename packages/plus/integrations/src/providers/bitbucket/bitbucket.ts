@@ -33,6 +33,7 @@ import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
+import { CommitReadRefusedError, isCommitReadRefusal } from '../providerErrors.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
 import type {
 	BitbucketCommit,
@@ -55,6 +56,28 @@ function isNotFoundResponse(ex: unknown): boolean {
 	return RequestNotFoundError.is(ex) && ex.original instanceof ProviderFetchError && ex.original.status === 404;
 }
 
+/** KEEP: reads the message `ProviderFetchError.fromResponse` folds the body into; the body is already consumed. */
+function isCommitLinksAppMissing(ex: unknown): boolean {
+	const original: unknown = ex instanceof Error && 'original' in ex ? ex.original : ex;
+	return original instanceof ProviderFetchError && original.message.includes('Invalid or unknown installation');
+}
+
+export class BitbucketCommitNotFoundError extends CommitReadRefusedError {}
+
+export class BitbucketCommitPullRequestsUnindexedError extends CommitReadRefusedError {}
+
+export class BitbucketCommitLinksAppMissingError extends CommitReadRefusedError {
+	constructor(readonly commitUrl: string) {
+		super(
+			`Bitbucket lists a commit's pull requests only once the Bitbucket pull request commit links app is installed; choosing 'Go to pull request' on a commit (${commitUrl}) installs it.`,
+		);
+	}
+}
+
+function indexedRepositoryKey(token: TokenWithInfo, owner: string, repo: string): string {
+	return `${token.accessToken}|${`${owner}/${repo}`.toLowerCase()}`;
+}
+
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 
@@ -66,7 +89,29 @@ export class BitbucketApi implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	private resetCaches(): void {}
+	private resetCaches(): void {
+		this._indexedRepositories.clear();
+	}
+
+	private readonly _indexedRepositories = new Set<string>();
+
+	isRepositoryIndexed(token: TokenWithInfo, owner: string, repo: string): boolean {
+		return this._indexedRepositories.has(indexedRepositoryKey(token, owner, repo));
+	}
+
+	private readonly _commitLinksAppNoticeShownFor = new Set<string>();
+
+	/**
+	 * Shows the notice that the pull request commit links app must be installed once per workspace for the life of
+	 * this client.
+	 */
+	notifyCommitLinksAppMissing(owner: string, commitWebUrl: string): void {
+		const workspace = owner.toLowerCase();
+		if (this._commitLinksAppNoticeShownFor.has(workspace)) return;
+
+		this._commitLinksAppNoticeShownFor.add(workspace);
+		this.config.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
+	}
 
 	@trace({
 		args: (provider, token, owner, repo, branch, baseUrl) => ({
@@ -971,7 +1016,7 @@ export class BitbucketApi implements Disposable {
 				'+values.source.commit.*',
 			];
 			const fieldsParam = encodeURIComponent(fields.join(','));
-			const response = await this.request<{ values: BitbucketPullRequest[] }>(
+			const response = await this.request<{ values?: BitbucketPullRequest[]; repo_indexed?: boolean }>(
 				provider,
 				token,
 				baseUrl,
@@ -982,26 +1027,45 @@ export class BitbucketApi implements Disposable {
 				scope,
 				cancellation,
 			);
-			const pr = response?.values?.reduce<BitbucketPullRequest | undefined>(
+			// SEE: api.bitbucket.org/swagger.json getPullrequestsForCommit: 404 is a missing repository or links not yet indexed, 202 is still indexing.
+			// SEE: observed 2026-11-22: an unknown commit and a missing repository both answer 404 "Resource not found"; an indexed repository answers 200 with repo_indexed true.
+			if (response?.values == null || response.repo_indexed === false) {
+				throw new BitbucketCommitPullRequestsUnindexedError(
+					`Bitbucket is still indexing the pull requests of ${owner}/${repo}`,
+				);
+			}
+
+			this._indexedRepositories.add(indexedRepositoryKey(token, owner, repo));
+
+			const pr = response.values.reduce<BitbucketPullRequest | undefined>(
 				(acc, pr) => (!acc || pr.updated_on > acc.updated_on ? pr : acc),
 				undefined,
 			);
 			if (!pr) return undefined;
 			return fromBitbucketPullRequest(pr, provider, { projection: 'point' });
 		} catch (ex) {
-			if (ex.original instanceof ProviderFetchError) {
-				const json = await ex.original.response.json();
-				if (json?.error === 'Invalid or unknown installation') {
-					// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
-					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
-					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
-					this.config.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
-					return undefined;
-				}
+			if (isCommitLinksAppMissing(ex)) {
+				const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
+				// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
+				// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
+				this.notifyCommitLinksAppMissing(owner, commitWebUrl);
+				throw new BitbucketCommitLinksAppMissingError(commitWebUrl);
 			}
 
-			scope?.error(ex);
-			return undefined;
+			if (isNotFoundResponse(ex)) {
+				if (this.isRepositoryIndexed(token, owner, repo)) return undefined;
+
+				throw new BitbucketCommitNotFoundError(
+					`Bitbucket has no such commit in ${owner}/${repo}, or no such repository`,
+					ex,
+				);
+			}
+
+			if (isCommitReadRefusal(ex)) {
+				throw new CommitReadRefusedError(ex.message, ex);
+			}
+
+			throw ex;
 		}
 	}
 
