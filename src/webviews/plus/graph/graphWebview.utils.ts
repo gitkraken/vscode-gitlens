@@ -10,6 +10,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '@gitlens/integrations/constants.js';
 import type { Unbrand } from '@gitlens/utils/brand.js';
+import { getShortcutOverrideProblems } from '@gitlens/utils/keys/keybinding.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { GraphActivityDecay } from '../../../config.js';
 import type {
@@ -502,4 +503,14 @@ export function stripRefsMetadataTypes(
 		result.set(id, kept.length === Object.keys(value).length ? value : Object.fromEntries(kept));
 	}
 	return result;
+}
+
+/** Formats one host log line per invalid entry in `gitlens.graph.shortcuts.overrides`. */
+export function formatShortcutOverrideWarnings(overrides: Readonly<Record<string, unknown>>): string[] {
+	return getShortcutOverrideProblems(overrides).map(
+		p =>
+			`[Graph Shortcuts] Ignored '${p.id}' in gitlens.graph.shortcuts.overrides: ${p.problem}; the default shortcut${
+				p.wildcard ? 's are' : ' is'
+			} kept`,
+	);
 }

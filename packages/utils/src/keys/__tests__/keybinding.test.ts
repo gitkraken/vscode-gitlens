@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { Chord, KeyEventLike } from '../chord.js';
 import type { KeyBinding, KeyBindingDescriptor, KeyBindingOverrides, OverlayEntry } from '../keybinding.js';
 import {
+	getShortcutOverrideProblems,
 	isShiftClosed,
 	registerBinding,
 	resolveKeydown,
@@ -470,5 +471,92 @@ suite('Keybinding Test Suite', () => {
 			const overrides: KeyBindingOverrides = { 'rows.*': ['mod+j'], 'rows.stepNext': ['mod+k'] };
 			assert.deepStrictEqual(resolveOverride('rows.stepNext', overrides), ['mod+k']);
 		});
+	});
+});
+
+suite('getShortcutOverrideProblems', () => {
+	const typeProblem = (json: string): string =>
+		`expected a key combination, a list of them, or false, but got ${json}`;
+
+	test('a valid map has no problems', () => {
+		assert.deepStrictEqual(
+			getShortcutOverrideProblems({ 'a.b': 'alt+KeyM', 'a.c': ['mod+KeyC', 'F3'], 'a.d': false, 'a.e': [] }),
+			[],
+		);
+	});
+
+	test('an unknown key and an unknown modifier each give one problem', () => {
+		assert.deepStrictEqual(getShortcutOverrideProblems({ x: 'alt+Bogus', y: 'hyper+KeyS' }), [
+			{ id: 'x', problem: "'alt+Bogus' has an unknown key 'Bogus'", wildcard: false },
+			{ id: 'y', problem: "'hyper+KeyS' has an unknown modifier 'hyper'", wildcard: false },
+		]);
+	});
+
+	test('a list with two bad keys reports only the first', () => {
+		assert.deepStrictEqual(getShortcutOverrideProblems({ x: ['alt+KeyM', 'alt+Bogus', 'hyper+KeyS'] }), [
+			{ id: 'x', problem: "'alt+Bogus' has an unknown key 'Bogus'", wildcard: false },
+		]);
+	});
+
+	test('a wildcard with a key combination is a wildcard problem', () => {
+		const problem = 'a wildcard can only be false (disable), not a key combination';
+		assert.deepStrictEqual(getShortcutOverrideProblems({ 'panels.*': ['alt+KeyX'], '*': 'alt+KeyX' }), [
+			{ id: 'panels.*', problem: problem, wildcard: true },
+			{ id: '*', problem: problem, wildcard: true },
+		]);
+	});
+
+	test('disabling is never a problem', () => {
+		assert.deepStrictEqual(getShortcutOverrideProblems({ 'panels.*': false, '*': [], x: false, y: [] }), []);
+	});
+
+	test('wrong value types give the type problem', () => {
+		assert.deepStrictEqual(
+			getShortcutOverrideProblems({ a: 42, b: true, c: ['alt+KeyX', 1], d: {}, e: null, f: undefined }),
+			[
+				{ id: 'a', problem: typeProblem('42'), wildcard: false },
+				{ id: 'b', problem: typeProblem('true'), wildcard: false },
+				{ id: 'c', problem: typeProblem('["alt+KeyX",1]'), wildcard: false },
+				{ id: 'd', problem: typeProblem('{}'), wildcard: false },
+				{ id: 'e', problem: typeProblem('null'), wildcard: false },
+				{ id: 'f', problem: typeProblem('undefined'), wildcard: false },
+			],
+		);
+	});
+
+	test('a long value is truncated', () => {
+		const [problem] = getShortcutOverrideProblems({ x: { long: 'y'.repeat(100) } });
+		const json = JSON.stringify({ long: 'y'.repeat(100) });
+		assert.strictEqual(problem.problem, typeProblem(`${json.slice(0, 60)}…`));
+	});
+
+	test('agrees with registerBinding on whether an exact override is rejected', () => {
+		const values: unknown[] = [
+			'alt+KeyM',
+			'Alt+keym',
+			'alt+Bogus',
+			'hyper+KeyS',
+			'shift+?',
+			'mod+ctrl+c',
+			'ctrl+',
+			'',
+			['alt+KeyM', 'F3'],
+			['alt+KeyM', 'alt+Bogus'],
+			[],
+			false,
+		];
+
+		for (const value of values) {
+			const warnings: string[] = [];
+			const binding = registerBinding(
+				{ id: 'x.y', keys: ['KeyA'], scope: 'row', run: () => true, sheet: 'hidden' },
+				false,
+				{ 'x.y': (typeof value === 'string' ? [value] : value) as readonly string[] | false }, // the host wraps a lone string in a list
+				m => warnings.push(m),
+			);
+			const rejected = binding != null && !binding.overridden && warnings.length > 0;
+			const problems = getShortcutOverrideProblems({ 'x.y': value });
+			assert.strictEqual(problems.length > 0, rejected, JSON.stringify(value));
+		}
 	});
 });

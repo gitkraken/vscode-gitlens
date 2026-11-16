@@ -1,5 +1,5 @@
 import type { Chord, KeyEventLike } from './chord.js';
-import { matchesChord, parseChord } from './chord.js';
+import { ChordParseError, matchesChord, parseChord } from './chord.js';
 
 /**
  * One item in a sheet row's key rail or subline, in a mini-grammar the renderer resolves:
@@ -286,4 +286,70 @@ export function registerBinding<TScope extends string, TEvent extends KeyEventLi
 	}
 
 	return { ...descriptor, chords: defaultChords, overridden: false };
+}
+
+/** One bad entry in a user override map, with a readable reason. */
+export type ShortcutOverrideProblem = { id: string; problem: string; wildcard: boolean };
+
+/**
+ * Validates a raw (freeform, e.g. settings.json) override map the way {@link registerBinding} and
+ * {@link resolveOverride} would treat it, returning one problem per ignored entry in key order.
+ * An exact id with several bad keys reports only the first, since one bad key rejects the override.
+ */
+export function getShortcutOverrideProblems(overrides: Readonly<Record<string, unknown>>): ShortcutOverrideProblem[] {
+	const problems: ShortcutOverrideProblem[] = [];
+
+	for (const [id, value] of Object.entries(overrides)) {
+		let keys: readonly string[];
+		if (value === false) {
+			continue;
+		} else if (typeof value === 'string') {
+			keys = [value];
+		} else if (Array.isArray(value) && value.every(v => typeof v === 'string')) {
+			keys = value;
+		} else {
+			problems.push({
+				id: id,
+				problem: `expected a key combination, a list of them, or false, but got ${describeValue(value)}`,
+				wildcard: isWildcardKey(id),
+			});
+			continue;
+		}
+
+		if (!keys.length) continue;
+
+		if (isWildcardKey(id)) {
+			problems.push({
+				id: id,
+				problem: 'a wildcard can only be false (disable), not a key combination',
+				wildcard: true,
+			});
+			continue;
+		}
+
+		for (const key of keys) {
+			try {
+				// `isMac` only resolves `mod`; it never changes whether a chord is valid
+				parseChord(key, false);
+			} catch (ex) {
+				if (!(ex instanceof ChordParseError)) throw ex;
+
+				problems.push({ id: id, problem: `'${key}' ${ex.reason}`, wildcard: false });
+				break;
+			}
+		}
+	}
+
+	return problems;
+}
+
+function isWildcardKey(key: string): boolean {
+	return key === '*' || key.endsWith('.*');
+}
+
+function describeValue(value: unknown): string {
+	const json = JSON.stringify(value) as string | undefined;
+	const text = json ?? String(value);
+
+	return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }

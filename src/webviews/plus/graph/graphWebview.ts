@@ -213,6 +213,7 @@ import {
 	createDefaultLayoutSnapshot,
 	defaultGraphColumnsSettings,
 	formatRepositories,
+	formatShortcutOverrideWarnings,
 	getDefaultLayoutSeeds,
 	getExcludedRefName,
 	hasGitReference,
@@ -5357,7 +5358,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// The master switch folds into the overrides here — `{ '*': false }` disables every
 		// customizable shortcut — so the webview only ever applies one thing (`shortcuts`).
 		const shortcutsEnabled = configuration.get('graph.shortcuts.enabled') ?? true;
-		const shortcutOverrides = normalizeShortcutOverrides(configuration.get('graph.shortcuts.overrides') ?? {});
+		const rawShortcutOverrides = configuration.get('graph.shortcuts.overrides') ?? {};
+		warnInvalidShortcutOverrides(rawShortcutOverrides);
+		const shortcutOverrides = normalizeShortcutOverrides(rawShortcutOverrides);
 
 		const config: GraphComponentConfig = {
 			aiEnabled: this.container.ai.enabled,
@@ -7160,6 +7163,21 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
 	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+let lastShortcutOverridesSignature: string | undefined;
+
+/** Logs one warning per invalid `gitlens.graph.shortcuts.overrides` entry, once per distinct setting
+ *  value — module-level because `getComponentConfig` runs on every config push for every graph instance. */
+function warnInvalidShortcutOverrides(raw: Readonly<Record<string, unknown>>): void {
+	const signature = JSON.stringify(raw);
+	if (signature === lastShortcutOverridesSignature) return;
+
+	lastShortcutOverridesSignature = signature;
+
+	for (const line of formatShortcutOverrideWarnings(raw)) {
+		Logger.warn(line);
+	}
 }
 
 /** Normalizes `gitlens.graph.shortcuts.overrides` values for the component config: a single key

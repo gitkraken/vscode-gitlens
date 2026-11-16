@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { StoredGraphColumn, StoredGraphExcludedRef, StoredGraphState } from '../../../../constants.storage.js';
 import {
 	createDefaultLayoutSnapshot,
+	formatShortcutOverrideWarnings,
 	getDefaultLayoutSeeds,
 	getExcludedRefName,
 	isRepoHostingIntegrationConnected,
@@ -204,5 +205,36 @@ suite('graphWebview.utils — default layout snapshot/seed helpers', () => {
 
 	test('getDefaultLayoutSeeds with no saved layout seeds nothing', () => {
 		assert.deepStrictEqual(getDefaultLayoutSeeds(undefined, undefined, undefined), {});
+	});
+});
+
+suite('graphWebview.utils — formatShortcutOverrideWarnings', () => {
+	test('formats one approved line per bad entry', () => {
+		assert.deepStrictEqual(
+			formatShortcutOverrideWarnings({
+				'panels.toggleMinimap': 'alt+Bogus',
+				'panels.toggleDetails': 'alt+KeyD',
+				'panels.toggleSidebar': ['shift+?'],
+				'panels.*': ['alt+KeyX'],
+			}),
+			[
+				"[Graph Shortcuts] Ignored 'panels.toggleMinimap' in gitlens.graph.shortcuts.overrides: 'alt+Bogus' has an unknown key 'Bogus'; the default shortcut is kept",
+				"[Graph Shortcuts] Ignored 'panels.toggleSidebar' in gitlens.graph.shortcuts.overrides: 'shift+?' combines shift with a single character (use '?' alone); the default shortcut is kept",
+				"[Graph Shortcuts] Ignored 'panels.*' in gitlens.graph.shortcuts.overrides: a wildcard can only be false (disable), not a key combination; the default shortcuts are kept",
+			],
+		);
+		assert.deepStrictEqual(formatShortcutOverrideWarnings({ 'panels.toggleMinimap': 'hyper+KeyS' }), [
+			"[Graph Shortcuts] Ignored 'panels.toggleMinimap' in gitlens.graph.shortcuts.overrides: 'hyper+KeyS' has an unknown modifier 'hyper'; the default shortcut is kept",
+		]);
+		assert.deepStrictEqual(formatShortcutOverrideWarnings({ 'panels.toggleMinimap': 42 }), [
+			"[Graph Shortcuts] Ignored 'panels.toggleMinimap' in gitlens.graph.shortcuts.overrides: expected a key combination, a list of them, or false, but got 42; the default shortcut is kept",
+		]);
+	});
+
+	test('yields nothing for a valid map', () => {
+		assert.deepStrictEqual(
+			formatShortcutOverrideWarnings({ 'panels.toggleMinimap': 'alt+KeyM', 'panels.*': false, '*': [] }),
+			[],
+		);
 	});
 });

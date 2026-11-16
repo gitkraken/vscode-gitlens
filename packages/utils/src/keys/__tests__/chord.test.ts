@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { Chord, KeyEventLike } from '../chord.js';
-import { formatChord, formatChordParts, matchesChord, parseChord } from '../chord.js';
+import { ChordParseError, formatChord, formatChordParts, matchesChord, parseChord } from '../chord.js';
 
 function event(overrides: Partial<KeyEventLike> = {}): KeyEventLike {
 	return {
@@ -366,5 +366,52 @@ suite('Chord Test Suite', () => {
 				}
 			}
 		});
+	});
+});
+
+suite('parseChord — ChordParseError', () => {
+	const cases: [string, string, boolean][] = [
+		['', 'is empty', false],
+		['ctrl+', "ends with '+' (a literal '+' can't be bound)", false],
+		['ctrl++', "ends with '+' (a literal '+' can't be bound)", false],
+		['ctrl+ctrl+c', "repeats the modifier 'ctrl'", false],
+		['Mod+mod+c', "repeats the modifier 'mod'", false],
+		['hyper+KeyS', "has an unknown modifier 'hyper'", false],
+		['mod+ctrl+c', "combines 'mod' with 'ctrl' ('mod' already means Ctrl, or ⌘ on macOS)", false],
+		['mod+meta+c', "combines 'mod' with 'meta' ('mod' already means Ctrl, or ⌘ on macOS)", false],
+		['alt+Bogus', "has an unknown key 'Bogus'", false],
+		['shift+?', "combines shift with a single character (use '?' alone)", false],
+	];
+
+	for (const [input, reason] of cases) {
+		test(`'${input}' throws a ChordParseError with a readable reason`, () => {
+			for (const isMac of [false, true]) {
+				try {
+					parseChord(input, isMac);
+				} catch (ex) {
+					assert.ok(ex instanceof ChordParseError);
+					assert.strictEqual(ex.reason, reason);
+					assert.strictEqual(ex.input, input);
+					assert.strictEqual(ex.name, 'ChordParseError');
+					assert.ok(ex.message.startsWith(`Invalid key chord '${input}': `));
+					continue;
+				}
+				assert.fail(`expected '${input}' to throw`);
+			}
+		});
+	}
+
+	test('isMac never changes whether a chord is valid', () => {
+		for (const input of ['mod+c', 'mod+ctrl+c', 'alt+Bogus', 'hyper+KeyS', 'shift+?', 'F3', 'Alt+keym', 'ctrl+']) {
+			const throws = (isMac: boolean): boolean => {
+				try {
+					parseChord(input, isMac);
+					return false;
+				} catch {
+					return true;
+				}
+			};
+			assert.strictEqual(throws(true), throws(false), input);
+		}
 	});
 });

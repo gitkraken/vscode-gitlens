@@ -1562,7 +1562,7 @@
 	"config.graph.searchAutocompleteOnFocus.markdownDescription": "指定在 _提交图_ 中搜索框获得焦点时是否自动显示搜索自动补全建议。禁用时，建议只会在你开始输入后出现",
 	"config.graph.searchItemLimit.markdownDescription": "指定在 _提交图_ 中搜索时要收集的结果数。使用 0 表示不设上限",
 	"config.graph.shortcuts.enabled.markdownDescription": "指定 _提交图_ 的可自定义键盘快捷键（使用 `Ctrl`、`Alt` 或 `⌘` 的快捷键，例如 `Alt+M` 或 `Ctrl+↑`）是否启用。方向键、`Enter` 和 `Esc` 等导航键始终有效。使用 `#gitlens.graph.shortcuts.overrides#` 可更改或禁用单个快捷键",
-	"config.graph.shortcuts.overrides.markdownDescription": "指定对 _提交图_ 键盘快捷键的更改，以快捷键 id 为键（在 _提交图_ 中按 `?` 并悬停在某个快捷键上可查看其 id——只有显示 id 的快捷键才能更改）。将某个 id 设置为键组合、键组合列表，或设置为 `false` 以禁用它。以 `.*` 结尾的键在设置为 `false` 时会禁用具有该前缀的所有快捷键（例如 `\"panels.*\": false`），而 `\"*\": false` 会禁用全部；通配符不能用于重新绑定。键组合将修饰键（`ctrl`、`alt`、`shift`、`meta`，或表示 Ctrl 的 `mod`，macOS 上为 ⌘）用 `+` 连接在按键之前，例如 `\"mod+shift+ArrowUp\"`；字母和数字使用物理键名（`KeyA`–`KeyZ`、`Digit0`–`Digit9`），其他按键使用其 `KeyboardEvent.key` 值（`ArrowUp`、`Enter`、`/`，空格键为 `\" \"`）。包含未知修饰键或键名的组合会被忽略，该快捷键保留其默认按键",
+	"config.graph.shortcuts.overrides.markdownDescription": "指定对 _提交图_ 键盘快捷键的更改，以快捷键 id 为键（在 _提交图_ 中按 `?` 并悬停在某个快捷键上可查看其 id——只有显示 id 的快捷键才能更改）。将某个 id 设置为键组合、键组合列表，或设置为 `false` 以禁用它。以 `.*` 结尾的键在设置为 `false` 时会禁用具有该前缀的所有快捷键（例如 `\"panels.*\": false`），而 `\"*\": false` 会禁用全部；通配符不能用于重新绑定。键组合将修饰键（`ctrl`、`alt`、`shift`、`meta`，或表示 Ctrl 的 `mod`，macOS 上为 ⌘）用 `+` 连接在按键之前，例如 `\"mod+shift+ArrowUp\"`；字母和数字使用物理键名（`KeyA`–`KeyZ`、`Digit0`–`Digit9`），其他按键使用其 `KeyboardEvent.key` 值（`ArrowUp`、`Enter`、`/`，空格键为 `\" \"`）。包含未知修饰键或键名的组合会被忽略，该快捷键保留其默认按键；原因会记录到 _GitLens_ 输出通道",
 	"config.graph.showGhostRefsOnRowHover.markdownDescription": "指定在 _提交图_ 中悬停或选中某行时是否显示幽灵分支/标签",
 	"config.graph.showRemoteNames.markdownDescription": "指定是否在 _提交图_ 中的远程分支上显示远程名称",
 	"config.graph.showUpstreamStatus.markdownDescription": "指定是否在 _提交图_ 中显示本地分支的上游状态",
