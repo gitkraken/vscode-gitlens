@@ -8,7 +8,7 @@ import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
-import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { AbortAggregate, CancellationError, isCancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -98,6 +98,8 @@ function interleaveByRank(
 export class GitLabApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
+	private readonly _projectLookupAborts = new WeakMap<Promise<string | undefined>, AbortAggregate>();
+	private _reauthenticationPrompted = new Set<string>();
 
 	constructor(private readonly config: ProviderApiConfig) {
 		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
@@ -109,6 +111,7 @@ export class GitLabApi implements Disposable {
 
 	private resetCaches(): void {
 		this._projectIds.clear();
+		this._reauthenticationPrompted.clear();
 	}
 
 	@trace({
@@ -732,7 +735,9 @@ export class GitLabApi implements Disposable {
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation, {
+			strict: true,
+		});
 		if (!projectId) return undefined;
 
 		try {
@@ -1219,7 +1224,11 @@ export class GitLabApi implements Disposable {
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getScopedLogger();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation, {
+			strict: true,
+		}).catch((ex: unknown) => {
+			throw ex instanceof RequestNotFoundError ? ex.original : ex;
+		});
 		if (!projectId) return undefined;
 
 		try {
@@ -1573,6 +1582,11 @@ $search: String!
 		}
 	}
 
+	/**
+	 * The project's numeric id, `undefined` when GitLab has no such project visible to the token. A failed lookup
+	 * answers `undefined` too unless `strict`, which throws it; either way it isn't kept, so the next read asks again
+	 * rather than reading the project as missing until the cache resets.
+	 */
 	getProjectId(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -1580,17 +1594,43 @@ $search: String!
 		repo: string,
 		baseUrl: string | undefined,
 		cancellation: AbortSignal | undefined,
+		options?: { strict?: boolean },
 	): Promise<string | undefined> {
 		const { accessToken } = token;
 		const key = `${accessToken}|${group}/${repo}`;
 
-		let projectId = this._projectIds.get(key);
-		if (projectId == null) {
-			projectId = this.getProjectIdCore(provider, token, group, repo, baseUrl, cancellation);
-			this._projectIds.set(key, projectId);
+		if (cancellation?.aborted) {
+			return options?.strict ? Promise.reject(new CancellationError()) : Promise.resolve(undefined);
 		}
 
-		return projectId;
+		let projectId = this._projectIds.get(key);
+		if (projectId != null && this._projectLookupAborts.get(projectId)?.signal.aborted) {
+			projectId = undefined;
+		}
+
+		if (projectId == null) {
+			const aborts = new AbortAggregate();
+			const lookup = this.getProjectIdCore(provider, token, group, repo, baseUrl, aborts.signal);
+			this._projectIds.set(key, lookup);
+			this._projectLookupAborts.set(lookup, aborts);
+			const settle = () => {
+				aborts.dispose();
+				this._projectLookupAborts.delete(lookup);
+			};
+			void lookup.then(settle, () => {
+				settle();
+				if (this._projectIds.get(key) === lookup) {
+					this._projectIds.delete(key);
+				}
+			});
+			projectId = lookup;
+		}
+
+		const lookup = projectId;
+		this._projectLookupAborts.get(lookup)?.add(cancellation);
+
+		const awaited = cancellation != null ? raceWithSignal(lookup, cancellation) : lookup;
+		return options?.strict ? awaited : awaited.catch(() => undefined);
 	}
 
 	private async getProjectIdCore(
@@ -1599,7 +1639,7 @@ $search: String!
 		group: string,
 		repo: string,
 		baseUrl: string | undefined,
-		cancellation: AbortSignal | undefined,
+		cancellation: AbortSignal,
 	): Promise<string | undefined> {
 		const scope = getScopedLogger();
 
@@ -1638,10 +1678,17 @@ $search: String!
 			scope?.addExitInfo(`projectId=${projectId}`);
 			return projectId;
 		} catch (ex) {
-			if (ex instanceof RequestNotFoundError) return undefined;
+			if (isCancellationError(ex)) throw ex;
 
-			this.handleException(ex, provider, scope);
-			return undefined;
+			if (ex instanceof AuthenticationError) {
+				if (this._reauthenticationPrompted.has(token.accessToken)) {
+					scope?.error(ex);
+					throw ex;
+				}
+
+				this._reauthenticationPrompted.add(token.accessToken);
+			}
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
