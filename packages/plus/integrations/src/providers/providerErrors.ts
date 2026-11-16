@@ -273,6 +273,22 @@ export function isProviderIssueNotFoundError(providerId: IntegrationIds, ex: unk
 	return status === 404 || status === 410 || status === 422;
 }
 
+export class CommitReadRefusedError extends Error {
+	constructor(
+		message: string,
+		readonly original?: Error,
+	) {
+		super(message);
+	}
+}
+
+export function isCommitReadRefusal(ex: unknown): ex is AuthenticationError | RequestClientError {
+	return (
+		(ex instanceof AuthenticationError && ex.reason === AuthenticationErrorReason.Forbidden) ||
+		ex instanceof RequestClientError
+	);
+}
+
 const jiraMissingProjectMessage = /^The value '.*' does not exist for the field 'project'\.?$/i;
 
 /**
