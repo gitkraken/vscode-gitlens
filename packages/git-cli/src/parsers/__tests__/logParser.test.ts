@@ -10,6 +10,10 @@ import {
 	getContributorsLogParser,
 	getGraphParser,
 	getShaAndDatesWithFilesLogParser,
+	getShaAndFilesAndStatsLogParser,
+	getShaAndFileSummaryLogParser,
+	getShaAndStatsLogParser,
+	getStashFilesOnlyLogParser,
 	getStashLogParser,
 } from '../logParser.js';
 
@@ -720,5 +724,291 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 		const entries = [...parser.parse(data)];
 		assert.strictEqual(entries.length, 1, 'Malformed record must be skipped');
 		assertCommit(entries[0], 'sha1');
+	});
+});
+
+// A record's payload (patch, shortstat, file lists) follows its mapped fields. It can be missing (a stream that
+// stopped right after the metadata), truncated (a stream that stopped mid-patch), or contain a NUL+0x1D pair (diff
+// content may hold NUL), which splits it into extra segments. None of these may throw, drop the commit, leave a
+// required property undefined, or let a later segment overwrite the payload already parsed.
+suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	function chunk(s: string, size: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length; i += size) {
+			out.push(s.substring(i, i + size));
+		}
+		return out;
+	}
+
+	function record(separators: { record: string; field: string }, fields: string[], payload = ''): string {
+		return `${separators.record}${fields.join(separators.field)}${separators.field}${payload}`;
+	}
+
+	// Chunk sizes 1 and 2 split the 2-char sentinels themselves across chunks
+	const chunkSizes = [1, 2, 3, 7, Number.MAX_SAFE_INTEGER];
+
+	// commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, message
+	function commitFields(sha: string): string[] {
+		return [sha, 'Alice', 'a@x.com', '100', 'Alice', 'a@x.com', '101', 'p1', '', `${sha} message`];
+	}
+
+	function assertCommit(entry: Record<string, unknown> | undefined, sha: string): void {
+		assert.ok(entry, `Missing entry for ${sha}`);
+		assert.strictEqual(entry.sha, sha);
+		assert.strictEqual(entry.author, 'Alice');
+		assert.strictEqual(entry.committerDate, '101');
+		assert.strictEqual(entry.parents, 'p1');
+		assert.strictEqual(entry.message, `${sha} message`);
+	}
+
+	suite('patch (file range) variant', () => {
+		const header = '\n\ndiff --git a/src/file.ts b/src/file.ts';
+		const fullPatch = `${header}\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,2 +1,3 @@\n x\n+y\n`;
+		const fullFile = {
+			status: 'M',
+			path: 'src/file.ts',
+			originalPath: undefined,
+			range: { startLine: 1, endLine: 3 },
+			originalRange: { startLine: 1, endLine: 2 },
+		};
+		// The header was parsed, so the file is kept — only its ranges are unknown
+		const headerOnlyFile = { ...fullFile, range: undefined, originalRange: undefined };
+
+		const truncations: { name: string; payload: string; files: unknown[] }[] = [
+			{ name: 'right after the metadata (no payload)', payload: '', files: [] },
+			{ name: 'after `diff --git`', payload: header, files: [headerOnlyFile] },
+			{ name: 'after `--- a/f`', payload: `${header}\n--- a/src/file.ts`, files: [headerOnlyFile] },
+			{
+				name: 'before the first `@@`',
+				payload: `${header}\n--- a/src/file.ts\n+++ b/src/file.ts\n`,
+				files: [headerOnlyFile],
+			},
+		];
+
+		for (const { name, payload, files } of truncations) {
+			test(`parse keeps a commit whose record ends ${name}`, () => {
+				const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+				const data =
+					record(parser.separators, commitFields('sha1'), fullPatch) +
+					record(parser.separators, commitFields('sha2'), payload);
+
+				const entries = [...parser.parse(data)];
+				assert.strictEqual(entries.length, 2);
+				assertCommit(entries[0], 'sha1');
+				assert.deepStrictEqual(entries[0].files, [fullFile]);
+				assertCommit(entries[1], 'sha2');
+				assert.deepStrictEqual(entries[1].files, files);
+			});
+
+			test(`parseAsync keeps a commit whose record ends ${name}`, async () => {
+				const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+				const data =
+					record(parser.separators, commitFields('sha1'), fullPatch) +
+					record(parser.separators, commitFields('sha2'), payload);
+
+				for (const size of chunkSizes) {
+					const entries = await collect(parser.parseAsync(streamOf(chunk(data, size))));
+					assert.strictEqual(entries.length, 2, `chunk size ${size}`);
+					assertCommit(entries[0], 'sha1');
+					assert.deepStrictEqual(entries[0].files, [fullFile], `chunk size ${size}`);
+					assertCommit(entries[1], 'sha2');
+					assert.deepStrictEqual(entries[1].files, files, `chunk size ${size}`);
+				}
+			});
+		}
+
+		test('parse and parseAsync keep the file and ranges when diff content contains NUL+0x1D', async () => {
+			const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+			const patch = `${header}\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,2 +1,3 @@\n x\n+y\0\x1Dz\n`;
+			const data =
+				record(parser.separators, commitFields('sha1'), patch) +
+				record(parser.separators, commitFields('sha2'), fullPatch);
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.strictEqual(entries.length, 2);
+				assertCommit(entries[0], 'sha1');
+				assert.deepStrictEqual(entries[0].files, [fullFile]);
+				assertCommit(entries[1], 'sha2');
+				assert.deepStrictEqual(entries[1].files, [fullFile]);
+			}
+		});
+	});
+
+	suite('stats variant', () => {
+		const shortstat = '\n\n 1 file changed, 2 insertions(+), 1 deletion(-)\n';
+
+		test('parse and parseAsync yield zeroed stats for a record that ends right after its metadata', async () => {
+			const parser = getShaAndStatsLogParser();
+			const data = record(parser.separators, ['sha1'], shortstat) + record(parser.separators, ['sha2']);
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(entries, [
+					{ sha: 'sha1', stats: { files: 1, additions: 2, deletions: 1 } },
+					{ sha: 'sha2', stats: { files: 0, additions: 0, deletions: 0 } },
+				]);
+			}
+		});
+
+		// Real --shortstat output can't contain NUL; this guards the framing, not a git-produced input
+		test('parse and parseAsync ignore segments split off after a valid shortstat', async () => {
+			const parser = getShaAndStatsLogParser();
+			const data = record(parser.separators, ['sha1'], `${shortstat}\0\x1Dtrailing`);
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(entries, [{ sha: 'sha1', stats: { files: 1, additions: 2, deletions: 1 } }]);
+			}
+		});
+	});
+
+	suite('files+stats variant', () => {
+		const files = '\n\n:100644 100644 abc1234 def5678 M\tsrc/file.ts\n3\t1\tsrc/file.ts\n';
+		const expectedFile = {
+			status: 'M',
+			path: 'src/file.ts',
+			originalPath: undefined,
+			additions: 3,
+			deletions: 1,
+			mode: '100644',
+			oid: undefined,
+			previousOid: undefined,
+		};
+
+		test('parse and parseAsync yield empty files for a record that ends right after its metadata', async () => {
+			const parser = getShaAndFilesAndStatsLogParser();
+			const data = record(parser.separators, ['sha1'], files) + record(parser.separators, ['sha2']);
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.strictEqual(entries.length, 2);
+				assert.deepStrictEqual(entries[0].files, [expectedFile]);
+				assert.strictEqual(entries[1].sha, 'sha2');
+				assert.deepStrictEqual(entries[1].files, []);
+			}
+		});
+
+		test('parse and parseAsync ignore segments split off after the file list', async () => {
+			const parser = getShaAndFilesAndStatsLogParser();
+			const data = record(parser.separators, ['sha1'], `${files}\0\x1D7\t7\tbogus.ts\n`);
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.strictEqual(entries.length, 1);
+				assert.deepStrictEqual(entries[0].files, [expectedFile]);
+				assert.deepStrictEqual(entries[0].stats, {
+					additions: 3,
+					deletions: 1,
+					files: { added: 0, deleted: 0, changed: 1 },
+				});
+			}
+		});
+
+		test('files-only (no mapped fields) parse ignores segments split off after the file list', () => {
+			const parser = getStashFilesOnlyLogParser();
+			const data = `${files.substring(2)}\0\x1D7\t7\tbogus.ts\n`;
+
+			const entries = [...parser.parse(data)];
+			assert.strictEqual(entries.length, 1);
+			assert.deepStrictEqual(entries[0].files, [expectedFile]);
+		});
+	});
+
+	suite('file summary variant', () => {
+		const summary = '\n\n create mode 100644 src/new.ts\n';
+
+		test('parse yields empty files for a record that ends right after its metadata', () => {
+			const parser = getShaAndFileSummaryLogParser();
+			const data = record(parser.separators, ['sha1'], summary) + record(parser.separators, ['sha2']);
+
+			const entries = [...parser.parse(data)];
+			assert.deepStrictEqual(entries, [
+				{ sha: 'sha1', files: [{ path: 'src/new.ts', status: 'A' }] },
+				{ sha: 'sha2', files: [] },
+			]);
+		});
+
+		test('parse ignores segments split off after the summary', () => {
+			const parser = getShaAndFileSummaryLogParser();
+			const data = record(parser.separators, ['sha1'], `${summary}\0\x1D delete mode 100644 bogus.ts\n`);
+
+			const entries = [...parser.parse(data)];
+			assert.deepStrictEqual(entries, [{ sha: 'sha1', files: [{ path: 'src/new.ts', status: 'A' }] }]);
+		});
+	});
+
+	suite('name-only files variant', () => {
+		// shaAndDateMapping: sha, authorDate, committerDate
+		const fields = (sha: string) => [sha, '100', '101'];
+
+		test('parse and parseAsync yield empty files for a record that ends right after its metadata', async () => {
+			const parser = getShaAndDatesWithFilesLogParser();
+			const data =
+				record(parser.separators, fields('sha1'), '\n\nsrc/file.ts\n') +
+				record(parser.separators, fields('sha2'));
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(entries, [
+					{ sha: 'sha1', authorDate: '100', committerDate: '101', files: [{ path: 'src/file.ts' }] },
+					{ sha: 'sha2', authorDate: '100', committerDate: '101', files: [] },
+				]);
+			}
+		});
+
+		test('parse and parseAsync ignore segments split off after the file list', async () => {
+			const parser = getShaAndDatesWithFilesLogParser();
+			const data = record(parser.separators, fields('sha1'), '\n\nsrc/file.ts\n\0\x1Dbogus.ts\n');
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(entries, [
+					{ sha: 'sha1', authorDate: '100', committerDate: '101', files: [{ path: 'src/file.ts' }] },
+				]);
+			}
+		});
 	});
 });

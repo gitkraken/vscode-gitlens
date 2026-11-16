@@ -673,7 +673,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFilesAndStats<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commits and files/summary, if any
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -681,8 +681,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 							? field.value.substring(1)
 							: field.value;
 					files.push(...parseFilesAndStats(summary));
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -741,7 +741,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFilesAndStats<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commits and files/summary, if any
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -749,8 +749,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 							? field.value.substring(1)
 							: field.value;
 					files.push(...parseFilesAndStats(summary));
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -882,7 +882,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFiles<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commits and files/summary, if any
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -890,8 +890,8 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 							? field.value.substring(1)
 							: field.value;
 					files.push(...parseFileSummary(summary));
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -994,7 +994,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			line = lines.next();
 		}
 
-		const rangeMatch = line.value.match(diffHunkRegex);
+		// A patch truncated before its first hunk still has a valid header — keep the file, just without ranges
+		const rangeMatch = line.done ? undefined : line.value.match(diffHunkRegex);
 
 		let range: LogParsedRange | undefined;
 		let originalRange: LogParsedRange | undefined;
@@ -1039,7 +1040,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithFiles<T>;
+			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1050,7 +1051,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFiles<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and patch, if any
 					const patch = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1059,8 +1060,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 							: field.value;
 					const file = parsePatch(patch);
 					entry.files = file != null ? [file] : [];
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -1085,7 +1086,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithFiles<T>;
+			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1096,7 +1097,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFiles<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and patch, if any
 					const patch = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1105,8 +1106,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 							: field.value;
 					const file = parsePatch(patch);
 					entry.files = file != null ? [file] : [];
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -1201,7 +1202,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithStats<T>;
+			entry = { stats: { files: 0, additions: 0, deletions: 0 } } as unknown as LogParsedEntryWithStats<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1212,7 +1213,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithStats<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and files/summary, if any
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1220,8 +1221,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 							? field.value.substring(1)
 							: field.value;
 					entry.stats = parseStats(summary);
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -1246,7 +1247,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithStats<T>;
+			entry = { stats: { files: 0, additions: 0, deletions: 0 } } as unknown as LogParsedEntryWithStats<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1257,7 +1258,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithStats<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and files/summary, if any
 					const summary = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1265,8 +1266,8 @@ function createLogParserWithStats<T extends Record<string, string>>(
 							? field.value.substring(1)
 							: field.value;
 					entry.stats = parseStats(summary);
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -1330,7 +1331,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithFiles<T>;
+			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1341,7 +1342,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFiles<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and files, if any
 					const files = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1349,8 +1350,8 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 							? field.value.substring(1)
 							: field.value;
 					entry.files = parseFileNames(files);
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
@@ -1377,7 +1378,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
-			entry = {} as unknown as LogParsedEntryWithFiles<T>;
+			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
 			fields = iterateByDelimiter(record, fieldSep);
 
 			let fieldCount = 0;
@@ -1388,7 +1389,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 
 				if (fieldCount < keys.length) {
 					entry[keys[fieldCount++]] = field.value as LogParsedEntryWithFiles<T>[keyof T];
-				} else if (fieldCount === keys.length) {
+				} else {
 					// Slice off the first newlines between the commit data and files, if any
 					const files = field.value.startsWith('\n\n')
 						? field.value.substring(2)
@@ -1396,8 +1397,8 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 							? field.value.substring(1)
 							: field.value;
 					entry.files = parseFileNames(files);
-				} else {
-					debugger;
+					// Only the first segment after the mapped fields is the payload; stop so later segments can't overwrite it
+					break;
 				}
 			}
 
