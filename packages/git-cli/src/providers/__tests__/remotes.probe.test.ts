@@ -1,5 +1,62 @@
 import * as assert from 'assert';
-import { getProbeFailureMessage, getProbeFailureReason } from '../remotes.js';
+import * as sinon from 'sinon';
+import type { GitServiceContext } from '@gitlens/git/context.js';
+import type { GitResult } from '@gitlens/git/run.types.js';
+import type { CliGitProviderInternal } from '../../cliGitProvider.js';
+import { Git } from '../../exec/git.js';
+import type { GitOptions } from '../../exec/git.js';
+import { getProbeFailureMessage, getProbeFailureReason, RemotesGitSubProvider } from '../remotes.js';
+
+suite('RemotesGitSubProvider.probeRemote environment', () => {
+	async function probeEnv(options: GitOptions): Promise<Record<string, string | undefined>> {
+		const git = new Git(() => Promise.resolve({ path: '/nonexistent/git-binary', version: '2.40.0' }), options);
+		try {
+			const run = sinon.stub(git, 'run').resolves({
+				stdout: '',
+				stderr: undefined,
+				exitCode: 0,
+				completion: { status: 'exited', code: 0 },
+			} satisfies GitResult);
+			const provider = new RemotesGitSubProvider(
+				{ hooks: {} } as unknown as GitServiceContext,
+				git,
+				{} as never,
+				{} as unknown as CliGitProviderInternal,
+			);
+			await provider.probeRemote('/repos/a', 'ssh://host/r.git');
+			return run.firstCall.args[0].env as Record<string, string | undefined>;
+		} finally {
+			sinon.restore();
+			git.dispose();
+		}
+	}
+
+	test('keeps the askpass defaults without a host quiet-network environment', async () => {
+		assert.deepStrictEqual(await probeEnv({}), {
+			GIT_ASKPASS: '',
+			GIT_TERMINAL_PROMPT: '0',
+			GCM_INTERACTIVE: 'NEVER',
+			SSH_ASKPASS: '',
+		});
+	});
+
+	test('lets the host replace SSH_ASKPASS while the other quiet keys stay', async () => {
+		const env = await probeEnv({
+			getQuietNetworkEnvironment: () => ({
+				SSH_ASKPASS: '/host/askpass',
+				SSH_ASKPASS_REQUIRE: 'force',
+				GIT_ASKPASS: 'x',
+			}),
+		});
+		assert.deepStrictEqual(env, {
+			GIT_ASKPASS: '',
+			GIT_TERMINAL_PROMPT: '0',
+			GCM_INTERACTIVE: 'NEVER',
+			SSH_ASKPASS: '/host/askpass',
+			SSH_ASKPASS_REQUIRE: 'force',
+		});
+	});
+});
 
 suite('getProbeFailureReason', () => {
 	const cases: [stderr: string, expected: ReturnType<typeof getProbeFailureReason>][] = [

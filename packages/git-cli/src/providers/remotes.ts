@@ -188,7 +188,13 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 		const signal = cancellation != null ? AbortSignal.any([cancellation, timeoutSignal]) : timeoutSignal;
 
 		const result = await this.git.run(
-			{ cwd: repoPath, cancellation: signal, errors: 'ignore', env: probeRemoteEnv, priority: 'interactive' },
+			{
+				cwd: repoPath,
+				cancellation: signal,
+				errors: 'ignore',
+				env: this.git.quietNetworkEnv(probeRemoteEnv),
+				priority: 'interactive',
+			},
 			// No `--exit-code`: a freshly created, empty repository advertises no HEAD but is a valid remote
 			'ls-remote',
 			url,
