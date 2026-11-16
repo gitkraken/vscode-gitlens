@@ -10,6 +10,7 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { fileUri, getRepositoryKey, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
+import { getRefParser } from '../../../parsers/refParser.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
 import {
@@ -699,9 +700,15 @@ suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', functi
 		}
 		// The ref list and the remote `HEAD` symref, cached for every checkout; each watch session's flush of the
 		// rewrite clears them, so a probe after a later one reads them again
+		// Derived from the parser, so a format change can't silently stop matching the ref list read
+		const refListReads = [getRefParser([]), getRefParser(['git:for-each-ref:worktreePath'])].map(
+			p => `] git for-each-ref ${p.arguments[0]}`,
+		);
 		assert.deepStrictEqual(
 			shared.filter(
-				m => !/\] git (for-each-ref --format=%1E|symbolic-ref --short refs\/remotes\/origin\/HEAD )/.test(m),
+				m =>
+					!refListReads.some(c => m.includes(c)) &&
+					!m.includes('] git symbolic-ref --short refs/remotes/origin/HEAD '),
 			),
 			[],
 			'only the shared ref list and remote HEAD reads, no checkout reading anything of its own',
