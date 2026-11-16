@@ -1585,16 +1585,20 @@ export class GitHubApi {
 				cancellation,
 			);
 
+			// Owners compare ignoring case, as GitHub logins do.
+			const ownerKey = owner.toLowerCase();
+			const isOwners = (pr: GitHubPullRequestLite): boolean =>
+				pr.repository.owner.login.toLowerCase() === ownerKey;
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
-				pr => pr != null && (!pr.repository.isFork || pr.repository.owner.login === owner),
+				pr => pr != null && (!pr.repository.isFork || isOwners(pr)),
 			);
 			if (prs == null || prs.length === 0) return undefined;
 
 			if (prs.length > 1) {
 				prs.sort(
 					(a, b) =>
-						(a.repository.owner.login === owner ? -1 : 1) - (b.repository.owner.login === owner ? -1 : 1) ||
+						(isOwners(a) ? -1 : 1) - (isOwners(b) ? -1 : 1) ||
 						(a.state === 'MERGED' ? -1 : 1) - (b.state === 'MERGED' ? -1 : 1) ||
 						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
 				);
