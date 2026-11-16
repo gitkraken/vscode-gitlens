@@ -5,7 +5,8 @@ import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
-import type { Git } from '../../exec/git.js';
+import { Git } from '../../exec/git.js';
+import type { GitOptions } from '../../exec/git.js';
 import { BranchesGitSubProvider, defaultBranchLookupClock } from '../branches.js';
 
 const repoPath = '/repos/a';
@@ -23,9 +24,11 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 	const failedLookupWait = 60 * 1000;
 
 	let cache: Cache;
+	let git: Git;
 	let provider: BranchesGitSubProvider;
 	let run: sinon.SinonStub<RunArgs, Promise<GitResult>>;
 	let now: number;
+	let gitOptions: GitOptions;
 
 	/** Answers each command from `answers`; `symbolic-ref` answers "not a symbolic ref" until a `set-head` has run */
 	let answers: { setHead: () => Promise<GitResult>; lsRemote: () => Promise<GitResult> };
@@ -37,6 +40,7 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 
 	setup(() => {
 		now = 0;
+		gitOptions = {};
 		sinon.stub(defaultBranchLookupClock, 'now').callsFake(() => now);
 
 		cache = new Cache();
@@ -45,7 +49,8 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 			lsRemote: () => Promise.resolve(exited('')),
 		};
 
-		run = sinon.stub<RunArgs, Promise<GitResult>>();
+		git = new Git(() => Promise.resolve({ path: '/nonexistent/git-binary', version: '2.40.0' }), gitOptions);
+		run = sinon.stub(git, 'run') as unknown as sinon.SinonStub<RunArgs, Promise<GitResult>>;
 		run.callsFake((_options, ...args) => {
 			switch (args[0]) {
 				case 'symbolic-ref':
@@ -61,7 +66,7 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 
 		provider = new BranchesGitSubProvider(
 			{ hooks: {} } as unknown as GitServiceContext,
-			{ run: run } as unknown as Git,
+			git,
 			cache,
 			{} as unknown as CliGitProviderInternal,
 		);
@@ -69,6 +74,7 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 
 	teardown(() => {
 		sinon.restore();
+		git.dispose();
 		cache.dispose();
 	});
 
@@ -91,6 +97,120 @@ suite('BranchesGitSubProvider.getDefaultBranchName networked lookup', () => {
 			assert.deepStrictEqual(options.configs, ['-c', 'credential.interactive=false']);
 			assert.ok(options.cwd != null);
 		}
+	});
+
+	test('without a host quiet-network environment the askpass defaults are unchanged', async () => {
+		await provider.getDefaultBranchName(repoPath, 'origin');
+
+		for (const call of networkCalls()) {
+			assert.deepStrictEqual(call.args[0].env, {
+				GIT_TERMINAL_PROMPT: '0',
+				GIT_ASKPASS: '',
+				SSH_ASKPASS: '',
+				SSH_ASKPASS_REQUIRE: 'never',
+				GCM_INTERACTIVE: 'never',
+			});
+		}
+	});
+
+	test('the host quiet-network environment replaces the askpass defaults for ls-remote and set-head', async () => {
+		const hostEnv = {
+			SSH_ASKPASS: '/host/askpass',
+			SSH_ASKPASS_REQUIRE: 'force',
+			// Not an askpass key: the quiet defaults still win
+			GIT_ASKPASS: '/host/git-askpass',
+			GIT_TERMINAL_PROMPT: '1',
+		};
+		gitOptions.getQuietNetworkEnvironment = () => hostEnv;
+
+		await provider.getDefaultBranchName(repoPath, 'origin');
+
+		const calls = networkCalls();
+		assert.deepStrictEqual(
+			calls.map(c => c.args[1]),
+			['remote', 'ls-remote'],
+		);
+		for (const call of calls) {
+			const env = call.args[0].env;
+			assert.strictEqual(env.SSH_ASKPASS, '/host/askpass');
+			assert.strictEqual(env.SSH_ASKPASS_REQUIRE, 'force');
+			assert.strictEqual(env.GIT_ASKPASS, '');
+			assert.strictEqual(env.GIT_TERMINAL_PROMPT, '0');
+			assert.strictEqual(env.GCM_INTERACTIVE, 'never');
+			assert.deepStrictEqual(call.args[0].configs, ['-c', 'credential.interactive=false']);
+		}
+	});
+
+	test('the merged environment is reused while the host returns the same reference', async () => {
+		const hostEnv = { SSH_ASKPASS: '/host/askpass' };
+		gitOptions.getQuietNetworkEnvironment = () => hostEnv;
+
+		await provider.getDefaultBranchName(repoPath, 'origin');
+		await provider.setRemoteHeadIfMissing(repoPath, 'origin');
+
+		const envs = networkCalls().map((c): unknown => c.args[0].env);
+		assert.strictEqual(envs.length, 3);
+		assert.ok(envs.every(e => e === envs[0]));
+	});
+
+	test('the merge is made again when the host returns a new reference', async () => {
+		let hostEnv = { SSH_ASKPASS: '/host/one' };
+		gitOptions.getQuietNetworkEnvironment = () => hostEnv;
+
+		await provider.setRemoteHeadIfMissing(repoPath, 'origin');
+		hostEnv = { SSH_ASKPASS: '/host/two' };
+		await provider.setRemoteHeadIfMissing(repoPath, 'origin');
+
+		assert.deepStrictEqual(
+			networkCalls().map((c): unknown => c.args[0].env.SSH_ASKPASS),
+			['/host/one', '/host/two'],
+		);
+	});
+
+	test("an askpass key the host leaves out drops core's default, and one it sets to undefined is unset", async () => {
+		gitOptions.getQuietNetworkEnvironment = () => ({ SSH_ASKPASS: undefined, DISPLAY: ':0' });
+
+		await provider.getDefaultBranchName(repoPath, 'origin');
+
+		const calls = networkCalls();
+		assert.strictEqual(calls.length, 2);
+		for (const call of calls) {
+			assert.deepStrictEqual(call.args[0].env, {
+				GIT_TERMINAL_PROMPT: '0',
+				GIT_ASKPASS: '',
+				SSH_ASKPASS: undefined,
+				GCM_INTERACTIVE: 'never',
+				DISPLAY: ':0',
+			});
+		}
+	});
+
+	test('an empty host environment leaves the ssh askpass to the inherited environment', async () => {
+		gitOptions.getQuietNetworkEnvironment = () => ({});
+
+		await provider.getDefaultBranchName(repoPath, 'origin');
+
+		const calls = networkCalls();
+		assert.strictEqual(calls.length, 2);
+		for (const call of calls) {
+			assert.deepStrictEqual(call.args[0].env, {
+				GIT_TERMINAL_PROMPT: '0',
+				GIT_ASKPASS: '',
+				GCM_INTERACTIVE: 'never',
+			});
+		}
+	});
+
+	test('a lookup the local symref answers never asks the host for its environment', async () => {
+		const getQuietNetworkEnvironment = sinon.stub<[], Record<string, string | undefined> | undefined>();
+		gitOptions.getQuietNetworkEnvironment = getQuietNetworkEnvironment;
+		run.callsFake((_options, ...args) =>
+			Promise.resolve(exited(args[0] === 'symbolic-ref' ? 'origin/main\n' : '')),
+		);
+
+		assert.strictEqual(await provider.getDefaultBranchName(repoPath, 'origin'), 'origin/main');
+		assert.strictEqual(networkCalls().length, 0);
+		assert.strictEqual(getQuietNetworkEnvironment.callCount, 0);
 	});
 
 	test('a failed attempt is not repeated within the wait, and is after it', async () => {

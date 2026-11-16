@@ -729,6 +729,19 @@ export interface GitOptions {
 	env?: Record<string, string | undefined>;
 	/** Dynamic environment provider called for each command (e.g., host-discovered SCM credentials) */
 	getEnvironment?: () => Record<string, string | undefined> | undefined;
+	/**
+	 * The environment for network commands core runs without a person present (a default-branch lookup,
+	 * a remote probe, a background `remote set-head`), which is how a host supplies an askpass that ends the asking
+	 * ssh without answering, so a jump host isn't sent empty answers. When it returns an environment, the host owns
+	 * the ssh askpass of those commands: core drops its own `SSH_ASKPASS*` defaults (an empty `SSH_ASKPASS`, plus
+	 * `SSH_ASKPASS_REQUIRE=never` on the default-branch reads), so an `SSH_ASKPASS*` key the host leaves out comes
+	 * from the inherited environment and `{}` means "use the inherited askpass".
+	 * A key set to `undefined` leaves that variable unset; a key core doesn't set (`DISPLAY`, a helper's own
+	 * variables) is added. `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS=''` and `GCM_INTERACTIVE` keep core's values
+	 * whatever it returns, as does `credential.interactive=false` on the default-branch reads (the probe sets none).
+	 * Called per command; return the same object while nothing changes. Without it, core's defaults apply unchanged.
+	 */
+	getQuietNetworkEnvironment?: () => Record<string, string | undefined> | undefined;
 	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to {@link defaultGitTimeout}. Set to 0 to disable. */
 	gitTimeout?: number;
 	/**
@@ -893,6 +906,12 @@ export class Git {
 	/** Last dynamic env reference, used to detect when getEnvironment() returns a new object */
 	private _lastDynamicEnv: Record<string, string | undefined> | undefined | null;
 
+	/** Merged quiet-network environments, by the defaults they extend, rebuilt only when the host returns a new reference */
+	private readonly _quietNetworkEnvs = new WeakMap<
+		Record<string, string>,
+		{ hostEnv: Record<string, string | undefined>; merged: Record<string, string | undefined> }
+	>();
+
 	/** Bound via {@link bindChangeNotifier}; announces a `notify`-flagged run's changes. No-op until bound. */
 	private _changeNotifier:
 		| ((
@@ -986,6 +1005,29 @@ export class Git {
 		this._lastDynamicEnv = dynamicEnv;
 		this._fullEnv = dynamicEnv != null ? { ...this.getBaseEnv(), ...dynamicEnv } : this.getBaseEnv();
 		return this._fullEnv;
+	}
+
+	/**
+	 * Returns `defaults` with its `SSH_ASKPASS*` keys replaced by the host's quiet-network environment. Every other
+	 * default key is pinned. Returns `defaults` itself without a host environment, and the same merged object while
+	 * the host returns the same reference.
+	 */
+	quietNetworkEnv(defaults: Record<string, string>): Record<string, string | undefined> {
+		const hostEnv = this.options.getQuietNetworkEnvironment?.() ?? undefined;
+		if (hostEnv == null) return defaults;
+
+		let cached = this._quietNetworkEnvs.get(defaults);
+		if (cached?.hostEnv === hostEnv) return cached.merged;
+
+		const merged: Record<string, string | undefined> = { ...hostEnv };
+		for (const [key, value] of Object.entries(defaults)) {
+			if (!key.startsWith('SSH_ASKPASS')) {
+				merged[key] = value;
+			}
+		}
+		cached = { hostEnv: hostEnv, merged: merged };
+		this._quietNetworkEnvs.set(defaults, cached);
+		return merged;
 	}
 
 	/** The environment git runs with, before a run's own `env` */
