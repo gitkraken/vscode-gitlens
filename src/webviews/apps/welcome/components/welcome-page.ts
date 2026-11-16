@@ -9,6 +9,7 @@ import { urls } from '../../../../constants.js';
 import { SubscriptionState } from '../../../../constants.subscription.js';
 import type { GraphWalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
+import { trackKeplerCtaShown } from '../../shared/components/keplerBanner.utils.js';
 import { welcomeStateContext } from '../state.js';
 import type { WelcomeState } from '../state.js';
 import { welcomeStyles } from './welcome-page.css.js';
@@ -277,7 +278,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 			<p>
 				${l10n.t('Start from an issue or pull request, and Kepler creates the environment, launches the agent, and keeps related work organized in a single Task across repositories.')}
 			</p>
-			<div class="card-part--centered">
+			<div class="card-part--centered kepler-cta">
 				${
 					state.keplerInstallable && !state.keplerInstalled
 						? html`<gl-button
@@ -488,6 +489,28 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 		super.disconnectedCallback?.();
 		window.removeEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
 		this.removeEventListener('click', this.handleClick);
+		this.trackKeplerCta(undefined);
+	}
+
+	private _keplerCta?: Element;
+	private _stopTrackingKeplerCta?: () => void;
+
+	protected override updated(): void {
+		this.trackKeplerCta(this.renderRoot.querySelector('.kepler-cta') ?? undefined);
+	}
+
+	private trackKeplerCta(cta: Element | undefined): void {
+		if (cta === this._keplerCta) return;
+
+		this._stopTrackingKeplerCta?.();
+		this._keplerCta = cta;
+		this._stopTrackingKeplerCta =
+			cta != null
+				? trackKeplerCtaShown(cta, 'welcome', () => {
+						const { keplerInstallable, keplerInstalled } = this.getStepConditionState();
+						return keplerInstallable && !keplerInstalled;
+					})
+				: undefined;
 	}
 
 	/** Snapshot of the condition inputs the step definitions evaluate — see `WalkthroughStepConditionState`. */
