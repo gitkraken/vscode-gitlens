@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-16
+
 ### Added
 
 - Adds `GitOptions.getQuietNetworkEnvironment`, a host hook for the ssh askpass of the network reads core runs without a person present (`branches.getDefaultBranchName`, `branches.setRemoteHeadIfMissing`, `remotes.probeRemote`). They blanked `SSH_ASKPASS` per call, so behind a `ProxyJump` host that asks for a password or a code the hop's ssh sent an empty answer to each prompt, each a failed sign-in. When the hook returns an environment, core drops its own `SSH_ASKPASS*` defaults for those reads and uses the host's (`{}` means the inherited askpass); the other quiet keys stay. Without it nothing changes (git-cli)
@@ -1331,7 +1333,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...HEAD
+[0.39.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...gitkraken:releases/core/v0.39.0
 [0.38.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...gitkraken:releases/core/v0.38.4
 [0.38.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...gitkraken:releases/core/v0.38.3
 [0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
