@@ -18,8 +18,14 @@ import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import type { KeplerInstallFailureReason, KeplerInstallProgress, KeplerRelease } from './keplerRelease.js';
-import { KeplerInstallError, toMegabytes } from './keplerRelease.js';
+import type {
+	KeplerInstallFailureReason,
+	KeplerInstallProgress,
+	KeplerInstallResult,
+	KeplerInstallStep,
+	KeplerRelease,
+} from './keplerRelease.js';
+import { getKeplerInstallFailureCode, KeplerInstallError, toMegabytes } from './keplerRelease.js';
 
 /**
  * The Kepler build a user has pointed GitLens at. There is no API to discover which channel of
@@ -71,6 +77,7 @@ export class KeplerService implements Disposable {
 	}
 	private _installPromise: Promise<boolean> | undefined;
 	private _releasePromise: Promise<KeplerRelease | undefined> | undefined;
+	private _releaseError: unknown;
 	private readonly remote: boolean;
 
 	/**
@@ -144,6 +151,7 @@ export class KeplerService implements Disposable {
 		this._releasePromise ??= getKeplerRelease(target).catch((ex: unknown) => {
 			Logger.warn('Unable to resolve the Kepler release', ex);
 			this._releasePromise = undefined;
+			this._releaseError = ex;
 			return undefined;
 		});
 		return this._releasePromise;
@@ -160,11 +168,17 @@ export class KeplerService implements Disposable {
 		if (this.installed === true) {
 			// The installed context key can lag an install made by hand, leaving Install Kepler on
 			// offer; say so rather than appear to do nothing
-			void this.showInstalled(undefined);
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: 'already-installed' }, source);
+			void this.showInstalled(undefined, 'skipped', source);
 			return Promise.resolve(true);
 		}
 
 		if (!this.canInstall) {
+			this.container.telemetry.sendEvent(
+				'kepler/install/skipped',
+				{ reason: this.remote ? 'remote' : this.channel !== 'production' ? 'channel' : 'unsupported' },
+				source,
+			);
 			void openUrl(urls.keplerDownload);
 			return Promise.resolve(false);
 		}
@@ -185,36 +199,51 @@ export class KeplerService implements Disposable {
 		const data = { kind: getKeplerReleaseTargetForHost()!.kind };
 		this.container.telemetry.sendEvent('kepler/install/started', data, source);
 
+		const timings = createInstallTimings();
 		let release: KeplerRelease | undefined;
+		let result: KeplerInstallResult;
 		let cancelledLate = false;
 		try {
-			release = await window.withProgress(
+			result = await window.withProgress(
 				{ location: ProgressLocation.Notification, cancellable: true },
 				async (progress, token) => {
 					progress.report({ message: l10n.t('Checking for the latest Kepler version…') });
 					// The release shown in the prompt may be from hours ago; Kepler republishes under the same file name
 					this._releasePromise = undefined;
+					this._releaseError = undefined;
 					const resolved = await this.getRelease();
 					if (resolved == null) {
-						throw new KeplerInstallError('manifest', 'Unable to resolve the Kepler release');
+						throw new KeplerInstallError('manifest', 'Unable to resolve the Kepler release', {
+							cause: this._releaseError,
+						});
 					}
 
 					release = resolved;
-					await installKepler(resolved, {
+					const report = createProgressReporter(resolved, progress);
+					const installed = await installKepler(resolved, {
 						signal: toAbortSignal(token),
-						onProgress: createProgressReporter(resolved, progress),
+						onProgress: value => {
+							timings.onProgress(value);
+							report(value);
+						},
 					});
 					// Once the install step starts it can't be stopped (killing the Windows setup would
 					// leave a half-installed Kepler), so a Cancel clicked during it only lands here
 					cancelledLate = token.isCancellationRequested;
-					return resolved;
+					return installed;
 				},
 			);
 		} catch (ex) {
 			const reason: KeplerInstallFailureReason = ex instanceof KeplerInstallError ? ex.reason : 'install';
 			this.container.telemetry.sendEvent(
 				'kepler/install/failed',
-				{ ...data, version: release?.version, 'failure.reason': reason },
+				{
+					...data,
+					version: release?.version,
+					...timings.stop(),
+					'failure.reason': reason,
+					'failure.code': reason === 'cancelled' ? undefined : getKeplerInstallFailureCode(ex),
+				},
 				source,
 			);
 			if (reason === 'cancelled') return false;
@@ -224,16 +253,25 @@ export class KeplerService implements Disposable {
 			if (ex instanceof KeplerInstallError && ex.cause != null) {
 				Logger.error(ex.cause, 'KeplerService.install: caused by');
 			}
-			void this.showInstallFailed(reason);
+			void this.showInstallFailed(reason, source);
 			return false;
 		}
 
 		this.markInstalled();
-		this.container.telemetry.sendEvent('kepler/install/completed', { ...data, version: release.version }, source);
+		const version = result.version ?? release?.version;
+		if (result.existing) {
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: 'already-installed' }, source);
+		} else {
+			this.container.telemetry.sendEvent(
+				'kepler/install/completed',
+				{ ...data, version: version, ...timings.stop(), 'cancelled.late': cancelledLate || undefined },
+				source,
+			);
+		}
 		// Kepler is installed either way, but the user no longer wants what the install was for
 		if (cancelledLate) return false;
 
-		void this.showInstalled(release.version);
+		void this.showInstalled(version, result.existing ? 'skipped' : 'completed', source);
 		return true;
 	}
 
@@ -247,21 +285,35 @@ export class KeplerService implements Disposable {
 		this._onDidChange.fire();
 	}
 
-	private async showInstalled(version: string | undefined): Promise<void> {
+	private async showInstalled(
+		version: string | undefined,
+		after: 'completed' | 'skipped',
+		source: Source | undefined,
+	): Promise<void> {
 		const open = { title: l10n.t('Open Kepler') };
 		const result = await window.showInformationMessage(
 			version != null ? l10n.t('Kepler {0} is installed.', version) : l10n.t('Kepler is installed.'),
 			open,
+		);
+		this.container.telemetry.sendEvent(
+			'kepler/install/action',
+			{ action: result === open ? 'open' : 'dismiss', after: after },
+			source,
 		);
 		if (result === open) {
 			void openUrl(this.scheme);
 		}
 	}
 
-	private async showInstallFailed(reason: KeplerInstallFailureReason): Promise<void> {
+	private async showInstallFailed(reason: KeplerInstallFailureReason, source: Source | undefined): Promise<void> {
 		const download = { title: l10n.t('Download Kepler') };
 		const output = { title: l10n.t('Open Output Channel') };
 		const result = await window.showErrorMessage(getInstallFailureMessage(reason), download, output);
+		this.container.telemetry.sendEvent(
+			'kepler/install/action',
+			{ action: result === download ? 'download' : result === output ? 'output' : 'dismiss', after: 'failed' },
+			source,
+		);
 		if (result === download) {
 			void openUrl(urls.keplerDownload);
 		} else if (result === output) {
@@ -336,6 +388,58 @@ function getInstallFailureMessage(reason: KeplerInstallFailureReason): string {
 		default:
 			return l10n.t('Unable to install Kepler: the installer failed.');
 	}
+}
+
+/** Times an install and its steps, and tracks how much was downloaded, for telemetry. */
+function createInstallTimings(): {
+	onProgress(value: KeplerInstallProgress): void;
+	stop(): {
+		duration: number;
+		'duration.download'?: number;
+		'duration.verify'?: number;
+		'duration.install'?: number;
+		'duration.register'?: number;
+		'download.size'?: number;
+	};
+} {
+	const started = Date.now();
+	const durations: Partial<Record<KeplerInstallStep, number>> = {};
+	let step: KeplerInstallStep | undefined;
+	let stepStarted = started;
+	let downloaded: number | undefined;
+
+	function endStep(now: number): void {
+		if (step == null) return;
+
+		durations[step] = now - stepStarted;
+	}
+
+	return {
+		onProgress: value => {
+			if (value.step === 'download') {
+				downloaded = value.transferred ?? downloaded;
+			}
+			if (value.step === step) return;
+
+			const now = Date.now();
+			endStep(now);
+			step = value.step;
+			stepStarted = now;
+		},
+		stop: () => {
+			const now = Date.now();
+			endStep(now);
+			step = undefined;
+			return {
+				duration: now - started,
+				'duration.download': durations.download,
+				'duration.verify': durations.verify,
+				'duration.install': durations.install,
+				'duration.register': durations.register,
+				'download.size': downloaded,
+			};
+		},
+	};
 }
 
 /** Turns install steps into notification messages, with the download filling most of the progress bar. */
