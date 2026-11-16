@@ -1202,3 +1202,809 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 		});
 	});
 });
+
+// Generated records for every parser variant, checked against expectations built from the generator's own structured
+// data (not another parser), across every parse path and many chunkings. Plus malformed input with hand-derived
+// expectations, early termination, and a record spanning many chunks.
+suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', () => {
+	const rs = '\0\x1E';
+	const fs = '\0\x1D';
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	function chunk(s: string, size: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length; i += size) {
+			out.push(s.substring(i, i + size));
+		}
+		return out;
+	}
+
+	function chunkRandomly(s: string, next: () => number, maxSize: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length;) {
+			const size = 1 + Math.floor(next() * maxSize);
+			out.push(s.substring(i, i + size));
+			i += size;
+		}
+		return out;
+	}
+
+	// mulberry32: a small seeded PRNG, so a failure reproduces from its seed
+	function createRandom(seed: number): () => number {
+		let a = seed >>> 0;
+		return () => {
+			a = (a + 0x6d2b79f5) >>> 0;
+			let t = a;
+			t = Math.imul(t ^ (t >>> 15), t | 1);
+			t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+
+	function record(fields: string[], payload = ''): string {
+		return `${rs}${fields.map(f => `${f}${fs}`).join('')}${payload}`;
+	}
+
+	// Bare markers, Unicode (including astral/surrogate pairs) and plain text; never NUL, which git can't emit in a field
+	const textPieces = ['a', 'Z', '0', ' ', '-', ':', '\x1E', '\x1D', '\x1E\x1D', 'é', 'Ω', '日本', '😀', '𝄞'];
+	// Path pieces: no tab, newline, ' => ', ' b/', braces or edge whitespace, which the payload formats reserve
+	const pathPieces = ['a', 'é', '日', '😀', '\x1E', '\x1D', '-', '_', ' ', '/'];
+
+	type Generated = { data: string; expected: Record<string, unknown>[] };
+	type Variant = {
+		name: string;
+		keys: string[];
+		/** Returns the payload text and the properties it should parse into */
+		payload: (random: Random) => { text: string; props: Record<string, unknown> };
+		parse: (data: string | Iterable<string>) => Iterable<unknown>;
+		parseAsync?: (stream: AsyncGenerator<string>) => AsyncIterable<unknown>;
+		parseAsyncBatched?: (stream: AsyncGenerator<string>) => AsyncIterable<unknown[]>;
+	};
+
+	class Random {
+		constructor(readonly next: () => number) {}
+
+		int(min: number, max: number): number {
+			return min + Math.floor(this.next() * (max - min + 1));
+		}
+
+		pick<T>(items: readonly T[]): T {
+			return items[Math.floor(this.next() * items.length)];
+		}
+
+		text(options?: { newlines?: boolean; long?: boolean }): string {
+			const roll = this.next();
+			let length;
+			if (roll < 0.15) {
+				length = 0;
+			} else if (options?.long && roll > 0.9) {
+				length = this.int(1000, 3000);
+			} else {
+				length = this.int(1, 12);
+			}
+
+			let s = '';
+			for (let i = 0; i < length; i++) {
+				s += options?.newlines && this.next() < 0.1 ? '\n' : this.pick(textPieces);
+			}
+			// Leading and trailing bare markers sit right next to the framing sentinels
+			if (this.next() < 0.2) {
+				s = this.pick(['\x1E', '\x1D']) + s;
+			}
+			if (this.next() < 0.2) {
+				s += this.pick(['\x1E', '\x1D']);
+			}
+			return s;
+		}
+
+		path(index: number): string {
+			let s = 'p';
+			const length = this.int(0, 8);
+			for (let i = 0; i < length; i++) {
+				s += this.pick(pathPieces);
+			}
+			return `${s}${index}.ts`;
+		}
+	}
+
+	function filesAndStatsPayload(random: Random): { text: string; props: Record<string, unknown> } {
+		const count = random.int(0, 4);
+		if (count === 0) return { text: random.pick(['', '\n']), props: { files: [] } };
+
+		const raw: string[] = [];
+		const numstat: string[] = [];
+		const files: Record<string, unknown>[] = [];
+		const stats = { additions: 0, deletions: 0, files: { added: 0, deleted: 0, changed: 0 } };
+		for (let i = 0; i < count; i++) {
+			const path = random.path(i);
+			const status = random.pick(['M', 'A', 'D', 'T', 'S']);
+			const binary = random.next() < 0.15;
+			const additions = binary ? 0 : random.int(0, 50);
+			const deletions = binary ? 0 : random.int(0, 50);
+
+			let oldMode = status === 'A' ? '000000' : '100644';
+			let newMode = status === 'D' ? '000000' : random.pick(['100644', '100755']);
+			let oid: string | undefined;
+			let previousOid: string | undefined;
+			if (status === 'S') {
+				// A submodule bump: mode 160000 carries the old and new commit SHAs
+				oldMode = newMode = '160000';
+				previousOid = `${i}aaaaaa`;
+				oid = `${i}bbbbbb`;
+			}
+
+			const rawStatus = status === 'S' ? 'M' : status;
+			raw.push(`:${oldMode} ${newMode} ${previousOid ?? 'abc1234'} ${oid ?? 'def5678'} ${rawStatus}\t${path}`);
+			numstat.push(binary ? `-\t-\t${path}` : `${additions}\t${deletions}\t${path}`);
+			files.push({
+				status: rawStatus,
+				path: path,
+				originalPath: undefined,
+				additions: additions,
+				deletions: deletions,
+				mode: newMode,
+				oid: oid,
+				previousOid: previousOid,
+			});
+
+			// Only files with line changes count toward the commit's file stats
+			if (additions || deletions) {
+				stats.additions += additions;
+				stats.deletions += deletions;
+				if (rawStatus === 'A') {
+					stats.files.added++;
+				} else if (rawStatus === 'D') {
+					stats.files.deleted++;
+				} else {
+					stats.files.changed++;
+				}
+			}
+		}
+
+		return { text: `\n\n${[...raw, ...numstat].join('\n')}\n`, props: { files: files, stats: stats } };
+	}
+
+	function statsPayload(random: Random): { text: string; props: Record<string, unknown> } {
+		const files = random.int(0, 3);
+		const zeroed = { files: 0, additions: 0, deletions: 0 };
+		if (files === 0) return { text: random.pick(['', '\n']), props: { stats: zeroed } };
+
+		const additions = random.int(0, 3);
+		const deletions = random.int(0, 3);
+		let text = ` ${files} file${files === 1 ? '' : 's'} changed`;
+		if (additions) {
+			text += `, ${additions} insertion${additions === 1 ? '' : 's'}(+)`;
+		}
+		if (deletions) {
+			text += `, ${deletions} deletion${deletions === 1 ? '' : 's'}(-)`;
+		}
+		return {
+			text: `\n\n${text}\n`,
+			props: { stats: { files: files, additions: additions, deletions: deletions } },
+		};
+	}
+
+	function fileNamesPayload(random: Random): { text: string; props: Record<string, unknown> } {
+		const paths = Array.from({ length: random.int(0, 4) }, (_, i) => random.path(i));
+		if (!paths.length) return { text: random.pick(['', '\n']), props: { files: [] } };
+
+		return { text: `\n\n${paths.join('\n')}\n`, props: { files: paths.map(p => ({ path: p })) } };
+	}
+
+	function fileSummaryPayload(random: Random): { text: string; props: Record<string, unknown> } {
+		const lines: string[] = [];
+		const files: Record<string, unknown>[] = [];
+		const count = random.int(0, 4);
+		for (let i = 0; i < count; i++) {
+			const path = random.path(i);
+			const kind = random.pick(['create', 'delete', 'mode']);
+			if (kind === 'mode') {
+				// Mode changes aren't reported as files
+				lines.push(` mode change 100644 => 100755 ${path}`);
+			} else {
+				lines.push(` ${kind} mode 100644 ${path}`);
+				files.push({ path: path, status: kind === 'create' ? 'A' : 'D' });
+			}
+		}
+		if (!lines.length) return { text: random.pick(['', '\n']), props: { files: [] } };
+
+		return { text: `\n\n${lines.join('\n')}\n`, props: { files: files } };
+	}
+
+	function patchPayload(random: Random): { text: string; props: Record<string, unknown> } {
+		if (random.next() < 0.2) return { text: random.pick(['', '\n']), props: { files: [] } };
+
+		const path = random.path(0);
+		const oldStart = random.int(1, 500);
+		const oldCount = random.int(0, 30);
+		const newStart = random.int(1, 500);
+		const newCount = random.int(0, 30);
+		let text = `\n\ndiff --git a/${path} b/${path}\nindex abc1234..def5678 100644\n--- a/${path}\n+++ b/${path}\n`;
+		text += `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@ ${random.text()}\n`;
+		// Diff content: free text, and occasionally a NUL+0x1D, which ends the payload but comes after the hunk header
+		const lines = random.int(0, 6);
+		for (let i = 0; i < lines; i++) {
+			text += `${random.pick([' ', '+', '-'])}${random.text({ long: true })}${random.next() < 0.1 ? fs : ''}\n`;
+		}
+
+		return {
+			text: text,
+			props: {
+				files: [
+					{
+						status: 'M',
+						path: path,
+						originalPath: undefined,
+						range: newCount ? { startLine: newStart, endLine: newStart + newCount - 1 } : undefined,
+						originalRange: oldCount ? { startLine: oldStart, endLine: oldStart + oldCount - 1 } : undefined,
+					},
+				],
+			},
+		};
+	}
+
+	const graphKeys = ['sha', 'author', 'authorEmail', 'authorDate', 'committerDate', 'parents', 'tips', 'message'];
+	const commitsKeys = [
+		'sha',
+		'author',
+		'authorEmail',
+		'authorDate',
+		'committer',
+		'committerEmail',
+		'committerDate',
+		'parents',
+		'tips',
+		'message',
+	];
+
+	function getVariants(): Variant[] {
+		const graph = getGraphParser() as GraphLogParser;
+		const commitsWithFiles = getCommitsLogParser(true) as CommitsWithFilesLogParser;
+		const contributorsWithStats = getContributorsLogParser(true);
+		const fileNames = getShaAndDatesWithFilesLogParser(true);
+		const patch = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+		const fileSummary = getShaAndFileSummaryLogParser();
+		const stashFilesOnly = getStashFilesOnlyLogParser();
+
+		return [
+			{
+				name: 'graph',
+				keys: graphKeys,
+				// Anything after the mapped fields is ignored
+				payload: random => ({ text: random.pick(['', '\n', `\n${random.text()}`]), props: {} }),
+				parse: d => graph.parse(d),
+				parseAsync: s => graph.parseAsync(s),
+				parseAsyncBatched: s => graph.parseAsyncBatched!(s),
+			},
+			{
+				name: 'commits with files and stats',
+				keys: commitsKeys,
+				payload: filesAndStatsPayload,
+				parse: d => commitsWithFiles.parse(d),
+				parseAsync: s => commitsWithFiles.parseAsync(s),
+			},
+			{
+				name: 'stash files only (no mapped fields)',
+				keys: [],
+				payload: filesAndStatsPayload,
+				parse: d => stashFilesOnly.parse(d),
+				parseAsync: s => stashFilesOnly.parseAsync(s),
+			},
+			{
+				name: 'contributors with stats',
+				keys: ['sha', 'author', 'email', 'date', 'message'],
+				payload: statsPayload,
+				parse: d => contributorsWithStats.parse(d),
+				parseAsync: s => contributorsWithStats.parseAsync(s),
+			},
+			{
+				name: 'name-only files',
+				keys: ['sha', 'authorDate', 'committerDate', 'tips'],
+				payload: fileNamesPayload,
+				parse: d => fileNames.parse(d),
+				parseAsync: s => fileNames.parseAsync(s),
+			},
+			{
+				name: 'patch (file range)',
+				keys: commitsKeys,
+				payload: patchPayload,
+				parse: d => patch.parse(d),
+				parseAsync: s => patch.parseAsync(s),
+			},
+			{
+				name: 'file summary',
+				keys: ['sha'],
+				payload: fileSummaryPayload,
+				parse: d => fileSummary.parse(d),
+			},
+		];
+	}
+
+	function generate(variant: Variant, random: Random, count: number): Generated {
+		let data = '';
+		const expected: Record<string, unknown>[] = [];
+		for (let i = 0; i < count; i++) {
+			const entry: Record<string, unknown> = {};
+			const fields = variant.keys.map((key, k) => {
+				const value =
+					k === 0 ? `sha${i}${random.text()}` : random.text({ newlines: key === 'message', long: true });
+				entry[key] = value;
+				return value;
+			});
+			const { text, props } = variant.payload(random);
+			const rendered = record(fields, text);
+			data += rendered;
+
+			// A record with no fields and no payload is empty, and empty records are skipped
+			if (rendered.length > rs.length) {
+				expected.push({ ...entry, ...props });
+			}
+		}
+		return { data: data, expected: expected };
+	}
+
+	test('every parse path matches expectations built from generated records', async () => {
+		for (const variant of getVariants()) {
+			for (const seed of [1, 2, 3]) {
+				const random = new Random(createRandom(seed * 7919 + variant.name.length));
+				const { data, expected } = generate(variant, random, 12);
+				const label = (path: string) => `${variant.name}, seed ${seed}, ${path}`;
+
+				assert.deepStrictEqual([...variant.parse(data)], expected, label('parse(string)'));
+				const chunksForIterable = chunkRandomly(data, random.next, 200);
+				assert.deepStrictEqual(
+					[...variant.parse(chunksForIterable.values())],
+					expected,
+					label('parse(Iterable)'),
+				);
+
+				const chunkings: [string, string[]][] = [
+					['size 1', chunk(data, 1)],
+					['size 2', chunk(data, 2)],
+					['size 3', chunk(data, 3)],
+					['random sizes', chunkRandomly(data, random.next, 300)],
+					// Long fields make single records span many of these
+					['size 64', chunk(data, 64)],
+					['one chunk', [data]],
+				];
+				for (const [name, chunks] of chunkings) {
+					if (variant.parseAsync != null) {
+						assert.deepStrictEqual(
+							await collect(variant.parseAsync(streamOf(chunks))),
+							expected,
+							label(`parseAsync ${name}`),
+						);
+					}
+					if (variant.parseAsyncBatched != null) {
+						const batches = await collect(variant.parseAsyncBatched(streamOf(chunks)));
+						assert.ok(
+							batches.every(b => b.length > 0),
+							label(`parseAsyncBatched ${name} yields no empty batches`),
+						);
+						assert.deepStrictEqual(batches.flat(), expected, label(`parseAsyncBatched ${name}`));
+					}
+				}
+			}
+		}
+	});
+
+	suite('malformed input', () => {
+		async function allPaths(variant: Variant, data: string): Promise<[string, unknown[]][]> {
+			const results: [string, unknown[]][] = [['parse', [...variant.parse(data)]]];
+			for (const size of [1, 3, Number.MAX_SAFE_INTEGER]) {
+				if (variant.parseAsync != null) {
+					results.push([
+						`parseAsync ${size}`,
+						await collect(variant.parseAsync(streamOf(chunk(data, size)))),
+					]);
+				}
+				if (variant.parseAsyncBatched != null) {
+					const batches = await collect(variant.parseAsyncBatched(streamOf(chunk(data, size))));
+					results.push([`parseAsyncBatched ${size}`, batches.flat()]);
+				}
+			}
+			return results;
+		}
+
+		// Each variant with a first record that has a payload, and what an entry with no payload parses to
+		const cases: {
+			variant: string;
+			fields: (sha: string) => string[];
+			payload: string;
+			first: object;
+			empty: object;
+		}[] = [
+			{
+				variant: 'graph',
+				fields: sha => [sha, 'Alice', 'a@x.com', '100', '101', 'p1', 'tag: v1', `${sha} message`],
+				payload: '\n',
+				first: {},
+				empty: {},
+			},
+			{
+				variant: 'commits with files and stats',
+				fields: sha => [sha, 'Alice', 'a@x.com', '100', 'Bob', 'b@x.com', '101', 'p1', '', `${sha} msg`],
+				payload: '\n\n:100644 100644 abc1234 def5678 M\tsrc/f.ts\n3\t1\tsrc/f.ts\n',
+				first: {
+					files: [
+						{
+							status: 'M',
+							path: 'src/f.ts',
+							originalPath: undefined,
+							additions: 3,
+							deletions: 1,
+							mode: '100644',
+							oid: undefined,
+							previousOid: undefined,
+						},
+					],
+					stats: { additions: 3, deletions: 1, files: { added: 0, deleted: 0, changed: 1 } },
+				},
+				empty: { files: [] },
+			},
+			{
+				variant: 'contributors with stats',
+				fields: sha => [sha, 'Alice', 'a@x.com', '100', `${sha} msg`],
+				payload: '\n\n 1 file changed, 2 insertions(+)\n',
+				first: { stats: { files: 1, additions: 2, deletions: 0 } },
+				empty: { stats: { files: 0, additions: 0, deletions: 0 } },
+			},
+			{
+				variant: 'name-only files',
+				fields: sha => [sha, '100', '101', 'HEAD -> main'],
+				payload: '\n\nsrc/f.ts\n',
+				first: { files: [{ path: 'src/f.ts' }] },
+				empty: { files: [] },
+			},
+			{
+				variant: 'patch (file range)',
+				fields: sha => [sha, 'Alice', 'a@x.com', '100', 'Bob', 'b@x.com', '101', 'p1', '', `${sha} msg`],
+				payload: '\n\ndiff --git a/f.ts b/f.ts\n--- a/f.ts\n+++ b/f.ts\n@@ -1 +1,2 @@\n x\n+y\n',
+				first: {
+					files: [
+						{
+							status: 'M',
+							path: 'f.ts',
+							originalPath: undefined,
+							range: { startLine: 1, endLine: 2 },
+							originalRange: { startLine: 1, endLine: 1 },
+						},
+					],
+				},
+				empty: { files: [] },
+			},
+			{
+				variant: 'file summary',
+				fields: sha => [sha],
+				payload: '\n\n create mode 100644 src/new.ts\n',
+				first: { files: [{ path: 'src/new.ts', status: 'A' }] },
+				empty: { files: [] },
+			},
+		];
+
+		function entryOf(keys: string[], fields: string[], props: object): Record<string, unknown> {
+			const entry: Record<string, unknown> = {};
+			keys.forEach((key, i) => (entry[key] = fields[i]));
+			return { ...entry, ...props };
+		}
+
+		test('a tail truncated at every position before its last field terminator is dropped', async () => {
+			const variants = getVariants();
+			for (const c of cases) {
+				const variant = variants.find(v => v.name === c.variant)!;
+				const first = entryOf(variant.keys, c.fields('sha1'), c.first);
+				const second = record(c.fields('sha2'));
+
+				// From 2: a cut inside the second record's own separator would leave a NUL on the first record's payload
+				for (let cut = 2; cut <= second.length; cut++) {
+					const data = record(c.fields('sha1'), c.payload) + second.substring(0, cut);
+					const expected =
+						cut === second.length ? [first, entryOf(variant.keys, c.fields('sha2'), c.empty)] : [first];
+					for (const [path, entries] of await allPaths(variant, data)) {
+						assert.deepStrictEqual(entries, expected, `${c.variant}, cut ${cut}, ${path}`);
+					}
+				}
+			}
+		});
+
+		test('an incomplete record in the middle of the stream is dropped and its neighbours kept', async () => {
+			const variants = getVariants();
+			for (const c of cases) {
+				const variant = variants.find(v => v.name === c.variant)!;
+				// Missing its last field terminator, then straight into the next record
+				const broken = record(c.fields('sha2')).slice(0, -fs.length);
+				const data =
+					record(c.fields('sha1'), c.payload) + broken + record(c.fields('sha3'), c.payload) + broken;
+				const expected = [
+					entryOf(variant.keys, c.fields('sha1'), c.first),
+					entryOf(variant.keys, c.fields('sha3'), c.first),
+				];
+				for (const [path, entries] of await allPaths(variant, data)) {
+					assert.deepStrictEqual(entries, expected, `${c.variant}, ${path}`);
+				}
+			}
+		});
+
+		test('a patch truncated anywhere after its `diff --git` line keeps the file, with ranges only once the hunk header is complete', async () => {
+			const variant = getVariants().find(v => v.name === 'patch (file range)')!;
+			const fields = ['sha1', 'Alice', 'a@x.com', '100', 'Bob', 'b@x.com', '101', 'p1', '', 'msg'];
+			const diffLine = '\n\ndiff --git a/f.ts b/f.ts';
+			const hunkLine = '@@ -3,4 +5,6 @@ fn()';
+			const payload = `${diffLine}\nindex abc1234..def5678 100644\n--- a/f.ts\n+++ b/f.ts\n${hunkLine}\n x\n+y\n`;
+			// The hunk header parses once its closing `@@` is there
+			const rangesFrom = payload.indexOf(hunkLine) + hunkLine.indexOf(' @@') + 3;
+
+			const file = {
+				status: 'M',
+				path: 'f.ts',
+				originalPath: undefined,
+				range: undefined,
+				originalRange: undefined,
+			};
+			for (let cut = diffLine.length; cut <= payload.length; cut++) {
+				const files = [
+					cut >= rangesFrom
+						? { ...file, range: { startLine: 5, endLine: 10 }, originalRange: { startLine: 3, endLine: 6 } }
+						: file,
+				];
+				const expected = [entryOf(variant.keys, fields, { files: files })];
+				for (const [path, entries] of await allPaths(variant, record(fields, payload.substring(0, cut)))) {
+					assert.deepStrictEqual(entries, expected, `cut ${cut}, ${path}`);
+				}
+			}
+		});
+	});
+
+	suite('early termination', () => {
+		const graphRecord = (sha: string) => record([sha, 'Alice', 'a@x.com', '100', '101', '', '', 'msg']);
+
+		test('breaking out of parseAsync neither closes the stream nor waits on its cleanup (the caller owns it)', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			let releaseCleanup!: () => void;
+			const cleanup = new Promise<void>(resolve => (releaseCleanup = resolve));
+			let cleanedUp = false;
+			async function* source(): AsyncGenerator<string> {
+				try {
+					for (const sha of ['sha1', 'sha2', 'sha3', 'sha4']) {
+						yield graphRecord(sha);
+					}
+				} finally {
+					// Like git's stream, whose cleanup waits for the process to exit
+					await cleanup;
+					cleanedUp = true;
+				}
+			}
+
+			const stream = source();
+			const originalReturn = stream.return.bind(stream);
+			let returnCalls = 0;
+			stream.return = (value: unknown) => {
+				returnCalls++;
+				return originalReturn(value);
+			};
+
+			const entries: string[] = [];
+			for await (const entry of parser.parseAsync(stream)) {
+				entries.push(entry.sha);
+				break;
+			}
+
+			assert.deepStrictEqual(entries, ['sha1']);
+			assert.strictEqual(returnCalls, 0, 'parseAsync must not call return() on the stream it was given');
+			assert.strictEqual(cleanedUp, false);
+
+			// The caller closes its own stream
+			const closing = stream.return(undefined);
+			releaseCleanup();
+			await closing;
+			assert.ok(cleanedUp);
+		});
+
+		test('breaking out of parseAsyncBatched closes the source stream (unchanged from before)', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			let closed = false;
+			let pulled = 0;
+			async function* source(): AsyncGenerator<string> {
+				try {
+					for (const sha of ['sha1', 'sha2', 'sha3']) {
+						pulled++;
+						yield graphRecord(sha);
+					}
+					yield graphRecord('sha4');
+				} finally {
+					closed = true;
+				}
+			}
+
+			for await (const _ of parser.parseAsyncBatched!(source())) {
+				break;
+			}
+			assert.ok(closed, 'the source generator must be closed so its finally runs');
+			assert.ok(pulled < 3, 'parsing must stop pulling chunks once the consumer stops');
+		});
+
+		test('an error from the source propagates as the same object, after the records before it', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			const error = new Error('git failed');
+			async function* source(): AsyncGenerator<string> {
+				// The second record completes the first, then the stream fails mid-record
+				yield graphRecord('sha1') + graphRecord('sha2').substring(0, 5);
+				throw error;
+			}
+
+			for (const [path, parse] of [
+				['parseAsync', (s: AsyncGenerator<string>) => parser.parseAsync(s)],
+				['parseAsyncBatched', (s: AsyncGenerator<string>) => parser.parseAsyncBatched!(s)],
+			] as const) {
+				const shas: string[] = [];
+				let caught: unknown;
+				try {
+					for await (const value of parse(source())) {
+						for (const entry of Array.isArray(value) ? value : [value]) {
+							shas.push(entry.sha);
+						}
+					}
+				} catch (ex) {
+					caught = ex;
+				}
+				assert.deepStrictEqual(shas, ['sha1'], path);
+				assert.strictEqual(caught, error, path);
+			}
+		});
+
+		test('breaking out of parse over a lazy Iterable closes it', () => {
+			const parser = getGraphParser() as GraphLogParser;
+			let closed = false;
+			let pulled = 0;
+			function* source(): Generator<string> {
+				try {
+					for (const sha of ['sha1', 'sha2', 'sha3', 'sha4']) {
+						pulled++;
+						yield graphRecord(sha);
+					}
+				} finally {
+					closed = true;
+				}
+			}
+
+			for (const _ of parser.parse(source())) {
+				break;
+			}
+			assert.ok(closed, 'the source generator must be closed so its finally runs');
+			assert.ok(pulled < 4, 'parsing must stop pulling chunks once the consumer stops');
+		});
+	});
+
+	suite('chunk boundaries', () => {
+		const fields = (sha: string) => [sha, 'Alice', 'a@x.com', '100', '101', 'p1', '', `${sha} \x1Emessage`];
+		const expected = ['sha1', 'sha2'];
+
+		async function shasForChunks(chunks: string[]): Promise<[string, string[]][]> {
+			const parser = getGraphParser() as GraphLogParser;
+			return [
+				['parse', Array.from(parser.parse(chunks.values()), e => e.sha)],
+				['parseAsync', (await collect(parser.parseAsync(streamOf(chunks)))).map(e => e.sha)],
+				[
+					'parseAsyncBatched',
+					(await collect(parser.parseAsyncBatched!(streamOf(chunks)))).flat().map(e => e.sha),
+				],
+			];
+		}
+
+		test("an empty chunk between a separator's NUL and its marker still splits the records", async () => {
+			const first = record(fields('sha1'));
+			const second = record(fields('sha2'));
+			const chunks = [`${first}\0`, '', second.substring(1)];
+			for (const [path, shas] of await shasForChunks(chunks)) {
+				assert.deepStrictEqual(shas, expected, path);
+			}
+		});
+
+		test('a bare 0x1E at the start of a chunk, with no NUL before it, does not split a record', async () => {
+			const first = record(fields('sha1'));
+			const second = record(fields('sha2'));
+			const marker = first.indexOf('\x1Emessage');
+			const chunks = [first.substring(0, marker), first.substring(marker) + second];
+			for (const [path, shas] of await shasForChunks(chunks)) {
+				assert.deepStrictEqual(shas, expected, path);
+			}
+
+			const parser = getGraphParser() as GraphLogParser;
+			const entries = await collect(parser.parseAsync(streamOf(chunks)));
+			assert.strictEqual(entries[0].message, 'sha1 \x1Emessage');
+		});
+	});
+
+	suite('records spanning many chunks', () => {
+		// Counts the characters every `indexOf` call examines, which bounds the record scanner's work without timing:
+		// rescanning (or re-searching) a partial record on each chunk would examine O(n²/chunk) characters
+		async function countIndexOfWork(fn: () => Promise<void>): Promise<number> {
+			const original = String.prototype.indexOf;
+			let examined = 0;
+			// oxlint-disable-next-line no-extend-native
+			String.prototype.indexOf = function (this: string, search: string, position?: number): number {
+				const index = original.call(this, search, position);
+				const from = Math.min(Math.max(position ?? 0, 0), this.length);
+				examined += (index === -1 ? this.length : index + search.length) - from;
+				return index;
+			};
+			try {
+				await fn();
+			} finally {
+				// oxlint-disable-next-line no-extend-native
+				String.prototype.indexOf = original;
+			}
+			return examined;
+		}
+
+		test('a 2MB file list in 100-char chunks parses in linear work', async () => {
+			const parser = getShaAndDatesWithFilesLogParser();
+			const paths = Array.from({ length: 100_000 }, (_, i) => `src/folder/file-${i}.ts`);
+			const data = record(['sha1', '100', '101'], `\n\n${paths.join('\n')}\n`) + record(['sha2', '200', '201']);
+			assert.ok(data.length > 2_000_000);
+
+			let entries: { sha: string; files: { path: string }[] }[] = [];
+			const examined = await countIndexOfWork(async () => {
+				entries = await collect(parser.parseAsync(streamOf(chunk(data, 100))));
+			});
+
+			assert.deepStrictEqual(
+				entries.map(e => e.sha),
+				['sha1', 'sha2'],
+			);
+			assert.deepStrictEqual(
+				entries[0].files.map(f => f.path),
+				paths,
+			);
+			assert.deepStrictEqual(entries[1].files, []);
+			// Records, the payload end and file lines are each searched once
+			assert.ok(examined < data.length * 4, `examined ${examined} chars for ${data.length} of input`);
+		});
+
+		test('a 2MB graph message in 100-char chunks parses in linear work (parse, parseAsync, parseAsyncBatched)', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			const message = 'm\x1E\x1D😀'.repeat(400_000);
+			const fields = (sha: string) => [sha, 'Alice', 'a@x.com', '100', '101', 'p1', '', message];
+			const data = record(fields('sha1')) + record(fields('sha2'));
+			const chunks = chunk(data, 100);
+
+			for (const [path, run] of [
+				['parse', async () => [...parser.parse(chunks.values())]],
+				['parseAsync', () => collect(parser.parseAsync(streamOf(chunks)))],
+				['parseAsyncBatched', async () => (await collect(parser.parseAsyncBatched!(streamOf(chunks)))).flat()],
+			] as const) {
+				let entries: { sha: string; message: string }[] = [];
+				const examined = await countIndexOfWork(async () => {
+					entries = await run();
+				});
+
+				assert.deepStrictEqual(
+					entries.map(e => e.sha),
+					['sha1', 'sha2'],
+					path,
+				);
+				assert.ok(
+					entries.every(e => e.message === message),
+					path,
+				);
+				assert.ok(
+					examined < data.length * 3,
+					`${path}: examined ${examined} chars for ${data.length} of input`,
+				);
+			}
+		});
+	});
+});
