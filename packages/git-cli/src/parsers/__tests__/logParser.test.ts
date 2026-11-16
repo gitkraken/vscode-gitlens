@@ -1012,3 +1012,193 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 		});
 	});
 });
+
+// Truncated tails on the variants whose `parseAsync` gained the completeness guard in #5659, a record broken in the
+// middle of a batched stream, and values that start with a bare (NUL-less) 0x1E/0x1D.
+suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separators (#5659)', () => {
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	function chunk(s: string, size: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length; i += size) {
+			out.push(s.substring(i, i + size));
+		}
+		return out;
+	}
+
+	function record(separators: { record: string; field: string }, fields: string[], payload = ''): string {
+		return `${separators.record}${fields.join(separators.field)}${separators.field}${payload}`;
+	}
+
+	// Chunk sizes 1 and 2 split the 2-char sentinels themselves across chunks
+	const chunkSizes = [1, 2, 3, 7, Number.MAX_SAFE_INTEGER];
+
+	suite('truncated tail (record missing its last field terminator)', () => {
+		test('stats variant drops it and keeps earlier records', async () => {
+			const parser = getContributorsLogParser(true);
+			const shortstat = '\n\n 1 file changed, 2 insertions(+), 1 deletion(-)\n';
+			// contributorsMapping: sha, author, email, date, message; the tail stops before the message terminator
+			const tail = '\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1Dpartial message';
+			const data = `${record(parser.separators, ['sha1', 'Alice', 'a@x.com', '100', 'first'], shortstat)}${tail}`;
+
+			type Entry = { sha: string; stats?: unknown };
+			const entriesList: Entry[][] = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect<Entry>(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(
+					entries.map(e => e.sha),
+					['sha1'],
+				);
+				assert.deepStrictEqual(entries[0].stats, { files: 1, additions: 2, deletions: 1 });
+			}
+		});
+
+		test('name-only files variant drops it and keeps earlier records', async () => {
+			const parser = getShaAndDatesWithFilesLogParser();
+			// shaAndDateMapping: sha, authorDate, committerDate; the tail stops before the last terminator
+			const tail = '\0\x1Esha2\0\x1D100\0\x1D101';
+			const data = `${record(parser.separators, ['sha1', '100', '101'], '\n\nsrc/file.ts\n')}${tail}`;
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(entries, [
+					{ sha: 'sha1', authorDate: '100', committerDate: '101', files: [{ path: 'src/file.ts' }] },
+				]);
+			}
+		});
+
+		test('files+stats variant drops it and keeps earlier records', async () => {
+			const parser = getShaAndFilesAndStatsLogParser();
+			const files = '\n\n:100644 100644 abc1234 def5678 M\tsrc/file.ts\n3\t1\tsrc/file.ts\n';
+			// shaMapping has a single field; the tail has no terminator at all
+			const data = `${record(parser.separators, ['sha1'], files)}\0\x1Esha2`;
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(
+					entries.map(e => e.sha),
+					['sha1'],
+				);
+				assert.strictEqual(entries[0].files.length, 1);
+			}
+		});
+
+		test('file summary variant (parse) drops it and keeps earlier records', () => {
+			const parser = getShaAndFileSummaryLogParser();
+			const data = `${record(parser.separators, ['sha1'], '\n\n create mode 100644 src/new.ts\n')}\0\x1Esha2`;
+
+			assert.deepStrictEqual(
+				Array.from(parser.parse(data), e => e.sha),
+				['sha1'],
+			);
+		});
+
+		test('patch (file range) variant drops it and keeps earlier records', async () => {
+			const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
+			const patch =
+				'\n\ndiff --git a/src/file.ts b/src/file.ts\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,2 +1,3 @@\n x\n+y\n';
+			// commitsMapping: 10 fields; the tail stops before the message terminator
+			const tail =
+				'\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1DBob\0\x1Db@x.com\0\x1D201\0\x1D\0\x1D\0\x1Dpartial';
+			const first = ['sha1', 'Alice', 'a@x.com', '100', 'Alice', 'a@x.com', '101', 'p1', '', 'first'];
+			const data = `${record(parser.separators, first, patch)}${tail}`;
+
+			const entriesList = [[...parser.parse(data)]];
+			for (const size of chunkSizes) {
+				entriesList.push(await collect(parser.parseAsync(streamOf(chunk(data, size)))));
+			}
+
+			for (const entries of entriesList) {
+				assert.deepStrictEqual(
+					entries.map(e => e.sha),
+					['sha1'],
+				);
+			}
+		});
+	});
+
+	suite('graph parser (parse, parseAsync, parseAsyncBatched)', () => {
+		// graphMapping: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
+		const fields = (sha: string) => [sha, 'Alice', 'a@x.com', '100', '101', 'p1', '', `${sha} message`];
+
+		test('parseAsyncBatched drops an incomplete record in the middle of the stream and keeps its neighbours', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			// Missing its message field, then immediately followed by the next record's separator
+			const broken = '\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1D201\0\x1Dp1\0\x1D\0\x1Dpartial';
+			const data = record(parser.separators, fields('sha1')) + broken + record(parser.separators, fields('sha3'));
+
+			const expected = ['sha1', 'sha3'];
+			assert.deepStrictEqual(
+				Array.from(parser.parse(data), e => e.sha),
+				expected,
+			);
+			assert.deepStrictEqual(
+				(await collect(parser.parseAsync(streamOf([data])))).map(e => e.sha),
+				expected,
+			);
+			for (const size of chunkSizes) {
+				const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(data, size))));
+				assert.deepStrictEqual(
+					batches.flat().map(e => e.sha),
+					expected,
+					`chunk size ${size}`,
+				);
+				assert.strictEqual(batches.flat()[1].message, 'sha3 message');
+			}
+		});
+
+		test('a field value that starts with a bare 0x1E or 0x1D is preserved exactly', async () => {
+			const parser = getGraphParser() as GraphLogParser;
+			const author = '\x1EAlice';
+			const message = '\x1Dstarts with a field sep\n\x1E';
+			const tips = '\x1D\x1E';
+			const f = (sha: string) => [sha, author, 'a@x.com', '100', '101', 'p1', tips, message];
+			const data = record(parser.separators, f('sha1')) + record(parser.separators, f('sha2'));
+
+			const check = (
+				entries: { sha: string; author: string; tips: string; message: string }[],
+				label: string,
+			): void => {
+				assert.strictEqual(entries.length, 2, label);
+				for (const [i, entry] of entries.entries()) {
+					assert.strictEqual(entry.sha, `sha${i + 1}`, label);
+					assert.strictEqual(entry.author, author, label);
+					assert.strictEqual(entry.tips, tips, label);
+					assert.strictEqual(entry.message, message, label);
+				}
+			};
+
+			check([...parser.parse(data)], 'parse');
+			for (const size of chunkSizes) {
+				check(await collect(parser.parseAsync(streamOf(chunk(data, size)))), `parseAsync ${size}`);
+				check(
+					(await collect(parser.parseAsyncBatched!(streamOf(chunk(data, size))))).flat(),
+					`parseAsyncBatched ${size}`,
+				);
+			}
+		});
+	});
+});

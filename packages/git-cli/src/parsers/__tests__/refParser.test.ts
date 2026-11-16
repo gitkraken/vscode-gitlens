@@ -235,4 +235,38 @@ suite('Ref Parser Test Suite', () => {
 			assert.strictEqual(result.upstream, 'refs/remotes/origin/main');
 		}
 	});
+
+	test('keeps bare 0x1E and 0x1D inside free-text fields intact (#5659)', () => {
+		const subject = '\x1Estarts with a record sep, \x1D then a field sep \x1E\x1D';
+		const tracking = '\x1D[ahead 2\x1E, behind 1]';
+		for (const features of [featuresWithoutWorktree, featuresWithWorktree]) {
+			const parser = getRefParser(features);
+			const gated = features.length ? ['/home/user/worktree', 'origin', 'refs/heads/main'] : [];
+			const record = (name: string): string =>
+				buildRecord([
+					'',
+					name,
+					'abc123',
+					'',
+					'refs/remotes/origin/main',
+					tracking,
+					'',
+					'2025-03-01 00:00:00 +0000',
+					'',
+					subject,
+					...gated,
+					'refs/remotes/origin/main',
+				]);
+			const results = [...parser.parse(buildData([record('refs/tags/v1'), record('refs/tags/v2')]))];
+
+			assert.strictEqual(results.length, 2);
+			for (const [i, ref] of results.entries()) {
+				assert.strictEqual(ref.name, `refs/tags/v${i + 1}`);
+				assert.strictEqual(ref.subject, subject);
+				assert.strictEqual(ref.upstreamTracking, tracking);
+				assert.strictEqual(ref.upstream, 'refs/remotes/origin/main');
+				assert.strictEqual(ref.push, 'refs/remotes/origin/main');
+			}
+		}
+	});
 });

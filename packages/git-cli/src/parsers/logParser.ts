@@ -293,10 +293,12 @@ interface LogParsedStatsWithFilesStats {
 	deletions: number;
 }
 
-// Records and fields are framed by NUL-prefixed ASCII separators rather than a bare control char, since
-// free text (messages, names, refs, reflog subjects) can contain 0x1E/0x1D — a lone one would split a
-// record or shift its fields (#5659). Git refuses NUL in commit messages, and idents, ref names, and
-// (unquoted) paths can't contain it, so the 2-char sentinels can't appear in any formatted field.
+// Records and fields are framed by NUL-prefixed separators, since free text (messages, names, refs, reflog
+// subjects) can contain a bare 0x1E/0x1D that would split a record or shift its fields (#5659). NUL can't
+// appear in a rendered format field: git refuses it in messages, and idents, ref names and unquoted paths
+// can't contain it. That does NOT cover payload text after the fields (see the patch variant).
+// WARNING: this assumes no `-z` output. With `-z`, a NUL path terminator followed by a path starting with
+// 0x1E/0x1D would form a sentinel. No multi-field parser uses `-z`; re-check the framing before adding one.
 const recordSep = '\0\x1E';
 const recordFormatSep = '%x00%x1E';
 const fieldSep = '\0\x1D';
@@ -314,9 +316,9 @@ function indexOfSeparator(s: string, separator: string, from: number): number {
 	return index === -1 ? -1 : index - 1;
 }
 
-// A complete record terminates every mapped field with a field separator — a cancelled/early-closed
-// stream resolves cleanly with a truncated tail missing at least the final terminator, and a malformed
-// record must not yield undefined fields to consumers that assume every mapped field is present.
+// Checks only that every mapped *metadata* field is terminated, so a truncated tail (cancelled/early-closed
+// stream) or malformed record is dropped rather than yielding undefined fields. It doesn't certify that the
+// payload (file lists, stats, patch) after the fields is complete.
 function isCompleteRecord(record: string, requiredFields: number): boolean {
 	let count = 0;
 	let start = 0;
@@ -351,13 +353,17 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntry<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			entry = {} as unknown as LogParsedEntry<T>;
 			fields = iterateByDelimiter(record, fieldSep);
@@ -370,14 +376,14 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 				if (field.done) break;
 				if (fieldCount >= keys.length) continue;
 
-				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
 			}
 
+			count++;
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>> {
@@ -386,13 +392,17 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntry<T>;
 		let fields: IterableIterator<string>;
 
 		for await (const record of records) {
 			if (!record.length) continue;
 			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			entry = {} as unknown as LogParsedEntry<T>;
 			fields = iterateByDelimiter(record, fieldSep);
@@ -405,14 +415,14 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 				if (field.done) break;
 				if (fieldCount >= keys.length) continue;
 
-				count++;
 				entry[keys[fieldCount++]] = field.value as T[keyof T];
 			}
 
+			count++;
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	// Builds one entry from a complete record with a plain `indexOf` walk. Matches `parseAsync`'s
@@ -439,6 +449,7 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		using sw = maybeStopWatch('Git.LogParser.parseAsyncBatched', { log: { onlyExit: true, level: 'debug' } });
 
 		let count = 0;
+		let dropped = 0;
 		let buffer = '';
 		for await (const chunk of stream) {
 			buffer += chunk;
@@ -454,6 +465,8 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 					if (entry != null) {
 						(batch ??= []).push(entry);
 						count++;
+					} else {
+						dropped++;
 					}
 				}
 				start = end + recordSep.length;
@@ -472,10 +485,12 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			if (entry != null) {
 				count++;
 				yield [entry];
+			} else {
+				dropped++;
 			}
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
@@ -651,6 +666,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFilesAndStats<T>;
 		let files: LogParsedFileWithStats[];
 		let fields: IterableIterator<string>;
@@ -658,7 +674,10 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
@@ -708,7 +727,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFilesAndStats<T>> {
@@ -719,6 +738,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFilesAndStats<T>;
 		let files: LogParsedFileWithStats[];
 		let fields: IterableIterator<string>;
@@ -726,7 +746,10 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 		for await (const record of records) {
 			if (!record.length) continue;
 			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
@@ -776,7 +799,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
@@ -860,6 +883,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let files: LogParsedFile[];
 		let fields: IterableIterator<string>;
@@ -867,7 +891,10 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
@@ -900,7 +927,7 @@ function createLogParserWithFileSummary<T extends Record<string, string> | void>
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
@@ -970,6 +997,8 @@ function createLogParserSingle(field: string): Parser<string> {
 	return { arguments: args, separators: { record: '\0', field: '\0' }, parse: parse };
 }
 
+// NOTE: diff content may contain NUL, so a NUL+0x1E (or 0x1D) inside a patch can still split a record or
+// payload. Known limitation, deferred to a later rewrite of the patch framing (#5659).
 function createLogParserWithPatch<T extends Record<string, string>>(
 	mapping: ExtractAll<T, string>,
 ): LogParserWithFiles<T> {
@@ -1031,13 +1060,17 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
@@ -1068,7 +1101,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
@@ -1077,13 +1110,17 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for await (const record of records) {
 			if (!record.length) continue;
 			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
@@ -1114,7 +1151,7 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
@@ -1193,13 +1230,17 @@ function createLogParserWithStats<T extends Record<string, string>>(
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithStats<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { stats: { files: 0, additions: 0, deletions: 0 } } as unknown as LogParsedEntryWithStats<T>;
@@ -1229,7 +1270,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithStats<T>> {
@@ -1238,13 +1279,17 @@ function createLogParserWithStats<T extends Record<string, string>>(
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithStats<T>;
 		let fields: IterableIterator<string>;
 
 		for await (const record of records) {
 			if (!record.length) continue;
 			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { stats: { files: 0, additions: 0, deletions: 0 } } as unknown as LogParsedEntryWithStats<T>;
@@ -1274,7 +1319,7 @@ function createLogParserWithStats<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
@@ -1322,13 +1367,17 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 		const records = iterateByDelimiter(data, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for (const record of records) {
 			if (!record.length) continue;
 			// Skip a malformed/truncated record instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
@@ -1358,7 +1407,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntryWithFiles<T>> {
@@ -1369,13 +1418,17 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 		const records = iterateAsyncByDelimiter(stream, recordSep);
 
 		let count = 0;
+		let dropped = 0;
 		let entry: LogParsedEntryWithFiles<T>;
 		let fields: IterableIterator<string>;
 
 		for await (const record of records) {
 			if (!record.length) continue;
 			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
-			if (!isCompleteRecord(record, keys.length)) continue;
+			if (!isCompleteRecord(record, keys.length)) {
+				dropped++;
+				continue;
+			}
 
 			count++;
 			entry = { files: [] } as unknown as LogParsedEntryWithFiles<T>;
@@ -1405,7 +1458,7 @@ function createLogParserWithFiles<T extends Record<string, string>>(
 			yield entry;
 		}
 
-		sw?.stop({ suffix: ` parsed ${count} records` });
+		sw?.stop({ suffix: ` parsed ${count} records${dropped > 0 ? `, dropped ${dropped}` : ''}` });
 	}
 
 	return {
