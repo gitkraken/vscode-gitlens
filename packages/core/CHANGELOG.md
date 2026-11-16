@@ -8,7 +8,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `GitOptions.getQuietNetworkEnvironment`, a host hook for the ssh askpass of the network reads core runs without a person present (`branches.getDefaultBranchName`, `branches.setRemoteHeadIfMissing`, `remotes.probeRemote`). They blanked `SSH_ASKPASS` per call, so behind a `ProxyJump` host that asks for a password or a code the hop's ssh sent an empty answer to each prompt, each a failed sign-in. When the hook returns an environment, core drops its own `SSH_ASKPASS*` defaults for those reads and uses the host's (`{}` means the inherited askpass); the other quiet keys stay. Without it nothing changes (git-cli)
 - Adds `plus/integrations/constants.js` to the published entry points: integration ids, enums and pure id predicates, with no runtime imports, so it is safe in browser bundles (plus/integrations)
 - Expands the `plus/integrations/index.js` facade into the full integrations API GitLens itself now consumes. `IntegrationManager` adds `get` (interface-only `GitHostIntegration`/`IssuesIntegration` views, no provider classes; a git host's view carries `mergePullRequest`, `enqueuePullRequest` and `dequeuePullRequest`, which 0.34.0 left unreachable from the facade, and the optional `getMergeQueueEntriesByPullRequestNumber`), `getIntegrationsForAccountWideRead`, `isConnectedForAccountWideRead`, `connectCloudIntegrations`, `manageCloudIntegrations`, `reset`, `getMyPullRequests`, `getMyIssues`, `ignoreSSLErrors` and `github`. The facade also exports:
   - the `isIntegration`/`isGitHostIntegration`/`isIssuesIntegration` guards
@@ -24,6 +23,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
+
+## [0.39.0] - 2026-11-16
+
+### Added
+
+- Adds `GitOptions.getQuietNetworkEnvironment`, a host hook for the ssh askpass of the network reads core runs without a person present (`branches.getDefaultBranchName`, `branches.setRemoteHeadIfMissing`, `remotes.probeRemote`). They blanked `SSH_ASKPASS` per call, so behind a `ProxyJump` host that asks for a password or a code the hop's ssh sent an empty answer to each prompt, each a failed sign-in. When the hook returns an environment, core drops its own `SSH_ASKPASS*` defaults for those reads and uses the host's (`{}` means the inherited askpass); the other quiet keys stay. Without it nothing changes (git-cli)
 
 ## [0.38.4] - 2026-11-15
 
@@ -1346,7 +1351,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...HEAD
+[0.39.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...gitkraken:releases/core/v0.39.0
 [0.38.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...gitkraken:releases/core/v0.38.4
 [0.38.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...gitkraken:releases/core/v0.38.3
 [0.38.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.1...gitkraken:releases/core/v0.38.2
