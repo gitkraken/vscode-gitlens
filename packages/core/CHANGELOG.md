@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes GitLab's project lookup keeping a failed request as a missing project until its cache was reset, so a commit's merge request and author, the repository's metadata and its issues all answered none for that repository: a failure is no longer kept, and the next read asks again. A read that shares a lookup another read started no longer fails as cancelled when that other read is cancelled. The single-commit merge request lookup (`getPullRequestForCommit`) now reports a failed project lookup as a failure rather than as a commit without a merge request, so its per-SHA cache doesn't keep it, and a refused credential still asks to re-authenticate only once rather than on every read. The repository metadata read (`getRepositoryMetadata`) no longer keeps a failed project lookup as a repository without metadata: it still answers `undefined` for it, but its cache doesn't keep that answer, and the token-scoped read (`createTokenScopedGitHostIntegration`) now rejects on a failed lookup instead of answering none (plus/integrations)
+
 ## [0.42.0] - 2026-11-21
 
 ### Added
