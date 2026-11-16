@@ -358,15 +358,21 @@ function getPayload(record: string, start: number): string {
  * Each chunk is searched once. The text of a record that isn't complete yet is kept as a list of pieces and joined
  * only when the record completes, so a record spanning many chunks (a big patch or file list) costs linear time —
  * it is neither rescanned nor re-concatenated on every chunk.
+ *
+ * With `copy`, every record owns its text: fields cut from a record sliced out of a chunk would otherwise keep that
+ * whole chunk alive for as long as any of them survives (graph rows, search results). A record joined from pieces is
+ * already a fresh string, so it isn't copied again.
  */
 class RecordScanner {
-	/** Pieces of the unfinished record from earlier chunks */
+	/** Pieces of the unfinished record from earlier chunks; never empty strings */
 	private readonly pieces: string[] = [];
 	private chunk = '';
 	/** Where the unfinished record's text starts in `chunk` */
 	private start = 0;
 	/** Where to resume searching `chunk` */
 	private from = 0;
+
+	constructor(private readonly copy = false) {}
 
 	push(chunk: string): void {
 		if (this.start < this.chunk.length) {
@@ -380,19 +386,20 @@ class RecordScanner {
 
 	/** Returns the next complete record (possibly empty), or `undefined` when the pushed text holds no more */
 	next(): string | undefined {
-		let record: string;
-
 		if (this.from === 0 && this.pieces.length !== 0 && this.chunk.charCodeAt(0) === recordSep.charCodeAt(1)) {
 			// A separator can straddle the chunk boundary: its NUL ends the previous piece and its marker starts this chunk.
 			// Only the record separator needs this: field separators are only searched within a joined record
 			const last = this.pieces.length - 1;
 			const piece = this.pieces[last];
 			if (piece.charCodeAt(piece.length - 1) === 0) {
-				this.pieces[last] = piece.substring(0, piece.length - 1);
-				record = this.pieces.join('');
-				this.pieces.length = 0;
+				if (piece.length === 1) {
+					this.pieces.pop();
+				} else {
+					this.pieces[last] = piece.substring(0, piece.length - 1);
+				}
+
 				this.start = this.from = 1;
-				return record;
+				return this.complete('');
 			}
 		}
 
@@ -403,28 +410,39 @@ class RecordScanner {
 			return undefined;
 		}
 
-		record = this.chunk.substring(this.start, end);
-		if (this.pieces.length !== 0) {
-			this.pieces.push(record);
-			record = this.pieces.join('');
-			this.pieces.length = 0;
-		}
-
+		const record = this.complete(this.chunk.substring(this.start, end));
 		this.start = this.from = end + recordSep.length;
 		return record;
 	}
 
 	/** Returns the text after the last record separator (the stream's trailing record, possibly empty) */
 	end(): string {
-		let record = this.chunk.substring(this.start);
-		if (this.pieces.length !== 0) {
-			this.pieces.push(record);
-			record = this.pieces.join('');
-			this.pieces.length = 0;
-		}
-
+		const record = this.complete(this.chunk.substring(this.start));
 		this.chunk = '';
 		this.start = this.from = 0;
+		return record;
+	}
+
+	/** Finishes the unfinished record with `text` from the current chunk */
+	private complete(text: string): string {
+		if (text.length) {
+			this.pieces.push(text);
+		}
+
+		let record: string;
+		if (this.pieces.length > 1) {
+			// Joining 2+ non-empty pieces builds a fresh string, so there's nothing to copy. This relies on `pieces` never
+			// holding '': V8 returns a join of one string plus '' as that same (possibly sliced) string.
+			record = this.pieces.join('');
+		} else {
+			// A single piece (or none) is still a slice of its chunk
+			record = this.pieces[0] ?? '';
+			if (this.copy) {
+				record = flattenString(record, 1);
+			}
+		}
+
+		this.pieces.length = 0;
 		return record;
 	}
 }
@@ -447,8 +465,9 @@ function createRecordParsers<E>(
 			return;
 		}
 
-		const flatten = typeof data === 'string' && data.length > flattenSourceThreshold;
-		const scanner = new RecordScanner();
+		// A large string is copied record by record, so fields cut from it don't pin the whole stdout; a smaller one can
+		// pin at most this much. A lazy Iterable isn't copied (no production caller passes one).
+		const scanner = new RecordScanner(typeof data === 'string' && data.length > flattenSourceThreshold);
 
 		let count = 0;
 		let dropped = 0;
@@ -461,7 +480,7 @@ function createRecordParsers<E>(
 			for (let record = scanner.next(); record != null; record = scanner.next()) {
 				if (!record.length) continue;
 
-				entry = parseRecord(flatten ? flattenString(record, 1) : record);
+				entry = parseRecord(record);
 				if (entry == null) {
 					dropped++;
 					continue;
@@ -474,7 +493,7 @@ function createRecordParsers<E>(
 
 		const tail = scanner.end();
 		if (tail.length) {
-			entry = parseRecord(flatten ? flattenString(tail, 1) : tail);
+			entry = parseRecord(tail);
 			if (entry == null) {
 				dropped++;
 			} else {
@@ -489,7 +508,8 @@ function createRecordParsers<E>(
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<E> {
 		using sw = maybeStopWatch(parseAsyncScope, { log: { onlyExit: true, level: 'debug' } });
 
-		const scanner = new RecordScanner();
+		// Streamed records are kept (pages, search results), so each owns its text rather than pinning its chunk
+		const scanner = new RecordScanner(true);
 
 		let count = 0;
 		let dropped = 0;
@@ -550,7 +570,8 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 	async function* parseAsyncBatched(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>[]> {
 		using sw = maybeStopWatch('Git.LogParser.parseAsyncBatched', { log: { onlyExit: true, level: 'debug' } });
 
-		const scanner = new RecordScanner();
+		// Graph rows are long-lived, so each record owns its text rather than pinning its chunk
+		const scanner = new RecordScanner(true);
 
 		let count = 0;
 		let dropped = 0;
@@ -564,10 +585,7 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			for (let record = scanner.next(); record != null; record = scanner.next()) {
 				if (!record.length) continue;
 
-				// Fields sliced out of the record become long-lived (graph rows); flatten the record so they pin a
-				// record-sized copy rather than the chunk it was sliced from.
-				// TODO: the follow-up copies every record once on all async paths, replacing this 1KB-threshold copy
-				entry = parseRecord(flattenString(record));
+				entry = parseRecord(record);
 				if (entry == null) {
 					dropped++;
 					continue;
@@ -586,7 +604,7 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		// cancelled/early-closed stream is missing a field terminator and must be dropped, not parsed.
 		const tail = scanner.end();
 		if (tail.length) {
-			entry = parseRecord(flattenString(tail));
+			entry = parseRecord(tail);
 			if (entry == null) {
 				dropped++;
 			} else {
