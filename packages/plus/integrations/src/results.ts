@@ -1053,6 +1053,21 @@ export interface PullRequestBranchResult {
 	truncated?: boolean;
 }
 
+/** The answer for one SHA of {@link IntegrationManager.getPullRequestsForCommits}'s input. */
+export interface PullRequestForCommitResult {
+	/** The SHA as the caller passed it (trimmed), echoed so no positional matching is needed. */
+	sha: string;
+	/**
+	 * The pull request the commit belongs to, or `undefined` when the host ANSWERED that it has none (or when the SHA
+	 * is the working tree's all-zero one, which is never sent): a resolved "none" a caller can cache. A SHA whose read
+	 * FAILED is not returned at all and sets `fetchFailed`.
+	 *
+	 * When a commit belongs to several, the one the single-commit lookup returns, which each host picks its own way —
+	 * see {@link IntegrationManager.getPullRequestsForCommits}.
+	 */
+	pullRequest?: PullRequestShape;
+}
+
 /** One check whose log to read, echoed back under the caller's own `key`. */
 export interface PullRequestCheckLogTarget {
 	/** Caller-owned identifier, echoed on the result. Must be unique. */

@@ -247,6 +247,18 @@ suite('BitbucketApi app_user accounts', () => {
 		assert.equal(truncated, false);
 	});
 
+	test('getPullRequestForCommit encodes the workspace and repository as path segments', async () => {
+		const { config, requests } = configFor({ values: [] });
+		const api = new BitbucketApi(config);
+
+		await api.getPullRequestForCommit(bitbucketProvider, bitbucketToken, 'ws', 'r#x?y/z', 'head-sha', baseUrl);
+
+		assert.ok(
+			requests[0].startsWith(`${baseUrl}/repositories/ws/r%23x%3Fy%2Fz/commit/head-sha/pullrequests?`),
+			requests[0],
+		);
+	});
+
 	test('getPullRequestForCommit maps a pull request with an app_user participant', async () => {
 		const { api } = apiFor({ values: [createPullRequestWithBot()] });
 

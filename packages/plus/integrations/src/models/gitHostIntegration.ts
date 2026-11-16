@@ -19,8 +19,9 @@ import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestAct
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
@@ -41,7 +42,13 @@ import {
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import { RequestNotFoundError, toError } from '../errors.js';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	RequestNotFoundError,
+	RequestRateLimitError,
+	toError,
+} from '../errors.js';
 import type { ProviderRepositoriesInput } from '../manager.js';
 import { PagingMode } from '../providers/metadata.js';
 import type {
@@ -146,6 +153,29 @@ function rejectUnsettledMisses<T>(
 			? { status: 'rejected', reason: new Error(unsettledMissMessage) }
 			: slot,
 	);
+}
+
+function createCommitFanOutGate(
+	stops: (reason: unknown, answered: boolean) => boolean,
+	cancellation: AbortSignal | undefined,
+): <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R> {
+	let stopped: Error | undefined;
+	let answered = false;
+	return async (send, stopsOn) => {
+		if (stopped != null) throw stopped;
+		if (cancellation?.aborted) throw new CancellationError();
+
+		try {
+			const result = await send();
+			answered = true;
+			return result;
+		} catch (ex) {
+			if (stopped == null && (stopsOn != null ? stopsOn(ex) : stops(ex, answered))) {
+				stopped = toError(ex);
+			}
+			throw ex;
+		}
+	};
 }
 
 /**
@@ -2724,6 +2754,112 @@ export abstract class GitHostIntegration<
 		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
+
+	async getPullRequestsForCommitsResult(
+		repo: RepositoryCoordinate,
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		const asked = shas.flatMap((sha, index) => (isUncommitted(sha) ? [] : [index]));
+		let slots: PromiseSettledResult<PullRequestShape | undefined>[] | undefined;
+		try {
+			const resolved = await this.resolveRepositoryCoordinates(session, [repo], cancellation);
+			const settledRepo = resolved.coordinates[0] ?? repo;
+			slots = await this.getProviderPullRequestsForCommits(
+				session,
+				settledRepo,
+				asked.map(index => shas[index]),
+				options,
+				cancellation,
+			);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestsForCommits', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const unsettled = resolved.unsettled?.[0] === true;
+			const settled = await this.settleResolvedSlots(
+				session,
+				{ coordinates: asked.map(() => settledRepo), unsettled: asked.map(() => unsettled) },
+				slots,
+				pr => pr == null,
+			);
+
+			this.settleBatchCredential('getPullRequestsForCommits', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: asked.length > 0,
+			});
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+
+			const value = shas.map((): BatchSlot<PullRequestShape | undefined> => ({
+				status: 'fulfilled',
+				value: undefined,
+			}));
+			asked.forEach((index, i) => {
+				value[index] = settled[i];
+			});
+			return { value: value, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestsForCommits', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: RepositoryCoordinate,
+		shas: readonly string[],
+		_options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const read = this.getProviderPullRequestForCommitInBatch?.bind(this);
+		if (read == null) return Promise.resolve(undefined);
+
+		const descriptor = this.toCommitRepositoryDescriptor(repo);
+		const send = this.commitFanOutGate(cancellation);
+		return mapSettledBounded(shas, providerFanOutConcurrency, sha =>
+			send(() => read(session, descriptor, sha, cancellation)),
+		);
+	}
+
+	// KEEP: throw on every failure, a missing client included; `undefined` is a cacheable none.
+	protected getProviderPullRequestForCommitInBatch?(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		sha: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined>;
+
+	protected commitFanOutGate(
+		cancellation: AbortSignal | undefined,
+	): <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R> {
+		return createCommitFanOutGate((reason, answered) => this.stopsCommitFanOut(reason, answered), cancellation);
+	}
+
+	protected stopsCommitFanOut(reason: unknown, answered: boolean): boolean {
+		if (reason instanceof RequestRateLimitError) return true;
+		if (!(reason instanceof AuthenticationError)) return false;
+
+		return reason.reason !== AuthenticationErrorReason.Forbidden || !answered;
+	}
+
+	protected toCommitRepositoryDescriptor(repo: RepositoryCoordinate): T {
+		// KEEP: this cast holds only while every host's descriptor is a key plus owner and name, and no per-SHA read
+		// reads the key.
+		return { key: `${repo.owner}/${repo.repo}`, owner: repo.owner, name: repo.repo } as unknown as T;
+	}
 
 	/**
 	 * The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none where the

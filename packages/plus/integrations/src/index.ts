@@ -368,6 +368,7 @@ export type {
 	PullRequestActivityReview,
 	PullRequestActivityReviewComment,
 } from '@gitlens/git/models/pullRequestActivity.js';
+export type { PullRequestForCommitResult } from './results.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
 export type { CurrentAccountResult } from './results.js';
 export type { Account } from '@gitlens/git/models/author.js';

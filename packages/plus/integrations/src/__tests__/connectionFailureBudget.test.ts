@@ -398,6 +398,30 @@ suite('per-connection failure budget', () => {
 		manager.dispose();
 	});
 
+	test("a secondary connection's failed commit lookups past the limit leave the primary connected", async () => {
+		const { manager, gh, serverErrors, watched } = await connect(['gh-primary', 'gh-secondary']);
+		serverErrors.add('token-gh-secondary');
+
+		for (let i = 0; i < 6; i++) {
+			const result = await manager.getPullRequestsForCommits({
+				providerId: provider,
+				connectionId: 'gh-secondary',
+				owner: 'octocat',
+				repo: 'hello',
+				shas: ['a'.repeat(40)],
+			});
+			assert.equal(result.fetchFailed, true, 'each failure still surfaces on the secondary read');
+		}
+		await settle();
+
+		assert.equal(watched.disconnected, undefined, 'no disconnect is announced');
+		assert.equal(await gh.isConnected(), true);
+		assert.equal(getPrimaryStrikes(gh), 0);
+		assert.equal(getConnectionStrikes(gh, 'gh-secondary'), 6, 'each wholly failed batch spent one strike');
+
+		manager.dispose();
+	});
+
 	test('the primary connection disconnects after five server errors, named or not', async () => {
 		for (const connectionId of [undefined, 'gh-primary']) {
 			const { manager, gh, serverErrors, serverErrorRequests, watched } = await connect([

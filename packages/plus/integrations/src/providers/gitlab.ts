@@ -325,6 +325,54 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		);
 	}
 
+	protected override async getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: { owner: string; repo: string; project?: string },
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const gitlab = await this.authenticationService.apis.gitlab;
+		if (gitlab == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the merge requests of commits');
+		}
+
+		if (shas.length > 0) {
+			await gitlab.getProjectId(
+				this,
+				toTokenWithInfo(this.id, session),
+				repo.owner,
+				repo.repo,
+				this.apiBaseUrlFor(session),
+				cancellation,
+				{ strict: true },
+			);
+		}
+		return super.getProviderPullRequestsForCommits(session, repo, shas, options, cancellation);
+	}
+
+	protected override async getProviderPullRequestForCommitInBatch(
+		session: ProviderAuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		rev: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		const gitlab = await this.authenticationService.apis.gitlab;
+		if (gitlab == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the merge requests of a commit');
+		}
+
+		return gitlab.getPullRequestForCommit(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			rev,
+			{ baseUrl: this.apiBaseUrlFor(session), deferFailure: true },
+			cancellation,
+		);
+	}
+
 	protected override async getProviderPullRequest(
 		session: ProviderAuthenticationSession,
 		resource: GitLabRepositoryDescriptor,

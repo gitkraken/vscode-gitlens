@@ -738,6 +738,42 @@ function isByteStream(value: unknown): value is ReadableStream<Uint8Array> {
 	return typeof value === 'object' && value != null && 'getReader' in value && typeof value.getReader === 'function';
 }
 
+function gqlCommitAssociatedPullRequests(
+	options: { baseUrl?: string; mergeQueue?: boolean } | undefined,
+	config: Pick<GitHubApiConfig, 'getPullRequestReadOptions'>,
+): string {
+	return `associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
+					nodes {
+						${gqlPullRequestLiteFragment}
+						${gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestMergeQueueFragmentFor(options, config)}
+					}
+				}`;
+}
+
+function selectCommitPullRequest(
+	nodes: readonly (GitHubPullRequestLite | null)[] | undefined,
+	owner: string,
+): GitHubPullRequestLite | undefined {
+	const ownerKey = owner.toLowerCase();
+	const isOwners = (pr: GitHubPullRequestLite): boolean => pr.repository.owner.login.toLowerCase() === ownerKey;
+	const prs = nodes?.filter(
+		(pr): pr is GitHubPullRequestLite => pr != null && (!pr.repository.isFork || isOwners(pr)),
+	);
+	if (prs == null || prs.length === 0) return undefined;
+
+	if (prs.length > 1) {
+		prs.sort(
+			(a, b) =>
+				(isOwners(a) ? -1 : 1) - (isOwners(b) ? -1 : 1) ||
+				(a.state === 'MERGED' ? -1 : 1) - (b.state === 'MERGED' ? -1 : 1) ||
+				new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+		);
+	}
+
+	return prs[0];
+}
+
 export class GitHubApi {
 	private readonly _onDidReauthenticate = new Emitter<void>();
 	get onDidReauthenticate(): Event<void> {
@@ -1559,13 +1595,7 @@ export class GitHubApi {
 	repository(name: $repo, owner: $owner) {
 		object(oid: $rev) {
 			... on Commit {
-				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
-					nodes {
-						${gqlPullRequestLiteFragment}
-						${gqlPullRequestStackFragmentFor(options)}
-						${gqlPullRequestMergeQueueFragmentFor(options, this.config)}
-					}
-				}
+				${gqlCommitAssociatedPullRequests(options, this.config)}
 			}
 		}
 	}
@@ -1585,30 +1615,127 @@ export class GitHubApi {
 				cancellation,
 			);
 
-			// Owners compare ignoring case, as GitHub logins do.
-			const ownerKey = owner.toLowerCase();
-			const isOwners = (pr: GitHubPullRequestLite): boolean =>
-				pr.repository.owner.login.toLowerCase() === ownerKey;
-			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
-			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
-				pr => pr != null && (!pr.repository.isFork || isOwners(pr)),
-			);
-			if (prs == null || prs.length === 0) return undefined;
-
-			if (prs.length > 1) {
-				prs.sort(
-					(a, b) =>
-						(isOwners(a) ? -1 : 1) - (isOwners(b) ? -1 : 1) ||
-						(a.state === 'MERGED' ? -1 : 1) - (b.state === 'MERGED' ? -1 : 1) ||
-						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-				);
-			}
-
-			return fromGitHubPullRequestLite(prs[0], provider, 'point');
+			const pr = selectCommitPullRequest(rsp?.repository?.object?.associatedPullRequests?.nodes, owner);
+			return pr != null ? fromGitHubPullRequestLite(pr, provider, 'point') : undefined;
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsForCommits(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		shas: readonly string[],
+		options?: { baseUrl?: string; avatarSize?: number; mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequest | undefined>[]> {
+		const scope = getScopedLogger();
+
+		const slots = shas.map((): PromiseSettledResult<PullRequest | undefined> => ({
+			status: 'fulfilled',
+			value: undefined,
+		}));
+		if (shas.length === 0) return slots;
+
+		const asked = shas.map((sha, index) => ({ sha: sha, index: index }));
+
+		const params = asked.map((_, i) => `$sha${i}: GitObjectID!`).join('\n\t');
+		const fields = asked
+			.map(
+				(_, i) => `c${i}: object(oid: $sha${i}) {
+			... on Commit {
+				${gqlCommitAssociatedPullRequests(options, this.config)}
+			}
+		}`,
+			)
+			.join('\n\t\t');
+		const query = `query getPullRequestsForCommits(
+	$owner: String!
+	$repo: String!
+	${params}
+	$avatarSize: Int
+) {
+	repository(name: $repo, owner: $owner) {
+		${fields}
+	}
+}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+			owner: owner,
+			repo: repo,
+		};
+		asked.forEach((a, i) => {
+			variables[`sha${i}`] = a.sha;
+		});
+
+		try {
+			const rsp = await this.graphql<
+				Record<
+					string,
+					| Record<
+							string,
+							{ associatedPullRequests?: { nodes?: GitHubPullRequestLite[] } } | null | undefined
+					  >
+					| null
+					| undefined
+				>
+			>(provider, token, query, variables, scope, cancellation, 'aliased');
+			// KEEP: no data proves nothing about any slot, so it must never read as a batch of nones.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by commit');
+
+			const repository = rsp.data.repository;
+			if (repository == null) {
+				const forbidden = rsp.errors.find(e => e.path?.[0] === 'repository' && e.type === 'FORBIDDEN');
+				if (forbidden != null) {
+					const { accessToken: _accessToken, ...tokenInfo } = token;
+					throw new AuthenticationError(
+						tokenInfo,
+						AuthenticationErrorReason.Forbidden,
+						new Error(forbidden.message),
+					);
+				}
+
+				const verdict = getAliasErrorVerdict(rsp.errors, 'repository', repository);
+				if (verdict != null && verdict !== 'absent') {
+					for (const a of asked) {
+						slots[a.index] = verdict;
+					}
+				}
+				return slots;
+			}
+
+			asked.forEach((a, i) => {
+				const alias = `c${i}`;
+				const node = repository[alias];
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node, 'repository');
+				if (verdict != null && verdict !== 'absent') {
+					slots[a.index] = verdict;
+					return;
+				}
+
+				try {
+					const pr = selectCommitPullRequest(node?.associatedPullRequests?.nodes, owner);
+					slots[a.index] = {
+						status: 'fulfilled',
+						value: pr != null ? fromGitHubPullRequestLite(pr, provider, 'point') : undefined,
+					};
+				} catch (ex) {
+					// KEEP: reject, never `undefined`, which the consumer caches as a commit without a pull request.
+					scope?.warn(`failed to map pull request; ${owner}/${repo}@${a.sha}, ex=${ex}`);
+					slots[a.index] = { status: 'rejected', reason: ex };
+				}
+			});
+			return slots;
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope, true);
 		}
 	}
 

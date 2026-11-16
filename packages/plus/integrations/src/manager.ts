@@ -53,6 +53,7 @@ import type {
 	PullRequestCheckLogTarget,
 	PullRequestCountResult,
 	PullRequestCountScope,
+	PullRequestForCommitResult,
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
@@ -1045,6 +1046,80 @@ export interface IntegrationManager {
 		/** Timeline items (reviews and conversation comments) per target: an integer from 1 to 100. Defaults to 30. */
 		limit?: number;
 	}): Promise<ProviderResult<PullRequestActivityResult>>;
+	/**
+	 * Finds the pull request each of several commits of ONE repository belongs to, in a few requests rather than one
+	 * per commit, for a whole history window. The batch form of the single-commit lookup, answered without the user's
+	 * relationship to the pull request.
+	 *
+	 * Results are echoed under the commit's own `sha`, so no positional matching is needed. Repeats in `shas`
+	 * (ignoring case) are resolved once and answered once. Per-SHA isolation is the rule, as in
+	 * {@link getPullRequestsBatch}:
+	 * - `{ sha, pullRequest }` — the commit belongs to that pull request, in any state. When it belongs to several, the
+	 *   one the single-commit lookup returns, which each host picks its own way:
+	 *   - GitHub/GHE: of the two most recently updated pull requests GitHub associates with the commit, one from a fork
+	 *     only when the fork is `owner`'s; of those, `owner`'s own (ignoring case), then a merged one, then the most
+	 *     recently updated. A third one is never considered.
+	 *   - GitLab: of the first page GitLab lists, an open one, then the most recently updated.
+	 *   - Bitbucket Cloud and Bitbucket Data Center: of the first page the host lists, the most recently updated.
+	 *   - Azure DevOps: the first the pull request query lists.
+	 * - `{ sha }` with no `pullRequest` — RESOLVED NONE: the host answered and the commit has no pull request (also a
+	 *   commit or repository the host doesn't have or this connection can't see, and the working tree's all-zero SHA,
+	 *   which is never sent). Safe to cache. Bitbucket Cloud answers `404` alike for a commit it doesn't have and for a
+	 *   repository it doesn't have, so its `404` is none only once another commit of the repository answered, in this
+	 *   call or an earlier one with the same token; until then it fails. So on Bitbucket Cloud don't pass
+	 *   commits the remote doesn't have (unpushed ones): a window made only of those can't resolve. A repository whose
+	 *   pull request links aren't indexed yet (an answer without a list, or `repo_indexed: false`) fails every SHA.
+	 * - No item for a `sha`, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check
+	 *   (auth, rate limit, network, missing session, an unmappable response). Never treat that as none.
+	 *
+	 * Every entry of `shas` must be a full 40-character commit SHA, in either letter case (surrounding whitespace is
+	 * trimmed): anything else, a branch name or a short SHA included, refuses the whole call with a warning and
+	 * `fetchFailed`, since a ref the host can't resolve as a commit would otherwise read as a cacheable none.
+	 *
+	 * UNCACHED, and deliberately not routed through the integration's cached single-commit lookup: that cache's key
+	 * carries no connection, and the lookup answers a failure as `undefined`, which a caller can't tell from a commit
+	 * without a pull request. The caller owns caching, per SHA.
+	 *
+	 * Request cost, for N commits: GitHub/GHE one aliased GraphQL request per 25; Azure DevOps one pull request query per 100, then one read per distinct pull request
+	 * found; GitLab one project lookup, kept per token, then one request per commit; Bitbucket Cloud and Bitbucket
+	 * Data Center one request per commit. Every fan-out runs with bounded concurrency, through a strict form of the
+	 * single-commit lookup's read, so its row is that lookup's row. After the first rate limit or refused credential
+	 * (and on Bitbucket Cloud, the first commit refused because the pull request commit links app isn't installed, or
+	 * the first answer that its links aren't indexed yet), or a `403` before any SHA answered, the requests not yet
+	 * sent aren't: their SHAs fail with that reason under one warning. There is no cap on
+	 * `shas`, so a caller sizes its window to the cost it accepts.
+	 *
+	 * Rows are the single-commit lookup's: the lite pull request shape, without `authoredByMe` or `viewer`.
+	 */
+	getPullRequestsForCommits(options: {
+		providerId: IntegrationIds;
+		/**
+		 * GitHub owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or
+		 * Azure DevOps organization.
+		 */
+		owner: string;
+		/** Repository name or slug. */
+		repo: string;
+		/** Azure DevOps project. Required there, ignored elsewhere. */
+		project?: string;
+		/** The commits, as full 40-character SHAs; see above. */
+		shas: readonly string[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it.
+		 * Selecting it costs a rate-limit request per row.
+		 */
+		mergeQueue?: boolean;
+		/**
+		 * Aborts the read: the requests in flight, and every request it has yet to send. The read then rejects with a
+		 * `CancellationError` instead of resolving, so a cancelled read is never mistaken for a failed or an empty one.
+		 */
+		cancellation?: AbortSignal;
+	}): Promise<ProviderResult<PullRequestForCommitResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
 	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and

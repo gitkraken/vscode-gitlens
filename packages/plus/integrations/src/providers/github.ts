@@ -1003,6 +1003,38 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	protected override async getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: { owner: string; repo: string; project?: string },
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of commits');
+		}
+
+		const send = this.commitFanOutGate(cancellation);
+		return readChunked(
+			shas,
+			pullRequestsBatchChunkSize,
+			chunkShas =>
+				send(() =>
+					github.getPullRequestsForCommits(
+						this,
+						toTokenWithInfo(this.id, session),
+						repo.owner,
+						repo.repo,
+						chunkShas,
+						{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: options.mergeQueue },
+						cancellation,
+					),
+				),
+			(pr): PullRequestShape | undefined => pr,
+		);
+	}
+
 	/**
 	 * The cheap check behind the batch issue read's etags: {@link getProviderIssuesBatch}'s chunks and failure
 	 * isolation over {@link GitHubApi.getIssuesEtagFieldsBatch}, which selects only an issue's change state plus the

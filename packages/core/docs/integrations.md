@@ -200,6 +200,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `getPullRequestsForBranches` | `PullRequestBranchResult`    | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
 | `getPullRequestCheckLogs`    | `PullRequestCheckLogResult`  | The tail of each check's log, by the `PullRequestCheckRun.id` a batch read returned.         |
 | `getPullRequestActivity`     | `PullRequestActivityResult`  | New reviews, inline review comments and conversation comments after a caller-held cursor.    |
+| `getPullRequestsForCommits`  | `PullRequestForCommitResult` | The PR each of N commits of one repo belongs to; a row without one is a resolved none.       |
 | `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello / Asana (issues live under resource → project). |
 | `sweepPullRequests`          | `ProviderSweepResult`        | Drains **every** page across providers (`maxPages`, default 100).                            |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`        | Same, pinned to `['closed','merged']`.                                                       |
@@ -369,16 +370,17 @@ fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. B
 `IntegrationCacheProvider.getPullRequestForBranch`.
 
 `listPullRequestsPage`, `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches`,
-`sweepPullRequests` and `sweepClosedPullRequests` also take `mergeQueue`, a per-read override of the host's
+`getPullRequestsForCommits`, `sweepPullRequests` and `sweepClosedPullRequests` also take `mergeQueue`, a per-read override of the host's
 `getPullRequestReadOptions().mergeQueue`, for a host that wants queue state on one surface without paying for it on
 all of them. `true` selects merge-queue data on GitHub.com for that read, `false` doesn't, and omitting it follows the
 host's setting (off when the host has none). Enterprise and every other provider ignore it, as does a read that goes
 through provider-apis, which selects none: the repo-scoped `listPullRequestsPage` and the repo-scoped targets of the
 sweeps. The point reads on the integration classes (`getPullRequest`, `getPullRequestForBranch`,
 `getPullRequestForCommit` and `getIssueOrPullRequest`) don't take it: the host caches their rows under a key that
-doesn't carry it, so they follow the host's setting alone. `getPullRequestsBatch` and `getPullRequestsForBranches`
-resolve it once per call, so the batch's cheap check and full read, and the branch read's by-name query and the batch
-read that settles a truncated target, always select the same data. A read that selects merge-queue data adds a
+doesn't carry it, so they follow the host's setting alone. `getPullRequestsBatch`, `getPullRequestsForBranches` and
+`getPullRequestsForCommits` resolve it once per call, so the batch's cheap check and full read, the branch read's
+by-name query and the batch read that settles a truncated target, and the commit read's chunks, always select the same
+data. A read that selects merge-queue data adds a
 marker to every etag it computes, so an etag from such a read never equals one from a read that doesn't, even for a
 pull request that was never queued. Changing either the per-read option or the host's setting therefore costs one
 full read per held target, and a row held without the data is read in full again to gain it. A read that doesn't
@@ -463,6 +465,55 @@ charges for the page size asked for rather than the items returned, which at the
 point per pull request. A new comment or review moves the pull request's update time, so a caller
 can gate this read on a batch read's `etag` or `updatedDate`; that was not verified for every kind of activity.
 
+`getPullRequestsForCommits` answers "which pull request does each of these commits belong to" for N commits of one
+repository (`owner`, `repo` and, on Azure DevOps, `project`), echoed under each commit's `sha`. A row with a
+`pullRequest` found one; a row without one is a resolved none (the host answered, or the SHA is the working tree's
+all-zero one, which is never sent), which a caller may cache per SHA; a SHA whose read failed has no row, and the call
+sets `fetchFailed` with a warning naming it in `targetKeys`. Bitbucket Cloud answers `404` alike for a commit it doesn't
+have (an unpushed one) and for a repository it doesn't have, so its `404` is a none only once another commit of the
+repository answered, in the same call, whatever settled first, or in an earlier lookup with the same token;
+until then the SHA fails on its own, and a `404` never stops the call. So on Bitbucket Cloud a caller shouldn't pass
+commits the remote doesn't have (unpushed ones): a window made only of those can't resolve. An answer without a list,
+or with `repo_indexed: false`, means the repository's pull request links aren't indexed yet: it fails the SHA, never
+as a none, and stops the call as the missing commit links app does. Every SHA must be a full 40-character commit SHA
+in either letter case: anything else, a branch name or a short SHA included, refuses the whole call with a warning,
+since a ref the host can't resolve as a commit would otherwise come back as a cacheable none. It takes
+`cancellation`, with `searchPullRequestsPage`'s contract: an aborted read sends nothing more and rejects with a
+`CancellationError`.
+
+A commit that belongs to several pull requests resolves to the one the single-commit lookup picks, each host its own
+way, which the batch keeps rather than normalizes:
+
+| Host                   | Pull request a commit with several resolves to                                                                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub/GHE             | Of the two most recently updated GitHub associates with the commit (a fork's only when the fork is `owner`'s): `owner`'s own (ignoring case), then a merged one, then the most recently updated. A third is never considered. |
+| GitLab                 | Of the first page GitLab lists: an open one, then the most recently updated.                                                                                                                                                  |
+| Bitbucket Cloud and DC | Of the first page the host lists: the most recently updated.                                                                                                                                                                  |
+| Azure DevOps           | The first the pull request query lists.                                                                                                                                                                                       |
+
+Request cost for N commits, each fan-out run with bounded concurrency:
+
+| Host                   | Requests                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub/GHE             | ⌈N / 25⌉ aliased GraphQL requests.                                                                                                                        |
+| Azure DevOps           | ⌈N / 100⌉ pull request queries (the query takes a list of commits; Azure DevOps documents no limit on it), then one read per distinct pull request found. |
+| GitLab                 | One project lookup (kept per token), then N.                                                                                                              |
+| Bitbucket Cloud and DC | N.                                                                                                                                                        |
+
+There is no cap on N. After the first rate limit or refused credential in a call, the requests it hasn't sent yet are
+never sent: their SHAs fail with that reason, under one warning. A `403` stops the call the same way when none of its
+SHAs has answered yet, since it is then the repository's refusal, which every SHA would meet; its SHAs fail under one
+warning, scoped to the repository on a host that can check the credential (see §6) and the connection's on GitLab. A
+`403` after a SHA answered is that commit's own and stops nothing. A credential refused after some SHAs answered is
+still the credential's failure: the SHAs it failed carry the connection's `auth` warning, not a scoped one, and it runs
+the credential's recovery once for the call. Bitbucket Cloud stops the same way at the first commit it refuses because
+the pull request commit links app isn't installed, which every commit then answers, fails the call with a warning that
+names the app, and shows the host's `onBitbucketCommitLinksAppMissing` notice once. The reads are a strict form of the
+single-commit lookup's own (one that throws on a failed request where the lookup answers `undefined`, so a failure is
+never a resolved none), and a host without one reports the surface `unsupported`. Rows are that lookup's (the `point`
+projection, without `authoredByMe` or `viewer`). It is uncached and bypasses
+`IntegrationCacheProvider.getPullRequestForSha`.
+
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
 (see §8). Jira Cloud answers with the first site's account, since an Atlassian account id is the same on every site. It goes through the host-supplied
@@ -501,7 +552,8 @@ read), `search` and `search-summary` (the filtered search, and on the host its "
 `text-search` (the host's free-text `searchPullRequests`), `account` and `account-summary` (the account-wide list and
 sweeps, `account` being a sweep's `includeReviews`, and a tracker's "my issues"), `repos` and `repos-summary` (the
 repository-scoped list and sweeps), `project` (a tracker project's issues: `listIssueTrackerIssuesPage`,
-`getIssuesForProject`), and `batch` (`getPullRequestsBatch`, `getPullRequestsForBranches`, `getIssuesBatch`). Issues
+`getIssuesForProject`), and `batch` (`getPullRequestsBatch`, `getPullRequestsForBranches`, `getIssuesBatch`).
+`getPullRequestsForCommits` rows carry `point`, the single-commit lookup's tag, since they are its rows. Issues
 have no `-summary` reads; `broadenIssues` rows carry the tag of the read that served each org. The tag names a read,
 not a field set: the same tag can carry different fields on different providers.
 
@@ -1138,7 +1190,8 @@ keeps its existing behavior. It is set only on warnings derived from a structure
 least one ID when present; a failure attributed to nothing below the provider carries none. A warning built
 from a caught exception never carries one, even when that call targeted a single organization, and an omission
 keeps its attribution in `omission.scope` instead. The batch reads (`getIssuesBatch`, `getPullRequestsBatch`,
-`getPullRequestsForBranches`) are the exception: a refused target's warning names the scope its target names —
+`getPullRequestsForBranches`, `getPullRequestsForCommits`) are the exception: a refused target's warning names the
+scope its target names (for the commit read, every SHA names its one repository) —
 the Azure DevOps organization and project, the repository on other git hosts, or the tracker's resource. So is
 `resolveRepository`: a `401`/`403` for the one repository it resolves settles as a batch read's refused target does,
 so on a host that can check the credential (Azure DevOps, Azure DevOps Server, Bitbucket, Bitbucket Data Center,
@@ -1548,6 +1601,7 @@ footnote says otherwise.
 | `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |   ✗   |
 | `getPullRequestCheckLogs`    |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
 | `getPullRequestActivity`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestsForCommits`  |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |   ✓   |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
