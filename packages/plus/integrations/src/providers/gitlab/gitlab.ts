@@ -33,6 +33,7 @@ import {
 import type { IssueEtagInclude, PullRequestEtagInclude } from '../../models/integration.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
+import { isNotFoundResponse } from '../providerErrors.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
 import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
@@ -731,6 +732,12 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
+			/**
+			 * For a batch read: a failed request throws without the re-authentication prompt, which the batch settles
+			 * once for the whole call (a missing project or commit still answers `undefined`), and the batch reports a
+			 * server error once rather than each request showing its own.
+			 */
+			deferFailure?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -753,6 +760,7 @@ export class GitLabApi implements Disposable {
 				},
 				cancellation,
 				scope,
+				options?.deferFailure,
 			);
 			if (mrs == null || mrs.length === 0) return undefined;
 
@@ -773,6 +781,13 @@ export class GitLabApi implements Disposable {
 				'point',
 			);
 		} catch (ex) {
+			if (options?.deferFailure) {
+				if (isNotFoundResponse(ex)) return undefined;
+
+				scope?.error(ex);
+				throw ex;
+			}
+
 			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
@@ -1755,6 +1770,7 @@ $search: String!
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		cancellation: AbortSignal | undefined,
 		scope: ScopedLogger | undefined,
+		deferFailure?: boolean,
 	): Promise<T> {
 		const { accessToken } = token;
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
@@ -1786,7 +1802,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope, undefined);
+				this.handleRequestError(provider, token, ex, scope, deferFailure);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`GitLab request failed: ${ex.message}`);
 			}

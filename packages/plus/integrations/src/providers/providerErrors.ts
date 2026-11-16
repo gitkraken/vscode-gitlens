@@ -14,6 +14,7 @@ import {
 	getAuthenticatedUser,
 	isProviderUnreachableError,
 	isRateLimitResponse,
+	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
 	toError,
@@ -271,6 +272,10 @@ export function isProviderIssueNotFoundError(providerId: IntegrationIds, ex: unk
 	}
 
 	return status === 404 || status === 410 || status === 422;
+}
+
+export function isNotFoundResponse(ex: unknown): boolean {
+	return RequestNotFoundError.is(ex) && ex.original instanceof ProviderFetchError && ex.original.status === 404;
 }
 
 export class CommitReadRefusedError extends Error {

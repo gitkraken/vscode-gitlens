@@ -150,8 +150,13 @@ function decodeServiceError(value: unknown): string | undefined {
 export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): ProviderScopeFailure {
 	const kind = toCollectionFailureKind(ex);
 	const refusal = toProviderRefusal(ex);
+	const original = ex instanceof AuthenticationError ? ex.original : undefined;
 	const message =
-		refusal != null ? (refusal.detail ?? providerWarningMessage((ex as AuthenticationError).original)) : undefined;
+		refusal != null
+			? (refusal.detail ?? providerWarningMessage(original))
+			: original?.message
+				? providerWarningMessage(original)
+				: undefined;
 	const cause = kind === 'provider' ? getRequestFailureCause(ex) : undefined;
 	return {
 		scope: scope,

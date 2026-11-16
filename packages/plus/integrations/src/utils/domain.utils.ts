@@ -99,6 +99,12 @@ export function sameConfiguredBaseUrl(first: string | undefined, second: string 
 	return firstUrl != null && secondUrl != null && firstUrl === secondUrl;
 }
 
+export function encodePathSegment(value: string): string {
+	if (value === '.' || value === '..') throw new Error(`Invalid path segment '${value}'.`);
+
+	return encodeURIComponent(value);
+}
+
 /** Decodes one percent-encoded URL path segment, keeping a malformed one as written. */
 export function decodePathSegment(segment: string): string {
 	try {

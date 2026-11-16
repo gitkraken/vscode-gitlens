@@ -92,6 +92,10 @@ suite('GitHubApi merge-queue opt-in', () => {
 			run: (api, o) => api.getPullRequestsEtagFieldsBatch(provider, token, coordinates, o),
 		},
 		{
+			name: 'getPullRequestsForCommits',
+			run: (api, o) => api.getPullRequestsForCommits(provider, token, 'o', 'a', [sha], o),
+		},
+		{
 			name: 'getPullRequestsForBranches',
 			run: (api, o) =>
 				api.getPullRequestsForBranches(

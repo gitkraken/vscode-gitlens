@@ -90,6 +90,24 @@ function serve(runtime: FakeRuntime): string[] {
 					};
 				}
 			}
+		} else if (query.startsWith('query getPullRequestsForCommits(')) {
+			const repository: Record<string, unknown> = {};
+			for (const name of Object.keys(body.variables)) {
+				const match = /^sha(\d+)$/.exec(name);
+				if (match != null) {
+					repository[`c${match[1]}`] = {
+						associatedPullRequests: {
+							nodes: [
+								answer(
+									query,
+									gitHubPullRequestLite(Number(match[1]) + 1, undefined, { owner: 'o', name: 'r' }),
+								),
+							],
+						},
+					};
+				}
+			}
+			data.repository = repository;
 		} else if (query.startsWith('query searchPullRequestsPage(')) {
 			for (const match of query.matchAll(/^\s*(\w+): search\(/gm)) {
 				data[match[1]] = {
@@ -134,6 +152,20 @@ const reads: Read[] = [
 			});
 			assert.equal(result.fetchFailed, undefined);
 			return result.items.flatMap(i => i.pullRequests);
+		},
+	},
+	{
+		name: 'getPullRequestsForCommits',
+		run: async (manager, mergeQueue) => {
+			const result = await manager.getPullRequestsForCommits({
+				providerId: providerId,
+				owner: 'o',
+				repo: 'r',
+				shas: ['a'.repeat(40)],
+				mergeQueue: mergeQueue,
+			});
+			assert.equal(result.fetchFailed, undefined);
+			return result.items.flatMap(i => (i.pullRequest != null ? [i.pullRequest] : []));
 		},
 	},
 	{

@@ -372,6 +372,7 @@ type SyncReqUsecase = Exclude<
 	| 'getPullRequestsBatch'
 	| 'getPullRequestsEtagFields'
 	| 'getPullRequestsForBranches'
+	| 'getPullRequestsForCommits'
 	| 'getRepositoriesForOrg'
 	| 'getRepositoriesForUser'
 	| 'getPullRequestForBranch'
