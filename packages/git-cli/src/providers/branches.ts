@@ -97,6 +97,11 @@ const nonInteractiveNetworkOptions = {
 	timeout: 10_000,
 } as const satisfies GitRunOptions;
 
+/** {@link nonInteractiveNetworkOptions} with the host's quiet-network `SSH_ASKPASS` environment, when it supplies one */
+function quietNetworkOptions(git: Git) {
+	return { ...nonInteractiveNetworkOptions, env: git.quietNetworkEnv(nonInteractiveNetworkOptions.env) };
+}
+
 /**
  * How long after a failed read of a remote's default branch off the network (an unreachable host, a refused login, a
  * timeout) the network isn't tried again for that remote
@@ -1476,12 +1481,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			async (commonPath, cacheable, signal) => {
 				const failedKey = `${commonPath}\0${remote}`;
 				let dropStamp = this.cache.getDropStamp('defaultBranchName', commonPath);
-				const networkOptions = {
+				// Built at each network run rather than up front: the local `symbolic-ref` usually answers, and a read
+				// that never reaches the network mustn't ask the host for its environment, nor fail when that throws
+				const networkOptions = () => ({
 					cwd: commonPath,
 					cancellation: signal ?? cancellation,
 					...priorityOpts,
-					...nonInteractiveNetworkOptions,
-				};
+					...quietNetworkOptions(this.git),
+				});
 
 				let retried = false;
 				while (true) {
@@ -1513,7 +1520,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							try {
 								if (!retried) {
 									retried = true;
-									await this.git.run(networkOptions, 'remote', 'set-head', '-a', remote);
+									await this.git.run(networkOptions(), 'remote', 'set-head', '-a', remote);
 									this.failedDefaultBranchLookups.release(failedKey);
 									// This just created `refs/remotes/<remote>/HEAD`, which the `local` variant
 									// may already have cached a miss for. The watcher would also catch the new
@@ -1526,7 +1533,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 								}
 
 								const result = await this.git.run(
-									networkOptions,
+									networkOptions(),
 									'ls-remote',
 									'--symref',
 									remote,
@@ -1579,7 +1586,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		await this.git.run(
-			{ cwd: repoPath, priority: 'background', ...nonInteractiveNetworkOptions },
+			{ cwd: repoPath, priority: 'background', ...quietNetworkOptions(this.git) },
 			'remote',
 			'set-head',
 			'-a',

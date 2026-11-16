@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `GitOptions.getQuietNetworkEnvironment`, a host hook for the ssh askpass of the network reads core runs without a person present (`branches.getDefaultBranchName`, `branches.setRemoteHeadIfMissing`, `remotes.probeRemote`). They blanked `SSH_ASKPASS` per call, so behind a `ProxyJump` host that asks for a password or a code the hop's ssh sent an empty answer to each prompt, each a failed sign-in. When the hook returns an environment, core drops its own `SSH_ASKPASS*` defaults for those reads and uses the host's (`{}` means the inherited askpass); the other quiet keys stay. Without it nothing changes (git-cli)
+
 ## [0.38.4] - 2026-11-15
 
 ### Added
