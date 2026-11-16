@@ -1,7 +1,9 @@
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { Sources } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
+import { trackKeplerCtaShown } from './keplerBanner.utils.js';
 import './banner/banner.js';
 
 declare global {
@@ -35,7 +37,7 @@ export class GlKeplerBanner extends LitElement {
 	];
 
 	@property()
-	source: string = 'unknown';
+	source?: Sources;
 
 	@property()
 	layout: 'default' | 'responsive' = 'default';
@@ -47,6 +49,21 @@ export class GlKeplerBanner extends LitElement {
 	/** Whether GitLens is installing Kepler right now; disables Install Kepler */
 	@property({ type: Boolean })
 	installing = false;
+
+	private _stopTrackingShown?: () => void;
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		if (this.source == null) return;
+
+		this._stopTrackingShown = trackKeplerCtaShown(this, this.source, () => this.installable);
+	}
+
+	override disconnectedCallback(): void {
+		this._stopTrackingShown?.();
+		this._stopTrackingShown = undefined;
+		super.disconnectedCallback?.();
+	}
 
 	// Not dismissible, unlike the other banners in this folder — the walkthrough's `kepler` step, which
 	// installing Kepler or Learn More satisfies, is the only way this banner goes away.
