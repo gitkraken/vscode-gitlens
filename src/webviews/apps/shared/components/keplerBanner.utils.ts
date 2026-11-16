@@ -47,7 +47,9 @@ export function trackKeplerCtaShown(el: Element, source: Sources, isInstallable:
 
 	const observer = new IntersectionObserver(
 		entries => {
-			if (shownSources.has(source) || !entries.some(e => e.isIntersecting)) return;
+			if (shownSources.has(source) || !entries.some(e => e.isIntersecting && e.intersectionRatio >= 0.5)) {
+				return;
+			}
 
 			shownSources.add(source);
 			observer.disconnect();
