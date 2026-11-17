@@ -81,6 +81,7 @@ Review all changes for: correctness, matching user expectations, high performanc
 - [ ] No unnecessary new types/abstractions for single-use scenarios
 - [ ] Changes scoped to the request — no unrelated drive-by changes
 - [ ] Fix addresses root cause (feature not disabled instead of fixed)
+- [ ] Every added comment carries a `HACK:`, `KEEP:`, `SEE:` or `TODO:` tag and meets that tag's rules (a `KEEP:` that a test or type could enforce, a `SEE:` without a source, and a `TODO:` deferring in-scope work all fail); comments describing the code were removed from the changed functions — each miss is a **Warning** finding (`docs/coding-standards.md` § Comments)
 
 ### Telemetry & Security
 
@@ -136,7 +137,7 @@ For each modified symbol:
 ### Code Review Flow
 
 1. Get diff based on target
-2. Read full files for context around each change
+2. Read full files for context around each change — judge the code by what it does, never by what its comments say it does
 3. Analyze against Part 1 checklist
 4. Categorize: **Critical** (must fix), **Warnings** (should fix), **Suggestions** (nice to have)
 5. Include positive feedback for good patterns

@@ -36,7 +36,6 @@ export interface State extends WebviewState<'gitlens.{name}'> {
 	loading: boolean;
 }
 
-// Params/result types for your service methods live here too
 export interface DoSomethingParams {
 	id: string;
 }
@@ -57,19 +56,17 @@ import { createRpcEvent } from './eventVisibilityBuffer.js';
 import type { RpcEventSubscription } from './services/types.js';
 import type { SharedWebviewServices } from './services/common.js';
 
-/** Fired when host-owned data changes — payload must be a complete snapshot (save-last buffered). */
+// KEEP: the payload must be a complete snapshot — events are save-last buffered
 export interface DidChangeDataEvent {
 	items: string[];
 }
 
-/** The RPC-facing surface of {@link {Name}Service}. */
 export interface {Name}ViewService {
 	readonly onDataChange: RpcEventSubscription<DidChangeDataEvent>;
 
 	doSomething(params: DoSomethingParams): Promise<DoSomethingResult>;
 }
 
-/** RPC services for the {Name} webview. */
 export interface {Name}Services extends SharedWebviewServices {
 	readonly {name}: {Name}ViewService;
 }
@@ -229,7 +226,6 @@ export class Gl{Name}App extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		// One-shot bootstrap attribute: cache-then-clear, safe across startup remounts
 		const context = this.consumeOneShotAttribute(this.context);
 		this.context = undefined!;
 		this.initWebviewContext(context);
@@ -252,12 +248,11 @@ export class Gl{Name}App extends SignalWatcherWebviewApp {
 		const service = await services.{name};
 		this._service = service;
 
-		// Subscribe FIRST, before fetching — subscriptions are re-armed per handshake and
-		// save-last events re-emit the latest snapshot on connect.
+		// KEEP: subscribe before fetching — save-last events re-emit the latest snapshot on connect
 		this._eventsSubscription?.unsubscribe();
 		this._eventsSubscription = subscribe<{Name}Services>(this._rpc.connection!, async remoteServices => {
 			(await remoteServices.{name}).onDataChanged(() => {
-				/* update signals */
+				// TODO: update signals from the event
 			});
 		});
 	}

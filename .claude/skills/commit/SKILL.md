@@ -33,11 +33,12 @@ Refactors git provider initialization
 
 1. **Check status**: `git status` (never use `-uall`)
 2. **Review changes**: `git diff --cached` and `git diff`
-3. **Check CHANGELOG**: If changes are user-facing, ensure they have a CHANGELOG entry (use `/audit-commits` for CHANGELOG format)
-4. **Stage files** — specific files, not `git add -A`
-5. **Generate message** if none provided — analyze changes, determine type, draft message, confirm with user
-6. **Commit** using HEREDOC format with Co-Authored-By trailer
-7. **Verify**: `git status` and `git log -1`
+3. **Check added comments**: list the comment lines the change adds (`git diff HEAD -U0 | grep -E '^\+\s*(//|/\*|\*)'`) — the grep misses end-of-line comments, so scan the diff for those too — and delete each one that has no `HACK:`, `KEEP:`, `SEE:` or `TODO:` tag and isn't read by a tool, per `docs/coding-standards.md` § Comments
+4. **Check CHANGELOG**: If changes are user-facing, ensure they have a CHANGELOG entry (use `/audit-commits` for CHANGELOG format)
+5. **Stage files** — specific files, not `git add -A`
+6. **Generate message** if none provided — analyze changes, determine type, draft message, confirm with user
+7. **Commit** using HEREDOC format with Co-Authored-By trailer
+8. **Verify**: `git status` and `git log -1`
 
 ## Pre-commit Hook Failures
 
