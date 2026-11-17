@@ -55,11 +55,7 @@ export function getRefParser(supportedFeatures: FilteredGitFeatures<'git:for-eac
 	return _refParser;
 }
 
-// NUL-prefixed separators: free-text fields like `%(subject)` can contain a bare 0x1E/0x1D, but NUL can't
-// appear in a rendered ref field (#5659). WARNING: assumes no `-z` output, where a NUL terminator followed by
-// a field starting with 0x1E/0x1D would form a sentinel; re-check the framing before adding `-z`.
-// There is no completeness guard: the only caller (`refs.ts`) parses `git.run` stdout after a completed,
-// zero-exit run, never a stream, so there's no truncated tail to drop.
+// KEEP: assumes no `-z` output: a NUL terminator followed by 0x1E/0x1D would form a sentinel
 const recordSep = '\0\x1E';
 const recordFormatSep = '%00%1E';
 const fieldSep = '\0\x1D';

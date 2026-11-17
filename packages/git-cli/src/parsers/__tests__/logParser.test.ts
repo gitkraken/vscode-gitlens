@@ -422,7 +422,6 @@ suite('Log Parser - Batched Async Parsing Test Suite', () => {
 
 	test('empty records are skipped and a trailing record without a final separator parses', async () => {
 		const parser = getGraphParser() as GraphLogParser;
-		// Double record-separator (empty record) + final record missing its trailing content boundary
 		const raw = `\0\x1E\0\x1E${record(['sha9', 'Dee', 'd@x.com', '900', '901', '', '', 'tail']).slice(1)}`;
 		const expected = await collect(parser.parseAsync(streamOf([raw])));
 		const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(raw, 5))));
@@ -452,11 +451,8 @@ suite('Log Parser - Truncated Record Guard', () => {
 	// Graph mapping has 8 fields: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
 	const complete1 = record(['sha1', 'Alice', 'a@x.com', '100', '101', 'p1', 'HEAD -> main', 'first commit']);
 	const complete2 = record(['sha2', 'Bob', 'b@x.com', '200', '201', '', '', 'second commit']);
-	// All fields terminated except the last (message), which is missing its trailing separator - simulates a
-	// cancelled/early-closed stream that stopped mid-message.
 	const truncatedMidMessage =
 		'\0\x1Esha3\0\x1DCarol\0\x1Dc@x.com\0\x1D300\0\x1D301\0\x1D\0\x1D\0\x1Dthird commit partial';
-	// Stream ends right after the sha field's separator - truncated well before the message.
 	const truncatedEarlyField = '\0\x1Esha4\0\x1D';
 
 	test('parseAsyncBatched drops a truncated mid-message tail, keeps preceding complete records', async () => {
@@ -530,8 +526,6 @@ suite('Log Parser - Truncated Record Guard', () => {
 	});
 });
 
-// #5659 — free text (messages, names, refs, reflog subjects) can contain bare 0x1E/0x1D. They must not
-// split a record or shift its fields in any parser variant.
 suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 	const evilMessage = 'subject \x1E with a record sep\n\nbody \x1D with a field sep \x1E\x1D\n';
 	const evilAuthor = 'Ev\x1Eil \x1DName';
@@ -563,7 +557,6 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 		return `${separators.record}${fields.join(separators.field)}${separators.field}${trailing}`;
 	}
 
-	// commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, message
 	function commitFields(sha: string): string[] {
 		return [sha, evilAuthor, 'e@x.com', '100', evilAuthor, 'e@x.com', '101', 'p1', evilTips, evilMessage];
 	}
@@ -607,14 +600,12 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 
 	test('parseAsyncBatched (graph) keeps a commit with embedded separators intact across chunkings', async () => {
 		const parser = getGraphParser() as GraphLogParser;
-		// graphMapping: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
 		const fields = (sha: string) => [sha, evilAuthor, 'e@x.com', '100', '101', 'p1', evilTips, evilMessage];
 		const data = record(parser.separators, fields('sha1')) + record(parser.separators, fields('sha2'));
 		const expected = await collect(parser.parseAsync(streamOf([data])));
 		assert.strictEqual(expected.length, 2);
 		assert.strictEqual(expected[0].message, evilMessage);
 		assert.strictEqual(expected[1].tips, evilTips);
-		// Sizes 1 and 2 split the 2-char sentinels themselves across chunks
 		for (const size of [1, 2, 3, 7, data.length]) {
 			const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(data, size))));
 			assert.deepStrictEqual(batches.flat(), expected, `chunk size ${size} diverged`);
@@ -659,13 +650,11 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 
 	test('stats variant (parse and parseAsync) keeps fields and stats intact', async () => {
 		const parser = getContributorsLogParser(true);
-		// contributorsMapping: sha, author, email, date, message
 		const stats = '\n\n 1 file changed, 2 insertions(+), 1 deletion(-)\n';
 		const fields = (sha: string) => [sha, evilAuthor, 'e@x.com', '100', evilMessage];
 		const data =
 			record(parser.separators, fields('sha1'), stats) + record(parser.separators, fields('sha2'), stats);
 
-		// `getContributorsLogParser` returns a stats/no-stats union, so name the shared entry shape
 		type Entry = { sha: string; author: string; message: string; stats?: unknown };
 		const entriesList: Entry[][] = [
 			[...parser.parse(data)],
@@ -684,7 +673,6 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 
 	test('name-only files variant (parse and parseAsync) keeps fields and files intact', async () => {
 		const parser = getShaAndDatesWithFilesLogParser(true);
-		// shaAndDateAndTipsMapping: sha, authorDate, committerDate, tips
 		const files = '\n\nsrc/file.ts\n';
 		const fields = (sha: string) => [sha, '100', '101', evilTips];
 		const data =
@@ -702,7 +690,6 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 
 	test('stash variant keeps a reflog subject and commit subject with embedded separators intact', () => {
 		const parser = getStashLogParser(false);
-		// stashMapping: sha, authorDate, committedDate, parents, stashName, summary, commitSubject
 		const summary = 'On main: wip \x1E with \x1D seps';
 		const fields = (sha: string, n: number) => [sha, '100', '101', 'p1 p2', `stash@{${n}}`, summary, summary];
 		const data = record(parser.separators, fields('sha1', 0)) + record(parser.separators, fields('sha2', 1));
@@ -727,10 +714,6 @@ suite('Log Parser - Embedded Separator Characters (#5659)', () => {
 	});
 });
 
-// A record's payload (patch, shortstat, file lists) follows its mapped fields. It can be missing (a stream that
-// stopped right after the metadata), truncated (a stream that stopped mid-patch), or contain a NUL+0x1D pair (diff
-// content may hold NUL), which splits it into extra segments. None of these may throw, drop the commit, leave a
-// required property undefined, or let a later segment overwrite the payload already parsed.
 suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
 		for (const c of chunks) {
@@ -758,10 +741,8 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 		return `${separators.record}${fields.join(separators.field)}${separators.field}${payload}`;
 	}
 
-	// Chunk sizes 1 and 2 split the 2-char sentinels themselves across chunks
 	const chunkSizes = [1, 2, 3, 7, Number.MAX_SAFE_INTEGER];
 
-	// commitsMapping: sha, author, authorEmail, authorDate, committer, committerEmail, committerDate, parents, tips, message
 	function commitFields(sha: string): string[] {
 		return [sha, 'Alice', 'a@x.com', '100', 'Alice', 'a@x.com', '101', 'p1', '', `${sha} message`];
 	}
@@ -785,7 +766,6 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 			range: { startLine: 1, endLine: 3 },
 			originalRange: { startLine: 1, endLine: 2 },
 		};
-		// The header was parsed, so the file is kept — only its ranges are unknown
 		const headerOnlyFile = { ...fullFile, range: undefined, originalRange: undefined };
 
 		const truncations: { name: string; payload: string; files: unknown[] }[] = [
@@ -873,7 +853,6 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 			}
 		});
 
-		// Real --shortstat output can't contain NUL; this guards the framing, not a git-produced input
 		test('parse and parseAsync ignore segments split off after a valid shortstat', async () => {
 			const parser = getShaAndStatsLogParser();
 			const data = record(parser.separators, ['sha1'], `${shortstat}\0\x1Dtrailing`);
@@ -973,7 +952,6 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 	});
 
 	suite('name-only files variant', () => {
-		// shaAndDateMapping: sha, authorDate, committerDate
 		const fields = (sha: string) => [sha, '100', '101'];
 
 		test('parse and parseAsync yield empty files for a record that ends right after its metadata', async () => {
@@ -1013,8 +991,6 @@ suite('Log Parser - Missing, Truncated, and Split Payloads', () => {
 	});
 });
 
-// Truncated tails on the variants whose `parseAsync` gained the completeness guard in #5659, a record broken in the
-// middle of a batched stream, and values that start with a bare (NUL-less) 0x1E/0x1D.
 suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separators (#5659)', () => {
 	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
 		for (const c of chunks) {
@@ -1042,14 +1018,12 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 		return `${separators.record}${fields.join(separators.field)}${separators.field}${payload}`;
 	}
 
-	// Chunk sizes 1 and 2 split the 2-char sentinels themselves across chunks
 	const chunkSizes = [1, 2, 3, 7, Number.MAX_SAFE_INTEGER];
 
 	suite('truncated tail (record missing its last field terminator)', () => {
 		test('stats variant drops it and keeps earlier records', async () => {
 			const parser = getContributorsLogParser(true);
 			const shortstat = '\n\n 1 file changed, 2 insertions(+), 1 deletion(-)\n';
-			// contributorsMapping: sha, author, email, date, message; the tail stops before the message terminator
 			const tail = '\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1Dpartial message';
 			const data = `${record(parser.separators, ['sha1', 'Alice', 'a@x.com', '100', 'first'], shortstat)}${tail}`;
 
@@ -1070,7 +1044,6 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 
 		test('name-only files variant drops it and keeps earlier records', async () => {
 			const parser = getShaAndDatesWithFilesLogParser();
-			// shaAndDateMapping: sha, authorDate, committerDate; the tail stops before the last terminator
 			const tail = '\0\x1Esha2\0\x1D100\0\x1D101';
 			const data = `${record(parser.separators, ['sha1', '100', '101'], '\n\nsrc/file.ts\n')}${tail}`;
 
@@ -1089,7 +1062,6 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 		test('files+stats variant drops it and keeps earlier records', async () => {
 			const parser = getShaAndFilesAndStatsLogParser();
 			const files = '\n\n:100644 100644 abc1234 def5678 M\tsrc/file.ts\n3\t1\tsrc/file.ts\n';
-			// shaMapping has a single field; the tail has no terminator at all
 			const data = `${record(parser.separators, ['sha1'], files)}\0\x1Esha2`;
 
 			const entriesList = [[...parser.parse(data)]];
@@ -1120,7 +1092,6 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 			const parser = getCommitsLogParser(false, true) as CommitsInFileRangeLogParser;
 			const patch =
 				'\n\ndiff --git a/src/file.ts b/src/file.ts\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,2 +1,3 @@\n x\n+y\n';
-			// commitsMapping: 10 fields; the tail stops before the message terminator
 			const tail =
 				'\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1DBob\0\x1Db@x.com\0\x1D201\0\x1D\0\x1D\0\x1Dpartial';
 			const first = ['sha1', 'Alice', 'a@x.com', '100', 'Alice', 'a@x.com', '101', 'p1', '', 'first'];
@@ -1141,12 +1112,10 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 	});
 
 	suite('graph parser (parse, parseAsync, parseAsyncBatched)', () => {
-		// graphMapping: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
 		const fields = (sha: string) => [sha, 'Alice', 'a@x.com', '100', '101', 'p1', '', `${sha} message`];
 
 		test('parseAsyncBatched drops an incomplete record in the middle of the stream and keeps its neighbours', async () => {
 			const parser = getGraphParser() as GraphLogParser;
-			// Missing its message field, then immediately followed by the next record's separator
 			const broken = '\0\x1Esha2\0\x1DBob\0\x1Db@x.com\0\x1D200\0\x1D201\0\x1Dp1\0\x1D\0\x1Dpartial';
 			const data = record(parser.separators, fields('sha1')) + broken + record(parser.separators, fields('sha3'));
 
@@ -1203,9 +1172,6 @@ suite('Log Parser - Truncated Tails, Mid-Stream Drops, and Leading Bare Separato
 	});
 });
 
-// Generated records for every parser variant, checked against expectations built from the generator's own structured
-// data (not another parser), across every parse path and many chunkings. Plus malformed input with hand-derived
-// expectations, early termination, and a record spanning many chunks.
 suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', () => {
 	const rs = '\0\x1E';
 	const fs = '\0\x1D';
@@ -1242,7 +1208,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 		return out;
 	}
 
-	// mulberry32: a small seeded PRNG, so a failure reproduces from its seed
 	function createRandom(seed: number): () => number {
 		let a = seed >>> 0;
 		return () => {
@@ -1258,16 +1223,15 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 		return `${rs}${fields.map(f => `${f}${fs}`).join('')}${payload}`;
 	}
 
-	// Bare markers, Unicode (including astral/surrogate pairs) and plain text; never NUL, which git can't emit in a field
+	// KEEP: never NUL in a piece: the framing assumes git emits none inside a field
 	const textPieces = ['a', 'Z', '0', ' ', '-', ':', '\x1E', '\x1D', '\x1E\x1D', 'é', 'Ω', '日本', '😀', '𝄞'];
-	// Path pieces: no tab, newline, ' => ', ' b/', braces or edge whitespace, which the payload formats reserve
+	// KEEP: no tab, newline, ' => ', ' b/', braces or edge whitespace in a piece: the payload formats reserve them
 	const pathPieces = ['a', 'é', '日', '😀', '\x1E', '\x1D', '-', '_', ' ', '/'];
 
 	type Generated = { data: string; expected: Record<string, unknown>[] };
 	type Variant = {
 		name: string;
 		keys: string[];
-		/** Returns the payload text and the properties it should parse into */
 		payload: (random: Random) => { text: string; props: Record<string, unknown> };
 		parse: (data: string | Iterable<string>) => Iterable<unknown>;
 		parseAsync?: (stream: AsyncGenerator<string>) => AsyncIterable<unknown>;
@@ -1300,7 +1264,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			for (let i = 0; i < length; i++) {
 				s += options?.newlines && this.next() < 0.1 ? '\n' : this.pick(textPieces);
 			}
-			// Leading and trailing bare markers sit right next to the framing sentinels
 			if (this.next() < 0.2) {
 				s = this.pick(['\x1E', '\x1D']) + s;
 			}
@@ -1340,7 +1303,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			let oid: string | undefined;
 			let previousOid: string | undefined;
 			if (status === 'S') {
-				// A submodule bump: mode 160000 carries the old and new commit SHAs
 				oldMode = newMode = '160000';
 				previousOid = `${i}aaaaaa`;
 				oid = `${i}bbbbbb`;
@@ -1360,7 +1322,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 				previousOid: previousOid,
 			});
 
-			// Only files with line changes count toward the commit's file stats
 			if (additions || deletions) {
 				stats.additions += additions;
 				stats.deletions += deletions;
@@ -1412,7 +1373,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			const path = random.path(i);
 			const kind = random.pick(['create', 'delete', 'mode']);
 			if (kind === 'mode') {
-				// Mode changes aren't reported as files
 				lines.push(` mode change 100644 => 100755 ${path}`);
 			} else {
 				lines.push(` ${kind} mode 100644 ${path}`);
@@ -1434,7 +1394,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 		const newCount = random.int(0, 30);
 		let text = `\n\ndiff --git a/${path} b/${path}\nindex abc1234..def5678 100644\n--- a/${path}\n+++ b/${path}\n`;
 		text += `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@ ${random.text()}\n`;
-		// Diff content: free text, and occasionally a NUL+0x1D, which ends the payload but comes after the hunk header
 		const lines = random.int(0, 6);
 		for (let i = 0; i < lines; i++) {
 			text += `${random.pick([' ', '+', '-'])}${random.text({ long: true })}${random.next() < 0.1 ? fs : ''}\n`;
@@ -1483,7 +1442,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			{
 				name: 'graph',
 				keys: graphKeys,
-				// Anything after the mapped fields is ignored
 				payload: random => ({ text: random.pick(['', '\n', `\n${random.text()}`]), props: {} }),
 				parse: d => graph.parse(d),
 				parseAsync: s => graph.parseAsync(s),
@@ -1548,7 +1506,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			const rendered = record(fields, text);
 			data += rendered;
 
-			// A record with no fields and no payload is empty, and empty records are skipped
 			if (rendered.length > rs.length) {
 				expected.push({ ...entry, ...props });
 			}
@@ -1576,7 +1533,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 					['size 2', chunk(data, 2)],
 					['size 3', chunk(data, 3)],
 					['random sizes', chunkRandomly(data, random.next, 300)],
-					// Long fields make single records span many of these
 					['size 64', chunk(data, 64)],
 					['one chunk', [data]],
 				];
@@ -1619,7 +1575,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			return results;
 		}
 
-		// Each variant with a first record that has a payload, and what an entry with no payload parses to
 		const cases: {
 			variant: string;
 			fields: (sha: string) => string[];
@@ -1708,7 +1663,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 				const first = entryOf(variant.keys, c.fields('sha1'), c.first);
 				const second = record(c.fields('sha2'));
 
-				// From 2: a cut inside the second record's own separator would leave a NUL on the first record's payload
 				for (let cut = 2; cut <= second.length; cut++) {
 					const data = record(c.fields('sha1'), c.payload) + second.substring(0, cut);
 					const expected =
@@ -1724,7 +1678,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			const variants = getVariants();
 			for (const c of cases) {
 				const variant = variants.find(v => v.name === c.variant)!;
-				// Missing its last field terminator, then straight into the next record
 				const broken = record(c.fields('sha2')).slice(0, -fs.length);
 				const data =
 					record(c.fields('sha1'), c.payload) + broken + record(c.fields('sha3'), c.payload) + broken;
@@ -1744,7 +1697,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			const diffLine = '\n\ndiff --git a/f.ts b/f.ts';
 			const hunkLine = '@@ -3,4 +5,6 @@ fn()';
 			const payload = `${diffLine}\nindex abc1234..def5678 100644\n--- a/f.ts\n+++ b/f.ts\n${hunkLine}\n x\n+y\n`;
-			// The hunk header parses once its closing `@@` is there
 			const rangesFrom = payload.indexOf(hunkLine) + hunkLine.indexOf(' @@') + 3;
 
 			const file = {
@@ -1782,7 +1734,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 						yield graphRecord(sha);
 					}
 				} finally {
-					// Like git's stream, whose cleanup waits for the process to exit
 					await cleanup;
 					cleanedUp = true;
 				}
@@ -1806,7 +1757,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			assert.strictEqual(returnCalls, 0, 'parseAsync must not call return() on the stream it was given');
 			assert.strictEqual(cleanedUp, false);
 
-			// The caller closes its own stream
 			const closing = stream.return(undefined);
 			releaseCleanup();
 			await closing;
@@ -1840,7 +1790,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			const parser = getGraphParser() as GraphLogParser;
 			const error = new Error('git failed');
 			async function* source(): AsyncGenerator<string> {
-				// The second record completes the first, then the stream fails mid-record
 				yield graphRecord('sha1') + graphRecord('sha2').substring(0, 5);
 				throw error;
 			}
@@ -1929,12 +1878,10 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 	});
 
 	suite('records spanning many chunks', () => {
-		// Counts the characters every `indexOf` call examines, which bounds the record scanner's work without timing:
-		// rescanning (or re-searching) a partial record on each chunk would examine O(n²/chunk) characters
 		async function countIndexOfWork(fn: () => Promise<void>): Promise<number> {
 			const original = String.prototype.indexOf;
 			let examined = 0;
-			// oxlint-disable-next-line no-extend-native
+			// oxlint-disable-next-line no-extend-native -- counts the chars indexOf scans; restored in finally
 			String.prototype.indexOf = function (this: string, search: string, position?: number): number {
 				const index = original.call(this, search, position);
 				const from = Math.min(Math.max(position ?? 0, 0), this.length);
@@ -1944,7 +1891,7 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 			try {
 				await fn();
 			} finally {
-				// oxlint-disable-next-line no-extend-native
+				// oxlint-disable-next-line no-extend-native -- restores the original indexOf
 				String.prototype.indexOf = original;
 			}
 			return examined;
@@ -1970,7 +1917,6 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 				paths,
 			);
 			assert.deepStrictEqual(entries[1].files, []);
-			// Records, the payload end and file lines are each searched once
 			assert.ok(examined < data.length * 4, `examined ${examined} chars for ${data.length} of input`);
 		});
 

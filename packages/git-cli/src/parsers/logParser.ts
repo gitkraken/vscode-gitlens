@@ -293,20 +293,13 @@ interface LogParsedStatsWithFilesStats {
 	deletions: number;
 }
 
-// Records and fields are framed by NUL-prefixed separators, since free text (messages, names, refs, reflog
-// subjects) can contain a bare 0x1E/0x1D that would split a record or shift its fields (#5659). NUL can't
-// appear in a rendered format field: git refuses it in messages, and idents, ref names and unquoted paths
-// can't contain it. That does NOT cover payload text after the fields (see the patch variant).
-// WARNING: this assumes no `-z` output. With `-z`, a NUL path terminator followed by a path starting with
-// 0x1E/0x1D would form a sentinel. No multi-field parser uses `-z`; re-check the framing before adding one.
+// KEEP: assumes no `-z` output: a NUL path terminator followed by 0x1E/0x1D would form a sentinel
+// SEE: `git commit -F` with a NUL fails "a NUL byte in commit log message not allowed." (git 2.44.0)
 const recordSep = '\0\x1E';
 const recordFormatSep = '%x00%x1E';
 const fieldSep = '\0\x1D';
 const fieldFormatSep = '%x00%x1D';
 
-// Returns the index of the next `separator` (a `\0` + marker pair) at or after `from`. Scans for the marker
-// char alone — V8 finds a single char faster than a 2-char pattern, which matters on the graph walk — then
-// confirms the NUL before it, skipping a bare marker embedded in free text.
 function indexOfSeparator(s: string, separator: string, from: number): number {
 	const marker = separator[1];
 	let index = s.indexOf(marker, from + 1);
@@ -316,14 +309,8 @@ function indexOfSeparator(s: string, separator: string, from: number): number {
 	return index === -1 ? -1 : index - 1;
 }
 
-// Sync `parse()` input above this size has each record copied, so fields cut from it don't pin the whole stdout.
-// Matches the threshold `iterateByDelimiter` applies to a string source (`maxDelimiterSourceLength`).
 const flattenSourceThreshold = 128 * 1024;
 
-// Reads the mapped metadata fields at the start of `record` into `entry`, in a single walk. Returns the offset just
-// past the last mapped field (where any payload starts), or -1 if a field is unterminated: a truncated tail
-// (cancelled/early-closed stream) or malformed record, which callers drop rather than yield with undefined fields.
-// Only the metadata is checked; a payload (file list, stats, patch) after it can still be partial.
 function readFields<K extends PropertyKey>(record: string, keys: readonly K[], entry: Record<K, string>): number {
 	let start = 0;
 	for (const key of keys) {
@@ -336,13 +323,10 @@ function readFields<K extends PropertyKey>(record: string, keys: readonly K[], e
 	return start;
 }
 
-// Returns the payload that starts at `start` (just past the mapped fields), without the newlines git puts between the
-// commit data and the payload. The payload ends at the next field separator, if any: git emits none there, so text
-// after one (only possible from NUL in diff content) is never parsed.
 function getPayload(record: string, start: number): string {
-	if (record.charCodeAt(start) === 10 /* '\n' */) {
+	if (record.charCodeAt(start) === 10) {
 		start++;
-		if (record.charCodeAt(start) === 10 /* '\n' */) {
+		if (record.charCodeAt(start) === 10) {
 			start++;
 		}
 	}
@@ -351,25 +335,12 @@ function getPayload(record: string, start: number): string {
 	return record.substring(start, end === -1 ? record.length : end);
 }
 
-/**
- * Splits streamed git output into records. Synchronous: callers `push` each chunk, take complete records with `next`,
- * and take the trailing record with `end` once the stream is done.
- *
- * Each chunk is searched once. The text of a record that isn't complete yet is kept as a list of pieces and joined
- * only when the record completes, so a record spanning many chunks (a big patch or file list) costs linear time —
- * it is neither rescanned nor re-concatenated on every chunk.
- *
- * With `copy`, every record owns its text: fields cut from a record sliced out of a chunk would otherwise keep that
- * whole chunk alive for as long as any of them survives (graph rows, search results). A record joined from pieces is
- * already a fresh string, so it isn't copied again.
- */
 class RecordScanner {
-	/** Pieces of the unfinished record from earlier chunks; never empty strings */
+	// KEEP: never push '' to `pieces`: joining one string with '' returns it (maybe a slice), pinning its chunk
+	// SEE: https://github.com/v8/v8/blob/main/src/builtins/array-join.tq (BufferJoin single-element fast path)
 	private readonly pieces: string[] = [];
 	private chunk = '';
-	/** Where the unfinished record's text starts in `chunk` */
 	private start = 0;
-	/** Where to resume searching `chunk` */
 	private from = 0;
 
 	constructor(private readonly copy = false) {}
@@ -384,11 +355,8 @@ class RecordScanner {
 		this.from = 0;
 	}
 
-	/** Returns the next complete record (possibly empty), or `undefined` when the pushed text holds no more */
 	next(): string | undefined {
 		if (this.from === 0 && this.pieces.length !== 0 && this.chunk.charCodeAt(0) === recordSep.charCodeAt(1)) {
-			// A separator can straddle the chunk boundary: its NUL ends the previous piece and its marker starts this chunk.
-			// Only the record separator needs this: field separators are only searched within a joined record
 			const last = this.pieces.length - 1;
 			const piece = this.pieces[last];
 			if (piece.charCodeAt(piece.length - 1) === 0) {
@@ -405,7 +373,6 @@ class RecordScanner {
 
 		const end = indexOfSeparator(this.chunk, recordSep, this.from);
 		if (end === -1) {
-			// A separator whose NUL is this chunk's last char is caught by the straddle check after the next push
 			this.from = this.chunk.length;
 			return undefined;
 		}
@@ -415,7 +382,6 @@ class RecordScanner {
 		return record;
 	}
 
-	/** Returns the text after the last record separator (the stream's trailing record, possibly empty) */
 	end(): string {
 		const record = this.complete(this.chunk.substring(this.start));
 		this.chunk = '';
@@ -423,7 +389,6 @@ class RecordScanner {
 		return record;
 	}
 
-	/** Finishes the unfinished record with `text` from the current chunk */
 	private complete(text: string): string {
 		if (text.length) {
 			this.pieces.push(text);
@@ -431,11 +396,8 @@ class RecordScanner {
 
 		let record: string;
 		if (this.pieces.length > 1) {
-			// Joining 2+ non-empty pieces builds a fresh string, so there's nothing to copy. This relies on `pieces` never
-			// holding '': V8 returns a join of one string plus '' as that same (possibly sliced) string.
 			record = this.pieces.join('');
 		} else {
-			// A single piece (or none) is still a slice of its chunk
 			record = this.pieces[0] ?? '';
 			if (this.copy) {
 				record = flattenString(record, 1);
@@ -447,9 +409,6 @@ class RecordScanner {
 	}
 }
 
-// Builds the `parse` and `parseAsync` every log parser variant shares, around its `parseRecord`, which returns
-// `undefined` for an incomplete record. Empty records (before the first separator) are skipped; incomplete ones are
-// dropped and counted in the debug stopwatch.
 function createRecordParsers<E>(
 	scope: string,
 	parseRecord: (record: string) => E | undefined,
@@ -465,15 +424,12 @@ function createRecordParsers<E>(
 			return;
 		}
 
-		// A large string is copied record by record, so fields cut from it don't pin the whole stdout; a smaller one can
-		// pin at most this much. A lazy Iterable isn't copied (no production caller passes one).
 		const scanner = new RecordScanner(typeof data === 'string' && data.length > flattenSourceThreshold);
 
 		let count = 0;
 		let dropped = 0;
 		let entry: E | undefined;
 
-		// A lazy Iterable is streamed through, not joined; breaking out of `for…of` closes it
 		for (const chunk of typeof data === 'string' ? [data] : data) {
 			scanner.push(chunk);
 
@@ -508,15 +464,13 @@ function createRecordParsers<E>(
 	async function* parseAsync(stream: AsyncGenerator<string>): AsyncGenerator<E> {
 		using sw = maybeStopWatch(parseAsyncScope, { log: { onlyExit: true, level: 'debug' } });
 
-		// Streamed records are kept (pages, search results), so each owns its text rather than pinning its chunk
 		const scanner = new RecordScanner(true);
 
 		let count = 0;
 		let dropped = 0;
 		let entry: E | undefined;
 
-		// The caller owns the stream: pull chunks by hand rather than `for await`, which would call (and await) its
-		// `return()` when the consumer breaks — git's stream cleanup waits for the process to exit (#5659)
+		// KEEP: no `for await` and never close or await the caller's stream: git's stream cleanup waits for git to exit
 		for (let result = await stream.next(); !result.done; result = await stream.next()) {
 			scanner.push(result.value);
 
@@ -561,7 +515,6 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 
 	const args = [`--format=${format}`];
 
-	// Fields past the mapping, and anything after them, are ignored
 	function parseRecord(record: string): LogParsedEntry<T> | undefined {
 		const entry = {} as unknown as LogParsedEntry<T>;
 		return readFields(record, keys, entry) === -1 ? undefined : entry;
@@ -570,14 +523,12 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 	async function* parseAsyncBatched(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>[]> {
 		using sw = maybeStopWatch('Git.LogParser.parseAsyncBatched', { log: { onlyExit: true, level: 'debug' } });
 
-		// Graph rows are long-lived, so each record owns its text rather than pinning its chunk
 		const scanner = new RecordScanner(true);
 
 		let count = 0;
 		let dropped = 0;
 		let entry: LogParsedEntry<T> | undefined;
 
-		// Unlike `parseAsync`, `for await` closes (and awaits) the stream on a consumer break, as before; the graph aborts git first
 		for await (const chunk of stream) {
 			scanner.push(chunk);
 
@@ -600,8 +551,6 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 			}
 		}
 
-		// Trailing record (the stream doesn't end with a record separator); a truncated tail from a
-		// cancelled/early-closed stream is missing a field terminator and must be dropped, not parsed.
 		const tail = scanner.end();
 		if (tail.length) {
 			entry = parseRecord(tail);
@@ -958,10 +907,7 @@ function createLogParserSingle(field: string): Parser<string> {
 	return { arguments: args, separators: { record: '\0', field: '\0' }, parse: parse };
 }
 
-// NOTE: diff content may contain NUL, so a NUL+0x1E inside a patch can still split a record (the tail is usually
-// dropped as incomplete, but a structured tail could become a bogus entry). Telling it from a real record boundary
-// would need lookahead past chunk boundaries in the shared record scanner; deferred (#5659). A NUL+0x1D in diff content
-// is harmless: the payload ends there, after the header and first hunk line `parsePatch` reads.
+// TODO: a NUL+0x1E inside diff content still splits a patch record; needs scanner lookahead across chunks
 function createLogParserWithPatch<T extends Record<string, string>>(
 	mapping: ExtractAll<T, string>,
 ): LogParserWithFiles<T> {
@@ -986,7 +932,6 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 			line = lines.next();
 		}
 
-		// A patch truncated before its first hunk still has a valid header — keep the file, just without ranges
 		const rangeMatch = line.done ? undefined : line.value.match(diffHunkRegex);
 
 		let range: LogParsedRange | undefined;

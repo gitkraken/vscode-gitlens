@@ -1,11 +1,8 @@
 import * as assert from 'assert';
 import { getReflogParser, parseGitRefLog } from '../reflogParser.js';
 
-// The raw parser uses record separator (\0\x1E) between entries and
-// field separator (\0\x1D) between fields within an entry.
-// Fields are: sha, selector (%gD), subject (%gs)
-const RS = '\0\x1E'; // record separator
-const FS = '\0\x1D'; // field separator
+const RS = '\0\x1E';
+const FS = '\0\x1D';
 
 function entry(sha: string, selector: string, date: string, command: string, args?: string, details?: string): string {
 	// selector field: "refs/heads/main@{date}"

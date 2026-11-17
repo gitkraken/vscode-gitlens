@@ -3,8 +3,6 @@ import { execFileSync } from 'node:child_process';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createStash, createTag, createTestRepo, getHeadSha } from './helpers.js';
 
-// #5659 — git log/for-each-ref output used to be framed with a bare 0x1E (record) / 0x1D (field), so a
-// commit message, author name, tag subject, or stash message containing either char split the record.
 suite('Embedded ASCII separators in free text (#5659)', () => {
 	const subject = 'Add file \x1E with a record sep';
 	const message = `${subject}\n\nbody \x1D with a field sep \x1E\x1D`;

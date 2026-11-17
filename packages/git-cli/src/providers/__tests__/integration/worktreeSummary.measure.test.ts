@@ -700,7 +700,6 @@ suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', functi
 		}
 		// The ref list and the remote `HEAD` symref, cached for every checkout; each watch session's flush of the
 		// rewrite clears them, so a probe after a later one reads them again
-		// Derived from the parser, so a format change can't silently stop matching the ref list read
 		const refListReads = [getRefParser([]), getRefParser(['git:for-each-ref:worktreePath'])].map(
 			p => `] git for-each-ref ${p.arguments[0]}`,
 		);
