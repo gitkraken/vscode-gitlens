@@ -256,11 +256,10 @@ export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 	 * The viewer's tasks in one workspace, split into the requested projects. A task outside them (in another project,
 	 * or in none, only in the user's My Tasks) belongs to no project of this read and is left out.
 	 *
-	 * A known limitation: an unscoped task read reports only the first project Asana lists for a task, so a task in
-	 * several projects is attributed to that one alone, and is left out when that project isn't requested even if
-	 * another of its projects is. The per-project fallback lists it under every requested project instead. Falling
-	 * back whenever a task's project is outside the search would avoid this, but most searches hold such a task, so
-	 * nearly every search would drain each project in full.
+	 * A task can be in several projects (a sprint board and each customer's own board, say), and an unscoped task read
+	 * reports only the first one Asana lists as its `project`. So it is filed under every requested project among its
+	 * memberships, with its section in that project as its state, as the per-project fallback would list it. A
+	 * provider-apis too old to report the memberships leaves only the first project, as before.
 	 */
 	protected override async searchProviderProjectIssues(
 		session: ProviderAuthenticationSession,
@@ -286,14 +285,13 @@ export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 
 		const indexById = new Map(projects.map((project, index) => [project.id, index]));
 		const split = projects.map((): IssueShape[] => []);
-		for (const issue of drain.values) {
-			const index = issue.project?.id != null ? indexById.get(issue.project.id) : undefined;
-			if (index == null) continue;
+		for (const task of drain.values) {
+			for (const { index, issue } of toRequestedProjectPlacements(task, indexById)) {
+				const shape = toIssueShape(issue, this, { projection: 'project' });
+				if (shape == null) continue;
 
-			const shape = toIssueShape(issue, this, { projection: 'project' });
-			if (shape == null) continue;
-
-			split[index].push({ ...shape, project: toIssueProject(projects[index]) });
+				split[index].push({ ...shape, project: toIssueProject(projects[index]) });
+			}
 		}
 		return split;
 	}
@@ -433,6 +431,69 @@ export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 
 function isAsanaProjectDescriptor(project: ResourceDescriptor): project is AsanaProjectDescriptor {
 	return isIssueResourceDescriptor(project) && typeof project.resourceId === 'string';
+}
+
+/** Every project an Asana task is in, with its section there; reported by provider-apis newer than 0.68. */
+interface AsanaProjectMembership {
+	readonly project: { readonly id: string; readonly name: string };
+	readonly section: { readonly id: string; readonly name: string } | null;
+}
+
+function getProjectMemberships(issue: ProviderIssue): readonly AsanaProjectMembership[] | undefined {
+	const memberships: unknown = (issue as { projectMemberships?: unknown }).projectMemberships;
+	return Array.isArray(memberships) ? (memberships as AsanaProjectMembership[]) : undefined;
+}
+
+/**
+ * Each requested project a task is in, by its index in the read, with the task as that project would list it: its
+ * project and its section there as its state, since the unscoped read reports the first membership's.
+ */
+function toRequestedProjectPlacements(
+	issue: ProviderIssue,
+	indexById: ReadonlyMap<string, number>,
+): { index: number; issue: ProviderIssue }[] {
+	const memberships = getProjectMemberships(issue);
+	if (memberships == null) {
+		const index = issue.project?.id != null ? indexById.get(issue.project.id) : undefined;
+		return index != null ? [{ index: index, issue: issue }] : [];
+	}
+
+	const placements: { index: number; issue: ProviderIssue }[] = [];
+	for (const membership of memberships) {
+		const index = indexById.get(membership.project.id);
+		if (index == null || placements.some(p => p.index === index)) continue;
+
+		placements.push({ index: index, issue: withProjectMembership(issue, membership) });
+	}
+	return placements;
+}
+
+/** Mirrors provider-apis' normalization of a task read scoped to the membership's project. */
+function withProjectMembership(issue: ProviderIssue, membership: AsanaProjectMembership): ProviderIssue {
+	if (issue.project?.id === membership.project.id) return issue;
+
+	const completed = issue.closedDate != null;
+	return {
+		...issue,
+		project: {
+			namespace: null,
+			resourceId: null,
+			name: membership.project.name,
+			key: null,
+			id: membership.project.id,
+		},
+		state:
+			membership.section != null
+				? {
+						id: membership.section.id,
+						name: membership.section.name,
+						color: null,
+						...(completed ? { category: 'DONE' as const } : {}),
+					}
+				: completed
+					? { name: 'Completed', color: null, category: 'DONE' }
+					: null,
+	};
 }
 
 function toIssueProject(project: AsanaProjectDescriptor): IssueProject {

@@ -226,8 +226,7 @@ suite('Asana integration', () => {
 							number: 'b',
 							project: { namespace: null, resourceId: null, name: 'Other project', key: null, id: 'p2' },
 						}),
-						// Outside the read: a project it didn't ask for, and a task in no project. Asana reports only a
-						// task's first project, so this is left out even if the task is also in p1 or p2 (documented).
+						// Outside the read: a project it didn't ask for, and a task in no project.
 						fakeTask({
 							id: 'c',
 							number: 'c',
@@ -250,6 +249,45 @@ suite('Asana integration', () => {
 		assert.deepEqual(
 			results.map(r => r?.value?.values.map(i => `${i.id}@${i.project?.id}`)),
 			[['a@p1'], ['b@p2']],
+		);
+
+		disposable.dispose();
+	});
+
+	test('a task in several projects is filed under each requested one, with its section there', async () => {
+		const otherProject = { ...project, key: 'p2', id: 'p2', name: 'Other project' };
+		const { disposable, asana } = createAsana({
+			getAsanaIssuesForCurrentUser: () =>
+				Promise.resolve(
+					page([
+						// Joined a customer board (p9, not requested) first, so the unscoped read reports p9 as its project.
+						fakeTask({
+							id: 'multi',
+							number: 'multi',
+							project: { namespace: null, resourceId: null, name: 'Customer board', key: null, id: 'p9' },
+							state: { id: 's9', name: 'Customer backlog', color: null },
+							projectMemberships: [
+								{
+									project: { id: 'p9', name: 'Customer board' },
+									section: { id: 's9', name: 'Customer backlog' },
+								},
+								{ project: { id: 'p1', name: 'Project' }, section: { id: 's1', name: 'Next Sprint' } },
+								{ project: { id: 'p2', name: 'Other project' }, section: null },
+							],
+						} as Partial<ProviderIssue>),
+					]),
+				),
+		});
+
+		const options = { user: 'Me', userId: 'u1' };
+		const results = await asana.getIssuesForProjectsWithTruncationResult([
+			{ project: project, options: options },
+			{ project: otherProject, options: options },
+		]);
+
+		assert.deepEqual(
+			results.map(r => r?.value?.values.map(i => `${i.id}@${i.project?.id}:${i.providerState?.name ?? ''}`)),
+			[['multi@p1:Next Sprint'], ['multi@p2:']],
 		);
 
 		disposable.dispose();
