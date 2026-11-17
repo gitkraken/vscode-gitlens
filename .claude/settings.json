@@ -43,7 +43,7 @@
 					},
 					{
 						"type": "command",
-						"command": "node .claude/hooks/comment-guard.mts",
+						"command": "node .claude/hooks/comment-guard.mjs",
 						"timeout": 15,
 						"statusMessage": "Checking added comments..."
 					}
