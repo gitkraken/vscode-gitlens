@@ -173,6 +173,11 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		this.initialState = {};
 	}
 
+	// Has no confirmation step of its own, so there is nothing for a skip to apply to
+	override get canConfirm(): boolean {
+		return false;
+	}
+
 	protected override createContext(context?: StepsContext<any>): StartWorkContext {
 		return {
 			...context,

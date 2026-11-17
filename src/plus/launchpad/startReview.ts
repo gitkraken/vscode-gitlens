@@ -237,6 +237,11 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		};
 	}
 
+	// Has no confirmation step of its own, so there is nothing for a skip to apply to
+	override get canConfirm(): boolean {
+		return false;
+	}
+
 	protected override createContext(context?: StepsContext<any>): StartReviewContext {
 		return {
 			...context,

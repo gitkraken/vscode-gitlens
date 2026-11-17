@@ -105,4 +105,23 @@ export const settingsMigrations: SettingsMigration[] = [
 			await storage.store('views:pendingLegacyHide', true);
 		},
 	},
+	{
+		// Apply/Pop Stash read `stash.apply:*`/`stash.pop:*` until #5645 aligned them with the documented
+		// `stash-apply:*`/`stash-pop:*` values, so carry over skips saved through the in-list
+		// "Don't ask again" row. Window-scoped, so only user/workspace can hold a value.
+		id: 'gitCommands.skipConfirmations:stash-keys',
+		description: "Renamed 'stash.apply'/'stash.pop' skip-confirmation values to 'stash-apply'/'stash-pop'",
+		migrate: async () => {
+			const inspect = configuration.inspect('gitCommands.skipConfirmations');
+			await migrateStashSkipKeys(inspect?.globalValue, ConfigurationTarget.Global);
+			await migrateStashSkipKeys(inspect?.workspaceValue, ConfigurationTarget.Workspace);
+		},
+	},
 ];
+
+async function migrateStashSkipKeys(value: string[] | undefined, target: ConfigurationTarget): Promise<void> {
+	if (!value?.some(k => k.startsWith('stash.'))) return;
+
+	const migrated = [...new Set(value.map(k => k.replace(/^stash\.(apply|pop):/, 'stash-$1:')))];
+	await configuration.update('gitCommands.skipConfirmations', migrated, target);
+}

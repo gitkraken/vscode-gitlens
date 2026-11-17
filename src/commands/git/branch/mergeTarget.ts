@@ -62,6 +62,10 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
 
+	override get canSkipConfirm(): boolean {
+		return false; // The confirm step is always shown
+	}
+
 	protected createContext(context?: StepsContext<any>): Context {
 		return {
 			...context,

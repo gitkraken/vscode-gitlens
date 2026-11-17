@@ -54,7 +54,7 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 
 	constructor(container: Container, args?: StashApplyOrPopGitCommandArgs) {
 		const mode = args?.command === 'stash-pop' ? 'pop' : 'apply';
-		super(container, `stash.${mode}`, mode, mode === 'pop' ? l10n.t('Pop Stash') : l10n.t('Apply Stash'), {
+		super(container, `stash-${mode}`, mode, mode === 'pop' ? l10n.t('Pop Stash') : l10n.t('Apply Stash'), {
 			description:
 				mode === 'pop' ? l10n.t('applies and deletes a stash') : l10n.t('applies a stash to the working tree'),
 		});

@@ -221,6 +221,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
 
+	// The "confirm" step is the action picker, not a yes/no — skipping it would leave no action to run,
+	// so it can't be skipped via `skipConfirmations`; only a caller that also supplies the action can skip it
+	override get canConfirm(): boolean {
+		return false;
+	}
+
 	private async ensureIntegrationConnected(id: IntegrationIds) {
 		const integration = await this.container.integrations.get(id);
 		if (integration == null) return false;
@@ -424,7 +430,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			if (!steps.isAtStepOrUnset(Steps.ConfirmAction)) continue;
 
-			if (this.confirm(state.confirm)) {
+			if (state.confirm !== false || state.action == null) {
 				using step = steps.enterStep(Steps.ConfirmAction);
 
 				this.sendItemActionTelemetry('select', state.item, state.item.group, context);

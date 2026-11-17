@@ -37,9 +37,11 @@ export abstract class QuickCommandWithSubcommands<
 		this.registerSubcommands();
 	}
 
-	/** Can only confirm once a subcommand is selected */
+	/** Can only confirm once a subcommand is selected, and only if that subcommand can */
 	override get canConfirm(): boolean {
-		return this.subcommand != null;
+		if (this.subcommand == null) return false;
+
+		return this.subcommands.get(this.subcommand)?.canConfirm ?? true;
 	}
 
 	override get canSkipConfirm(): boolean {
