@@ -116,7 +116,7 @@ Everything else goes elsewhere. What the code does belongs in names and structur
 
 Never write: a restatement of the code, a description of a symbol whose name and signature already say it, section dividers, the history of a change ("previously", "used to", "no longer"), review or task references, or `file.ts:123` pointers.
 
-A hook (`.claude/hooks/comment-guard.mts`) reports an added comment that has no tag or runs past two lines, right after the edit. It can't judge whether a tagged comment deserves its tag — that stays with you and `/review`.
+A hook (`.claude/hooks/comment-guard.mjs`) reports an added comment that has no tag or runs past two lines, right after the edit. It can't judge whether a tagged comment deserves its tag — that stays with you and `/review`.
 
 **Removing.** In the functions and blocks you edit, delete every comment about this repo's code — including ones you didn't write — and call the removal out in your summary. Keep it to the code you are changing; don't sweep the rest of the file or the repo. An existing warning or outside fact stays: add its tag and tighten it, and delete it only when it is shown false or the code it guards is gone. A `TODO:` is either done or left; delete it only when the work is done or its code is gone. When you change behavior, grep for comments that assert the old behavior and delete them.
 
