@@ -146,13 +146,13 @@ Purpose is `webviewView` (sidebar/panel) or `webviewPanel` (editor tab) or `cust
 ### E2E Pro Feature Gating
 
 ```typescript
-// Simulate Pro subscription for the test
 using _ = await vscode.gitlens.startSubscriptionSimulation({
 	state: 6 /* SubscriptionState.Paid */,
 	planId: 'pro',
 });
-// Pro features now accessible — auto-reverts when scope exits
 ```
+
+Pro features stay accessible until the `using` scope exits, then revert.
 
 ### E2E Signed-in Specs
 

@@ -40,6 +40,12 @@
 						"command": "node .claude/hooks/css-template-guard.mts",
 						"timeout": 15,
 						"statusMessage": "Checking css`` templates..."
+					},
+					{
+						"type": "command",
+						"command": "node .claude/hooks/comment-guard.mts",
+						"timeout": 15,
+						"statusMessage": "Checking added comments..."
 					}
 				]
 			}

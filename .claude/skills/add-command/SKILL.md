@@ -33,22 +33,17 @@ import type { Container } from '../container.js';
 import { command } from '../system/-webview/command.js';
 import { {BaseClass} } from './commandBase.js';
 
-export interface {CommandName}CommandArgs {
-    // Define args if needed
-}
+export interface {CommandName}CommandArgs {}
 
 @command()
 export class {CommandName}Command extends {BaseClass} {
     constructor(private readonly container: Container) {
         super([
             'gitlens.{commandId}',
-            // Add variants here
         ]);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args?: {CommandName}CommandArgs): Promise<void> {
-        // TODO: Implement
-    }
+    async execute(editor?: TextEditor, uri?: Uri, args?: {CommandName}CommandArgs): Promise<void> {}
 }
 ```
 
