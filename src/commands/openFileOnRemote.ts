@@ -127,11 +127,14 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			let range: LineRange | undefined;
 			if (args.range) {
 				if (editor != null && areUrisEqual(editor.document.uri, uri)) {
+					const { start, end, isEmpty } = editor.selection;
+					// A selection that ends at the start of a line doesn't include that line, but a cursor there is on it
+					const endsBeforeLine = !isEmpty && end.character === 0;
 					range = {
-						startLine: editor.selection.start.line + 1,
-						startCharacter: editor.selection.start.character + 1,
-						endLine: editor.selection.end.line + (editor.selection.end.character === 0 ? 0 : 1),
-						endCharacter: editor.selection.end.character === 0 ? 1 : editor.selection.end.character + 1,
+						startLine: start.line + 1,
+						startCharacter: start.character + 1,
+						endLine: end.line + (endsBeforeLine ? 0 : 1),
+						endCharacter: end.character + 1,
 					};
 				} else if (args.line != null) {
 					range = { startLine: args.line + 1, startCharacter: 1, endLine: args.line + 1, endCharacter: 1 };

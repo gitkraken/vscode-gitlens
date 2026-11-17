@@ -55,6 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes links to a repository cloned through the SSH hosts for port 443 of Bitbucket (`altssh.bitbucket.org`), GitHub (`ssh.github.com`), and GitLab (`altssh.gitlab.com`) asking to add a new remote when opened in a clone of the same repository that uses the regular address ([#6234](https://github.com/gitkraken/vscode-gitlens/issues/6234))
 - Fixes a _Commit Graph_ shortcut override (`gitlens.graph.shortcuts.overrides`) with a misspelled or unknown key name (e.g. `alt+Bogus`) silently replacing a working shortcut with one that can never fire &mdash; the override is now ignored and the default shortcut kept, as with an unknown modifier, and the reason is logged to the _GitLens_ output channel ([#5831](https://github.com/gitkraken/vscode-gitlens/issues/5831))
 - Fixes _File History_ and the _Commit Graph_ erroring or skipping a commit whose message or author name contains an ASCII record (0x1E) or group (0x1D) separator character &mdash; also fixes tags and stashes with these characters in their messages ([#5659](https://github.com/gitkraken/vscode-gitlens/issues/5659))
+- Fixes _Copy Remote File URL_ and _Open File on Remote_ linking to a backwards line range (e.g. `#L3-L2` instead of `#L3`) when the cursor is at the start of a line with nothing selected ([#6186](https://github.com/gitkraken/vscode-gitlens/issues/6186))
 
 ## [19.6.0] - 2026-11-10
 
