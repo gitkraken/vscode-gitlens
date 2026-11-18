@@ -359,12 +359,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const api = await this.getProvidersApi();
 		const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
-		const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
-			id: t.id,
-			key: t.key,
-			name: t.name,
-			avatarUrl: t.iconUrl,
-		}));
+		// The key prefixes every issue identifier (`ENG-123`), so a team without one (Linear always sends one) could be
+		// neither split into nor autolinked.
+		const descriptors: LinearTeamDescriptor[] | undefined = teams?.flatMap(t =>
+			t.key != null ? [{ id: t.id, key: t.key, name: t.name, avatarUrl: t.icon ?? undefined }] : [],
+		);
 		if (descriptors == null) return undefined;
 
 		// provider-apis currently requests Linear's teams connection without pageInfo or a cursor. Linear's
@@ -574,18 +573,18 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 	private async fetchAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
-		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
-		// (Trello-style) from the fields the viewer query returns.
+		// The SDK fills `username` with the viewer's displayName, the handle it also reports as every issue
+		// author's and assignee's username.
 		const user = await api.getLinearCurrentUser(toTokenWithInfo(this.id, session));
 		if (user == null) return undefined;
 
 		return {
 			provider: this,
 			id: user.id,
-			name: user.name ?? user.displayName ?? undefined,
-			username: user.displayName ?? undefined,
+			name: user.name ?? user.username ?? undefined,
+			username: user.username ?? undefined,
 			email: user.email ?? undefined,
-			avatarUrl: undefined,
+			avatarUrl: user.avatarUrl ?? undefined,
 		};
 	}
 

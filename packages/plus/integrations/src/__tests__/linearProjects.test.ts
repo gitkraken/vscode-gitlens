@@ -34,8 +34,8 @@ function stubApi(integration: IssuesIntegration, api: Record<string, unknown>): 
 
 const viewerId = 'viewer-1';
 const teams = [
-	{ id: 'team-1', key: 'ENG', name: 'Engineering', iconUrl: null },
-	{ id: 'team-2', key: 'DES', name: 'Design', iconUrl: null },
+	{ id: 'team-1', key: 'ENG', name: 'Engineering', icon: null },
+	{ id: 'team-2', key: 'DES', name: 'Design', icon: null },
 ];
 
 function linearProject(id: string) {
@@ -94,7 +94,8 @@ async function connectedLinear(handlers: {
 		getLinearOrganization: () =>
 			Promise.resolve({ id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' }),
 		getLinearTeamsForCurrentUser: () => Promise.resolve(teams),
-		getLinearCurrentUser: () => Promise.resolve({ id: viewerId, name: 'Me', displayName: 'me', email: null }),
+		getLinearCurrentUser: () =>
+			Promise.resolve({ id: viewerId, name: 'Me', username: 'me', email: null, avatarUrl: null, url: null }),
 		getLinearProjects: (_token: unknown, options?: { cursor?: string }) => {
 			projectCursors.push(options?.cursor);
 			// The workspace lists the Projects the narrowing tests ask for, so a narrowed read finds them.

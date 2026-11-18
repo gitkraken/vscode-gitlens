@@ -37,9 +37,9 @@ function stubApi(integration: IssuesIntegration, api: Record<string, unknown>): 
 
 const viewerId = 'viewer-1';
 const teams = [
-	{ id: 'team-1', key: 'ENG', name: 'Engineering', iconUrl: null },
-	{ id: 'team-2', key: 'DES', name: 'Design', iconUrl: null },
-	{ id: 'team-3', key: 'OPS', name: 'Ops', iconUrl: null },
+	{ id: 'team-1', key: 'ENG', name: 'Engineering', icon: null },
+	{ id: 'team-2', key: 'DES', name: 'Design', icon: null },
+	{ id: 'team-3', key: 'OPS', name: 'Ops', icon: null },
 ];
 
 /**
@@ -89,7 +89,14 @@ async function connectedLinear(issues: (call: IssuesCall) => Promise<IssuesPage>
 		getLinearTeamsForCurrentUser: () => Promise.resolve(teams),
 		getLinearCurrentUser: () => {
 			viewerReads++;
-			return Promise.resolve({ id: viewerId, name: 'Me', displayName: 'me', email: null });
+			return Promise.resolve({
+				id: viewerId,
+				name: 'Me',
+				username: 'me',
+				email: null,
+				avatarUrl: null,
+				url: null,
+			});
 		},
 		getLinearIssues: (
 			_token: unknown,

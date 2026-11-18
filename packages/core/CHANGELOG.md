@@ -21,8 +21,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes `@gitkraken/provider-apis` to 0.69.0, which also brings 0.68.0's breaking Linear changes. The Linear account core reads for the viewer now carries their avatar, and its `username` is still Linear's display name (plus/integrations)
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
+
+### Fixed
+
+- Fixes a user-scoped Asana tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProjects*` with `options.user`) leaving out the viewer's tasks that are in several projects: the shared "my tasks" read filed each task under only the first project Asana lists for it, so a sprint board whose tasks are also on each customer's own board showed only the tasks that live on it alone. A task is now filed under every requested project it is in, with its section in that project as its state, read from the `Issue.projectMemberships` that `@gitkraken/provider-apis` 0.69.0 reports (plus/integrations)
 
 ## [0.39.0] - 2026-11-16
 
