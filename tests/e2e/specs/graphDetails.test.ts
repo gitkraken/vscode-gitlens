@@ -14,6 +14,7 @@ import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
 	dismissCommitHover,
+	ensureGraphDetailsPanelOpenAndAdopted,
 	graphDetailsRegion,
 	waitForGraphRowsRendered,
 	widenSideBarForGraph,
@@ -54,6 +55,8 @@ const test = base.extend({
 // All graph details tests run serially on a single VS Code worker instance
 test.describe.configure({ mode: 'serial' });
 
+let vscodeInstance: VSCodeInstance;
+
 /**
  * Open the graph view with Pro subscription and return the webview FrameLocator.
  * The graph is a Pro feature, so subscription simulation is required.
@@ -62,6 +65,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	graphWebview: FrameLocator;
 	dispose: () => Promise<void>;
 }> {
+	vscodeInstance = vscode;
 	const sim = await vscode.gitlens.startSubscriptionSimulation({
 		state: 6 /* SubscriptionState.Paid */,
 		planId: 'pro',
@@ -139,15 +143,7 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {
-	const toggleButton = graphWebview.locator('gl-button[aria-label$="Details Panel"]').first();
-	await expect(toggleButton).toBeVisible({ timeout: MaxTimeout });
-
-	if ((await toggleButton.getAttribute('aria-label')) === 'Show Details Panel') {
-		await toggleButton.click();
-		await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
-			timeout: MaxTimeout,
-		});
-	}
+	await ensureGraphDetailsPanelOpenAndAdopted(vscodeInstance, graphWebview, MaxTimeout);
 }
 
 async function selectWip(graphWebview: FrameLocator): Promise<void> {

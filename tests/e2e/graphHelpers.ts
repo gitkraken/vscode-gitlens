@@ -226,13 +226,17 @@ export function graphDetailsRegion(graphWebview: FrameLocator, context?: GraphDe
  */
 export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, timeout = 10000): Promise<void> {
 	const detailsRegion = graphDetailsRegion(graphWebview);
+	// KEEP: collapsed, the region still measures 1-2px — gate on the toggle and `inert`, not its box
+	const expandedPane = graphWebview.locator('.graph__details-pane:not([inert])');
 	await expect(async () => {
-		if (await detailsRegion.isVisible()) return;
-
 		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
 		if (await showButton.isVisible()) {
 			await showButton.click({ timeout: 2000 });
 		}
+		await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
+			timeout: 2000,
+		});
+		await expect(expandedPane).toHaveCount(1, { timeout: 2000 });
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
 }
@@ -271,4 +275,17 @@ export async function dismissCommitHover(graphWebview: FrameLocator): Promise<vo
 		.first()
 		.hover({ force: true, position: { x: 4, y: 4 } });
 	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
+}
+
+export async function ensureGraphDetailsPanelOpenAndAdopted(
+	vscode: VSCodeInstance,
+	graphWebview: FrameLocator,
+	timeout = 10000,
+): Promise<void> {
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+	// HACK: until the first show saves `graph.details.location`, a host state push re-hides the panel
+	await expect
+		.poll(() => vscode.gitlens.isSettingSet('gitlens.graph.details.location'), { timeout: timeout })
+		.toBe(true);
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
 }

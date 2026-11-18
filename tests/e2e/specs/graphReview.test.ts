@@ -10,8 +10,14 @@
  */
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
+import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { graphDetailsRegion, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import {
+	ensureGraphDetailsPanelOpenAndAdopted,
+	graphDetailsRegion,
+	waitForGraphRowsRendered,
+	widenSideBarForGraph,
+} from '../graphHelpers.js';
 
 const test = base.extend({
 	vscodeOptions: [
@@ -43,18 +49,11 @@ test.describe('Review & Compose Sub-Panels', () => {
 	test.setTimeout(90000);
 
 	let graphWebview: FrameLocator;
+	let vscodeInstance: VSCodeInstance;
 	let dispose: (() => Promise<void>) | undefined;
 
 	async function ensureDetailsPanelOpen(): Promise<void> {
-		const toggleButton = graphWebview.locator('gl-button[aria-label$="Details Panel"]').first();
-		await expect(toggleButton).toBeVisible({ timeout: MaxTimeout });
-
-		if ((await toggleButton.getAttribute('aria-label')) === 'Show Details Panel') {
-			await toggleButton.click();
-			await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
-				timeout: MaxTimeout,
-			});
-		}
+		await ensureGraphDetailsPanelOpenAndAdopted(vscodeInstance, graphWebview, MaxTimeout);
 	}
 
 	async function selectWip(): Promise<void> {
@@ -99,6 +98,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 	}
 
 	test.beforeAll(async ({ vscode }) => {
+		vscodeInstance = vscode;
 		const sim = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
