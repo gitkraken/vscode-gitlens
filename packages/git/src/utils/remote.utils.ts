@@ -124,6 +124,19 @@ export function parseGitRemoteUrl(url: string): [scheme: string, domain: string,
 	];
 }
 
+// SSH-only hosts of the cloud providers (e.g. SSH over port 443) and the web host their links must point at.
+// Exact names only — other subdomains are not SSH endpoints
+const cloudSshDomains = new Map<string, string>([
+	['ssh.bitbucket.org', 'bitbucket.org'],
+	['altssh.bitbucket.org', 'bitbucket.org'],
+	['ssh.github.com', 'github.com'],
+	['altssh.gitlab.com', 'gitlab.com'],
+]);
+
+export function getCloudWebDomain(domain: string): string {
+	return cloudSshDomains.get(domain.toLowerCase()) ?? domain;
+}
+
 export function getNameFromRemoteResource(resource: RemoteResource): string {
 	switch (resource.type) {
 		case RemoteResourceType.Branch:
