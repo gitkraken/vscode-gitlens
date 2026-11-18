@@ -276,3 +276,16 @@ export async function dismissCommitHover(graphWebview: FrameLocator): Promise<vo
 		.hover({ force: true, position: { x: 4, y: 4 } });
 	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
 }
+
+export async function ensureGraphDetailsPanelOpenAndAdopted(
+	vscode: VSCodeInstance,
+	graphWebview: FrameLocator,
+	timeout = 10000,
+): Promise<void> {
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+	// HACK: until the first show saves `graph.details.location`, a host state push re-hides the panel
+	await expect
+		.poll(() => vscode.gitlens.isSettingSet('gitlens.graph.details.location'), { timeout: timeout })
+		.toBe(true);
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+}

@@ -61,6 +61,13 @@ export class VSCodePage {
 		) as Promise<T>;
 	}
 
+	async isSettingSet(section: string): Promise<boolean> {
+		return this.evaluate((vscode, section) => {
+			const inspected = vscode.workspace.getConfiguration().inspect(section);
+			return inspected?.globalValue !== undefined || inspected?.workspaceValue !== undefined;
+		}, section);
+	}
+
 	/**
 	 * Write a setting at the user (Global) scope, as the Settings UI would — for specs that have to
 	 * exercise BOTH values of a setting in one worker, where the fixture's static `userSettings` can
