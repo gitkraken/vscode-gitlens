@@ -2994,7 +2994,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Linear);
 			const integration = await service.get(IssuesCloudHostIntegrationId.Linear);
 			const state = {
-				teams: [{ id: 't1', key: 'ALPHA', name: 'Alpha', iconUrl: null }],
+				teams: [{ id: 't1', key: 'ALPHA', name: 'Alpha', icon: null }],
 				teamReads: 0,
 				noTeamData: false,
 				noOrganizationData: false,
@@ -3016,7 +3016,7 @@ suite('Tracker project cache (#5907)', () => {
 					return snapshot;
 				},
 				getLinearCurrentUser: () =>
-					Promise.resolve({ id: 'me', name: 'Me', displayName: 'me', email: undefined }),
+					Promise.resolve({ id: 'me', name: 'Me', username: 'me', email: null, avatarUrl: null, url: null }),
 				getLinearTeamsForCurrentUser: async () => {
 					state.teamReads++;
 					const snapshot = state.noTeamData ? undefined : state.teams.map(t => ({ ...t }));
@@ -3108,7 +3108,7 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				await internals.getTeamsWithMetadata(internals._session, true);
 				release();
@@ -3135,7 +3135,7 @@ suite('Tracker project cache (#5907)', () => {
 				await until(() => state.teamReads === reads + 1, 'the old read started');
 				integration.invalidateDiscoveryCaches();
 				state.teamsGate = undefined;
-				state.teams = [{ id: 'new', key: 'NEW', name: 'New', iconUrl: null }];
+				state.teams = [{ id: 'new', key: 'NEW', name: 'New', icon: null }];
 				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
 				const newest = internals._autolinks.get('tok-1');
 				state.teamsError = new Error('late failure');
@@ -3171,7 +3171,7 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				const reads = state.teamReads;
 				const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
@@ -3202,7 +3202,7 @@ suite('Tracker project cache (#5907)', () => {
 						id: `t${index}`,
 						key: `T${index}`,
 						name: `Team ${index}`,
-						iconUrl: null,
+						icon: null,
 					}));
 					const reads = state.teamReads;
 					const expected = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
@@ -3227,7 +3227,7 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				state.teamsGate = new Promise<void>(resolve => (release = resolve));
 				const reads = state.teamReads;
@@ -3274,12 +3274,12 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				const complete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
 				assert.deepEqual(await prefixesOf(integration), complete);
 				const reads = state.teamReads;
-				state.teams.push({ id: 'new', key: 'NEW', name: 'New', iconUrl: null });
+				state.teams.push({ id: 'new', key: 'NEW', name: 'New', icon: null });
 				const incomplete = state.teams.flatMap(t => [`${t.key}-`, `${t.key}_`]).sort();
 				advanceClock(discoveryCacheTtl);
 				assert.deepEqual(await prefixesOf(integration), complete, 'the expired render does not wait');
@@ -3307,7 +3307,7 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				state.teamsGate = new Promise<void>(resolve => (release = resolve));
 				const reads = state.teamReads;
@@ -3315,7 +3315,7 @@ suite('Tracker project cache (#5907)', () => {
 				await until(() => state.teamReads === reads + 1, 'the earlier render read the incomplete list');
 				integration.beginForcedRefresh();
 				state.teamsGate = undefined;
-				state.teams = [{ id: 'new', key: 'NEW', name: 'New', iconUrl: null }];
+				state.teams = [{ id: 'new', key: 'NEW', name: 'New', icon: null }];
 				assert.deepEqual(await prefixesOf(integration), ['NEW-', 'NEW_']);
 				release();
 				assert.equal((await earlier).length, 100, 'the retired read answers its original partial response');
@@ -3409,7 +3409,7 @@ suite('Tracker project cache (#5907)', () => {
 			let release!: () => void;
 			try {
 				assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
-				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 				const reads = state.teamReads;
 				state.teamsGate = new Promise<void>(resolve => (release = resolve));
 				advanceClock(discoveryCacheTtl);
@@ -3450,7 +3450,7 @@ suite('Tracker project cache (#5907)', () => {
 					id: `t${index}`,
 					key: `T${index}`,
 					name: `Team ${index}`,
-					iconUrl: null,
+					icon: null,
 				}));
 				const reads = state.teamReads;
 				state.teamsGate = new Promise<void>(resolve => (release = resolve));
@@ -3628,7 +3628,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await linear();
 
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1'], 'cached while no refresh and inside the TTL');
 
 			await service.refreshConnections();
@@ -3642,7 +3642,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await linear();
 
 			await read();
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			advanceClock(discoveryCacheTtl);
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1', 'Issue BETA-1']);
 
@@ -3653,7 +3653,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, integration, state } = await linear();
 
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'cached inside the TTL');
 
 			advanceClock(discoveryCacheTtl);
@@ -3690,7 +3690,7 @@ suite('Tracker project cache (#5907)', () => {
 			const earlier = prefixesOf(integration);
 			await until(() => state.teamReads === reads + 1, 'the earlier render read the teams');
 			state.teamsGate = undefined;
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 
 			// The drop every forced refresh begins with, while the earlier rebuild is still pending.
 			integration.beginForcedRefresh();
@@ -3719,7 +3719,7 @@ suite('Tracker project cache (#5907)', () => {
 
 			let releaseLater!: () => void;
 			state.teamsGate = new Promise<void>(resolve => (releaseLater = resolve));
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			integration.beginForcedRefresh();
 			const later = prefixesOf(integration);
 			await until(() => state.teamReads === reads + 2, 'the later render read the teams');
@@ -3969,7 +3969,7 @@ suite('Tracker project cache (#5907)', () => {
 			state.teamsGate = undefined;
 
 			if (!options?.identical) {
-				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+				state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			}
 			await read();
 			assert.equal(state.teamReads, reads + 2, 'the issue read listed the teams again');
@@ -4188,12 +4188,12 @@ suite('Tracker project cache (#5907)', () => {
 
 			// An earlier read lists BETA, joined since the list was stored, and a later one also lists GAMMA, joined
 			// after the earlier one was answered.
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			let releaseEarlier!: () => void;
 			state.teamsGate = new Promise<void>(resolve => (releaseEarlier = resolve));
 			const earlier = internals.getTeamsWithMetadata(internals._session, true);
 			await until(() => state.teamReads === reads + 1, 'the earlier read listed the teams');
-			state.teams.push({ id: 't3', key: 'GAMMA', name: 'Gamma', iconUrl: null });
+			state.teams.push({ id: 't3', key: 'GAMMA', name: 'Gamma', icon: null });
 			let releaseLater!: () => void;
 			state.teamsGate = new Promise<void>(resolve => (releaseLater = resolve));
 			const later = internals.getTeamsWithMetadata(internals._session, true);
@@ -4228,7 +4228,7 @@ suite('Tracker project cache (#5907)', () => {
 			state.teamsGate = undefined;
 
 			// BETA is joined, and an issue read stores the team list, the first one since the drop.
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			await read();
 			let settled = false;
 			const later = prefixesOf(integration).finally(() => (settled = true));
@@ -4264,7 +4264,7 @@ suite('Tracker project cache (#5907)', () => {
 			await until(() => state.teamReads === reads + 1, "the other token's rebuild read the teams");
 			state.teamsGate = undefined;
 
-			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', iconUrl: null });
+			state.teams.push({ id: 't2', key: 'BETA', name: 'Beta', icon: null });
 			await read();
 			assert.deepEqual(
 				internals._teams.get('tok-1')?.map(t => t.key),

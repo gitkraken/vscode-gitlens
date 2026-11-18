@@ -13,8 +13,8 @@ catalogs:
       specifier: 3.12.0
       version: 3.12.0
     '@gitkraken/provider-apis':
-      specifier: 0.67.0
-      version: 0.67.0
+      specifier: 0.69.0
+      version: 0.69.0
     '@lit-labs/virtualizer':
       specifier: 2.1.1
       version: 2.1.1
@@ -136,7 +136,7 @@ importers:
         version: 0.2.3
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.67.0
+        version: 0.69.0
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -492,7 +492,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.67.0
+        version: 0.69.0
       '@octokit/graphql':
         specifier: 'catalog:'
         version: 9.0.4
@@ -786,7 +786,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.67.0
+        version: 0.69.0
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1332,8 +1332,8 @@ packages:
     resolution: {integrity: sha512-Up/vFkYsYPE8uJYpTcoSbrs9Tdv49z44lsb+LVTDjqozoQ5vd5jbcXR6Pi0L1u451RKk4cS/fhrfG9s9ZpRULg==}
     engines: {node: '>= 22'}
 
-  '@gitkraken/provider-apis@0.67.0':
-    resolution: {integrity: sha512-6RCPcvyTEKH2aYzEOyT7HXNpcdIWB3lcWhfKvAf24GeD0p0YOEBkL0zz0IOIP2uFrNd61+E4w3XbMVu0Yir3gQ==}
+  '@gitkraken/provider-apis@0.69.0':
+    resolution: {integrity: sha512-fYddt+VrNDPkekEwdZfWb19p4DcobHj2PFHNuyVyDUAzqs2vDKWY9cOJ0y9LlIanTv8b0OrSgR4naXT2S9QYRg==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -2754,6 +2754,7 @@ packages:
   '@secretlint/secretlint-rule-preset-recommend@10.2.2':
     resolution: {integrity: sha512-K3jPqjva8bQndDKJqctnGfwuAxU2n9XNCPtbXVI5JvC7FnQiNg/yWlQPbMUlBXtBoBGFYp08A94m6fvtc9v+zA==}
     engines: {node: '>=20.0.0'}
+    deprecated: Built into secretlint v14 and later. Remove this package; the rule id still works. https://github.com/secretlint/secretlint/blob/HEAD/docs/rules/preset-recommend.md
 
   '@secretlint/source-creator@10.2.2':
     resolution: {integrity: sha512-h6I87xJfwfUTgQ7irWq7UTdq/Bm1RuQ/fYhA3dtTIAop5BwSFmZyrchph4WcoEvbN460BWKmk4RYSvPElIIvxw==}
@@ -8788,7 +8789,7 @@ snapshots:
       '@gitkraken/shared-tools': 0.2.0
       picomatch: 4.0.7
 
-  '@gitkraken/provider-apis@0.67.0':
+  '@gitkraken/provider-apis@0.69.0':
     dependencies:
       diff: 8.0.4
       js-base64: 3.7.5

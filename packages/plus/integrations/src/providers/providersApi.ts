@@ -1404,7 +1404,7 @@ export class ProvidersApi implements Disposable {
 	/** Resolves Linear's current user (viewer). The viewer query returns only id/name/email/displayName. */
 	async getLinearCurrentUser(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
-	): Promise<{ id: string; name?: string | null; email?: string | null; displayName?: string | null } | undefined> {
+	): Promise<ProviderAccount | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getLinearCurrentUserFn',

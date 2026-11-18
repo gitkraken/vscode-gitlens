@@ -58,7 +58,7 @@ suite('Linear issue reads (#5438)', () => {
 			id: `team-${index}`,
 			key: `T${index}`,
 			name: `Team ${index}`,
-			iconUrl: null,
+			icon: null,
 		}));
 		let teamReads = 0;
 		stubApi(linear, {
@@ -130,7 +130,14 @@ suite('Linear issue reads (#5438)', () => {
 					paging: { more: false, cursor: '{}' },
 				}),
 			getLinearCurrentUser: () =>
-				Promise.resolve({ id: 'u1', name: 'Ada Lovelace', email: 'ada@example.com', displayName: 'ada' }),
+				Promise.resolve({
+					id: 'u1',
+					name: 'Ada Lovelace',
+					email: 'ada@example.com',
+					username: 'ada',
+					avatarUrl: null,
+					url: null,
+				}),
 		});
 
 		// `user` is the displayName ('ada'), which does NOT equal the assignee's name ('Ada Lovelace'); the
@@ -187,7 +194,14 @@ suite('Linear issue reads (#5438)', () => {
 
 		stubApi(linear, {
 			getLinearCurrentUser: () =>
-				Promise.resolve({ id: 'u1', name: 'Me', email: 'me@example.com', displayName: 'me' }),
+				Promise.resolve({
+					id: 'u1',
+					name: 'Me',
+					email: 'me@example.com',
+					username: 'me',
+					avatarUrl: null,
+					url: null,
+				}),
 		});
 
 		const account = await linear.getAccountForResource({ key: 't1', id: 't1', name: 'Team 1' });
