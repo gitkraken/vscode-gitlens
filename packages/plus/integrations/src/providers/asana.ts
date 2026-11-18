@@ -1,4 +1,4 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, IssueProjectMembership } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { Issue, IssueProject, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -258,8 +258,8 @@ export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 	 *
 	 * A task can be in several projects (a sprint board and each customer's own board, say), and an unscoped task read
 	 * reports only the first one Asana lists as its `project`. So it is filed under every requested project among its
-	 * memberships, with its section in that project as its state, as the per-project fallback would list it. A
-	 * provider-apis too old to report the memberships leaves only the first project, as before.
+	 * memberships (`projectMemberships`), with its section in that project as its state, as the per-project fallback
+	 * would list it.
 	 */
 	protected override async searchProviderProjectIssues(
 		session: ProviderAuthenticationSession,
@@ -433,17 +433,6 @@ function isAsanaProjectDescriptor(project: ResourceDescriptor): project is Asana
 	return isIssueResourceDescriptor(project) && typeof project.resourceId === 'string';
 }
 
-/** Every project an Asana task is in, with its section there; reported by provider-apis newer than 0.68. */
-interface AsanaProjectMembership {
-	readonly project: { readonly id: string; readonly name: string };
-	readonly section: { readonly id: string; readonly name: string } | null;
-}
-
-function getProjectMemberships(issue: ProviderIssue): readonly AsanaProjectMembership[] | undefined {
-	const memberships: unknown = (issue as { projectMemberships?: unknown }).projectMemberships;
-	return Array.isArray(memberships) ? (memberships as AsanaProjectMembership[]) : undefined;
-}
-
 /**
  * Each requested project a task is in, by its index in the read, with the task as that project would list it: its
  * project and its section there as its state, since the unscoped read reports the first membership's.
@@ -452,7 +441,7 @@ function toRequestedProjectPlacements(
 	issue: ProviderIssue,
 	indexById: ReadonlyMap<string, number>,
 ): { index: number; issue: ProviderIssue }[] {
-	const memberships = getProjectMemberships(issue);
+	const memberships = issue.projectMemberships;
 	if (memberships == null) {
 		const index = issue.project?.id != null ? indexById.get(issue.project.id) : undefined;
 		return index != null ? [{ index: index, issue: issue }] : [];
@@ -469,7 +458,7 @@ function toRequestedProjectPlacements(
 }
 
 /** Mirrors provider-apis' normalization of a task read scoped to the membership's project. */
-function withProjectMembership(issue: ProviderIssue, membership: AsanaProjectMembership): ProviderIssue {
+function withProjectMembership(issue: ProviderIssue, membership: IssueProjectMembership): ProviderIssue {
 	if (issue.project?.id === membership.project.id) return issue;
 
 	const completed = issue.closedDate != null;

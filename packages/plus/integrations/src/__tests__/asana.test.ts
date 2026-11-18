@@ -274,7 +274,7 @@ suite('Asana integration', () => {
 								{ project: { id: 'p1', name: 'Project' }, section: { id: 's1', name: 'Next Sprint' } },
 								{ project: { id: 'p2', name: 'Other project' }, section: null },
 							],
-						} as Partial<ProviderIssue>),
+						}),
 					]),
 				),
 		});
