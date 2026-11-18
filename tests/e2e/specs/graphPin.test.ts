@@ -389,8 +389,7 @@ const testTall = base.extend({
 	],
 });
 
-test.describe.configure({ mode: 'serial' });
-
+// KEEP: serial per describe, never file-level — a file-wide serial group retries all four fixtures in one worker, which Playwright rejects
 test.describe('Graph — Pin Branch to Edge', () => {
 	test.describe.configure({ mode: 'serial' });
 
