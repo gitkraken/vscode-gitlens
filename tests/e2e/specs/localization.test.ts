@@ -40,6 +40,7 @@ import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import { widenSideBarForGraph } from '../graphHelpers.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 /** Repo root — this file lives at `tests/e2e/specs/`, three levels below it. */
 const repoRoot = path.resolve(__dirname, '../../..');
@@ -280,7 +281,7 @@ for (const locale of locales) {
 
 			await vscode.page.keyboard.press('Control+Shift+P');
 
-			const rows = vscode.page.locator('.quick-input-widget .monaco-list-row');
+			const rows = vscode.page.locator(`${quickInputSelector} .monaco-list-row`);
 			await expect(rows.first(), 'Command palette never opened').toBeVisible({ timeout: MaxTimeout });
 
 			// Filter by the ENGLISH title on purpose. VS Code keeps the original as a searchable alias and

@@ -3,6 +3,11 @@ import { expect } from '@playwright/test';
 import { MaxTimeout, ShortTimeout } from '../../baseTest.js';
 import type { VSCodePage } from '../vscodePage.js';
 
+// SEE: Windsurf 3.14.30819 ("Devin", Code 1.141.2) adds a second, never-shown `.quick-input-widget.webapp-quick-input-widget`
+// (`style="display: none"`, empty list) beside the real quick input once one first opens — a DOM dump of the workbench
+// after Ctrl+Shift+P shows both; Windsurf 1.9566 (Code 1.108.2) and VS Code 1.147 have only the real one.
+export const quickInputSelector = '.quick-input-widget:not(.webapp-quick-input-widget)';
+
 const QuickPickItemSelector = '.quick-input-list-entry';
 
 /** Labels of the directive items a step falls back to while it has nothing real to offer. */
@@ -22,7 +27,7 @@ export class QuickPick {
 		private readonly vscode: VSCodePage,
 		private readonly page: Page,
 	) {
-		this.container = page.locator('.quick-input-widget');
+		this.container = page.locator(quickInputSelector);
 	}
 
 	// ============================================================================
@@ -297,9 +302,9 @@ export class QuickPick {
 	async clickActionButton(tooltip: string | RegExp): Promise<void> {
 		// Try multiple selectors for action buttons
 		const selectors = [
-			'.quick-input-widget .monaco-action-bar .action-item a.action-label',
-			'.quick-input-widget .quick-input-titlebar .monaco-action-bar a.action-label',
-			'.quick-input-widget a.action-label',
+			`${quickInputSelector} .monaco-action-bar .action-item a.action-label`,
+			`${quickInputSelector} .quick-input-titlebar .monaco-action-bar a.action-label`,
+			`${quickInputSelector} a.action-label`,
 			'.quick-input-box .monaco-findInput .controls a.action-label',
 		];
 

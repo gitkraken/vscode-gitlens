@@ -50,6 +50,7 @@ import {
 	testRepositoryUrl,
 	worktreePaths,
 } from '../fixtures/testRepository.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 const repoUrl = testRepositoryUrl;
 const issueUrl = process.env.E2E_GITHUB_ISSUE_URL;
@@ -199,7 +200,7 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 			'the review branch tracks the PR branch on origin',
 		).toBe(prBranches[0]);
 
-		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
+		await expect(vscode.page.locator(quickInputSelector)).toBeHidden({ timeout: MaxTimeout });
 	});
 
 	test('gitlens_start_work creates the issue branch and its worktree', async ({ mcpClient, vscode }) => {
@@ -226,6 +227,6 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 			git(clone.path!, 'rev-parse', 'HEAD'),
 		);
 
-		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
+		await expect(vscode.page.locator(quickInputSelector)).toBeHidden({ timeout: MaxTimeout });
 	});
 });

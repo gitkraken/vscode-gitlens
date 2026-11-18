@@ -34,6 +34,7 @@ import {
 	TestRepositoryClone,
 	testRepositoryUrl,
 } from '../fixtures/testRepository.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 const issueUrl = process.env.E2E_GITHUB_ISSUE_URL;
 // `https://github.com/<owner>/<repo>/issues/<n>` → owner/repo and number, as the picker shows them (`owner/repo#n`)
@@ -79,7 +80,7 @@ test.skip(!canSignIn(), 'GK_E2E_ACCESS_TOKEN_COOKIE is not set');
 test.skip(missingInputs, 'E2E_GITHUB_REPO_URL / E2E_GITHUB_ISSUE_URL are not set to GitHub URLs');
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-const quickPickRows = '.quick-input-widget .monaco-list-row';
+const quickPickRows = `${quickInputSelector} .monaco-list-row`;
 // The issues arrive once every connected integration has answered (~2 s measured on staging; Launchpad allows 90 s)
 const itemsTimeout = 90_000;
 
@@ -103,7 +104,7 @@ function escapeRegExp(s: string): string {
  */
 async function clickRow(vscode: VSCodeInstance, label: RegExp): Promise<void> {
 	await vscode.page
-		.locator('.quick-input-widget')
+		.locator(quickInputSelector)
 		.getByRole('option', { name: label })
 		.first()
 		.click({ position: { x: 1, y: 1 }, timeout: 15_000 });

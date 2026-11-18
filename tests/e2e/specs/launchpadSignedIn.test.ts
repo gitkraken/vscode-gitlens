@@ -26,6 +26,7 @@ import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, canSignIn, createTmpDir, expect, GitFixture } from '../baseTest.js';
 import { widenSideBarForGraph } from '../graphHelpers.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 const prUrl = process.env.E2E_GITHUB_PR_URL;
 // `https://github.com/<owner>/<repo>/pull/<n>` → `<owner>/<repo>#<n>`, the reference Launchpad shows for it
@@ -63,7 +64,7 @@ test.skip(!canSignIn(), 'GK_E2E_ACCESS_TOKEN_COOKIE is not set');
 test.skip(prRef == null, 'E2E_GITHUB_PR_URL is not set to a GitHub PR URL');
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-const quickPickRows = '.quick-input-widget .monaco-list-row';
+const quickPickRows = `${quickInputSelector} .monaco-list-row`;
 // The first items arrive once every connected integration has answered (~11 s measured on staging)
 const itemsTimeout = 90_000;
 
