@@ -381,9 +381,11 @@ export class GitLensPage extends VSCodePage {
 		while (Date.now() - startTime < timeout) {
 			// Find GitLens webview iframes
 			const iframes = this.page.locator(
-				usePurpose && purpose === 'webviewView'
-					? `iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=${purpose}"]`
-					: `iframe.webview[src*="extensionId=eamodio.gitlens"]`,
+				purpose !== 'webviewView'
+					? `iframe.webview[src*="extensionId=eamodio.gitlens"]`
+					: usePurpose
+						? `iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=${purpose}"]`
+						: `iframe.webview[src*="extensionId=eamodio.gitlens"]:not([src*="purpose=webviewPanel"]):not([src*="purpose=customEditor"])`,
 			);
 
 			iterations++;
@@ -414,12 +416,14 @@ export class GitLensPage extends VSCodePage {
 						continue;
 					}
 				}
-			} else if (purpose === 'webviewView') {
-				// There is a VS Code issue where sometimes WebviewViews don't always get their purpose set (seems to happen after hiding and re-showing)
-				// So alternate using purpose filter every other iteration (use it on odd iterations: 1, 3, 5...)
-				usePurpose = iterations % 2 === 1;
-				continue;
 			}
+
+			if (purpose === 'webviewView') {
+				// HACK: a re-shown webview view can lose `purpose=` in its src (VS Code 1.147.0, seen on Patch) — alternate on every miss
+				usePurpose = iterations % 2 === 0;
+				if (count === 0) continue;
+			}
+
 			await this.page.waitForTimeout(ShortTimeout);
 		}
 		return null;

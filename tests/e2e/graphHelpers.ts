@@ -226,13 +226,17 @@ export function graphDetailsRegion(graphWebview: FrameLocator, context?: GraphDe
  */
 export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, timeout = 10000): Promise<void> {
 	const detailsRegion = graphDetailsRegion(graphWebview);
+	// KEEP: collapsed, the region still measures 1-2px — gate on the toggle and `inert`, not its box
+	const expandedPane = graphWebview.locator('.graph__details-pane:not([inert])');
 	await expect(async () => {
-		if (await detailsRegion.isVisible()) return;
-
 		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
 		if (await showButton.isVisible()) {
 			await showButton.click({ timeout: 2000 });
 		}
+		await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
+			timeout: 2000,
+		});
+		await expect(expandedPane).toHaveCount(1, { timeout: 2000 });
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
 }
