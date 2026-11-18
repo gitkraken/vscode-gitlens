@@ -1449,7 +1449,7 @@ function toIssueIdentifier(value: string | number): string {
 	return String(value);
 }
 
-function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState | undefined {
+export function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState | undefined {
 	return state == null
 		? undefined
 		: {

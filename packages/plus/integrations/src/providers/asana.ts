@@ -21,7 +21,13 @@ import type {
 } from '../models/issueReads.js';
 import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
-import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
+import {
+	fromProviderIssue,
+	providersMetadata,
+	toIssueProviderState,
+	toIssueShape,
+	toProviderIssueStates,
+} from './models.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata.asana;
@@ -286,11 +292,16 @@ export class AsanaIntegration extends IssuesIntegration<AsanaIntegrationId> {
 		const indexById = new Map(projects.map((project, index) => [project.id, index]));
 		const split = projects.map((): IssueShape[] => []);
 		for (const task of drain.values) {
-			for (const { index, issue } of toRequestedProjectPlacements(task, indexById)) {
-				const shape = toIssueShape(issue, this, { projection: 'project' });
-				if (shape == null) continue;
+			const shape = toIssueShape(task, this, { projection: 'project' });
+			if (shape == null) continue;
 
-				split[index].push({ ...shape, project: toIssueProject(projects[index]) });
+			// Only the section differs between a task's projects: whether it is closed is the task's own.
+			for (const { index, state } of toRequestedProjectPlacements(task, indexById)) {
+				split[index].push({
+					...shape,
+					project: toIssueProject(projects[index]),
+					providerState: toIssueProviderState(state),
+				});
 			}
 		}
 		return split;
@@ -434,55 +445,46 @@ function isAsanaProjectDescriptor(project: ResourceDescriptor): project is Asana
 }
 
 /**
- * Each requested project a task is in, by its index in the read, with the task as that project would list it: its
- * project and its section there as its state, since the unscoped read reports the first membership's.
+ * Each requested project a task is in, by its index in the read, with the task's state as that project would list it:
+ * its section there, since the unscoped read reports the first membership's.
  */
 function toRequestedProjectPlacements(
 	issue: ProviderIssue,
 	indexById: ReadonlyMap<string, number>,
-): { index: number; issue: ProviderIssue }[] {
+): { index: number; state: ProviderIssue['state'] }[] {
 	const memberships = issue.projectMemberships;
 	if (memberships == null) {
 		const index = issue.project?.id != null ? indexById.get(issue.project.id) : undefined;
-		return index != null ? [{ index: index, issue: issue }] : [];
+		return index != null ? [{ index: index, state: issue.state }] : [];
 	}
 
-	const placements: { index: number; issue: ProviderIssue }[] = [];
+	const placements: { index: number; state: ProviderIssue['state'] }[] = [];
 	for (const membership of memberships) {
 		const index = indexById.get(membership.project.id);
 		if (index == null || placements.some(p => p.index === index)) continue;
 
-		placements.push({ index: index, issue: withProjectMembership(issue, membership) });
+		placements.push({ index: index, state: getProjectMembershipState(issue, membership) });
 	}
 	return placements;
 }
 
-/** Mirrors provider-apis' normalization of a task read scoped to the membership's project. */
-function withProjectMembership(issue: ProviderIssue, membership: IssueProjectMembership): ProviderIssue {
-	if (issue.project?.id === membership.project.id) return issue;
+/**
+ * Mirrors provider-apis' state for a task read scoped to the membership's project; the parity test in `asana.test.ts`
+ * runs both through provider-apis' own normalization to keep them agreeing.
+ */
+function getProjectMembershipState(issue: ProviderIssue, membership: IssueProjectMembership): ProviderIssue['state'] {
+	if (issue.project?.id === membership.project.id) return issue.state;
 
 	const completed = issue.closedDate != null;
-	return {
-		...issue,
-		project: {
-			namespace: null,
-			resourceId: null,
-			name: membership.project.name,
-			key: null,
-			id: membership.project.id,
-		},
-		state:
-			membership.section != null
-				? {
-						id: membership.section.id,
-						name: membership.section.name,
-						color: null,
-						...(completed ? { category: 'DONE' as const } : {}),
-					}
-				: completed
-					? { name: 'Completed', color: null, category: 'DONE' }
-					: null,
-	};
+	if (membership.section != null) {
+		return {
+			id: membership.section.id,
+			name: membership.section.name,
+			color: null,
+			...(completed ? { category: 'DONE' as const } : {}),
+		};
+	}
+	return completed ? { name: 'Completed', color: null, category: 'DONE' } : null;
 }
 
 function toIssueProject(project: AsanaProjectDescriptor): IssueProject {
