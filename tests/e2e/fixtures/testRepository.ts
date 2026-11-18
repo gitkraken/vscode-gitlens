@@ -197,8 +197,22 @@ function redactLog(lines: string[]): string[] {
  * accounts, integrations) from this worker's profile, masked by {@link redactLog}.
  */
 export function gitlensLogDiagnosis(electronArgs: string[]): string[] {
+	const files = gitlensLogFiles(electronArgs);
+	if (files == null) return ['<no --user-data-dir>'];
+	if (!files.length) return ['<no GitLens log under the profile>'];
+
+	const relevant =
+		/launchpad|pullrequest|pull request|no current user|unsupported provider|startreview|startwork|start work|review|issue|viewer|integration|error|warn/i;
+	return files
+		.flatMap(f => redactLog(readFileSync(f, 'utf8').split('\n')))
+		.filter(l => relevant.test(l))
+		.map(l => l.slice(0, 400))
+		.slice(-80);
+}
+
+export function gitlensLogFiles(electronArgs: string[]): string[] | undefined {
 	const userDataDir = electronArgs.find(a => a.startsWith('--user-data-dir='))?.slice('--user-data-dir='.length);
-	if (userDataDir == null) return ['<no --user-data-dir>'];
+	if (userDataDir == null) return undefined;
 
 	const files: string[] = [];
 	const walk = (dir: string): void => {
@@ -218,13 +232,5 @@ export function gitlensLogDiagnosis(electronArgs: string[]): string[] {
 		}
 	};
 	walk(path.join(userDataDir, 'logs'));
-	if (!files.length) return ['<no GitLens log under the profile>'];
-
-	const relevant =
-		/launchpad|pullrequest|pull request|no current user|unsupported provider|startreview|startwork|start work|review|issue|viewer|integration|error|warn/i;
-	return files
-		.flatMap(f => redactLog(readFileSync(f, 'utf8').split('\n')))
-		.filter(l => relevant.test(l))
-		.map(l => l.slice(0, 400))
-		.slice(-80);
+	return files;
 }
