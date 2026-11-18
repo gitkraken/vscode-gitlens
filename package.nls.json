@@ -2045,6 +2045,7 @@
 	"config.views.searchAndCompare.pullRequests.enabled.markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 	"config.views.searchAndCompare.pullRequests.showForCommits.markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 	"config.views.showComparisonContributors.markdownDescription": "Specifies whether to show a _Contributors_ section on comparison results in the views",
+	"config.views.showContributorsFiles.markdownDescription": "Specifies whether to show files touched by each contributor in comparison results in the views",
 	"config.views.showContributorsStatistics.markdownDescription": "Specifies whether to show contributor statistics in _Contributors_ sections in the views. This can take a while to compute depending on the repository size",
 	"config.views.showCurrentBranchOnTop.markdownDescription": "Specifies whether to always show the current branch at the top of the views",
 	"config.views.showRelativeDateMarkers.markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",

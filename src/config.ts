@@ -852,6 +852,7 @@ export interface ViewsCommonConfig {
 		};
 	};
 	readonly showComparisonContributors: boolean;
+	readonly showContributorsFiles: boolean;
 	readonly showContributorsStatistics: boolean;
 	readonly showCurrentBranchOnTop: boolean;
 	readonly showRelativeDateMarkers: boolean;
@@ -864,6 +865,7 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 	'openChangesInMultiDiffEditor',
 	'pageItemLimit',
 	'showComparisonContributors',
+	'showContributorsFiles',
 	'showContributorsStatistics',
 	'showCurrentBranchOnTop',
 	'showRelativeDateMarkers',
