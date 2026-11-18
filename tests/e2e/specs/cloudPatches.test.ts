@@ -20,6 +20,7 @@ const test = base.extend({
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
+			logLevel: 'debug',
 			setup: async () => {
 				const repoDir = await createTmpDir();
 				const git = new GitFixture(repoDir);
@@ -107,6 +108,8 @@ function gitlensLogs(vscode: VSCodeInstance): string[] {
 	return files!;
 }
 
+const createDraftRpcLine = /\[RPC:host\(gitlens\.views\.patchDetails\|[^)]*\)\] call createDraft (completed|failed)/;
+
 function logSizes(files: string[]): Map<string, number> {
 	return new Map(files.map(f => [f, statSync(f).size]));
 }
@@ -123,7 +126,13 @@ async function openCreateForm(vscode: VSCodeInstance): Promise<FrameLocator> {
 	return patchWebview;
 }
 
-async function submitWithTitle(patchWebview: FrameLocator, patchTitle: string): Promise<void> {
+async function clickCreate(vscode: VSCodeInstance, patchWebview: FrameLocator): Promise<void> {
+	// SEE: Windsurf 1.1.3 raises an announcement toast over the Patch view mid-click (measured)
+	await vscode.gitlens.executeCommand('notifications.clearAll');
+	await createButton(patchWebview).click();
+}
+
+async function submitWithTitle(vscode: VSCodeInstance, patchWebview: FrameLocator, patchTitle: string): Promise<void> {
 	const title = patchWebview.locator('#title');
 	const form = patchWebview.locator('gl-patch-create');
 	await form.evaluate((el: Element & { state?: unknown; stateBeforeTitle?: unknown }) => {
@@ -141,7 +150,7 @@ async function submitWithTitle(patchWebview: FrameLocator, patchTitle: string): 
 		)
 		.toBe(true);
 	await expect(createButton(patchWebview)).toBeEnabled({ timeout: MaxTimeout });
-	await createButton(patchWebview).click();
+	await clickCreate(vscode, patchWebview);
 	await expect
 		.poll(() => title.evaluate((el: HTMLInputElement) => el.validationMessage), { timeout: MaxTimeout })
 		.toBe('');
@@ -213,34 +222,33 @@ test.describe('Cloud Patches — create without an account', () => {
 		const title = patchWebview.locator('#title');
 		await expect(title).toHaveValue('');
 
-		await createButton(patchWebview).click();
+		const marker = logSizes(gitlensLogs(vscode));
+
+		await clickCreate(vscode, patchWebview);
 		await expect
 			.poll(() => title.evaluate((el: HTMLInputElement) => el.validationMessage), { timeout: MaxTimeout })
 			.toBe('Title is required');
 		await expect(title).toBeFocused();
 		await expect(patchWebview.getByText('Check at least one change')).toHaveCount(0);
 
-		const marker = logSizes(gitlensLogs(vscode));
-
 		const patchTitle = `E2E boundary ${Date.now()}`;
-		await submitWithTitle(patchWebview, patchTitle);
+		await submitWithTitle(vscode, patchWebview, patchTitle);
 
-		// KEEP: negative window — the create path is in-process
-		await vscode.page.waitForTimeout(3000);
+		await expect
+			.poll(() => logSince(marker).filter(l => createDraftRpcLine.test(l)), {
+				message: 'the titled submission never reached the extension host',
+				timeout: MaxTimeout,
+			})
+			.toHaveLength(1);
+		const [rpcLine] = logSince(marker).filter(l => createDraftRpcLine.test(l));
+		expect(rpcLine, 'the create was not stopped by the account prompt').toContain(
+			'Cloud Patches are a Preview feature and require an account.',
+		);
+		expect(logSince(marker).filter(l => l.includes('DraftService.createDraft'))).toEqual([]);
 
 		await expect(createOutcomeToasts(vscode)).toHaveCount(0);
 		await expect(patchWebview.locator('gl-patch-create')).toBeVisible();
 		await expect(title).toHaveValue(patchTitle);
-
-		await vscode.gitlens.executeCommand('gitlens.showDraftsView');
-		await vscode.gitlens.executeCommand('gitlens.views.drafts.refresh');
-		await expect
-			.poll(() => logSince(marker).filter(l => l.includes('DraftService.getDrafts')), {
-				message: 'positive control: a signed-out DraftService call must reach the log',
-				timeout: MaxTimeout,
-			})
-			.not.toEqual([]);
-		expect(logSince(marker).filter(l => l.includes('DraftService.createDraft'))).toEqual([]);
 
 		await expectNoAccount(vscode);
 	});
@@ -253,7 +261,7 @@ test.describe('Cloud Patches — create without an account', () => {
 			await expectNoAccount(vscode);
 
 			const patchWebview = await openCreateForm(vscode);
-			await submitWithTitle(patchWebview, `E2E boundary ${Date.now()}`);
+			await submitWithTitle(vscode, patchWebview, `E2E boundary ${Date.now()}`);
 
 			await expect(createButton(patchWebview)).toBeEnabled({ timeout: MaxTimeout });
 			await expect(createOutcomeToasts(vscode)).toHaveCount(0);

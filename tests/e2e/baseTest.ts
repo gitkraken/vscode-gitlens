@@ -314,6 +314,8 @@ export interface LaunchOptions {
 	 * runtime (`l10n.t`) and manifest (`package.nls.<id>.json`) catalogs resolve.
 	 */
 	locale?: string;
+	// SEE: Windsurf 1.1.3 (Code 1.105) ignores `--log <extension-id>:<level>`, measured 0 debug lines — global only
+	logLevel?: 'debug' | 'trace';
 	/**
 	 * Sign this worker in to the GitKraken test account before its tests run (#5682) — unattended, with the
 	 * `GK_E2E_ACCESS_TOKEN_COOKIE` secret; see `fixtures/gkSignIn.ts`. `true` requires the default providers.
@@ -561,6 +563,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					`--extensions-dir=${extensionsDir}`,
 					`--user-data-dir=${userDataDir}`,
 					...(vscodeOptions.locale != null ? [`--locale=${vscodeOptions.locale}`] : []),
+					...(vscodeOptions.logLevel != null ? [`--log=${vscodeOptions.logLevel}`] : []),
 					workspacePath,
 				],
 			} satisfies Parameters<typeof _electron.launch>[0];
