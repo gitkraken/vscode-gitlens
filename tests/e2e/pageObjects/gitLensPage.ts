@@ -1,5 +1,5 @@
 import type { FrameLocator, Locator } from '@playwright/test';
-import type { SimulationState } from '../../../src/plus/gk/__debug__accountDebug.js';
+import type { AccountStatus, SimulationState } from '../../../src/plus/gk/__debug__accountDebug.js';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import { VSCodePage } from './vscodePage.js';
 
@@ -50,6 +50,10 @@ export class GitLensPage extends VSCodePage {
 
 	async stopSubscriptionSimulation(): Promise<void> {
 		await this.executeCommand('gitlens.plus.simulate.subscription', { state: null });
+	}
+
+	async getAccountStatus(): Promise<AccountStatus> {
+		return this.executeCommand<AccountStatus>('gitlens.plus.accountStatus');
 	}
 
 	/**
@@ -263,6 +267,10 @@ export class GitLensPage extends VSCodePage {
 		await this.executeCommand('gitlens.showWorktreesView');
 	}
 
+	async startWorktreeCreateWizard(): Promise<void> {
+		await this.executeCommand('gitlens.git.worktree.create');
+	}
+
 	async showContributorsView(): Promise<void> {
 		await this.executeCommand('gitlens.showContributorsView');
 	}
@@ -312,6 +320,11 @@ export class GitLensPage extends VSCodePage {
 
 	async getRebaseWebview(): Promise<FrameLocator | null> {
 		return this.getGitLensWebview('Interactive Rebase', 'customEditor');
+	}
+
+	async showSettingsAccount(timeout = MaxTimeout * 3): Promise<FrameLocator | null> {
+		await this.executeCommand('gitlens.showSettingsPage!account');
+		return this.getGitLensWebview('GitLens Settings', 'webviewPanel', timeout);
 	}
 
 	/**
