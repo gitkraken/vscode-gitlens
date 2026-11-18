@@ -3,7 +3,7 @@ import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { serializable } from '@gitlens/utils/decorators/serializable.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { Shape } from '@gitlens/utils/types.js';
-import { parseGitRemoteUrl } from '../utils/remote.utils.js';
+import { getCloudWebDomain, parseGitRemoteUrl } from '../utils/remote.utils.js';
 import type { RemoteProvider } from './remoteProvider.js';
 
 export type GitRemoteShape = Shape<GitRemote>;
@@ -76,7 +76,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		}
 
 		return (
-			(equalsIgnoreCase(urlOrDomain, this.domain) && equalsIgnoreCase(path, this.path)) ||
+			(equalsIgnoreCase(getCloudWebDomain(urlOrDomain), this.domain) && equalsIgnoreCase(path, this.path)) ||
 			(equalsIgnoreCase(urlOrDomain, this._domain) && equalsIgnoreCase(path, this._path))
 		);
 	}

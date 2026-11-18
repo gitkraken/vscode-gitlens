@@ -182,6 +182,45 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			});
 		}
 
+		for (const [localUrl, sshDomain, sshPort] of [
+			['https://bitbucket.org/owner/repo.git', 'altssh.bitbucket.org', 443],
+			['https://bitbucket.org/owner/repo.git', 'ssh.bitbucket.org', 22],
+			['git@bitbucket.org:owner/repo.git', 'altssh.bitbucket.org', 443],
+			['ssh://git@altssh.bitbucket.org:443/owner/repo.git', 'ssh.bitbucket.org', 22],
+			['https://github.com/owner/repo.git', 'ssh.github.com', 443],
+			['https://gitlab.com/owner/repo.git', 'altssh.gitlab.com', 443],
+		] as const) {
+			test(`a remote on ${localUrl} matches the same repository on ${sshDomain}`, () => {
+				const [scheme, domain, path] = parseGitRemoteUrl(localUrl);
+				const provider = createRemoteProviderMatcher()(localUrl, domain, path, scheme);
+				const remote = new GitRemote(
+					'/repo',
+					'origin',
+					scheme,
+					domain,
+					path,
+					[{ type: 'fetch', url: localUrl }],
+					provider,
+				);
+
+				assert.strictEqual(remote.matches(`ssh://git@${sshDomain}:${sshPort}/owner/repo.git`), true);
+				assert.strictEqual(remote.matches(`git@${sshDomain.toUpperCase()}:owner/repo.git`), true);
+				assert.strictEqual(remote.matches(sshDomain, 'owner/repo'), true);
+				assert.strictEqual(remote.matches(`ssh://git@${sshDomain}:${sshPort}/owner/other.git`), false);
+				assert.strictEqual(remote.matches(`ssh://git@not${sshDomain}:${sshPort}/owner/repo.git`), false);
+				assert.strictEqual(remote.matches(`ssh://git@${sshDomain}.example.com/owner/repo.git`), false);
+			});
+		}
+
+		test('a remote on a self-hosted host does not match the same path on a cloud SSH host', () => {
+			const url = 'https://git.example.com/owner/repo.git';
+			const [scheme, domain, path] = parseGitRemoteUrl(url);
+			const remote = new GitRemote('/repo', 'origin', scheme, domain, path, [{ type: 'fetch', url: url }]);
+
+			assert.strictEqual(remote.matches('ssh://git@ssh.github.com:443/owner/repo.git'), false);
+			assert.strictEqual(remote.matches('ssh://git@altssh.bitbucket.org:443/owner/repo.git'), false);
+		});
+
 		test('a Bitbucket Server remote does not match its project path on the bare host', () => {
 			const url = 'https://example.com/stash/scm/PROJ/repo';
 			const [scheme, domain, path] = parseGitRemoteUrl(url);
