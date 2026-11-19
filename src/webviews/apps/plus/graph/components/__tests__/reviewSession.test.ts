@@ -815,13 +815,13 @@ suite('reviewSession — findings on changed files', () => {
 	});
 
 	test('an unknown side leaves the finding as it was', () => {
-		// No current content id, or the file gone from the scope
 		assert.strictEqual(
 			getStaleFindingIds(result, recorded, [{ path: 'src/a.ts', contentId: undefined }, b]).size,
 			0,
 		);
-		assert.strictEqual(getStaleFindingIds(result, recorded, [b]).size, 0);
-		// Nothing recorded at all
+		assert.strictEqual(getStaleFindingIds(result, recorded, undefined).size, 0);
+		assert.strictEqual(getStaleFindingIds(result, recorded, []).size, 0);
+		assert.strictEqual(getStaleFindingIds(result, recorded, [{ path: 'src/b.ts', contentId: undefined }]).size, 0);
 		assert.strictEqual(getStaleFindingIds(result, undefined, [{ path: 'src/a.ts', contentId: 'a2' }]).size, 0);
 	});
 
@@ -835,6 +835,12 @@ suite('reviewSession — findings on changed files', () => {
 		assert.strictEqual(withFindingsContent(recorded, [findings[2], findings[3]], [a, b, c]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [], [a, b]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [findings[0]], undefined), recorded);
+	});
+
+	test('a finding is stale while a file it points at is out of the scope, and not once it is back', () => {
+		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [b, c])], ['f1', 'f2', 'u1']);
+		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [a, c])], ['f2']);
+		assert.strictEqual(getStaleFindingIds(result, recorded, [a, b]).size, 0);
 	});
 
 	test('picking keeps only the named findings’ records', () => {

@@ -343,14 +343,13 @@ export function getStaleFindingIds(
 	files: readonly ReviewFileIdentity[] | undefined,
 ): ReadonlySet<string> {
 	const stale = new Set<string>();
-	if (result == null || !recorded?.size || !files?.length) return stale;
+	if (result == null || !recorded?.size || !files?.some(f => f.contentId != null)) return stale;
 
 	const current = new Map(files.map(f => [f.path, f.contentId]));
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
 			for (const [path, contentId] of recorded.get(finding.id) ?? []) {
-				const now = current.get(path);
-				if (now != null && now !== contentId) {
+				if (!current.has(path) || (current.get(path) ?? contentId) !== contentId) {
 					stale.add(finding.id);
 					break;
 				}

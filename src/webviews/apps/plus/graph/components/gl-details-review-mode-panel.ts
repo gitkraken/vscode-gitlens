@@ -449,7 +449,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		const previousStatus = changedProperties.get('status') as GlDetailsReviewModePanel['status'] | undefined;
 		if (previousStatus != null) {
-			if (this.status === 'loading' || previousStatus === 'idle') {
+			if (this.status === 'loading' || this.status === 'error' || previousStatus === 'idle') {
 				this.setOpenPane('findings');
 			} else if (this.status === 'idle') {
 				this.setOpenPane('commits');

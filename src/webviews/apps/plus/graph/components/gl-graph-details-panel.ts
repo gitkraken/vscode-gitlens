@@ -3628,7 +3628,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.dateStyle=${preferences?.dateStyle}
 				.modeStatusText=${this.computeModeStatusText()}
 				.inResultsView=${this.inModeResultsView}
-				?hide-branch-row=${activeMode === 'review'}
+				?hide-branch-row=${activeMode === 'review' && this._state.scope.get()?.type === 'wip'}
 				@toggle-mode=${this.handleToggleMode}
 				@ai-resolve-conflicts=${this.handleAiResolveConflicts}
 				@mode-back=${this.handleModeBack}

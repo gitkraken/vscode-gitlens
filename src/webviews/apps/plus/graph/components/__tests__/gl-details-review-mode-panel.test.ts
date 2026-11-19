@@ -19,6 +19,9 @@ type WillUpdateHarness = {
 	_errorAreas: Set<string>;
 	_sessionRevision: number;
 	_fileFindings?: unknown;
+	status?: GlDetailsReviewModePanel['status'];
+	_openPane?: 'commits' | 'findings';
+	setOpenPane?: (pane: 'commits' | 'findings' | undefined) => void;
 };
 
 const willUpdate: (this: WillUpdateHarness, changedProperties: Map<string, unknown>) => void = Reflect.get(
@@ -63,6 +66,33 @@ function makePanel(): WillUpdateHarness {
 	setResult(panel, twoPassResult);
 	return panel;
 }
+
+suite('GlDetailsReviewModePanel panes', () => {
+	const setOpenPane: (pane: 'commits' | 'findings' | undefined) => void = Reflect.get(
+		GlDetailsReviewModePanel.prototype,
+		'setOpenPane',
+	);
+
+	teardown(() => setOpenPane.call({}, 'commits'));
+
+	for (const [from, to, open] of [
+		['idle', 'loading', 'findings'],
+		['loading', 'error', 'findings'],
+		['loading', 'ready', 'commits'],
+		['ready', 'idle', 'commits'],
+	] as const) {
+		test(`${from} to ${to} leaves ${open} open when commits were`, () => {
+			const panel: WillUpdateHarness = {
+				...makePanel(),
+				status: to,
+				_openPane: 'commits',
+				setOpenPane: setOpenPane,
+			};
+			willUpdate.call(panel, new Map([['status', from]]));
+			assert.strictEqual(panel._openPane, open);
+		});
+	}
+});
 
 suite('GlDetailsReviewModePanel per-result state', () => {
 	test("the agent's first finding keeps the reader's state and an in-flight two-pass analysis", () => {
