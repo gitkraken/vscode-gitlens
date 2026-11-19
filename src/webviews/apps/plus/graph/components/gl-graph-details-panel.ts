@@ -132,7 +132,7 @@ import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import { getQueuedPullRequestSheetNumbers } from './queuedPullRequestRecheck.js';
-import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
+import type { ReviewFindingCounts } from './reviewSession.js';
 import {
 	countReviewFindingStates,
 	getReviewFileProgress,
@@ -140,6 +140,7 @@ import {
 	getReviewProgress,
 	getReviewReadingOrder,
 	getReviewThreadItems,
+	getStaleFindingIds,
 	withReviewComments,
 } from './reviewSession.js';
 import type {
@@ -216,9 +217,6 @@ function sheetKindsEqual(a: readonly SheetKind[], b: readonly SheetKind[]): bool
 
 const emptyModeExclusions: ReadonlySet<string> = new Set();
 
-/** Renders a mode-status counts snippet with leading icons — "🟢 1 commit · 📄 2 files".
- *  When `onResume` is provided, the whole snippet becomes a clickable "Resume" affordance
- *  prefixed with the verb and trailed with an arrow — replaces the old in-panel resume bar. */
 function formatModeCounts(primary: number, files: number, primaryLabel: 'commits' | 'findings', onResume?: () => void) {
 	const primaryText =
 		primaryLabel === 'commits'
@@ -233,7 +231,7 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 
 	if (onResume == null) return counts;
 
-	const resumeLabel = primaryLabel === 'commits' ? l10n.t('Resume Plan') : l10n.t('Resume Review');
+	const resumeLabel = l10n.t('Resume Plan');
 	return html`<button class="mode-status__resume" type="button" aria-label=${resumeLabel} @click=${onResume}>
 		<span class="mode-status__resume-verb">${resumeLabel}</span>
 		${counts}
@@ -241,18 +239,12 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 	</button>`;
 }
 
-/** "5/12 viewed · 3 findings open" — a review session's progress for the mode-status row. */
-function formatReviewProgress(progress: ReviewProgress, counts: ReviewFindingCounts, hasResult: boolean) {
-	const viewedText = l10n.t('{viewed}/{total} viewed', { viewed: progress.viewed, total: progress.total });
+function formatReviewFindingsOpen(counts: ReviewFindingCounts) {
 	const findingsText = formatPlural(
 		l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'),
 		{ count: counts.open },
 	);
-	return html`<span class="mode-status__group"><code-icon icon="checklist"></code-icon>${viewedText}</span> ${
-			hasResult
-				? html`<span class="mode-status__group"><code-icon icon="search"></code-icon>${findingsText}</span>`
-				: nothing
-		}`;
+	return html`<span class="mode-status__group"><code-icon icon="search"></code-icon>${findingsText}</span>`;
 }
 
 /** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
@@ -2475,13 +2467,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		result: unknown;
 		findingStates: unknown;
 		notes: unknown;
+		findingsContent: unknown;
+		files: unknown;
 		scope: unknown;
 		repoPath: unknown;
 		anchor: AnchorKey;
 	};
 
-	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
-	 *  when one of the inputs changed and clearing once the review is gone. */
 	private syncReviewThreads(): void {
 		if (this._actions == null) return;
 
@@ -2496,6 +2488,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		);
 		const findingStates = entry?.session?.findingStates;
 		const notes = entry?.session?.notes;
+		const findingsContent = entry?.findingsContent;
+		const files = this._actions.resources.scopeFiles.value.get();
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
 		const anchor = this.engagedAnchorKey;
@@ -2505,6 +2499,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced.result === result &&
 			synced.findingStates === findingStates &&
 			synced.notes === notes &&
+			synced.findingsContent === findingsContent &&
+			synced.files === files &&
 			synced.scope === scope &&
 			synced.repoPath === repoPath &&
 			synced.anchor === anchor
@@ -2525,6 +2521,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			result: result,
 			findingStates: findingStates,
 			notes: notes,
+			findingsContent: findingsContent,
+			files: files,
 			scope: scope,
 			repoPath: repoPath,
 			anchor: anchor,
@@ -2533,7 +2531,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			anchor: anchor,
 			repoPath: repoPath,
 			rhs: endpoints.rhs,
-			items: getReviewThreadItems(result, entry?.session),
+			items: getReviewThreadItems(result, entry?.session, getStaleFindingIds(result, findingsContent, files)),
 		};
 		this._actions.setReviewThreads(args);
 	}
@@ -2901,18 +2899,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats
-	 *  the visible string the WIP header (and commit / multi-commit panels) render — they
-	 *  shouldn't know mode semantics. Returns `undefined` outside a mode so the header skips
-	 *  the snippet entirely. Reads from existing signals only; no new IPC.
-	 *
-	 *  Priority order — generating > error > backed > complete > scope-idle:
-	 *  - generating: "Composing..." / "Reviewing..." / "Resolving..."
-	 *  - error:      "Error"
-	 *  - backed:     reuses the back-preview snapshot's counts
-	 *  - complete:   counts from the resolved resource value
-	 *  - idle:       scope file count ("N files")
-	 */
 	private computeModeStatusText(): string | ReturnType<typeof html> | undefined {
 		const mode = this._state.activeMode.get();
 		if (mode === 'resolve') {
@@ -2964,15 +2950,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				return formatModeCounts(commits.length, files, 'commits');
 			}
 		} else {
-			const preview = this._state.reviewBackPreview.get();
-			if (preview != null) {
-				return formatModeCounts(preview.findingCount, preview.fileCount, 'findings', () =>
-					this._workflow.review.forward(),
-				);
-			}
-
 			const value = this._actions?.resources?.review.value.get();
-			// Once the reader has a session, progress is the headline — the findings count rides along.
 			const session =
 				this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation.session : undefined;
 			const progress = getReviewProgress(session, this._actions?.resources?.scopeFiles.value.get());
@@ -2981,7 +2959,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					value != null && 'result' in value ? value.result : undefined,
 					session,
 				);
-				return formatReviewProgress(progress, countReviewFindingStates(result, session), result != null);
+				return result != null ? formatReviewFindingsOpen(countReviewFindingStates(result, session)) : undefined;
 			}
 
 			if (value != null && 'result' in value && value.result?.focusAreas) {
@@ -3650,6 +3628,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.dateStyle=${preferences?.dateStyle}
 				.modeStatusText=${this.computeModeStatusText()}
 				.inResultsView=${this.inModeResultsView}
+				?hide-branch-row=${activeMode === 'review'}
 				@toggle-mode=${this.handleToggleMode}
 				@ai-resolve-conflicts=${this.handleAiResolveConflicts}
 				@mode-back=${this.handleModeBack}
@@ -4242,9 +4221,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?isLinkedWorktree=${reviewIsLinkedWorktree}
 			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
+			.wip=${ctx === 'wip' ? wipForScope : undefined}
+			.pullRequest=${this._state.wipPullRequest.get()}
+			?pull-request-loading=${this._state.wipPullRequestLoading.get()}
+			.dateFormat=${this._state.preferences.get()?.dateFormat}
+			.dateStyle=${this._state.preferences.get()?.dateStyle}
 			.lastPrompt=${reviewEntry?.prompt}
 			.idleDraft=${reviewEntry?.idleDraft}
-			?forward-available=${this._state.reviewForwardAvailable.get()}
+			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
@@ -4310,7 +4294,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}}
 			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) =>
 				this.openReviewFile(e.detail.filePath, e.detail.line, e.detail.lineEnd)}
-			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@review-error-back=${() => this._workflow.review.backFromError()}
 			@review-error-retry=${() => {
 				const panel = this.findReviewModePanel();

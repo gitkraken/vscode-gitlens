@@ -273,13 +273,13 @@ test.describe('Review & Compose Sub-Panels', () => {
 		const reviewChip = graphWebview.locator('gl-action-chip[icon="checklist"]');
 		await reviewChip.click();
 
-		// Header should remain visible
 		const header = graphWebview.locator('gl-details-wip-header gl-details-header');
 		await expect(header).toBeVisible();
 
-		// Branch row should remain visible
-		const branchRow = header.locator('.graph-details-header__branch-row');
-		await expect(branchRow).toBeVisible();
+		await expect(header.locator('.graph-details-header__branch-row')).toHaveCount(0);
+		const commitsHeader = graphWebview.locator('gl-details-review-mode-panel .review-pane-header--commits');
+		await expect(commitsHeader).toBeVisible();
+		await expect(commitsHeader.locator('gl-branch-name').first()).toBeVisible();
 	});
 
 	test('sync actions are in the branch row, not the identity row', async () => {

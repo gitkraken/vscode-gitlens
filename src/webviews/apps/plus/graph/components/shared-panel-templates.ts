@@ -2,10 +2,13 @@ import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ref } from 'lit/directives/ref.js';
+import { getPullRequestDisplayStatus } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Preferences } from '../../../../plus/graph/detailsProtocol.js';
+import type { OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { MergedAutolinks } from '../../../shared/components/chips/autolinks.js';
 import { renderAutolinkChips, renderAutolinksPopover } from '../../../shared/components/chips/autolinks.js';
 import '../../../shared/components/chips/action-chip.js';
+import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import '../../../shared/components/button.js';
@@ -204,4 +207,44 @@ export function renderAutolinksStrip(state: AutolinksStripState): TemplateResult
 			}
 		</gl-chip-overflow>
 	</div>`;
+}
+
+export function renderBranchPullRequest(
+	pr: OverviewBranchPullRequest | undefined,
+	loading: boolean,
+	dateFormat: string | undefined,
+	dateStyle: string | undefined,
+): TemplateResult | typeof nothing {
+	if (pr == null) {
+		if (!loading) return nothing;
+
+		return html`<span
+			class="graph-details-header__pull-request graph-details-header__pull-request--loading"
+			aria-busy="true"
+		></span>`;
+	}
+
+	const { status, queueStatus } = getPullRequestDisplayStatus(pr);
+	return html`<gl-autolink-chip
+		class="graph-details-header__pull-request"
+		type="pr"
+		name=${pr.title}
+		url=${pr.url}
+		identifier="#${pr.number}"
+		status=${status === 'merged' || status === 'closed' || status === 'queued' ? status : 'opened'}
+		.queueStatus=${queueStatus}
+		date-label="updated"
+		.date=${pr.updatedDate}
+		.dateFormat=${dateFormat}
+		.dateStyle=${dateStyle}
+		.author=${pr.authorName}
+		?isDraft=${pr.draft ?? false}
+		.reviewDecision=${pr.reviewDecision}
+		.itemId=${pr.number}
+		.providerId=${pr.providerId}
+		.stack=${pr.stack}
+		details
+		details-on-click
+		openOnRemote
+	></gl-autolink-chip>`;
 }

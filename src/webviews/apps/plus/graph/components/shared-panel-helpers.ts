@@ -1,4 +1,5 @@
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { GlCommitsScopePane } from './gl-commits-scope-pane.js';
@@ -56,17 +57,37 @@ export function checkAllExclusion(
 	return next;
 }
 
-/** Clamp for the scope split divider: keeps the picker track within [15%, 70%] of the split, and
- *  caps it at the scope picker's intrinsic height so it can't expand beyond its content.
- *  `contentHeight` measures only the inner scroll pane; the `.scope-split__picker` wrapper adds
- *  padding + a border-bottom, so {@link getScopeSplitPickerChrome} is included — otherwise the
- *  fit-content track clamps short of the picker's true height, clipping its content / desyncing
- *  the divider. */
-export function scopeSplitSnap(scopeEl: GlCommitsScopePane | null | undefined, pos: number, size: number): number {
+export function scopeSplitSnap(
+	scopeEl: GlCommitsScopePane | null | undefined,
+	pos: number,
+	size: number,
+	headerHeight = 0,
+): number {
 	if (!scopeEl || size <= 0) return Math.max(15, Math.min(pos, 70));
 
-	const maxPercent = Math.min(70, ((scopeEl.contentHeight + getScopeSplitPickerChrome(scopeEl)) / size) * 100);
+	const maxPercent = Math.min(
+		70,
+		((scopeEl.contentHeight + getScopeSplitPickerChrome(scopeEl) + headerHeight) / size) * 100,
+	);
 	return Math.max(15, Math.min(pos, maxPercent));
+}
+
+export function getWipChangeCounts(wip: Wip): { added: number; modified: number; removed: number } {
+	if (wip.stats != null) {
+		return { added: wip.stats.added, modified: wip.stats.modified, removed: wip.stats.deleted };
+	}
+
+	const counts = { added: 0, modified: 0, removed: 0 };
+	for (const f of wip.changes?.files ?? []) {
+		if (f.status === 'A' || f.status === '?') {
+			counts.added++;
+		} else if (f.status === 'D') {
+			counts.removed++;
+		} else {
+			counts.modified++;
+		}
+	}
+	return counts;
 }
 
 /** Scope-picker selection IDs for a WIP scope — its include toggles + SHAs, bound back to the pane

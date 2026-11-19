@@ -98,16 +98,18 @@ export function getReviewProgress(
 	return progress;
 }
 
-/** The findings that can sit in a diff — those with a file and a line — as the editor's threads. */
 export function getReviewThreadItems(
 	result: AIReviewResult | undefined,
 	session: ReviewSession | undefined,
+	stale?: ReadonlySet<string>,
 ): ReviewThreadItem[] {
 	const items: ReviewThreadItem[] = [];
 	if (result == null) return items;
 
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
+			if (stale?.has(finding.id)) continue;
+
 			const notes = session?.notes.get(finding.id);
 			// One thread per place the finding holds — all of them the one finding's: same state, same notes
 			for (const [index, location] of getReviewFindingLocations(finding).entries()) {
@@ -286,13 +288,8 @@ export function getClosedFindingIds(session: ReviewSession | undefined): Readonl
 	return new Set(session.findingStates.keys());
 }
 
-/** What each AI finding was made against: by finding id, the content (see `ScopeFile.contentId`) of
- *  the files it points at when it came in. A finding whose file moved on since describes older code. */
 export type ReviewFindingsContent = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
-/** Records the files' current content for findings that just came in — a later report of a finding
- *  with the same id replaces what was recorded for it. The reader's own comments are not the AI's word
- *  on the code and are left out; so is a file with no content id. The same record when nothing is added. */
 export function withFindingsContent(
 	recorded: ReviewFindingsContent | undefined,
 	findings: readonly AIReviewFinding[] | undefined,
@@ -309,8 +306,6 @@ export function withFindingsContent(
 
 	let next: Map<string, ReadonlyMap<string, string>> | undefined;
 	for (const finding of findings) {
-		if (finding.source === 'user') continue;
-
 		const content = new Map<string, string>();
 		for (const location of getReviewFindingLocations(finding)) {
 			const contentId = current.get(location.filePath);
@@ -326,9 +321,22 @@ export function withFindingsContent(
 	return next ?? recorded;
 }
 
-/** Ids of the AI findings with a file that changed since the finding was made. As with viewed marks,
- *  an unknown side — nothing recorded, or no current content id (a file gone from the scope included)
- *  — leaves the finding as it was. */
+export function pickFindingsContent(
+	recorded: ReviewFindingsContent | undefined,
+	findingIds: Iterable<string>,
+): ReviewFindingsContent | undefined {
+	if (!recorded?.size) return undefined;
+
+	const picked = new Map<string, ReadonlyMap<string, string>>();
+	for (const id of findingIds) {
+		const content = recorded.get(id);
+		if (content != null) {
+			picked.set(id, content);
+		}
+	}
+	return picked.size ? picked : undefined;
+}
+
 export function getStaleFindingIds(
 	result: AIReviewResult | undefined,
 	recorded: ReviewFindingsContent | undefined,
@@ -340,8 +348,6 @@ export function getStaleFindingIds(
 	const current = new Map(files.map(f => [f.path, f.contentId]));
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
-			if (finding.source === 'user') continue;
-
 			for (const [path, contentId] of recorded.get(finding.id) ?? []) {
 				const now = current.get(path);
 				if (now != null && now !== contentId) {

@@ -26,7 +26,7 @@ import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import type { KeyMap, ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
-import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
+import type { DetailsItemTypedContext, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	DeepReviewAvailability,
@@ -35,7 +35,9 @@ import type {
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
+import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import type {
 	TreeItemAction,
 	TreeItemCheckedDetail,
@@ -45,6 +47,8 @@ import { renderOpenChangesAction } from '../../../shared/components/tree/file-tr
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { countIncludedFiles } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
+import type { ScopePresetKey } from './gl-commits-scope-pane.utils.js';
+import { getScopePresetCandidates, getScopePresets, isSameScopeSelection } from './gl-commits-scope-pane.utils.js';
 import {
 	panelActionInputStyles,
 	panelErrorStyles,
@@ -90,11 +94,12 @@ import {
 	isReviewComplete,
 	userFocusAreaId,
 } from './reviewSession.js';
-import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
-import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
+import { getWipChangeCounts, scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
+import { renderBranchPullRequest, renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
+import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/commit-sha.js';
@@ -103,7 +108,9 @@ import '../../../shared/components/gl-ai-model-chip.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
+import '../../../shared/components/pills/tracking-status.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
+import '@gitlens/components/components/wipStats.js';
 import './gl-categorizing-loading-animation.js';
 import './gl-commits-scope-pane.js';
 
@@ -266,8 +273,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	reading?: { active?: string };
 
-	/** The content the AI findings were made against, from the registry entry — to mark the ones whose
-	 *  file has changed since. */
 	@property({ attribute: false })
 	findingsContent?: ReviewFindingsContent;
 
@@ -344,13 +349,21 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
-	/** Pushed by the orchestrator from the engaged review entry's `prompt` field (set when the
-	 *  run was dispatched). Seeds the AI input on every idle re-render — both on success → Restart
-	 *  (`back()`) and on error → Go Back (`backFromError()`) — so the user can tweak rather than
-	 *  retype. Per-anchor: each commit/WIP row remembers its own run's prompt across mode toggles
-	 *  and anchor switches because it rides on the registry entry. Re-mounting `gl-ai-input` (via
-	 *  the `keyed` directive in `renderIdleState`) is what triggers the seed: `gl-ai-input.value`
-	 *  is one-shot in `firstUpdated`. */
+	@property({ attribute: false })
+	wip?: Wip;
+
+	@property({ attribute: false })
+	pullRequest?: OverviewBranchPullRequest;
+
+	@property({ type: Boolean, attribute: 'pull-request-loading' })
+	pullRequestLoading = false;
+
+	@property()
+	dateFormat?: string;
+
+	@property()
+	dateStyle?: string;
+
 	@property()
 	lastPrompt?: string;
 
@@ -377,15 +390,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
-
-	/**
-	 * Pushed by the orchestrator from `state.reviewForwardAvailable`. True after the user clicked
-	 * Back on a successfully-resolved review — the orchestrator holds a snapshot of that result
-	 * behind the header's Resume snippet. The panel's only job is to emit
-	 * `review-forward-invalidate` when the user edits the idle inputs.
-	 */
-	@property({ type: Boolean, attribute: 'forward-available', reflect: true })
-	forwardAvailable = false;
 
 	/**
 	 * Returns the scope picker's currently-selected IDs (within this panel's shadow root).
@@ -441,6 +445,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		if (changedProperties.has('files')) {
 			this._selectedFiles = [];
+		}
+
+		const previousStatus = changedProperties.get('status') as GlDetailsReviewModePanel['status'] | undefined;
+		if (previousStatus != null) {
+			if (this.status === 'loading' || previousStatus === 'idle') {
+				this.setOpenPane('findings');
+			} else if (this.status === 'idle') {
+				this.setOpenPane('commits');
+			}
 		}
 
 		// Per-result derived state (expand/dismiss/load/error sets) is keyed by area + finding
@@ -502,18 +515,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private renderContent() {
 		if (this.status === 'idle') {
-			return this.renderIdleState();
+			const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
+			if (!scope) return nothing;
+
+			return html`${this.renderPanes()}${this.renderDeepReviewStrip()}
+			${this.renderReviewInput(this.getEffectiveFileCount() > 0)}`;
 		}
 
 		if (this.status === 'loading') {
-			return html`${this.renderWithChecklist(this.renderLoadingWithCancel(), l10n.t('Reviewing the diff…'))}${this.renderDeepReviewStrip()}`;
+			const model = this.aiModel?.name;
+			return html`${this.renderPanes(
+				this.renderLoadingWithCancel(),
+				model != null ? l10n.t('Reviewing with {model}...', { model: model }) : l10n.t('Reviewing the diff…'),
+			)}${this.renderDeepReviewStrip()}`;
 		}
 
 		if (this.status === 'error') {
-			// A failed run takes nothing of the reader's with it: their comments stay below the error, as
-			// they show in a review, and Go Back brings the rest back
 			const comments = this.result?.focusAreas.find(a => a.id === userFocusAreaId);
-			return html`${this.renderWithChecklist(
+			return html`${this.renderPanes(
 				html`${renderErrorState(
 					this.errorMessage,
 					l10n.t('An error occurred during review.'),
@@ -531,15 +550,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		if (this.status !== 'ready' || !this.result) return nothing;
 
-		// The back arrow is the main header's close button in this sub-state (see
-		// `gl-details-header.inResultsView`). The Copy + Send-to-chat actions live in an always-visible
-		// footer beneath the scrollable results so they stay reachable regardless of scroll position.
 		const open = countReviewFindingStates(this.result, this.session).open;
 		let description = formatPlural(
 			l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'),
 			{ count: open },
 		);
-		// Findings that came in on files already read put those back in the queue — say so where they land
 		const { requeued } = getReviewProgress(this.session, this.files);
 		if (requeued > 0) {
 			description += ` · ${formatPlural(
@@ -549,43 +564,220 @@ export class GlDetailsReviewModePanel extends LitElement {
 				{ count: requeued },
 			)}`;
 		}
-		return html`${this.renderWithChecklist(
+		return html`${this.renderPanes(
 			html`<div class="review-results scrollable">${this.renderOverview()} ${this.renderFocusAreas()}</div>`,
 			description,
 		)}${this.renderDeepReviewStrip()}${this.renderReadyActions()}${this.renderReviewInput()}`;
 	}
 
-	/** Which of the two panes below are folded to their headers — kept across remounts of the panel, the
-	 *  way VS Code keeps a view's collapsed sections */
-	private static readonly collapsedPanes = { files: false, findings: false };
-	@state() private _filesCollapsed = GlDetailsReviewModePanel.collapsedPanes.files;
-	@state() private _findingsCollapsed = GlDetailsReviewModePanel.collapsedPanes.findings;
+	private static readonly paneState: { open: 'commits' | 'findings' | undefined; filesCollapsed: boolean } = {
+		open: 'commits',
+		filesCollapsed: false,
+	};
+	@state() private _openPane = GlDetailsReviewModePanel.paneState.open;
+	@state() private _filesCollapsed = GlDetailsReviewModePanel.paneState.filesCollapsed;
 
-	private togglePane(pane: 'files' | 'findings'): void {
+	private get hasCommitsPane(): boolean {
+		return this.scope?.type === 'wip';
+	}
+
+	private get hasFindingsPane(): boolean {
+		return this.status !== 'idle';
+	}
+
+	private get openPane(): 'commits' | 'findings' | undefined {
+		const open = this._openPane;
+		if (open === 'commits' && !this.hasCommitsPane) return this.hasFindingsPane ? 'findings' : undefined;
+		if (open === 'findings' && !this.hasFindingsPane) return this.hasCommitsPane ? 'commits' : undefined;
+
+		return open;
+	}
+
+	private setOpenPane(pane: 'commits' | 'findings' | undefined): void {
+		this._openPane = pane;
+		GlDetailsReviewModePanel.paneState.open = pane;
+	}
+
+	private togglePane(pane: 'commits' | 'files' | 'findings'): void {
 		if (pane === 'files') {
 			this._filesCollapsed = !this._filesCollapsed;
-			GlDetailsReviewModePanel.collapsedPanes.files = this._filesCollapsed;
-		} else {
-			this._findingsCollapsed = !this._findingsCollapsed;
-			GlDetailsReviewModePanel.collapsedPanes.findings = this._findingsCollapsed;
+			GlDetailsReviewModePanel.paneState.filesCollapsed = this._filesCollapsed;
+			return;
+		}
+
+		this.setOpenPane(this.openPane === pane ? undefined : pane);
+	}
+
+	private renderCommitsHeader(open: boolean) {
+		const branch = this.wip?.branch;
+		const counts = this.wip != null ? getWipChangeCounts(this.wip) : undefined;
+		return html`<div
+			class="review-pane-header review-pane-header--commits"
+			@click=${() => this.togglePane('commits')}
+		>
+			<button
+				class="review-pane-header__toggle"
+				aria-expanded=${open ? 'true' : 'false'}
+				aria-label=${open ? l10n.t('Collapse Commits') : l10n.t('Expand Commits')}
+				@click=${(e: Event) => {
+					e.stopPropagation();
+					this.togglePane('commits');
+				}}
+			>
+				<code-icon icon=${open ? 'chevron-down' : 'chevron-right'}></code-icon>
+			</button>
+			<div class="review-branch">
+				${
+					branch?.name
+						? html`<gl-tooltip placement="bottom"
+								><gl-branch-name class="review-branch__name" .name=${branch.name}></gl-branch-name
+								><span slot="content"><gl-branch-name .name=${branch.name}></gl-branch-name></span
+							></gl-tooltip>`
+						: nothing
+				}
+				${
+					counts != null
+						? html`<gl-wip-stats
+								.added=${counts.added}
+								.modified=${counts.modified}
+								.removed=${counts.removed}
+								show-clean
+							></gl-wip-stats>`
+						: nothing
+				}
+				${
+					branch != null
+						? html`<gl-tracking-status
+									.branchName=${branch.name}
+									.upstreamName=${branch.upstream?.name}
+									.missingUpstream=${branch.upstream?.missing ?? false}
+									.ahead=${branch.tracking?.ahead ?? 0}
+									.behind=${branch.tracking?.behind ?? 0}
+									colorized
+									outlined
+								></gl-tracking-status
+								><span class="review-branch__pull-request" @click=${(e: Event) => e.stopPropagation()}
+									>${renderBranchPullRequest(
+										this.pullRequest,
+										this.pullRequestLoading,
+										this.dateFormat,
+										this.dateStyle,
+									)}</span
+								>`
+						: nothing
+				}
+			</div>
+			${this.renderScope(open)}
+		</div>`;
+	}
+
+	private renderScope(open: boolean) {
+		const items = this.scopeItems ?? [];
+		const selected = this.scopeSelectionIds() ?? [];
+		if (!open) {
+			const summary = this.getScopeSummary(items, selected);
+			if (summary == null) return nothing;
+
+			return html`<span class="review-scope">
+				<span class="review-scope__label">${l10n.t('Scope:')}</span>
+				<span class="review-scope__summary">${summary}</span>
+			</span>`;
+		}
+
+		const presets = getScopePresets(items);
+		if (!presets.length) return nothing;
+
+		return html`<span
+			class="review-scope"
+			role="group"
+			aria-label=${l10n.t('Review scope')}
+			@click=${(e: Event) => e.stopPropagation()}
+		>
+			<span class="review-scope__label">${l10n.t('Scope:')}</span>
+			${presets.map(preset => {
+				const { label, description, icon } = this.getScopePresetInfo(preset.key);
+				return html`<gl-tooltip placement="bottom">
+					<button
+						type="button"
+						class="scope-preset"
+						aria-label=${label}
+						aria-pressed=${isSameScopeSelection(preset.ids, selected) ? 'true' : 'false'}
+						?disabled=${this.status === 'loading'}
+						@click=${() => this.selectScopePreset(preset.ids)}
+					>
+						<code-icon icon=${icon}></code-icon>
+					</button>
+					<span slot="content"><strong>${label}</strong><br />${description}</span>
+				</gl-tooltip>`;
+			})}
+		</span>`;
+	}
+
+	private getScopePresetInfo(key: ScopePresetKey): { label: string; description: string; icon: string } {
+		switch (key) {
+			case 'uncommitted':
+				return {
+					label: l10n.t('Uncommitted'),
+					description: l10n.t('Review the uncommitted changes'),
+					icon: 'issue-draft',
+				};
+			case 'unpushed':
+				return {
+					label: l10n.t('Unpushed'),
+					description: l10n.t('Review the uncommitted changes and the commits not pushed yet'),
+					icon: 'arrow-up',
+				};
+			case 'branch':
+				return {
+					label: l10n.t('Branch'),
+					description: l10n.t(
+						'Review the whole branch: every commit since it split off from its merge target, and the uncommitted changes',
+					),
+					icon: 'git-branch',
+				};
 		}
 	}
 
-	/** The Findings pane's header: folds the pane like the checklist's, and carries what acts on all the
-	 *  findings at once. */
+	private getScopeSummary(items: readonly ScopeItem[], selected: readonly string[]): string | undefined {
+		if (!selected.length) return undefined;
+
+		const uncommitted = selected.filter(id => id === 'unstaged' || id === 'staged');
+		const commits = selected.length - uncommitted.length;
+		const preset = getScopePresetCandidates(items).find(p => isSameScopeSelection(p.ids, selected));
+		if (preset != null) {
+			const { label } = this.getScopePresetInfo(preset.key);
+			if (commits === 0) return label;
+
+			return formatPlural(l10n.t('{preset} · {count, plural, one{{count} commit} other{{count} commits}}'), {
+				preset: label,
+				count: commits,
+			});
+		}
+
+		if (commits === 0) return items.find(i => i.id === uncommitted[0])?.label;
+
+		return uncommitted.length
+			? formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}} + uncommitted'), {
+					count: commits,
+				})
+			: formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), {
+					count: commits,
+				});
+	}
+
 	private renderFindingsHeader(description?: string) {
-		const collapsed = this._findingsCollapsed;
+		const open = this.openPane === 'findings';
 		return html`<div class="review-pane-header" @click=${() => this.togglePane('findings')}>
 			<button
 				class="review-pane-header__toggle"
-				aria-expanded=${collapsed ? 'false' : 'true'}
-				aria-label=${collapsed ? l10n.t('Expand Findings') : l10n.t('Collapse Findings')}
+				aria-expanded=${open ? 'true' : 'false'}
+				aria-label=${open ? l10n.t('Collapse Findings') : l10n.t('Expand Findings')}
 				@click=${(e: Event) => {
 					e.stopPropagation();
 					this.togglePane('findings');
 				}}
 			>
-				<code-icon icon=${collapsed ? 'chevron-right' : 'chevron-down'}></code-icon>
+				<code-icon icon=${open ? 'chevron-down' : 'chevron-right'}></code-icon>
 			</button>
 			<span class="review-pane-header__title">${l10n.t('Findings')}</span>
 			${description ? html`<span class="review-pane-header__description">${description}</span>` : nothing}
@@ -593,8 +785,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	/** What acts on all the findings at once, as icons: to the agent, to the clipboard, and — while there are
-	 *  AI or agent findings — away. The same as the actions above the instructions box. */
 	private renderFindingsHeaderActions(result: AIReviewResult) {
 		return html`<span class="review-pane-header__actions" @click=${(e: Event) => e.stopPropagation()}>
 			<gl-button
@@ -633,16 +823,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</span>`;
 	}
 
-	/** The reader's checklist stays up while the AI runs and after it answers — the findings are one
-	 *  lens on the changeset, not a screen that replaces it. Each half is a pane that folds to its header,
-	 *  as views do in VS Code: the other takes the height, and the divider rests until both are open.
-	 *  Folding only hides a pane's body, so the tree keeps its folders and the findings their scroll. */
-	private renderWithChecklist(aiContent: TemplateResult, findingsDescription?: string) {
-		const files = this._filesCollapsed;
-		const findings = this._findingsCollapsed;
-		const folded = files && findings ? 'both' : files ? 'files' : findings ? 'findings' : undefined;
+	private renderPanes(findingsContent?: TemplateResult, findingsDescription?: string) {
+		const open = this.openPane;
+		const filesOpen = !this._filesCollapsed;
+		const findingsOpen = open === 'findings';
+		const folded =
+			!filesOpen && !findingsOpen ? 'both' : !filesOpen ? 'files' : !findingsOpen ? 'findings' : undefined;
 		const progress = getReviewProgress(this.session, this.files);
-		return html`<gl-split-panel
+		const panes = html`<gl-split-panel
 			orientation="vertical"
 			class="review-split${folded != null ? ` review-split--folded review-split--folded-${folded}` : ''}"
 			position="40"
@@ -650,14 +838,45 @@ export class GlDetailsReviewModePanel extends LitElement {
 		>
 			<div slot="start" class="review-split__files">
 				${this.renderChecklistHeader(progress)}
-				<div class="scope-files review-split__body" ?hidden=${files}>
+				<div class="scope-files review-split__body" ?hidden=${!filesOpen}>
 					${this.renderFileCuration(undefined, true)}
 				</div>
 			</div>
 			<div slot="end" class="review-split__ai">
-				${this.renderFindingsHeader(findingsDescription)}
-				<div class="review-split__body" ?hidden=${findings}>${aiContent}</div>
+				${
+					findingsContent != null
+						? html`${this.renderFindingsHeader(findingsDescription)}
+								<div class="review-split__body" ?hidden=${!findingsOpen}>${findingsContent}</div>`
+						: nothing
+				}
 			</div>
+		</gl-split-panel>`;
+		if (!this.hasCommitsPane) return panes;
+
+		const commitsOpen = open === 'commits';
+		const commitsFolded = !commitsOpen ? 'commits' : folded === 'both' ? 'rest' : undefined;
+		return html`<gl-split-panel
+			orientation="vertical"
+			primary="start"
+			class="scope-split review-scope-split${
+				commitsFolded != null ? ` review-scope-split--folded review-scope-split--folded-${commitsFolded}` : ''
+			}"
+			position="40"
+			.snap=${this._scopeSplitSnap}
+			?disabled=${commitsFolded != null}
+		>
+			<div slot="start" class="review-commits">
+				${this.renderCommitsHeader(commitsOpen)}
+				<div class="scope-split__picker" ?hidden=${!commitsOpen} ?inert=${this.status === 'loading'}>
+					<gl-commits-scope-pane
+						.items=${this.scopeItems}
+						.selection=${this.scopeSelectionIds()}
+						?loading=${this.scopeLoading}
+						mode="review"
+					></gl-commits-scope-pane>
+				</div>
+			</div>
+			<div slot="end" class="review-scope-split__rest">${panes}</div>
 		</gl-split-panel>`;
 	}
 
@@ -939,46 +1158,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 				});
 	}
 
-	private renderIdleState() {
-		// Fallback: compute scope from files if not provided
-		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
-		if (!scope) return nothing;
-
-		// Disable Review Diff when there are no effectively-included files (after both user
-		// exclusions and AI-ignored exclusions). Stale exclusions are pruned in willUpdate.
-		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
-
-		return html`
-			${
-				scope.type === 'wip'
-					? html`<gl-split-panel
-							orientation="vertical"
-							primary="start"
-							class="scope-split"
-							position="40"
-							.snap=${this._scopeSplitSnap}
-						>
-							<div slot="start" class="scope-split__picker">
-								${this.renderScopePresets()}
-								<gl-commits-scope-pane
-									.items=${this.scopeItems}
-									.selection=${this.scopeSelectionIds()}
-									?loading=${this.scopeLoading}
-									mode="review"
-								></gl-commits-scope-pane>
-							</div>
-							<div slot="end" class="scope-split__files">
-								<div class="scope-files">${this.renderFileCuration()}</div>
-							</div>
-						</gl-split-panel>`
-					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
-			}
-			${this.renderDeepReviewStrip()} ${this.renderReviewInput(hasSelectedFiles)}
-		`;
-	}
-
-	/** The instructions box with its depths — Review Diff, Orient, Review in Repo — the same before a run and
-	 *  alongside its findings, so a review can be run again, re-planned or handed to the agent from either. */
 	private renderReviewInput(hasSelectedFiles = this.getEffectiveFileCount() > 0) {
 		return this.aiEnabled
 			? html`<div class="review-input-row">
@@ -995,7 +1174,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 							placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
 							.value=${this.idleDraft ?? this.lastPrompt}
 							?disabled=${!hasSelectedFiles}
-							@input=${this.onAiInputType}
 						>
 							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 							<gl-button
@@ -1402,13 +1580,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private handleDiscard = (): void => {
 		this.dispatchEvent(new CustomEvent('review-discard', { bubbles: true, composed: true }));
-	};
-
-	private onAiInputType = (): void => {
-		// User started typing a new prompt — invalidate the forward chip.
-		if (this.forwardAvailable) {
-			this.dispatchEvent(new CustomEvent('review-forward-invalidate', { bubbles: true, composed: true }));
-		}
 	};
 
 	/** Each plan group's own layout — the groups' toggles are independent, starting from the checklist's
@@ -1972,12 +2143,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 		);
 	}
 
-	private invalidateForward(): void {
-		if (this.forwardAvailable) {
-			this.dispatchEvent(new CustomEvent('review-forward-invalidate', { bubbles: true, composed: true }));
-		}
-	}
-
 	/** Opens the idle curation scope's change set as a multi-diff (via `scope-open-multi-diff`). */
 	private onOpenScopeMultiDiff = (files: readonly GitFileChangeShape[]): void => {
 		if (!files.length) return;
@@ -1991,75 +2156,21 @@ export class GlDetailsReviewModePanel extends LitElement {
 		);
 	};
 
-	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
-		return scopeSplitSnap(this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane'), pos, size);
+	private _scopeSplitSnap: GlSplitPanelSnapFunction = ({ pos, size, source }) => {
+		if (source === 'layout' || this.openPane !== 'commits') return Math.max(15, Math.min(pos, 70));
+
+		return scopeSplitSnap(
+			this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane'),
+			pos,
+			size,
+			this.renderRoot.querySelector<HTMLElement>('.review-pane-header--commits')?.offsetHeight,
+		);
 	};
 
 	private scopeSelectionIds(): readonly string[] | undefined {
 		return wipScopeSelectionIds(this.scope);
 	}
 
-	private renderScopePresets() {
-		const items = this.scopeItems ?? [];
-		const ids = (rows: readonly ScopeItem[]) => rows.map(i => i.id);
-		const uncommitted = ids(items.filter(i => i.state === 'uncommitted'));
-		const firstPushed = items.findIndex(i => i.state !== 'uncommitted' && i.state !== 'unpushed');
-		const unpushed = ids(
-			(firstPushed < 0 ? items : items.slice(0, firstPushed)).filter(i => i.state !== 'load-more'),
-		);
-		const isMergeBase = (i: ScopeItem) => i.state === 'merge-base' || i.mergeBase === true;
-		const end = items.findIndex(i => i.state === 'load-more' || isMergeBase(i));
-		const branch = items.some(isMergeBase) ? ids(items.slice(0, end)) : [];
-
-		const same = (a: readonly string[], b: readonly string[]) =>
-			a.length === b.length && a.every((id, i) => id === b[i]);
-		const presets: { label: string; tooltip: string; ids: string[] }[] = [];
-		if (uncommitted.length > 0) {
-			presets.push({
-				label: l10n.t('Uncommitted'),
-				tooltip: l10n.t('Review the uncommitted changes'),
-				ids: uncommitted,
-			});
-		}
-		if (unpushed.length > 0 && !same(unpushed, uncommitted) && !same(unpushed, branch)) {
-			presets.push({
-				label: l10n.t('Unpushed'),
-				tooltip: l10n.t('Review the uncommitted changes and the commits not pushed yet'),
-				ids: unpushed,
-			});
-		}
-		if (branch.length > 0 && !same(branch, uncommitted)) {
-			presets.push({
-				label: l10n.t('Branch'),
-				tooltip: l10n.t(
-					'Review the whole branch: every commit since it split off from its merge target, and the uncommitted changes',
-				),
-				ids: branch,
-			});
-		}
-		if (!presets.length) return nothing;
-		if (presets.length === 1 && same(presets[0].ids, ids(items.filter(i => i.state !== 'merge-base')))) {
-			return nothing;
-		}
-
-		const selected = this.scopeSelectionIds() ?? [];
-		return html`<div class="scope-presets" role="group" aria-label=${l10n.t('Review scope')}>
-			${presets.map(
-				preset => html`<gl-tooltip content=${preset.tooltip}>
-					<button
-						type="button"
-						class="scope-preset"
-						aria-pressed=${same(preset.ids, selected) ? 'true' : 'false'}
-						@click=${() => this.selectScopePreset(preset.ids)}
-					>
-						${preset.label}
-					</button>
-				</gl-tooltip>`,
-			)}
-		</div>`;
-	}
-
-	/** Takes a preset the way the picker's handles take a range — the details panel builds the scope from it. */
 	private selectScopePreset(selectedIds: string[]): void {
 		this.dispatchEvent(
 			new CustomEvent<{ selectedIds: string[] }>('scope-change', {

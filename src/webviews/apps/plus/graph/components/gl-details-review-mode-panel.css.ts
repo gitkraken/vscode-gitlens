@@ -486,19 +486,146 @@ export const reviewModePanelStyles = css`
 		color: var(--gl-color-feedback-danger-quiet-fg);
 	}
 
-	/* One-click scopes over the scope picker */
-	.scope-presets {
+	.review-scope-split {
+		--review-pane-title-inset: calc(var(--gl-space-2) + 16px + var(--gl-space-4));
+	}
+
+	.review-commits,
+	.review-scope-split__rest {
 		display: flex;
-		flex: none;
-		flex-wrap: wrap;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.review-commits .scope-split__picker {
+		flex: 1;
+		height: auto;
+		min-height: 0;
+	}
+
+	.review-commits .scope-split__picker[hidden] {
+		display: none;
+	}
+
+	.review-commits .scope-split__picker[inert] {
+		opacity: 0.6;
+	}
+
+	.review-scope-split--folded {
+		--gl-split-panel-divider-width: 0px;
+	}
+
+	.review-scope-split--folded::part(divider) {
+		visibility: hidden;
+	}
+
+	.review-scope-split--folded-commits {
+		grid-template-rows: auto 0 minmax(0, 1fr);
+	}
+
+	.review-scope-split--folded-rest {
+		grid-template-rows: minmax(0, 1fr) 0 auto;
+	}
+
+	.review-scope-split--folded-commits .review-commits,
+	.review-scope-split--folded-rest .review-scope-split__rest {
+		height: auto;
+	}
+
+	.review-pane-header--commits {
+		gap: var(--gl-space-6);
+		height: auto;
+		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
+		padding-block: 0.2rem;
+		font-size: var(--gl-font-base);
+		font-weight: 400;
+		color: var(--vscode-foreground);
+		text-transform: none;
+		background-color: var(--gl-metadata-bar-bg);
+		border-top-color: var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
+	}
+
+	.review-branch {
+		display: flex;
+		flex: 1 1 auto;
+		gap: var(--gl-space-6);
+		align-items: center;
+		min-width: 0;
+		min-height: 2.4rem;
+		--commit-stats-pill-line-height: 2rem;
+		--gl-pill-line-height: 2rem;
+		--gl-pill-min-height: 2rem;
+		--gl-pill-padding: 0 0.6rem;
+		--gl-pill-font-size: 1.1rem;
+		--gl-pill-border-radius: var(--gl-radius-sm);
+	}
+
+	.review-branch > gl-tooltip {
+		display: flex;
+		flex: 0 1 auto;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.review-branch__name {
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 20rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
+		font-size: var(--gl-font-base);
+		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-branch__pull-request {
+		display: inline-flex;
+		flex: 0 1 auto;
+		min-width: 0;
+		cursor: default;
+	}
+
+	.graph-details-header__pull-request {
+		flex: 0 1 auto;
+		min-width: 0;
+	}
+
+	.graph-details-header__pull-request--loading {
+		display: inline-flex;
+		min-width: 3.9rem;
+		min-height: 2.4rem;
+	}
+
+	.review-scope {
+		display: inline-flex;
+		flex: 0 1 auto;
 		gap: var(--gl-space-4);
-		margin-bottom: var(--gl-space-6);
+		align-items: center;
+		min-width: 0;
+		margin-left: auto;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		cursor: default;
+	}
+
+	.review-scope__label {
+		flex: none;
+	}
+
+	.review-scope__summary {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--vscode-foreground);
+		white-space: nowrap;
 	}
 
 	.scope-preset {
-		padding: var(--gl-space-2) var(--gl-space-6);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font: inherit;
-		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		appearance: none;
 		cursor: pointer;
@@ -507,12 +634,17 @@ export const reviewModePanelStyles = css`
 		border-radius: var(--gl-radius-sm);
 	}
 
-	.scope-preset:hover {
+	.scope-preset:disabled {
+		cursor: default;
+		opacity: 0.5;
+	}
+
+	.scope-preset:not(:disabled):hover {
 		color: var(--vscode-foreground);
 		background: var(--gl-color-action-quiet-bg-hover);
 	}
 
-	/* High-contrast hover cue; toolbar.hoverOutline is unset outside HC. Not while focused, so the focus ring wins */
+	/* KEEP: not while focused, so the focus ring wins over the high-contrast hover outline */
 	.scope-preset:not(:disabled, :focus-visible):hover {
 		outline: var(--gl-border-width) dashed var(--gl-color-action-quiet-outline-hover);
 		outline-offset: -1px;

@@ -132,3 +132,51 @@ export function rangeMovedWithRows(
 
 	return prevItems.length !== items.length || prevItems.some((item, i) => item.id !== items[i].id);
 }
+
+export type ScopePresetKey = 'uncommitted' | 'unpushed' | 'branch';
+export type ScopePreset = { key: ScopePresetKey; ids: string[] };
+
+export function isSameScopeSelection(a: readonly string[], b: readonly string[]): boolean {
+	return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+export function getScopePresetCandidates(items: readonly ScopeItem[]): ScopePreset[] {
+	const ids = (rows: readonly ScopeItem[]) => rows.map(i => i.id);
+	const uncommitted = ids(items.filter(i => i.state === 'uncommitted'));
+	const firstPushed = items.findIndex(i => i.state !== 'uncommitted' && i.state !== 'unpushed');
+	const unpushed = ids((firstPushed < 0 ? items : items.slice(0, firstPushed)).filter(i => i.state !== 'load-more'));
+	const isMergeBase = (i: ScopeItem) => i.state === 'merge-base' || i.mergeBase === true;
+	const end = items.findIndex(i => i.state === 'load-more' || isMergeBase(i));
+	const branch = items.some(isMergeBase) ? ids(items.slice(0, end)) : [];
+
+	const presets: ScopePreset[] = [];
+	if (uncommitted.length > 0) {
+		presets.push({ key: 'uncommitted', ids: uncommitted });
+	}
+	if (
+		unpushed.length > 0 &&
+		!isSameScopeSelection(unpushed, uncommitted) &&
+		!isSameScopeSelection(unpushed, branch)
+	) {
+		presets.push({ key: 'unpushed', ids: unpushed });
+	}
+	if (branch.length > 0 && !isSameScopeSelection(branch, uncommitted)) {
+		presets.push({ key: 'branch', ids: branch });
+	}
+	return presets;
+}
+
+export function getScopePresets(items: readonly ScopeItem[]): ScopePreset[] {
+	const presets = getScopePresetCandidates(items);
+	if (
+		presets.length === 1 &&
+		isSameScopeSelection(
+			presets[0].ids,
+			items.filter(i => i.state !== 'merge-base').map(i => i.id),
+		)
+	) {
+		return [];
+	}
+
+	return presets;
+}

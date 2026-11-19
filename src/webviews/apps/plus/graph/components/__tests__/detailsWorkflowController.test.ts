@@ -719,7 +719,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
-	test('the entry records the content findings were made against: a run starts it over, the agent adds to it, discard drops it', async () => {
+	test('the entry records the content findings were made against: a run starts it over, the agent and the reader add to it, discard drops all but the reader’s', async () => {
 		const host = new FakeHost({
 			repoPath: '/A',
 			graphRepoPath: '/A',
@@ -807,9 +807,37 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual([...(entry?.findingsContent?.get(one) ?? [])], [['src/a.ts', 'a1']]);
 		assert.deepStrictEqual([...(entry?.findingsContent?.get(idOf('agent')!) ?? [])], [['src/a.ts', 'a2']]);
 
+		controller.review.applyThreadActions({
+			anchor: wipKey('/A'),
+			actions: [
+				{
+					seq: 1,
+					findingId: 'user-1',
+					action: 'comment',
+					text: 'why here?',
+					place: { path: 'src/b.ts', line: 2, lineEnd: 3 },
+				},
+			],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual([...(entry?.findingsContent?.get('user-1') ?? [])], [['src/b.ts', 'b1']]);
+
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(
+			[...(entry?.findingsContent?.get('user-1') ?? [])],
+			[['src/b.ts', 'b1']],
+			"the reader's comment keeps its record through a new run",
+		);
+
 		controller.review.discard();
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.findingsContent, undefined, 'the record goes with the findings');
+		assert.deepStrictEqual(
+			[...(entry?.findingsContent?.keys() ?? [])],
+			['user-1'],
+			"the record goes with the findings; the reader's comment keeps its own",
+		);
 	});
 
 	test('reading updates from the host land on the entry: the active file, and editor-made marks applied once', () => {
@@ -3325,7 +3353,7 @@ suite('DetailsWorkflowController — Close preserves AI work', () => {
 			assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.idleDraft, '');
 		});
 
-		test(`${kind}: error Close preserves the prior result for Go Back and Resume`, () => {
+		test(`${kind}: error Close preserves the prior result for Go Back`, () => {
 			const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
 			const reviewPrior = makeReviewResult('prior');
@@ -3355,8 +3383,44 @@ suite('DetailsWorkflowController — Close preserves AI work', () => {
 				assert.deepStrictEqual(state.composeLastCommitAllIncludedIds.get(), ['included']);
 			}
 			controller[kind].backFromError();
-			assert.strictEqual(controller[kind].forward(), true);
-			assert.strictEqual(actions.resources[kind].value.get(), kind === 'review' ? reviewPrior : composePrior);
+			if (kind === 'review') {
+				assert.strictEqual(actions.resources.review.value.get(), reviewPrior, 'the findings are back at once');
+				assert.strictEqual(
+					host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.execState,
+					'complete',
+				);
+				assert.strictEqual(controller.review.forward(), false, 'nothing is held back to resume');
+				assert.strictEqual(state.reviewForwardAvailable.get(), false);
+			} else {
+				assert.strictEqual(controller.compose.forward(), true);
+				assert.strictEqual(actions.resources.compose.value.get(), composePrior);
+			}
+		});
+
+		test(`${kind}: Go Back from a first failed run leaves nothing to resume`, () => {
+			const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			host.crossPaneState.runningOperations.set(
+				new Map([
+					[
+						wipKey('/A'),
+						kind === 'review'
+							? makeReviewBucket('/A', { error: { message: 'failed' } }, 'error', 'retry me')
+							: makeComposeBucket('/A', { error: { message: 'failed' } }, 'error', 'retry me'),
+					],
+				]),
+			);
+			controller.toggleMode(kind, selection);
+			controller[kind].backFromError();
+			const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind];
+			assert.strictEqual(entry?.execState, 'backed');
+			assert.strictEqual(entry?.result, undefined);
+			assert.strictEqual(entry?.prompt, 'retry me');
+			assert.strictEqual(controller[kind].forward(), false);
+			assert.strictEqual(
+				kind === 'review' ? state.reviewForwardAvailable.get() : state.composeForwardAvailable.get(),
+				false,
+			);
 		});
 
 		test(`${kind}: closing a backed result cannot expose its Resume on another anchor`, () => {

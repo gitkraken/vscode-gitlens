@@ -4,7 +4,6 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { getPullRequestDisplayStatus } from '@gitlens/git/utils/pullRequest.utils.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -18,6 +17,8 @@ import type { NavigationState } from '../../../shared/controllers/navigationStac
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
+import { getWipChangeCounts } from './shared-panel-helpers.js';
+import { renderBranchPullRequest } from './shared-panel-templates.js';
 import '../../shared/components/merge-rebase-status.js';
 import '../../shared/components/merge-target-status.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -56,6 +57,7 @@ export class GlDetailsWipHeader extends LitElement {
 	/** Forwarded to `gl-details-header` — when true, close button becomes a back arrow that
 	 *  pops the user out of the mode's results view to its scope picker. */
 	@property({ type: Boolean }) inResultsView = false;
+	@property({ type: Boolean, attribute: 'hide-branch-row' }) hideBranchRow = false;
 	/** Forwarded to `gl-details-header` — drives the suffix-icon status overlay on the compose
 	 *  and review toggle chips, parallel to the WIP-row adornment buttons. The `hasResult` flag
 	 *  separates a `'backed'` entry with a viewable result from a `'backed'`-no-result placeholder
@@ -93,33 +95,7 @@ export class GlDetailsWipHeader extends LitElement {
 		const ahead = wip.branch?.tracking?.ahead ?? 0;
 		const behind = wip.branch?.tracking?.behind ?? 0;
 
-		// Prefer the git-authoritative counts embedded in the wip (`wip.stats`, same object the
-		// header/row badges derive their WIP status from) so the panel header and the graph
-		// header/row can never disagree. Fall back to iterating the file list only when stats are
-		// absent (e.g. a wip produced by the standalone commitDetails webview, which doesn't
-		// compute diffStatus). Note: the file list double-counts mixed staged+unstaged entries,
-		// whereas `git diff --shortstat` counts unique paths — `wip.stats` is the correct source.
-		let addedCount: number;
-		let modifiedCount: number;
-		let removedCount: number;
-		if (wip.stats != null) {
-			addedCount = wip.stats.added;
-			modifiedCount = wip.stats.modified;
-			removedCount = wip.stats.deleted;
-		} else {
-			addedCount = 0;
-			modifiedCount = 0;
-			removedCount = 0;
-			for (const f of files) {
-				if (f.status === 'A' || f.status === '?') {
-					addedCount++;
-				} else if (f.status === 'D') {
-					removedCount++;
-				} else {
-					modifiedCount++;
-				}
-			}
-		}
+		const { added: addedCount, modified: modifiedCount, removed: removedCount } = getWipChangeCounts(wip);
 
 		const isModeActive = this.activeMode != null;
 		const isSecondaryWorktree =
@@ -203,112 +179,122 @@ export class GlDetailsWipHeader extends LitElement {
 					: nothing
 			}
 			${this.renderPausedOpStatus()}
-			<div slot="secondary" class="graph-details-header__branch-row">
-				<div class="branch-identity">
-					${
-						branchName
-							? isModeActive
-								? html`<gl-tooltip placement="bottom"
-										><gl-branch-name
-											class="graph-details-header__branch graph-details-header__branch--static"
-											.name=${branchName}
-										></gl-branch-name
-										><span slot="content"
-											><gl-branch-name .name=${branchName}></gl-branch-name></span
-									></gl-tooltip>`
-								: html`<gl-tooltip placement="bottom">
-										<gl-branch-name
-											appearance="button"
-											class="graph-details-header__branch"
-											chevron
-											.name=${branchName}
-											@click=${() => this.emit('switch-branch')}
-										></gl-branch-name>
-										<span slot="content"
-											>${l10n.t('Switch Branch...')}
-											<hr />
-											<gl-branch-name .name=${branchName}></gl-branch-name
-										></span>
-									</gl-tooltip>`
-							: nothing
-					}
-					${
-						!isModeActive
-							? html`<div class="branch-actions">
-									${this.renderBranchStateAction()}${this.renderFetchAction()}
-								</div>`
-							: nothing
-					}
-					${!isModeActive ? this.renderBranchActionsButton() : nothing}
-					${
-						isModeActive
-							? html`<gl-wip-stats
-									.added=${addedCount}
-									.modified=${modifiedCount}
-									.removed=${removedCount}
-									show-clean
-								></gl-wip-stats>`
-							: nothing
-					}
-					<gl-tracking-status
-						.branchName=${branchName}
-						.upstreamName=${upstream?.name}
-						.missingUpstream=${upstream?.missing ?? false}
-						.ahead=${ahead}
-						.behind=${behind}
-						colorized
-						outlined
-					></gl-tracking-status>
-					${this.renderMergeTargetStatus()}${this.renderAssociatedPullRequest()}
-				</div>
-				${
-					!isModeActive
-						? html`<div class="branch-ops">
+			${
+				this.hideBranchRow
+					? nothing
+					: html`<div slot="secondary" class="graph-details-header__branch-row">
+							<div class="branch-identity">
 								${
-									files.length > 0
-										? html`<gl-action-chip
-												icon="gl-cloud-patch-share"
-												label=${l10n.t('Share as Cloud Patch')}
-												overlay="tooltip"
-												@click=${() => this.emit('share-as-cloud-patch')}
-											></gl-action-chip>`
+									branchName
+										? isModeActive
+											? html`<gl-tooltip placement="bottom"
+													><gl-branch-name
+														class="graph-details-header__branch graph-details-header__branch--static"
+														.name=${branchName}
+													></gl-branch-name
+													><span slot="content"
+														><gl-branch-name .name=${branchName}></gl-branch-name></span
+												></gl-tooltip>`
+											: html`<gl-tooltip placement="bottom">
+													<gl-branch-name
+														appearance="button"
+														class="graph-details-header__branch"
+														chevron
+														.name=${branchName}
+														@click=${() => this.emit('switch-branch')}
+													></gl-branch-name>
+													<span slot="content"
+														>${l10n.t('Switch Branch...')}
+														<hr />
+														<gl-branch-name .name=${branchName}></gl-branch-name
+													></span>
+												</gl-tooltip>`
 										: nothing
 								}
-								<gl-action-chip
-									icon="terminal"
-									label=${l10n.t('Open in Integrated Terminal')}
-									overlay="tooltip"
-									href=${this._webview.createCommandLink('gitlens.openInIntegratedTerminal:', {
-										worktreeUri: wip.repo.uri,
-									})}
-								></gl-action-chip>
 								${
-									isSecondaryWorktree
-										? html`<gl-action-chip
-												icon="empty-window"
-												label=${l10n.t('Open Worktree in New Window')}
-												alt-icon="window"
-												alt-label=${l10n.t('Open Worktree')}
+									!isModeActive
+										? html`<div class="branch-actions">
+												${this.renderBranchStateAction()}${this.renderFetchAction()}
+											</div>`
+										: nothing
+								}
+								${!isModeActive ? this.renderBranchActionsButton() : nothing}
+								${
+									isModeActive
+										? html`<gl-wip-stats
+												.added=${addedCount}
+												.modified=${modifiedCount}
+												.removed=${removedCount}
+												show-clean
+											></gl-wip-stats>`
+										: nothing
+								}
+								<gl-tracking-status
+									.branchName=${branchName}
+									.upstreamName=${upstream?.name}
+									.missingUpstream=${upstream?.missing ?? false}
+									.ahead=${ahead}
+									.behind=${behind}
+									colorized
+									outlined
+								></gl-tracking-status>
+								${this.renderMergeTargetStatus()}${this.renderAssociatedPullRequest()}
+							</div>
+							${
+								!isModeActive
+									? html`<div class="branch-ops">
+											${
+												files.length > 0
+													? html`<gl-action-chip
+															icon="gl-cloud-patch-share"
+															label=${l10n.t('Share as Cloud Patch')}
+															overlay="tooltip"
+															@click=${() => this.emit('share-as-cloud-patch')}
+														></gl-action-chip>`
+													: nothing
+											}
+											<gl-action-chip
+												icon="terminal"
+												label=${l10n.t('Open in Integrated Terminal')}
 												overlay="tooltip"
 												href=${this._webview.createCommandLink(
-													'gitlens.openWorktreeInNewWindow:',
+													'gitlens.openInIntegratedTerminal:',
 													{
 														worktreeUri: wip.repo.uri,
 													},
 												)}
-												alt-href=${this._webview.createCommandLink('gitlens.openWorktree:', {
-													worktreeUri: wip.repo.uri,
-												})}
-											></gl-action-chip>`
+											></gl-action-chip>
+											${
+												isSecondaryWorktree
+													? html`<gl-action-chip
+															icon="empty-window"
+															label=${l10n.t('Open Worktree in New Window')}
+															alt-icon="window"
+															alt-label=${l10n.t('Open Worktree')}
+															overlay="tooltip"
+															href=${this._webview.createCommandLink(
+																'gitlens.openWorktreeInNewWindow:',
+																{
+																	worktreeUri: wip.repo.uri,
+																},
+															)}
+															alt-href=${this._webview.createCommandLink(
+																'gitlens.openWorktree:',
+																{
+																	worktreeUri: wip.repo.uri,
+																},
+															)}
+														></gl-action-chip>`
+													: nothing
+											}
+											${this.renderWipActionsButton()}
+										</div>`
+									: this.modeStatusText
+										? html`<div class="mode-status">${this.modeStatusText}</div>`
 										: nothing
-								}
-								${this.renderWipActionsButton()}
-							</div>`
-						: this.modeStatusText
-							? html`<div class="mode-status">${this.modeStatusText}</div>`
-							: nothing
-				}
-			</div>
+							}
+						</div>`
+			}
 			${!isModeActive ? this.renderIssuesRow() : nothing}
 		</gl-details-header>`;
 	}
@@ -564,43 +550,7 @@ export class GlDetailsWipHeader extends LitElement {
 	private renderAssociatedPullRequest() {
 		if (this.wip?.branch == null) return nothing;
 
-		const pr = this.pullRequest;
-		if (pr == null) {
-			// While loading reserve a small footprint so a landing PR chip doesn't pop the
-			// branch-identity row sideways. Mirrors the merge-target slot's loading pattern.
-			// Collapses to nothing once loading settles with no PR — many branches don't have one.
-			if (this.pullRequestLoading) {
-				return html`<span
-					class="graph-details-header__pull-request graph-details-header__pull-request--loading"
-					aria-busy="true"
-				></span>`;
-			}
-			return nothing;
-		}
-
-		const { status, queueStatus } = getPullRequestDisplayStatus(pr);
-		return html`<gl-autolink-chip
-			class="graph-details-header__pull-request"
-			type="pr"
-			name=${pr.title}
-			url=${pr.url}
-			identifier="#${pr.number}"
-			status=${status === 'merged' || status === 'closed' || status === 'queued' ? status : 'opened'}
-			.queueStatus=${queueStatus}
-			date-label="updated"
-			.date=${pr.updatedDate}
-			.dateFormat=${this.dateFormat}
-			.dateStyle=${this.dateStyle}
-			.author=${pr.authorName}
-			?isDraft=${pr.draft ?? false}
-			.reviewDecision=${pr.reviewDecision}
-			.itemId=${pr.number}
-			.providerId=${pr.providerId}
-			.stack=${pr.stack}
-			details
-			details-on-click
-			openOnRemote
-		></gl-autolink-chip>`;
+		return renderBranchPullRequest(this.pullRequest, this.pullRequestLoading, this.dateFormat, this.dateStyle);
 	}
 
 	private renderIssuesRow() {
