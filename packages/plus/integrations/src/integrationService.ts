@@ -1,3 +1,4 @@
+import type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -57,6 +58,8 @@ import { toError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
+	IssueDeleteOptions,
+	IssueWriteOptions,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
@@ -76,6 +79,7 @@ import type {
 import type { IssuesIntegration } from './models/issuesIntegration.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
+import type { GitHubIntegration } from './providers/github.js';
 import type { GitHubApi } from './providers/github/github.js';
 import type {
 	IssueFilter,
@@ -314,6 +318,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		return this.getConfigured(id, { cloud: true }).some(c => !before.has(c.id));
 	}
 
+	get(id: GitCloudHostIntegrationId.GitHub): Promise<GitHubIntegration>;
 	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
 	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
@@ -1515,6 +1520,34 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
 		return broadenIssues(this, options);
+	}
+
+	async writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult> {
+		if (options?.action !== 'create' && options?.action !== 'edit' && options?.action !== 'set-state') {
+			return { ok: false, reason: 'invalid-input' };
+		}
+
+		return this.mutateIssue({ ...options });
+	}
+
+	async deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		return this.mutateIssue({ ...options, action: 'delete' });
+	}
+
+	private async mutateIssue(
+		options: IssueWriteOptions | (IssueDeleteOptions & { action: 'delete' }),
+	): Promise<IssueWriteResult> {
+		const { providerId, connectionId } = options;
+		if (providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
+		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
+		if (!this.getConfigured(providerId).some(connection => connection.id === connectionId)) {
+			return { ok: false, reason: 'no-connection' };
+		}
+
+		const integration = await this.get(providerId).catch(() => undefined);
+		return integration != null ? integration.mutateIssue(connectionId, options) : { ok: false, reason: 'unknown' };
 	}
 
 	/**
