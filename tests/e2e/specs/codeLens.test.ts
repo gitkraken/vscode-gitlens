@@ -1,12 +1,3 @@
-/**
- * Editor CodeLens E2E Tests
- *
- * Covers what only a running editor shows: GitLens' CodeLens reaching an open document (resolved
- * titles and commands), the toggle command, the unsaved-document lens and its recovery once the
- * document goes idle, the lens following a commit made outside the editor, which symbols get a lens
- * for each scope setting, and the rendered lens running its command when clicked. Symbols come from
- * a fake provider registered for one file, so scope checks don't depend on a language server.
- */
 import { execFileSync } from 'node:child_process';
 import * as process from 'node:process';
 import type { Locator } from '@playwright/test';
@@ -23,7 +14,7 @@ const scopesFile = 'scopes.txt';
 const markdownFile = 'README.md';
 const untrackedFile = 'untracked.txt';
 
-// Bob owns three of the five lines, so he is the first author the authors lens names
+// KEEP: Bob owns most lines — the authors lens names the top author first
 const lensCommits = [
 	{
 		message: 'Add lens fixture',
@@ -46,15 +37,12 @@ const lensCommits = [
 ] as const;
 
 const recentChangeCommand = 'gitlens.showQuickCommitFileDetails';
-// The CodeLens variant of the setting's `gitlens.toggleFileBlame`
 const authorsCommand = 'gitlens.toggleFileBlame:codelens';
 const bobRecentChange = `${bob.name}, 2024-02-20`;
 const lensAuthors = `authors (${bob.name} and one other)`;
 
-// Lines 0, 4 and 8 carry headers
 const markdown = ['# Title', '', 'intro', '', '## Section A', '', 'alpha', '', '## Section B', '', 'bravo', ''];
 
-// A container with a multi-line and a single-line block inside, and a multi-line String after it
 const scopesLines = Array.from({ length: 12 }, (_, i) => `scopes line ${i + 1}`);
 const symbols: FakeDocumentSymbol[] = [
 	{
@@ -72,7 +60,6 @@ const symbols: FakeDocumentSymbol[] = [
 
 const defaultScopes = ['document', 'containers'];
 
-/** The lens row the editor rendered above the first line */
 function renderedLenses(vscode: VSCodeInstance): Locator {
 	return vscode.page.locator('.monaco-editor .codelens-decoration').first();
 }
@@ -111,7 +98,7 @@ const test = base.extend({
 				});
 				await git.commit('Add readme', markdownFile, markdown.join('\n'), { date: '2024-01-10T12:00:00' });
 				await git.createFile(untrackedFile, 'not committed\n');
-				// "You" is whoever the repo's config names last — neither fixture author
+				// KEEP: last user.name is neither fixture author, or their lenses read "You"
 				await setAuthor(git, { name: 'Your Name', email: 'you@example.com' });
 				return repoDir;
 			},
@@ -128,7 +115,7 @@ test.describe('Editor CodeLens', () => {
 	async function open(vscode: VSCodeInstance, file: string): Promise<void> {
 		await vscode.gitlens.openFile(file);
 		await expect(vscode.page.locator('.monaco-editor .view-lines').first()).toBeVisible({ timeout: MaxTimeout });
-		// `openFile` doesn't wait for the document itself; the lens query throws until it is open
+		// KEEP: wait for the document — `openFile` returns before it is open
 		await expect(async () => {
 			await vscode.gitlens.getCodeLenses(file);
 		}).toPass({ timeout: MaxTimeout });
@@ -172,7 +159,7 @@ test.describe('Editor CodeLens', () => {
 			]);
 		}).toPass({ timeout: MaxTimeout });
 
-		// Lenses are being provided (above), so an empty answer here means GitLens skipped the file
+		// KEEP: after the positive above — an empty answer alone proves nothing
 		await open(vscode, untrackedFile);
 		for (let i = 0; i < 3; i++) {
 			await vscode.page.waitForTimeout(1000);
@@ -200,25 +187,23 @@ test.describe('Editor CodeLens', () => {
 		await expectDocumentLenses(vscode, lensFile, bobRecentChange);
 
 		await vscode.gitlens.insertLine(lensFile, 1, 'line inserted: unsaved');
-		// Well inside the window: the document goes idle `gitlens.advanced.blame.delayAfterEdit` (5s) after the edit
+		// KEEP: poll well under `advanced.blame.delayAfterEdit` (5s), when the document goes idle
 		await expect
 			.poll(async () => vscode.gitlens.getCodeLenses(lensFile), { timeout: 2000 })
 			.toEqual([{ line: 0, title: '$(ellipsis)', command: undefined }]);
 
-		// Once idle, the lenses blame the edited contents: the unsaved line counts as a third author
 		await expect(async () => {
 			expect(await vscode.gitlens.getCodeLenses(lensFile)).toEqual([
 				{ line: 0, title: expect.stringMatching(/^.+, \d{4}-\d{2}-\d{2}$/), command: recentChangeCommand },
 				{ line: 0, title: expect.stringMatching(/^authors \(.+ and others\)$/), command: authorsCommand },
 			]);
 		}).toPass({ timeout: MaxTimeout * 2 });
-		// The query above asks the provider afresh; the editor only re-renders if GitLens signals the change
+		// KEEP: rendered check — the API query alone can't catch a lost refresh
 		await expect(renderedLenses(vscode)).toContainText('and others', { timeout: MaxTimeout });
 	});
 
 	test('follows a commit made outside the editor without reopening the file', async ({ vscode }) => {
-		// A file of its own per run, so repeats and retries start from the same history. Committed as the
-		// repo's current user, so the author reads "You" throughout and only the date tells commits apart
+		// KEEP: a file per run (repeats share the worker); commit as the current user, never switch user.name here
 		const file = `external-${test.info().repeatEachIndex}-${test.info().retry}.txt`;
 		const git = new GitFixture(vscode.electron.workspacePath);
 		await git.commit('Add external fixture', file, 'first\nsecond\n', { date: '2024-01-10T12:00:00' });
@@ -230,7 +215,7 @@ test.describe('Editor CodeLens', () => {
 			date: '2024-03-15T12:00:00',
 		});
 		await expectDocumentLenses(vscode, file, 'You, 2024-03-15');
-		// The query above asks the provider afresh; the editor only re-renders if GitLens signals the change
+		// KEEP: rendered check — the API query alone can't catch a lost refresh
 		await expect(renderedLenses(vscode)).toContainText('You, 2024-03-15', { timeout: MaxTimeout });
 	});
 
@@ -244,17 +229,14 @@ test.describe('Editor CodeLens', () => {
 				.toEqual(expected);
 		};
 
-		// Defaults (document, containers): the document and the multi-line class
 		await expectLines([0, 2]);
 
-		// Blocks add the multi-line function, but not the single-line one
 		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', ['document', 'containers', 'blocks']);
 		await expectLines([0, 2, 3]);
 
 		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', true);
 		await expectLines([0, 2, 3, 6]);
 
-		// Symbol scopes add a kind no scope covers, and `!kind` removes one a scope would add
 		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', defaultScopes);
 		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', false);
 		await vscode.gitlens.updateSetting('gitlens.codeLens.symbolScopes', ['string', '!class']);
@@ -281,8 +263,7 @@ test.describe('Editor CodeLens', () => {
 		test.fail(true, 'Markdown headers get no lenses with default settings — #6253');
 
 		await open(vscode, markdownFile);
-		// The built-in Markdown support reports headers once it has started. Without them the check below
-		// can't fail for the reason #6253 describes, so skip instead of counting as the expected failure
+		// KEEP: skip without header symbols — `test.fail` would count any failure as #6253
 		const headersReported = await expect
 			.poll(async () => vscode.gitlens.getDocumentSymbolLines(markdownFile), { timeout: MaxTimeout * 3 })
 			.toEqual([0, 4, 8])

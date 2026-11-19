@@ -302,11 +302,6 @@ export class VSCodePage {
 		await locator.waitFor({ state: 'hidden', timeout: timeout });
 	}
 
-	/**
-	 * The CodeLens every provider gives an open document, resolved, ordered by line. Resolving matters:
-	 * GitLens' lenses for a saved document get their title and command on resolve, so the request
-	 * asks the editor to resolve them all.
-	 */
 	async getCodeLenses(fileName: string): Promise<EditorCodeLens[]> {
 		return this.evaluate(async (vscode, fileName) => {
 			const doc = vscode.workspace.textDocuments.find(
@@ -318,20 +313,19 @@ export class VSCodePage {
 				(await vscode.commands.executeCommand<CodeLens[] | undefined>(
 					'vscode.executeCodeLensProvider',
 					doc.uri,
+					// KEEP: resolve count — GitLens sets titles and commands only on resolve
 					100,
 				)) ?? [];
 			return lenses
 				.map(l => ({
 					line: l.range.start.line,
 					title: l.command?.title,
-					// An unsaved document's lens has a title but no command — normalize however it arrives
 					command: l.command?.command || undefined,
 				}))
 				.sort((a, b) => a.line - b.line);
 		}, fileName);
 	}
 
-	/** The 0-based lines of the document symbols the editor's providers report for an open document, flattened */
 	async getDocumentSymbolLines(fileName: string): Promise<number[]> {
 		return this.evaluate(async (vscode, fileName) => {
 			const doc = vscode.workspace.textDocuments.find(
@@ -358,11 +352,6 @@ export class VSCodePage {
 		}, fileName);
 	}
 
-	/**
-	 * Register a document symbol provider for one workspace file that reports exactly `symbols` — a
-	 * deterministic stand-in for a language server, which would be slow to start and differ between
-	 * editors. Only one registration is kept; call {@link unregisterDocumentSymbols} to remove it.
-	 */
 	async registerDocumentSymbols(fileName: string, symbols: FakeDocumentSymbol[]): Promise<void> {
 		await this.evaluate(
 			(vscode, fileName, symbols) => {
@@ -370,7 +359,7 @@ export class VSCodePage {
 				store.__glE2eSymbols?.dispose();
 
 				const toSymbol = (s: FakeDocumentSymbol): DocumentSymbol => {
-					// The kind crosses the evaluator's serialized boundary by name and is mapped to the enum here
+					// KEEP: kind by name — the enum can't cross the evaluator's JSON boundary
 					const range = new vscode.Range(s.startLine, 0, s.endLine, 1);
 					const symbol = new vscode.DocumentSymbol(s.name, '', vscode.SymbolKind[s.kind], range, range);
 					symbol.children = (s.children ?? []).map(toSymbol);
@@ -387,7 +376,6 @@ export class VSCodePage {
 		);
 	}
 
-	/** Remove the provider registered by {@link registerDocumentSymbols}, if any */
 	async unregisterDocumentSymbols(): Promise<void> {
 		await this.evaluate(() => {
 			const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
@@ -396,7 +384,6 @@ export class VSCodePage {
 		});
 	}
 
-	/** Insert a line of text before the given 0-based line of an open document, leaving it unsaved */
 	async insertLine(fileName: string, line: number, text: string): Promise<void> {
 		await this.evaluate(
 			async (vscode, fileName, line, text) => {
@@ -416,15 +403,12 @@ export class VSCodePage {
 	}
 }
 
-/** A CodeLens as the editor resolved it */
 export interface EditorCodeLens {
-	/** 0-based line the lens sits above */
 	line: number;
 	title: string | undefined;
 	command: string | undefined;
 }
 
-/** A document symbol for {@link VSCodePage.registerDocumentSymbols}; lines are 0-based and inclusive */
 export interface FakeDocumentSymbol {
 	name: string;
 	kind: keyof typeof SymbolKind;
