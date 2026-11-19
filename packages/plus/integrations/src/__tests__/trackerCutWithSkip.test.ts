@@ -215,6 +215,46 @@ suite('Tracker read cut short beside a skipped issue', () => {
 		manager.dispose();
 	});
 
+	test('an unreadable issue fails the read but not a request, unless a request failed too', async () => {
+		const requestFailure: CollectionMetadata['failures'] = [
+			{ scope: { providerId: 'jira', resourceId: 'site-1' }, kind: 'provider', message: 'request failed' },
+		];
+		const cases: [string, CollectionMetadata | undefined, boolean | undefined, boolean][] = [
+			['clean', undefined, undefined, false],
+			['unreadable only', skipped(['BIG-1']), true, false],
+			[
+				'unreadable beside a failed request',
+				{ completeness: 'partial', failures: [...skipped(['BIG-1']).failures!, ...requestFailure] },
+				true,
+				true,
+			],
+			[
+				'provider limit',
+				{ completeness: 'partial', omissions: [{ kind: 'provider-limit', limit: 1000 }] },
+				undefined,
+				false,
+			],
+		];
+		for (const [label, metadata, fetchFailed, requestFailed] of cases) {
+			const manager = await connectedJira(projectKey => ({
+				data: [],
+				hasMore: false,
+				...(projectKey === big.key && metadata != null ? { metadata: metadata } : {}),
+			}));
+
+			const result = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				includeAllAssignees: true,
+			});
+
+			assert.equal(result.fetchFailed, fetchFailed, `${label}: fetchFailed`);
+			assert.equal(result.requestFailed, requestFailed, `${label}: requestFailed`);
+			assert.equal(result.unexpectedGap, false, `${label}: unexpectedGap`);
+
+			manager.dispose();
+		}
+	});
+
 	test('a request that failed retracts the omissions, and the cut it reported still says so', async () => {
 		const manager = await connectedJira((projectKey, _scope, cursor) =>
 			projectKey === big.key ? endless(cursor) : { data: [], hasMore: true, nextCursor: 'stuck' },
