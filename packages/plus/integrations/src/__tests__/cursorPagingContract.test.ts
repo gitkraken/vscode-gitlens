@@ -723,3 +723,124 @@ suite('paged read evidence (requestFailed, unexpectedGap)', () => {
 		manager.dispose();
 	});
 });
+
+suite('paged read evidence at the repo-scoped issue and account-wide read facades', () => {
+	const usableCursor = JSON.stringify({ type: 'cursor', value: 'a' });
+	const unreadable = {
+		scope: { kind: 'repository', id: 'r' },
+		kind: 'other',
+		message: 'unreadable',
+		skippedItems: { keys: ['A-1'], count: 1, complete: true },
+	};
+	const requestFailure = { scope: { kind: 'repository', id: 'r' }, kind: 'other', message: 'request failed' };
+	const providerLimit = { completeness: 'partial', omissions: [{ kind: 'provider-limit', limit: 1000 }] };
+	const sdkPage = (paging: { more: boolean; cursor?: string }, metadata?: object) => ({
+		values: [],
+		paging: paging,
+		metadata: metadata,
+	});
+	const flatPage = (cursor: string | undefined, hasMore: boolean) => ({
+		values: [],
+		cursor: cursor,
+		hasMore: hasMore,
+		truncated: false,
+	});
+
+	type Page = { values: unknown[]; paging?: unknown; cursor?: string; hasMore?: boolean; truncated?: boolean };
+	type Read = 'repoIssues' | 'accountIssues' | 'accountPullRequests';
+
+	async function drain(read: Read, pages: readonly Page[], page: number) {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		let calls = 0;
+		const serve = () => Promise.resolve({ value: pages[Math.min(calls++, pages.length - 1)] });
+		const host = gh as unknown as Record<string, unknown>;
+		host.getMyIssuesForReposAsShapesResult = serve;
+		host.searchMyIssuesWithTruncationResult = serve;
+		host.getMyPullRequestsForUserResult = serve;
+		const providerId = GitCloudHostIntegrationId.GitHub;
+		const result =
+			read === 'accountPullRequests'
+				? await manager.listPullRequestsPage({ providerId: providerId, page: page })
+				: await manager.listIssuesPage({
+						providerId: providerId,
+						repos: read === 'repoIssues' ? repos : undefined,
+						page: page,
+					});
+		manager.dispose();
+		return { result: result, calls: calls };
+	}
+
+	for (const [read, label] of [
+		['repoIssues', 'a repo-scoped issue read'],
+		['accountPullRequests', 'an account-wide pull request read'],
+	] as const) {
+		test(`${label} tells an unreadable item from a failed request and from a provider limit`, async () => {
+			const unreadableOnly = await drain(
+				read,
+				[sdkPage({ more: false }, { completeness: 'partial', failures: [unreadable] })],
+				1,
+			);
+			assert.equal(unreadableOnly.result.fetchFailed, true);
+			assert.equal(unreadableOnly.result.requestFailed, false);
+
+			const mixed = await drain(
+				read,
+				[sdkPage({ more: false }, { completeness: 'partial', failures: [unreadable, requestFailure] })],
+				1,
+			);
+			assert.equal(mixed.result.fetchFailed, true);
+			assert.equal(mixed.result.requestFailed, true);
+
+			const capped = await drain(read, [sdkPage({ more: false }, providerLimit)], 1);
+			assert.equal(capped.result.fetchFailed, undefined);
+			assert.equal(capped.result.requestFailed, false);
+		});
+	}
+
+	test('a repo-scoped issue read whose first page claims more without a cursor is a gap', async () => {
+		const { result } = await drain('repoIssues', [sdkPage({ more: true, cursor: '{}' })], 1);
+
+		assert.equal(result.unexpectedGap, true);
+	});
+
+	test('an account-wide pull request read whose first page claims more without a cursor is a gap', async () => {
+		const { result } = await drain('accountPullRequests', [sdkPage({ more: true, cursor: '{}' })], 1);
+
+		assert.equal(result.unexpectedGap, true);
+	});
+
+	for (const [read, label] of [
+		['repoIssues', 'a repo-scoped issue'],
+		['accountPullRequests', 'an account-wide pull request'],
+	] as const) {
+		test(`${label} drain reports a first-page gap and a later-page gap, and not a terminal page`, async () => {
+			const initial = await drain(read, [sdkPage({ more: true, cursor: '{}' })], 2);
+			assert.equal(initial.calls, 1);
+			assert.equal(initial.result.unexpectedGap, true);
+
+			const later = await drain(
+				read,
+				[sdkPage({ more: true, cursor: usableCursor }), sdkPage({ more: true, cursor: '{}' })],
+				3,
+			);
+			assert.equal(later.calls, 2);
+			assert.equal(later.result.unexpectedGap, true);
+
+			const terminal = await drain(read, [sdkPage({ more: false })], 2);
+			assert.equal(terminal.result.unexpectedGap, false);
+		});
+	}
+
+	test('an account-wide issue drain reports a first-page gap and a repeated cursor, and not a terminal page', async () => {
+		const initial = await drain('accountIssues', [flatPage('{}', true)], 2);
+		assert.equal(initial.calls, 1);
+		assert.equal(initial.result.unexpectedGap, true);
+
+		const repeated = await drain('accountIssues', [flatPage('next', true), flatPage('next', true)], 3);
+		assert.equal(repeated.calls, 2);
+		assert.equal(repeated.result.unexpectedGap, true);
+
+		const terminal = await drain('accountIssues', [flatPage(undefined, false)], 2);
+		assert.equal(terminal.result.unexpectedGap, false);
+	});
+});
