@@ -118,6 +118,12 @@ export interface EnrichedIssue extends Omit<GitHubIssue, 'labels' | 'reactionGro
 	lastActivityAt: string;
 	duplicateCandidates: DuplicateCandidate[];
 	supersessionIndicators: string[];
+	areaSignals: AreaSignal[];
+}
+
+export interface AreaSignal {
+	label: string;
+	matches: string[];
 }
 
 export interface EvidencePack {
