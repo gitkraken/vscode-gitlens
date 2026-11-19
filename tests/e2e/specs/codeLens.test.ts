@@ -58,8 +58,6 @@ const symbols: FakeDocumentSymbol[] = [
 	{ name: 'note', kind: 'String', startLine: 9, endLine: 10 },
 ];
 
-const defaultScopes = ['document', 'containers'];
-
 function renderedLenses(vscode: VSCodeInstance): Locator {
 	return vscode.page.locator('.monaco-editor .codelens-decoration').first();
 }
@@ -146,9 +144,9 @@ test.describe('Editor CodeLens', () => {
 			codeLensToggledOff = false;
 		}
 		await vscode.gitlens.unregisterDocumentSymbols();
-		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', defaultScopes);
-		await vscode.gitlens.updateSetting('gitlens.codeLens.symbolScopes', []);
-		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', false);
+		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', undefined);
+		await vscode.gitlens.updateSetting('gitlens.codeLens.symbolScopes', undefined);
+		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', undefined);
 		await vscode.gitlens.executeCommand('workbench.action.files.revert').catch(() => {});
 		await vscode.gitlens.executeCommand('gitlens.clearFileAnnotations');
 		await vscode.gitlens.resetUI();
@@ -279,8 +277,8 @@ test.describe('Editor CodeLens', () => {
 		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', true);
 		await expectLines([0, 2, 3, 6]);
 
-		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', defaultScopes);
-		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', false);
+		await vscode.gitlens.updateSetting('gitlens.codeLens.scopes', undefined);
+		await vscode.gitlens.updateSetting('gitlens.codeLens.includeSingleLineSymbols', undefined);
 		await vscode.gitlens.updateSetting('gitlens.codeLens.symbolScopes', ['string', '!class']);
 		await expectLines([0, 9]);
 	});
