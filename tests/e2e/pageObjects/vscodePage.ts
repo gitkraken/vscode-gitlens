@@ -70,20 +70,11 @@ export class VSCodePage {
 		}, section);
 	}
 
-	/**
-	 * Write a setting at the user (Global) scope, as the Settings UI would — for specs that have to
-	 * exercise BOTH values of a setting in one worker, where the fixture's static `userSettings` can
-	 * only pin one. Settings written this way land in the worker's own temp user-data dir, so they
-	 * don't leak across workers; a spec that changes one still has to restore it for the specs after it.
-	 * Pass `undefined` to remove the user value and fall back to the default.
-	 */
 	async updateSetting(section: string, value: unknown): Promise<void> {
 		await this.evaluate(
 			async (vscode, section, value, remove) => {
-				// 1 = ConfigurationTarget.Global — the enum isn't reachable through the evaluator's
-				// serialized boundary, and no workspace is guaranteed to be open.
-				// The boundary is JSON, so an `undefined` value arrives as `null`, which VS Code keeps as
-				// an explicit value instead of removing the setting — hence the separate `remove` flag.
+				// KEEP: numeric target (1 = Global) — the enum can't cross the evaluator's JSON boundary
+				// KEEP: `remove` flag — JSON turns `undefined` into `null`, which VS Code stores instead of removing
 				await vscode.workspace.getConfiguration().update(section, remove ? undefined : value, 1);
 			},
 			section,
