@@ -155,13 +155,26 @@ function azureHarness() {
 				? []
 				: items.filter(item => {
 						if (!query.includes('[System.State]')) return true;
-						return predicates.some(
-							([, type, states]) =>
-								type.replaceAll("''", "'") ===
-									(item.fields as Record<string, unknown>)['System.WorkItemType'] &&
-								[...states.matchAll(/'((?:''|[^'])*)'/g)].some(
-									([, state]) => state.replaceAll("''", "'") === fixture.state,
-								),
+
+						const itemType = (item.fields as Record<string, unknown>)['System.WorkItemType'];
+						const dated = [
+							...query.matchAll(
+								/\[System.WorkItemType\] = '((?:''|[^'])*)' AND \(\[Microsoft.VSTS.Common.ClosedDate\] (=|<>) ''/g,
+							),
+						];
+						return (
+							dated.some(
+								([, type, operator]) =>
+									type.replaceAll("''", "'") === itemType &&
+									(operator === '<>') === (fixture.closedDate != null),
+							) ||
+							predicates.some(
+								([, type, states]) =>
+									type.replaceAll("''", "'") === itemType &&
+									[...states.matchAll(/'((?:''|[^'])*)'/g)].some(
+										([, state]) => state.replaceAll("''", "'") === fixture.state,
+									),
+							)
 						);
 					});
 			fixture.onQuery?.();
@@ -825,6 +838,19 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		assert.equal(page.metadata?.completeness, 'partial');
 		assert.equal(h.states.length, 1);
 	});
+
+	for (const [state, expected] of [
+		[GitIssueState.Closed, 2],
+		[GitIssueState.Open, 1],
+	] as const) {
+		test(`a type whose states failed is selected by dates on a ${state} read, the others by category`, async () => {
+			const h = azureHarness();
+			h.fixture.types = ['Task', 'Bug', 'Feature'];
+			h.fixture.failType = 'Bug';
+			const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: [state] });
+			assert.equal(page.values.length, expected);
+		});
+	}
 
 	test('a type absent from failed discovery is classified while the collection remains partial', async () => {
 		const h = azureHarness();
