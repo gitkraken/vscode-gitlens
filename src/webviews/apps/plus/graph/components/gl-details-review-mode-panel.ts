@@ -448,12 +448,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		const previousStatus = changedProperties.get('status') as GlDetailsReviewModePanel['status'] | undefined;
-		if (previousStatus != null) {
-			if (this.status === 'loading' || this.status === 'error' || previousStatus === 'idle') {
+		if (this.status === 'loading' || this.status === 'error') {
+			if (previousStatus != null || !this.hasUpdated) {
 				this.setOpenPane('findings');
-			} else if (this.status === 'idle') {
-				this.setOpenPane('commits');
 			}
+		} else if (previousStatus === 'idle') {
+			this.setOpenPane('findings');
+		} else if (previousStatus != null && this.status === 'idle') {
+			this.setOpenPane('commits');
 		}
 
 		// Per-result derived state (expand/dismiss/load/error sets) is keyed by area + finding

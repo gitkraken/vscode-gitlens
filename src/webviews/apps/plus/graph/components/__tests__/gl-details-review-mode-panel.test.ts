@@ -22,6 +22,7 @@ type WillUpdateHarness = {
 	status?: GlDetailsReviewModePanel['status'];
 	_openPane?: 'commits' | 'findings';
 	setOpenPane?: (pane: 'commits' | 'findings' | undefined) => void;
+	hasUpdated?: boolean;
 };
 
 const willUpdate: (this: WillUpdateHarness, changedProperties: Map<string, unknown>) => void = Reflect.get(
@@ -80,18 +81,34 @@ suite('GlDetailsReviewModePanel panes', () => {
 		['loading', 'error', 'findings'],
 		['loading', 'ready', 'commits'],
 		['ready', 'idle', 'commits'],
+		[undefined, 'error', 'findings'],
+		[undefined, 'loading', 'findings'],
+		[undefined, 'ready', 'commits'],
+		[undefined, 'idle', 'commits'],
 	] as const) {
-		test(`${from} to ${to} leaves ${open} open when commits were`, () => {
+		test(`${from ?? 'a first render'} to ${to} leaves ${open} open when commits were`, () => {
 			const panel: WillUpdateHarness = {
 				...makePanel(),
 				status: to,
 				_openPane: 'commits',
 				setOpenPane: setOpenPane,
 			};
-			willUpdate.call(panel, new Map([['status', from]]));
+			willUpdate.call(panel, new Map(from != null ? [['status', from]] : []));
 			assert.strictEqual(panel._openPane, open);
 		});
 	}
+
+	test('a later render in the same status leaves the panes as the reader set them', () => {
+		const panel: WillUpdateHarness = {
+			...makePanel(),
+			status: 'error',
+			_openPane: 'commits',
+			setOpenPane: setOpenPane,
+			hasUpdated: true,
+		};
+		willUpdate.call(panel, new Map());
+		assert.strictEqual(panel._openPane, 'commits');
+	});
 });
 
 suite('GlDetailsReviewModePanel per-result state', () => {
