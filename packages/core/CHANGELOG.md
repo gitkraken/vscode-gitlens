@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `IntegrationManager.writeIssue` and `deleteIssue` for GitHub.com. Create and edit issues, close as completed or not planned, reopen, or permanently delete with GitHub's permission. Writes use the specified connection and resolve the repository and issue before mutating them. Success returns the canonical issue identity and URL, and refusals report a typed reason (plus/integrations)
+
 ### Fixed
 
 - Fixes a user-scoped Asana tracker read (`listIssueTrackerIssuesPage` without `includeAllAssignees`, and `IssuesIntegration.getIssuesForProjects*` with `options.user`) leaving out the viewer's tasks that are in several projects: the shared "my tasks" read filed each task under only the first project Asana lists for it, so a sprint board whose tasks are also on each customer's own board showed only the tasks that live on it alone. A task is now filed under every requested project it is in, with its section in that project as its state, read from the `Issue.projectMemberships` that `@gitkraken/provider-apis` 0.69.0 reports (plus/integrations)

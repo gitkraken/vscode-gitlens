@@ -174,6 +174,64 @@ suite('rejected-token refresh', () => {
 		manager.dispose();
 	});
 
+	test('a rejected GitHub issue mutation refreshes its selected connection on the next attempt', async () => {
+		let token = 'token-stale';
+		const connectionId = 'sec-tok';
+		const { runtime, calls } = createRuntimeWithCloudToken(connectionId, () => token);
+		await seedConnection(runtime, connectionId, token);
+		const mutations: (string | null)[] = [];
+		runtime.http.fetch = (_url, init) => {
+			assert.ok(typeof init?.body === 'string');
+			const { query } = JSON.parse(init.body) as { query: string };
+			if (query.trimStart().startsWith('query ')) {
+				return Promise.resolve(
+					Response.json({ data: { repository: { id: 'R_1', hasIssuesEnabled: true, isArchived: false } } }),
+				);
+			}
+
+			mutations.push(new Headers(init?.headers).get('authorization'));
+			return Promise.resolve(
+				mutations.length === 1
+					? Response.json({ message: 'Bad credentials' }, { status: 401 })
+					: Response.json({
+							data: {
+								change: {
+									issue: {
+										id: 'I_1',
+										number: 1,
+										state: 'OPEN',
+										title: 'Title',
+										url: 'https://github.com/org/repo/issues/1',
+										repository: { id: 'R_1', owner: { login: 'org' }, name: 'repo' },
+									},
+								},
+							},
+						}),
+			);
+		};
+		const manager = createIntegrationManager(runtime);
+		try {
+			const options = {
+				providerId: GitCloudHostIntegrationId.GitHub,
+				connectionId: connectionId,
+				owner: 'org',
+				repo: 'repo',
+				action: 'create',
+				title: 'Title',
+			} as const;
+			assert.deepEqual(await manager.writeIssue(options), { ok: false, reason: 'no-connection' });
+			assert.deepEqual(refreshCalls(calls), []);
+			assert.equal(mutations.length, 1);
+
+			token = 'token-fresh';
+			assert.equal((await manager.writeIssue(options)).ok, true);
+			assert.deepEqual(refreshCalls(calls), ['POST v1/provider-tokens/tokens/sec-tok/refresh']);
+			assert.deepEqual(mutations, ['token token-stale', 'token token-fresh']);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('an all-scope bulk rejection records one token failure and refreshes before the next operation', async () => {
 		let token = 'token-stale';
 		const providerId = GitCloudHostIntegrationId.GitLab;

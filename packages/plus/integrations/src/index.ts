@@ -110,6 +110,8 @@ export type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
 	IntegrationManager,
+	IssueDeleteOptions,
+	IssueWriteOptions,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
@@ -123,6 +125,7 @@ export type {
 	ProviderSweepTargetEvent,
 	PullRequestSweepOptions,
 } from './manager.js';
+export type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 
 /**
  * Construct an `@gitlens/integrations` manager bound to the supplied runtime.
