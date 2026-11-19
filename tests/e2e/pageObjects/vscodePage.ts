@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import type { Hover, MarkdownString, Uri } from 'vscode';
+import type { CodeLens, DocumentSymbol, Hover, MarkdownString, SymbolKind, Uri } from 'vscode';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator.js';
 import { ActivityBar } from './components/activityBar.js';
@@ -301,4 +301,134 @@ export class VSCodePage {
 	async waitForHidden(locator: Locator, timeout = MaxTimeout): Promise<void> {
 		await locator.waitFor({ state: 'hidden', timeout: timeout });
 	}
+
+	/**
+	 * The CodeLens every provider gives an open document, resolved, ordered by line. Resolving matters:
+	 * GitLens' lenses for a saved document get their title and command on resolve, so the request
+	 * asks the editor to resolve them all.
+	 */
+	async getCodeLenses(fileName: string): Promise<EditorCodeLens[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const lenses =
+				(await vscode.commands.executeCommand<CodeLens[] | undefined>(
+					'vscode.executeCodeLensProvider',
+					doc.uri,
+					100,
+				)) ?? [];
+			return lenses
+				.map(l => ({
+					line: l.range.start.line,
+					title: l.command?.title,
+					// An unsaved document's lens has a title but no command — normalize however it arrives
+					command: l.command?.command || undefined,
+				}))
+				.sort((a, b) => a.line - b.line);
+		}, fileName);
+	}
+
+	/** The 0-based lines of the document symbols the editor's providers report for an open document, flattened */
+	async getDocumentSymbolLines(fileName: string): Promise<number[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const symbols =
+				(await vscode.commands.executeCommand<DocumentSymbol[] | undefined>(
+					'vscode.executeDocumentSymbolProvider',
+					doc.uri,
+				)) ?? [];
+			const lines: number[] = [];
+			const visit = (s: DocumentSymbol): void => {
+				lines.push(s.range.start.line);
+				for (const child of s.children ?? []) {
+					visit(child);
+				}
+			};
+			for (const s of symbols) {
+				visit(s);
+			}
+			return lines.sort((a, b) => a - b);
+		}, fileName);
+	}
+
+	/**
+	 * Register a document symbol provider for one workspace file that reports exactly `symbols` — a
+	 * deterministic stand-in for a language server, which would be slow to start and differ between
+	 * editors. Only one registration is kept; call {@link unregisterDocumentSymbols} to remove it.
+	 */
+	async registerDocumentSymbols(fileName: string, symbols: FakeDocumentSymbol[]): Promise<void> {
+		await this.evaluate(
+			(vscode, fileName, symbols) => {
+				const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+				store.__glE2eSymbols?.dispose();
+
+				const toSymbol = (s: FakeDocumentSymbol): DocumentSymbol => {
+					// The kind crosses the evaluator's serialized boundary by name and is mapped to the enum here
+					const range = new vscode.Range(s.startLine, 0, s.endLine, 1);
+					const symbol = new vscode.DocumentSymbol(s.name, '', vscode.SymbolKind[s.kind], range, range);
+					symbol.children = (s.children ?? []).map(toSymbol);
+					return symbol;
+				};
+
+				store.__glE2eSymbols = vscode.languages.registerDocumentSymbolProvider(
+					{ scheme: 'file', pattern: `**/${fileName}` },
+					{ provideDocumentSymbols: () => symbols.map(toSymbol) },
+				);
+			},
+			fileName,
+			symbols,
+		);
+	}
+
+	/** Remove the provider registered by {@link registerDocumentSymbols}, if any */
+	async unregisterDocumentSymbols(): Promise<void> {
+		await this.evaluate(() => {
+			const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+			store.__glE2eSymbols?.dispose();
+			store.__glE2eSymbols = undefined;
+		});
+	}
+
+	/** Insert a line of text before the given 0-based line of an open document, leaving it unsaved */
+	async insertLine(fileName: string, line: number, text: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, fileName, line, text) => {
+				const doc = vscode.workspace.textDocuments.find(
+					d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+				);
+				if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(doc.uri, new vscode.Position(line, 0), `${text}\n`);
+				if (!(await vscode.workspace.applyEdit(edit))) throw new Error(`Edit not applied: ${fileName}`);
+			},
+			fileName,
+			line,
+			text,
+		);
+	}
+}
+
+/** A CodeLens as the editor resolved it */
+export interface EditorCodeLens {
+	/** 0-based line the lens sits above */
+	line: number;
+	title: string | undefined;
+	command: string | undefined;
+}
+
+/** A document symbol for {@link VSCodePage.registerDocumentSymbols}; lines are 0-based and inclusive */
+export interface FakeDocumentSymbol {
+	name: string;
+	kind: keyof typeof SymbolKind;
+	startLine: number;
+	endLine: number;
+	children?: FakeDocumentSymbol[];
 }
