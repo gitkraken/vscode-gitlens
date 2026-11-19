@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import type { Uri } from 'vscode';
+import type { Hover, MarkdownString, Uri } from 'vscode';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator.js';
 import { ActivityBar } from './components/activityBar.js';
@@ -8,6 +8,8 @@ import { QuickPick } from './components/quickPick.js';
 import { SecondarySidebar } from './components/secondarySidebar.js';
 import { Sidebar } from './components/sidebar.js';
 import { StatusBar } from './components/statusBar.js';
+
+export type EditorHoverContent = { value: string; trustedCommands: readonly string[] | boolean };
 
 /**
  * Base page object for VS Code UI interactions.
@@ -68,21 +70,16 @@ export class VSCodePage {
 		}, section);
 	}
 
-	/**
-	 * Write a setting at the user (Global) scope, as the Settings UI would — for specs that have to
-	 * exercise BOTH values of a setting in one worker, where the fixture's static `userSettings` can
-	 * only pin one. Settings written this way land in the worker's own temp user-data dir, so they
-	 * don't leak across workers; a spec that changes one still has to restore it for the specs after it.
-	 */
 	async updateSetting(section: string, value: unknown): Promise<void> {
 		await this.evaluate(
-			async (vscode, section, value) => {
-				// 1 = ConfigurationTarget.Global — the enum isn't reachable through the evaluator's
-				// serialized boundary, and no workspace is guaranteed to be open.
-				await vscode.workspace.getConfiguration().update(section, value, 1);
+			async (vscode, section, value, remove) => {
+				// KEEP: numeric target (1 = Global) — the enum can't cross the evaluator's JSON boundary
+				// KEEP: `remove` flag — JSON turns `undefined` into `null`, which VS Code stores instead of removing
+				await vscode.workspace.getConfiguration().update(section, remove ? undefined : value, 1);
 			},
 			section,
 			value,
+			value === undefined,
 		);
 	}
 
@@ -122,6 +119,81 @@ export class VSCodePage {
 				line: editor.selection.active.line,
 			};
 		});
+	}
+
+	async moveCursorAndGetHovers(
+		file: string,
+		line: number,
+		character: number | 'end',
+		cursorLine: number = line,
+	): Promise<EditorHoverContent[][]> {
+		return this.evaluate(
+			async (vscode, file, line, character, cursorLine) => {
+				const [uri] = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+				if (uri == null) throw new Error(`File not found: ${file}`);
+
+				const editor = await vscode.window.showTextDocument(uri);
+				if (editor.selection.active.line !== cursorLine || !editor.selection.isEmpty) {
+					editor.selection = new vscode.Selection(cursorLine, 0, cursorLine, 0);
+				}
+				editor.revealRange(new vscode.Range(cursorLine, 0, cursorLine, 0));
+
+				const position = new vscode.Position(
+					line,
+					character === 'end' ? editor.document.lineAt(line).text.length : character,
+				);
+				const hovers = await vscode.commands.executeCommand<Hover[]>(
+					'vscode.executeHoverProvider',
+					uri,
+					position,
+				);
+				return hovers.map(h =>
+					h.contents.map(c => {
+						if (typeof c === 'string') return { value: c, trustedCommands: false };
+
+						const markdown = c as MarkdownString;
+						const trusted = markdown.isTrusted;
+						return {
+							value: markdown.value,
+							trustedCommands: typeof trusted === 'object' ? trusted.enabledCommands : Boolean(trusted),
+						};
+					}),
+				);
+			},
+			file,
+			line,
+			character,
+			cursorLine,
+		);
+	}
+
+	async insertText(file: string, line: number, character: number, text: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, file, line, character, text) => {
+				const [uri] = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+				if (uri == null) throw new Error(`File not found: ${file}`);
+
+				const editor = await vscode.window.showTextDocument(uri);
+				await editor.edit(edit => edit.insert(new vscode.Position(line, character), text));
+			},
+			file,
+			line,
+			character,
+			text,
+		);
+	}
+
+	async getActiveTabLabel(): Promise<string | undefined> {
+		return this.evaluate(vscode => vscode.window.tabGroups.activeTabGroup.activeTab?.label);
+	}
+
+	get editorHover(): Locator {
+		return this.page.locator('.monaco-hover:not(.hidden)');
+	}
+
+	async showEditorHover(): Promise<void> {
+		await this.executeCommand('workbench.action.focusActiveEditorGroup');
+		await this.executeCommand('editor.action.showHover');
 	}
 
 	/** The host editor's URI scheme (e.g. `vscode`, `cursor`, `windsurf`, `kiro`) */
