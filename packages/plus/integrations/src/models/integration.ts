@@ -335,8 +335,7 @@ export abstract class IntegrationBase<
 		// A truthy connectionId targets a specific account; an empty string is not a real target, so it falls
 		// through to the primary path below.
 		if (connectionId) {
-			// A read of this connection previously failed with an AuthenticationError, so the token in
-			// storage is known-refused. Ask for a refresh through the GK cloud before reading again, which
+			// The provider previously refused this connection's token. Ask for a refresh before using it again, which
 			// is this branch's equivalent of the primary path's `refreshSessionIfExpired`. Claimed here so
 			// the forced refresh runs at most once per rejection.
 			const refreshRejectedToken = this._rejectedTokens.claimRefresh(connectionId);
@@ -524,7 +523,7 @@ export abstract class IntegrationBase<
 	/**
 	 * The per-connection counterpart of the primary session's expire-and-resync recovery: a token the
 	 * provider refused is refreshed once through the GK cloud, which exchanges the refresh token server-side
-	 * (the client never holds one). Armed by {@link handleProviderException} and consumed by
+	 * (the client never holds one). Armed by {@link handleConnectionAuthenticationRejection} and consumed by
 	 * {@link resolveReadSession}; a rejection it declines belongs to {@link trackRequestException} instead.
 	 */
 	private readonly _rejectedTokens = new RejectedTokenTracker();
@@ -1058,6 +1057,15 @@ export abstract class IntegrationBase<
 	}
 
 	/** Returns whether it spent a strike (see {@link trackRequestException}). */
+	protected handleConnectionAuthenticationRejection(connectionId: string, silent?: boolean): boolean {
+		this._validatedCredentials.clear();
+		if (this._rejectedTokens.recordRejection(connectionId)) return false;
+
+		this.trackRequestException({ connectionId: connectionId, silent: silent });
+		return true;
+	}
+
+	/** Returns whether it spent a strike (see {@link trackRequestException}). */
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
@@ -1066,7 +1074,7 @@ export abstract class IntegrationBase<
 		if (isCancellationError(ex)) return false;
 
 		// A refused credential may be one a probe passed moments ago: stop vouching for it.
-		if (ex instanceof AuthenticationError) {
+		if (ex instanceof AuthenticationError && !options?.connectionId) {
 			this._validatedCredentials.clear();
 		}
 
@@ -1076,21 +1084,8 @@ export abstract class IntegrationBase<
 			Logger.error(ex);
 		}
 
-		// A per-connection (multi-account) read resolved its session through `resolveReadSession`'s
-		// `connectionId` branch, which deliberately never touches the cached primary `_session`. So the
-		// primary-session recovery below cannot apply to it: expiring `_session` would mark a session this
-		// read never used, while the rejected connection kept its stored token and re-sent it on every
-		// later read — a token the provider has already refused (expired scopes, a revoked grant, an
-		// uninstalled app) is not self-healing, so the read failed identically until the user reconnected
-		// by hand. Record the rejection against the connection instead; `resolveReadSession` consumes it
-		// and forces the cloud `/refresh` on the next read of that connection. When there is nothing to
-		// recover, fall through to that connection's failure budget (see `trackRequestException`), which for
-		// the primary disconnects after `requestExceptionLimit` and surfaces the reconnect prompt.
 		if (ex instanceof AuthenticationError && options?.connectionId) {
-			if (this._rejectedTokens.recordRejection(options.connectionId)) return false;
-
-			this.trackRequestException(options);
-			return true;
+			return this.handleConnectionAuthenticationRejection(options.connectionId, options.silent);
 		}
 
 		if (ex instanceof AuthenticationError && this._session?.cloud && !this.hasSessionSyncRequests()) {

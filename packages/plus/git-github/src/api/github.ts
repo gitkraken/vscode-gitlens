@@ -101,6 +101,8 @@ import {
 	toGitHubIssueSearchSlideQualifier,
 	toGitHubIssueSortQualifier,
 } from './issueSearchQuery.js';
+import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from './issueWrites.js';
+import { mutateGitHubIssue } from './issueWrites.js';
 import { toGitHubPullRequestSearchFacets } from './pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from './token.js';
 
@@ -3666,6 +3668,27 @@ export class GitHubApi {
 			}, ms);
 			signal?.addEventListener('abort', onAbort, { once: true });
 		});
+	}
+
+	async mutateIssue(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		input: GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' }),
+	): Promise<IssueWriteResult> {
+		return mutateGitHubIssue(input, (query, variables) =>
+			this.requestWithRetries(
+				() =>
+					this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+						this.getDefaults(token.accessToken, graphql)(query, {
+							...variables,
+							headers: { 'x-github-next-global-id': '1' },
+						}),
+					),
+				graphqlReadQueryRegex.test(query),
+				undefined,
+				undefined,
+			),
+		);
 	}
 
 	// Inflight dedupe: identical concurrent GraphQL requests share a single promise

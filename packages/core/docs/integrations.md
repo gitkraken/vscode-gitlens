@@ -728,6 +728,25 @@ What holds for all of them:
 - An Asana task's tags are its labels and its likes, a thumbs-up on the task, its reactions. Its comments are stories, which a task doesn't
   count, so reading them would cost a request per task. Asana has no batch read.
 
+### GitHub.com issue writes
+
+Use the selected GitHub connection ID from `getConfigured()` together with `providerId`, `owner`, and `repo`.
+Core resolves the repository and issue with that account before sending the mutation to GitHub. Issue numbers
+are scoped to their repository. For an existing issue, pass its `number` and the `expectedNodeId` from the
+issue read. Core verifies that the node still belongs to the requested repository and number.
+
+| Method        | Operation                                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `writeIssue`  | Pass `action: 'create'` with a `title` and an optional `body`.                                                                           |
+| `writeIssue`  | Pass `action: 'edit'` with at least one of `title` or `body`. An empty body clears the description.                                      |
+| `writeIssue`  | Pass `action: 'set-state'`. Use `state: 'open'` to reopen, or `state: 'closed'` with `reason: 'completed'` or `'not_planned'`.           |
+| `deleteIssue` | Permanently delete the issue if GitHub grants the selected account permission. Obtain confirmation in the calling UI before invoking it. |
+
+An `IssueWriteResult` with `ok: true` contains the canonical owner, repository, issue number, node ID, URL,
+title, body, and state. Deletion returns the issue snapshot from before removal. An `ok: false` result contains
+a typed reason. GitHub can report inaccessible private resources as `not-found`. Check GitHub before retrying
+an `unknown` result, since GitHub may have applied the mutation before the response was lost.
+
 ## 5. Paging
 
 Two mechanisms live behind one shape, and they are **not** interchangeable:

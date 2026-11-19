@@ -198,7 +198,7 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 
 		let ghRefreshed = 0;
 		let glRefreshed = 0;
-		gh.refresh = () => void ghRefreshed++; // `refresh()` is synchronous `void` — a counter stub is enough
+		gh.refresh = async () => void ghRefreshed++;
 		gl.refresh = () => void glRefreshed++;
 
 		runtime.fireAuthenticationSessionChange(gh.authProvider.id);

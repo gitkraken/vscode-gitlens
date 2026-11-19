@@ -1,3 +1,5 @@
+import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import { issueWriteFailure, isValidGitHubIssueMutation } from '@gitlens/git-github/api/issueWrites.js';
 import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
 import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
@@ -1490,6 +1492,30 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	readonly name: string = 'GitHub';
 	get domain(): string {
 		return metadata.domain;
+	}
+
+	async mutateIssue(
+		connectionId: string,
+		input: GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' }),
+	): Promise<IssueWriteResult> {
+		if (!isValidGitHubIssueMutation(input)) return { ok: false, reason: 'invalid-input' };
+
+		try {
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+
+			const api = await this.authenticationService.apis.github;
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const result = await api.mutateIssue(this, toTokenWithInfo(this.id, session), input);
+			if (!result.ok && result.reason === 'no-connection') {
+				this.handleConnectionAuthenticationRejection(connectionId, true);
+			}
+
+			return result;
+		} catch (ex) {
+			return issueWriteFailure(ex);
+		}
 	}
 
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {

@@ -1,4 +1,5 @@
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
+import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
@@ -51,6 +52,11 @@ import type {
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
+
+type IssueWriteConnection = { providerId: IntegrationIds; connectionId: string };
+
+export type IssueWriteOptions = IssueWriteConnection & GitHubIssueWrite;
+export type IssueDeleteOptions = IssueWriteConnection & GitHubIssueDelete;
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {
@@ -1047,6 +1053,8 @@ export interface IntegrationManager {
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>>;
+	writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult>;
+	deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult>;
 	resolveRepository(options: {
 		providerId?: IntegrationIds;
 		remoteUrl: string;
