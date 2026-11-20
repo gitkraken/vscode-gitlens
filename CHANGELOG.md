@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes promotions not showing above the _Commit Graph_ when the graph is opened &mdash; the banner only appeared after the subscription state changed
+
 ## [19.6.0] - 2026-11-10
 
 ### Added
