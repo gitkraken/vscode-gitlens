@@ -1,43 +1,30 @@
 import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { test as base, expect, MaxTimeout } from '../baseTest.js';
 import {
 	ensureGraphDetailsPanelOpenAndAdopted,
+	selectGraphWip,
 	waitForGraphRowsRendered,
 	widenSideBarForGraph,
 } from '../graphHelpers.js';
 import {
 	clearAIResponses,
+	createRepoWithStagedAndUnstagedChanges,
 	getLastAIPrompt,
 	queueAIResponse,
+	stagedMarker,
 	startAISimulation,
 	unique,
+	unstagedMarker,
 } from '../helpers/aiSimulator.js';
-
-const stagedMarker = 'alpha staged marker';
-const unstagedMarker = 'beta unstaged marker';
 
 const test = base.extend({
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
-			setup: async () => {
-				const repoDir = await createTmpDir();
-				const git = new GitFixture(repoDir);
-				await git.init();
-				await git.commit('Add alpha', 'alpha.ts', 'export const alpha = 1;\n', {
-					date: '2024-01-11T12:00:00',
-				});
-				await git.commit('Add beta', 'beta.ts', 'export const beta = 1;\n', { date: '2024-01-12T12:00:00' });
-				await git.addRemote('origin', 'https://example.com/test/ai-generation.git');
-
-				await git.createFile('alpha.ts', `export const alpha = 1;\n// ${stagedMarker}\n`);
-				await git.stage('alpha.ts');
-				await git.createFile('beta.ts', `export const beta = 1;\n// ${unstagedMarker}\n`);
-
-				return repoDir;
-			},
+			setup: () =>
+				createRepoWithStagedAndUnstagedChanges({ remote: 'https://example.com/test/ai-generation.git' }),
 		},
 		{ scope: 'worker' },
 	],
@@ -57,21 +44,13 @@ test.describe('Graph details AI results under the simulator', () => {
 	let vscodeInstance: VSCodeInstance;
 	let simulation: AsyncDisposable | undefined;
 
-	async function selectWip(): Promise<void> {
-		await ensureGraphDetailsPanelOpenAndAdopted(vscodeInstance, graphWebview, MaxTimeout);
-
-		const wipHeader = graphWebview.locator('gl-details-wip-header gl-details-header').first();
-		if (await wipHeader.isVisible().catch(() => false)) return;
-
-		const wipRow = graphWebview
-			.getByRole('treeitem', { name: /Working Changes/ })
-			.filter({ visible: true })
-			.first();
-		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-		// HACK: forced — the virtualized row can report "not stable"; the header check below catches a missed click
-		await wipRow.click({ force: true });
-		await ensureGraphDetailsPanelOpenAndAdopted(vscodeInstance, graphWebview, MaxTimeout);
-		await expect(wipHeader).toBeVisible({ timeout: MaxTimeout });
+	async function expectComposeCommitFiles(message: string, files: string[]): Promise<void> {
+		const commit = graphWebview.locator('.compose-panel .compose-commit', { hasText: message });
+		await commit.press('Enter');
+		await expect(commit).toHaveAttribute('aria-current', 'true');
+		const fileItems = graphWebview.locator('.compose-plan__split-end').getByRole('treeitem');
+		await expect(fileItems).toHaveCount(files.length);
+		await expect(fileItems).toContainText(files);
 	}
 
 	async function discardComposePlan(): Promise<void> {
@@ -96,17 +75,20 @@ test.describe('Graph details AI results under the simulator', () => {
 		graphWebview = webview!;
 		await expect(graphWebview.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
 		await waitForGraphRowsRendered(graphWebview);
-		// KEEP: longer first open — under a loaded host the panel's first layout outlasts the 10s toggle budget
+		// KEEP: 30s for the first open — 10s timed out on a loaded host
 		await ensureGraphDetailsPanelOpenAndAdopted(vscode, graphWebview, 30000);
 	});
 
 	test.afterAll(async ({ vscode }) => {
-		await simulation?.[Symbol.asyncDispose]();
-		await vscode.gitlens.resetUI();
+		try {
+			await simulation?.[Symbol.asyncDispose]();
+		} finally {
+			await vscode.gitlens.resetUI();
+		}
 	});
 
 	test.beforeEach(async () => {
-		await selectWip();
+		await selectGraphWip(vscodeInstance, graphWebview);
 	});
 
 	test.afterEach(async ({ vscode }) => {
@@ -231,6 +213,9 @@ test.describe('Graph details AI results under the simulator', () => {
 		const messages = graphWebview.locator('.compose-panel .compose-commit__message-content');
 		await expect(messages).toHaveCount(2, { timeout: MaxTimeout });
 		await expect(messages).toHaveText(['(Simulator) Remaining changes', message]);
+		await expectComposeCommitFiles(message, ['alpha.ts']);
+		await expectComposeCommitFiles('(Simulator) Remaining changes', ['beta.ts']);
+		await expect(graphWebview.locator('.compose-panel')).not.toContainText('missing.ts');
 
 		await discardComposePlan();
 	});

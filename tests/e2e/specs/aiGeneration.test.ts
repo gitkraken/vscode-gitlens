@@ -1,38 +1,23 @@
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { test as base, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
 	clearAIResponses,
+	createRepoWithStagedAndUnstagedChanges,
 	getLastAIPrompt,
 	queueAIResponse,
-	setAISimulatorMode,
+	setAISimulatorModeAndClearResponses,
+	stagedMarker,
 	startAISimulation,
 	unique,
+	unstagedMarker,
 } from '../helpers/aiSimulator.js';
-
-const stagedMarker = 'alpha staged marker';
-const unstagedMarker = 'beta unstaged marker';
 
 const test = base.extend({
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
-			setup: async () => {
-				const repoDir = await createTmpDir();
-				const git = new GitFixture(repoDir);
-				await git.init();
-				await git.commit('Add base', 'base.ts', 'export const base = 1;\n', { date: '2024-01-10T12:00:00' });
-				await git.commit('Add alpha', 'alpha.ts', 'export const alpha = 1;\n', {
-					date: '2024-01-11T12:00:00',
-				});
-				await git.commit('Add beta', 'beta.ts', 'export const beta = 1;\n', { date: '2024-01-12T12:00:00' });
-
-				await git.createFile('alpha.ts', `export const alpha = 1;\n// ${stagedMarker}\n`);
-				await git.stage('alpha.ts');
-				await git.createFile('beta.ts', `export const beta = 1;\n// ${unstagedMarker}\n`);
-
-				return repoDir;
-			},
+			setup: () => createRepoWithStagedAndUnstagedChanges({ baseCommit: true }),
 		},
 		{ scope: 'worker' },
 	],
@@ -57,11 +42,15 @@ test.describe('AI generation under the simulator', () => {
 	});
 
 	test.afterAll(async ({ vscode }) => {
-		await simulation?.[Symbol.asyncDispose]();
-		await vscode.gitlens.resetUI();
+		try {
+			await simulation?.[Symbol.asyncDispose]();
+		} finally {
+			await vscode.gitlens.resetUI();
+		}
 	});
 
 	test.afterEach(async ({ vscode }) => {
+		await vscode.gitlens.executeCommand('workbench.action.closeQuickOpen');
 		await clearAIResponses(vscode);
 		await vscode.gitlens.setScmInputBoxValue(repoPath, '');
 		await vscode.gitlens.resetUI();
@@ -88,10 +77,8 @@ test.describe('AI generation under the simulator', () => {
 
 	test('a failing model leaves the SCM input as it was and reports the error', async ({ vscode }) => {
 		await vscode.gitlens.setScmInputBoxValue(repoPath, 'Context line');
-		await setAISimulatorMode(vscode, 'provider-error');
+		await setAISimulatorModeAndClearResponses(vscode, 'provider-error');
 		try {
-			await queueAIResponse(vscode, 'generate-commitMessage', `<summary>${unique('Unused summary')}</summary>`);
-
 			await vscode.gitlens.executeCommand('gitlens.ai.generateCommitMessage', { repoPath: repoPath });
 
 			await expect(
@@ -101,7 +88,7 @@ test.describe('AI generation under the simulator', () => {
 			).toBeVisible({ timeout: MaxTimeout });
 			expect(await vscode.gitlens.getScmInputBoxValue(repoPath)).toBe('Context line');
 		} finally {
-			await setAISimulatorMode(vscode, 'default');
+			await setAISimulatorModeAndClearResponses(vscode, 'default');
 		}
 	});
 
