@@ -11,6 +11,10 @@ import { StatusBar } from './components/statusBar.js';
 
 export type EditorHoverContent = { value: string; trustedCommands: readonly string[] | boolean };
 
+type GitExtensionExports = {
+	getAPI(version: 1): { getRepository(uri: Uri): { inputBox: { value: string } } | null };
+};
+
 /**
  * Base page object for VS Code UI interactions.
  * Provides component-based access to VS Code UI elements.
@@ -68,6 +72,10 @@ export class VSCodePage {
 			const inspected = vscode.workspace.getConfiguration().inspect(section);
 			return inspected?.globalValue !== undefined || inspected?.workspaceValue !== undefined;
 		}, section);
+	}
+
+	async getSetting<T>(section: string): Promise<T | undefined> {
+		return this.evaluate((vscode, section) => vscode.workspace.getConfiguration().get<T>(section), section);
 	}
 
 	async updateSetting(section: string, value: unknown): Promise<void> {
@@ -185,6 +193,51 @@ export class VSCodePage {
 
 	async getActiveTabLabel(): Promise<string | undefined> {
 		return this.evaluate(vscode => vscode.window.tabGroups.activeTabGroup.activeTab?.label);
+	}
+
+	async getActiveEditorText(): Promise<string | undefined> {
+		return this.evaluate(vscode => vscode.window.activeTextEditor?.document.getText());
+	}
+
+	async getScmInputBoxValue(repoPath: string): Promise<string | undefined> {
+		return this.evaluate(async (vscode, repoPath) => {
+			const git = (await vscode.extensions.getExtension<GitExtensionExports>('vscode.git')?.activate())?.getAPI(
+				1,
+			);
+			return git?.getRepository(vscode.Uri.file(repoPath))?.inputBox.value;
+		}, repoPath);
+	}
+
+	async setScmInputBoxValue(repoPath: string, value: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, repoPath, value) => {
+				const git = (
+					await vscode.extensions.getExtension<GitExtensionExports>('vscode.git')?.activate()
+				)?.getAPI(1);
+				const repo = git?.getRepository(vscode.Uri.file(repoPath));
+				if (repo == null) throw new Error(`No Git repository open at ${repoPath}`);
+
+				repo.inputBox.value = value;
+			},
+			repoPath,
+			value,
+		);
+	}
+
+	async getDocumentsInTabs(scheme: string): Promise<{ viewType?: string; text: string }[]> {
+		return this.evaluate(async (vscode, scheme) => {
+			const documents: { viewType?: string; text: string }[] = [];
+			for (const group of vscode.window.tabGroups.all) {
+				for (const tab of group.tabs) {
+					const input = tab.input as { uri?: Uri; viewType?: string } | undefined;
+					if (input?.uri?.scheme !== scheme) continue;
+
+					const document = await vscode.workspace.openTextDocument(input.uri);
+					documents.push({ viewType: input.viewType, text: document.getText() });
+				}
+			}
+			return documents;
+		}, scheme);
 	}
 
 	get editorHover(): Locator {
