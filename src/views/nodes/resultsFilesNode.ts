@@ -27,7 +27,10 @@ export const enum FilesQueryFilter {
 
 interface Options {
 	expand: boolean;
+	label?: string;
+	onRefresh?: () => void;
 	timeout: false | number;
+	tooltip?: string;
 }
 
 export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits, State> {
@@ -151,10 +154,9 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 				tooltip = l10n.t('{0} &mdash; Filtered', label);
 				files = results.filtered?.get(filter);
 				if (files == null) {
-					label = l10n.t('files changed');
+					label = this._options.label ?? l10n.t('files changed');
 					icon = new ThemeIcon('ellipsis');
-					// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
-					// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
+					// SEE: Loading items need Collapsed to stay visible: microsoft/vscode#54806 and microsoft/vscode#62214.
 					state = TreeItemCollapsibleState.Collapsed;
 
 					void this._filterResults?.then(() => queueMicrotask(() => this.triggerChange(false)));
@@ -176,10 +178,9 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 				void ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
-			label = l10n.t('files changed');
+			label = this._options.label ?? l10n.t('files changed');
 			icon = new ThemeIcon('ellipsis');
-			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
-			// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
+			// SEE: Loading items need Collapsed to stay visible: microsoft/vscode#54806 and microsoft/vscode#62214.
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
@@ -193,7 +194,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		item.contextValue = `${ContextValues.ResultsFiles}${
 			this.filterable ? '+filterable' : ''
 		}${this.getFilterContextValue()}`;
-		item.tooltip = tooltip;
+		item.tooltip = this._options.tooltip ?? tooltip;
 
 		return item;
 	}
@@ -205,6 +206,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		this.deleteState('filter');
 
 		this._filterResults = undefined;
+		this._options.onRefresh?.();
 		this._filesQueryResults = this._filesQuery();
 	}
 

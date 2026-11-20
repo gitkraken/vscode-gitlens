@@ -2034,6 +2034,7 @@
 	"config.views.searchAndCompare.pullRequests.enabled.markdownDescription": "指定是否在 _搜尋和比較_ 檢視中查詢與認可關聯的提取要求。需要連線到受支援的遠端服務（例如 GitHub）",
 	"config.views.searchAndCompare.pullRequests.showForCommits.markdownDescription": "指定是否在 _搜尋和比較_ 檢視中顯示與認可關聯的提取要求（如有）。需要連線到受支援的遠端服務（例如 GitHub）",
 	"config.views.showComparisonContributors.markdownDescription": "指定是否在檢視的比較結果中顯示 _貢獻者_ 部分",
+	"config.views.showContributorsFiles.markdownDescription": "指定是否在檢視的比較結果中顯示每位貢獻者修改過的檔案",
 	"config.views.showContributorsStatistics.markdownDescription": "指定是否在檢視的 _貢獻者_ 部分中顯示貢獻者統計資訊。計算可能需要一些時間，具體取決於儲存庫大小",
 	"config.views.showCurrentBranchOnTop.markdownDescription": "指定是否始終在檢視頂部顯示目前分支",
 	"config.views.showRelativeDateMarkers.markdownDescription": "指定是否在檢視中的修訂（認可）歷史記錄上顯示相對日期標記（_少於一週前_、_超過一週前_、_超過一個月前_ 等）",
