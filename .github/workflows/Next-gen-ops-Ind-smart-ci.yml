@@ -1,0 +1,80 @@
+name: Smart CI Sentinel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * *' # Daily at 3 AM UTC
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-matrix:
+    name: Test & Diagnose
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        id: run-tests
+        run: |
+          set +e
+          npm test > result.log 2>&1
+          echo "exit_code=$?" >> $GITHUB_ENV
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs-${{ matrix.os }}-${{ matrix.node-version }}
+          path: result.log
+
+      - name: Diagnose failures with AI
+        if: env.exit_code != '0'
+        uses: CodexBot/ai-diagnose-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: "src/**/*.ts"
+
+      - name: Comment diagnostics on PR
+        if: github.event_name == 'pull_request' && env.exit_code != '0'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            🚨 **Test failures detected**
+            AI diagnosis has been posted. Please review and address the issues.
+
+  audit-security:
+    name: Audit & Secure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate || true
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v2
