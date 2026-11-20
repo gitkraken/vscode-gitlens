@@ -334,6 +334,7 @@ type SyncReqUsecase = Exclude<
 	| 'dequeuePullRequest'
 	| 'enqueuePullRequest'
 	| 'mergePullRequest'
+	| 'mutateIssue'
 	| 'searchIssuesPage'
 	| 'searchPullRequestsPage'
 	| 'searchMyIssues'
@@ -826,8 +827,8 @@ export abstract class IntegrationBase<
 	}
 
 	/**
-	 * Clears the strikes of the connection `connectionId` names (the primary when omitted) after a read of it
-	 * succeeded, or of every connection for `'all'`.
+	 * Clears the strikes of the selected connection (the primary when omitted) after a successful request,
+	 * or of every connection for `'all'`.
 	 */
 	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all', connectionId?: string): void {
 		if (syncReqUsecase === 'all') {
@@ -843,7 +844,7 @@ export abstract class IntegrationBase<
 		}
 
 		this.requestExceptionCount = 0;
-		// Only the primary session's refused token requests a re-sync, so only a read of the primary settles one.
+		// Only the primary session's refused token requests a re-sync.
 		this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
 	}
 
