@@ -1508,7 +1508,9 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 			if (api == null) return { ok: false, reason: 'unsupported' };
 
 			const result = await api.mutateIssue(this, toTokenWithInfo(this.id, session), input);
-			if (!result.ok && result.reason === 'no-connection') {
+			if (result.ok) {
+				this.resetRequestExceptionCount('mutateIssue', connectionId);
+			} else if (result.reason === 'no-connection') {
 				this.handleConnectionAuthenticationRejection(connectionId, true);
 			}
 
