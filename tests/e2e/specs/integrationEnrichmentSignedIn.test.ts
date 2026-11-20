@@ -123,7 +123,8 @@ function hoverDetails(hovers: EditorHoverContent[][]): EditorHoverContent | unde
 }
 
 function commandArgs(value: string, command: string): Record<string, unknown> | undefined {
-	const match = new RegExp(String.raw`\]\(command:${command.replace(/\./g, '\\.')}\?((?:\\.|[^)\s])+)`).exec(value);
+	const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const match = new RegExp(String.raw`\]\(command:${escaped}\?((?:\\.|[^)\s])+)`).exec(value);
 	if (match == null) return undefined;
 
 	try {
