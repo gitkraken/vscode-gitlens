@@ -93,8 +93,8 @@ test.describe('Graph details AI results under the simulator', () => {
 
 	test.afterEach(async ({ vscode }) => {
 		await clearAIResponses(vscode);
-		const closeChip = graphWebview.locator('gl-action-chip.mode-close');
-		if (await closeChip.isVisible().catch(() => false)) {
+		const closeChip = graphWebview.locator('gl-action-chip.mode-close').first();
+		if (await closeChip.isVisible()) {
 			await closeChip.click();
 			await expect(
 				graphWebview.locator('gl-details-wip-header gl-details-header .mode-header--active'),

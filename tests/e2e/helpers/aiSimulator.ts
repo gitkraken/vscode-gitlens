@@ -50,7 +50,9 @@ export async function startAISimulation(vscode: VSCodeInstance): Promise<AsyncDi
 	});
 	const simulation: AsyncDisposable = {
 		[Symbol.asyncDispose]: async () => {
-			await simulateAI(vscode, { op: 'disable' }).catch(() => {});
+			await simulateAI(vscode, { op: 'disable' }).catch((ex: unknown) => {
+				console.warn('Failed to disable the AI simulator', ex);
+			});
 			await subscription[Symbol.asyncDispose]();
 		},
 	};

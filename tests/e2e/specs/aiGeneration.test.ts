@@ -148,16 +148,22 @@ test.describe('AI generation under the simulator', () => {
 			base: { refType: 'revision', name: baseShortSha, ref: baseSha, sha: baseSha, repoPath: repoPath },
 		});
 
-		await expect.poll(() => vscode.gitlens.getActiveEditorText()).toContain(entries);
-		const text = await vscode.gitlens.getActiveEditorText();
-		expect(text).toMatch(/^# Changelog for `main`\n/);
-		expect(text).toContain(`from 2 commits between \`main\` and \`${baseShortSha}\``);
-		expect(text).toContain(`----\n\n${entries}\n`);
+		try {
+			await expect.poll(() => vscode.gitlens.getActiveEditorText()).toContain(entries);
+			const text = await vscode.gitlens.getActiveEditorText();
+			expect(text).toMatch(/^# Changelog for `main`\n/);
+			expect(text).toContain(`from 2 commits between \`main\` and \`${baseShortSha}\``);
+			expect(text).toContain(`----\n\n${entries}\n`);
 
-		const prompt = await getLastAIPrompt(vscode);
-		expect(prompt).toContain('"message":"Add beta"');
-		expect(prompt).toContain('"message":"Add alpha"');
-		expect(prompt).not.toContain('Add base');
+			const prompt = await getLastAIPrompt(vscode);
+			expect(prompt).toContain('"message":"Add beta"');
+			expect(prompt).toContain('"message":"Add alpha"');
+			expect(prompt).not.toContain('Add base');
+		} finally {
+			// KEEP: discard the untitled changelog so closing editors can't stop on a save prompt
+			await vscode.gitlens.executeCommand('workbench.action.focusActiveEditorGroup');
+			await vscode.gitlens.executeCommand('workbench.action.revertAndCloseActiveEditor');
+		}
 	});
 
 	test('generating a stash message fills the message step with the summary only', async ({ vscode }) => {
