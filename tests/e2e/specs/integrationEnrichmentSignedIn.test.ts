@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs';
 import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, canSignIn, createTmpDir, expect, GitFixture } from '../baseTest.js';
-import { git, gitlensLogDiagnosis, TestRepositoryClone, testRepositoryUrl } from '../fixtures/testRepository.js';
+import {
+	git,
+	gitlensLogDiagnosis,
+	gitlensLogFiles,
+	TestRepositoryClone,
+	testRepositoryUrl,
+} from '../fixtures/testRepository.js';
 import {
 	dismissCommitHover,
 	ensureGraphDetailsPanelOpenAndAdopted,
@@ -40,14 +47,48 @@ type PullRequestCheckout = {
 	file: string;
 	line: number;
 	baseSha: string;
-	baseMessage: string;
 };
 
 const clone = new TestRepositoryClone('[enrichment]');
 let checkout: PullRequestCheckout | undefined;
 
+async function associatedPullRequestCount(sha: string): Promise<number> {
+	const token = process.env.GK_E2E_GITHUB_TOKEN?.trim();
+	if (!token) throw new Error('GK_E2E_GITHUB_TOKEN is required to check the fixture commits against GitHub');
+
+	const [owner, name] = new URL(testRepositoryUrl!).pathname.slice(1).split('/');
+	const response = await fetch('https://api.github.com/graphql', {
+		method: 'POST',
+		headers: { Authorization: `bearer ${token}`, 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			query: 'query($owner: String!, $name: String!, $sha: String!) { repository(owner: $owner, name: $name) { object(expression: $sha) { ... on Commit { associatedPullRequests { totalCount } } } } }',
+			variables: { owner: owner, name: name, sha: sha },
+		}),
+	});
+	const result = (await response.json().catch(() => undefined)) as
+		| { data?: { repository?: { object?: { associatedPullRequests?: { totalCount?: number } } } } }
+		| undefined;
+	const count = result?.data?.repository?.object?.associatedPullRequests?.totalCount;
+	if (!response.ok || count == null) {
+		throw new Error(
+			`could not count the pull requests GitHub associates with a fixture commit (HTTP ${response.status})`,
+		);
+	}
+	return count;
+}
+
+// KEEP: fixture contract — one open PR branch, a head adding a blamed line by a non-noreply author, and a base
+// commit with no PR and no `#n` reference; setup fails loudly when the test repository breaks it
 async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullRequestCheckout> {
 	const headSha = git(repo, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
+	if (!/^[0-9a-f]{40}$/.test(headSha)) throw new Error(`the test repository has no head for PR #${prNumber}`);
+
+	try {
+		git(repo, 'cat-file', '-e', `${headSha}^{commit}`);
+	} catch {
+		throw new Error(`the head of PR #${prNumber} is not on any branch of the test repository`);
+	}
+
 	const branches = git(
 		repo,
 		'for-each-ref',
@@ -58,16 +99,25 @@ async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullReq
 	)
 		.split('\n')
 		.filter(name => name && name !== 'HEAD');
-	if (!headSha || branches.length !== 1) {
+	if (branches.length !== 1) {
 		throw new Error(`expected one branch of the test repository to hold the head of PR #${prNumber}`);
 	}
 
 	git(repo, 'switch', '--quiet', '--create', branches[0], '--track', `origin/${branches[0]}`);
-	const file = git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', headSha).split('\n')[0];
-	const lineMatch = new RegExp(`^${headSha} \\d+ (\\d+)`, 'm').exec(
-		git(repo, 'blame', '--porcelain', '-l', headSha, '--', file),
-	);
-	if (!file || lineMatch == null) throw new Error(`the head of PR #${prNumber} adds no line to blame`);
+	const blameLine = new RegExp(`^${headSha} \\d+ (\\d+)`, 'm');
+	let file: string | undefined;
+	let line: number | undefined;
+	for (const path of git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-z', '-r', '--root', headSha)
+		.split('\0')
+		.filter(Boolean)) {
+		const match = blameLine.exec(git(repo, 'blame', '--porcelain', '-l', headSha, '--', path));
+		if (match == null) continue;
+
+		file = path;
+		line = Number(match[1]) - 1;
+		break;
+	}
+	if (file == null || line == null) throw new Error(`the head of PR #${prNumber} adds no line to blame`);
 	if (/@users\.noreply\.github\.com$|^noreply@github\.com$/i.test(git(repo, 'log', '-1', '--format=%ae', headSha))) {
 		throw new Error(
 			`the head of PR #${prNumber} must not have a GitHub noreply author: its avatar needs no provider`,
@@ -75,6 +125,12 @@ async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullReq
 	}
 
 	const baseSha = git(repo, 'merge-base', headSha, 'origin/HEAD');
+	const baseMessage = git(repo, 'log', '-1', '--format=%B', baseSha);
+	if (/#\d/.test(baseMessage) || (await associatedPullRequestCount(baseSha)) !== 0) {
+		throw new Error(
+			`the commit PR #${prNumber} branched from must reference no issue or PR and belong to no PR on GitHub`,
+		);
+	}
 
 	const fixtureGit = new GitFixture(repo);
 	await fixtureGit.config('user.name', localAuthor.name);
@@ -82,14 +138,7 @@ async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullReq
 	// KEEP: never pushed — the fixture's own messages reference no issue, and the test repository must stay unchanged
 	await fixtureGit.commit(localMessage, localFile, 'references the test issue\n');
 
-	return {
-		branch: branches[0],
-		headSha: headSha,
-		file: file,
-		line: Number(lineMatch[1]) - 1,
-		baseSha: baseSha,
-		baseMessage: git(repo, 'log', '-1', '--format=%s', baseSha),
-	};
+	return { branch: branches[0], headSha: headSha, file: file, line: line, baseSha: baseSha };
 }
 
 const test = base.extend<object, { cloneCleanup: void }>({
@@ -105,6 +154,7 @@ const test = base.extend<object, { cloneCleanup: void }>({
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
 			signIn: { requiredIntegrations: ['GitHub'] },
+			logLevel: 'trace',
 			setup: async () => {
 				const repo = clone.create(await createTmpDir());
 				checkout = await checkOutPullRequestWithLocalCommit(repo);
@@ -218,10 +268,36 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 		return graphWebview;
 	}
 
-	async function selectCommit(vscode: VSCodeInstance, sha: string): Promise<Locator> {
+	async function revealCommit(vscode: VSCodeInstance, sha: string): Promise<{ webview: FrameLocator; row: Locator }> {
 		const webview = await openGraph(vscode);
 		const row = commitRow(webview, sha);
+		if (!(await row.isVisible())) {
+			await vscode.gitlens.executeCommand('gitlens.showInCommitGraphView', {
+				ref: {
+					refType: 'revision',
+					repoPath: vscode.electron.workspacePath,
+					ref: sha,
+					sha: sha,
+					name: sha.slice(0, 7),
+				},
+				preserveFocus: true,
+			});
+		}
 		await expect(row).toBeVisible({ timeout: 30_000 });
+		return { webview: webview, row: row };
+	}
+
+	function pullRequestLookupFinished(vscode: VSCodeInstance, sha: string): 'completed' | 'failed' | 'pending' {
+		const calls = (gitlensLogFiles(vscode.electron.args) ?? [])
+			.flatMap(f => readFileSync(f, 'utf8').split('\n'))
+			.filter(l => l.includes('GitHubApi.getPullRequestForCommit(') && l.includes(`rev=${sha}`));
+		if (calls.some(l => / failed\b/.test(l))) return 'failed';
+
+		return calls.some(l => / (completed|returned)\b/.test(l)) ? 'completed' : 'pending';
+	}
+
+	async function selectCommit(vscode: VSCodeInstance, sha: string): Promise<Locator> {
+		const { webview, row } = await revealCommit(vscode, sha);
 		await dismissCommitHover(webview);
 		// KEEP: click the message, not the row — the row also holds the branch pills, which route to ref actions
 		await row.locator('.gl-graph__message-subject').first().click();
@@ -232,9 +308,9 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 	}
 
 	async function rowHoverText(vscode: VSCodeInstance, sha: string, loaded: string): Promise<string> {
-		const webview = await openGraph(vscode);
+		const { webview, row } = await revealCommit(vscode, sha);
 		await dismissCommitHover(webview);
-		await commitRow(webview, sha).locator('.gl-graph__message-subject').first().hover();
+		await row.locator('.gl-graph__message-subject').first().hover();
 		const hover = webview.locator('gl-graph-hover[open]').first();
 		await expect(hover).toHaveCount(1, { timeout: 30_000 });
 		let text = '';
@@ -373,8 +449,16 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 	test('Commit Graph row hover and commit details show no PR for the commit the PR branched from', async ({
 		vscode,
 	}) => {
-		// KEEP: row hover before the details — it is the signal that the PR lookup of this commit finished
-		const hover = await rowHoverText(vscode, checkout!.baseSha, checkout!.baseMessage);
+		const baseSha = checkout!.baseSha;
+		await rowHoverText(vscode, baseSha, baseSha.slice(0, 7));
+		// KEEP: a failed lookup also shows no PR — require GitHub's answer for this commit in the trace log first
+		await expect
+			.poll(() => pullRequestLookupFinished(vscode, baseSha), {
+				message: 'the PR lookup of the commit finished',
+				timeout: dataTimeout,
+			})
+			.toBe('completed');
+		const hover = await rowHoverText(vscode, baseSha, baseSha.slice(0, 7));
 		expect(/PR #\d/.test(hover), 'no PR in the row hover').toBe(false);
 
 		const panel = await selectCommit(vscode, checkout!.baseSha);
