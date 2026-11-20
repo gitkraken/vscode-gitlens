@@ -34,7 +34,14 @@ const localFile = 'enrichment.txt';
 const localMessage = `Mentions #${issueNumber} in a local commit`;
 const localAuthor = { name: 'Enrichment Local', email: 'enrichment@example.invalid' };
 
-type PullRequestCheckout = { headSha: string; file: string; line: number; baseSha: string; baseMessage: string };
+type PullRequestCheckout = {
+	branch: string;
+	headSha: string;
+	file: string;
+	line: number;
+	baseSha: string;
+	baseMessage: string;
+};
 
 const clone = new TestRepositoryClone('[enrichment]');
 let checkout: PullRequestCheckout | undefined;
@@ -76,6 +83,7 @@ async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullReq
 	await fixtureGit.commit(localMessage, localFile, 'references the test issue\n');
 
 	return {
+		branch: branches[0],
 		headSha: headSha,
 		file: file,
 		line: Number(lineMatch[1]) - 1,
@@ -305,6 +313,18 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 		expect(gravatar.test(details.value), 'no provider avatar for an author without a GitHub account').toBe(true);
 	});
 
+	// TODO(#6281): the graph drops its first ref-metadata request, so the pill never gets its PR badge
+	test.fixme('Commit Graph branch pill carries the badge of its PR', async ({ vscode }) => {
+		const webview = await openGraph(vscode);
+		const badge = webview
+			.locator(`.gl-graph__ref-pill-pr[data-ref-name="${checkout!.branch}"]`)
+			.and(webview.getByLabel(`Pull request #${prNumber}`, { exact: true }))
+			.first();
+		await expect(badge, `PR #${prNumber} badge on the ${checkout!.branch} pill`).toBeAttached({
+			timeout: dataTimeout,
+		});
+	});
+
 	test('commit details in the Commit Graph show the PR of the commit with its state', async ({ vscode }) => {
 		test.skip(prTitle == null, 'compares with the PR title read by the line hover test');
 
@@ -361,6 +381,11 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 		await expect(panel.locator('.bottom-section').first()).toContainText('No autolinks found', {
 			timeout: dataTimeout,
 		});
-		await expect(panel.locator('gl-autolink-chip'), 'no PR or issue chip').toHaveCount(0);
+		// KEEP: watch a window — the panel applies its own (cached by now) PR answer after the empty label renders
+		const watchUntil = Date.now() + 5_000;
+		while (Date.now() < watchUntil) {
+			expect(await panel.locator('gl-autolink-chip').count(), 'no PR or issue chip').toBe(0);
+			await new Promise(resolve => setTimeout(resolve, 250));
+		}
 	});
 });
