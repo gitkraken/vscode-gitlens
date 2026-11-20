@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import type { Hover, MarkdownString, Uri } from 'vscode';
+import type { CodeLens, DocumentSymbol, Hover, MarkdownString, SymbolKind, Uri } from 'vscode';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator.js';
 import { ActivityBar } from './components/activityBar.js';
@@ -301,4 +301,118 @@ export class VSCodePage {
 	async waitForHidden(locator: Locator, timeout = MaxTimeout): Promise<void> {
 		await locator.waitFor({ state: 'hidden', timeout: timeout });
 	}
+
+	async getCodeLenses(fileName: string): Promise<EditorCodeLens[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const lenses =
+				(await vscode.commands.executeCommand<CodeLens[] | undefined>(
+					'vscode.executeCodeLensProvider',
+					doc.uri,
+					// KEEP: resolve count — GitLens sets titles and commands only on resolve
+					100,
+				)) ?? [];
+			return lenses
+				.map(l => ({
+					line: l.range.start.line,
+					title: l.command?.title,
+					command: l.command?.command || undefined,
+				}))
+				.sort((a, b) => a.line - b.line);
+		}, fileName);
+	}
+
+	async getDocumentSymbolLines(fileName: string): Promise<number[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const symbols =
+				(await vscode.commands.executeCommand<DocumentSymbol[] | undefined>(
+					'vscode.executeDocumentSymbolProvider',
+					doc.uri,
+				)) ?? [];
+			const lines: number[] = [];
+			const visit = (s: DocumentSymbol): void => {
+				lines.push(s.range.start.line);
+				for (const child of s.children ?? []) {
+					visit(child);
+				}
+			};
+			for (const s of symbols) {
+				visit(s);
+			}
+			return lines.sort((a, b) => a - b);
+		}, fileName);
+	}
+
+	async registerDocumentSymbols(fileName: string, symbols: FakeDocumentSymbol[]): Promise<void> {
+		await this.evaluate(
+			(vscode, fileName, symbols) => {
+				const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+				store.__glE2eSymbols?.dispose();
+
+				const toSymbol = (s: FakeDocumentSymbol): DocumentSymbol => {
+					// KEEP: kind by name — the enum can't cross the evaluator's JSON boundary
+					const range = new vscode.Range(s.startLine, 0, s.endLine, 1);
+					const symbol = new vscode.DocumentSymbol(s.name, '', vscode.SymbolKind[s.kind], range, range);
+					symbol.children = (s.children ?? []).map(toSymbol);
+					return symbol;
+				};
+
+				store.__glE2eSymbols = vscode.languages.registerDocumentSymbolProvider(
+					{ scheme: 'file', pattern: `**/${fileName}` },
+					{ provideDocumentSymbols: () => symbols.map(toSymbol) },
+				);
+			},
+			fileName,
+			symbols,
+		);
+	}
+
+	async unregisterDocumentSymbols(): Promise<void> {
+		await this.evaluate(() => {
+			const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+			store.__glE2eSymbols?.dispose();
+			store.__glE2eSymbols = undefined;
+		});
+	}
+
+	async insertLine(fileName: string, line: number, text: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, fileName, line, text) => {
+				const doc = vscode.workspace.textDocuments.find(
+					d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+				);
+				if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(doc.uri, new vscode.Position(line, 0), `${text}\n`);
+				if (!(await vscode.workspace.applyEdit(edit))) throw new Error(`Edit not applied: ${fileName}`);
+			},
+			fileName,
+			line,
+			text,
+		);
+	}
+}
+
+export interface EditorCodeLens {
+	line: number;
+	title: string | undefined;
+	command: string | undefined;
+}
+
+export interface FakeDocumentSymbol {
+	name: string;
+	kind: keyof typeof SymbolKind;
+	startLine: number;
+	endLine: number;
+	children?: FakeDocumentSymbol[];
 }
