@@ -65,7 +65,7 @@ export class PromosContext implements Disposable {
 	connect(connection: Connection): void {
 		if (this._connection === connection) return;
 
-		this.disconnect();
+		this.detach();
 		this._connection = connection;
 		this._subscription = subscribe<{ promos: ApplicablePromoService; subscription: SubscriptionService }>(
 			connection,
@@ -86,15 +86,19 @@ export class PromosContext implements Disposable {
 	}
 
 	disconnect(): void {
-		this._subscription?.unsubscribe();
-		this._subscription = undefined;
-		this._connection = undefined;
-		this._service = undefined;
+		this.detach();
 		// Settle pre-connect waiters so a fetch issued on a dying mount can't hang forever, and
 		// don't cache the dead deferred — the next connect() creates a fresh one. Consumers treat
 		// a rejected fetch as "no promo", which is correct for a disconnected surface.
 		this._waitingForService?.cancel(new Error('PromosContext disconnected'));
 		this._waitingForService = undefined;
+	}
+
+	private detach(): void {
+		this._subscription?.unsubscribe();
+		this._subscription = undefined;
+		this._connection = undefined;
+		this._service = undefined;
 	}
 
 	private invalidate(): void {
