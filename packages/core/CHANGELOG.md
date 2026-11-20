@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-20
+
 ### Added
 
 - Adds `IntegrationManager.writeIssue` and `deleteIssue` for GitHub.com. Create and edit issues, close as completed or not planned, reopen, or permanently delete with GitHub's permission. Writes use the specified connection and resolve the repository and issue before mutating them. Success returns the canonical issue identity and URL, and refusals report a typed reason (plus/integrations)
@@ -1345,7 +1347,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...HEAD
+[0.40.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...gitkraken:releases/core/v0.40.0
 [0.39.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...gitkraken:releases/core/v0.39.0
 [0.38.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...gitkraken:releases/core/v0.38.4
 [0.38.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.2...gitkraken:releases/core/v0.38.3
