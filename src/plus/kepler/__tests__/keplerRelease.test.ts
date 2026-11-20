@@ -200,11 +200,18 @@ suite('parseKeplerVersion', () => {
 	test('reads the version Windows reports for an executable', () => {
 		assert.strictEqual(parseKeplerVersion('0.16.0\r\n'), '0.16.0');
 		assert.strictEqual(parseKeplerVersion('1.2.3-beta.1'), '1.2.3-beta.1');
-		assert.strictEqual(parseKeplerVersion('0.16.0.0'), '0.16.0.0');
+	});
+
+	test('drops the fourth part Windows pads a version with, so one release reads the same on every platform', () => {
+		assert.strictEqual(parseKeplerVersion('0.22.0.0\r\n'), '0.22.0');
+		assert.strictEqual(parseKeplerVersion('0.19.0.7'), '0.19.0');
+		assert.strictEqual(parseKeplerVersion('1.2.3.0-beta.1'), '1.2.3-beta.1');
 	});
 
 	test('returns undefined for anything else', () => {
 		assert.strictEqual(parseKeplerVersion(''), undefined);
 		assert.strictEqual(parseKeplerVersion('Get-Item : Cannot find path C:\\Users\\Jane'), undefined);
+		assert.strictEqual(parseKeplerVersion('0.22'), undefined);
+		assert.strictEqual(parseKeplerVersion('0.22.0.0.0'), undefined);
 	});
 });
