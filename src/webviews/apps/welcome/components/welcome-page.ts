@@ -508,7 +508,12 @@ export class GlWelcomePage extends SignalWatcher(LitElement) {
 			cta != null
 				? trackKeplerCtaShown(cta, 'welcome', () => {
 						const { keplerInstallable, keplerInstalled } = this.getStepConditionState();
-						return keplerInstallable && !keplerInstalled;
+						if (keplerInstalled) return { installable: false, reason: 'installed' };
+
+						return {
+							installable: keplerInstallable,
+							reason: this._state.walkthroughProgress.get()?.kepler.notInstallableReason,
+						};
 					})
 				: undefined;
 	}

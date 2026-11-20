@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Sources } from '../../../../constants.telemetry.js';
+import type { KeplerNotInstallableReason } from '../../../../plus/kepler/keplerRelease.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { trackKeplerCtaShown } from './keplerBanner.utils.js';
 import './banner/banner.js';
@@ -46,6 +47,9 @@ export class GlKeplerBanner extends LitElement {
 	@property({ type: Boolean })
 	installable = false;
 
+	@property({ attribute: false })
+	notInstallableReason?: KeplerNotInstallableReason;
+
 	/** Whether GitLens is installing Kepler right now; disables Install Kepler */
 	@property({ type: Boolean })
 	installing = false;
@@ -56,7 +60,10 @@ export class GlKeplerBanner extends LitElement {
 		super.connectedCallback?.();
 		if (this.source == null) return;
 
-		this._stopTrackingShown = trackKeplerCtaShown(this, this.source, () => this.installable);
+		this._stopTrackingShown = trackKeplerCtaShown(this, this.source, () => ({
+			installable: this.installable,
+			reason: this.installable ? undefined : this.notInstallableReason,
+		}));
 	}
 
 	override disconnectedCallback(): void {

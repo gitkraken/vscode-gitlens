@@ -5815,7 +5815,9 @@ or
 ```typescript
 {
   // Whether the call to action offers Install Kepler; otherwise only Learn More
-  'installable': boolean
+  'installable': boolean,
+  // Why Install Kepler isn't offered; absent when it is, or when the reason isn't known yet. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `installed` = Kepler is already installed (Welcome card only)
+  'reason': 'channel' | 'installed' | 'remote' | 'unavailable' | 'unsupported'
 }
 ```
 
@@ -5894,8 +5896,8 @@ or
 
 ```typescript
 {
-  // Why nothing was installed. `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed
-  'reason': 'already-installed' | 'channel' | 'remote' | 'unsupported'
+  // Why nothing was installed. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed
+  'reason': 'already-installed' | 'channel' | 'remote' | 'unavailable' | 'unsupported'
 }
 ```
 

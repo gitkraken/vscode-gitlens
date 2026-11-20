@@ -25,7 +25,11 @@ import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/auto
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
-import type { KeplerInstallFailureReason, KeplerReleaseFileKind } from './plus/kepler/keplerRelease.js';
+import type {
+	KeplerInstallFailureReason,
+	KeplerNotInstallableReason,
+	KeplerReleaseFileKind,
+} from './plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from './plus/kepler/keplerService.js';
 import type { KeplerTaskAction, KeplerTaskIntent } from './plus/kepler/keplerTask.js';
 import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
@@ -2855,8 +2859,8 @@ interface KeplerInstallFailedEvent extends KeplerInstallOutcomeEvent {
 }
 
 interface KeplerInstallSkippedEvent {
-	/** Why nothing was installed. `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
-	reason: 'remote' | 'unsupported' | 'channel' | 'already-installed';
+	/** Why nothing was installed. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
+	reason: KeplerNotInstallableReason | 'already-installed';
 }
 
 interface KeplerInstallActionEvent {
@@ -2869,6 +2873,8 @@ interface KeplerInstallActionEvent {
 interface KeplerCtaShownEvent {
 	/** Whether the call to action offers Install Kepler; otherwise only Learn More */
 	installable: boolean;
+	/** Why Install Kepler isn't offered; absent when it is, or when the reason isn't known yet. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `installed` = Kepler is already installed (Welcome card only) */
+	reason?: KeplerNotInstallableReason | 'installed';
 }
 
 interface KeplerNotInstalledActionEvent {

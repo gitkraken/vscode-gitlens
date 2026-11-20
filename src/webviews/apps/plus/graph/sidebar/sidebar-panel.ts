@@ -1386,6 +1386,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				source="graph-sidebar"
 				layout="responsive"
 				?installable=${kepler?.installable === true}
+				.notInstallableReason=${kepler?.notInstallableReason}
 				?installing=${kepler?.installing === true}
 			></gl-kepler-banner>
 		</div>`;
