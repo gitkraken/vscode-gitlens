@@ -30,10 +30,11 @@ const missingInputs =
 	prNumber == null ||
 	issueNumber == null ||
 	!prUrl!.startsWith(`${testRepositoryUrl}/pull/`) ||
-	!issueUrl!.startsWith(`${testRepositoryUrl}/issues/`);
+	!issueUrl!.startsWith(`${testRepositoryUrl}/issues/`) ||
+	!process.env.GK_E2E_GITHUB_TOKEN?.trim();
 if (missingInputs && process.env.E2E_REQUIRE_SIGNIN) {
 	throw new Error(
-		'E2E_GITHUB_REPO_URL / E2E_GITHUB_PR_URL / E2E_GITHUB_ISSUE_URL are required (E2E_REQUIRE_SIGNIN) but not all set to GitHub URLs of one repository',
+		'E2E_GITHUB_REPO_URL / E2E_GITHUB_PR_URL / E2E_GITHUB_ISSUE_URL (GitHub URLs of one repository) and GK_E2E_GITHUB_TOKEN are required (E2E_REQUIRE_SIGNIN) but not all set',
 	);
 }
 
@@ -53,25 +54,32 @@ const clone = new TestRepositoryClone('[enrichment]');
 let checkout: PullRequestCheckout | undefined;
 
 async function associatedPullRequestCount(sha: string): Promise<number> {
-	const token = process.env.GK_E2E_GITHUB_TOKEN?.trim();
-	if (!token) throw new Error('GK_E2E_GITHUB_TOKEN is required to check the fixture commits against GitHub');
-
 	const [owner, name] = new URL(testRepositoryUrl!).pathname.slice(1).split('/');
 	const response = await fetch('https://api.github.com/graphql', {
 		method: 'POST',
-		headers: { Authorization: `bearer ${token}`, 'Content-Type': 'application/json' },
+		headers: {
+			Authorization: `bearer ${process.env.GK_E2E_GITHUB_TOKEN!.trim()}`,
+			'Content-Type': 'application/json',
+		},
 		body: JSON.stringify({
 			query: 'query($owner: String!, $name: String!, $sha: String!) { repository(owner: $owner, name: $name) { object(expression: $sha) { ... on Commit { associatedPullRequests { totalCount } } } } }',
 			variables: { owner: owner, name: name, sha: sha },
 		}),
+		signal: AbortSignal.timeout(30_000),
 	});
 	const result = (await response.json().catch(() => undefined)) as
-		| { data?: { repository?: { object?: { associatedPullRequests?: { totalCount?: number } } } } }
+		| {
+				data?: { repository?: { object?: { associatedPullRequests?: { totalCount?: number } } } };
+				errors?: { message?: string }[];
+		  }
 		| undefined;
 	const count = result?.data?.repository?.object?.associatedPullRequests?.totalCount;
 	if (!response.ok || count == null) {
+		const errors = (result?.errors ?? []).map(e => e.message ?? '').filter(Boolean);
 		throw new Error(
-			`could not count the pull requests GitHub associates with a fixture commit (HTTP ${response.status})`,
+			`could not count the pull requests GitHub associates with a fixture commit (HTTP ${response.status}${
+				errors.length ? `: ${errors.join('; ')}` : ''
+			})`,
 		);
 	}
 	return count;
@@ -103,11 +111,27 @@ async function checkOutPullRequestWithLocalCommit(repo: string): Promise<PullReq
 		throw new Error(`expected one branch of the test repository to hold the head of PR #${prNumber}`);
 	}
 
+	if (git(repo, 'rev-parse', `origin/${branches[0]}`) !== headSha) {
+		throw new Error(
+			`the branch of PR #${prNumber} must end at the PR head: commits after it would blame other lines`,
+		);
+	}
+
 	git(repo, 'switch', '--quiet', '--create', branches[0], '--track', `origin/${branches[0]}`);
 	const blameLine = new RegExp(`^${headSha} \\d+ (\\d+)`, 'm');
 	let file: string | undefined;
 	let line: number | undefined;
-	for (const path of git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-z', '-r', '--root', headSha)
+	for (const path of git(
+		repo,
+		'diff-tree',
+		'--no-commit-id',
+		'--name-only',
+		'--diff-filter=AM',
+		'-z',
+		'-r',
+		'--root',
+		headSha,
+	)
 		.split('\0')
 		.filter(Boolean)) {
 		const match = blameLine.exec(git(repo, 'blame', '--porcelain', '-l', headSha, '--', path));
@@ -168,7 +192,7 @@ const test = base.extend<object, { cloneCleanup: void }>({
 test.skip(!canSignIn(), 'GK_E2E_ACCESS_TOKEN_COOKIE is not set');
 test.skip(
 	missingInputs,
-	'E2E_GITHUB_REPO_URL / E2E_GITHUB_PR_URL / E2E_GITHUB_ISSUE_URL are not set to GitHub URLs of one repository',
+	'E2E_GITHUB_REPO_URL / E2E_GITHUB_PR_URL / E2E_GITHUB_ISSUE_URL (GitHub URLs of one repository) or GK_E2E_GITHUB_TOKEN are not set',
 );
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
@@ -288,12 +312,12 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 	}
 
 	function pullRequestLookupFinished(vscode: VSCodeInstance, sha: string): 'completed' | 'failed' | 'pending' {
-		const calls = (gitlensLogFiles(vscode.electron.args) ?? [])
+		const outcomes = (gitlensLogFiles(vscode.electron.args) ?? [])
 			.flatMap(f => readFileSync(f, 'utf8').split('\n'))
-			.filter(l => l.includes('GitHubApi.getPullRequestForCommit(') && l.includes(`rev=${sha}`));
-		if (calls.some(l => / failed\b/.test(l))) return 'failed';
-
-		return calls.some(l => / (completed|returned)\b/.test(l)) ? 'completed' : 'pending';
+			.filter(l => l.includes('GitHubApi.getPullRequestForCommit(') && l.includes(`rev=${sha}`))
+			.map(l => (/ failed\b/.test(l) ? 'failed' : / (completed|returned)\b/.test(l) ? 'completed' : undefined))
+			.filter(o => o != null);
+		return outcomes.at(-1) ?? 'pending';
 	}
 
 	async function selectCommit(vscode: VSCodeInstance, sha: string): Promise<Locator> {
