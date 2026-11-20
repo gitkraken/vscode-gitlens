@@ -37,6 +37,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 		private _ref: StoredNamedRef,
 		private _compareWith: StoredNamedRef,
 		private _storedAt: number = 0,
+		private _name?: string,
 	) {
 		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
 
@@ -86,6 +87,18 @@ export class CompareResultsNode extends SubscribeableViewNode<
 
 	get compareWithRef(): StoredNamedRef {
 		return this._compareWith;
+	}
+
+	get name(): string | undefined {
+		return this._name;
+	}
+
+	getDefaultLabel(): string {
+		const ref = this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: l10n.t('Working Tree') } });
+		const compareWithRef =
+			this._compareWith.label ??
+			shortenRevision(this._compareWith.ref, { strings: { working: l10n.t('Working Tree') } });
+		return l10n.t('Comparing {0} with {1}', ref, compareWithRef);
 	}
 
 	private _isFiltered: boolean | undefined;
@@ -214,19 +227,16 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			description = repo?.name ?? this.repoPath;
 		}
 
-		const ref = this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: l10n.t('Working Tree') } });
-		const compareWithRef =
-			this._compareWith.label ??
-			shortenRevision(this._compareWith.ref, { strings: { working: l10n.t('Working Tree') } });
-		const item = new TreeItem(
-			l10n.t('Comparing {0} with {1}', ref, compareWithRef),
-			TreeItemCollapsibleState.Collapsed,
-		);
+		const label = this.getDefaultLabel();
+		const item = new TreeItem(this._name ?? label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = `${ContextValues.CompareResults}${this._ref.ref === '' ? '+working' : ''}${
 			this.filterByAuthors?.length ? '+filtered' : ''
 		}`;
 		item.description = description;
+		if (this._name != null) {
+			item.tooltip = label;
+		}
 		item.iconPath = new ThemeIcon('compare-changes');
 
 		return item;
@@ -248,6 +258,14 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	clearReviewed(): void {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
 		void this.store().catch();
+	}
+
+	@debug()
+	async rename(name: string | undefined): Promise<void> {
+		this._name = name || undefined;
+		await this.store(true);
+
+		void this.triggerChange(false);
 	}
 
 	@debug()
@@ -323,6 +341,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 				type: 'comparison',
 				timestamp: this._storedAt,
 				path: this.repoPath,
+				name: this._name,
 				ref1: { label: this._ref.label, ref: this._ref.ref },
 				ref2: { label: this._compareWith.label, ref: this._compareWith.ref },
 				checkedFiles: checkedFiles.length > 0 ? checkedFiles : undefined,
