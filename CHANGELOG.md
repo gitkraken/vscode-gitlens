@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.6.1] - 2026-11-20
+
 ### Fixed
 
 - Fixes promotions not showing above the _Commit Graph_ when the graph is opened &mdash; the banner only appeared after the subscription state changed
@@ -7658,7 +7660,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.1...HEAD
+[19.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.0...gitkraken:v19.6.1
 [19.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.5.0...gitkraken:v19.6.0
 [19.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.4.0...gitkraken:v19.5.0
 [19.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.3.0...gitkraken:v19.4.0
