@@ -18,6 +18,10 @@ export const areaSignalRules = [
 		label: 'area-mcp',
 		patterns: [/\bMCP\b/i],
 	},
+	{
+		label: 'area-core',
+		patterns: [/\bcore[\s-]?gitlens\b/i, /^core:/i, /\bon `core`/i, /\bcore (?:package|v?\d+\.\d+)/i],
+	},
 ];
 
 /**
