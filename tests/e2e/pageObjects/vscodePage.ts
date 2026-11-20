@@ -137,8 +137,10 @@ export class VSCodePage {
 	): Promise<EditorHoverContent[][]> {
 		return this.evaluate(
 			async (vscode, file, line, character, cursorLine) => {
-				const [uri] = await vscode.workspace.findFiles(`**/${file}`, null, 1);
-				if (uri == null) throw new Error(`File not found: ${file}`);
+				const folder = vscode.workspace.workspaceFolders?.[0];
+				if (folder == null) throw new Error('No workspace folder is open');
+
+				const uri = vscode.Uri.joinPath(folder.uri, file);
 
 				const editor = await vscode.window.showTextDocument(uri);
 				if (editor.selection.active.line !== cursorLine || !editor.selection.isEmpty) {
