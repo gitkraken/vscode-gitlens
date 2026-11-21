@@ -191,6 +191,9 @@ const maxUnwatchedReads = 256;
 // it, the flag is read without the rescan, so a provider that promised a start that never comes can't leave it
 // unconfirmed
 const maxDeferredDirtyMs = 10_000;
+// SEE: @parcel/watcher 2.6.0 `src/Event.hh` drops a path created and deleted in one batch; `src/Debounce.cc` closes a
+// batch within 550 ms (`MAX_WAIT_TIME` 500 plus one `MIN_WAIT_TIME` 50 wait)
+const untrackedDirtyRecheckMs = 1_000;
 // How long after a base read fails the next change of any group reads it again, doubling with each failure in a row up
 // to the cap, so a failure that lasts (a count past git's time limit) isn't rerun, holding a read slot, with every file
 // save; a change to what the base depends on retries it at once. No timer retries it on its own
@@ -239,6 +242,7 @@ interface ReadResult {
 	readonly baseError: unknown;
 	/** When the dirty read started; `undefined` when dirty wasn't read but kept from `previous` */
 	readonly dirtyReadAt: number | undefined;
+	readonly dirtyUntrackedOnly: boolean | undefined;
 	/** The read groups it read, as widened along the way */
 	readonly fields: number;
 }
@@ -397,6 +401,8 @@ interface SummaryEntry {
 	dirtyReadAt: number | undefined;
 	/** Reads the saved read's dirty flag should the working-tree watch not go live in {@link maxDeferredDirtyMs} */
 	dirtyReadTimer: ReturnType<typeof setTimeout> | undefined;
+	untrackedDirtyRecheckDue: boolean;
+	untrackedDirtyRecheckTimer: ReturnType<typeof setTimeout> | undefined;
 	/** The stored base values as of the last base read; a `gk` config change re-reads the base only when they differ */
 	baseKeys: BaseKeys | undefined;
 	/**
@@ -1390,13 +1396,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.baseFullRead = result.baseFullRead;
 		entry.staleFields = result.summary.stale ? baseField : 0;
 		entry.baseRetry = getBaseRetry(entry.baseRetry, result);
-		// Any read of the dirty flag ends showing the saved one, even one a branch read adds on finding another branch
 		const dirtyConfirmed = result.dirtyReadAt != null && entry.dirtyReadAt != null;
 		if (dirtyConfirmed) {
 			clearDeferredDirty(entry);
 		}
+		if (result.dirtyUntrackedOnly != null) {
+			this.recheckUntrackedDirty(entry, result.dirtyUntrackedOnly);
+		}
 		if (value != null && summariesEqual(value, result.summary)) {
-			// Unchanged, but no longer the saved read's
 			if (dirtyConfirmed) {
 				this.fireChange(entry, value);
 			}
@@ -1409,12 +1416,30 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		this.fireChange(entry, summary);
 	}
 
+	private recheckUntrackedDirty(entry: SummaryEntry, untrackedOnly: boolean): void {
+		const isRecheck = entry.untrackedDirtyRecheckDue;
+		entry.untrackedDirtyRecheckDue = false;
+		clearTimeout(entry.untrackedDirtyRecheckTimer);
+		entry.untrackedDirtyRecheckTimer = undefined;
+		if (!untrackedOnly || isRecheck) return;
+
+		const timer = setTimeout(() => {
+			entry.untrackedDirtyRecheckTimer = undefined;
+			entry.untrackedDirtyRecheckDue = true;
+			this.queue(entry, dirtyField);
+		}, untrackedDirtyRecheckMs);
+		if (typeof timer !== 'number') {
+			timer.unref();
+		}
+		entry.untrackedDirtyRecheckTimer = timer;
+	}
+
 	private fail(entry: SummaryEntry, ex: unknown): void {
+		entry.untrackedDirtyRecheckDue = false;
 		const previous = entry.value;
 		if (previous == null) {
 			if (entry.seed != null) {
 				dropSeed(entry);
-				// Changes during the run were queued against the seed; without one they read everything
 				if (entry.pending !== 0) {
 					entry.pending |= allFields | baseConfigField;
 				}
@@ -1448,7 +1473,6 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (entry.subscribers.size !== 0) return;
 
 		entry.disposed = true;
-		// A waiter holds no slot, so dropping it frees none
 		const cancelRead = this.readWaiters.get(entry);
 		if (cancelRead != null) {
 			this.readWaiters.delete(entry);
@@ -1466,6 +1490,9 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.value = undefined;
 		entry.seed = undefined;
 		clearDeferredDirty(entry);
+		clearTimeout(entry.untrackedDirtyRecheckTimer);
+		entry.untrackedDirtyRecheckTimer = undefined;
+		entry.untrackedDirtyRecheckDue = false;
 		entry.baseKeys = undefined;
 		entry.baseConfigKey = undefined;
 		entry.baseDefaultBranch = undefined;
@@ -1528,6 +1555,8 @@ function createEntry(key: string): SummaryEntry {
 		seed: undefined,
 		dirtyReadAt: undefined,
 		dirtyReadTimer: undefined,
+		untrackedDirtyRecheckDue: false,
+		untrackedDirtyRecheckTimer: undefined,
 		baseKeys: undefined,
 		baseConfigKey: undefined,
 		baseDefaultBranch: undefined,
@@ -1579,7 +1608,7 @@ async function readSummary(
 	}
 
 	let dirtyReadAt: number | undefined;
-	const startDirtyRead = (): Promise<boolean> => {
+	const startDirtyRead = (): Promise<boolean | 'untracked'> => {
 		dirtyReadAt = Date.now();
 		return readDirty(repo, signal);
 	};
@@ -1801,7 +1830,8 @@ async function readSummary(
 		}
 	}
 
-	const dirty = dirtyRead != null ? await dirtyRead : (previous?.dirty ?? false);
+	const dirtyAnswer = dirtyRead != null ? await dirtyRead : undefined;
+	const dirty = dirtyAnswer != null ? dirtyAnswer !== false : (previous?.dirty ?? false);
 
 	const summary: WorktreeSummary = {
 		repoPath: key,
@@ -1829,6 +1859,7 @@ async function readSummary(
 		baseFullRead: baseFullRead,
 		baseError: baseError,
 		dirtyReadAt: dirtyReadAt,
+		dirtyUntrackedOnly: dirtyAnswer != null ? dirtyAnswer === 'untracked' : undefined,
 		fields: fields,
 	};
 }
@@ -2256,11 +2287,22 @@ function baseKeysEqual(a: BaseKeys, b: BaseKeys): boolean {
 	return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
 
-function readDirty(repo: RepositoryService, signal: AbortSignal | undefined): Promise<boolean> {
-	const read = repo.status.hasWorkingChanges({ untracked: true }, signal);
+function readDirty(repo: RepositoryService, signal: AbortSignal | undefined): Promise<boolean | 'untracked'> {
+	const read = readWorkingChanges(repo, signal);
 	// Awaited only after the branch and base reads; if one of those throws first, this rejection has no other handler
 	read.catch(noop);
 	return read;
+}
+
+async function readWorkingChanges(
+	repo: RepositoryService,
+	signal: AbortSignal | undefined,
+): Promise<boolean | 'untracked'> {
+	if (await repo.status.hasWorkingChanges({ untracked: false }, signal)) return true;
+
+	return (await repo.status.hasWorkingChanges({ staged: false, unstaged: false, untracked: true }, signal))
+		? 'untracked'
+		: false;
 }
 
 function noop(): void {}
