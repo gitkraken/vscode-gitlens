@@ -61,6 +61,8 @@ import type {
 	IntegrationManager,
 	IssueDeleteOptions,
 	IssueWriteOptions,
+	IssueWriteTargetOptions,
+	IssueWriteTargetResult,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
@@ -1566,8 +1568,15 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		return this.mutateIssue({ ...options, action: 'delete' });
 	}
 
+	async resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const result = await this.mutateIssue({ ...options, action: 'resolve' });
+		return result.ok ? { ok: true, nodeId: result.issue.nodeId } : result;
+	}
+
 	private async mutateIssue(
-		options: IssueWriteOptions | (IssueDeleteOptions & { action: 'delete' }),
+		options: IssueWriteOptions | (IssueWriteTargetOptions & { action: 'delete' | 'resolve' }),
 	): Promise<IssueWriteResult> {
 		const { providerId, connectionId } = options;
 		if (providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };

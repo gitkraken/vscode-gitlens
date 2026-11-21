@@ -224,6 +224,8 @@ export type {
 	IntegrationManager,
 	IssueDeleteOptions,
 	IssueWriteOptions,
+	IssueWriteTargetOptions,
+	IssueWriteTargetResult,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,

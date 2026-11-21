@@ -1,5 +1,5 @@
 import { aliasedQueryChunkSize } from '@gitlens/git-github/api/aliasedQuery.js';
-import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import type { GitHubIssueMutation, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import { issueWriteFailure, isValidGitHubIssueMutation } from '@gitlens/git-github/api/issueWrites.js';
 import type { GitHubPullRequestActivityTarget } from '@gitlens/git-github/api/pullRequestActivity.js';
 import { decodePullRequestActivityCursor } from '@gitlens/git-github/api/pullRequestActivity.js';
@@ -52,10 +52,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type {
-	PullRequestActivityCoordinate,
-	PullRequestCheckLogCoordinate,
-} from '../models/gitHostIntegration.js';
+import type { PullRequestActivityCoordinate, PullRequestCheckLogCoordinate } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
@@ -1617,10 +1614,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 		return metadata.domain;
 	}
 
-	async mutateIssue(
-		connectionId: string,
-		input: GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' }),
-	): Promise<IssueWriteResult> {
+	async mutateIssue(connectionId: string, input: GitHubIssueMutation): Promise<IssueWriteResult> {
 		if (!isValidGitHubIssueMutation(input)) return { ok: false, reason: 'invalid-input' };
 
 		try {

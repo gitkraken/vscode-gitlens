@@ -29,6 +29,7 @@ export type IssueWriteResult =
 				body: string;
 				state: 'open' | 'closed';
 			};
+			deletedFromDifferentRepository?: true;
 	  }
 	| {
 			ok: false;
@@ -42,7 +43,7 @@ export type IssueWriteResult =
 				| 'unknown';
 	  };
 
-type GitHubIssueMutation = GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' });
+export type GitHubIssueMutation = GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' | 'resolve' });
 type GraphqlRequest = <T>(query: string, variables: RequestParameters) => Promise<T | undefined>;
 
 const issueFields = `
@@ -109,6 +110,7 @@ export function isValidGitHubIssueMutation(input: GitHubIssueMutation): boolean 
 				(input.state === 'closed' && (input.reason === 'completed' || input.reason === 'not_planned'))
 			);
 		case 'delete':
+		case 'resolve':
 			return true;
 		default:
 			return false;
@@ -227,6 +229,8 @@ export async function mutateGitHubIssue(
 		}
 
 		switch (input.action) {
+			case 'resolve':
+				return toIssueWriteResult(issue);
 			case 'edit':
 				return await writeIssue(graphql, 'updateIssue', 'UpdateIssueInput', {
 					id: issue.id,
@@ -255,8 +259,9 @@ export async function mutateGitHubIssue(
 					`,
 					{ issueId: issue.id },
 				);
-				return result?.deleteIssue?.repository?.id === repository.id
-					? toIssueWriteResult(issue)
+				const deletedRepositoryId = result?.deleteIssue?.repository?.id;
+				return typeof deletedRepositoryId === 'string' && deletedRepositoryId.length > 0
+					? toIssueWriteResult(issue, deletedRepositoryId !== repository.id)
 					: { ok: false, reason: 'unknown' };
 			}
 		}
@@ -280,9 +285,10 @@ async function writeIssue(
 	return result?.change?.issue != null ? toIssueWriteResult(result.change.issue) : { ok: false, reason: 'unknown' };
 }
 
-function toIssueWriteResult(issue: IssueNode): IssueWriteResult {
+function toIssueWriteResult(issue: IssueNode, deletedFromDifferentRepository = false): IssueWriteResult {
 	return {
 		ok: true,
+		...(deletedFromDifferentRepository && { deletedFromDifferentRepository: true }),
 		issue: {
 			owner: issue.repository.owner.login,
 			repo: issue.repository.name,
