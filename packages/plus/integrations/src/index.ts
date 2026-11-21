@@ -248,6 +248,15 @@ export type {
 } from './reads/counts.js';
 export type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+export type { PullRequestCheckLogResult, PullRequestCheckLogTarget } from './reads/pullRequestCheckLogs.js';
+export type { PullRequestActivityResult, PullRequestActivityTarget } from './reads/pullRequestActivity.js';
+export type {
+	PullRequestActivityAuthor,
+	PullRequestActivityComment,
+	PullRequestActivityItem,
+	PullRequestActivityReview,
+	PullRequestActivityReviewComment,
+} from '@gitlens/git/models/pullRequestActivity.js';
 export type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
 export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.

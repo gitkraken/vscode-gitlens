@@ -2082,7 +2082,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 			etagIncludes: ['checks'],
 		});
 
-		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'], mergeQueue: false }]);
+		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'], mergeQueue: false, checkRuns: false }]);
 		assert.deepEqual(full, [[1]]);
 		assert.equal(result.items[0].etag, heldEtag(1, 0, ['checks']));
 		assert.match(result.items[0].etag ?? '', /^pr1\+checks:/);
@@ -2133,7 +2133,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 		assert.deepEqual(full, []);
 		assert.deepEqual(
 			cheap.options,
-			[{ etagIncludes: ['mergeable', 'checks'], mergeQueue: false }],
+			[{ etagIncludes: ['mergeable', 'checks'], mergeQueue: false, checkRuns: false }],
 			'the hook gets the normalized set',
 		);
 		assert.deepEqual(result.items, [{ key: 'a', unchanged: true, etag: heldEtag(1, 0, ['mergeable', 'checks']) }]);

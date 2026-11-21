@@ -24,6 +24,7 @@ import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckLog,
 	PullRequestMergeQueueActionFailureReason,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -33,6 +34,7 @@ import type {
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestActivity.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
@@ -67,6 +69,8 @@ import type {
 	GitHubBlame,
 	GitHubBlameRange,
 	GitHubBranch,
+	GitHubCheckContextsRead,
+	GitHubCheckRunRef,
 	GitHubCommit,
 	GitHubCommitRef,
 	GitHubContributor,
@@ -92,6 +96,18 @@ import {
 	fromGitHubPullRequest,
 	fromGitHubPullRequestLite,
 } from '../models.js';
+import type { AliasedGraphql, GraphqlAliasError } from './aliasedQuery.js';
+import { getAliasErrorVerdict } from './aliasedQuery.js';
+import { toCancellationError } from './cancellation.js';
+import type { GitHubActionsJob } from './checkRunLogs.js';
+import { readGitHubCheckRunLogs } from './checkRunLogs.js';
+import type { CheckContextsFragment } from './checkRuns.js';
+import {
+	etagCheckContextsFragment,
+	gqlPullRequestCheckRunsFragment,
+	isCheckContextsError,
+	readCheckContexts,
+} from './checkRuns.js';
 import type { GitHubApiConfig } from './config.js';
 import { githubSearchResultLimit } from './config.js';
 import {
@@ -103,6 +119,8 @@ import {
 } from './issueSearchQuery.js';
 import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from './issueWrites.js';
 import { mutateGitHubIssue } from './issueWrites.js';
+import type { GitHubPullRequestActivityTarget } from './pullRequestActivity.js';
+import { readGitHubPullRequestActivity } from './pullRequestActivity.js';
 import { toGitHubPullRequestSearchFacets } from './pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from './token.js';
 
@@ -707,9 +725,6 @@ reactions(content: THUMBS_UP) {
 `,
 };
 
-/** One field-level error GitHub attaches to a GraphQL response, as thrown via {@link GraphqlResponseError}. */
-type GraphqlAliasError = NonNullable<GraphqlResponseError<unknown>['errors']>[number];
-
 /**
  * {@link GitHubApi.graphql}'s `'aliased'`-mode result: the (possibly partial) `data` alongside any field-level
  * errors GitHub attached to a specific alias. Used by the coordinate batch reads ({@link GitHubApi.getIssuesBatch},
@@ -718,22 +733,8 @@ type GraphqlAliasError = NonNullable<GraphqlResponseError<unknown>['errors']>[nu
  */
 type AliasedGraphqlResult<T> = { data: T; errors: readonly GraphqlAliasError[] };
 
-/**
- * What an alias's own errors say about its slot in an {@link AliasedGraphqlResult}: `'absent'` only when its node
- * is null and every error on it is NOT_FOUND; a rejection when a node arrived with an error, or on any other error
- * (even a NOT_FOUND nested under the node), since neither is trustworthy; `undefined` when the alias has no errors.
- */
-function getAliasErrorVerdict(
-	errors: readonly GraphqlAliasError[],
-	alias: string,
-	node: unknown,
-): 'absent' | PromiseRejectedResult | undefined {
-	const aliasErrors = errors.filter(e => e.path?.[0] === alias);
-	if (aliasErrors.length === 0) return undefined;
-	if (node == null && aliasErrors.every(e => e.type === 'NOT_FOUND')) return 'absent';
-
-	const primary = aliasErrors.find(e => e.type !== 'NOT_FOUND') ?? aliasErrors[0];
-	return { status: 'rejected', reason: new Error(primary.message) };
+function isByteStream(value: unknown): value is ReadableStream<Uint8Array> {
+	return typeof value === 'object' && value != null && 'getReader' in value && typeof value.getReader === 'function';
 }
 
 export class GitHubApi {
@@ -4014,7 +4015,7 @@ export class GitHubApi {
 		scope: ScopedLogger | undefined,
 		deferFailure: boolean | undefined,
 	): void {
-		if (ex.name === 'AbortError') throw new CancellationError(ex);
+		if (ex.name === 'AbortError') throw toCancellationError(ex);
 
 		const { accessToken, ...tokenInfo } = token;
 		switch (ex.status) {
@@ -4840,7 +4841,13 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
-		options?: { baseUrl?: string; avatarSize?: number; mergeQueue?: boolean },
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+			checkRunsRequired?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequest | undefined>[]> {
 		const scope = getScopedLogger();
@@ -4848,6 +4855,10 @@ export class GitHubApi {
 
 		const stackFragment = gqlPullRequestStackFragmentFor(options);
 		const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
+		const checkRuns: CheckContextsFragment | undefined =
+			options?.checkRuns === true
+				? { kind: 'row', readsRequired: options.checkRunsRequired !== false && isGitHubDotCom(options) }
+				: undefined;
 		const params = coordinates
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
 			.join('\n\t\t\t\t');
@@ -4857,7 +4868,7 @@ export class GitHubApi {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestFragment}
 						${stackFragment}
-						${mergeQueueFragment}
+						${mergeQueueFragment}${checkRuns != null ? gqlPullRequestCheckRunsFragment(checkRuns, i) : ''}
 					}
 				}`,
 			)
@@ -4891,17 +4902,38 @@ export class GitHubApi {
 			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
 			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull request batch');
 
+			const errors = checkRuns != null ? rsp.errors.filter(e => !isCheckContextsError(e)) : rsp.errors;
+			const checkContexts =
+				checkRuns != null
+					? await readCheckContexts(
+							this.aliasedGraphql(provider, token, options?.baseUrl, scope, cancellation),
+							checkRuns,
+							coordinates.map((c, i) => {
+								const alias = `p${i}`;
+								const node = rsp.data[alias]?.pullRequest;
+								return node != null && getAliasErrorVerdict(errors, alias, node) == null
+									? { number: c.number, commit: node.commits.nodes?.[0]?.commit, errorPath: [alias] }
+									: undefined;
+							}),
+							rsp.errors,
+							scope,
+						)
+					: undefined;
+
 			return coordinates.map((c, i): PromiseSettledResult<PullRequest | undefined> => {
 				const alias = `p${i}`;
 				const node = rsp.data[alias]?.pullRequest;
 
-				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				const verdict = getAliasErrorVerdict(node != null ? errors : rsp.errors, alias, node);
 				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
 				if (verdict != null) return verdict;
 				if (node == null) return { status: 'fulfilled', value: undefined };
 
 				try {
-					return { status: 'fulfilled', value: fromGitHubPullRequest(node, provider) };
+					return {
+						status: 'fulfilled',
+						value: fromGitHubPullRequest(node, provider, undefined, checkContexts?.[i]),
+					};
 				} catch (ex) {
 					// An unmappable node rejects its slot rather than reading as absent: `undefined` here is a
 					// proven absence the consumer caches, so it would publish a live pull request as gone.
@@ -4912,6 +4944,101 @@ export class GitHubApi {
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
+	}
+
+	private aliasedGraphql(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		baseUrl: string | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation: AbortSignal | undefined,
+	): AliasedGraphql {
+		return <T>(query: string, variables: RequestParameters) =>
+			this.graphql<T>(provider, token, query, { ...variables, baseUrl: baseUrl }, scope, cancellation, 'aliased');
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getCheckRunLogs(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		targets: readonly { owner: string; repo: string; ref: GitHubCheckRunRef }[],
+		options: { baseUrl?: string; tailLines: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestCheckLog>[]> {
+		const scope = getScopedLogger();
+
+		const route = (job: GitHubActionsJob) => ({
+			owner: job.owner,
+			repo: job.repo,
+			job_id: job.jobId,
+			baseUrl: options.baseUrl,
+		});
+		const requestJobLog = (job: GitHubActionsJob, request: RequestParameters['request']) =>
+			this.request(
+				provider,
+				token,
+				'GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs',
+				{ ...route(job), request: request },
+				scope,
+				cancellation,
+				true,
+			);
+		const configFetch = this.config.fetch;
+		return readGitHubCheckRunLogs(
+			{
+				isWeb: this.config.isWeb,
+				graphql: this.aliasedGraphql(provider, token, options.baseUrl, scope, cancellation),
+				requestJobLogRedirect: async job => {
+					const rsp = await requestJobLog(job, { redirect: 'manual' });
+					return { status: rsp.status, location: rsp.headers.location };
+				},
+				requestJobLogStream: async job => {
+					const body: unknown = (await requestJobLog(job, { parseSuccessResponseBody: false })).data;
+					if (body == null) return null;
+					if (isByteStream(body)) return body;
+
+					throw new Error('GitHub answered the job log without a body stream');
+				},
+				requestJobStatus: async job => {
+					const rsp = await this.request(
+						provider,
+						token,
+						'GET /repos/{owner}/{repo}/actions/jobs/{job_id}',
+						route(job),
+						scope,
+						cancellation,
+						true,
+					);
+					return rsp.data?.status;
+				},
+				fetchStorage: (url, init) =>
+					this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+						configFetch(url, { method: 'GET', ...init }),
+					),
+			},
+			targets,
+			options.tailLines,
+			scope,
+			cancellation,
+		);
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestActivity(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		targets: readonly GitHubPullRequestActivityTarget[],
+		options: { baseUrl?: string; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestActivityPage | undefined>[]> {
+		const scope = getScopedLogger();
+
+		return readGitHubPullRequestActivity(
+			this.aliasedGraphql(provider, token, options.baseUrl, scope, cancellation),
+			targets,
+			options.limit,
+			scope,
+		);
 	}
 
 	/**
@@ -4932,6 +5059,7 @@ export class GitHubApi {
 			baseUrl?: string;
 			etagIncludes?: readonly GitHubPullRequestEtagInclude[];
 			mergeQueue?: boolean;
+			checkRuns?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<GitHubPullRequestEtagNode | undefined>[]> {
@@ -4943,6 +5071,7 @@ export class GitHubApi {
 			include => gqlPullRequestEtagIncludeFragments[include],
 		);
 		const mergeQueueFragment = gqlPullRequestEtagMergeQueueFragmentFor(options, this.config);
+		const checkRuns = options?.checkRuns === true;
 
 		const params = coordinates
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
@@ -4953,7 +5082,7 @@ export class GitHubApi {
 					pullRequest(number: $k${i}) {
 						${gqlPullRequestEtagFragment}
 						${mergeQueueFragment}
-						${includeFragments.join('')}
+						${includeFragments.join('')}${checkRuns ? gqlPullRequestCheckRunsFragment(etagCheckContextsFragment, i) : ''}
 					}
 				}`,
 			)
@@ -4980,15 +5109,34 @@ export class GitHubApi {
 			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
 			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull request etag batch');
 
+			const errors = checkRuns ? rsp.errors.filter(e => !isCheckContextsError(e)) : rsp.errors;
+			const checkContexts = checkRuns
+				? await readCheckContexts(
+						this.aliasedGraphql(provider, token, options?.baseUrl, scope, cancellation),
+						etagCheckContextsFragment,
+						coordinates.map((c, i) => {
+							const alias = `p${i}`;
+							const node = rsp.data[alias]?.pullRequest;
+							return node != null && getAliasErrorVerdict(errors, alias, node) == null
+								? { number: c.number, commit: node.commits?.nodes?.[0]?.commit, errorPath: [alias] }
+								: undefined;
+						}),
+						rsp.errors,
+						scope,
+					)
+				: undefined;
+
 			return coordinates.map((_, i): PromiseSettledResult<GitHubPullRequestEtagNode | undefined> => {
 				const alias = `p${i}`;
 				const node = rsp.data[alias]?.pullRequest;
 
-				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				const verdict = getAliasErrorVerdict(node != null ? errors : rsp.errors, alias, node);
 				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
 				if (verdict != null) return verdict;
+				if (node == null) return { status: 'fulfilled', value: undefined };
 
-				return { status: 'fulfilled', value: node ?? undefined };
+				const read = checkContexts?.[i];
+				return { status: 'fulfilled', value: read != null ? { ...node, checkRuns: read } : node };
 			});
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
@@ -5113,7 +5261,7 @@ export class GitHubApi {
 			branch: string;
 			headOwners: readonly (string | undefined)[];
 		}[],
-		options: { baseUrl?: string; avatarSize?: number; limit: number; mergeQueue?: boolean },
+		options: { baseUrl?: string; avatarSize?: number; limit: number; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }>[]> {
 		const scope = getScopedLogger();
@@ -5125,6 +5273,9 @@ export class GitHubApi {
 
 		const stackFragment = gqlPullRequestStackFragmentFor(options);
 		const mergeQueueFragment = gqlPullRequestMergeQueueFragmentFor(options, this.config);
+		const checkRuns: CheckContextsFragment | undefined =
+			// KEEP: no pull request number is known before this query answers, so it can't select `isRequired`.
+			options.checkRuns === true ? { kind: 'row', readsRequired: false } : undefined;
 		const params = queries
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
 			.join('\n\t\t\t\t');
@@ -5136,7 +5287,7 @@ export class GitHubApi {
 						nodes {
 							${gqlPullRequestFragment}
 							${stackFragment}
-							${mergeQueueFragment}
+							${mergeQueueFragment}${checkRuns != null ? gqlPullRequestCheckRunsFragment(checkRuns, i) : ''}
 							headRepositoryOwner {
 								login
 							}
@@ -5178,60 +5329,120 @@ export class GitHubApi {
 			// No data at all proves nothing about any slot, so it must not read as a batch of "none"s.
 			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by branch');
 
+			const errors = checkRuns != null ? rsp.errors.filter(e => !isCheckContextsError(e)) : rsp.errors;
+			const answers = queries.map(
+				(
+					t,
+					i,
+				):
+					| PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }>
+					| {
+							matches: BranchPullRequest[][];
+							truncated: boolean;
+							errorPaths: ReadonlyMap<BranchPullRequest, readonly (string | number)[]>;
+					  } => {
+					const alias = `b${i}`;
+					const repository = rsp.data[alias];
+
+					const verdict = getAliasErrorVerdict(repository != null ? errors : rsp.errors, alias, repository);
+					if (verdict != null && verdict !== 'absent') return verdict;
+					if (repository == null) {
+						return {
+							status: 'fulfilled',
+							value: { pullRequests: t.headOwners.map(() => []), truncated: false },
+						};
+					}
+
+					const connection = repository.pullRequests;
+					if (connection == null) {
+						return {
+							status: 'rejected',
+							reason: new Error(`GitHub returned no pull requests for ${t.owner}/${t.repo}:${t.branch}`),
+						};
+					}
+
+					const returned: BranchPullRequest[] = [];
+					const errorPaths = new Map<BranchPullRequest, readonly (string | number)[]>();
+					connection.nodes.forEach((pr, index) => {
+						if (pr == null) return;
+
+						returned.push(pr);
+						if (checkRuns != null) {
+							errorPaths.set(pr, [alias, 'pullRequests', 'nodes', index]);
+						}
+					});
+					const nodes = returned.filter(pr => pr.headRefName === t.branch);
+					const matches = t.headOwners.map(owner => {
+						const headOwner = owner?.toLowerCase();
+						return nodes.filter(pr =>
+							headOwner == null
+								? !pr.isCrossRepository
+								: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner
+									// here, so its pull request still matches. REST's `head` filter can't see it,
+									// which is why the caller unions the two steps rather than trusting REST alone.
+									pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner,
+						);
+					});
+					return {
+						matches: matches,
+						truncated: connection.totalCount > returned.length,
+						errorPaths: errorPaths,
+					};
+				},
+			);
+
+			// KEEP: page only rows some owner matched; a row that matches nobody must cost nothing.
+			let checkContexts: Map<BranchPullRequest, GitHubCheckContextsRead | undefined> | undefined;
+			if (checkRuns != null) {
+				const matched = new Map<BranchPullRequest, readonly (string | number)[]>();
+				for (const answer of answers) {
+					if ('status' in answer) continue;
+
+					for (const pr of answer.matches.flat()) {
+						const errorPath = answer.errorPaths.get(pr);
+						if (errorPath != null) {
+							matched.set(pr, errorPath);
+						}
+					}
+				}
+				const rows = [...matched];
+				const read = await readCheckContexts(
+					this.aliasedGraphql(provider, token, options.baseUrl, scope, cancellation),
+					checkRuns,
+					rows.map(([pr, errorPath]) => ({
+						number: pr.number,
+						commit: pr.commits.nodes?.[0]?.commit,
+						errorPath: errorPath,
+					})),
+					rsp.errors,
+					scope,
+				);
+				checkContexts = new Map(rows.map(([pr], i) => [pr, read[i]]));
+			}
+
 			return queries.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[][]; truncated: boolean }> => {
-				const alias = `b${i}`;
-				const repository = rsp.data[alias];
-
-				const verdict = getAliasErrorVerdict(rsp.errors, alias, repository);
-				if (verdict != null && verdict !== 'absent') return verdict;
-				if (repository == null) {
-					return {
-						status: 'fulfilled',
-						value: { pullRequests: t.headOwners.map(() => []), truncated: false },
-					};
-				}
-
-				const connection = repository.pullRequests;
-				if (connection == null) {
-					return {
-						status: 'rejected',
-						reason: new Error(`GitHub returned no pull requests for ${t.owner}/${t.repo}:${t.branch}`),
-					};
-				}
-
-				const returned = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
-				const nodes = returned.filter(pr => pr.headRefName === t.branch);
+				const answer = answers[i];
+				if ('status' in answer) return answer;
 
 				try {
 					// Each node is mapped once, however many owners match it, and only if one does: a row that
 					// matches nobody must cost nothing even when it can't be mapped.
 					const mapped = new Map<BranchPullRequest, PullRequest>();
-					// `first: $limit` already caps `nodes`, so the matches never exceed `limit`.
-					const pullRequests = t.headOwners.map(owner => {
-						const headOwner = owner?.toLowerCase();
-						return nodes
-							.filter(pr =>
-								headOwner == null
-									? !pr.isCrossRepository
-									: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner
-										// here, so its pull request still matches. REST's `head` filter can't see it,
-										// which is why the caller unions the two steps rather than trusting REST alone.
-										pr.isCrossRepository &&
-										pr.headRepositoryOwner?.login.toLowerCase() === headOwner,
-							)
+					const pullRequests = answer.matches.map(matches =>
+						matches
 							.map(pr => {
 								let converted = mapped.get(pr);
 								if (converted == null) {
-									converted = fromGitHubPullRequest(pr, provider);
+									converted = fromGitHubPullRequest(pr, provider, undefined, checkContexts?.get(pr));
 									mapped.set(pr, converted);
 								}
 								return converted;
 							})
-							.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
-					});
+							.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime()),
+					);
 					return {
 						status: 'fulfilled',
-						value: { pullRequests: pullRequests, truncated: connection.totalCount > returned.length },
+						value: { pullRequests: pullRequests, truncated: answer.truncated },
 					};
 				} catch (ex) {
 					// Rejects the whole query rather than answering with the rows that did map: a list missing a

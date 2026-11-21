@@ -65,7 +65,13 @@ export type PullRequestFieldGroup =
 	 * since GitHub's `isMergeQueueEnabled` is non-null, so every row whose read selected the merge-queue data has it
 	 * defined.
 	 */
-	| 'mergeQueue';
+	| 'mergeQueue'
+	/**
+	 * `checkRuns` and `checkRunsTruncated`. Only GitHub's and GitHub Enterprise's batch reads read them, and only for a
+	 * read that asks (`checkRuns`); {@link getPullRequestFieldPresence} answers `not-requested` for a batch row without
+	 * `checkRuns`.
+	 */
+	| 'checkRuns';
 
 /** A group is `fetched` only when every field in it is. */
 export type IssueFieldGroup =
@@ -104,6 +110,7 @@ const pullRequestFieldGroups: readonly PullRequestFieldGroup[] = [
 	'stack',
 	'milestone',
 	'mergeQueue',
+	'checkRuns',
 ];
 
 const issueFieldGroups: readonly IssueFieldGroup[] = [
@@ -164,7 +171,7 @@ const gitHubLite = pullRequestPresenceOf(['description', 'stack', 'milestone', '
  * are, GitHub's own review decision included: none stays none, even while a review is requested.
  * `authoredByMe` needs the current account, which a read may fail to resolve, and the other reads never set it.
  */
-const gitHubFull = pullRequestPresenceOf([
+const gitHubFullGroups: readonly PullRequestFieldGroup[] = [
 	'description',
 	'reviews',
 	'reviewRequests',
@@ -179,7 +186,8 @@ const gitHubFull = pullRequestPresenceOf([
 	'stack',
 	'milestone',
 	'mergeQueue',
-]);
+];
+const gitHubFull = pullRequestPresenceOf(gitHubFullGroups);
 
 const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldGroup> = {
 	point: gitHubLite,
@@ -213,7 +221,7 @@ const gitHubPullRequests: PresenceTable<PullRequestProjection, PullRequestFieldG
 		'reactions',
 		'milestone',
 	]),
-	batch: gitHubFull,
+	batch: pullRequestPresenceOf([...gitHubFullGroups, 'checkRuns']),
 };
 
 /**
@@ -261,7 +269,7 @@ const gitHubIssues: PresenceTable<IssueProjection, IssueFieldGroup> = {
  * GitLens' own GitLab reads: the point reads, and the free-text search. They select the description but leave it,
  * and everything else beyond the merge request's identity and refs, off the row.
  */
-const gitLabOwn = pullRequestPresenceOf([], ['stack', 'mergeQueue']);
+const gitLabOwn = pullRequestPresenceOf([], ['stack', 'mergeQueue', 'checkRuns']);
 
 /**
  * provider-apis' merge request fragment and normalizer, which every other GitLab read goes through. It turns a null
@@ -282,7 +290,7 @@ function gitLabProviderApis(comments: boolean): Presence<PullRequestFieldGroup> 
 			'milestone',
 			...(comments ? (['comments'] as const) : []),
 		],
-		['stack', 'mergeQueue'],
+		['stack', 'mergeQueue', 'checkRuns'],
 	);
 }
 
@@ -311,6 +319,7 @@ const azureUnavailable: readonly PullRequestFieldGroup[] = [
 	'stack',
 	'milestone',
 	'mergeQueue',
+	'checkRuns',
 ];
 /** Every list read: Azure truncates a listed pull request's description (to 400 characters). */
 const azureListed = pullRequestPresenceOf(['reviews', 'reviewRequests', 'mergeable'], azureUnavailable);
@@ -344,6 +353,7 @@ const bitbucketUnavailable: readonly PullRequestFieldGroup[] = [
 	'stack',
 	'milestone',
 	'mergeQueue',
+	'checkRuns',
 ];
 const bitbucketProviderApis = pullRequestPresenceOf(
 	['description', 'reviews', 'reviewRequests', 'comments'],
@@ -525,30 +535,51 @@ function lookup<P extends string, G extends string>(
 	return table != null && Object.hasOwn(table, projection) ? table[projection] : undefined;
 }
 
-/** The table entries with `mergeQueue` downgraded to `not-requested`, made once per entry rather than per call. */
-const withoutMergeQueue = new WeakMap<Presence<PullRequestFieldGroup>, Presence<PullRequestFieldGroup>>();
+/** The table entries with a group downgraded to `not-requested`, made once per entry and group rather than per call. */
+const downgradedPresence = new WeakMap<
+	Presence<PullRequestFieldGroup>,
+	Map<PullRequestFieldGroup, Presence<PullRequestFieldGroup>>
+>();
+
+function downgrade(
+	presence: Presence<PullRequestFieldGroup>,
+	group: PullRequestFieldGroup,
+): Presence<PullRequestFieldGroup> {
+	let byGroup = downgradedPresence.get(presence);
+	if (byGroup == null) {
+		byGroup = new Map();
+		downgradedPresence.set(presence, byGroup);
+	}
+
+	let downgraded = byGroup.get(group);
+	if (downgraded == null) {
+		downgraded = Object.freeze({ ...presence, [group]: 'not-requested' });
+		byGroup.set(group, downgraded);
+	}
+	return downgraded;
+}
 
 /**
  * Which field groups the read that produced `pr` fetched, keyed by its provider and {@link PullRequestShape.projection}.
  * `undefined` when either is unknown or the provider has no table yet — then nothing can be said about any field.
  *
- * `mergeQueue` is derived from the row: a table says `fetched` for a read that selects the merge-queue data (by its
- * own `mergeQueue`, else by the host's `ConfigProvider.getPullRequestReadOptions`). GitHub's `isMergeQueueEnabled` is
- * non-null, so `mergeQueueRequired` is defined on every row whose read selected it, and a row without it was read
- * without the selection.
+ * `mergeQueue` and `checkRuns` are derived from the row: a table says `fetched` for a read that selects them. GitHub's
+ * `isMergeQueueEnabled` is non-null, so `mergeQueueRequired` is defined on every row whose read selected the merge-queue
+ * data, and `checkRuns` is defined (empty when the head has none) on every row whose read selected check runs.
  */
 export function getPullRequestFieldPresence(
 	pr: PullRequestShape,
 ): Readonly<Record<PullRequestFieldGroup, FieldPresence>> | undefined {
-	const presence = lookup(pullRequestPresence, pr.provider.id, pr.projection);
-	if (presence?.mergeQueue !== 'fetched' || pr.mergeQueueRequired != null) return presence;
+	let presence = lookup(pullRequestPresence, pr.provider.id, pr.projection);
+	if (presence == null) return undefined;
 
-	let downgraded = withoutMergeQueue.get(presence);
-	if (downgraded == null) {
-		downgraded = Object.freeze({ ...presence, mergeQueue: 'not-requested' });
-		withoutMergeQueue.set(presence, downgraded);
+	if (presence.mergeQueue === 'fetched' && pr.mergeQueueRequired == null) {
+		presence = downgrade(presence, 'mergeQueue');
 	}
-	return downgraded;
+	if (presence.checkRuns === 'fetched' && pr.checkRuns == null) {
+		presence = downgrade(presence, 'checkRuns');
+	}
+	return presence;
 }
 
 /**
