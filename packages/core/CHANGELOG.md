@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-21
+
 ### Added
 
 - Adds `IntegrationManager.resolveIssueWriteTarget` for GitHub.com. Validates the selected connection, repository, issue number, and expected node in one read and returns the canonical node ID so callers can serialize writes across aliases.
@@ -1367,7 +1369,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.42.0...HEAD
+[0.42.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...gitkraken:releases/core/v0.42.0
 [0.41.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...gitkraken:releases/core/v0.41.0
 [0.40.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...gitkraken:releases/core/v0.40.0
 [0.39.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...gitkraken:releases/core/v0.39.0
