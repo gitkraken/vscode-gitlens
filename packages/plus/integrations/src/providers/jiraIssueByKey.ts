@@ -1,3 +1,4 @@
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { IssueEtagFields } from '../reads/etag.js';
 import type { ProviderAccount, ProviderIssue, ProviderRequestFunction } from './models.js';
@@ -102,7 +103,7 @@ function fromJiraIssueByKey(issue: JiraIssueByKeyResponse, resourceId: string, r
 	const project = issue.fields.project;
 	const status = issue.fields.status;
 
-	return {
+	const result: ProviderIssue = {
 		id: issue.id,
 		commentCount: issue.fields.comment?.total ?? issue.fields.comment?.comments?.length ?? null,
 		number: issue.key,
@@ -135,6 +136,7 @@ function fromJiraIssueByKey(issue: JiraIssueByKeyResponse, resourceId: string, r
 			name: label,
 		})),
 	};
+	return copyReadProvenance(result, issue);
 }
 
 /**

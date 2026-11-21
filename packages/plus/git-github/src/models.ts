@@ -1,3 +1,4 @@
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel, IssueProjection } from '@gitlens/git/models/issue.js';
@@ -464,7 +465,7 @@ export function fromGitHubPullRequestLite(
 	provider: Provider,
 	projection?: PullRequestProjection,
 ): PullRequest {
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
@@ -535,6 +536,7 @@ export function fromGitHubPullRequestLite(
 		pr.isMergeQueueEnabled,
 		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /** `undefined` only for a node from a selection that left the milestone out, which no fragment does today. */
@@ -735,7 +737,7 @@ export function fromGitHubPullRequest(
 			: []),
 	].filter(review => review.state !== 'PENDING');
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
@@ -834,6 +836,7 @@ export function fromGitHubPullRequest(
 		checkRuns?.contexts.map(fromGitHubCheckContext).filter((run): run is PullRequestCheckRun => run != null),
 		checkRuns?.truncated ? true : undefined,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /** What a check run's opaque {@link PullRequestCheckRun.id} names. */
@@ -1002,7 +1005,7 @@ export function fromGitHubCheckContext(context: GitHubCheckContext | null): Pull
 }
 
 export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projection?: IssueProjection): Issue {
-	return new Issue(
+	const result = new Issue(
 		{
 			id: provider.id,
 			name: provider.name,
@@ -1062,6 +1065,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projecti
 		undefined, // syncedWith
 		fromGitHubMilestone(value.milestone),
 	);
+	return copyReadProvenance(result, value);
 }
 
 function fromGitHubViewerPermissionToAccessLevel(

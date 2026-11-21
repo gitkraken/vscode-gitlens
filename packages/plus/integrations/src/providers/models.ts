@@ -47,6 +47,7 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {
 	IssueBodyField,
@@ -857,7 +858,7 @@ export function toIssueShape(
 
 	const state = getProviderIssueState(issue, provider.id);
 
-	return {
+	const result: IssueShape = {
 		type: 'issue',
 		provider: provider,
 		// `id` is the provider's display number/key (GitHub number, Jira/Linear key, Trello idShort), NOT a
@@ -921,6 +922,7 @@ export function toIssueShape(
 		// "none", and a row from any other provider keeps exactly the keys it always had.
 		...(issue.milestone !== undefined ? { milestone: toIssueMilestone(issue.milestone) } : {}),
 	};
+	return copyReadProvenance(result, issue);
 }
 
 /**
@@ -1193,7 +1195,7 @@ function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRem
 
 export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
-	return {
+	const result: ProviderPullRequest = {
 		id: pr.id,
 		graphQLId: pr.nodeId,
 		number: pr.number ?? Number.parseInt(pr.id, 10),
@@ -1302,6 +1304,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 					},
 		mergeableState: pr.mergeableState ? toProviderPullRequestMergeableState[pr.mergeableState] : undefined,
 	};
+	return copyReadProvenance(result, pr);
 }
 
 /**
@@ -1324,7 +1327,7 @@ export function fromProviderPullRequest(
 	const headRepository = pr.headRepository;
 	const headRepositoryRemoteInfo = headRepository?.remoteInfo;
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromProviderAccount(pr.author),
 		pr.id,
@@ -1399,6 +1402,7 @@ export function fromProviderPullRequest(
 		// Only GitHub and GitLab report it; `undefined` stays "not read" rather than "none".
 		pr.milestone !== undefined ? toIssueMilestone(pr.milestone) : undefined,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /**
@@ -1514,7 +1518,7 @@ export function fromProviderIssue(
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
 	const viewer = toIssueViewer(issue, options?.viewer);
-	return new Issue(
+	const result = new Issue(
 		integration,
 		identifier,
 		issue.graphQLId ?? issue.id,
@@ -1560,4 +1564,5 @@ export function fromProviderIssue(
 		// As in `toIssueShape`.
 		issue.milestone !== undefined ? toIssueMilestone(issue.milestone) : undefined,
 	);
+	return copyReadProvenance(result, issue);
 }

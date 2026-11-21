@@ -1,3 +1,4 @@
+import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import * as l10n from '@vscode/l10n';
 import { reportRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
@@ -415,7 +416,7 @@ export class GitLabApi implements Disposable {
 
 			if (rsp?.data?.project?.issue != null) {
 				const issue = rsp.data.project.issue;
-				return {
+				const result: IssueOrPullRequest = {
 					provider: provider,
 					type: 'issue',
 					id: issue.iid,
@@ -428,11 +429,12 @@ export class GitLabApi implements Disposable {
 					url: issue.webUrl,
 					state: issue.state === 'locked' ? 'closed' : issue.state,
 				};
+				return copyReadProvenance(result, issue);
 			}
 
 			if (rsp?.data?.project?.mergeRequest != null) {
 				const mergeRequest = rsp.data.project.mergeRequest;
-				return {
+				const result: IssueOrPullRequest = {
 					provider: provider,
 					type: 'pullrequest',
 					id: mergeRequest.iid,
@@ -446,6 +448,7 @@ export class GitLabApi implements Disposable {
 					url: mergeRequest.webUrl,
 					state: mergeRequest.state === 'locked' ? 'closed' : mergeRequest.state,
 				};
+				return copyReadProvenance(result, mergeRequest);
 			}
 
 			return undefined;
@@ -652,7 +655,7 @@ export class GitLabApi implements Disposable {
 
 			// A caller holding a remote's descriptor split a nested group at its first slash.
 			const fullPath = `${owner}/${repo}`;
-			return new PullRequest(
+			const result = new PullRequest(
 				provider,
 				{
 					id: buildGitLabUserId(pr.author?.id) ?? '',
@@ -698,6 +701,7 @@ export class GitLabApi implements Disposable {
 				undefined, // authoredByMe
 				'point',
 			);
+			return copyReadProvenance(result, pr);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1412,7 +1416,7 @@ export class GitLabApi implements Disposable {
 						sourceBranch: restPR.source_branch,
 						targetBranch: restPR.target_branch,
 					};
-					accum.push(fromGitLabMergeRequest(fullPr, provider, 'text-search'));
+					accum.push(copyReadProvenance(fromGitLabMergeRequest(fullPr, provider, 'text-search'), restPR));
 					return accum;
 				}, []);
 				return resultPRs;
@@ -1659,6 +1663,7 @@ $search: String!
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
+				const capture = createReadCapture();
 				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					this.config.fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
@@ -1669,7 +1674,7 @@ $search: String!
 				);
 
 				if (rsp.ok) {
-					const data = (await rsp.json()) as T | { errors: { message: string }[] };
+					const data = captureReadNodes(await rsp.json(), capture) as T | { errors: { message: string }[] };
 
 					if ('errors' in data) throw new ProviderFetchError('GitLab', rsp, data.errors);
 					return data;
@@ -1713,6 +1718,7 @@ $search: String!
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
+				const capture = createReadCapture();
 				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					this.config.fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -1722,7 +1728,7 @@ $search: String!
 				);
 
 				if (rsp.ok) {
-					return (await rsp.json()) as T;
+					return captureReadNodes(await rsp.json(), capture) as T;
 				}
 
 				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.

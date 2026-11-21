@@ -22,6 +22,7 @@
 		"test": "tsc -b && mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 \"src/**/__tests__/**/*.test.ts\""
 	},
 	"dependencies": {
+		"@gitkraken/provider-apis": "catalog:",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/utils": "workspace:*",
 		"@octokit/graphql": "catalog:",

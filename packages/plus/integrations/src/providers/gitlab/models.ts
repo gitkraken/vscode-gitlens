@@ -1,4 +1,5 @@
 import type { GitBuildStatus } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { PullRequestProjection, PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
@@ -145,7 +146,7 @@ export function fromGitLabMergeRequestREST(
 	repo: { owner: string; repo: string },
 	projection?: PullRequestProjection,
 ): PullRequest {
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		{
 			id: pr.author?.id ?? '',
@@ -188,6 +189,7 @@ export function fromGitLabMergeRequestREST(
 		undefined, // authoredByMe
 		projection,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 export interface GitLabProjectREST {
@@ -239,7 +241,7 @@ export function fromGitLabMergeRequest(
 		}
 	}
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		{
 			// author
@@ -288,6 +290,7 @@ export function fromGitLabMergeRequest(
 		undefined, // authoredByMe
 		projection,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs | undefined {

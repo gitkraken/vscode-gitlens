@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import { suite, test } from 'mocha';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import { fromDisposables } from '@gitlens/utils/disposable.js';
@@ -345,7 +346,17 @@ suite('Asana integration', () => {
 		for (const [index, p] of projects.entries()) {
 			const own = await asana.getIssuesForProject(p, options);
 			assert.equal(own?.length, 2, `${p.id} lists both tasks on its own`);
-			assert.deepEqual(shared[index]?.value?.values, own, `${p.id} reads alike either way`);
+			const sharedRows = shared[index]?.value?.values;
+			assert.ok(sharedRows);
+			assert.deepEqual(
+				sharedRows,
+				own.map((row, i) => {
+					assert.equal(typeof row.captureId, 'string');
+					assert.notEqual(row.captureId, sharedRows[i].captureId);
+					return copyReadProvenance({ ...row }, sharedRows[i]);
+				}),
+				`${p.id} reads alike either way`,
+			);
 		}
 		assert.deepEqual(
 			shared.map(r => r?.value?.values.map(i => `${i.id}:${i.state}:${i.providerState?.name ?? ''}`)),

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
@@ -782,12 +783,14 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			assert.equal(calls.own, 0);
 			const issue = result.items[0]?.issue;
 			assert.ok(issue != null && list.items[0] != null);
-			// The tag names the read, so the two rows' tags differ; every other field is the same conversion.
 			const { projection, ...listed } = list.items[0];
 			const { projection: batchProjection, ...batched } = issue;
 			assert.equal(projection, 'repos');
 			assert.equal(batchProjection, 'batch');
-			assert.deepEqual(batched, listed);
+			assert.equal(typeof listed.captureId, 'string');
+			assert.equal(typeof batched.captureId, 'string');
+			assert.notEqual(batched.captureId, listed.captureId);
+			assert.deepEqual(batched, copyReadProvenance(listed, batched));
 			// Neither is set by GitLens' own GitLab issue conversion, only by the list read's.
 			assert.deepEqual(issue.labels, [{ name: 'bug', color: '#ff0000' }]);
 			assert.equal(issue.thumbsUpCount, 3);
@@ -1144,7 +1147,10 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			assert.equal(batchProjection, 'batch');
 			assert.equal(listedThumbsUp, 0);
 			assert.equal(batchedThumbsUp, undefined);
-			assert.deepEqual(batched, listed);
+			assert.equal(typeof listed.captureId, 'string');
+			assert.equal(typeof batched.captureId, 'string');
+			assert.notEqual(batched.captureId, listed.captureId);
+			assert.deepEqual(batched, copyReadProvenance(listed, batched));
 			// Set by the list read's conversion, and by neither half of GitLens' own work item conversion.
 			assert.deepEqual(
 				issue.labels?.map(l => l.name),

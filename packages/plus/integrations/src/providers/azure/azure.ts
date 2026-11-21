@@ -5,6 +5,7 @@ import type {
 	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 } from '@gitkraken/provider-apis';
+import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import * as l10n from '@vscode/l10n';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
@@ -445,7 +446,7 @@ export class AzureDevOpsApi implements Disposable {
 					parseAzureWorkItemDate(issueResult.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined,
 				);
 
-				return {
+				const result: IssueOrPullRequest = {
 					id: issueResult.id.toString(),
 					type: 'issue',
 					nodeId: issueResult.id.toString(),
@@ -457,6 +458,7 @@ export class AzureDevOpsApi implements Disposable {
 					title: issueResult.fields['System.Title'],
 					url: issueResult._links.html.href,
 				};
+				return copyReadProvenance(result, issueResult);
 			}
 		}
 
@@ -474,7 +476,7 @@ export class AzureDevOpsApi implements Disposable {
 				);
 
 				if (prResult != null) {
-					return {
+					const result: IssueOrPullRequest = {
 						id: prResult.pullRequestId.toString(),
 						type: 'pullrequest',
 						nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
@@ -486,6 +488,7 @@ export class AzureDevOpsApi implements Disposable {
 						title: prResult.title,
 						url: getAzurePullRequestWebUrl(prResult, options.baseUrl, owner),
 					};
+					return copyReadProvenance(result, prResult);
 				}
 
 				return undefined;
@@ -1671,6 +1674,7 @@ export class AzureDevOpsApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
+				const capture = createReadCapture();
 				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					this.config.fetch(url, {
 						headers: {
@@ -1697,7 +1701,7 @@ export class AzureDevOpsApi implements Disposable {
 						);
 					}
 
-					return (await rsp.json()) as T;
+					return captureReadNodes(await rsp.json(), capture) as T;
 				}
 
 				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.

@@ -11,6 +11,7 @@ import type {
 	TrelloBoard,
 	TrelloList,
 } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -241,7 +242,7 @@ function fromTrelloCard(
 	const createdDate = new Date(1000 * parseInt(card.id.substring(0, 8), 16));
 	const list = card.idList != null ? trelloBoardListsById[card.idList] : undefined;
 
-	return {
+	const result: ProviderIssue = {
 		id: card.id,
 		commentCount: card.badges?.comments ?? null,
 		number: String(card.idShort),
@@ -271,6 +272,7 @@ function fromTrelloCard(
 			name: label.name,
 		})),
 	};
+	return copyReadProvenance(result, card);
 }
 
 /**

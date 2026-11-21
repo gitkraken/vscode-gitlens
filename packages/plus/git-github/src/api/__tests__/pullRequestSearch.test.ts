@@ -862,7 +862,22 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 				status: 503,
 			});
 
-			const page = await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+			const starts: number[] = [];
+			const now = Date.now;
+			const timedConfig: GitHubApiConfig = {
+				...config,
+				fetch: async (...args) => {
+					starts.push(Date.now());
+					return config.fetch(...args);
+				},
+			};
+			Date.now = () => 1000 + starts.length;
+			let page;
+			try {
+				page = await new GitHubApi(timedConfig).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+			} finally {
+				Date.now = now;
+			}
 
 			assert.deepEqual(
 				requests.map(r => [r.status, ...r.firsts]),
@@ -872,7 +887,12 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 					[200, 20],
 				],
 			);
-			assert.equal(page?.values.length, 5);
+			assert.ok(page);
+			assert.equal(page.values.length, 5);
+			const captured = page.values[0];
+			assert.equal(typeof captured.captureId, 'string');
+			assert.equal(captured.capturedAt, starts[2]);
+			assert.ok(page.values.every(pr => pr.captureId === captured.captureId && pr.capturedAt === starts[2]));
 		});
 
 		test('walks a reduced search to the end with every facet serving each row exactly once', async () => {
