@@ -1,3 +1,4 @@
+import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import * as l10n from '@vscode/l10n';
 import { reportRequestFailure } from '@gitlens/git/errors.js';
 import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
@@ -286,7 +287,7 @@ export class BitbucketApi implements Disposable {
 				);
 
 				if (issueResponse) {
-					return {
+					const result: IssueOrPullRequest = {
 						id: issueResponse.id.toString(),
 						type: 'issue',
 						nodeId: issueResponse.id.toString(),
@@ -298,6 +299,7 @@ export class BitbucketApi implements Disposable {
 						title: issueResponse.title,
 						url: issueResponse.links.html.href,
 					};
+					return copyReadProvenance(result, issueResponse);
 				}
 			} catch (ex) {
 				scope?.error(ex);
@@ -1152,6 +1154,7 @@ export class BitbucketApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
+				const capture = createReadCapture();
 				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					this.config.fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -1161,7 +1164,7 @@ export class BitbucketApi implements Disposable {
 				);
 
 				if (rsp.ok) {
-					return (await rsp.json()) as T;
+					return captureReadNodes(await rsp.json(), capture) as T;
 				}
 
 				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.

@@ -2,6 +2,7 @@ import type {
 	GitPullRequestReviewState as GitPullRequestReviewStateType,
 	GitPullRequestState as GitPullRequestStateType,
 } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { ProviderAccount, ProviderPullRequest } from '../models.js';
 
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
@@ -217,7 +218,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		headHTTPSUrl = pr.fromRef.repository.links.clone.find(link => link.name === 'http')?.href ?? null;
 	}
 
-	return {
+	const result: ProviderPullRequest = {
 		id: pr.id.toString(),
 		number: pr.id,
 		title: pr.title,
@@ -280,4 +281,5 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		permissions: null,
 		version: pr.version,
 	};
+	return copyReadProvenance(result, pr);
 };

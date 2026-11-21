@@ -1,6 +1,10 @@
 import type { ProviderReference } from './remoteProvider.js';
 
 export interface IssueOrPullRequest {
+	/** Epoch milliseconds when the request that supplied this result began. */
+	readonly capturedAt?: number;
+	/** Opaque identity shared by results from the same request. */
+	readonly captureId?: string;
 	readonly type: IssueOrPullRequestType;
 	readonly provider: ProviderReference;
 	readonly id: string;

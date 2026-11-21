@@ -1,3 +1,4 @@
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { IssueProjection, IssueRepository } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -366,7 +367,7 @@ function fromBitbucketRepository(repo: BitbucketRepository): IssueRepository {
 }
 
 export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider, projection?: IssueProjection): Issue {
-	return new Issue(
+	const result = new Issue(
 		provider,
 		issue.id.toString(),
 		issue.id.toString(),
@@ -399,6 +400,7 @@ export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider, pr
 		undefined, // iterations
 		projection,
 	);
+	return copyReadProvenance(result, issue);
 }
 
 export function fromBitbucketPullRequest(
@@ -407,7 +409,7 @@ export function fromBitbucketPullRequest(
 	options?: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
 ): PullRequest {
 	const author = fromBitbucketUser(pr.author);
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		author,
 		pr.id.toString(),
@@ -467,6 +469,7 @@ export function fromBitbucketPullRequest(
 		options?.projection,
 		options?.currentAccount,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /** The most pull request ids one etag read asks for: Bitbucket Cloud's largest page of pull requests. */

@@ -251,6 +251,8 @@ export type IssueSyncedWith = {
 
 @loggable(i => i.id)
 export class Issue implements IssueShape {
+	declare readonly capturedAt?: number;
+	declare readonly captureId?: string;
 	readonly type = 'issue';
 
 	constructor(
