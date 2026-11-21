@@ -220,6 +220,61 @@ suite('IntegrationManager GitHub issue writes', () => {
 		}
 	});
 
+	test('keeps the confirmed deletion when GitHub reports it in a different repository', async () => {
+		const { manager, calls } = await setup(query => ({
+			data: query.startsWith('query') ? writeTarget : { deleteIssue: { repository: { id: 'R_transferred' } } },
+		}));
+		try {
+			assert.deepEqual(await manager.deleteIssue(existing), {
+				ok: true,
+				issue: snapshot,
+				deletedFromDifferentRepository: true,
+			});
+			assert.equal(calls.length, 2);
+			assert.deepEqual(calls[1].variables, { issueId: issue.id });
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('keeps an unconfirmed deletion unknown', async () => {
+		const { manager, calls } = await setup(query => ({
+			data: query.startsWith('query') ? writeTarget : { deleteIssue: { repository: null } },
+		}));
+		try {
+			assert.deepEqual(await manager.deleteIssue(existing), { ok: false, reason: 'unknown' });
+			assert.equal(calls.length, 2);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('resolves an existing issue to a canonical write target without issuing a mutation', async () => {
+		const { manager, calls } = await setup(() => ({ data: writeTarget }));
+		try {
+			const expectedNodeId = 'MDU6SXNzdWU0Mg==';
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, expectedNodeId: expectedNodeId }), {
+				ok: true,
+				nodeId: issue.id,
+			});
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, number: 43 }), {
+				ok: false,
+				reason: 'not-found',
+			});
+			assert.equal(calls.length, 2);
+			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteTarget')));
+			assert.ok(calls.every(call => call.authorization === 'token token-selected' && call.nextGlobalId === '1'));
+			assert.deepEqual(calls[0].variables, {
+				owner: 'org',
+				repo: 'repo',
+				expectedNodeId: expectedNodeId,
+				checkDelete: false,
+			});
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('keeps the original create target even when a caller changes the input while it is pending', async () => {
 		const managedIssue = { ...issue, repository: { ...issue.repository, owner: { login: 'Org_managed' } } };
 		const { manager, calls } = await setup(query => ({

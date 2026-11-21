@@ -40,7 +40,9 @@ import type {
 type IssueWriteConnection = { providerId: IntegrationIds; connectionId: string };
 
 export type IssueWriteOptions = IssueWriteConnection & GitHubIssueWrite;
-export type IssueDeleteOptions = IssueWriteConnection & GitHubIssueDelete;
+export type IssueWriteTargetOptions = IssueWriteConnection & GitHubIssueDelete;
+export type IssueDeleteOptions = IssueWriteTargetOptions;
+export type IssueWriteTargetResult = { ok: true; nodeId: string } | Extract<IssueWriteResult, { ok: false }>;
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {
@@ -1114,6 +1116,7 @@ export interface IntegrationManager {
 	}): Promise<ProviderBroadenResult<IssueShape>>;
 	writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult>;
 	deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult>;
+	resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult>;
 	resolveRepository(options: {
 		providerId?: IntegrationIds;
 		remoteUrl: string;
