@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-21
+
 ### Added
 
 - Adds `checkRuns` to `IntegrationManager.getPullRequestsBatch` and `getPullRequestsForBranches` for GitHub and GitHub Enterprise. With it on, each fully read row carries its head commit's individual checks (`PullRequestShape.checkRuns`: each check run or commit status with its status, conclusion, links, times, whether it has a log, and on github.com's batch read whether it is required), reading past the first 100 up to 500 and marking `checkRunsTruncated` beyond that. Each check's state is an etag input, so a check that changes under an unchanged rollup no longer compares `unchanged`, and the new `checkRuns` field-presence group says whether a row's read fetched them. Off by default, so no existing read changes its query, cost or etag (git, git-github, plus/integrations)
@@ -1357,7 +1359,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...HEAD
+[0.41.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...gitkraken:releases/core/v0.41.0
 [0.40.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...gitkraken:releases/core/v0.40.0
 [0.39.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.4...gitkraken:releases/core/v0.39.0
 [0.38.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.38.3...gitkraken:releases/core/v0.38.4
