@@ -17,6 +17,7 @@ import {
 	azureWorkItemViewerRule,
 	issueEtagIncludes,
 	linearSyncedWithEtagKeys,
+	pullRequestCheckRunsEtag,
 	pullRequestEtagIncludes,
 	pullRequestRevision,
 } from '../models/integration.js';
@@ -28,10 +29,11 @@ import { issueNamesPeople } from '../providers/models.js';
  *
  * Computed by core, never the provider's HTTP ETag, and from the fields alone — not the item's id, since the
  * caller's key already identifies the target and ids cross vocabularies between reads. Not hashed: the stamp IS
- * the serialized fields, so two different change states can never collide into a false `unchanged` — except for an
- * Azure DevOps pull request's `revision`, a 64-bit hash of the fields Azure changes without a timestamp, where a
- * collision (about 2^-64) is the only way a change can hide. The prefix names the scheme (`pr1`, `is1`) and every
- * include it covers ({@link PullRequestEtagInclude}, {@link IssueEtagInclude}), in canonical order
+ * the serialized fields, so two different change states can never collide into a false `unchanged` — except for two
+ * 64-bit hashes, where a collision (about 2^-64) is the only way a change can hide: an Azure DevOps pull request's
+ * `revision`, of the fields Azure changes without a timestamp, and a GitHub pull request's `checkRuns`, of its head's
+ * checks, which keeps the stamp the same length at any number of checks. The prefix names the scheme (`pr1`, `is1`)
+ * and every include it covers ({@link PullRequestEtagInclude}, {@link IssueEtagInclude}), in canonical order
  * (`pr1+mergeable+checks:`, `is1+reactions:`), so two different sets can never collide even when their values do (a
  * `null` mergeability and a `null` rollup). A stamp from another scheme or another set just compares unequal and
  * costs a full read.
@@ -76,6 +78,9 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	// merge-queue data has it.
 	if (pr.mergeQueueRequired != null) {
 		fields.mergeQueueRead = true;
+	}
+	if (pr.checkRuns != null) {
+		fields.checkRuns = pullRequestCheckRunsEtag(pr.checkRuns, pr.checkRunsTruncated === true);
 	}
 	return fields;
 }
@@ -151,6 +156,10 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	// terms above. A read that didn't select it adds nothing, so it computes the etag it did before.
 	if (fields.mergeQueueRead) {
 		state.push(['merge-queue-read']);
+	}
+	if (fields.checkRuns != null) {
+		const { hash, count, truncated } = fields.checkRuns;
+		state.push(truncated ? ['check-runs', hash, count, 'truncated'] : ['check-runs', hash, count]);
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;

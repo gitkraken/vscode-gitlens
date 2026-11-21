@@ -110,10 +110,14 @@ import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
+import type { PullRequestActivityResult, PullRequestActivityTarget } from './reads/pullRequestActivity.js';
+import { getPullRequestActivity } from './reads/pullRequestActivity.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
 import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
+import type { PullRequestCheckLogResult, PullRequestCheckLogTarget } from './reads/pullRequestCheckLogs.js';
+import { getPullRequestCheckLogs } from './reads/pullRequestCheckLogs.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
@@ -1394,6 +1398,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		etagIncludes?: readonly PullRequestEtagInclude[];
 		/** See {@link IntegrationManager.getPullRequestsBatch}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
 	}
@@ -1409,8 +1415,34 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>> {
 		return getPullRequestsForBranches(this, options);
+	}
+
+	async getPullRequestCheckLogs(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		domain?: string;
+		targets: readonly PullRequestCheckLogTarget[];
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		tailLines?: number;
+	}): Promise<ProviderResult<PullRequestCheckLogResult>> {
+		return getPullRequestCheckLogs(this, options);
+	}
+
+	async getPullRequestActivity(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		domain?: string;
+		targets: readonly PullRequestActivityTarget[];
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		limit?: number;
+	}): Promise<ProviderResult<PullRequestActivityResult>> {
+		return getPullRequestActivity(this, options);
 	}
 
 	/**

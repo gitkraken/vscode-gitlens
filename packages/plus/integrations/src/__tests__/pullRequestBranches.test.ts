@@ -1145,8 +1145,8 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 				branches: Record<string, { nodes: Record<string, unknown>[]; totalCount: number }>,
 				heads: Record<string, number[] | Response>,
 				nodes: Record<number, Record<string, unknown>> = {},
-			): { heads: URL[]; batches: number[][]; urls: string[] } {
-				const asked = { heads: [] as URL[], batches: [] as number[][] };
+			): { heads: URL[]; batches: number[][]; queries: string[]; urls: string[] } {
+				const asked = { heads: [] as URL[], batches: [] as number[][], queries: [] as string[] };
 				const requests = serve(runtime, (url, body) => {
 					if (url.includes('/pulls?')) {
 						const parsed = new URL(url);
@@ -1164,6 +1164,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 						query: string;
 						variables: Record<string, unknown>;
 					};
+					asked.queries.push(query);
 					if (query.includes('query getPullRequestsBatch')) {
 						const numbers = Object.keys(variables)
 							.filter(k => /^k\d+$/.test(k))
@@ -1249,6 +1250,71 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 					getPullRequestFieldPresence(found),
 					'a resolved row carries the same field presence as a row the branch query returned',
 				);
+
+				manager.dispose();
+			});
+
+			test('with check runs, every row carries them and none reads `required`, the resolved one included', async () => {
+				const withChecks = (n: Record<string, unknown>, name: string): Record<string, unknown> => ({
+					...n,
+					commits: {
+						totalCount: 1,
+						nodes: [
+							{
+								commit: {
+									statusCheckRollup: {
+										state: 'SUCCESS',
+										contexts: {
+											pageInfo: { hasNextPage: false, endCursor: null },
+											nodes: [
+												{
+													__typename: 'StatusContext',
+													id: `SC_${name}`,
+													context: name,
+													state: 'SUCCESS',
+													targetUrl: null,
+													createdAt: '2026-01-01T00:00:00Z',
+												},
+											],
+										},
+									},
+								},
+							},
+						],
+					},
+				});
+				const runtime = createFakeRuntime();
+				const page = [...strangers().slice(0, 9), withChecks(node(5, 2, 'mine'), 'found')];
+				const asked = serveGitHub(
+					runtime,
+					{ b0: { nodes: page, totalCount: 30 } },
+					{ 'mine:feature': [9, 5] },
+					{ 9: withChecks(node(9, 3, 'mine'), 'resolved') },
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'mine' }],
+					checkRuns: true,
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => [pr.number, pr.checkRuns?.map(run => run.name)]),
+					[
+						[9, ['resolved']],
+						[5, ['found']],
+					],
+				);
+				for (const pr of result.items[0].pullRequests) {
+					assert.equal(getPullRequestFieldPresence(pr)?.checkRuns, 'fetched');
+				}
+				assert.equal(asked.queries.length, 2);
+				for (const query of asked.queries) {
+					assert.match(query, /contexts\(first: 100\)/);
+					assert.doesNotMatch(query, /isRequired/);
+				}
 
 				manager.dispose();
 			});

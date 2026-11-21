@@ -10,6 +10,7 @@ import type {
 } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckRun,
 	PullRequestMergeableState,
 	PullRequestMergeQueueEntry,
 	PullRequestReviewDecision,
@@ -176,6 +177,35 @@ export interface PullRequestEtagFields {
 	 * selected the data carries; a cheap check sets it from the same selection.
 	 */
 	mergeQueueRead?: true;
+	/**
+	 * The head's checks, from {@link pullRequestCheckRunsEtag}, set whenever the read selected check runs (a count of 0
+	 * when the head has none), so it also marks such a read, as {@link mergeQueueRead} does.
+	 */
+	checkRuns?: PullRequestCheckRunsEtag;
+}
+
+/** A head's checks, as a pull request's etag reads them. */
+export interface PullRequestCheckRunsEtag {
+	/** A 64-bit hash of each check's id, kind, name, status and conclusion, in id order. */
+	readonly hash: string;
+	readonly count: number;
+	/** The head has checks the read lacks (the row's `checkRunsTruncated`). */
+	readonly truncated: boolean;
+}
+
+/**
+ * {@link PullRequestEtagFields.checkRuns}, which the cheap check and the full read build alike from the same fields.
+ * Hashed to keep the etag short at any number of checks, so a collision is the only way a change can hide, at about
+ * 2^-64.
+ */
+export function pullRequestCheckRunsEtag(
+	runs: readonly Pick<PullRequestCheckRun, 'id' | 'kind' | 'name' | 'status' | 'conclusion'>[],
+	truncated: boolean,
+): PullRequestCheckRunsEtag {
+	const entries = runs
+		.map(run => [run.id, run.kind, run.name, run.status, run.conclusion ?? null] as const)
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+	return { hash: fnv1aHash64(JSON.stringify(entries)), count: entries.length, truncated: truncated };
 }
 
 /**
@@ -318,6 +348,8 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForOrg'
 	| 'getProjectsForResources'
 	| 'getPullRequest'
+	| 'getPullRequestActivity'
+	| 'getPullRequestCheckLogs'
 	| 'getPullRequestsBatch'
 	| 'getPullRequestsEtagFields'
 	| 'getPullRequestsForBranches'
