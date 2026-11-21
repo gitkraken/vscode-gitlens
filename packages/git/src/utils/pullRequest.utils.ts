@@ -399,6 +399,8 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		mergeQueueRemoval: value.mergeQueueRemoval
 			? { reason: value.mergeQueueRemoval.reason, removedAt: value.mergeQueueRemoval.removedAt }
 			: undefined,
+		checkRuns: value.checkRuns?.map(run => ({ ...run })),
+		checkRunsTruncated: value.checkRunsTruncated,
 	};
 	return serialized;
 }

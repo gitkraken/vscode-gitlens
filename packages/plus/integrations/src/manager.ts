@@ -43,10 +43,14 @@ import type {
 	ProviderRepositoryShape,
 	ProviderResult,
 	ProviderSweepResult,
+	PullRequestActivityResult,
+	PullRequestActivityTarget,
 	PullRequestBatchResult,
 	PullRequestBatchTarget,
 	PullRequestBranchResult,
 	PullRequestBranchTarget,
+	PullRequestCheckLogResult,
+	PullRequestCheckLogTarget,
 	PullRequestCountResult,
 	PullRequestCountScope,
 	ResolveRepositoryResult,
@@ -911,6 +915,15 @@ export interface IntegrationManager {
 		 * rate-limit request per row, in the cheap check as well as the full read.
 		 */
 		mergeQueue?: boolean;
+		/**
+		 * GitHub and GitHub Enterprise: `true` reads each row's head check results (`checkRuns`, `checkRunsTruncated`),
+		 * in the cheap check and the full read alike. Off by default; every other provider ignores it. Each check's
+		 * id, kind, name, status and conclusion become etag inputs, hashed into one fixed-length term, and a read that
+		 * selects them adds a marker to every etag it computes, so changing this reads each held target in full once.
+		 * `required` is read on GitHub.com only. A head with more than 100 checks costs both reads a request per
+		 * further 100, up to 500.
+		 */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
@@ -963,7 +976,73 @@ export interface IntegrationManager {
 		 * Selecting it costs a rate-limit request per row (a 25-branch chunk 13 points instead of 10 without).
 		 */
 		mergeQueue?: boolean;
+		/**
+		 * GitHub and GitHub Enterprise: `true` reads each row's head check results (`checkRuns`, `checkRunsTruncated`).
+		 * Off by default; every other provider ignores it. This read never sets `required`, since the by-name query
+		 * can't ask for it. A head with more than 100 checks costs a request per further 100, up to 500.
+		 */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>>;
+	/**
+	 * The tail of each check's log, by the opaque `PullRequestCheckRun.id` a batch pull request read returned
+	 * (`checkRuns: true`). GitHub and GitHub Enterprise only; every other provider refuses (`unsupported` warning +
+	 * `fetchFailed`).
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, log }` — the log's last `tailLines` lines. `source` says whether it is an Actions job's log or another
+	 *   check run's output (its title, summary and text). Raw and untrusted: an Actions log keeps its timestamps and
+	 *   `##[group]` markers.
+	 * - `{ key, unavailable }` — the check has no log to read: `'no-log'` (a commit status, a check run without
+	 *   output, a job that never ran), `'log-not-ready'` (the job is still running), `'log-expired'` (the job finished
+	 *   and its log is gone) or `'log-too-large'` (the host would only serve the whole log, and it is over 20 MiB).
+	 * - No item for a key, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check (auth,
+	 *   rate limit, network, an unmappable response).
+	 *
+	 * A duplicate key, an id no pull request read returned, an empty owner or repo, or a `tailLines` outside 1..2000
+	 * refuses the whole call. Targets are read in chunks of 25, up to 6 at once. Request cost: a commit status costs
+	 * nothing; a chunk's other check runs cost one GraphQL request; an Actions job costs one REST request plus two
+	 * unauthenticated storage requests downloading at most 256 KiB (a web host streams the whole log instead), at most
+	 * 4 at a time in a chunk.
+	 */
+	getPullRequestCheckLogs(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestCheckLogTarget[];
+		/** How many lines to keep from the end of each log: an integer from 1 to 2000. Defaults to 200. */
+		tailLines?: number;
+	}): Promise<ProviderResult<PullRequestCheckLogResult>>;
+	/**
+	 * New reviews, inline review comments and conversation comments on each pull request after the target's
+	 * `cursor`, in GitHub's timeline order. GitHub and GitHub Enterprise only; every other provider refuses
+	 * (`unsupported` warning + `fetchFailed`).
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, items, cursor, hasMore }` — the activity published after the cursor; with no cursor, the newest
+	 *   `limit` items as a baseline (`hasMore` false). Each review is followed by its inline comments. `cursor` is
+	 *   always set; send it back on the next read. `hasMore` means more items already follow; read again with
+	 *   `cursor`.
+	 * - `{ key, notFound: true, items: [], cursor }` — the pull request or its repository does not exist or is not
+	 *   visible to this connection; `cursor` is the one sent, or `''`.
+	 * - No item for a key, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check.
+	 *
+	 * Edits are not seen: an item is returned once, when it is published. Pending reviews (the viewer's own drafts)
+	 * are skipped. A duplicate key, an empty owner or repo, a non-positive `number`, a cursor no read returned, or a
+	 * `limit` outside 1..100 refuses the whole call. Request cost: one GraphQL request per 25 targets, up to 6 at once,
+	 * estimated at about 1 point per pull request at the defaults.
+	 */
+	getPullRequestActivity(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestActivityTarget[];
+		/** Timeline items (reviews and conversation comments) per target: an integer from 1 to 100. Defaults to 30. */
+		limit?: number;
+	}): Promise<ProviderResult<PullRequestActivityResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
 	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and

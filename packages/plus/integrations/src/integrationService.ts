@@ -97,8 +97,10 @@ import { listLinearProjects, listOrgs, listProjects, listRepos } from './reads/h
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
+import { getPullRequestActivity } from './reads/pullRequestActivity.js';
 import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
 import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
+import { getPullRequestCheckLogs } from './reads/pullRequestCheckLogs.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
@@ -118,10 +120,14 @@ import type {
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	PullRequestActivityResult,
+	PullRequestActivityTarget,
 	PullRequestBatchResult,
 	PullRequestBatchTarget,
 	PullRequestBranchResult,
 	PullRequestBranchTarget,
+	PullRequestCheckLogResult,
+	PullRequestCheckLogTarget,
 	PullRequestCountResult,
 	PullRequestCountScope,
 	ResolveRepositoryResult,
@@ -1390,6 +1396,8 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		etagIncludes?: readonly PullRequestEtagInclude[];
 		/** See {@link IntegrationManager.getPullRequestsBatch}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
 	}
@@ -1405,8 +1413,34 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		domain?: string;
 		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>> {
 		return getPullRequestsForBranches(this, options);
+	}
+
+	async getPullRequestCheckLogs(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		domain?: string;
+		targets: readonly PullRequestCheckLogTarget[];
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		tailLines?: number;
+	}): Promise<ProviderResult<PullRequestCheckLogResult>> {
+		return getPullRequestCheckLogs(this, options);
+	}
+
+	async getPullRequestActivity(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		domain?: string;
+		targets: readonly PullRequestActivityTarget[];
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		limit?: number;
+	}): Promise<ProviderResult<PullRequestActivityResult>> {
+		return getPullRequestActivity(this, options);
 	}
 
 	/**

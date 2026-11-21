@@ -651,12 +651,16 @@ function assertFullRow(
 	assert.equal(presence.milestone, 'fetched');
 }
 
-/** A row as an opting-in host reads it: a read that selected the merge-queue data always sets `mergeQueueRequired`. */
+/**
+ * A row as an opting-in read gets it: a read that selected the merge-queue data always sets `mergeQueueRequired`, and
+ * one that selected check runs always sets `checkRuns`.
+ */
 function pullRequestRow(providerId: string, projection: string | undefined): PullRequestShape {
 	return {
 		provider: { id: providerId },
 		projection: projection,
 		mergeQueueRequired: true,
+		checkRuns: [],
 	} as unknown as PullRequestShape;
 }
 
@@ -735,6 +739,42 @@ suite('Field presence lookup', () => {
 					);
 					assert.ok(Object.isFrozen(unread), label);
 				}
+			}
+		}
+	});
+
+	test('`checkRuns` is fetched only on a GitHub or GitHub Enterprise batch row that carries them, and unavailable elsewhere', () => {
+		for (const providerId of [
+			GitCloudHostIntegrationId.GitHub,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			GitCloudHostIntegrationId.GitLab,
+		]) {
+			for (const projection of pullRequestProjections) {
+				const read = getPullRequestFieldPresence(pullRequestRow(providerId, projection));
+				if (read == null) continue;
+
+				const label = `${providerId}.${projection}`;
+				const unread = getPullRequestFieldPresence({
+					...pullRequestRow(providerId, projection),
+					checkRuns: undefined,
+					mergeQueueRequired: undefined,
+				});
+				if (providerId === GitCloudHostIntegrationId.GitLab) {
+					assert.equal(read.checkRuns, 'unavailable', label);
+					assert.equal(unread?.checkRuns, 'unavailable', label);
+					continue;
+				}
+
+				assert.equal(read.checkRuns, projection === 'batch' ? 'fetched' : 'not-requested', label);
+				assert.deepEqual(
+					unread,
+					{
+						...read,
+						checkRuns: 'not-requested',
+						mergeQueue: read.mergeQueue === 'fetched' ? 'not-requested' : read.mergeQueue,
+					},
+					label,
+				);
 			}
 		}
 	});

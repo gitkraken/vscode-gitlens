@@ -39,6 +39,8 @@ export async function getPullRequestsForBranches(
 		domain?: string;
 		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		checkRuns?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBranchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBranchResult> => ({
@@ -112,7 +114,12 @@ export async function getPullRequestsForBranches(
 					branch: t.branch,
 					headOwner: forkOwner(t),
 				})),
-				{ currentAccount: currentAccount, limit: pullRequestsForBranchLimit, mergeQueue: mergeQueue },
+				{
+					currentAccount: currentAccount,
+					limit: pullRequestsForBranchLimit,
+					mergeQueue: mergeQueue,
+					checkRuns: options.checkRuns === true,
+				},
 				undefined,
 				options.connectionId,
 			),

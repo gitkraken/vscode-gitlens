@@ -5,6 +5,7 @@ import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckLog,
 	PullRequestMergeMethod,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -14,6 +15,7 @@ import type {
 	PullRequestStackLayers,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestActivity.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -116,6 +118,10 @@ function resolveScopeConcurrency(value: number | undefined): number {
 
 /** A repository as the batch and branch reads name it. */
 export type RepositoryCoordinate = { owner: string; repo: string; project?: string };
+
+export type PullRequestCheckLogCoordinate = { owner: string; repo: string; checkRunId: string };
+
+export type PullRequestActivityCoordinate = { owner: string; repo: string; number: number; cursor?: string };
 
 /**
  * Repository scopes as the host settled them ({@link GitHostIntegration.resolveRepositoryScopes}), with the `unsettled`
@@ -2350,7 +2356,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options?: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean },
+		options?: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
@@ -2397,9 +2403,93 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsBatch?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
+		options:
+			| { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean; checkRuns?: boolean }
+			| undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
+
+	async getPullRequestCheckLogsResult(
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestCheckLog>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		let slots: PromiseSettledResult<PullRequestCheckLog>[] | undefined;
+		try {
+			slots = await this.getProviderPullRequestCheckLogs?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestCheckLogs', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const settled = await this.settleBatchRefusals(session, targets, slots);
+
+			this.resetRequestExceptionCount('getPullRequestCheckLogs', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestCheckLogs', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestCheckLogs?(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestCheckLog>[] | undefined>;
+
+	async getPullRequestActivityResult(
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestActivityPage | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		let slots: PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined;
+		try {
+			slots = await this.getProviderPullRequestActivity?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestActivity', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const settled = await this.settleBatchRefusals(session, targets, slots);
+
+			this.resetRequestExceptionCount('getPullRequestActivity', connectionId);
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestActivity', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestActivity?(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined>;
 
 	/**
 	 * Result-returning wrapper for the cheap check behind the batch issue read's etags: each coordinate's change
@@ -2470,7 +2560,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsEtagFieldsResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestEtagFields | undefined>[] | undefined>> {
@@ -2517,7 +2607,7 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsEtagFields?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined>;
 
@@ -2538,7 +2628,12 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsForBranchesResult(
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>> {
@@ -2597,7 +2692,12 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsForBranches?(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
 

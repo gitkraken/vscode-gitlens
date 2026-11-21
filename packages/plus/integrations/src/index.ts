@@ -357,6 +357,15 @@ export type { IssueBatchResult, IssueBatchTarget } from './results.js';
 export type { PullRequestBatchResult, PullRequestBatchTarget } from './results.js';
 export type { IssueEtagInclude, PullRequestEtagInclude } from './reads/etag.js';
 export type { PullRequestBranchResult, PullRequestBranchTarget } from './results.js';
+export type { PullRequestCheckLogResult, PullRequestCheckLogTarget } from './results.js';
+export type { PullRequestActivityResult, PullRequestActivityTarget } from './results.js';
+export type {
+	PullRequestActivityAuthor,
+	PullRequestActivityComment,
+	PullRequestActivityItem,
+	PullRequestActivityReview,
+	PullRequestActivityReviewComment,
+} from '@gitlens/git/models/pullRequestActivity.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
 export type { CurrentAccountResult } from './results.js';
 export type { Account } from '@gitlens/git/models/author.js';

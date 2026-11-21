@@ -1,14 +1,20 @@
+import { aliasedQueryChunkSize } from '@gitlens/git-github/api/aliasedQuery.js';
 import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import { issueWriteFailure, isValidGitHubIssueMutation } from '@gitlens/git-github/api/issueWrites.js';
+import type { GitHubPullRequestActivityTarget } from '@gitlens/git-github/api/pullRequestActivity.js';
+import { decodePullRequestActivityCursor } from '@gitlens/git-github/api/pullRequestActivity.js';
 import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
-import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
+import type { GitHubCheckRunRef, GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
+	decodeGitHubCheckRunId,
+	fromGitHubCheckContextState,
 	fromGitHubIssueOrPullRequestState,
 	fromGitHubMergeQueueEntryState,
 	fromGitHubMergeQueueRemoval,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
+	toGitHubCheckRunId,
 } from '@gitlens/git-github/models.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
@@ -16,6 +22,7 @@ import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckLog,
 	PullRequestMergeMethod,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -27,6 +34,7 @@ import type {
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestActivity.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
@@ -44,6 +52,10 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type {
+	PullRequestActivityCoordinate,
+	PullRequestCheckLogCoordinate,
+} from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
@@ -58,6 +70,7 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../reads/etag.js';
+import { pullRequestCheckRunsEtag } from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
@@ -218,6 +231,16 @@ function toPullRequestEtagFields(
 	if (etagIncludes.includes('checks')) {
 		fields.statusCheckRollupState = fromGitHubPullRequestStatusCheckRollupState(
 			node.commits?.nodes?.[0]?.commit.statusCheckRollup?.state,
+		);
+	}
+
+	if (node.checkRuns != null) {
+		fields.checkRuns = pullRequestCheckRunsEtag(
+			node.checkRuns.contexts.flatMap(context => {
+				const state = fromGitHubCheckContextState(context);
+				return state != null && context != null ? [{ ...state, id: toGitHubCheckRunId(context) }] : [];
+			}),
+			node.checkRuns.truncated,
 		);
 	}
 
@@ -943,7 +966,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
+		options:
+			| {
+					currentAccount?: { id: string; username?: string };
+					mergeQueue?: boolean;
+					checkRuns?: boolean;
+					checkRunsRequired?: boolean;
+			  }
+			| undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -951,6 +981,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 		const currentAccount = options?.currentAccount;
 		const mergeQueue = options?.mergeQueue;
+		const checkRuns = options?.checkRuns;
+		const checkRunsRequired = options?.checkRunsRequired;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -959,7 +991,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: mergeQueue },
+					{
+						baseUrl: this.apiBaseUrlFor(session),
+						mergeQueue: mergeQueue,
+						checkRuns: checkRuns,
+						checkRunsRequired: checkRunsRequired,
+					},
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
@@ -999,6 +1036,70 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	protected override async getProviderPullRequestCheckLogs(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestCheckLog>[] | undefined> {
+		const decoded: { owner: string; repo: string; ref: GitHubCheckRunRef }[] = [];
+		for (const target of targets) {
+			const ref = decodeGitHubCheckRunId(target.checkRunId);
+			if (ref == null) {
+				throw new IntegrationReadUnavailableError(
+					this.name,
+					`check run id '${target.checkRunId}' is not one a pull request read returned.`,
+				);
+			}
+
+			decoded.push({ owner: target.owner, repo: target.repo, ref: ref });
+		}
+
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const read = { baseUrl: this.apiBaseUrlFor(session), tailLines: options.tailLines };
+		return readChunked(
+			decoded,
+			aliasedQueryChunkSize,
+			chunkTargets => github.getCheckRunLogs(this, token, chunkTargets, read, cancellation),
+			log => log,
+		);
+	}
+
+	protected override async getProviderPullRequestActivity(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined> {
+		const decoded: GitHubPullRequestActivityTarget[] = [];
+		for (const target of targets) {
+			const cursor = target.cursor != null ? decodePullRequestActivityCursor(target.cursor) : undefined;
+			if (target.cursor != null && cursor == null) {
+				throw new IntegrationReadUnavailableError(
+					this.name,
+					`cursor '${target.cursor}' is not one a pull request activity read returned.`,
+				);
+			}
+
+			decoded.push({ owner: target.owner, repo: target.repo, number: target.number, cursor: cursor });
+		}
+
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const read = { baseUrl: this.apiBaseUrlFor(session), limit: options.limit };
+		return readChunked(
+			decoded,
+			aliasedQueryChunkSize,
+			chunkTargets => github.getPullRequestActivity(this, token, chunkTargets, read, cancellation),
+			page => page,
+		);
+	}
+
 	/**
 	 * The cheap check behind the batch pull request read's etags: {@link getProviderPullRequestsBatch}'s chunks and
 	 * failure isolation over {@link GitHubApi.getPullRequestsEtagFieldsBatch}, which selects only a pull request's
@@ -1007,7 +1108,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1015,6 +1116,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 		const etagIncludes = options.etagIncludes ?? [];
 		const mergeQueue = options.mergeQueue;
+		const checkRuns = options.checkRuns === true;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -1023,7 +1125,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes, mergeQueue: mergeQueue },
+					{
+						baseUrl: this.apiBaseUrlFor(session),
+						etagIncludes: etagIncludes,
+						mergeQueue: mergeQueue,
+						checkRuns: checkRuns,
+					},
 					cancellation,
 				),
 			(node): PullRequestEtagFields | undefined =>
@@ -1051,7 +1158,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsForBranches(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1088,7 +1200,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 						branch: g.branch,
 						headOwners: g.indices.map(i => targets[i].headOwner),
 					})),
-					{ baseUrl: baseUrl, limit: options.limit, mergeQueue: options.mergeQueue },
+					{
+						baseUrl: baseUrl,
+						limit: options.limit,
+						mergeQueue: options.mergeQueue,
+						checkRuns: options.checkRuns,
+					},
 					cancellation,
 				),
 			(found): { pullRequests: PullRequestShape[][]; truncated: boolean } => ({
@@ -1140,7 +1257,13 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				this.getProviderPullRequestsBatch(
 					session,
 					coordinates,
-					{ currentAccount: currentAccount, mergeQueue: options.mergeQueue },
+					{
+						currentAccount: currentAccount,
+						mergeQueue: options.mergeQueue,
+						checkRuns: options.checkRuns,
+						// KEEP: the by-name query can't read `isRequired`; reading it here would split one target's rows.
+						checkRunsRequired: false,
+					},
 					cancellation,
 				),
 		);

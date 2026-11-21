@@ -2,6 +2,7 @@ import type { IssueShape, IssueSyncedWith } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckRun,
 	PullRequestMergeableState,
 	PullRequestMergeQueueEntry,
 	PullRequestReviewDecision,
@@ -25,10 +26,11 @@ import { issueNamesPeople } from '../providers/models.js';
  *
  * Computed by core, never the provider's HTTP ETag, and from the fields alone — not the item's id, since the
  * caller's key already identifies the target and ids cross vocabularies between reads. Not hashed: the stamp IS
- * the serialized fields, so two different change states can never collide into a false `unchanged` — except for an
- * Azure DevOps pull request's `revision`, a 64-bit hash of the fields Azure changes without a timestamp, where a
- * collision (about 2^-64) is the only way a change can hide. The prefix names the scheme (`pr1`, `is1`) and every
- * include it covers ({@link PullRequestEtagInclude}, {@link IssueEtagInclude}), in canonical order
+ * the serialized fields, so two different change states can never collide into a false `unchanged` — except for two
+ * 64-bit hashes, where a collision (about 2^-64) is the only way a change can hide: an Azure DevOps pull request's
+ * `revision`, of the fields Azure changes without a timestamp, and a GitHub pull request's `checkRuns`, of its head's
+ * checks, which keeps the stamp the same length at any number of checks. The prefix names the scheme (`pr1`, `is1`)
+ * and every include it covers ({@link PullRequestEtagInclude}, {@link IssueEtagInclude}), in canonical order
  * (`pr1+mergeable+checks:`, `is1+reactions:`), so two different sets can never collide even when their values do (a
  * `null` mergeability and a `null` rollup). A stamp from another scheme or another set just compares unequal and
  * costs a full read.
@@ -89,6 +91,35 @@ export interface PullRequestEtagFields {
 	 * selected the data carries; a cheap check sets it from the same selection.
 	 */
 	mergeQueueRead?: true;
+	/**
+	 * The head's checks, from {@link pullRequestCheckRunsEtag}, set whenever the read selected check runs (a count of 0
+	 * when the head has none), so it also marks such a read, as {@link mergeQueueRead} does.
+	 */
+	checkRuns?: PullRequestCheckRunsEtag;
+}
+
+/** A head's checks, as a pull request's etag reads them. */
+export interface PullRequestCheckRunsEtag {
+	/** A 64-bit hash of each check's id, kind, name, status and conclusion, in id order. */
+	readonly hash: string;
+	readonly count: number;
+	/** The head has checks the read lacks (the row's `checkRunsTruncated`). */
+	readonly truncated: boolean;
+}
+
+/**
+ * {@link PullRequestEtagFields.checkRuns}, which the cheap check and the full read build alike from the same fields.
+ * Hashed to keep the etag short at any number of checks, so a collision is the only way a change can hide, at about
+ * 2^-64.
+ */
+export function pullRequestCheckRunsEtag(
+	runs: readonly Pick<PullRequestCheckRun, 'id' | 'kind' | 'name' | 'status' | 'conclusion'>[],
+	truncated: boolean,
+): PullRequestCheckRunsEtag {
+	const entries = runs
+		.map(run => [run.id, run.kind, run.name, run.status, run.conclusion ?? null] as const)
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+	return { hash: fnv1aHash64(JSON.stringify(entries)), count: entries.length, truncated: truncated };
 }
 
 /**
@@ -236,6 +267,9 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 	if (pr.mergeQueueRequired != null) {
 		fields.mergeQueueRead = true;
 	}
+	if (pr.checkRuns != null) {
+		fields.checkRuns = pullRequestCheckRunsEtag(pr.checkRuns, pr.checkRunsTruncated === true);
+	}
 	return fields;
 }
 
@@ -310,6 +344,10 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	// terms above. A read that didn't select it adds nothing, so it computes the etag it did before.
 	if (fields.mergeQueueRead) {
 		state.push(['merge-queue-read']);
+	}
+	if (fields.checkRuns != null) {
+		const { hash, count, truncated } = fields.checkRuns;
+		state.push(truncated ? ['check-runs', hash, count, 'truncated'] : ['check-runs', hash, count]);
 	}
 
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;

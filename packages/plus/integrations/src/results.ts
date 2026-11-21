@@ -3,10 +3,12 @@ import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria, IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
 import type {
+	PullRequestCheckLog,
 	PullRequestSearchCriteria,
 	PullRequestShape,
 	PullRequestSorting,
 } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityItem } from '@gitlens/git/models/pullRequestActivity.js';
 import type { IntegrationIds } from './constants.js';
 import { isProviderUnreachableError } from './errors.js';
 import type { ProviderRepositoriesInput } from './manager.js';
@@ -994,7 +996,8 @@ export interface PullRequestBatchResult {
 	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
 	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
 	 * compares unequal and costs a full read, never a false `unchanged` — and so does one from a read that selected
-	 * merge-queue data (see {@link IntegrationManager.getPullRequestsBatch}'s `mergeQueue`) when the other didn't.
+	 * merge-queue data (see {@link IntegrationManager.getPullRequestsBatch}'s `mergeQueue`), or check runs
+	 * (`checkRuns`), when the other didn't.
 	 * Reactions are never an input: a host can add one without moving the update time, so an `unchanged` copy's
 	 * `thumbsUpCount` may be stale.
 	 */
@@ -1048,6 +1051,43 @@ export interface PullRequestBranchResult {
 	 * request's page can be missing even when this is not set.
 	 */
 	truncated?: boolean;
+}
+
+/** One check whose log to read, echoed back under the caller's own `key`. */
+export interface PullRequestCheckLogTarget {
+	/** Caller-owned identifier, echoed on the result. Must be unique. */
+	key: string;
+	owner: string;
+	repo: string;
+	/** A `PullRequestCheckRun.id` from a batch pull request read, as it came. */
+	checkRunId: string;
+}
+
+/** The answer for one {@link PullRequestCheckLogTarget}: exactly one of `log` and `unavailable` is set. */
+export type PullRequestCheckLogResult = PullRequestCheckLog & { readonly key: string };
+
+/** One pull request whose activity to read, echoed back under the caller's own `key`. */
+export interface PullRequestActivityTarget {
+	/** Caller-owned identifier, echoed on the result. Must be unique. */
+	key: string;
+	owner: string;
+	repo: string;
+	number: number;
+	/** The {@link PullRequestActivityResult.cursor} of this pull request's last read. Omit it, or send `''`, for a first read. */
+	cursor?: string;
+}
+
+/** The answer for one {@link PullRequestActivityTarget}. */
+export interface PullRequestActivityResult {
+	key: string;
+	/** New activity after the target's cursor, in GitHub's timeline order. A review's inline comments follow the review. */
+	items: readonly PullRequestActivityItem[];
+	/** Opaque: send it back as the target's `cursor` on the next read. */
+	cursor: string;
+	/** More items follow this page; read again with `cursor`. */
+	hasMore: boolean;
+	/** The pull request (or its repository) does not exist or is not visible to this connection. */
+	notFound?: true;
 }
 
 /**

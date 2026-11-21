@@ -134,6 +134,8 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForOrg'
 	| 'getProjectsForResources'
 	| 'getPullRequest'
+	| 'getPullRequestActivity'
+	| 'getPullRequestCheckLogs'
 	| 'getPullRequestsBatch'
 	| 'getPullRequestsEtagFields'
 	| 'getPullRequestsForBranches'
