@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `IntegrationManager.resolveIssueWriteTarget` for GitHub.com. Validates the selected connection, repository, issue number, and expected node in one read and returns the canonical node ID so callers can serialize writes across aliases.
+
+### Fixed
+
+- Preserves a confirmed GitHub.com issue deletion when GitHub reports that the issue belonged to a different repository at deletion. The result keeps the last verified issue identity and sets `deletedFromDifferentRepository` so callers can refresh by node ID without treating that address as current.
+
 ## [0.41.0] - 2026-11-21
 
 ### Added

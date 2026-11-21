@@ -117,7 +117,7 @@ import {
 	toGitHubIssueSearchSlideQualifier,
 	toGitHubIssueSortQualifier,
 } from './issueSearchQuery.js';
-import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from './issueWrites.js';
+import type { GitHubIssueMutation, IssueWriteResult } from './issueWrites.js';
 import { mutateGitHubIssue } from './issueWrites.js';
 import type { GitHubPullRequestActivityTarget } from './pullRequestActivity.js';
 import { readGitHubPullRequestActivity } from './pullRequestActivity.js';
@@ -3674,7 +3674,7 @@ export class GitHubApi {
 	async mutateIssue(
 		provider: Provider,
 		token: GitHubTokenInfo,
-		input: GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' }),
+		input: GitHubIssueMutation,
 	): Promise<IssueWriteResult> {
 		return mutateGitHubIssue(input, (query, variables) =>
 			this.requestWithRetries(
