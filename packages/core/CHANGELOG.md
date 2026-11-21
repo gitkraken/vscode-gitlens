@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- Fixes `WorktreeSummaryService` leaving a subscribed worktree's summary `dirty` on a clean tree after a short-lived untracked file, such as a build tool's temp file, when the file watcher dropped its creation and deletion as one batch, so no event read it again until some unrelated change. When the dirty flag rests on untracked files alone, the summary now reads it once more about a second later; that second read never schedules another, so untracked files that stay cost one extra read after each burst of changes (git)
+
 ## [0.40.0] - 2026-11-20
 
 ### Added

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
+import type { TestContext } from 'node:test';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
@@ -109,6 +110,7 @@ class FakeRepository {
 		sha: string | undefined;
 		upstream: FakeUpstream | undefined;
 		dirty: boolean;
+		untracked: boolean;
 		base: FakeBase | undefined;
 		/** What the base read reports depending on, with or without a base */
 		baseDependsOn: string[];
@@ -144,6 +146,7 @@ class FakeRepository {
 		sha: 'aaa111',
 		upstream: { name: 'origin/main', missing: false, ahead: 1, behind: 2 },
 		dirty: false,
+		untracked: false,
 		base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111', forkPoint: 'fff111', tier: 'user' },
 		baseDependsOn: ['refs/heads/develop'],
 		remotes: ['origin'],
@@ -316,9 +319,16 @@ class FakeRepository {
 				},
 			},
 			status: {
-				hasWorkingChanges: async (_options?: unknown, signal?: AbortSignal) => {
+				hasWorkingChanges: async (
+					options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+					signal?: AbortSignal,
+				) => {
+					if (options?.staged === false && options.unstaged === false) {
+						return options.untracked !== false && this.state.untracked;
+					}
+
 					await this.enter('dirty', signal);
-					return this.state.dirty;
+					return this.state.dirty || (options?.untracked !== false && this.state.untracked);
 				},
 			},
 			remotes: {
@@ -3011,6 +3021,57 @@ describe('WorktreeSummaryService', () => {
 				remotes: before.remotes + 1,
 			});
 			assert.deepStrictEqual(h.repo.order.slice(orderStart), ['branch', 'remotes', 'base']);
+		});
+	});
+
+	describe('dirty from untracked files alone', () => {
+		async function subscribeUntracked(t: TestContext) {
+			const h = createHarness();
+			h.repo.state.untracked = true;
+			t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+			t.mock.method(performance, 'now', () => Date.now());
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(sub.current?.dirty, true);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+			const dirtyReadsAfter = async (ms: number) => {
+				const before = h.repo.counts.dirty;
+				t.mock.timers.tick(ms);
+				await h.service.getSummary(repoPath);
+				return h.repo.counts.dirty - before;
+			};
+			return { h: h, sub: sub, fired: fired, dirtyReadsAfter: dirtyReadsAfter };
+		}
+
+		it('reads the dirty flag again a second later, and fires, once untracked files went without an event', async t => {
+			const { h, sub, fired, dirtyReadsAfter } = await subscribeUntracked(t);
+
+			h.repo.state.untracked = false;
+			assert.strictEqual(await dirtyReadsAfter(999), 0);
+			assert.strictEqual(await dirtyReadsAfter(1), 1);
+			assert.strictEqual(sub.current?.dirty, false);
+			assert.deepStrictEqual(fired, [{ ...expectedInitial, dirty: false }]);
+		});
+
+		it('reads the dirty flag only once more while untracked files stay', async t => {
+			const { sub, fired, dirtyReadsAfter } = await subscribeUntracked(t);
+
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+			assert.strictEqual(await dirtyReadsAfter(60_000), 0);
+			assert.strictEqual(sub.current?.dirty, true);
+			assert.deepStrictEqual(fired, []);
+		});
+
+		it('reads the dirty flag again after a later read rests on untracked files alone', async t => {
+			const { h, sub, dirtyReadsAfter } = await subscribeUntracked(t);
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+
+			h.push(['index']);
+			assert.strictEqual(await dirtyReadsAfter(100), 1);
+			h.repo.state.untracked = false;
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+			assert.strictEqual(sub.current?.dirty, false);
 		});
 	});
 
