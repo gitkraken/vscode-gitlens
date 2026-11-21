@@ -1713,6 +1713,8 @@ suite('Azure DevOps Server filtered search', () => {
 				};
 				// By last change (Azure's close date, else creation): Merged (Jan 5), Draft fix (Jan 3), Old (Jan 1).
 				const first = await manager.searchPullRequestsPage(scope);
+				assert.equal(typeof first.items[0].capturedAt, 'number');
+				assert.equal(typeof first.items[0].captureId, 'string');
 				assert.deepEqual(
 					first.items.map(pr => pr.id),
 					['5'],
@@ -1732,6 +1734,7 @@ suite('Azure DevOps Server filtered search', () => {
 					['1'],
 				);
 
+				assert.notEqual(other.items[0].captureId, first.items[0].captureId);
 				const pages = [first];
 				while (pages.at(-1)!.cursor != null) {
 					pages.push(await manager.searchPullRequestsPage({ ...scope, cursor: pages.at(-1)!.cursor }));
@@ -1741,6 +1744,13 @@ suite('Azure DevOps Server filtered search', () => {
 					['5', '2', '1'],
 					'the earlier pagination reads the drain its first page read',
 				);
+				const retained = pages.at(-1)!.items[0];
+				assert.equal(retained.capturedAt, first.items[0].capturedAt);
+				assert.equal(retained.captureId, first.items[0].captureId);
+				const replay = await manager.searchPullRequestsPage({ ...scope, cursor: pages[1].cursor });
+				assert.notEqual(replay.items[0], retained);
+				assert.equal(replay.items[0].capturedAt, retained.capturedAt);
+				assert.equal(replay.items[0].captureId, retained.captureId);
 			});
 		});
 

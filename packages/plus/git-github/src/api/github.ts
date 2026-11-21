@@ -1,3 +1,4 @@
+import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
@@ -1233,7 +1234,7 @@ export class GitHubApi {
 			const issue = rsp?.repository?.issueOrPullRequest;
 			if (issue == null) return undefined;
 
-			return {
+			const result: IssueOrPullRequest = {
 				provider: provider,
 				type: issue.__typename === 'PullRequest' ? 'pullrequest' : 'issue',
 				id: String(issue.number),
@@ -1246,6 +1247,7 @@ export class GitHubApi {
 				url: issue.url,
 				state: fromGitHubIssueOrPullRequestState(issue.state),
 			};
+			return copyReadProvenance(result, issue);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -3781,9 +3783,20 @@ export class GitHubApi {
 				const retryable = graphqlReadQueryRegex.test(query);
 				const data = await this.requestWithRetries<T>(
 					() =>
-						this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-							this.getDefaults(accessToken, graphql)(query, variables),
-						),
+						this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, async () => {
+							const capture = createReadCapture();
+							try {
+								return captureReadNodes(
+									await this.getDefaults(accessToken, graphql)(query, variables),
+									capture,
+								);
+							} catch (ex) {
+								if (ex instanceof GraphqlResponseError) {
+									captureReadNodes(ex.data, capture);
+								}
+								throw ex;
+							}
+						}),
 					retryable,
 					cancellation,
 					scope,

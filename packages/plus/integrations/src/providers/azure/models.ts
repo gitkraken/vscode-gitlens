@@ -1,5 +1,6 @@
 import type { AzureWorkItemHtmlField } from '@gitkraken/provider-apis';
 import { getAzureWorkItemDescription } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { IssueIteration, IssueMember, IssueProjection, IssueProviderState } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -686,7 +687,7 @@ export function fromAzurePullRequest(
 	const headRepositoryUrl = forkRepository == null ? baseRepositoryUrl : forkRepositoryUrls?.url;
 	const headCloneHttps = forkRepository == null ? baseCloneHttps : forkRepositoryUrls?.cloneHttps;
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromAzureUserToMember(pr.createdBy, 'pullRequest'),
 		pr.pullRequestId.toString(),
@@ -752,6 +753,7 @@ export function fromAzurePullRequest(
 		undefined, // authoredByMe
 		projection,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 function fromAzureWorkItemUserToMember(user: AzureUser | string | undefined): IssueMember | undefined {
@@ -778,7 +780,7 @@ export function fromAzureWorkItem(
 	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
 	const assignees = assignee != null ? [assignee] : [];
 	const viewerFields = toIssueViewer({ author: author, assignees: assignees }, viewer);
-	return new Issue(
+	const result = new Issue(
 		provider,
 		workItem.id.toString(),
 		workItem.id.toString(),
@@ -809,6 +811,7 @@ export function fromAzureWorkItem(
 		viewerFields?.viewer,
 		viewerFields?.viewerUnresolved,
 	);
+	return copyReadProvenance(result, workItem);
 }
 
 /**
@@ -888,7 +891,7 @@ export function fromAzureWorkItemToProviderIssue(
 	const tags = fields['System.Tags'];
 	const state = fields['System.State'];
 	const type = fields['System.WorkItemType'];
-	return {
+	const result: ProviderIssue = {
 		id: id.toString(),
 		number: id.toString(),
 		title: title,
@@ -914,6 +917,7 @@ export function fromAzureWorkItemToProviderIssue(
 			name: tag.trim(),
 		})),
 	};
+	return copyReadProvenance(result, workItem);
 }
 
 export function toAzureWorkItemDescriptionFields(

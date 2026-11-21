@@ -122,6 +122,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 @loggable(i => i.id)
 @serializable
 export class PullRequest implements PullRequestShape {
+	declare readonly capturedAt?: number;
+	declare readonly captureId?: string;
 	readonly type = 'pullrequest';
 
 	constructor(
