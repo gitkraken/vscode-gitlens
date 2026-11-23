@@ -45,6 +45,9 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFan
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	IntegrationReadUnavailableError,
+	isProviderUnreachableError,
+	LookupBackedOffError,
 	RequestNotFoundError,
 	RequestRateLimitError,
 	toError,
@@ -584,8 +587,8 @@ export abstract class GitHostIntegration<
 							this._session!,
 							repo,
 							options?.cancellation,
+							{ fresh: options?.expiryOverride === true },
 						);
-						// A canceled read may come back with nothing, which isn't an answer to keep
 						if (result == null && options?.cancellation?.aborted) {
 							cacheable.invalidate();
 							return undefined;
@@ -594,11 +597,12 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getRepositoryMetadata');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer, and this bucket never expires one; a missing repository is.
 						if (!(ex instanceof RequestNotFoundError)) {
 							cacheable.invalidate();
 						}
-						this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						if (!(ex instanceof LookupBackedOffError)) {
+							this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						}
 						return undefined;
 					}
 				})(),
@@ -612,6 +616,7 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repo: T,
 		cancellation?: AbortSignal,
+		options?: { fresh?: boolean },
 	): Promise<RepositoryMetadata | undefined>;
 
 	/**
@@ -1047,20 +1052,51 @@ export abstract class GitHostIntegration<
 			return undefined;
 		}
 
+		const fresh = cacheOptions.expiryOverride === true;
 		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,
 			repo,
 			this,
 			cacheable => ({
 				value: (async () => {
+					const session = this._session!;
+					const keys = this.getCommitLookupBackoffKeys(session, repo, rev);
+					if (!fresh) {
+						const now = Date.now();
+						const until =
+							this.lookupBackoff.backedOffUntil(keys.repository, now) ??
+							this.lookupBackoff.backedOffUntil(keys.commit, now);
+						if (until != null) {
+							cacheable.invalidate();
+							if (throwOnError) {
+								throw new LookupBackedOffError(until, `The pull request lookup of ${rev}`);
+							}
+
+							return undefined;
+						}
+					}
+
 					try {
-						const result = await this.getProviderPullRequestForCommit(this._session!, repo, rev);
+						const result = await this.getProviderPullRequestForCommit(session, repo, rev, {
+							fresh: fresh,
+						});
+						this.lookupBackoff.clear(keys.commit);
+						this.lookupBackoff.clear(keys.repository);
 						this.resetRequestExceptionCount('getPullRequestForCommit');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and the by-sha bucket never expires a miss.
 						cacheable.invalidate();
-						this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						const backoff = this.getCommitLookupBackoff(ex);
+						if (backoff != null) {
+							this.lookupBackoff.fail(
+								backoff.scope === 'repository' ? keys.repository : keys.commit,
+								Date.now(),
+								backoff.until,
+							);
+						}
+						if (!(ex instanceof LookupBackedOffError)) {
+							this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						}
 						if (throwOnError) throw ex;
 
 						return undefined;
@@ -1076,7 +1112,38 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repo: T,
 		rev: string,
+		options?: { fresh?: boolean },
 	): Promise<PullRequest | undefined>;
+
+	private getCommitLookupBackoffKeys(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		rev: string,
+	): { repository: string; commit: string } {
+		const repository = JSON.stringify([
+			this.getSessionFingerprint(session),
+			session.domain,
+			session.baseUrl ?? '',
+			repo.key,
+			repo.owner,
+			repo.name,
+			repo.project,
+		]);
+		return { repository: repository, commit: `${repository}@${rev}` };
+	}
+
+	protected getCommitLookupBackoff(ex: unknown): { scope: 'repository' | 'commit'; until?: number } | undefined {
+		if (isCancellationError(ex)) return ex.reason === 'timeout' ? { scope: 'repository' } : undefined;
+		if (ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden) return undefined;
+		if (ex instanceof LookupBackedOffError) return { scope: 'repository', until: ex.until };
+		if (ex instanceof IntegrationReadUnavailableError) return { scope: 'repository' };
+		if (ex instanceof RequestRateLimitError) {
+			return { scope: 'repository', until: ex.resetAt != null ? ex.resetAt * 1000 : undefined };
+		}
+		if (isProviderUnreachableError(ex)) return { scope: 'repository' };
+
+		return { scope: 'commit' };
+	}
 
 	/**
 	 * Memoized identity lookups backing filter resolution. Keyed by the session's token fingerprint plus the
@@ -2832,7 +2899,7 @@ export abstract class GitHostIntegration<
 				scope: scope,
 				connectionId: connectionId,
 			});
-			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			this.reportDeferredRequestFailures(slots ?? [{ status: 'rejected', reason: ex }], !struck, connectionId);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}

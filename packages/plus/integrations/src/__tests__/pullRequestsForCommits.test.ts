@@ -416,6 +416,41 @@ suite('IntegrationManager.getPullRequestsForCommits', () => {
 		manager.dispose();
 	});
 
+	test('GitLab: concurrent calls sharing a failed project lookup send it once, for one notice and one strike', async () => {
+		const runtime = createFakeRuntime();
+		let lookups = 0;
+		let answer!: () => void;
+		const answered = new Promise<void>(resolve => (answer = resolve));
+		runtime.http.fetch = async input => {
+			if (!input.toString().endsWith('/graphql')) return json(200, []);
+
+			lookups++;
+			await answered;
+			return json(500, { message: 'boom' });
+		};
+		const { manager, gl } = await connectedGitLab(runtime);
+		const watched = watchRequestFailures(runtime);
+
+		const reads = Array.from({ length: 4 }, () =>
+			manager.getPullRequestsForCommits({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				owner: 'group',
+				repo: 'r',
+				shas: shas(3),
+			}),
+		);
+		await new Promise(resolve => setImmediate(resolve));
+		answer();
+		const results = await Promise.all(reads);
+
+		assert.equal(lookups, 1, 'the calls share one lookup');
+		assert.ok(results.every(r => r.items.length === 0 && r.fetchFailed === true));
+		assert.equal(watched.notices.length, 1);
+		assert.equal(strikes(gl), 1);
+
+		manager.dispose();
+	});
+
 	test('Azure DevOps queries a window of commits at once and reads each pull request it finds once', async () => {
 		const runtime = createFakeRuntime();
 		const queried: string[][] = [];
@@ -1022,6 +1057,30 @@ suite('IntegrationManager.getPullRequestsForCommits', () => {
 			requests <= providerFanOutConcurrency,
 			`${requests} requests for 20 SHAs; none is sent after the credential is refused`,
 		);
+
+		manager.dispose();
+	});
+
+	test("GitLab: a credential refused on the call's project lookup is not a re-authentication prompt", async () => {
+		const runtime = createFakeRuntime();
+		let prompts = 0;
+		runtime.hooks!.onReauthenticationRequired = () => {
+			prompts++;
+			return Promise.resolve(false);
+		};
+		runtime.http.fetch = () => Promise.resolve(json(401, { message: '401 Unauthorized' }));
+		const { manager } = await connectedGitLab(runtime);
+
+		const result = await manager.getPullRequestsForCommits({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			owner: 'group',
+			repo: 'r',
+			shas: shas(3),
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(prompts, 0);
 
 		manager.dispose();
 	});

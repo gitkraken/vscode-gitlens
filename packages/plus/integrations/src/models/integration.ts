@@ -1,5 +1,5 @@
 import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-apis';
-import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
+import { takeDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape, IssueSyncedWith } from '@gitlens/git/models/issue.js';
@@ -67,6 +67,7 @@ import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { FailureBackoff } from '../utils/failureBackoff.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { GitHostIntegration } from './gitHostIntegration.js';
 import { getCachedIssue } from './issueCache.js';
@@ -756,6 +757,11 @@ export abstract class IntegrationBase<
 	 * {@link resolveReadSession}; a rejection it declines belongs to {@link trackRequestException} instead.
 	 */
 	private readonly _rejectedTokens = new RejectedTokenTracker();
+	protected readonly lookupBackoff = new FailureBackoff();
+
+	protected clearLookupBackoff(): void {
+		this.lookupBackoff.clearAll();
+	}
 
 	/**
 	 * Called by every path that replaces or removes the stored tokens — a disconnect, a forced re-sync, a
@@ -770,6 +776,7 @@ export abstract class IntegrationBase<
 	 */
 	protected onStoredTokensReplaced(): void {
 		this._rejectedTokens.clear();
+		this.clearLookupBackoff();
 		this.invalidateDiscoveryCaches();
 	}
 
@@ -876,6 +883,7 @@ export abstract class IntegrationBase<
 		this.connectionRequestExceptionCounts.clear();
 		this._syncRequestsPerFailedUsecase.clear();
 		this._rejectedTokens.clear();
+		this.clearLookupBackoff();
 	}
 
 	/**
@@ -987,6 +995,7 @@ export abstract class IntegrationBase<
 					// `GetSessionOptions.refetch`), so a fetch that fails transiently keeps the token it had.
 					if (reason === 'explicit') {
 						this._rejectedTokens.clear();
+						this.clearLookupBackoff();
 						this.beginForcedRefresh();
 					}
 					// The cached session is kept while the replacement is fetched (the refetch does not read it): a
@@ -1235,7 +1244,7 @@ export abstract class IntegrationBase<
 		for (const slot of slots ?? []) {
 			if (slot.status !== 'rejected') continue;
 
-			notify = getDeferredRequestFailure(slot.reason);
+			notify = takeDeferredRequestFailure(slot.reason);
 			if (notify != null) break;
 		}
 

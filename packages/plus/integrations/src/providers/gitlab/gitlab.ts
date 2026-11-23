@@ -1,6 +1,6 @@
 import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import * as l10n from '@vscode/l10n';
-import { reportRequestFailure } from '@gitlens/git/errors.js';
+import { reportRequestFailure, takeDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -25,12 +25,15 @@ import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	isRateLimitResponse,
+	LookupBackedOffError,
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
+	RequestRateLimitError,
 	toRateLimitError,
 } from '../../errors.js';
 import type { IssueEtagInclude, PullRequestEtagInclude } from '../../models/integration.js';
+import { FailureBackoff } from '../../utils/failureBackoff.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import { isNotFoundResponse } from '../providerErrors.js';
@@ -97,10 +100,26 @@ function interleaveByRank(
 	return merged;
 }
 
+interface ProjectLookupCallers {
+	backoff: boolean;
+	reportFailure: boolean;
+}
+
+interface ProjectLookupBackoffs {
+	readonly failed: FailureBackoff;
+	readonly refused: FailureBackoff;
+}
+
+function isRefusedProjectLookup(ex: unknown): boolean {
+	return ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden;
+}
+
 export class GitLabApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
+	private readonly _projectLookupCallers = new WeakMap<Promise<string | undefined>, ProjectLookupCallers>();
 	private readonly _projectLookupAborts = new WeakMap<Promise<string | undefined>, AbortAggregate>();
+	private _projectLookupBackoffs = new WeakMap<Provider, ProjectLookupBackoffs>();
 	private _reauthenticationPrompted = new Set<string>();
 
 	constructor(private readonly config: ProviderApiConfig) {
@@ -111,9 +130,23 @@ export class GitLabApi implements Disposable {
 		this._disposable?.dispose();
 	}
 
+	clearProjectLookupBackoff(provider: Provider): void {
+		this._projectLookupBackoffs.delete(provider);
+	}
+
 	private resetCaches(): void {
 		this._projectIds.clear();
+		this._projectLookupBackoffs = new WeakMap();
 		this._reauthenticationPrompted.clear();
+	}
+
+	private getProjectLookupBackoffs(provider: Provider): ProjectLookupBackoffs {
+		let backoffs = this._projectLookupBackoffs.get(provider);
+		if (backoffs == null) {
+			backoffs = { failed: new FailureBackoff(), refused: new FailureBackoff() };
+			this._projectLookupBackoffs.set(provider, backoffs);
+		}
+		return backoffs;
 	}
 
 	@trace({
@@ -738,6 +771,7 @@ export class GitLabApi implements Disposable {
 			 * server error once rather than each request showing its own.
 			 */
 			deferFailure?: boolean;
+			backoff?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -745,6 +779,8 @@ export class GitLabApi implements Disposable {
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation, {
 			strict: true,
+			backoff: options?.backoff ?? !options?.deferFailure,
+			deferFailure: options?.deferFailure,
 		});
 		if (!projectId) return undefined;
 
@@ -1235,6 +1271,7 @@ export class GitLabApi implements Disposable {
 		repo: string,
 		options?: {
 			baseUrl?: string;
+			backoff?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
@@ -1242,6 +1279,7 @@ export class GitLabApi implements Disposable {
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation, {
 			strict: true,
+			backoff: options?.backoff,
 		}).catch((ex: unknown) => {
 			throw ex instanceof RequestNotFoundError ? ex.original : ex;
 		});
@@ -1598,11 +1636,6 @@ $search: String!
 		}
 	}
 
-	/**
-	 * The project's numeric id, `undefined` when GitLab has no such project visible to the token. A failed lookup
-	 * answers `undefined` too unless `strict`, which throws it; either way it isn't kept, so the next read asks again
-	 * rather than reading the project as missing until the cache resets.
-	 */
 	getProjectId(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -1610,43 +1643,82 @@ $search: String!
 		repo: string,
 		baseUrl: string | undefined,
 		cancellation: AbortSignal | undefined,
-		options?: { strict?: boolean },
+		options?: { strict?: boolean; backoff?: boolean; deferFailure?: boolean },
 	): Promise<string | undefined> {
 		const { accessToken } = token;
 		const key = `${accessToken}|${group}/${repo}`;
+		const backoff = options?.backoff ?? true;
+		const strict = options?.strict ?? false;
+		const reportFailure = !options?.deferFailure;
 
 		if (cancellation?.aborted) {
-			return options?.strict ? Promise.reject(new CancellationError()) : Promise.resolve(undefined);
+			return strict ? Promise.reject(new CancellationError()) : Promise.resolve(undefined);
 		}
 
 		let projectId = this._projectIds.get(key);
 		if (projectId != null && this._projectLookupAborts.get(projectId)?.signal.aborted) {
 			projectId = undefined;
 		}
+		if (projectId == null && backoff) {
+			const backoffs = this.getProjectLookupBackoffs(provider);
+			const now = Date.now();
+			const until =
+				backoffs.failed.backedOffUntil(key, now) ??
+				(strict ? undefined : backoffs.refused.backedOffUntil(key, now));
+			if (until != null) {
+				if (!strict) return Promise.resolve(undefined);
+
+				return Promise.reject(new LookupBackedOffError(until, `The GitLab project lookup of ${group}/${repo}`));
+			}
+		}
 
 		if (projectId == null) {
+			const callers: ProjectLookupCallers = { backoff: backoff, reportFailure: reportFailure };
 			const aborts = new AbortAggregate();
-			const lookup = this.getProjectIdCore(provider, token, group, repo, baseUrl, aborts.signal);
+			const lookup = this.getProjectIdCore(provider, token, group, repo, baseUrl, callers, aborts.signal);
 			this._projectIds.set(key, lookup);
+			this._projectLookupCallers.set(lookup, callers);
 			this._projectLookupAborts.set(lookup, aborts);
 			const settle = () => {
 				aborts.dispose();
 				this._projectLookupAborts.delete(lookup);
 			};
-			void lookup.then(settle, () => {
-				settle();
-				if (this._projectIds.get(key) === lookup) {
-					this._projectIds.delete(key);
-				}
-			});
+			void lookup.then(
+				() => {
+					settle();
+					const backoffs = this._projectLookupBackoffs.get(provider);
+					backoffs?.failed.clear(key);
+					backoffs?.refused.clear(key);
+				},
+				(ex: unknown) => {
+					settle();
+					if (this._projectIds.get(key) === lookup) {
+						this._projectIds.delete(key);
+					}
+					if (callers.backoff && (!isCancellationError(ex) || ex.reason === 'timeout')) {
+						const backoffs = this.getProjectLookupBackoffs(provider);
+						(isRefusedProjectLookup(ex) ? backoffs.refused : backoffs.failed).fail(
+							key,
+							Date.now(),
+							ex instanceof RequestRateLimitError && ex.resetAt != null ? ex.resetAt * 1000 : undefined,
+						);
+					}
+				},
+			);
 			projectId = lookup;
+		} else {
+			const callers = this._projectLookupCallers.get(projectId);
+			if (callers != null) {
+				callers.backoff ||= backoff;
+				callers.reportFailure ||= reportFailure;
+			}
 		}
 
 		const lookup = projectId;
 		this._projectLookupAborts.get(lookup)?.add(cancellation);
 
 		const awaited = cancellation != null ? raceWithSignal(lookup, cancellation) : lookup;
-		return options?.strict ? awaited : awaited.catch(() => undefined);
+		return strict ? awaited : awaited.catch(() => undefined);
 	}
 
 	private async getProjectIdCore(
@@ -1655,6 +1727,7 @@ $search: String!
 		group: string,
 		repo: string,
 		baseUrl: string | undefined,
+		callers: ProjectLookupCallers,
 		cancellation: AbortSignal,
 	): Promise<string | undefined> {
 		const scope = getScopedLogger();
@@ -1681,6 +1754,7 @@ $search: String!
 				},
 				cancellation,
 				scope,
+				true,
 			);
 
 			const gid = rsp?.data?.project?.id;
@@ -1694,15 +1768,21 @@ $search: String!
 			scope?.addExitInfo(`projectId=${projectId}`);
 			return projectId;
 		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
+			if (isCancellationError(ex) && ex.reason !== 'timeout') throw ex;
 
 			if (ex instanceof AuthenticationError) {
-				if (this._reauthenticationPrompted.has(token.accessToken)) {
+				if (!callers.reportFailure || this._reauthenticationPrompted.has(token.accessToken)) {
 					scope?.error(ex);
 					throw ex;
 				}
 
 				this._reauthenticationPrompted.add(token.accessToken);
+			} else if (callers.reportFailure) {
+				const notify = takeDeferredRequestFailure(ex);
+				if (notify != null) {
+					provider.trackRequestException({ connectionId: token.connectionId });
+					notify();
+				}
 			}
 			throw this.handleException(ex, provider, scope);
 		}
