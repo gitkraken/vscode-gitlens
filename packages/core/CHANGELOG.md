@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-23
+
 ### Added
 
 - Adds GitHub.com pull request writes to `IntegrationManager` in `@gitkraken/core-gitlens/plus/integrations/index.js`. `resolvePullRequestWriteTarget` verifies the selected connection and canonical pull request and reads the viewer’s available actions and merge methods. `writePullRequest` creates a pull request from two branches in the selected repository, edits its title or body, closes or reopens it, merges it directly, or adds it to the required merge queue. Merge and queue actions require the observed head SHA and base branch. Confirmed writes return a typed receipt and failures return a reason safe to display. (plus/integrations, plus/git-github)
@@ -1394,7 +1396,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.44.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.45.0...HEAD
+[0.45.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.44.0...gitkraken:releases/core/v0.45.0
 [0.44.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.43.0...gitkraken:releases/core/v0.44.0
 [0.42.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...gitkraken:releases/core/v0.42.0
 [0.41.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...gitkraken:releases/core/v0.41.0
