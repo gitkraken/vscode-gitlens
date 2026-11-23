@@ -4,7 +4,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeMethods } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
@@ -119,6 +119,7 @@ suite('public integration manager cache', () => {
 
 		const metadata = { marker: 'metadata' } as unknown as RepositoryMetadata;
 		const defaultBranch = { marker: 'defaultBranch' } as unknown as DefaultBranch;
+		const mergeMethods = { marker: 'mergeMethods' } as unknown as PullRequestMergeMethods;
 		const prForSha = { marker: 'prForSha' } as unknown as PullRequest;
 		const prForBranch = { marker: 'prForBranch' } as unknown as PullRequest;
 		const pr = { marker: 'pr' } as unknown as PullRequest;
@@ -128,6 +129,7 @@ suite('public integration manager cache', () => {
 		// Methods on the prototype that read `this`: a spread or a detached call would lose both and fail here.
 		class RecordingCache implements IntegrationManagerCacheProvider {
 			readonly calls: { method: string; integration: IntegrationCacheDescriptor | undefined }[] = [];
+			readonly branches: string[] = [];
 
 			private record<T>(method: string, integration: IntegrationCacheDescriptor | undefined, value: T): T {
 				assert.equal(integration != null && 'getIssue' in integration, false, `${method} got the class`);
@@ -143,6 +145,14 @@ suite('public integration manager cache', () => {
 			}
 			getRepositoryDefaultBranch(_repo: unknown, integration: IntegrationCacheDescriptor | undefined) {
 				return this.record('getRepositoryDefaultBranch', integration, defaultBranch);
+			}
+			getRepositoryMergeMethods(
+				_repo: unknown,
+				branch: string,
+				integration: IntegrationCacheDescriptor | undefined,
+			) {
+				this.branches.push(branch);
+				return this.record('getRepositoryMergeMethods', integration, mergeMethods);
 			}
 			getPullRequestForSha(_sha: string, _repo: unknown, integration: IntegrationCacheDescriptor | undefined) {
 				return this.record('getPullRequestForSha', integration, prForSha);
@@ -183,6 +193,8 @@ suite('public integration manager cache', () => {
 		assert.equal(await integration.getCurrentAccount(), account);
 		assert.equal(await integration.getRepositoryMetadata(repo), metadata);
 		assert.equal(await integration.getDefaultBranch(repo), defaultBranch);
+		assert.equal(await integration.getMergeMethods(repo, 'main'), mergeMethods);
+		assert.deepEqual(cache.branches, ['main']);
 		assert.equal(await integration.getPullRequestForCommit(repo, 'abc123'), prForSha);
 		assert.equal(await integration.getPullRequestForBranch(repo, 'main'), prForBranch);
 		assert.equal(await integration.getPullRequest(repo, '1'), pr);
@@ -200,6 +212,7 @@ suite('public integration manager cache', () => {
 			{ method: 'getCurrentAccount', integration: descriptor },
 			{ method: 'getRepositoryMetadata', integration: descriptor },
 			{ method: 'getRepositoryDefaultBranch', integration: descriptor },
+			{ method: 'getRepositoryMergeMethods', integration: descriptor },
 			{ method: 'getPullRequestForSha', integration: descriptor },
 			{ method: 'getPullRequestForBranch', integration: descriptor },
 			{ method: 'getPullRequest', integration: descriptor },
@@ -255,11 +268,16 @@ suite('public integration manager cache', () => {
 		let loads = 0;
 		const stubbed = integration as unknown as {
 			getProviderPullRequest: () => Promise<PullRequest>;
+			getProviderMergeMethods: () => Promise<PullRequestMergeMethods>;
 			mergeProviderPullRequest: () => Promise<boolean>;
 		};
 		stubbed.getProviderPullRequest = async () => {
 			loads++;
 			return pr;
+		};
+		stubbed.getProviderMergeMethods = async () => {
+			loads++;
+			return { allowed: [] };
 		};
 		stubbed.mergeProviderPullRequest = async () => true;
 
@@ -267,6 +285,9 @@ suite('public integration manager cache', () => {
 		assert.equal(await integration.getPullRequest(repo, '1'), pr);
 		assert.equal(await integration.getPullRequest(repo, '1'), pr);
 		assert.equal(loads, 2, 'an omitted lookup is not cached across calls');
+		assert.deepEqual(await integration.getMergeMethods(repo, 'main'), { allowed: [] });
+		assert.deepEqual(await integration.getMergeMethods(repo, 'main'), { allowed: [] });
+		assert.equal(loads, 4, 'an omitted merge-methods lookup is not cached across calls');
 		assert.equal(await integration.mergePullRequest({} as PullRequest), true, 'no deletePullRequests is fine');
 
 		manager.dispose();

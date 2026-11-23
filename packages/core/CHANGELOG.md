@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds optional pull request, issue and repository lookups to `IntegrationManagerCacheProvider`. A lookup the cache omits runs uncached. Each one receives an `IntegrationCacheDescriptor`, which adds `maybeConnected` and `sessionFingerprint` to `IntegrationAccountCacheDescriptor` (now an alias of it) so a cache can invalidate on a reconnect or a token change (plus/integrations)
 - Adds a `rejectedQueued` reason to `PushErrorReason`, set when GitHub rejects a push because the branch's pull request is in a merge queue; its message says to remove the pull request from the queue instead of suggesting to pull first (git)
 
+- Adds `getMergeMethods(repo, branch)` to git host integrations: a base branch's allowed merge methods, the method to preselect, and its merge queue's method (`PullRequestMergeMethods`), with an optional `getRepositoryMergeMethods` lookup on `IntegrationManagerCacheProvider`. GitHub.com answers with one request per repository and branch, narrowed by the branch's rulesets and linear-history rule; every other host answers `undefined` (unknown) for now (plus/integrations)
+
 ### Changed
 
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)

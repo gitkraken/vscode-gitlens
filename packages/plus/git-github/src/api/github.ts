@@ -24,6 +24,7 @@ import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestMergeMethods,
 	PullRequestMergeQueueActionFailureReason,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -6336,6 +6337,87 @@ export class GitHubApi {
 	}
 
 	/**
+	 * The merge methods pull requests into `branch` can use: the repository's settings narrowed by the branch's active
+	 * rulesets and protection, the viewer's default, and the merge queue's method. GitHub.com only; `undefined` means
+	 * unknown (GitHub Enterprise Server, or a repository not found).
+	 */
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
+	async getMergeMethodsForBranch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		branch: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeMethods | undefined> {
+		const scope = getScopedLogger();
+		if (!isGitHubDotCom(options)) return undefined;
+
+		interface QueryResult {
+			repository: GitHubMergeSettings | null | undefined;
+		}
+
+		const query = `query getMergeMethodsForBranch($owner: String!, $repo: String!, $ref: String!) {
+	repository(owner: $owner, name: $repo) {
+		mergeCommitAllowed
+		squashMergeAllowed
+		rebaseMergeAllowed
+		viewerDefaultMergeMethod
+		ref(qualifiedName: $ref) {
+			branchProtectionRule {
+				requiresLinearHistory
+			}
+			rules(first: 25) {
+				nodes {
+					type
+					repositoryRuleset {
+						enforcement
+					}
+					parameters {
+						... on PullRequestParameters {
+							allowedMergeMethods
+						}
+						... on MergeQueueParameters {
+							mergeMethod
+						}
+					}
+				}
+			}
+		}
+	}
+}`;
+
+		try {
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{ baseUrl: options?.baseUrl, owner: owner, repo: repo, ref: `refs/heads/${branch}` },
+				scope,
+				cancellation,
+			);
+			if (rsp?.repository == null) return undefined;
+
+			return fromGitHubMergeSettings(rsp.repository);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			if (ex instanceof RequestNotFoundError) return undefined;
+
+			// KEEP: silent, so a read behind a merge affordance never prompts for re-authentication on its own
+			throw this.handleException(ex, provider, scope, true);
+		}
+	}
+
+	/**
 	 * Merges a stacked pull request, and with it every layer below it.
 	 *
 	 * Stacks cannot go through `mergePullRequest` — GitHub rejects stacked pull requests on the legacy
@@ -6702,6 +6784,90 @@ function issueProjection(
 	options: { includeBody?: boolean } | undefined,
 ): IssueProjection | undefined {
 	return options?.includeBody ? projection : undefined;
+}
+
+export interface GitHubMergeSettings {
+	mergeCommitAllowed: boolean;
+	squashMergeAllowed: boolean;
+	rebaseMergeAllowed: boolean;
+	viewerDefaultMergeMethod: string | null;
+	ref: {
+		branchProtectionRule: { requiresLinearHistory: boolean } | null;
+		rules: {
+			nodes:
+				| ({
+						type: string;
+						repositoryRuleset: { enforcement: string } | null;
+						parameters: { allowedMergeMethods?: string[] | null; mergeMethod?: string | null } | null;
+				  } | null)[]
+				| null;
+		} | null;
+	} | null;
+}
+
+export function fromGitHubMergeSettings(repository: GitHubMergeSettings): PullRequestMergeMethods {
+	const fromGitHubMergeMethod = (method: string | null | undefined): PullRequestMergeMethod | undefined => {
+		switch (method) {
+			case 'MERGE':
+				return PullRequestMergeMethod.Merge;
+			case 'SQUASH':
+				return PullRequestMergeMethod.Squash;
+			case 'REBASE':
+				return PullRequestMergeMethod.Rebase;
+			default:
+				return undefined;
+		}
+	};
+
+	let allowed: PullRequestMergeMethod[] = [];
+	if (repository.mergeCommitAllowed) {
+		allowed.push(PullRequestMergeMethod.Merge);
+	}
+	if (repository.squashMergeAllowed) {
+		allowed.push(PullRequestMergeMethod.Squash);
+	}
+	if (repository.rebaseMergeAllowed) {
+		allowed.push(PullRequestMergeMethod.Rebase);
+	}
+
+	let queue: PullRequestMergeMethod | undefined;
+	let requiresLinearHistory = repository.ref?.branchProtectionRule?.requiresLinearHistory === true;
+
+	for (const rule of repository.ref?.rules?.nodes ?? []) {
+		if (rule?.repositoryRuleset?.enforcement !== 'ACTIVE') continue;
+
+		switch (rule.type) {
+			case 'PULL_REQUEST': {
+				const permitted = rule.parameters?.allowedMergeMethods?.map(fromGitHubMergeMethod);
+				if (permitted != null) {
+					allowed = allowed.filter(m => permitted.includes(m));
+				}
+				break;
+			}
+			case 'REQUIRED_LINEAR_HISTORY':
+				requiresLinearHistory = true;
+				break;
+			case 'MERGE_QUEUE':
+				queue ??= fromGitHubMergeMethod(rule.parameters?.mergeMethod);
+				break;
+		}
+	}
+
+	if (requiresLinearHistory) {
+		allowed = allowed.filter(m => m !== PullRequestMergeMethod.Merge);
+	}
+
+	const preferred = fromGitHubMergeMethod(repository.viewerDefaultMergeMethod);
+	const result: PullRequestMergeMethods = { allowed: allowed };
+
+	const defaultMethod = preferred != null && allowed.includes(preferred) ? preferred : allowed[0];
+	if (defaultMethod != null) {
+		result.default = defaultMethod;
+	}
+	if (queue != null) {
+		result.queue = queue;
+	}
+	return result;
 }
 
 function isGitHubDotCom(options?: { baseUrl?: string }) {

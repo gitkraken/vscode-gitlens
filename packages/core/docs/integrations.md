@@ -46,7 +46,7 @@ contract.
   metadata and default branch, SSH signing keys, pull requests (by id, branch, commit or URL, the current user's,
   and free-text search), stacked pull requests (only where the host has a stacks concept), `mergePullRequest`, and
   the merge-queue actions `enqueuePullRequest` and `dequeuePullRequest` (GitHub.com only; every other host answers
-  `unsupported`), with the optional `getMergeQueueEntriesByPullRequestNumber`.
+  `unsupported`), with the optional `getMergeQueueEntriesByPullRequestNumber`, and `getMergeMethods` (see §4).
 
 `getCredential(source)` is the only way to a token. It returns `{ providerId, accessToken }`, refreshed first when it
 has expired, or `undefined` when the integration isn't connected or the refresh failed. An unexpired token is returned
@@ -112,6 +112,7 @@ Each cache method gets the lookup's arguments, an `IntegrationCacheDescriptor`, 
 cache controls (`connectionId`, `etag`, expiry). The optional methods are:
 
 - `getRepositoryMetadata`, `getRepositoryDefaultBranch`: repository lookups.
+- `getRepositoryMergeMethods`: a base branch's merge methods, keyed by repository and branch.
 - `getPullRequestForSha`, `getPullRequestForBranch`, `getPullRequest`: pull-request lookups by commit, branch, or id.
 - `getIssue`, `getIssueOrPullRequest`: issue lookups by id.
 - `deletePullRequests()`: evicts every cached pull request (a merge can change pull requests no caller can name).
@@ -381,6 +382,17 @@ marker to every etag it computes, so an etag from such a read never equals one f
 pull request that was never queued. Changing either the per-read option or the host's setting therefore costs one
 full read per held target, and a row held without the data is read in full again to gain it. A read that doesn't
 select it computes the etag it did before merge-queue data existed.
+
+`getMergeMethods(repo, branch)` answers how pull requests into one base branch can be merged: `allowed` (the methods
+a merge can send, in the order merge, squash, rebase; `[]` means none can be sent), `default` (the method to
+preselect: the viewer's default when it is allowed, otherwise the first allowed) and `queue` (the base branch's
+merge-queue method, which a queued merge uses whatever the caller picks; absent when the branch has no queue).
+`undefined` means unknown: the host can't tell, the integration isn't connected, or the read failed. Only GitHub.com
+answers today; GitHub Enterprise and every other host answer `undefined`. On GitHub.com it is one GraphQL request (1
+point, 25 nodes) per repository and branch. It reads the repository's allowed methods and narrows them by the
+branch's active rulesets and required linear history, which apply to every viewer, not only to admins. It adds nothing
+to pull request reads. It goes through the optional `IntegrationManagerCacheProvider.getRepositoryMergeMethods`
+cache, so without one every call is a request.
 
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses

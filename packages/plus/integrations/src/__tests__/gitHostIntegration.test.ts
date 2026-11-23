@@ -4,11 +4,18 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeQueueActionResult } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethods,
+	PullRequestMergeQueueActionResult,
+} from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
@@ -249,5 +256,118 @@ suite('GitHostIntegration merge-queue actions', () => {
 
 		await assert.rejects(integration.dequeuePullRequest(pr), (ex: unknown) => isCancellationError(ex));
 		assert.equal(integration.handledExceptions.length, 0);
+	});
+});
+
+type MergeMethodsHook = (
+	session: ProviderAuthenticationSession,
+	repo: ResourceDescriptor,
+	branch: string,
+	cancellation?: AbortSignal,
+) => Promise<PullRequestMergeMethods | undefined>;
+
+/** {@link FakeGitHostIntegration} with the merge-methods hook a host implements only when it can read one. */
+class FakeMergeMethodsGitHostIntegration extends FakeGitHostIntegration {
+	constructor(
+		ctx: IntegrationServiceContext,
+		private readonly read: MergeMethodsHook,
+	) {
+		super(ctx, false);
+	}
+
+	protected override getProviderMergeMethods(
+		session: ProviderAuthenticationSession,
+		repo: ResourceDescriptor,
+		branch: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeMethods | undefined> {
+		return this.read(session, repo, branch, cancellation);
+	}
+}
+
+suite('GitHostIntegration.getMergeMethods', () => {
+	const repo: ResourceDescriptor = { key: 'o/r' };
+	const methods: PullRequestMergeMethods = {
+		allowed: [PullRequestMergeMethod.Squash, PullRequestMergeMethod.Rebase],
+		default: PullRequestMergeMethod.Squash,
+	};
+
+	function track(runtime: ReturnType<typeof createFakeRuntime>): {
+		reads: CacheController[];
+		branches: string[];
+	} {
+		const reads: CacheController[] = [];
+		const branches: string[] = [];
+		runtime.cache.getRepositoryMergeMethods = (_repo, branch, _integration, loader) => {
+			branches.push(branch);
+			const cacheable = new CacheController();
+			reads.push(cacheable);
+			return loader(cacheable).value;
+		};
+		return { reads: reads, branches: branches };
+	}
+
+	test('a host without the hook answers unknown, without a session lookup or a cache read', async () => {
+		const runtime = createFakeRuntime();
+		const { branches } = track(runtime);
+		let lookups = 0;
+		class Unhooked extends FakeGitHostIntegration {
+			protected override prepareSessionLookup(): ReturnType<FakeGitHostIntegration['prepareSessionLookup']> {
+				lookups++;
+				return super.prepareSessionLookup();
+			}
+		}
+		const integration = new Unhooked(runtime, false);
+
+		assert.equal(await integration.getMergeMethods(repo, 'main'), undefined);
+		assert.equal(lookups, 0);
+		assert.deepEqual(branches, []);
+	});
+
+	test("reads through the cache keyed by branch, passing the connected session and the caller's cancellation", async () => {
+		const runtime = createFakeRuntime();
+		const { reads, branches } = track(runtime);
+		const seen: { session: string; repo: ResourceDescriptor; branch: string; cancellation?: AbortSignal }[] = [];
+		const integration = new FakeMergeMethodsGitHostIntegration(runtime, (session, r, branch, cancellation) => {
+			seen.push({ session: session.accessToken, repo: r, branch: branch, cancellation: cancellation });
+			return Promise.resolve(methods);
+		});
+		const aborter = new AbortController();
+
+		assert.equal(await integration.getMergeMethods(repo, 'release', { cancellation: aborter.signal }), methods);
+		assert.deepEqual(branches, ['release']);
+		assert.deepEqual(seen, [{ session: 'fake', repo: repo, branch: 'release', cancellation: aborter.signal }]);
+		assert.deepEqual(
+			reads.map(r => r.invalidated),
+			[false],
+		);
+	});
+
+	test('a failed read is unknown and is not kept in the cache', async () => {
+		const runtime = createFakeRuntime();
+		const { reads } = track(runtime);
+		const integration = new FakeMergeMethodsGitHostIntegration(runtime, () =>
+			Promise.reject(new Error('socket hang up')),
+		);
+
+		assert.equal(await integration.getMergeMethods(repo, 'main'), undefined);
+		assert.deepEqual(
+			reads.map(r => r.invalidated),
+			[true],
+		);
+	});
+
+	test("a canceled read's empty answer is not kept in the cache", async () => {
+		const runtime = createFakeRuntime();
+		const { reads } = track(runtime);
+		const integration = new FakeMergeMethodsGitHostIntegration(runtime, () => Promise.resolve(undefined));
+		const aborter = new AbortController();
+		aborter.abort();
+
+		assert.equal(await integration.getMergeMethods(repo, 'main', { cancellation: aborter.signal }), undefined);
+		assert.deepEqual(
+			reads.map(r => r.invalidated),
+			[true],
+		);
 	});
 });

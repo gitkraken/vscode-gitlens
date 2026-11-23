@@ -15,6 +15,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeMethods,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
@@ -465,6 +466,23 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			{
 				baseUrl: this.apiBaseUrlFor(session),
 			},
+			cancellation,
+		);
+	}
+
+	protected override async getProviderMergeMethods(
+		session: ProviderAuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		branch: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeMethods | undefined> {
+		return (await this.authenticationService.apis.github)?.getMergeMethodsForBranch(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			branch,
+			{ baseUrl: this.apiBaseUrlFor(session) },
 			cancellation,
 		);
 	}

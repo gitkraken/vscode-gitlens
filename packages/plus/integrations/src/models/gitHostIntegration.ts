@@ -6,6 +6,7 @@ import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/m
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeMethods,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
 	PullRequestSearchCriteria,
@@ -549,6 +550,65 @@ export abstract class GitHostIntegration<
 		repo: T,
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined>;
+
+	/**
+	 * The merge methods pull requests into `branch` of `repo` can use, keyed by repository and base branch.
+	 * `undefined` means unknown: the host can't tell, it isn't connected, or the read failed. `allowed: []` means no
+	 * method core can send.
+	 */
+	@trace()
+	async getMergeMethods(
+		repo: T,
+		branch: string,
+		options?: { cancellation?: AbortSignal; expiryOverride?: boolean | number },
+	): Promise<PullRequestMergeMethods | undefined> {
+		const scope = getScopedLogger();
+
+		if (this.getProviderMergeMethods == null) return undefined;
+		if ((await this.prepareSessionLookup()) != null) return undefined;
+
+		const methods = this.ctx.cache.getRepositoryMergeMethods(
+			repo,
+			branch,
+			this,
+			cacheable => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderMergeMethods!(
+							this._session!,
+							repo,
+							branch,
+							options?.cancellation,
+						);
+						if (result == null && options?.cancellation?.aborted) {
+							cacheable.invalidate();
+							return undefined;
+						}
+
+						this.resetRequestExceptionCount('getMergeMethods');
+						return result;
+					} catch (ex) {
+						if (!(ex instanceof RequestNotFoundError)) {
+							cacheable.invalidate();
+						}
+						this.handleProviderException('getMergeMethods', ex, { scope: scope });
+						return undefined;
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
+		return methods;
+	}
+
+	/** Implemented only by hosts that can read a base branch's merge methods (currently GitHub.com); without one the
+	 *  base answers `undefined`, unknown. */
+	protected getProviderMergeMethods?(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		branch: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestMergeMethods | undefined>;
 
 	/**
 	 * Whether this git host implements generic org discovery. False for providers that register no

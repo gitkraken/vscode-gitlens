@@ -224,6 +224,25 @@ export const enum PullRequestMergeMethod {
 	Rebase = 'rebase',
 }
 
+/**
+ * How pull requests into one base branch can be merged. A read that can't tell answers `undefined` instead of this,
+ * so a missing answer means unknown, never "any method".
+ */
+export interface PullRequestMergeMethods {
+	/** The methods a merge can use, in the order merge, squash, rebase. Empty means none that can be sent. */
+	allowed: PullRequestMergeMethod[];
+	/**
+	 * The method to preselect: the viewer's default when allowed, otherwise the first allowed. Absent when none is
+	 * allowed.
+	 */
+	default?: PullRequestMergeMethod;
+	/**
+	 * The base branch's merge-queue method, which a queued merge uses whatever the caller picks. Absent when the branch
+	 * has no queue or it can't be read.
+	 */
+	queue?: PullRequestMergeMethod;
+}
+
 export const enum PullRequestReviewState {
 	Approved = 'APPROVED',
 	ChangesRequested = 'CHANGES_REQUESTED',
