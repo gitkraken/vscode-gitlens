@@ -283,11 +283,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	): Promise<PullRequest | undefined> {
 		const api = await this.authenticationService.apis.bitbucket;
 		if (api == null) {
-			if (deferFailure) {
-				throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
-			}
-
-			return undefined;
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
 		}
 
 		return api.getServerPullRequestForCommit(
