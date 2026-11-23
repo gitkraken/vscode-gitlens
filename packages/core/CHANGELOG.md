@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-23
+
 ### Added
 
+- Extends `IntegrationManager.resolveIssueWriteTarget`, `writeIssue`, and `deleteIssue` to GitHub Enterprise Server. The caller supplies the installation, connection and repository. The write can verify the expected login with the selected credential. Create, edit, close, reopen, and delete return typed receipts or display-safe failure reasons. Deletion depends on the installation's schema and the viewer's permissions. For a GHES `unknown` result, `mutationDispatched: false` means the failure happened before the write was sent (plus/integrations, plus/git-github)
 - Adds `plus/integrations/constants.js` to the published entry points: integration ids, enums and pure id predicates, with no runtime imports, so it is safe in browser bundles (plus/integrations)
 - Expands the `plus/integrations/index.js` facade into the full integrations API GitLens itself now consumes. `IntegrationManager` adds `get` (interface-only `GitHostIntegration`/`IssuesIntegration` views, no provider classes; a git host's view carries `mergePullRequest`, `enqueuePullRequest` and `dequeuePullRequest`, which 0.34.0 left unreachable from the facade, and the optional `getMergeQueueEntriesByPullRequestNumber`), `getIntegrationsForAccountWideRead`, `isConnectedForAccountWideRead`, `connectCloudIntegrations`, `manageCloudIntegrations`, `reset`, `getMyPullRequests`, `getMyIssues`, `ignoreSSLErrors` and `github`. The facade also exports:
   - the `isIntegration`/`isGitHostIntegration`/`isIssuesIntegration` guards
@@ -23,6 +26,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
+
+### Fixed
+
+- Resolves self-managed repository remotes that spell out their web protocol's default port, such as an HTTPS remote with `:443`, against the configured host (plus/integrations)
 
 ## [0.45.0] - 2026-11-23
 
@@ -1414,7 +1421,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.45.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.46.0...HEAD
+[0.46.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.45.0...gitkraken:releases/core/v0.46.0
 [0.45.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.44.0...gitkraken:releases/core/v0.45.0
 [0.44.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.43.0...gitkraken:releases/core/v0.44.0
 [0.42.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...gitkraken:releases/core/v0.42.0
