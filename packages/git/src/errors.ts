@@ -2291,6 +2291,14 @@ export function getDeferredRequestFailure(ex: unknown): (() => void) | undefined
 	return ex instanceof Error ? deferredRequestFailures.get(ex) : undefined;
 }
 
+export function takeDeferredRequestFailure(ex: unknown): (() => void) | undefined {
+	if (!(ex instanceof Error)) return undefined;
+
+	const notify = deferredRequestFailures.get(ex);
+	deferredRequestFailures.delete(ex);
+	return notify;
+}
+
 export type SigningErrorReason = 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown';
 
 interface SigningErrorDetails {

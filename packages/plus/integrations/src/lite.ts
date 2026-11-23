@@ -93,7 +93,6 @@ export function createTokenScopedGitHostIntegration(
 	token: TokenScopedGitHostToken,
 	http: TokenScopedHttpConfig,
 ): TokenScopedGitHostIntegration {
-	// `token.domain` only applies to self-managed ids; cloud ids always use their canonical domain.
 	const selfManaged =
 		id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise ||
 		id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted ||
@@ -118,7 +117,6 @@ export function createTokenScopedGitHostIntegration(
 		// a rejected promise, honoring the `Promise<T>` contract.
 		http.wrapForForcedInsecureSSL ?? ((_ignore, fn) => Promise.resolve().then(fn));
 
-	// GitHub has its own VS Code-free config type and a `getDefaultBranch` without a cancellation param.
 	if (id === GitCloudHostIntegrationId.GitHub || id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
 		const config: GitHubApiConfig = {
 			isWeb: http.isWeb ?? false,
@@ -138,15 +136,26 @@ export function createTokenScopedGitHostIntegration(
 		};
 	}
 
-	// GitLab, Bitbucket, and Azure DevOps share the `ProviderApiConfig` client shape and identical read signatures.
 	const baseUrl = resolveApiBaseUrl(id, rawDomain, host);
 	const config = toProviderApiConfig(http, wrapForForcedInsecureSSL);
-	const api =
-		id === GitCloudHostIntegrationId.GitLab || id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
-			? new GitLabApi(config)
-			: id === GitCloudHostIntegrationId.Bitbucket
-				? new BitbucketApi(config)
-				: new AzureDevOpsApi(config);
+	if (id === GitCloudHostIntegrationId.GitLab || id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted) {
+		const api = new GitLabApi(config);
+		return {
+			getRepositoryMetadata: (owner, repo, cancellation) =>
+				api.getRepositoryMetadata(
+					provider,
+					tokenInfo,
+					owner,
+					repo,
+					{ baseUrl: baseUrl, backoff: false },
+					cancellation,
+				),
+			getDefaultBranch: (owner, repo, cancellation) =>
+				api.getDefaultBranch(provider, tokenInfo, owner, repo, { baseUrl: baseUrl }, cancellation),
+		};
+	}
+
+	const api = id === GitCloudHostIntegrationId.Bitbucket ? new BitbucketApi(config) : new AzureDevOpsApi(config);
 	return {
 		getRepositoryMetadata: (owner, repo, cancellation) =>
 			api.getRepositoryMetadata(provider, tokenInfo, owner, repo, { baseUrl: baseUrl }, cancellation),

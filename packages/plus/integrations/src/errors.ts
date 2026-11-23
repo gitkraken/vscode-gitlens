@@ -100,6 +100,15 @@ export class IntegrationReadUnavailableError extends Error {
 	}
 }
 
+export class LookupBackedOffError extends Error {
+	constructor(
+		readonly until: number,
+		lookup: string,
+	) {
+		super(`${lookup} is backed off after a failure until ${new Date(until).toISOString()}`);
+	}
+}
+
 /**
  * Thrown by integration provider HTTP clients when an upstream request fails.
  */
