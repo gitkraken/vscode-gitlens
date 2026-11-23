@@ -945,11 +945,7 @@ export class BitbucketApi implements Disposable {
 		baseUrl: string,
 		options?: {
 			avatarSize?: number;
-			/**
-			 * For a batch read: a failed request throws (a missing repository or commit still answers `undefined`)
-			 * instead of answering `undefined`, which a caller can't tell from a commit without a pull request, and the
-			 * batch reports the failure once rather than each request showing its own.
-			 */
+			/** For a batch read: the batch reports a failed request once rather than each request showing its own. */
 			deferFailure?: boolean;
 		},
 		cancellation?: AbortSignal,
@@ -969,11 +965,11 @@ export class BitbucketApi implements Disposable {
 				cancellation,
 				options?.deferFailure,
 			);
-			if (options?.deferFailure && response?.values == null) {
+			if (response?.values == null) {
 				throw new Error(`Bitbucket returned no pull requests for ${owner}/${repo}@${rev}`);
 			}
 
-			const prResponse = response?.values?.reduce<BitbucketServerPullRequest | undefined>(
+			const prResponse = response.values.reduce<BitbucketServerPullRequest | undefined>(
 				(acc, pr) => (!acc || pr.updatedDate > acc.updatedDate ? pr : acc),
 				undefined,
 			);
@@ -983,14 +979,13 @@ export class BitbucketApi implements Disposable {
 			const gitlensPr = fromProviderPullRequest(providersPr, provider, { projection: 'point' });
 			return gitlensPr;
 		} catch (ex) {
-			if (options?.deferFailure) {
-				if (isNotFoundResponse(ex)) return undefined;
+			if (isNotFoundResponse(ex)) return undefined;
 
-				throw ex;
+			if (!options?.deferFailure && isCommitReadRefusal(ex)) {
+				throw new CommitReadRefusedError(ex.message, ex);
 			}
 
-			scope?.error(ex);
-			return undefined;
+			throw ex;
 		}
 	}
 

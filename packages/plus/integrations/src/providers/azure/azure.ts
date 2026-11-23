@@ -46,7 +46,12 @@ import { decodePathSegment } from '../../utils/domain.utils.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import { createProviderApiRequest } from '../providerApiClient.js';
-import { isNotFoundResponse, throwProviderError } from '../providerErrors.js';
+import {
+	CommitReadRefusedError,
+	isCommitReadRefusal,
+	isNotFoundResponse,
+	throwProviderError,
+} from '../providerErrors.js';
 import type {
 	AzureForkRepositoryUrls,
 	AzureGitCommit,
@@ -303,7 +308,10 @@ export class AzureDevOpsApi implements Disposable {
 				cancellation,
 			);
 
-			const pr = prResult?.results[0]?.[rev]?.[0];
+			const answers = prResult?.results?.[0];
+			if (answers == null) throw new Error(`Azure DevOps returned no pull request query results for ${repo}`);
+
+			const pr = answers[rev]?.[0];
 			if (pr == null) return undefined;
 
 			const pullRequest = await this.request<AzurePullRequestWithLinks>(
@@ -319,12 +327,10 @@ export class AzureDevOpsApi implements Disposable {
 
 			return await this.toPullRequest(pullRequest, provider, token, owner, baseUrl, scope, cancellation);
 		} catch (ex) {
-			// A rejected credential is actionable and must not be reported as an absent result; every other
-			// failure keeps the existing degrade-to-undefined behavior.
-			if (ex instanceof AuthenticationError) throw ex;
+			if (isNotFoundResponse(ex)) return undefined;
+			if (isCommitReadRefusal(ex)) throw new CommitReadRefusedError(ex.message, ex);
 
-			scope?.error(ex);
-			return undefined;
+			throw ex;
 		}
 	}
 
