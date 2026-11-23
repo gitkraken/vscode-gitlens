@@ -918,6 +918,37 @@ An `ok: false` result contains a typed reason. GitHub can report inaccessible pr
 `not-found`. Check GitHub before retrying an `unknown` result, since GitHub may have applied the mutation
 before the response was lost.
 
+### GitHub.com pull request writes
+
+Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the
+repository’s `owner` and `repo`, plus the `number` and `expectedNodeId` for an existing pull request.
+Core checks the node’s repository and number before dispatching the write by canonical node ID. Use
+`resolvePullRequestWriteTarget` to obtain that ID and the viewer’s current capabilities. Hosts can
+serialize writes and publication on that canonical ID, including across legacy node aliases.
+For creation, `getPullRequestCreateCapability` checks the viewer’s repository access and returns
+the canonical repository ID. Pass it as `expectedRepositoryId` to prevent selecting a replacement
+repository at the same address. If GitHub omits the viewer’s permission, `canCreate` is `undefined`.
+
+| Action for `writePullRequest` | Required input and result                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create`                      | `headRef` and `baseRef` are branch names in the selected repository. Pass a `title` and optional `body`. Returns `created`.                                        |
+| `edit`                        | Pass at least one of `title` and `body`. An empty body clears the description. Returns `updated`.                                                                  |
+| `set-state`                   | Pass `state: 'closed'` or `state: 'open'`. Returns `closed` or `reopened`.                                                                                         |
+| `merge`                       | Pass `expectedHeadSha`, `expectedBaseRef` and a `mergeMethod` listed in the direct merge capability. Returns `merged`.                                             |
+| `enqueue`                     | Pass `expectedHeadSha` and `expectedBaseRef` for a target with the queue capability. The base branch’s queue configuration selects the strategy. Returns `queued`. |
+
+The target read is uncached and includes the base branch’s active merge method restrictions. GitHub
+still applies its permissions, checks and policy at the time it receives a write. The write preflight
+checks the observed base branch. GitHub checks the expected head atomically for direct merge and enqueue.
+Stacked merge actions can land more than one pull request and are unavailable through this API.
+
+Every confirmed result carries a canonical snapshot with GitHub’s update time and close or merge
+time when available. An enqueue receipt carries the snapshot verified at dispatch and the `queued`
+status. Consumers should refresh the item and related views for its latest
+queue position or merge state. `outcome-unknown` means the write may have reached GitHub. Reconcile it
+through a fresh read before retrying. `blocked` means the action was refused by the pull request state or
+branch policy. Inaccessible private resources can appear as `not-found`.
+
 ## 5. Paging
 
 Two mechanisms live behind one shape, and they are **not** interchangeable:

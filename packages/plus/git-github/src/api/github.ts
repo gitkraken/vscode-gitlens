@@ -123,6 +123,19 @@ import { mutateGitHubIssue } from './issueWrites.js';
 import type { GitHubPullRequestActivityTarget } from './pullRequestActivity.js';
 import { readGitHubPullRequestActivity } from './pullRequestActivity.js';
 import { toGitHubPullRequestSearchFacets } from './pullRequestSearchQuery.js';
+import type {
+	GitHubPullRequestCreateTarget,
+	GitHubPullRequestWrite,
+	GitHubPullRequestWriteTarget,
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from './pullRequestWrites.js';
+import {
+	getGitHubPullRequestCreateCapability,
+	resolveGitHubPullRequestWriteTarget,
+	writeGitHubPullRequest,
+} from './pullRequestWrites.js';
 import type { GitHubTokenInfo } from './token.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -3809,19 +3822,59 @@ export class GitHubApi {
 		token: GitHubTokenInfo,
 		input: GitHubIssueMutation,
 	): Promise<IssueWriteResult> {
-		return mutateGitHubIssue(input, (query, variables) =>
-			this.requestWithRetries(
-				() =>
-					this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-						this.getDefaults(token.accessToken, graphql)(query, {
-							...variables,
-							headers: { 'x-github-next-global-id': '1' },
-						}),
-					),
-				graphqlReadQueryRegex.test(query),
-				undefined,
-				undefined,
-			),
+		return mutateGitHubIssue(input, (query, variables) => this.writeGraphql(provider, token, query, variables));
+	}
+
+	async resolvePullRequestWriteTarget(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		input: GitHubPullRequestWriteTarget,
+	): Promise<PullRequestWriteTargetResult> {
+		return resolveGitHubPullRequestWriteTarget(input, (query, variables) =>
+			this.writeGraphql(provider, token, query, variables),
+		);
+	}
+
+	async getPullRequestCreateCapability(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		input: GitHubPullRequestCreateTarget,
+	): Promise<PullRequestCreateCapabilityResult> {
+		return getGitHubPullRequestCreateCapability(input, (query, variables) =>
+			this.writeGraphql(provider, token, query, variables),
+		);
+	}
+
+	async writePullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		input: GitHubPullRequestWrite,
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<PullRequestWriteResult> {
+		return writeGitHubPullRequest(input, {
+			graphql: (query, variables) => this.writeGraphql(provider, token, query, variables),
+			isSessionCurrent: isSessionCurrent,
+			enqueue: (nodeId, headSha) => this.enqueuePullRequest(provider, token, nodeId, headSha),
+		});
+	}
+
+	private async writeGraphql<T>(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		query: string,
+		variables: RequestParameters,
+	): Promise<T> {
+		return this.requestWithRetries(
+			() =>
+				this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.getDefaults(token.accessToken, graphql)<T>(query, {
+						...variables,
+						headers: { 'x-github-next-global-id': '1' },
+					}),
+				),
+			graphqlReadQueryRegex.test(query),
+			undefined,
+			undefined,
 		);
 	}
 
@@ -3879,15 +3932,22 @@ export class GitHubApi {
 		gatewayFailures?: 'caller' | 'final',
 	): Promise<T | AliasedGraphqlResult<T> | undefined> {
 		const { accessToken, ...tokenInfo } = token;
-		// Only dedupe when no cancellation/request option is in play — sharing a promise that
-		// carries one caller's AbortSignal would let one cancellation cancel for everyone.
-		const dedupable = cancellation == null && variables?.request == null;
+		const readQuery = graphqlReadQueryRegex.test(query);
+		const dedupable = readQuery && cancellation == null && variables?.request == null;
 		let dedupeKey: string | undefined;
 		if (dedupable) {
 			try {
 				// The modes are part of the key: `'aliased'` resolves to a different shape than a plain read, and a read
 				// that fails its gateway failures at once rejects where another would retry.
-				dedupeKey = `${token.microHash}|${provider?.id ?? ''}|${allowPartialNotFound ?? ''}|${gatewayFailures ?? ''}|${query}|${JSON.stringify(variables ?? null)}`;
+				dedupeKey = JSON.stringify([
+					accessToken,
+					token.connectionId,
+					provider?.id,
+					allowPartialNotFound,
+					gatewayFailures,
+					query,
+					variables,
+				]);
 			} catch {
 				// Non-serializable variable (BigInt, function, circular ref) — fall through to direct exec.
 				dedupeKey = undefined;
@@ -3909,9 +3969,6 @@ export class GitHubApi {
 					};
 				}
 
-				// Retry transient gateway/network failures, but only confirmed read queries — never
-				// mutations (re-running one isn't idempotent)
-				const retryable = graphqlReadQueryRegex.test(query);
 				const data = await this.requestWithRetries<T>(
 					() =>
 						this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, async () => {
@@ -3928,7 +3985,7 @@ export class GitHubApi {
 								throw ex;
 							}
 						}),
-					retryable,
+					readQuery,
 					cancellation,
 					scope,
 					gatewayFailures != null,
@@ -6955,6 +7012,18 @@ export class GitHubApi {
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
+			const graphqlError = getGraphqlResponseError(ex);
+			const partial = (graphqlError?.data as QueryResult | undefined)?.enqueuePullRequest?.mergeQueueEntry;
+			if (partial?.state != null && partial.enqueuedAt != null) {
+				return { status: 'queued', entry: fromGitHubMergeQueueEntry(partial) };
+			}
+
+			if (
+				graphqlError?.errors?.some(error => error.path?.[0] === 'enqueuePullRequest' && error.path.length > 1)
+			) {
+				return { status: 'failed', reason: 'unknown' };
+			}
+
 			const failure = toGitHubMergeQueueActionFailure(ex);
 			if (failure != null) {
 				scope?.warn(`GitHub refused to enqueue: ${failure.reason} (${failure.message})`);
@@ -7039,6 +7108,11 @@ const mergeQueueActionFailurePatterns: readonly (readonly [PullRequestMergeQueue
 	['not-allowed', /^pull request is (?:closed|in draft)\b/],
 ];
 
+function getGraphqlResponseError(ex: unknown): GraphqlResponseError<unknown> | undefined {
+	const original = ex instanceof AuthenticationError || ex instanceof RequestNotFoundError ? ex.original : ex;
+	return original instanceof GraphqlResponseError ? original : undefined;
+}
+
 /**
  * Why GitHub refused to add a pull request to its merge queue or remove it, from the error its GraphQL answer carried
  * (`errors[]`, which `graphql` throws as a `GraphqlResponseError`, or wraps in an `AuthenticationError` for FORBIDDEN
@@ -7054,10 +7128,7 @@ const mergeQueueActionFailurePatterns: readonly (readonly [PullRequestMergeQueue
 export function toGitHubMergeQueueActionFailure(
 	ex: unknown,
 ): { reason: PullRequestMergeQueueActionFailureReason; message: string } | undefined {
-	const original = ex instanceof AuthenticationError || ex instanceof RequestNotFoundError ? ex.original : ex;
-	if (!(original instanceof GraphqlResponseError)) return undefined;
-
-	const error = original.errors?.[0];
+	const error = getGraphqlResponseError(ex)?.errors?.[0];
 	if (error == null) return undefined;
 
 	const message = error.message ?? '';

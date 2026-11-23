@@ -1,5 +1,13 @@
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import type {
+	GitHubPullRequestCreateTarget,
+	GitHubPullRequestWrite,
+	GitHubPullRequestWriteTarget,
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
@@ -58,19 +66,23 @@ import type {
 } from './results.js';
 import type { Source } from './telemetry.js';
 
-type IssueWriteConnection = { providerId: IntegrationIds; connectionId: string };
+type WriteConnection = { providerId: IntegrationIds; connectionId: string };
 
-export type IssueWriteOptions = IssueWriteConnection & GitHubIssueWrite;
+export type IssueWriteOptions = WriteConnection & GitHubIssueWrite;
 /**
  * `intent: 'delete'` also requires that the connection may delete the issue, so a host can refuse before asking
  * the user to confirm a deletion GitHub would reject.
  */
-export type IssueWriteTargetOptions = IssueWriteConnection & GitHubIssueDelete & { intent?: 'delete' };
-export type IssueDeleteOptions = IssueWriteConnection & GitHubIssueDelete;
+export type IssueWriteTargetOptions = WriteConnection & GitHubIssueDelete & { intent?: 'delete' };
+export type IssueDeleteOptions = WriteConnection & GitHubIssueDelete;
 /** The canonical node ID, and the issue as GitHub reports it now: where it lives, its URL, title and state. */
 export type IssueWriteTargetResult =
 	| { ok: true; nodeId: string; issue: Extract<IssueWriteResult, { ok: true }>['issue'] }
 	| Extract<IssueWriteResult, { ok: false }>;
+
+export type PullRequestWriteOptions = WriteConnection & GitHubPullRequestWrite;
+export type PullRequestWriteTargetOptions = WriteConnection & GitHubPullRequestWriteTarget;
+export type PullRequestCreateCapabilityOptions = WriteConnection & GitHubPullRequestCreateTarget;
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {
@@ -1219,6 +1231,12 @@ export interface IntegrationManager {
 	writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult>;
 	deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult>;
 	resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult>;
+
+	resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult>;
+	getPullRequestCreateCapability(
+		options: PullRequestCreateCapabilityOptions,
+	): Promise<PullRequestCreateCapabilityResult>;
+	writePullRequest(options: PullRequestWriteOptions): Promise<PullRequestWriteResult>;
 	resolveRepository(options: {
 		providerId?: IntegrationIds;
 		remoteUrl: string;

@@ -1,9 +1,21 @@
 import { aliasedQueryChunkSize } from '@gitlens/git-github/api/aliasedQuery.js';
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { GitHubIssueMutation, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import { issueWriteFailure, isValidGitHubIssueMutation } from '@gitlens/git-github/api/issueWrites.js';
 import type { GitHubPullRequestActivityTarget } from '@gitlens/git-github/api/pullRequestActivity.js';
 import { decodePullRequestActivityCursor } from '@gitlens/git-github/api/pullRequestActivity.js';
 import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
+import type {
+	GitHubPullRequestCreateTarget,
+	GitHubPullRequestWrite,
+	GitHubPullRequestWriteTarget,
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteFailure,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
+import { pullRequestWriteFailure } from '@gitlens/git-github/api/pullRequestWrites.js';
+import type { GitHubTokenInfo } from '@gitlens/git-github/api/token.js';
 import type { GitHubCheckRunRef, GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
 	decodeGitHubCheckRunId,
@@ -45,7 +57,7 @@ import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js'
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { toTokenWithInfo } from '../authentication/models.js';
+import { getSessionIdentity, toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -1664,6 +1676,67 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 			return result;
 		} catch (ex) {
 			return issueWriteFailure(ex);
+		}
+	}
+
+	async resolvePullRequestWriteTarget(
+		connectionId: string,
+		input: GitHubPullRequestWriteTarget,
+	): Promise<PullRequestWriteTargetResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', (api, token) =>
+			api.resolvePullRequestWriteTarget(this, token, input),
+		);
+	}
+
+	async writePullRequest(connectionId: string, input: GitHubPullRequestWrite): Promise<PullRequestWriteResult> {
+		const result = await this.withPullRequestWriteSession(connectionId, 'write', (api, token, isSessionCurrent) =>
+			api.writePullRequest(this, token, input, isSessionCurrent),
+		);
+		if (
+			result.ok ||
+			result.reason === 'outcome-unknown' ||
+			input.action === 'merge' ||
+			input.action === 'enqueue'
+		) {
+			this.ctx.cache.deletePullRequests();
+		}
+
+		return result;
+	}
+
+	async getPullRequestCreateCapability(
+		connectionId: string,
+		input: GitHubPullRequestCreateTarget,
+	): Promise<PullRequestCreateCapabilityResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', (api, token) =>
+			api.getPullRequestCreateCapability(this, token, input),
+		);
+	}
+
+	private async withPullRequestWriteSession<T extends { ok: true } | PullRequestWriteFailure>(
+		connectionId: string,
+		operation: 'read' | 'write',
+		run: (api: GitHubApi, token: GitHubTokenInfo, isSessionCurrent: () => Promise<boolean>) => Promise<T>,
+	): Promise<T | PullRequestWriteFailure> {
+		try {
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+
+			const api = await this.authenticationService.apis.github;
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const identity = getSessionIdentity(session);
+			const accountId = session.account?.id;
+			const isSessionCurrent = async () => {
+				const current = await this.resolveReadSessionOrThrow(connectionId, undefined);
+				return current != null && getSessionIdentity(current) === identity && current.account?.id === accountId;
+			};
+			const result = await run(api, toTokenWithInfo(this.id, session), isSessionCurrent);
+			return operation === 'read' && result.ok && !(await isSessionCurrent())
+				? { ok: false, reason: 'no-connection' }
+				: result;
+		} catch (ex) {
+			return pullRequestWriteFailure(ex);
 		}
 	}
 

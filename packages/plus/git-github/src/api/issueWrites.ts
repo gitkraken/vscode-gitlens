@@ -125,7 +125,7 @@ function isIssueTitle(title: unknown): title is string {
 	return typeof title === 'string' && title.trim().length > 0;
 }
 
-export function issueWriteFailure(ex: unknown): IssueWriteResult {
+export function issueWriteFailure(ex: unknown): Extract<IssueWriteResult, { ok: false }> {
 	if (RequestRateLimitError.is(ex)) return { ok: false, reason: 'rate-limit' };
 
 	if (ex instanceof GraphqlResponseError) {

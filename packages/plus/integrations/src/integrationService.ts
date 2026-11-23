@@ -1,5 +1,11 @@
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import type {
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteFailure,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -67,7 +73,10 @@ import type {
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
+	PullRequestCreateCapabilityOptions,
 	PullRequestSweepOptions,
+	PullRequestWriteOptions,
+	PullRequestWriteTargetOptions,
 } from './manager.js';
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
@@ -1610,6 +1619,49 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 
 		const integration = await this.get(providerId).catch(() => undefined);
 		return integration != null ? integration.mutateIssue(connectionId, options) : { ok: false, reason: 'unknown' };
+	}
+
+	async resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		return this.withPullRequestWriteIntegration(input, integration =>
+			integration.resolvePullRequestWriteTarget(input.connectionId, input),
+		);
+	}
+
+	async getPullRequestCreateCapability(
+		options: PullRequestCreateCapabilityOptions,
+	): Promise<PullRequestCreateCapabilityResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		return this.withPullRequestWriteIntegration(input, integration =>
+			integration.getPullRequestCreateCapability(input.connectionId, input),
+		);
+	}
+
+	async writePullRequest(options: PullRequestWriteOptions): Promise<PullRequestWriteResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		return this.withPullRequestWriteIntegration(input, integration =>
+			integration.writePullRequest(input.connectionId, input),
+		);
+	}
+
+	private async withPullRequestWriteIntegration<T>(
+		{ providerId, connectionId }: { providerId: IntegrationIds; connectionId: string },
+		run: (integration: GitHubIntegration) => Promise<T>,
+	): Promise<T | PullRequestWriteFailure> {
+		if (providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
+		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
+		if (!this.getConfigured(providerId).some(connection => connection.id === connectionId)) {
+			return { ok: false, reason: 'no-connection' };
+		}
+
+		const integration = await this.get(providerId).catch(() => undefined);
+		return integration != null ? run(integration) : { ok: false, reason: 'unknown' };
 	}
 
 	/**
