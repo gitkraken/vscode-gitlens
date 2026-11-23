@@ -162,6 +162,7 @@ export interface PullRequestMetadata extends BaseRefMetadata {
 	title: string;
 	author?: string;
 	date?: number;
+	queuedDate?: number;
 	state?: string;
 	/** Drafts carry their own glyph — on a colored pill the fill is the branch's lane color, so shape is
 	 *  the only signal that survives; a tinted icon would be a contrast lottery. */

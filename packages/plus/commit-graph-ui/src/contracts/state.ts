@@ -110,6 +110,7 @@ export interface PullRequestMetadata {
 	title: string;
 	author?: string;
 	date?: number;
+	queuedDate?: number;
 	state?: string;
 	isDraft?: boolean;
 	url?: string;

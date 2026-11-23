@@ -408,9 +408,7 @@ export class IssuePullRequest extends GlElement {
 			}
 			${
 				this.status === 'queued'
-					? html`<p class="queue">
-							<code-icon icon="history"></code-icon> ${this.queueStatus ?? l10n.t('Queued to merge')}
-						</p>`
+					? html`<p class="queue">${this.queueStatus ?? l10n.t('Queued to merge')}</p>`
 					: nothing
 			}
 			${this.renderReviewDecision()}

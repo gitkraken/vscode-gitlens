@@ -200,11 +200,76 @@ export class GlAutolinkChip extends LitElement {
 	private getAccessibleLabel(): string {
 		const typeLabel =
 			this.type === 'pr' ? l10n.t('Pull request') : this.type === 'issue' ? l10n.t('Issue') : l10n.t('Autolink');
-		const layer = this.stack != null ? `, layer ${this.stack.position} of ${this.stack.size}` : '';
-		const queue = this.status === 'queued' ? `, ${this.queueStatus ?? l10n.t('Queued to merge')}` : '';
+		const { stack, name } = this;
+		const queue = this.status === 'queued' ? (this.queueStatus ?? l10n.t('Queued to merge')) : undefined;
+		const id = this.identifier;
 
-		return this.name
-			? `${typeLabel} ${this.identifier} - ${this.name}${layer}${queue}`
-			: `${typeLabel} ${this.identifier}${layer}${queue}`;
+		if (name) {
+			if (stack != null) {
+				return queue != null
+					? l10n.t({
+							message: '{0} {1} - {2}, layer {3} of {4}, {5}',
+							args: [typeLabel, id, name, stack.position, stack.size, queue],
+							comment: [
+								"Accessible label of an autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size, {5} = merge queue status.",
+							],
+						})
+					: l10n.t({
+							message: '{0} {1} - {2}, layer {3} of {4}',
+							args: [typeLabel, id, name, stack.position, stack.size],
+							comment: [
+								"Accessible label of an autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size.",
+							],
+						});
+			}
+			return queue != null
+				? l10n.t({
+						message: '{0} {1} - {2}, {3}',
+						args: [typeLabel, id, name, queue],
+						comment: [
+							"Accessible label of an autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = merge queue status.",
+						],
+					})
+				: l10n.t({
+						message: '{0} {1} - {2}',
+						args: [typeLabel, id, name],
+						comment: [
+							"Accessible label of an autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title.",
+						],
+					});
+		}
+
+		if (stack != null) {
+			return queue != null
+				? l10n.t({
+						message: '{0} {1}, layer {2} of {3}, {4}',
+						args: [typeLabel, id, stack.position, stack.size, queue],
+						comment: [
+							"Accessible label of an untitled autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size, {4} = merge queue status.",
+						],
+					})
+				: l10n.t({
+						message: '{0} {1}, layer {2} of {3}',
+						args: [typeLabel, id, stack.position, stack.size],
+						comment: [
+							"Accessible label of an untitled autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size.",
+						],
+					});
+		}
+		return queue != null
+			? l10n.t({
+					message: '{0} {1}, {2}',
+					args: [typeLabel, id, queue],
+					comment: [
+						"Accessible label of an untitled autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = merge queue status.",
+					],
+				})
+			: l10n.t({
+					message: '{0} {1}',
+					args: [typeLabel, id],
+					comment: [
+						"Accessible label of an untitled autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier.",
+					],
+				});
 	}
 }

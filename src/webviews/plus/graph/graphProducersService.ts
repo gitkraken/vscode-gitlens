@@ -384,6 +384,8 @@ export class GraphProducersService {
 					title: pr.title,
 					author: pr.author.name,
 					date: (pr.mergedDate ?? pr.closedDate ?? pr.updatedDate)?.getTime(),
+					queuedDate:
+						pr.mergeQueue?.enqueuedAt != null ? new Date(pr.mergeQueue.enqueuedAt).getTime() : undefined,
 					state: getPullRequestDisplayState(pr),
 					isDraft: pr.isDraft,
 					url: pr.url,

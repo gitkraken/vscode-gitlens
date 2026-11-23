@@ -3304,6 +3304,7 @@
 	"Opened by {0}": "Opened by {0}",
 	"Opened by {0} · closed {1}": "Opened by {0} · closed {1}",
 	"Opened by {0} · merged {1}": "Opened by {0} · merged {1}",
+	"Opened by {0} · queued {1}": "Opened by {0} · queued {1}",
 	"Opened by {0} · updated {1}": "Opened by {0} · updated {1}",
 	"Opened by {author}": "Opened by {author}",
 	"Opened by {author} {createdDateRelative}": "Opened by {author} {createdDateRelative}",
@@ -3583,7 +3584,9 @@
 	"Pull request automations & Team Launchpad": "Pull request automations & Team Launchpad",
 	"Pull request details": "Pull request details",
 	"Pull request {0}": "Pull request {0}",
+	"Pull request {0}, in the merge queue": "Pull request {0}, in the merge queue",
 	"Pull request {0}, layer {1} of {2}": "Pull request {0}, layer {1} of {2}",
+	"Pull request {0}, layer {1} of {2}, in the merge queue": "Pull request {0}, layer {1} of {2}, in the merge queue",
 	"Pull requests": "Pull requests",
 	"Pull with Rebase": "Pull with Rebase",
 	"Pulling {0} repositories": "Pulling {0} repositories",
@@ -3611,6 +3614,7 @@
 	"Queued to merge": "Queued to merge",
 	"Queued to merge, checks running": "Queued to merge, checks running",
 	"Queued to merge, next up": "Queued to merge, next up",
+	"Queued {0}": "Queued {0}",
 	"Quota": "Quota",
 	"REVIEWER COMMENT": "REVIEWER COMMENT",
 	"Range {0}": "Range {0}",
@@ -6771,7 +6775,55 @@
 	"{0} was closed as Pro features have been disabled.": "{0} was closed as Pro features have been disabled.",
 	"{0} weeks ago": "{0} weeks ago",
 	"{0} years ago": "{0} years ago",
+	"{0} {1} - {2}, layer {3} of {4}, {5}/Accessible label of an autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size, {5} = merge queue status.": {
+		"message": "{0} {1} - {2}, layer {3} of {4}, {5}",
+		"comment": [
+			"Accessible label of an autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size, {5} = merge queue status."
+		]
+	},
+	"{0} {1} - {2}, layer {3} of {4}/Accessible label of an autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size.": {
+		"message": "{0} {1} - {2}, layer {3} of {4}",
+		"comment": [
+			"Accessible label of an autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = position in the stack, {4} = stack size."
+		]
+	},
+	"{0} {1} - {2}, {3}/Accessible label of an autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = merge queue status.": {
+		"message": "{0} {1} - {2}, {3}",
+		"comment": [
+			"Accessible label of an autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title, {3} = merge queue status."
+		]
+	},
+	"{0} {1} - {2}/Accessible label of an autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title.": {
+		"message": "{0} {1} - {2}",
+		"comment": [
+			"Accessible label of an autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = title."
+		]
+	},
+	"{0} {1}, layer {2} of {3}, {4}/Accessible label of an untitled autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size, {4} = merge queue status.": {
+		"message": "{0} {1}, layer {2} of {3}, {4}",
+		"comment": [
+			"Accessible label of an untitled autolink chip for a stacked item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size, {4} = merge queue status."
+		]
+	},
+	"{0} {1}, layer {2} of {3}/Accessible label of an untitled autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size.": {
+		"message": "{0} {1}, layer {2} of {3}",
+		"comment": [
+			"Accessible label of an untitled autolink chip for a stacked item. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = position in the stack, {3} = stack size."
+		]
+	},
 	"{0} {1}, {2}": "{0} {1}, {2}",
+	"{0} {1}, {2}/Accessible label of an untitled autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = merge queue status.": {
+		"message": "{0} {1}, {2}",
+		"comment": [
+			"Accessible label of an untitled autolink chip for an item waiting in a merge queue. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier, {2} = merge queue status."
+		]
+	},
+	"{0} {1}/Accessible label of an untitled autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier.": {
+		"message": "{0} {1}",
+		"comment": [
+			"Accessible label of an untitled autolink chip. {0} = type ('Pull request', 'Issue' or 'Autolink'), {1} = identifier."
+		]
+	},
 	"{0}  •  Connect an Additional Integration": "{0}  •  Connect an Additional Integration",
 	"{0}  •  Connect an Integration": "{0}  •  Connect an Integration",
 	"{0}  •  fetched {1}": "{0}  •  fetched {1}",

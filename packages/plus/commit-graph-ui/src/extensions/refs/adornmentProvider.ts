@@ -344,21 +344,27 @@ export function renderPullRequestTooltipCard(pr: PullRequestMetadata): TemplateR
 	// The date is whichever of merged/closed/updated applies (see the producer), so it MUST be labelled by
 	// state — unlabelled, the same "2 hours ago" silently means three different things. Likewise the name
 	// is the pull request's author, never an assignee, and "Opened by" holds for every state.
-	const relativeDate = pr.date != null ? relativeTime(pr.date) : undefined;
+	const queued = modifier === 'pr-queued' && pr.queuedDate != null;
+	const date = queued ? pr.queuedDate : pr.date;
+	const relativeDate = date != null ? relativeTime(date) : undefined;
 	const meta = pr.author
 		? relativeDate != null
 			? modifier === 'pr-merged'
 				? l10n.t('Opened by {0} · merged {1}', pr.author, relativeDate)
 				: modifier === 'pr-closed'
 					? l10n.t('Opened by {0} · closed {1}', pr.author, relativeDate)
-					: l10n.t('Opened by {0} · updated {1}', pr.author, relativeDate)
+					: queued
+						? l10n.t('Opened by {0} · queued {1}', pr.author, relativeDate)
+						: l10n.t('Opened by {0} · updated {1}', pr.author, relativeDate)
 			: l10n.t('Opened by {0}', pr.author)
 		: relativeDate != null
 			? modifier === 'pr-merged'
 				? l10n.t('Merged {0}', relativeDate)
 				: modifier === 'pr-closed'
 					? l10n.t('Closed {0}', relativeDate)
-					: l10n.t('Updated {0}', relativeDate)
+					: queued
+						? l10n.t('Queued {0}', relativeDate)
+						: l10n.t('Updated {0}', relativeDate)
 			: undefined;
 
 	return html`<div class="gl-graph__ref-metadata-card">
@@ -396,6 +402,16 @@ export function renderIssueTooltipCard(issue: IssueMetadata): TemplateResult {
 	</div>`;
 }
 
+function pullRequestChipLabel(pr: PullRequestMetadata, label: string): string {
+	const queued = pr.state?.toLowerCase() === 'queued';
+	if (pr.stack != null) {
+		return queued
+			? l10n.t('Pull request {0}, layer {1} of {2}, in the merge queue', label, pr.stack.position, pr.stack.size)
+			: l10n.t('Pull request {0}, layer {1} of {2}', label, pr.stack.position, pr.stack.size);
+	}
+	return queued ? l10n.t('Pull request {0}, in the merge queue', label) : l10n.t('Pull request {0}', label);
+}
+
 function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean): TemplateResult {
 	const label = `#${pr.id}`;
 	return html`<span
@@ -406,11 +422,7 @@ function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean
 			// click-focusable element would put focus inside hidden-from-AT content.
 			expanded ? nothing : '-1'
 		}
-		aria-label=${
-			pr.stack != null
-				? l10n.t('Pull request {0}, layer {1} of {2}', label, pr.stack.position, pr.stack.size)
-				: l10n.t('Pull request {0}', label)
-		}
+		aria-label=${pullRequestChipLabel(pr, label)}
 		data-ref-metadata-type="pullRequest"
 		data-ref-id=${ref.id ?? nothing}
 		data-ref-name=${ref.name}
