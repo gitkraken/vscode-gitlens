@@ -413,8 +413,7 @@ test.describe('Integration enrichment on a signed-in worker', { tag: '@signed-in
 		expect(gravatar.test(details.value), 'no provider avatar for an author without a GitHub account').toBe(true);
 	});
 
-	// TODO(#6281): the graph drops its first ref-metadata request, so the pill never gets its PR badge
-	test.fixme('Commit Graph branch pill carries the badge of its PR', async ({ vscode }) => {
+	test('Commit Graph branch pill carries the badge of its PR', async ({ vscode }) => {
 		const webview = await openGraph(vscode);
 		const badge = webview
 			.locator(`.gl-graph__ref-pill-pr[data-ref-name="${checkout!.branch}"]`)
