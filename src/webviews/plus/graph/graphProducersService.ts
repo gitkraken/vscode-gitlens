@@ -971,7 +971,6 @@ export class GraphProducersService {
 		}
 
 		if (branch.upstream != null) {
-			// A gone upstream reads as "no upstream", matching the full build
 			if (!branch.upstream.missing) {
 				branchState.upstream = branch.upstream.name;
 			}

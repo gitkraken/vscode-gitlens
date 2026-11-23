@@ -7,10 +7,10 @@ import { getCssVariable } from '@gitlens/utils/color.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { capitalize } from '@gitlens/utils/string.js';
+import { normalizeWheelDelta } from '@gitlens/utils/wheel.js';
 import { formatDate, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
-import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { getDay } from './minimapData.js';
 import type { MinimapDrawState, MinimapLayout, MinimapTheme, MinimapViewModel } from './minimapRenderer.js';
 import {

@@ -1,18 +1,16 @@
+import type { CSSResult } from 'lit';
 import { css } from 'lit';
 
-export const overviewBarStyles = css`
+export const overviewBarStyles: CSSResult = css`
 	:host {
-		/* Flex row so the coach mark's lightbulb rides at the START of the strip, outside the
-		   scrolling .bar (which would otherwise carry it out of view), vertically centered. A closed
-		   mark contributes no flex item at all, so the gap only appears alongside the bulb. */
 		display: flex;
 		flex: 0 0 auto;
 		gap: var(--gl-space-4);
 		align-items: center;
 		padding-block-end: 0.3rem;
-		font-family: var(--font-family);
-		background: var(--gl-color-surface-base);
-		border-block-end: var(--gl-border-width) solid var(--gl-color-divider-base);
+		font-family: var(--gl-graph-overview-bar-font-family, var(--gl-graph-font-family));
+		background: var(--gl-graph-overview-bar-background, var(--gl-graph-background));
+		border-block-end: var(--gl-border-width) solid var(--gl-graph-overview-bar-border, var(--gl-graph-border));
 	}
 
 	.bar {
@@ -51,7 +49,7 @@ export const overviewBarStyles = css`
 		--_fade-width: 2.4rem;
 		/* Matches what :host paints, so pills (translucent color-mix fills) dissolve into the bar's own
 		   backdrop instead of under a foreign color. */
-		--_fade-bg: var(--gl-color-surface-base);
+		--_fade-bg: var(--gl-graph-overview-bar-background, var(--gl-graph-background));
 		/* Hold the fade opaque for its first quarter before ramping — a bare edge-to-edge ramp over 2.4rem
 		   never gets dark enough to read as "there's more", it just dims the pill. Same shape and width as
 		   the commit-message scroller's fades, so both surfaces cut off identically. */
@@ -132,15 +130,20 @@ export const overviewBarStyles = css`
 		font-size: 1.05rem;
 		line-height: 1.5;
 		white-space: nowrap;
-		background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
-		border: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+		background: color-mix(in srgb, var(--gl-graph-foreground) 6%, transparent);
+		border: var(--gl-border-width) solid color-mix(in srgb, var(--gl-graph-foreground) 18%, transparent);
 		border-radius: var(--gl-radius-sm);
 	}
 
 	/* The popover wraps the main button in an anchor box, so that button is no longer the flex item —
-	   restore its sizing there. (gl-popover's own [slot='anchor'] is width: fit-content.) */
+	   restore its sizing there. (gl-popover's own [slot='anchor'] is width: fit-content.) Without a
+	   renderHover there's no popover, and the button is the flex item itself. */
 	gl-popover {
 		flex: 0 0 auto;
+	}
+
+	.pill__hover {
+		display: contents;
 	}
 
 	/* Give icons the same line box as the text so flex centering is exact — must inherit BOTH (a unitless
@@ -151,17 +154,17 @@ export const overviewBarStyles = css`
 	}
 
 	.pill:hover {
-		background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
-		border-color: color-mix(in srgb, var(--vscode-focusBorder) 70%, transparent);
+		background: color-mix(in srgb, var(--gl-graph-focus) 12%, transparent);
+		border-color: color-mix(in srgb, var(--gl-graph-focus) 70%, transparent);
 	}
 
 	.pill--primary {
-		background: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
-		border-color: var(--vscode-focusBorder);
+		background: color-mix(in srgb, var(--gl-graph-focus) 18%, transparent);
+		border-color: var(--gl-graph-focus);
 	}
 
 	.pill--selected {
-		outline: 2px solid var(--vscode-focusBorder);
+		outline: 2px solid var(--gl-graph-focus);
 		outline-offset: -2px;
 	}
 
@@ -196,16 +199,10 @@ export const overviewBarStyles = css`
 		translate: 0 0.09em;
 	}
 
-	/* The worktree's uncommitted-changes dot takes the WIP marker color — the same hue the scroll rail and
-	   minimap use for a worktree's working changes, so all three surfaces say it in one color. Previously
-	   this borrowed the agent WORKING color, an agent-phase token: unrelated meaning, and it silently
-	   moved whenever that palette was retuned. References the contributed VS Code token, not graph.scss's
-	   scroll-marker-wip alias — that alias is scoped to gl-commit-graph, and this bar is its sibling, so it
-	   would not resolve here. (No backticks in this comment: it lives inside a css tagged template.) */
 	.pill__dot {
 		width: 0.7rem;
 		height: 0.7rem;
-		background: var(--vscode-gitlens-graphScrollMarkerWipColor, #f472b6);
+		background: var(--gl-graph-overview-bar-wip, var(--color-graph-scroll-marker-wip));
 		border-radius: 50%;
 	}
 
@@ -222,14 +219,10 @@ export const overviewBarStyles = css`
 		opacity: 0.8;
 	}
 
-	/* Unpushed indicator — shares the canonical ahead/unpublished color (theme.scss :root token), the
-	   same one the scope pane uses for unpushed commits. */
 	.pill__unpushed-icon {
 		color: var(--gl-tracking-ahead);
 	}
 
-	/* Pill icon shares the canonical agent palette (theme.scss :root tokens, always present in webviews —
-	   referenced bare, matching tree-view / agent-tooltip). */
 	.pill--agent-idle .pill__agent {
 		color: var(--gl-agent-idle-color);
 	}
@@ -242,6 +235,10 @@ export const overviewBarStyles = css`
 		color: var(--gl-agent-waiting-color);
 	}
 
+	.pill--agent-ended .pill__agent {
+		color: var(--gl-agent-ended-color);
+	}
+
 	/* ROW-MARKER LEGS — always visible at rest (a deliberate product decision: the bar is the persistent
 	   "where am I" home, so its jumps must not be hover-reveal). Separated from the branch name by a hair-
 	   line so the chip still reads as one unit. */
@@ -250,7 +247,8 @@ export const overviewBarStyles = css`
 		gap: 0.3rem;
 		align-items: center;
 		padding-inline-start: 0.35rem;
-		border-inline-start: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+		border-inline-start: var(--gl-border-width) solid
+			color-mix(in srgb, var(--gl-graph-foreground) 18%, transparent);
 	}
 
 	.pill__leg {
@@ -275,19 +273,17 @@ export const overviewBarStyles = css`
 	}
 
 	/* Kind colors follow the graph's own row-marker-role vocabulary: HEAD green, upstream the deeper green of
-	   the same family (same branch, elsewhere), merge-target purple. The fallbacks collapse head and upstream
-	   onto one charts token — there's no darker-green counterpart in that palette — which is fine because they
-	   only fire if the whole --gl-row-marker-* chain is missing, at which point the emphasis is already gone. */
+	   the same family (same branch, elsewhere), merge-target purple. */
 	.pill__leg--head {
-		color: var(--gl-row-marker-head, var(--vscode-charts-green));
+		color: var(--gl-row-marker-head);
 	}
 
 	.pill__leg--upstream {
-		color: var(--gl-row-marker-upstream, var(--vscode-charts-green));
+		color: var(--gl-row-marker-upstream);
 	}
 
 	.pill__leg--target {
-		color: var(--gl-row-marker-target, var(--vscode-charts-purple));
+		color: var(--gl-row-marker-target);
 	}
 
 	/* The upstream and merge-target legs name their ref (e.g. origin, main) — ellipsize if long. */

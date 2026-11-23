@@ -31461,7 +31461,9 @@
 		"generate:l10n:pseudo": "node ./scripts/localization.mjs pseudo",
 		"test:localization": "node --test scripts/__tests__/localization.test.mjs scripts/__tests__/require-format-plural.test.mjs",
 		"test:localization:browser": "node --test scripts/__tests__/localization.browser.test.mjs",
-		"test:scripts": "node --experimental-strip-types --test scripts/__tests__/*.test.mts"
+		"test:scripts": "node --experimental-strip-types --test scripts/__tests__/*.test.mts",
+		"test:commit-graph:browser": "node --test scripts/__tests__/commitGraph.browser.test.mjs",
+		"test:overview-bar:browser": "node --test scripts/__tests__/overviewBar.browser.test.mjs"
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "catalog:",

@@ -1,10 +1,10 @@
+import type { OverviewBarItem, OverviewBarSelectDetail } from '@gitkraken/commit-graph-ui/overviewBar.js';
 import * as l10n from '@vscode/l10n';
 import { isTextEntryTarget } from '@gitlens/utils/dom.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import type { GlFileTreePane } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
-import type { OverviewBarItem, OverviewBarSelectDetail } from '../components/gl-graph-overview-bar.js';
 import type { GlGraphHeader } from '../graph-header.js';
 import type { GlGraphWrapper } from '../graph-wrapper/graph-wrapper.js';
 import type { GlGraphSidebarPanel } from '../sidebar/sidebar-panel.js';
@@ -193,7 +193,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 
 				const fromGraph = e.composedPath().some(el => el === actions.graph());
 				void actions.selectOverviewBarItem(
-					{ id: item.id, branch: item.branch, repoPath: item.repoPath },
+					{ id: item.id, branchName: item.branchName, repoPath: item.repoPath },
 					{ returnFocusToGraph: fromGraph },
 				);
 				return true;

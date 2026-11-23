@@ -149,24 +149,28 @@ export const defaultCommitGraphRowAdapter: CommitGraphRowAdapter = (row, idLengt
 	isUnpulled: false,
 });
 
+/** The refs that identify a worktree, shared by the working-changes row ({@link WipRowInfo}) and the overview bar's
+ *  pill. */
+export interface WorktreeRefs {
+	/** Tip branch name, or a host-synthesized detached-HEAD label when the worktree is detached. */
+	branchName?: string;
+	/** Tracked upstream name, when already available to the host. */
+	upstreamName?: string;
+	tipSha?: string;
+}
+
 /**
  * Per-working-tree-row identity supplied by the host. The renderer uses this separately from the row's
  * generic commit payload so the inline branch pill, scroll marker, tooltip, and accessible label can name
  * a working tree without encoding product-specific identity into the row message.
  */
-export interface WipRowInfo {
-	/** Tip branch name, or a host-synthesized detached-HEAD label when {@link detached} is true. */
-	branchName?: string;
+export interface WipRowInfo extends WorktreeRefs {
 	/** Whether the working tree is on a detached HEAD, making its identity pill non-interactive. */
 	detached?: boolean;
-	/** Tracked upstream name, when already available to the host. */
-	upstreamName?: string;
 	/** Already-resolved merge target; the renderer never fetches it. */
 	target?: { sha: string; name?: string };
 	/** Display name for a secondary working tree. */
 	worktreeName?: string;
-	/** HEAD sha used as the branch-pill jump target. */
-	tipSha?: string;
 	/** Whether this row represents the host's primary working tree. */
 	isPrimary: boolean;
 }

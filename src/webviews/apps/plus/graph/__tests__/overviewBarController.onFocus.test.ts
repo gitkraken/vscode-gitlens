@@ -1,7 +1,7 @@
 import * as assert from 'assert';
+import type { OverviewBarFocusDetail } from '@gitkraken/commit-graph-ui/overviewBar.js';
 import type { ReactiveControllerHost } from 'lit';
 import type { GraphScopeOrigin } from '../../../../plus/graph/protocol.js';
-import type { OverviewBarFocusDetail } from '../components/gl-graph-overview-bar.js';
 import { OverviewBarController } from '../overviewBarController.js';
 
 /**
@@ -88,7 +88,7 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 	}
 
 	function focusEvent(detail: OverviewBarFocusDetail): CustomEvent<OverviewBarFocusDetail> {
-		return new CustomEvent<OverviewBarFocusDetail>('gl-graph-overview-bar-focus', { detail: detail });
+		return new CustomEvent<OverviewBarFocusDetail>('gl-graph-overviewfocus', { detail: detail });
 	}
 
 	test('a secondary pill stamps a worktree origin at its own repo path (default scope mode)', () => {
@@ -96,8 +96,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/wt|heads/feature',
-				branch: 'feature',
+				branchName: 'feature',
 				repoPath: '/wt',
 				isPrimary: false,
 			}),
@@ -112,8 +113,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/wt|heads/feature',
-				branch: 'feature',
+				branchName: 'feature',
 				repoPath: '/wt',
 				isPrimary: false,
 			}),
@@ -127,8 +129,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/repo|heads/main',
-				branch: 'main',
+				branchName: 'main',
 				repoPath: '/repo',
 				isPrimary: true,
 			}),
@@ -153,8 +156,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/wt|heads/feature',
-				branch: 'feature',
+				branchName: 'feature',
 				repoPath: '/wt',
 				isPrimary: true,
 			}),
@@ -173,8 +177,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/wt|heads/feature',
-				branch: 'feature',
+				branchName: 'feature',
 				repoPath: '/wt',
 				isPrimary: true,
 			}),
@@ -192,8 +197,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/wt|heads/feature',
-				branch: 'feature',
+				branchName: 'feature',
 				repoPath: '/wt',
 				isPrimary: true,
 			}),
@@ -212,8 +218,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 		controller.onFocus(
 			focusEvent({
+				id: 'pill',
 				branchId: '/repo|heads/main',
-				branch: 'main',
+				branchName: 'main',
 				repoPath: '/repo',
 				isPrimary: true,
 			}),
@@ -230,8 +237,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/wt|heads/feature',
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: '/wt',
 					isPrimary: false,
 				}),
@@ -250,8 +258,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/wt|heads/feature',
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: '/wt',
 					isPrimary: false,
 				}),
@@ -274,8 +283,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/wt|heads/feature',
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: '/wt',
 					isPrimary: false,
 				}),
@@ -292,8 +302,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/wt|heads/feature',
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: '/wt',
 					isPrimary: false,
 				}),
@@ -313,8 +324,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/wt|heads/feature',
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: '/wt',
 					isPrimary: false,
 				}),
@@ -337,8 +349,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: '/main|heads/main',
-					branch: 'main',
+					branchName: 'main',
 					// The repo's own main checkout — the row that used to be exempted as "the default
 					// worktree". Here it is simply not home, so it scopes like any other worktree.
 					repoPath: '/main',
@@ -360,8 +373,9 @@ suite('OverviewBarController.onFocus — worktree perspective + origin stamping'
 
 			controller.onFocus(
 				focusEvent({
+					id: 'pill',
 					branchId: `${home}|heads/feature`,
-					branch: 'feature',
+					branchName: 'feature',
 					repoPath: home,
 					isPrimary: true,
 				}),

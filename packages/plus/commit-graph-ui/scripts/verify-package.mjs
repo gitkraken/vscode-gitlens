@@ -64,6 +64,7 @@ await verifyPackedPackage({
 				attwEntrypoints: [
 					'./graph.js',
 					'./register.js',
+					'./overviewBar.js',
 					'./profile.js',
 					'./contracts/rows.js',
 					'./extensions/refs.js',
@@ -119,10 +120,12 @@ await verifyPackedPackage({
 			join(packedRoot, 'dist', 'components', 'components', 'pills', 'pill.css.js'),
 			'utf8',
 		);
+		const overviewBarStyles = await readFile(join(packedRoot, 'dist', 'overviewBar.css.js'), 'utf8');
 		if (
 			[surfaceCss, vscodeThemeCss, stickyTimelineCss, scrollMarkerCss].some(css => /\drem\b/i.test(css)) ||
 			!surfaceCss.includes('var(--gl-graph-rem,10px)') ||
-			!pillStyles.includes('var(--gl-graph-rem,10px)')
+			!pillStyles.includes('var(--gl-graph-rem,10px)') ||
+			!overviewBarStyles.includes('var(--gl-graph-rem,10px)')
 		) {
 			throw new Error('Packed styles still size with rem instead of --gl-graph-rem');
 		}
@@ -184,10 +187,14 @@ await verifyPackedPackage({
 			`import { wipStatsExtension } from '@gitkraken/commit-graph-ui/extensions/wipStats.js';\n` +
 			`import { defaultCommitGraphRowAdapter } from '@gitkraken/commit-graph-ui/contracts/rows.js';\n` +
 			`import type { CommitGraphProfile } from '@gitkraken/commit-graph-ui/profile.js';\n` +
+			`import type { OverviewBarItem } from '@gitkraken/commit-graph-ui/overviewBar.js';\n` +
+			`import { registerOverviewBarElement } from '@gitkraken/commit-graph-ui/overviewBar.js';\n` +
 			`setGraphLocalizer(message => formatGraphMessage(message.message, message.args), { locale: 'fr' });\n` +
 			`export const wipRowInfo: WipRowInfo = { branchName: 'main', isPrimary: true };\n` +
 			`export const mainPillKey: string = refPillKey({ kind: 'head', name: 'main' });\n` +
 			`registerCommitGraphElements();\n` +
+			`registerOverviewBarElement();\n` +
+			`export const overviewBarItem: OverviewBarItem = { id: 'main', branchName: 'main', repoPath: '/repo', isPrimary: true };\n` +
 			`export const runtime: CommitGraphProfile = Object.freeze({ rowAdapter: defaultCommitGraphRowAdapter, refs: refsExtension, wipStats: wipStatsExtension, laneCollapse: laneCollapseExtension, stickyTimeline: stickyTimelineExtension, scrollMarkers: scrollMarkersExtension });\n`,
 	},
 	verify: async ({ repoRoot, consumerDir }) => {
@@ -240,6 +247,9 @@ await verifyPackedPackage({
 		if (forbidden.length > 0) {
 			throw new Error(`Minimal profile unexpectedly bundled optional extensions:\n${forbidden.join('\n')}`);
 		}
+		if (minimalInputs.some(input => input.includes('/commit-graph-ui/dist/overviewBar.js'))) {
+			throw new Error('Minimal profile unexpectedly bundled the overview bar');
+		}
 
 		const fullMeta = JSON.parse(await readFile(join(consumerDir, 'full-meta.json'), 'utf8'));
 		const fullInputs = Object.keys(fullMeta.inputs);
@@ -267,6 +277,9 @@ await verifyPackedPackage({
 		assertElementModuleBundled(fullMeta, 'full.js', 'components/components/wipStats.js', 'gl-wip-stats');
 		assertElementModuleBundled(fullMeta, 'full.js', 'components/components/commitStats.js', 'gl-commit-stats');
 		assertElementModuleBundled(fullMeta, 'full.js', 'components/components/pills/tracking.js', 'gl-tracking-pill');
+		if (!Object.keys(fullMeta.outputs['full.js'].inputs).some(input => input.endsWith('/dist/overviewBar.js'))) {
+			throw new Error('Full profile did not bundle the registered overview bar');
+		}
 	},
 	successMessage:
 		'[commit-graph-ui verify-package] packed types, stylesheet, browser bundles, and opt-out metafile passed',

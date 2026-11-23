@@ -18,8 +18,8 @@ are never installed separately.
 The published `exports` map is narrow and is a one-way door — everything else under `dist/` is an internal
 implementation detail that can change shape without notice:
 
-- JS: `graph.js`, `register.js`, `profile.js`, `localization.js`, `contracts/*.js`, `extensions/*.js`,
-  `package.json`.
+- JS: `graph.js`, `register.js`, `overviewBar.js`, `profile.js`, `localization.js`, `contracts/*.js`,
+  `extensions/*.js`, `package.json`.
 - CSS: `graph.css`, `themes/vscode.css`, `extensions/scrollMarkers.css`, `extensions/stickyTimeline.css`.
 - Data: `l10n/messages.json`, the message catalog (see "Localization").
 
@@ -100,21 +100,41 @@ without promises or new subscriptions on the render and scroll paths.
 A working-changes row's action strip is entirely product-supplied: the host ships one `GraphRowAction` list per
 row through `rowActionsByRowSha` (`action`, `icon`, `label`, `persistent`, optional class and status content) and
 the renderer draws them in order, routing clicks by the descriptor's `action`. Hosts build these once per
-WIP-state change, never per render. The renderer has no knowledge of compose/review/resolve workflows, GitLens
-agent-session categories, or issue-tracker rosters. Each working-changes row names its branch and worktree from
-`wipRowInfoByRowSha`, one `WipRowInfo` (`contracts/rows.js`) per row.
+WIP-state change, never per render. The renderer has no knowledge of compose/review/resolve workflows or issue-tracker rosters. Agent sessions are
+the one exception in the overview bar, which knows four states (`idle`, `working`, `needs-input`, `ended`) and
+how to draw each; a host maps its own session states onto them, and `renderAgentStatus` replaces the drawing. Each working-changes row names its branch and worktree from
+`wipRowInfoByRowSha`, one `WipRowInfo` (`contracts/rows.js`) per row, and shows its state from `wipStateById`,
+one `GraphWipState` (`contracts/state.js`) per row. `hasDirtyCounts(workDirStats)` (`contracts/state.js`) is the
+graph's own test of whether counts leave anything to commit, for a host that derives `hasChanges` (or an overview
+bar pill's `hasWorkingChanges`) from them.
 
 Ref metadata (upstream ahead/behind, pull requests, issues) is asked for lazily: the element dispatches
-`gl-graph-missingrefsmetadata` with the ref ids and types it lacks. Answer with `addRefsMetadata(answered)`,
-which merges per ref id and keeps earlier answers (`null` for an id = asked, and there's none), then
-`settleMissingRefsMetadata(requested, answered)` so anything left unanswered is asked again with backoff.
-Assigning `refsMetadata` replaces the whole map, and `null` turns the feature off.
+`gl-graph-missingrefsmetadata` with the ids and types it lacks for the refs on rows in view, asking for each pair
+once, so a ref is asked for when it first scrolls into view. Answer with `addRefsMetadata(answered)`, which merges
+per ref id and keeps earlier answers (`null` for an id = asked, and there's none) and redraws only the rows those
+refs are on, then `settleMissingRefsMetadata(requested, answered)` so anything left unanswered is asked again with
+backoff. Assigning `refsMetadata` replaces the whole map, and `null` turns the feature off. To refresh answers, assign a map without them and increment `refsMetadataResetToken`, and the element asks again for whatever the new map lacks (an empty map needs no increment). `config.refsMetadataRange` widens what is asked for. `'rendered'` (the default) asks only for refs on rows in
+view. `'loaded'` also asks for the `pullRequest` type for every loaded row's refs, once per ref, so a marker drawn
+for every row (a minimap, say) has them; it costs one host lookup per loaded ref, where the default costs one per ref
+scrolled into view. The element uses `'loaded'` by itself while its own `pullRequests` scroll marker is enabled
+(`config.scrollMarkerTypes` with the `scrollMarkers` extension in the profile).
 
 The other rows' built-in buttons (stash apply/drop, undo commit, open changes, push to commit) route through
 `gl-graph-rowaction`; jump to working changes goes out as `gl-graph-jumptonearestwip` instead (see "Events"). A host
 that can't serve all of them lists the ones it can in the element's `supportedRowActions` property
 (`GraphBuiltInRowAction[]`); the rest aren't drawn, and an empty list draws none. Leaving it unset draws every one,
 as GitLens does. Leaving out `jump-to-working-changes` also leaves the `w` and Shift+W keys to the browser.
+Undo Commit is drawn on a row whose `CommitGraphView.undo` the profile's `rowAdapter` sets (the default adapter
+never does). `pickRowUndoTarget(heads, hasChildren)` (`contracts/rows.js`) picks the head GitLens offers it for: none
+when the commit has children, else the current HEAD, else the one worktree whose HEAD is that commit (several make
+it ambiguous, so none); its `worktreeHead.worktree.path` is the `worktreePath` the `undo-commit` action reports.
+
+`includeOnlyRefs` narrows the graph to the history of the refs it lists, keyed by ref id. An empty map, like leaving
+it unset, narrows nothing; to narrow to no refs at all, pass a map holding the key `includeNoRefsKey`
+(`contracts/state.js`), whose value is ignored. `excludeRefs` hides refs by id, and an entry with `type: 'remote'`,
+`name: '*'` and an `owner` hides that whole remote except the ref ids in its `except`.
+`getExcludedRemotes(excludeRefs)` (`contracts/state.js`) reads those wildcard entries the way the graph does, for a
+host that lists refs (a ref finder, say) and must hide the same ones.
 
 A commit row shows its message's summary and then its body. `config.showCommitMessageBody: false` shows the
 summary alone. It changes only what's drawn: the row's accessible name, which reads the summary, stays the same.
@@ -227,6 +247,94 @@ declares a menu popup. Set `headerMenu` to `{}` for the button with its default 
 The header's rendered height is published on the element as `--gl-graph-header-height` (25px at a 10px rem: 24px
 plus its 1px bottom border), and the column resize lines and the scroll-marker rail hang from it.
 
+## Overview bar
+
+`gl-graph-overview-bar` is an optional strip of worktree pills that a host places above the graph, as a sibling of
+`gl-commit-graph`. It has its own explicit, idempotent registration; `registerCommitGraphElements` doesn't register
+it, so a host that doesn't show one doesn't bundle it.
+
+```ts
+import type { GlGraphOverviewBar } from '@gitkraken/commit-graph-ui/overviewBar.js';
+import { registerOverviewBarElement } from '@gitkraken/commit-graph-ui/overviewBar.js';
+
+registerOverviewBarElement();
+const bar = document.createElement('gl-graph-overview-bar') as GlGraphOverviewBar;
+bar.items = [{ id: 'main', branchName: 'main', repoPath: '/repo', isPrimary: true, tipSha: tipSha }];
+```
+
+- `items` (`OverviewBarItem[]`), one pill each, in order. `id` and `branchName` are required; `repoPath` is optional and only passed back in event details.
+  `label` is optional text shown on the pill in place of `branchName`, for a host that shortens long names. The pill's
+  accessible name and every event still carry `branchName`. When `label` differs from `branchName` and the host sets no
+  `renderHover`, hovering or focusing the pill shows the full `branchName` as a tooltip. With a `renderHover`, the host's
+  hover is the only popup.
+  `hasWorkingChanges` shows a dot and `hasUnpushed` an arrow. `agent` (`idle`, `working`, `needs-input` or `ended`)
+  shows a robot coloured by state, with `agentCount` beside it when it's more than one. Screen readers hear these
+  states in words, as the pill's description. `branchId` turns on double-click focus.
+  `statsLoaded` says the host already holds the working-changes breakdown. `vscodeContext` is a VS Code
+  `data-vscode-context` value for the pill's native right-click menu. `isPrimary` styles the pill as the worktree
+  the graph shows.
+- Leg data draws the jump legs on any pill that supplies it, so supply it only for the pills that should have legs:
+  `tipSha` for HEAD, `upstreamSha`/`upstreamName`/`upstreamIcon` (a `code-icon` name, `cloud` by default) for the
+  upstream, and `target: { sha, name }` for the merge target. `branchName`, `upstreamName` and `tipSha` mean the same on a
+  working-changes row (`WipRowInfo`); the shared `WorktreeRefs` type holds them. A leg with a sha is a jump button. A leg with only a
+  name is a static indicator, so leave `upstreamName` unset for an upstream that no longer exists.
+- `selectedId` outlines the selected pill and puts the tab stop on it, unless focus is in the bar, where the tab
+  stop stays on the last focused pill. Selection belongs to the host: clicking a pill only fires
+  `gl-graph-overviewselect`, and the outline moves when the host passes the new `selectedId` back.
+- `statsOnHover` (default `true`): when `false`, hovering a pill never asks for its stats.
+- `renderHover(item, open)` returns a pill's rich hover (`OverviewBarHoverContent`: a Lit template, a `Node`, a
+  string, `nothing` or `undefined`). It's called only for pills whose hover has opened at least once, with `open`
+  true while it shows. Unset, pills have no hover and hovering never asks for stats. Keep the function reference
+  stable (in React, wrap it in `useCallback`): a new function re-renders every pill. The content renders inside the
+  bar's shadow root, where page CSS doesn't reach, so use a shadow-DOM component or a `Node` that carries its own
+  styles.
+- `renderAgentStatus(item)` draws a pill's agent indicator in place of the robot and its count, for a host whose
+  agent states have their own look. It's called only for items with an `agent`, returns the same content types as
+  `renderHover`, and has the same stable-reference and shadow-root rules. Its content is hidden from screen
+  readers, which hear the pill's description instead.
+- The `start` slot sits before the scrolling strip, for host content such as an onboarding coach mark.
+  `pillsElement` is the strip itself, for geometry and anchoring overlays only: its contents belong to the bar and
+  may change.
+
+Every event is named like the graph's (`gl-graph-` and one lowercase word, see "Events"), bubbles, crosses shadow
+boundaries, and has a named detail type exported from `overviewBar.js`.
+`OverviewBarEventMap` maps each event name to its `CustomEvent`, and augments `GlobalEventHandlersEventMap` so
+`addEventListener` is typed. One event is cancelable.
+
+| Event                          | Fires when                                                                                                                                                                                                                          | Detail                         | Cancelling it                                                                                              |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `gl-graph-overviewcontextmenu` | A pill is right-clicked. Left alone, the pill's `vscodeContext` opens VS Code's native menu.                                                                                                                                        | `OverviewBarContextMenuDetail` | Suppresses the native menu and the `vscodeContext` copy, so the host opens its own at `clientX`/`clientY`. |
+| `gl-graph-overviewfocus`       | A pill with a `branchId` is double-clicked. Two `gl-graph-overviewselect` events fire first, so a host that gives the two gestures different effects holds the select briefly and drops it when the focus arrives.                  | `OverviewBarFocusDetail`       | Not cancelable                                                                                             |
+| `gl-graph-overviewjump`        | A jump leg is activated. The detail has the same shape as `gl-graph-jumptocommit`, with `focus` and `flash` both `true`. The bar does nothing more with it, so the host handles it to land the row. It doesn't change `selectedId`. | `OverviewBarJumpDetail`        | Not cancelable                                                                                             |
+| `gl-graph-overviewselect`      | A pill is clicked, or activated from the keyboard. The bar doesn't change `selectedId` itself.                                                                                                                                      | `OverviewBarSelectDetail`      | Not cancelable                                                                                             |
+| `gl-graph-overviewstatsneeded` | A pill with working changes and no `statsLoaded` is hovered or focused, `statsOnHover` is on, and `renderHover` is set. It fires before the hover opens, so the breakdown can be ready when it shows.                               | `OverviewBarStatsNeededDetail` | Not cancelable                                                                                             |
+
+The strip is a toolbar with one tab stop. Left/Right and Home/End move between pills, and Enter or Space selects.
+Tab from a pill enters its jump legs, where Left/Right and Home/End move between them. Shift+Tab or Escape returns
+to the pill. A vertical wheel pans the strip sideways.
+
+The bar reads these properties:
+
+- Font: `--gl-graph-overview-bar-font-family`, falling back to `--gl-graph-font-family`.
+- Surface: `--gl-graph-overview-bar-background` and `--gl-graph-overview-bar-border`, falling back to
+  `--gl-graph-background` and `--gl-graph-border`.
+- Pills: `--gl-graph-foreground` and `--gl-graph-focus` (which also colours the keyboard focus ring).
+- Indicators: `--gl-graph-overview-bar-wip` for the working-changes dot (falling back to
+  `--color-graph-scroll-marker-wip`), `--gl-tracking-ahead` for the unpushed arrow, and `--gl-agent-idle-color`,
+  `--gl-agent-working-color`, `--gl-agent-waiting-color` and `--gl-agent-ended-color` for the robot.
+- Legs: `--gl-row-marker-head`, `--gl-row-marker-upstream` and `--gl-row-marker-target`.
+- Layout: `--gl-space-4`, `--gl-space-6`, `--gl-space-8`, `--gl-radius-xs`, `--gl-radius-sm` and `--gl-border-width`.
+- Sizing: `--gl-graph-rem` (see "Sizing").
+
+`graph.css` declares defaults on the element for all but the `--gl-graph-overview-bar-*` ones and `--gl-graph-rem`,
+which are unset and fall back as listed. The foreground, focus, background and border defaults are the same
+light/dark pairs the graph uses and follow `color-scheme` (see "Colours"). The indicator and leg colours are single
+values tuned for dark themes, so a host with a light theme overrides those. As with `gl-commit-graph`, set them on
+`gl-graph-overview-bar` itself: values set on the graph don't reach its sibling. `themes/vscode.css` maps the bar's
+font (to VS Code's UI font rather than the editor font the graph uses), foreground, focus, border and
+working-changes dot for VS Code hosts. It leaves the background to the host, since VS Code's depends on where the
+view is docked: set `--gl-graph-overview-bar-background` to it.
+
 ## Keyboard
 
 The graph's row keys (arrows, `j`/`k`, Page Up/Down, Home/End, Ctrl/Cmd+arrows, `[`/`]`, `h`/`u`/`t`/`w`,
@@ -291,7 +399,7 @@ setGraphLocalizer(message => translations[message.key] ?? message.message, {
 - `locale` sets the language for dates (relative and absolute), numbers, plural rules and the lists the
   working-changes summary joins with `Intl.ListFormat`. Unset, dates and numbers follow the browser, and plurals
   and lists the document's `lang`.
-- `setGraphLocalizer(undefined)` restores the defaults. Every graph on the page redraws with the change, so a host
+- `setGraphLocalizer(undefined)` restores the defaults. Every graph and overview bar on the page redraws with the change, so a host
   calls nothing else after switching.
 - `@gitkraken/commit-graph/l10n.js` is the engine's internal message shim: its `setMessageLocalizer` swaps the
   translator alone, leaving plurals, dates and lists in the old locale. Hosts use `setGraphLocalizer`.
@@ -309,10 +417,13 @@ A host whose root is not 10px but which wants the graph's text to follow the use
 property to its own rem, for example on a 16px root:
 
 ```css
-gl-commit-graph {
+gl-commit-graph,
+gl-graph-overview-bar {
 	--gl-graph-rem: 0.625rem;
 }
 ```
+
+The overview bar is the graph's sibling, so it needs the property set on itself too.
 
 Row heights stay fixed in pixels, so scaling text much past 10px crowds it within its rows.
 
