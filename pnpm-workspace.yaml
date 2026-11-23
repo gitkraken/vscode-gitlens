@@ -163,9 +163,9 @@ overrides:
     # Critical advisories: JS injection via AST type confusion and an own-property check bypass.
     handlebars: '4.7.10'
     # Four advisories (CVE-2026-71848/-71849/-71850/-69207) landed on 4.12.34, with later ones
-    # through 4.13.11. Only reached via @modelcontextprotocol/sdk, whose stdio transport never
+    # through 4.13.16. Only reached via @modelcontextprotocol/sdk, whose stdio transport never
     # loads hono — fixed for hygiene.
-    'hono@<4.13.11': ^4.13.11
+    'hono@<4.13.16': ^4.13.16
     'ip-address@<10.7.4': ^10.7.4
     # GHSA-5p4m-2wfm-xmqj: quadratic CPU in !!omap resolution, never backported to 4.x. Bounded
     # below at 4.0.0 so the selector can't drag a 3.x copy across js-yaml's breaking v4 API change.
