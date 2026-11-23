@@ -313,16 +313,14 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		repo: GitLabRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.gitlab)?.getPullRequestForCommit(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			rev,
-			{
-				baseUrl: this.apiBaseUrlFor(session),
-			},
-		);
+		const gitlab = await this.authenticationService.apis.gitlab;
+		if (gitlab == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the merge requests of a commit');
+		}
+
+		return gitlab.getPullRequestForCommit(this, toTokenWithInfo(this.id, session), repo.owner, repo.name, rev, {
+			baseUrl: this.apiBaseUrlFor(session),
+		});
 	}
 
 	protected override async getProviderPullRequestsForCommits(

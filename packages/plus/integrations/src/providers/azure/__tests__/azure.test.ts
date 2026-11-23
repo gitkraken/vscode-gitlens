@@ -578,7 +578,7 @@ suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
 		return new Response(JSON.stringify(body), { status: status, headers: { 'content-type': 'application/json' } });
 	}
 
-	async function lookUps(responses: readonly (() => Response)[]): Promise<{
+	async function lookUps(responses: readonly ((url: URL) => Response)[]): Promise<{
 		invalidated: number[];
 		strikes: number;
 		expired: boolean | undefined;
@@ -589,7 +589,7 @@ suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
 			const discovery = azureRestDiscoveryResponse(input);
 			if (discovery != null) return Promise.resolve(discovery);
 
-			return Promise.resolve(respond());
+			return Promise.resolve(respond(new URL(input.toString())));
 		};
 		let invalidated = 0;
 		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
@@ -631,6 +631,42 @@ suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
 		assert.deepEqual(invalidated, [1, 2, 3]);
 		assert.equal(strikes, 0);
 		assert.notEqual(expired, true, 'the session is not expired');
+	});
+
+	test('a pull request the query found but that reads back empty is a failure, not a commit without one', async () => {
+		const { invalidated } = await lookUps([
+			url =>
+				url.pathname.toLowerCase().endsWith('/pullrequestquery')
+					? json(200, {
+							results: [
+								{
+									[sha]: [
+										{ pullRequestId: 5, repository: { id: 'repo-id', project: { id: 'proj-id' } } },
+									],
+								},
+							],
+						})
+					: json(200, null),
+		]);
+
+		assert.deepEqual(invalidated, [1]);
+	});
+
+	test('a client that failed to construct is a failure, not a commit without a pull request', async () => {
+		const runtime = createFakeRuntime();
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, azure } = await connectedAzure(runtime);
+		const { apis } = (azure as unknown as { authenticationService: { apis: object } }).authenticationService;
+		Object.defineProperty(apis, 'azure', { get: () => Promise.resolve(undefined) });
+		try {
+			assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+			assert.equal(invalidated, 1);
+			assert.equal((azure as unknown as { requestExceptionCount: number }).requestExceptionCount, 0);
+		} finally {
+			manager.dispose();
+		}
 	});
 });
 
