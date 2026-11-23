@@ -234,7 +234,8 @@ suite('pullRequest.utils', () => {
 			);
 		});
 
-		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000);
+		// KEEP: the half minute of slack, or a clock tick before the formatter's own read rounds the estimate down
+		const inMinutes = (minutes: number): Date => new Date(Date.now() + minutes * 60 * 1000 + 30 * 1000);
 
 		test('keeps a future estimate after the place in the queue', () => {
 			const text = formatPullRequestMergeQueueStatus({
