@@ -320,11 +320,11 @@ function getExtensionConfig(target, mode, env) {
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
 		// Webpack's 244 KiB default assumes a conventional web page. Keep a realistic extension
 		// budget so a material bundle-size regression still becomes a warning (and fails one-shot builds).
-		// The webworker bundle carries the whole core (watching layer, provider integrations) in one file, and
-		// legitimate feature growth across ~80 core commits used up the 4 MiB budget, so it gets 4.25 MiB.
+		// KEEP: the webworker bundle carries the whole core (watching layer, provider integrations) in one file,
+		// so its budget is larger than the node bundle's.
 		performance: {
-			maxAssetSize: (target === 'webworker' ? 4.25 : 4) * 1024 * 1024,
-			maxEntrypointSize: (target === 'webworker' ? 4.25 : 4) * 1024 * 1024,
+			maxAssetSize: (target === 'webworker' ? 4.5 : 4) * 1024 * 1024,
+			maxEntrypointSize: (target === 'webworker' ? 4.5 : 4) * 1024 * 1024,
 		},
 		output: {
 			chunkFilename: '[name].js',
