@@ -1153,6 +1153,12 @@ organizations, workspaces or sites, and their projects), or an SDK fan-out acros
 with one uncached check before reporting them; a batch read does so only when every target was refused, since a
 target that answered already proved the credential. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
+In a batch read, a `401` for a target of a repository another target of the same call answered from is the
+credential dying mid-call, never that repository's refusal: those targets fail under the connection's unscoped
+`auth` warning while the answered ones keep their results, the connection recovery runs once for the call, and the
+call doesn't reset the failure budget. Every other `401` of that call is then the credential's too, its repository
+answered or not. A `401` beside answers from other repositories only stays scoped when the call holds no such `401`,
+and a `403` always does.
 A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
 OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect (consenting
 to them again) is what fixes it; the scopes that answered keep their results.
