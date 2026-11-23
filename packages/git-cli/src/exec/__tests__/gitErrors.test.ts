@@ -400,6 +400,60 @@ suite('getGitCommandError() Test Suite', () => {
 		assert.strictEqual(captureReason('push', ex), 'rejected');
 	});
 
+	// SEE: captured from GitHub 2026-11-23 (.work/live/merge-queue-followups/findings.md "GH006 stderr"), trailing spaces included
+	const queuedPushStderr = [
+		'remote: error: GH006: Protected branch update failed for refs/heads/mq-d-main.        ',
+		'remote: ',
+		'remote: - A pull request for this branch has been added to a merge queue. Branches that        ',
+		'remote:   are queued for merging cannot be updated. To modify this branch, dequeue the        ',
+		'remote:   associated pull request.        ',
+		'To https://github.com/gitkraken/pr-merge-queue-testing',
+		' ! [remote rejected] mq-d-main -> mq-d-main (protected branch hook declined)',
+		"error: failed to push some refs to 'https://github.com/gitkraken/pr-merge-queue-testing'",
+	].join('\n');
+
+	test('maps the captured GitHub queued-branch push stderr to "rejectedQueued" ahead of the generic rejection', () => {
+		assert.strictEqual(captureReason('push', makeGitError(queuedPushStderr)), 'rejectedQueued');
+	});
+
+	test('maps a rewrapped queued-branch push stderr to "rejectedQueued"', () => {
+		const ex = makeGitError(
+			[
+				'remote: error: GH006: Protected branch update failed for refs/heads/mq-d-main.',
+				'remote: - A pull request for this branch has been added to a',
+				'remote:   merge queue. Branches that are queued for',
+				'remote:   merging cannot be updated.',
+				"error: failed to push some refs to 'https://github.com/user/repo'",
+			].join('\n'),
+		);
+		assert.strictEqual(captureReason('push', ex), 'rejectedQueued');
+	});
+
+	test('keeps "rejected" for a GH006 that requires a merge queue rather than reports one', () => {
+		const ex = makeGitError(
+			[
+				'remote: error: GH006: Protected branch update failed for refs/heads/main.',
+				'remote: - Changes must be made through a merge queue.',
+				"error: failed to push some refs to 'https://github.com/user/repo'",
+			].join('\n'),
+		);
+		assert.strictEqual(captureReason('push', ex), 'rejected');
+	});
+
+	test('keeps "rejected" for a protected branch rejection that is not a merge queue', () => {
+		const ex = makeGitError(
+			"remote: error: GH006: Protected branch update failed for refs/heads/main.\nerror: failed to push some refs to 'github.com:user/repo.git'",
+		);
+		assert.strictEqual(captureReason('push', ex), 'rejected');
+	});
+
+	test('does not map "queued for merging" outside a remote line to "rejectedQueued"', () => {
+		const ex = makeGitError(
+			"error: failed to push some refs to 'github.com:user/queued for merging.git'\nhint: added to a merge queue",
+		);
+		assert.strictEqual(captureReason('push', ex), 'rejected');
+	});
+
 	test('maps push stderr to "noUpstream" reason', () => {
 		const ex = makeGitError('fatal: The current branch feature has no upstream branch.');
 		assert.strictEqual(captureReason('push', ex), 'noUpstream');

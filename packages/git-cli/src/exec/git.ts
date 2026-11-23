@@ -181,6 +181,8 @@ export const GitErrors = {
 	previousOperationEmpty: /The previous (?:cherry-pick|revert) is now empty/i,
 	problemWithEditor: /there was a problem with the editor/i,
 	pushRejected: /^error:\s*failed to push some refs to\b/m,
+	pushRejectedQueued:
+		/^remote:.*(?:added\s+(?:remote:\s+)?to\s+(?:remote:\s+)?a\s+(?:remote:\s+)?merge\s+(?:remote:\s+)?queue|queued\s+(?:remote:\s+)?for\s+(?:remote:\s+)?merging)/im,
 	pushRejectedRefDoesNotExists: /error:\s*unable to delete '(.*?)': remote ref does not exist/m,
 	rebaseAborted: /Nothing to do|rebase.*aborted/i,
 	rebaseInProgress: /It seems that there is already a rebase-(?:merge|apply) directory/i,
@@ -457,6 +459,8 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			// "unable to delete '<ref>': remote ref does not exist" and "failed to push some refs to ...",
 			// and the specific reason is the actionable one.
 			[GitErrors.pushRejectedRefDoesNotExists, 'rejectedRefDoesNotExist'],
+			// KEEP: must precede pushRejected, as GitHub's queue refusal also ends with the generic "failed to push some refs"
+			[GitErrors.pushRejectedQueued, 'rejectedQueued'],
 			[GitErrors.pushRejected, 'rejected'],
 			[GitErrors.permissionDenied, 'permissionDenied'],
 			[GitErrors.remoteConnectionFailed, 'remoteConnectionFailed'],

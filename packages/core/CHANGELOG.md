@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   None of these signatures reference `@gitkraken/provider-apis` types (plus/integrations)
 
 - Adds optional pull request, issue and repository lookups to `IntegrationManagerCacheProvider`. A lookup the cache omits runs uncached. Each one receives an `IntegrationCacheDescriptor`, which adds `maybeConnected` and `sessionFingerprint` to `IntegrationAccountCacheDescriptor` (now an alias of it) so a cache can invalidate on a reconnect or a token change (plus/integrations)
+- Adds a `rejectedQueued` reason to `PushErrorReason`, set when GitHub rejects a push because the branch's pull request is in a merge queue; its message says to remove the pull request from the queue instead of suggesting to pull first (git)
 
 ### Changed
 
