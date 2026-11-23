@@ -53,7 +53,7 @@ const node = {
 	isInMergeQueue: false,
 	isMergeQueueEnabled: false,
 	stack: null,
-	baseRef: { id: baseRefId, branchProtectionRule: null },
+	baseRef: { id: baseRefId },
 };
 const writeTarget = { repository: repository, node: node };
 const queueTarget = { repository: repository, node: { ...node, isMergeQueueEnabled: true } };
@@ -71,6 +71,15 @@ const snapshot = {
 	baseRef: baseRef,
 };
 const queueEntry = { state: 'AWAITING_CHECKS', enqueuedAt: '2026-11-23T09:00:00Z', position: 1 };
+const deniedBranchProtection = {
+	errors: [
+		{
+			type: 'FORBIDDEN',
+			message: 'Branch protection policy access is restricted',
+			path: ['node', 'baseRef', 'branchProtectionRule'],
+		},
+	],
+};
 
 type Call = {
 	url: URL;
@@ -93,11 +102,12 @@ function cloudToken(accessToken: string, connectionId = 'selected') {
 	});
 }
 
-function branchRules(nodes: object[], endCursor?: string) {
+function branchRules(nodes: object[], endCursor?: string, requiresLinearHistory = false) {
 	return {
 		data: {
 			node: {
 				id: baseRefId,
+				refUpdateRule: requiresLinearHistory ? { requiresLinearHistory: true } : null,
 				rules: { nodes: nodes, pageInfo: { hasNextPage: endCursor != null, endCursor: endCursor ?? null } },
 			},
 		},
@@ -217,6 +227,7 @@ suite('IntegrationManager GitHub pull request writes', () => {
 			const mergedAt = '2026-11-23T10:00:01Z';
 			await withManager(
 				({ query }) => {
+					if (query.includes('branchProtectionRule')) return deniedBranchProtection;
 					if (query.startsWith('query PullRequestBranchRules')) return branchRules([]);
 
 					if (query.startsWith('query')) {
@@ -265,6 +276,10 @@ suite('IntegrationManager GitHub pull request writes', () => {
 						),
 					);
 					assert.ok(calls.every(call => call.canonicalIds));
+					assert.equal(
+						calls.some(call => call.query.startsWith('query PullRequestBranchRules')),
+						options.action === 'merge',
+					);
 					assert.equal(runtime.deletePullRequestsCalls, 1);
 				},
 			);
@@ -299,6 +314,60 @@ suite('IntegrationManager GitHub pull request writes', () => {
 				});
 				assert.equal(calls.length, 3);
 				assert.deepEqual(calls[2].variables, { id: baseRefId, cursor: 'page-two' });
+			},
+		);
+	});
+
+	test('keeps edit and state capabilities when the selected viewer cannot read merge rules', async () => {
+		await withManager(
+			({ query }) => {
+				if (query.includes('branchProtectionRule')) return deniedBranchProtection;
+				if (query.startsWith('query PullRequestBranchRules')) {
+					return {
+						errors: [
+							{ type: 'FORBIDDEN', message: 'Effective rules are restricted', path: ['node', 'rules'] },
+						],
+					};
+				}
+				return { data: writeTarget };
+			},
+			async ({ manager }) => {
+				assert.deepEqual(await manager.resolvePullRequestWriteTarget(target), {
+					ok: true,
+					pullRequest: snapshot,
+					capabilities: {
+						edit: true,
+						close: true,
+						reopen: false,
+						merge: { kind: 'unavailable', reason: 'forbidden' },
+					},
+				});
+			},
+		);
+	});
+
+	test('honors linear history from the viewer-visible ref policy before offering or dispatching a merge commit', async () => {
+		await withManager(
+			({ query }) => {
+				if (query.startsWith('query PullRequestBranchRules')) {
+					assert.match(query, /refUpdateRule\s*\{\s*requiresLinearHistory\s*\}/);
+					return branchRules([], undefined, true);
+				}
+				return { data: writeTarget };
+			},
+			async ({ manager, calls }) => {
+				const capability = await manager.resolvePullRequestWriteTarget(target);
+				assert.ok(capability.ok);
+				assert.deepEqual(capability.capabilities.merge, {
+					kind: 'direct',
+					methods: ['squash', 'rebase'],
+					defaultMethod: undefined,
+				});
+				assert.deepEqual(await manager.writePullRequest({ ...merge, mergeMethod: 'merge' }), {
+					ok: false,
+					reason: 'blocked',
+				});
+				assert.ok(calls.every(call => call.query.startsWith('query')));
 			},
 		);
 	});
