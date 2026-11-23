@@ -22,6 +22,7 @@ suite('Autolink issue state icons', () => {
 			icon: 'git-pull-request-draft',
 			modifier: 'pr-draft',
 		});
+		assert.deepStrictEqual(getAutolinkIcon('pr', 'queued'), { icon: 'gl-pr-queued', modifier: 'pr-queued' });
 		assert.deepStrictEqual(getAutolinkIcon('pr'), { icon: 'git-merge', modifier: 'pr-merged' });
 	});
 });

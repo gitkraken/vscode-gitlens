@@ -21,7 +21,7 @@ export function remoteRefIcon(hostingServiceType: HostingServiceType | undefined
 }
 
 export type AutolinkIconType = 'autolink' | 'issue' | 'pr';
-/** `queued` is an open pull request waiting in a merge queue — the open glyph, with its own tint modifier. */
+/** `queued` is an open pull request waiting in a merge queue — its own glyph and tint modifier. */
 export type AutolinkIconStatus = 'opened' | 'closed' | 'merged' | 'queued';
 
 export function getAutolinkIcon(
@@ -47,7 +47,7 @@ export function getAutolinkIcon(
 			case 'closed':
 				return { icon: 'git-pull-request-closed', modifier: 'pr-closed' };
 			case 'queued':
-				return { icon: 'git-pull-request', modifier: 'pr-queued' };
+				return { icon: 'gl-pr-queued', modifier: 'pr-queued' };
 			default:
 				return isDraft
 					? { icon: 'git-pull-request-draft', modifier: 'pr-draft' }

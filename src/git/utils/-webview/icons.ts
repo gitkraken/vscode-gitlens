@@ -69,7 +69,7 @@ export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): strin
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
 				};"></span>`;
 			case 'queued':
-				return `<span class="codicon codicon-git-pull-request" style="color:${
+				return `<span class="glicon glicon-pr-queued" style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
 				};"></span>`;
 			case 'opened':
@@ -113,7 +113,7 @@ export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): s
 			case 'queued':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
-				};">$(git-pull-request)</span>`;
+				};">$(gitlens-pr-queued)</span>`;
 			case 'opened':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
@@ -154,7 +154,7 @@ export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): Them
 				);
 			case 'queued':
 				return new ThemeIcon(
-					'git-pull-request',
+					'gitlens-pr-queued',
 					new ThemeColor('gitlens.queuedPullRequestIconColor' satisfies Colors),
 				);
 			case 'opened':

@@ -13701,6 +13701,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f15d"
 				}
+			},
+			"gitlens-pr-queued": {
+				"description": "pr-queued icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f15e"
+				}
 			}
 		},
 		"menus": {
