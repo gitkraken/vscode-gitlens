@@ -253,8 +253,7 @@ test.describe('Cloud Patches — create without an account', () => {
 		await expectNoAccount(vscode);
 	});
 
-	// TODO(#6242): enable once the button re-enables after an abandoned create
-	test.fixme(
+	test(
 		'A3b: "Create Cloud Patch" is enabled again after the create is abandoned (account prompt refused) — #6242',
 		{ annotation: { type: 'issue', description: 'https://github.com/gitkraken/vscode-gitlens/issues/6242' } },
 		async ({ vscode }) => {
