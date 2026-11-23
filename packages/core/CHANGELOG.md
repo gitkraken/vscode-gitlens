@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds GitHub.com pull request writes to `IntegrationManager` in `@gitkraken/core-gitlens/plus/integrations/index.js`. `resolvePullRequestWriteTarget` verifies the selected connection and canonical pull request and reads the viewer’s available actions and merge methods. `writePullRequest` creates a pull request from two branches in the selected repository, edits its title or body, closes or reopens it, merges it directly, or adds it to the required merge queue. Merge and queue actions require the observed head SHA and base branch. Confirmed writes return a typed receipt and failures return a reason safe to display. (plus/integrations, plus/git-github)
+
 ## [0.44.0] - 2026-11-23
 
 ### Added
