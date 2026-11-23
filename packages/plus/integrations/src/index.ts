@@ -125,9 +125,19 @@ export type {
 	ProviderRepositoryInput,
 	ProviderSweepTarget,
 	ProviderSweepTargetEvent,
+	PullRequestCreateCapabilityOptions,
 	PullRequestSweepOptions,
+	PullRequestWriteOptions,
+	PullRequestWriteTargetOptions,
 } from './manager.js';
 export type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+export type {
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteFailure,
+	PullRequestWriteResult,
+	PullRequestWriteSnapshot,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
 
 /**
  * Construct an `@gitlens/integrations` manager bound to the supplied runtime.
