@@ -4319,6 +4319,16 @@
 							"null"
 						],
 						"default": null,
+						"enum": [
+							null,
+							true,
+							false
+						],
+						"enumDescriptions": [
+							"%config.gitCommands.search.showResultsInSideBar.enumDescriptions.0%",
+							"%config.gitCommands.search.showResultsInSideBar.enumDescriptions.1%",
+							"%config.gitCommands.search.showResultsInSideBar.enumDescriptions.2%"
+						],
 						"markdownDescription": "%config.gitCommands.search.showResultsInSideBar.markdownDescription%",
 						"scope": "window",
 						"order": 40
@@ -4637,6 +4647,16 @@
 							"null"
 						],
 						"default": null,
+						"enum": [
+							null,
+							true,
+							false
+						],
+						"enumDescriptions": [
+							"%config.gitkraken.cli.insiders.enabled.enumDescriptions.0%",
+							"%config.gitkraken.cli.insiders.enabled.enumDescriptions.1%",
+							"%config.gitkraken.cli.insiders.enabled.enumDescriptions.2%"
+						],
 						"markdownDescription": "%config.gitkraken.cli.insiders.enabled.markdownDescription%",
 						"scope": "window",
 						"order": 40,

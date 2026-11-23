@@ -62,6 +62,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Copy Link to Code_ including an extra line when the selection ends at the start of a line (e.g. `lines=2-5` instead of `lines=2-4`) ([#6278](https://github.com/gitkraken/vscode-gitlens/issues/6278))
 - Fixes Jira and Linear autolinks not picking up projects or teams added or removed on the tracker for as long as you keep viewing commits, and up to an hour after ([#6183](https://github.com/gitkraken/vscode-gitlens/issues/6183))
 - Fixes _Commit Graph_ branch pills sometimes never getting their pull request badge or upstream status after the graph opens ([#6281](https://github.com/gitkraken/vscode-gitlens/issues/6281))
+- Fixes the _Search Commits_ results location (`gitlens.gitCommands.search.showResultsInSideBar`) and _GitKraken CLI Insiders_ (`gitlens.gitkraken.cli.insiders.enabled`) settings not being editable from the Settings editor &mdash; they now show dropdowns again ([#6235](https://github.com/gitkraken/vscode-gitlens/issues/6235))
 
 ## [19.6.1] - 2026-11-20
 
