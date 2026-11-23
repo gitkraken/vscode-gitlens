@@ -869,9 +869,11 @@ whether the viewer may create a pull request between the chosen branches when it
 | `merge`                       | Pass `expectedHeadSha`, `expectedBaseRef` and a `mergeMethod` listed in the direct merge capability. Returns `merged`.                                             |
 | `enqueue`                     | Pass `expectedHeadSha` and `expectedBaseRef` for a target with the queue capability. The base branch’s queue configuration selects the strategy. Returns `queued`. |
 
-The target read is uncached and includes the base branch’s active merge method restrictions. GitHub
-still applies its permissions, checks and policy at the time it receives a write. The write preflight
-checks the observed base branch. GitHub checks the expected head atomically for direct merge and enqueue.
+The target read is uncached. Core checks active branch restrictions for direct merge and marks that
+capability unavailable if it cannot read them. Edit, close and reopen use the viewer’s permissions
+on the pull request. GitHub still applies its permissions, checks and policy at the time it receives a
+write. The write preflight checks the observed base branch. GitHub checks the expected head atomically
+for direct merge and enqueue.
 Stacked merge actions can land more than one pull request and are unavailable through this API.
 
 Every confirmed result carries a canonical snapshot with GitHub’s update time and close or merge
