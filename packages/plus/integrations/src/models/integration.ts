@@ -142,6 +142,7 @@ type SyncReqUsecase = Exclude<
 	| 'getPullRequestForBranch'
 	| 'getPullRequestForCommit'
 	| 'getPullRequestsForRepos'
+	| 'getMergeMethods'
 	| 'getRepositoryMetadata'
 	| 'getResourcesForUser'
 	| 'getSshSigningKeysForEmails'

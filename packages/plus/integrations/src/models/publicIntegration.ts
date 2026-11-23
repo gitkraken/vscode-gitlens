@@ -10,6 +10,7 @@ import type {
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestMergeMethods,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
 	PullRequestStackInfo,
@@ -183,6 +184,17 @@ export interface GitHostIntegration extends IntegrationViewBase {
 		repo: ResourceDescriptor,
 		options?: { cancellation?: AbortSignal; expiryOverride?: boolean | number },
 	): Promise<DefaultBranch | undefined>;
+	/**
+	 * The merge methods pull requests into `branch` of `repo` can use, with the one to preselect and the merge queue's
+	 * method. Only GitHub.com reads this for now; every other host, GitHub Enterprise included, answers `undefined`, as
+	 * does a failed read or a host that isn't connected. `undefined` means unknown, not "any method"; `allowed: []`
+	 * means no method can be sent.
+	 */
+	getMergeMethods(
+		repo: ResourceDescriptor,
+		branch: string,
+		options?: { cancellation?: AbortSignal; expiryOverride?: boolean | number },
+	): Promise<PullRequestMergeMethods | undefined>;
 	/**
 	 * Merge-queue entries for the given base branches of the repository, keyed by pull request number, for rows from a
 	 * read that selects no merge queue. Only hosts with a readable merge queue implement this (currently GitHub.com);

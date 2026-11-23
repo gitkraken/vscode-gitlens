@@ -1,4 +1,4 @@
-import { AzureDevOps, GitIssueState, makeProviderAPIs } from '@gitkraken/provider-apis';
+import { AzureDevOps, GitIssueState, GitMergeStrategy, makeProviderAPIs } from '@gitkraken/provider-apis';
 import type {
 	AzureDevOpsRestResource,
 	AzureDevOpsRestResourceInfo,
@@ -12,7 +12,8 @@ import type {
 	TrelloList,
 } from '@gitkraken/provider-apis';
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -344,6 +345,37 @@ export interface AsanaTaskPageOptions {
 	states?: GitIssueState[];
 	/** See {@link GetIssuesOptions.sort}. Asana can order by nothing, so any sort is refused by the SDK. */
 	sort?: IssueSorting;
+}
+
+function toMergeStrategy(
+	providerId: IntegrationIds,
+	method: PullRequestMergeMethod | undefined,
+): GitMergeStrategy | undefined {
+	if (method == null) return undefined;
+
+	switch (providerId) {
+		case GitCloudHostIntegrationId.AzureDevOps:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return method === PullRequestMergeMethod.Merge
+				? GitMergeStrategy.MergeCommit
+				: method === PullRequestMergeMethod.Squash
+					? GitMergeStrategy.Squash
+					: GitMergeStrategy.Rebase;
+		case GitCloudHostIntegrationId.Bitbucket:
+			if (method === PullRequestMergeMethod.Squash) return GitMergeStrategy.Squash;
+			// SEE: provider-apis `GitMergeStrategy.FastForward`, the only linear-history strategy its Bitbucket Cloud merge accepts
+			if (method === PullRequestMergeMethod.Rebase) return GitMergeStrategy.FastForward;
+			break;
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
+			if (method === PullRequestMergeMethod.Squash) return GitMergeStrategy.Squash;
+			break;
+	}
+
+	if (method !== PullRequestMergeMethod.Merge) {
+		Logger.debug(`Merge method '${method}' can't be requested of '${providerId}'; using the repository default`);
+	}
+	return undefined;
 }
 
 export class ProvidersApi implements Disposable {
@@ -2047,7 +2079,10 @@ export class ProvidersApi implements Disposable {
 						},
 						version: pr.version,
 					},
-					...options,
+					// HACK: `mergePullRequestFn` is a union of per-host functions, and GitLab's accepts only Squash; the host mapping lives in `toMergeStrategy`
+					mergeStrategy: toMergeStrategy(provider.id, options?.mergeMethod) as
+						| GitMergeStrategy.Squash
+						| undefined,
 				},
 				{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
 			);

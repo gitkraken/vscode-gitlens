@@ -12,7 +12,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeMethods } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
@@ -79,6 +79,13 @@ export interface IntegrationManagerCacheProvider {
 		cacheable: IntegrationManagerCacheLoader<DefaultBranch>,
 		options?: IntegrationManagerCacheOptions,
 	): IntegrationManagerCacheResult<DefaultBranch>;
+	getRepositoryMergeMethods?(
+		repo: ResourceDescriptor,
+		branch: string,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: IntegrationManagerCacheLoader<PullRequestMergeMethods>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<PullRequestMergeMethods>;
 	getPullRequestForSha?(
 		sha: string,
 		repo: ResourceDescriptor,
@@ -149,6 +156,7 @@ function toCacheDescriptor(
 const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
 	getRepositoryMetadata: (_repo, _integration, loader) => loadUncached(loader),
 	getRepositoryDefaultBranch: (_repo, _integration, loader) => loadUncached(loader),
+	getRepositoryMergeMethods: (_repo, _branch, _integration, loader) => loadUncached(loader),
 	getPullRequestForSha: (_sha, _repo, _integration, loader) => loadUncached(loader),
 	getPullRequestForBranch: (_branch, _repo, _integration, loader) => loadUncached(loader),
 	getPullRequest: (_id, _resource, _integration, loader) => loadUncached(loader),
@@ -175,6 +183,10 @@ function toIntegrationCacheProvider(cache: IntegrationManagerCacheProvider | und
 		getRepositoryDefaultBranch: (repo, integration, loader, options) =>
 			cache.getRepositoryDefaultBranch != null
 				? cache.getRepositoryDefaultBranch(repo, toCacheDescriptor(integration), loader, options)
+				: loadUncached(loader),
+		getRepositoryMergeMethods: (repo, branch, integration, loader, options) =>
+			cache.getRepositoryMergeMethods != null
+				? cache.getRepositoryMergeMethods(repo, branch, toCacheDescriptor(integration), loader, options)
 				: loadUncached(loader),
 		getPullRequestForSha: (sha, repo, integration, loader, options) =>
 			cache.getPullRequestForSha != null

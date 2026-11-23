@@ -1240,6 +1240,7 @@ export type PushErrorReason =
 	| 'noUpstream'
 	| 'permissionDenied'
 	| 'rejected'
+	| 'rejectedQueued'
 	| 'rejectedRefDoesNotExist'
 	| 'rejectedWithLease'
 	| 'rejectedWithLeaseIfIncludes'
@@ -1279,6 +1280,12 @@ export class PushError extends GitCommandError<PushErrorDetails> {
 				case 'rejected':
 					return l10n.t(
 						"Unable to push branch '{0}' to {1} because some refs failed to push or the push was rejected. Try pulling first.",
+						details.branch,
+						details.remote,
+					);
+				case 'rejectedQueued':
+					return l10n.t(
+						"Unable to push branch '{0}' to {1} because its pull request is in a merge queue. Remove it from the queue, then push again.",
 						details.branch,
 						details.remote,
 					);
@@ -1332,6 +1339,11 @@ export class PushError extends GitCommandError<PushErrorDetails> {
 						"Unable to push branch '{0}' because some refs failed to push or the push was rejected. Try pulling first.",
 						details.branch,
 					);
+				case 'rejectedQueued':
+					return l10n.t(
+						"Unable to push branch '{0}' because its pull request is in a merge queue. Remove it from the queue, then push again.",
+						details.branch,
+					);
 				case 'rejectedRefDoesNotExist':
 					return l10n.t(
 						"Unable to delete remote branch '{0}', the remote reference does not exist",
@@ -1377,6 +1389,11 @@ export class PushError extends GitCommandError<PushErrorDetails> {
 						'Unable to push to {0} because some refs failed to push or the push was rejected. Try pulling first.',
 						details.remote,
 					);
+				case 'rejectedQueued':
+					return l10n.t(
+						'Unable to push to {0} because the pull request for this branch is in a merge queue. Remove it from the queue, then push again.',
+						details.remote,
+					);
 				case 'rejectedRefDoesNotExist':
 					return l10n.t(
 						'Unable to delete remote branch from {0}, the remote reference does not exist',
@@ -1416,6 +1433,10 @@ export class PushError extends GitCommandError<PushErrorDetails> {
 			case 'rejected':
 				return l10n.t(
 					'Unable to push because some refs failed to push or the push was rejected. Try pulling first.',
+				);
+			case 'rejectedQueued':
+				return l10n.t(
+					'Unable to push because the pull request for this branch is in a merge queue. Remove it from the queue, then push again.',
 				);
 			case 'rejectedRefDoesNotExist':
 				return l10n.t('Unable to delete remote branch, the remote reference does not exist');

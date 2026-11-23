@@ -2,7 +2,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeMethods } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -114,6 +114,13 @@ export interface IntegrationCacheProvider {
 		cacheable: Cacheable<DefaultBranch>,
 		options?: CacheExpiryOptions,
 	): CacheResult<DefaultBranch>;
+	getRepositoryMergeMethods(
+		repo: ResourceDescriptor,
+		branch: string,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: Cacheable<PullRequestMergeMethods>,
+		options?: CacheExpiryOptions,
+	): CacheResult<PullRequestMergeMethods>;
 	getPullRequestForSha(
 		sha: string,
 		repo: ResourceDescriptor,

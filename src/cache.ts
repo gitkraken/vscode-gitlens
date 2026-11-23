@@ -3,7 +3,11 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeQueueEntry } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethods,
+	PullRequestMergeQueueEntry,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -22,6 +26,7 @@ type Caches = {
 	issuesByIdAndResource: { key: `id:${string}:${string}:${string}`; value: Issue };
 	issuesOrPrsById: { key: `id:${string}:${string}`; value: IssueOrPullRequest };
 	issuesOrPrsByIdAndRepo: { key: `id:${string}:${string}:${string}`; value: IssueOrPullRequest };
+	mergeMethods: { key: `branch:${string}:repo:${string}`; value: PullRequestMergeMethods };
 	prByBranch: { key: `branch:${string}:${string}`; value: PullRequest };
 	/** Every pull request whose head is the branch name, in any state — an empty list is a proven "none" */
 	prsByBranchName: { key: `branch:${string}:${string}`; value: PullRequest[] };
@@ -307,6 +312,17 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		return this.get('defaultBranch', `repo:${key}`, etag, cacheable, options);
 	}
 
+	getRepositoryMergeMethods(
+		repo: ResourceDescriptor,
+		branch: string,
+		integration: IntegrationCacheDescriptor | undefined,
+		cacheable: Cacheable<PullRequestMergeMethods>,
+		options?: ExpiryOptions,
+	): CacheResult<PullRequestMergeMethods> {
+		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
+		return this.get('mergeMethods', `branch:${branch}:repo:${key}`, etag, cacheable, options);
+	}
+
 	peekPullRequestForBranch(
 		branch: string,
 		repo: ResourceDescriptor,
@@ -527,6 +543,9 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.updatedDate).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;
 		}
+		case 'mergeMethods':
+			// KEEP: settings change, so an unknown answer must expire too
+			return defaultExpiresAt;
 		case 'prsByBranchName':
 			// Bounded like `prByBranch`'s "none", since a pull request can be opened or merged at any time
 			return defaultExpiresAt;

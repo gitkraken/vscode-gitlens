@@ -18,16 +18,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   None of these signatures reference `@gitkraken/provider-apis` types (plus/integrations)
 
 - Adds optional pull request, issue and repository lookups to `IntegrationManagerCacheProvider`. A lookup the cache omits runs uncached. Each one receives an `IntegrationCacheDescriptor`, which adds `maybeConnected` and `sessionFingerprint` to `IntegrationAccountCacheDescriptor` (now an alias of it) so a cache can invalidate on a reconnect or a token change (plus/integrations)
+- Adds a `rejectedQueued` reason to `PushErrorReason`, set when GitHub rejects a push because the branch's pull request is in a merge queue; its message says to remove the pull request from the queue instead of suggesting to pull first (git)
+
+- Adds `getMergeMethods(repo, branch)` to git host integrations: a base branch's allowed merge methods, the method to preselect, and its merge queue's method (`PullRequestMergeMethods`), with an optional `getRepositoryMergeMethods` lookup on `IntegrationManagerCacheProvider`. GitHub.com answers with one request per repository and branch, narrowed by the branch's rulesets and linear-history rule; every other host answers `undefined` (unknown) for now (plus/integrations)
 
 ### Changed
 
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- On GitHub.com, `mergePullRequest` without a `mergeMethod` sends the base branch's preselected method (`getMergeMethods(...).default`) instead of letting GitHub default to a merge commit, which repositories that refuse merge commits rejected. On a base that merges through a merge queue it sends no method, dropping an explicit one, because GitHub refuses any there and the queue's method lands; a stacked merge resolves against the stack's trunk. When the methods are unknown it sends none, as before ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126)) (plus/integrations)
+
 ## [0.37.1] - 2026-11-10
 
 ### Fixed
 
+- Fixes `mergePullRequest` ignoring `mergeMethod` on GitLab (squash only; a rebase uses the project's merge method), Bitbucket Cloud and Azure DevOps, which now merge the way the caller chose instead of the repository's default; Bitbucket Server still uses its default (plus/integrations)
 - Fixes GitHub/GHE pull request text searches for exactly open and merged matches filling their ten-result limit with open pull requests before considering merged ones. This combination now selects and combines matches newest-created first, overriding unquoted `sort:` qualifiers in the search text. Other state combinations and the filtered, paged search keep their existing behavior ([#5980](https://github.com/gitkraken/vscode-gitlens/issues/5980)) (plus/git-github)
 
 ## [0.37.0] - 2026-11-10

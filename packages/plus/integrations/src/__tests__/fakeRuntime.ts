@@ -125,6 +125,7 @@ export function createFakeRuntime(options?: {
 	const cache: IntegrationCacheProvider = {
 		getRepositoryMetadata: undefined as never,
 		getRepositoryDefaultBranch: undefined as never,
+		getRepositoryMergeMethods: undefined as never,
 		getPullRequestForSha: undefined as never,
 		getPullRequestForBranch: undefined as never,
 		getPullRequest: () => {
