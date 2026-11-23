@@ -893,16 +893,25 @@ What holds for all of them:
 - An Asana task's tags are its labels and its likes, a thumbs-up on the task, its reactions. Its comments are stories, which a task doesn't
   count, so reading them would cost a request per task. Asana has no batch read.
 
-### GitHub.com issue writes
+### GitHub issue writes
 
 Use the selected GitHub connection ID from `getConfigured()` together with `providerId`, `owner`, and `repo`.
 Core resolves the repository and issue with that account before sending the mutation to GitHub. Issue numbers
 are scoped to their repository. For an existing issue, pass its `number` and the `expectedNodeId` from the
 issue read. Core verifies that the node still belongs to the requested repository and number.
 
+For GitHub Enterprise Server, use `providerId: 'cloud-github-enterprise'` and pass `domain` with the
+selected connection's host and port, or its HTTP(S) origin. Core pins the configured origin before
+contacting the instance. Issue and repository node IDs belong to that installation. The instance's GraphQL schema, the
+repository's settings, and the credentials determine which operations are available. Deletion also requires
+permission under the enterprise and organization policies. Pass `expectedLogin` when the caller has
+selected or confirmed an account by login. Core verifies the viewer with the same credential it uses for
+the operation and returns `no-connection` if the login differs. Core checks that the selected Server
+credential is current again before dispatch.
+
 | Method                    | Operation                                                                                                                                |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolveIssueWriteTarget` | Verify an existing issue and return its canonical `nodeId`. Use it to serialize writes and publication across aliases or transfers.      |
+| `resolveIssueWriteTarget` | Verify an existing issue and return its canonical `nodeId` and current snapshot. Use it to serialize writes across aliases or transfers. |
 | `writeIssue`              | Pass `action: 'create'` with a `title` and an optional `body`.                                                                           |
 | `writeIssue`              | Pass `action: 'edit'` with at least one of `title` or `body`. An empty body clears the description.                                      |
 | `writeIssue`              | Pass `action: 'set-state'`. Use `state: 'open'` to reopen, or `state: 'closed'` with `reason: 'completed'` or `'not_planned'`.           |
@@ -914,9 +923,13 @@ report a different repository if a transfer happened after preflight. In that ca
 `deletedFromDifferentRepository: true` preserves the confirmation. Use the node ID to reconcile deletion
 and refresh affected lists and details. The snapshot still describes the earlier address.
 
+Pass `intent: 'delete'` to `resolveIssueWriteTarget` before asking for deletion confirmation. It checks whether
+the selected account may delete the issue and returns the snapshot to show for confirmation.
+
 An `ok: false` result contains a typed reason. GitHub can report inaccessible private resources as
 `not-found`. Check GitHub before retrying an `unknown` result, since GitHub may have applied the mutation
-before the response was lost.
+before the response was lost. For an Enterprise failure with `mutationDispatched: false`, Core stopped
+before sending a mutation.
 
 ### GitHub.com pull request writes
 
