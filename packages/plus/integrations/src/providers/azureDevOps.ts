@@ -1243,6 +1243,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		repo: AzureRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
+		if ((await this.authenticationService.apis.azure) == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
 		return this.readRepository(session, repo, (azure, target) =>
 			azure.getPullRequestForCommit(
 				this,

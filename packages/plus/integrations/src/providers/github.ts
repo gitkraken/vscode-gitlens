@@ -469,16 +469,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		repo: GitHubRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.github)?.getPullRequestForCommit(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			rev,
-			{
-				baseUrl: this.apiBaseUrlFor(session),
-			},
-		);
+		const github = await this.authenticationService.apis.github;
+		if (github == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
+		return github.getPullRequestForCommit(this, toTokenWithInfo(this.id, session), repo.owner, repo.name, rev, {
+			baseUrl: this.apiBaseUrlFor(session),
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(

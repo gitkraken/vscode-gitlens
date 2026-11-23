@@ -323,7 +323,9 @@ export class AzureDevOpsApi implements Disposable {
 				scope,
 				cancellation,
 			);
-			if (pullRequest == null) return undefined;
+			if (pullRequest == null) {
+				throw new Error(`Azure DevOps returned no pull request ${pr.pullRequestId} for ${repo}`);
+			}
 
 			return await this.toPullRequest(pullRequest, provider, token, owner, baseUrl, scope, cancellation);
 		} catch (ex) {
