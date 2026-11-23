@@ -5202,6 +5202,7 @@
 	"Unable to get relative path between {0} and {1}; Base path '{1}' must be an absolute path": "Unable to get relative path between {0} and {1}; Base path '{1}' must be an absolute path",
 	"Unable to get relative path between {0} and {1}; Base path '{2}' must be a uri": "Unable to get relative path between {0} and {1}; Base path '{2}' must be a uri",
 	"Unable to get required authentication session for '{0}'": "Unable to get required authentication session for '{0}'",
+	"Unable to get the pull request associated with '{0}'": "Unable to get the pull request associated with '{0}'",
 	"Unable to get users for draft '{0}'": "Unable to get users for draft '{0}'",
 	"Unable to initialize Git; {0}": "Unable to initialize Git; {0}",
 	"Unable to inspect commit details": "Unable to inspect commit details",

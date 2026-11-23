@@ -1,11 +1,13 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
+import { advanceClock, restoreClock } from '../../../__tests__/clock.js';
 import { createFakeRuntime } from '../../../__tests__/fakeRuntime.js';
 import { connectedAzure, primarySession, watchRequestFailures } from '../../../__tests__/sweepHelpers.js';
 import { GitCloudHostIntegrationId } from '../../../constants.js';
 import { AuthenticationError } from '../../../errors.js';
 import { createIntegrationService } from '../../../integrationService.js';
+import { failureBackoffMaxMs } from '../../../utils/failureBackoff.js';
 import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
@@ -598,6 +600,7 @@ suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
 		try {
 			const after: number[] = [];
 			for (const response of responses) {
+				advanceClock(failureBackoffMaxMs);
 				respond = response;
 				assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
 				after.push(invalidated);
@@ -605,6 +608,7 @@ suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
 			const strikes = (azure as unknown as { requestExceptionCount: number }).requestExceptionCount;
 			return { invalidated: after, strikes: strikes, expired: azure.connectionExpired };
 		} finally {
+			restoreClock();
 			manager.dispose();
 		}
 	}

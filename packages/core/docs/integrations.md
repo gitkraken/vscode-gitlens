@@ -514,6 +514,30 @@ never a resolved none), and a host without one reports the surface `unsupported`
 projection, without `authoredByMe` or `viewer`). It is uncached and bypasses
 `IntegrationCacheProvider.getPullRequestForSha`.
 
+The integration's single-commit lookup (`getPullRequestForCommit`) never caches a failure as a commit without a pull
+request, and backs off from asking again: after a failed lookup it sends no request, spends no strike and shows no
+notice, and answers `undefined` (or, with `throwOnError`, rejects with a `LookupBackedOffError`) for 30 seconds
+after the first failure, doubling with each consecutive failure up to 10 minutes, or until a rate limit's reset time
+when the host gives one. A server error, a network failure (a transport `TimeoutError` included), a cancellation whose reason is `timeout`, a
+rate limit, Bitbucket Cloud's
+missing commit links app or links not indexed yet, a failed GitLab project lookup, and an API client that failed to
+load back off the repository; every other failure (Bitbucket
+Cloud's `404` before the repository answered, a `403` or another `4xx`, an unrecognized failure) backs off only that
+commit. Once a Bitbucket Cloud repository answered for the token, a `404` there is a commit without a pull
+request, cached and not backed off. A refused credential (`401`) and any other cancellation never back off, so a
+host `fetch` that enforces its own deadline by aborting with a plain `AbortError` reads as a cancellation and is asked
+again.
+The backoff is kept per credential and host, is cleared by a lookup that succeeds and by a disconnect, reconnect or
+refresh, and is bypassed by `expiryOverride: true`. An answer already cached is served during a backoff. GitLab's project lookup backs
+off the same way for every read of the project, so for that long a read that answers `undefined` for a failed lookup
+(a commit's author, the repository's issues) answers it without asking. The merge request lookup and the repository
+metadata read instead never keep a failed lookup as a missing project: the merge request lookup fails on it, and the
+repository metadata read (`getRepositoryMetadata`) answers `undefined` without keeping that answer. During the backoff
+they send no request, and they ask again once it has passed; `expiryOverride: true` bypasses the backoff for
+both. A `401` of the project lookup backs off only the reads that swallow it; these two still ask, so that its refusal
+reaches the credential's recovery. The token-scoped read (§10) rejects on a failed lookup and is never backed off.
+`getPullRequestsForCommits` is not backed off.
+
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
 (see §8). Jira Cloud answers with the first site's account, since an Atlassian account id is the same on every site. It goes through the host-supplied

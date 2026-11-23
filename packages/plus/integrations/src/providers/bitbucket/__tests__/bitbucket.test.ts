@@ -1,9 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { advanceClock, restoreClock } from '../../../__tests__/clock.js';
 import { createFakeRuntime } from '../../../__tests__/fakeRuntime.js';
 import { connectedBitbucket, connectedBitbucketServer, primarySession } from '../../../__tests__/sweepHelpers.js';
 import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
 import { createIntegrationService } from '../../../integrationService.js';
+import { failureBackoffMaxMs } from '../../../utils/failureBackoff.js';
 import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureWorkItemDescriptionsCache } from '../../azure/workItemDescriptions.js';
@@ -512,6 +514,27 @@ suite('BitbucketIntegration.getPullRequestForCommit', () => {
 		await assert.rejects(api.getPullRequestForCommit(bitbucketProvider, replaced, 'ws', 'r', sha, baseUrl));
 	});
 
+	test('a repository whose links are not indexed yet is a failure that backs off the repository', async () => {
+		const runtime = createFakeRuntime();
+		let requests = 0;
+		runtime.http.fetch = () => {
+			requests++;
+			return Promise.resolve(json(200, { repo_indexed: false, type: 'paginated_pullrequests', values: [] }));
+		};
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, integration } = await connectedBitbucket(runtime);
+		try {
+			assert.equal(await integration.getPullRequestForCommit(repo, sha), undefined);
+			assert.equal(invalidated, 1);
+			assert.equal(await integration.getPullRequestForCommit(repo, 'b'.repeat(40)), undefined);
+			assert.equal(requests, 1, 'another commit of the repository is not asked inside the backoff');
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('a commit refused because the commit links app is missing shows the notice, and is not kept', async () => {
 		for (const status of [400, 404]) {
 			const { pr, invalidated, links, strikes } = await lookUp(() =>
@@ -573,6 +596,7 @@ suite('BitbucketServerIntegration.getPullRequestForCommit', () => {
 		try {
 			const after: number[] = [];
 			for (const response of responses) {
+				advanceClock(failureBackoffMaxMs);
 				respond = response;
 				assert.equal(await integration.getPullRequestForCommit(repo, sha), undefined);
 				after.push(invalidated);
@@ -580,6 +604,7 @@ suite('BitbucketServerIntegration.getPullRequestForCommit', () => {
 			const strikes = (integration as unknown as { requestExceptionCount: number }).requestExceptionCount;
 			return { invalidated: after, strikes: strikes, expired: integration.connectionExpired };
 		} finally {
+			restoreClock();
 			manager.dispose();
 		}
 	}

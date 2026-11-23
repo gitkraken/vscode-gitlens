@@ -330,6 +330,19 @@ export class BitbucketIntegration extends GitHostIntegration<
 		);
 	}
 
+	protected override getCommitLookupBackoff(
+		ex: unknown,
+	): { scope: 'repository' | 'commit'; until?: number } | undefined {
+		if (
+			ex instanceof BitbucketCommitLinksAppMissingError ||
+			ex instanceof BitbucketCommitPullRequestsUnindexedError
+		) {
+			return { scope: 'repository' };
+		}
+
+		return super.getCommitLookupBackoff(ex);
+	}
+
 	protected override stopsCommitFanOut(reason: unknown, answered: boolean): boolean {
 		return (
 			reason instanceof BitbucketCommitLinksAppMissingError ||

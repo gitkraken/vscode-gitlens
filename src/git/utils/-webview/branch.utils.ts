@@ -235,6 +235,7 @@ export async function getBranchAssociatedPullRequest(
 	if (branch.upstream?.missing) {
 		if (!branch.sha) return undefined;
 		return integration.getPullRequestForCommit(remote.provider.repoDesc, branch.sha, {
+			expiryOverride: options?.expiryOverride,
 			throwOnError: options?.throwOnError,
 		});
 	}

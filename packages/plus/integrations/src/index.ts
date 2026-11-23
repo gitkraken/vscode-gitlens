@@ -413,6 +413,7 @@ export {
 export { getSingleConfiguredDomain } from './utils/domain.utils.js';
 export { getAzureRepositoryIdentity } from './providers/azure/azure.utils.js';
 export { isAzureProviderId } from './providers/providerErrors.js';
+export { LookupBackedOffError } from './errors.js';
 
 // Provider metadata (names, domains, icons, capabilities) and the per-provider feature checks built on it.
 export type { ProviderMetadata } from './providers/metadata.js';

@@ -5020,6 +5020,7 @@
 	"Unable to get relative path between {0} and {1}; Base path '{1}' must be an absolute path": "无法获取 {0} 和 {1} 之间的相对路径；基路径 “{1}” 必须是绝对路径",
 	"Unable to get relative path between {0} and {1}; Base path '{2}' must be a uri": "无法获取 {0} 和 {1} 之间的相对路径；基路径 “{2}” 必须是 uri",
 	"Unable to get required authentication session for '{0}'": "无法获取 “{0}” 所需的身份验证会话",
+	"Unable to get the pull request associated with '{0}'": "无法获取与 “{0}” 关联的拉取请求",
 	"Unable to get users for draft '{0}'": "无法获取草稿 “{0}” 的用户",
 	"Unable to initialize Git; {0}": "无法初始化 Git；{0}",
 	"Unable to inspect commit details": "无法查看提交详情",

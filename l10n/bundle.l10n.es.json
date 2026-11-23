@@ -5020,6 +5020,7 @@
 	"Unable to get relative path between {0} and {1}; Base path '{1}' must be an absolute path": "No se pudo obtener la ruta relativa entre {0} y {1}; la ruta base '{1}' debe ser una ruta absoluta",
 	"Unable to get relative path between {0} and {1}; Base path '{2}' must be a uri": "No se pudo obtener la ruta relativa entre {0} y {1}; la ruta base '{2}' debe ser un URI",
 	"Unable to get required authentication session for '{0}'": "No se pudo obtener la sesión de autenticación necesaria para '{0}'",
+	"Unable to get the pull request associated with '{0}'": "No se pudo obtener la solicitud de incorporación de cambios asociada a '{0}'",
 	"Unable to get users for draft '{0}'": "No se pudieron obtener los usuarios del borrador '{0}'",
 	"Unable to initialize Git; {0}": "No se pudo inicializar Git; {0}",
 	"Unable to inspect commit details": "No se pudieron inspeccionar los detalles del commit",

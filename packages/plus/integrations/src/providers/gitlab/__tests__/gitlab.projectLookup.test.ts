@@ -1,8 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { advanceClock, restoreClock } from '../../../__tests__/clock.js';
 import { createFakeRuntime } from '../../../__tests__/fakeRuntime.js';
 import { connectedGitLab } from '../../../__tests__/sweepHelpers.js';
+import { failureBackoffMaxMs } from '../../../utils/failureBackoff.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { GitLabApi } from '../gitlab.js';
 import { gitLabProvider, gitLabToken } from './fixtures.js';
@@ -86,14 +89,19 @@ function apiWaitingForAnswer() {
 const sha = 'a'.repeat(40);
 
 suite('GitLab project lookup', () => {
-	test('a failed lookup is not kept as a missing project: the next read asks again', async () => {
+	test('a failed lookup is not kept as a missing project: a read after its backoff asks again', async () => {
 		let fails = true;
 		const { api, lookups } = apiAnswering(() => (fails ? json(500, { message: 'boom' }) : json(200, project)));
 		const lookup = () => api.getProjectId(gitLabProvider, gitLabToken, 'group', 'r', undefined, undefined);
 
 		assert.equal(await lookup(), undefined);
 		fails = false;
-		assert.equal(await lookup(), '42');
+		advanceClock(failureBackoffMaxMs);
+		try {
+			assert.equal(await lookup(), '42');
+		} finally {
+			restoreClock();
+		}
 		assert.equal(lookups(), 2);
 		assert.equal(await lookup(), '42');
 		assert.equal(lookups(), 2, 'an answer is kept');
@@ -138,7 +146,12 @@ suite('GitLab project lookup', () => {
 		assert.equal(invalidated, 1, 'the failure is dropped from the cache');
 
 		fails = false;
-		assert.equal((await gl.getPullRequestForCommit(repo, sha))?.id, '7');
+		advanceClock(failureBackoffMaxMs);
+		try {
+			assert.equal((await gl.getPullRequestForCommit(repo, sha))?.id, '7');
+		} finally {
+			restoreClock();
+		}
 
 		manager.dispose();
 	});
@@ -155,20 +168,35 @@ suite('GitLab project lookup', () => {
 			return Promise.resolve(json(200, { namespace: { path: 'group', full_path: 'group' }, path: 'r' }));
 		};
 		const kept = new Map<string, unknown>();
-		runtime.cache.getRepositoryMetadata = (repo, _integration, cacheable) => {
-			if (!kept.has(repo.key)) {
+		runtime.cache.getRepositoryMetadata = (repo, _integration, cacheable, options) => {
+			if (!kept.has(repo.key) || options?.expiryOverride === true) {
 				kept.set(repo.key, cacheable({ invalidate: () => kept.delete(repo.key) } as never).value);
 			}
 			return kept.get(repo.key) as never;
 		};
 		const { manager, gl } = await connectedGitLab(runtime);
 		const repo = { key: 'group/r', owner: 'group', name: 'r' };
+		const other = { key: 'group/other', owner: 'group', name: 'other' };
 
 		assert.equal(await gl.getRepositoryMetadata(repo), undefined);
+		assert.equal(await gl.getRepositoryMetadata(other), undefined);
 		fails = false;
-		const metadata = await gl.getRepositoryMetadata(repo);
-		assert.equal(`${metadata?.owner}/${metadata?.name}`, 'group/r');
-		assert.equal(lookups, 2);
+		assert.equal(await gl.getRepositoryMetadata(repo), undefined);
+		assert.equal(await gl.getRepositoryMetadata(other), undefined);
+		assert.equal(lookups, 2, 'a read during the backoff sends no request');
+
+		const forced = await gl.getRepositoryMetadata(other, { expiryOverride: true });
+		assert.equal(forced?.owner, 'group', 'a forced read gets through the backoff');
+		assert.equal(lookups, 3);
+
+		advanceClock(failureBackoffMaxMs);
+		try {
+			const metadata = await gl.getRepositoryMetadata(repo);
+			assert.equal(`${metadata?.owner}/${metadata?.name}`, 'group/r');
+		} finally {
+			restoreClock();
+		}
+		assert.equal(lookups, 4);
 
 		manager.dispose();
 	});
@@ -254,6 +282,22 @@ suite('GitLab project lookup', () => {
 		assert.equal(lookups(), 0);
 	});
 
+	test('a lookup that rejects as timed out backs off like any failed lookup', async () => {
+		let lookups = 0;
+		const api = new GitLabApi({
+			fetch: () => {
+				lookups++;
+				return Promise.reject(new CancellationError(new Error('Timed out'), 'timeout'));
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+		});
+		const read = () => api.getProjectId(gitLabProvider, gitLabToken, 'group', 'r', undefined, undefined);
+
+		assert.equal(await read(), undefined);
+		assert.equal(await read(), undefined);
+		assert.equal(lookups, 1);
+	});
+
 	test('a refused credential asks to re-authenticate once, however many lookups meet it', async () => {
 		const { api, lookups, prompts } = apiAnswering(() => json(401, { message: '401 Unauthorized' }));
 
@@ -267,5 +311,101 @@ suite('GitLab project lookup', () => {
 
 		assert.equal(lookups(), 4, 'each lookup asks, since a failure is not kept');
 		assert.equal(prompts(), 1);
+	});
+
+	test('a backed-off lookup asked with an aborted signal leaves no rejection unhandled', async () => {
+		const { api } = apiAnswering(() => json(500, { message: 'boom' }));
+		await api.getProjectId(gitLabProvider, gitLabToken, 'group', 'r', undefined, undefined);
+
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => void unhandled.push(reason);
+		process.on('unhandledRejection', onUnhandled);
+		try {
+			const controller = new AbortController();
+			controller.abort();
+			assert.equal(
+				await api.getProjectId(gitLabProvider, gitLabToken, 'group', 'r', undefined, controller.signal),
+				undefined,
+			);
+			await new Promise(resolve => setImmediate(resolve));
+		} finally {
+			process.off('unhandledRejection', onUnhandled);
+		}
+
+		assert.deepEqual(unhandled, []);
+	});
+
+	test("a batch's per-commit reads on a cold client leave a failed lookup to the batch", async () => {
+		for (const status of [401, 500]) {
+			let notices = 0;
+			let strikes = 0;
+			let prompts = 0;
+			const provider = { ...gitLabProvider, trackRequestException: () => void strikes++ };
+			const api = new GitLabApi({
+				fetch: () => Promise.resolve(json(status, { message: 'boom' })),
+				wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+				onReauthenticationRequired: () => {
+					prompts++;
+					return Promise.resolve(false);
+				},
+				onRequestFailed: () => void notices++,
+			});
+
+			for (let i = 0; i < 3; i++) {
+				await assert.rejects(
+					api.getPullRequestForCommit(provider, gitLabToken, 'group', 'r', sha, { deferFailure: true }),
+					(ex: unknown) => status !== 500 || getDeferredRequestFailure(ex) != null,
+				);
+			}
+
+			assert.equal(prompts, 0, `${status}: no prompt`);
+			assert.equal(notices, 0, `${status}: no notice`);
+			assert.equal(strikes, 0, `${status}: no strike`);
+		}
+	});
+
+	test("a read joining the batch's lookup reports its server error once, though the batch was cancelled", async () => {
+		let answer!: () => void;
+		const answered = new Promise<void>(resolve => (answer = resolve));
+		let notices = 0;
+		let strikes = 0;
+		const provider = { ...gitLabProvider, trackRequestException: () => void strikes++ };
+		const api = new GitLabApi({
+			fetch: async () => {
+				await answered;
+				return json(500, { message: 'boom' });
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+			onRequestFailed: () => void notices++,
+		});
+		const controller = new AbortController();
+
+		const batch = assert.rejects(
+			api.getProjectId(provider, gitLabToken, 'group', 'r', undefined, controller.signal, {
+				strict: true,
+				backoff: false,
+				deferFailure: true,
+			}),
+			(ex: unknown) => isCancellationError(ex),
+		);
+		const author = api.getAccountForCommit(provider, gitLabToken, 'group', 'r', sha);
+		controller.abort();
+		await batch;
+		answer();
+
+		assert.equal(await author, undefined);
+		assert.equal(notices, 1);
+		assert.equal(strikes, 1);
+	});
+
+	test('a failed lookup backs off when any read sharing it asked to, not only the one that started it', async () => {
+		const { api, lookups } = apiAnswering(() => json(500, { message: 'boom' }));
+		const lookup = (options?: { backoff?: boolean }) =>
+			api.getProjectId(gitLabProvider, gitLabToken, 'group', 'r', undefined, undefined, options);
+
+		await Promise.all([lookup({ backoff: false }), lookup()]);
+		assert.equal(await lookup(), undefined);
+
+		assert.equal(lookups(), 1, 'the read after the failure is held by its backoff');
 	});
 });

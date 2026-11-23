@@ -312,6 +312,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
 		rev: string,
+		options?: { fresh?: boolean },
 	): Promise<PullRequest | undefined> {
 		const gitlab = await this.authenticationService.apis.gitlab;
 		if (gitlab == null) {
@@ -320,7 +321,16 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		return gitlab.getPullRequestForCommit(this, toTokenWithInfo(this.id, session), repo.owner, repo.name, rev, {
 			baseUrl: this.apiBaseUrlFor(session),
+			backoff: !options?.fresh,
 		});
+	}
+
+	protected override clearLookupBackoff(): void {
+		super.clearLookupBackoff();
+		void this.authenticationService.apis.gitlabIfBuilt?.then(
+			gitlab => gitlab?.clearProjectLookupBackoff(this),
+			() => {},
+		);
 	}
 
 	protected override async getProviderPullRequestsForCommits(
@@ -343,7 +353,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				repo.repo,
 				this.apiBaseUrlFor(session),
 				cancellation,
-				{ strict: true },
+				{ strict: true, backoff: false, deferFailure: true },
 			);
 		}
 		return super.getProviderPullRequestsForCommits(session, repo, shas, options, cancellation);
@@ -625,6 +635,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		repo: GitLabRepositoryDescriptor,
 		cancellation?: AbortSignal,
+		options?: { fresh?: boolean },
 	): Promise<RepositoryMetadata | undefined> {
 		return (await this.authenticationService.apis.gitlab)?.getRepositoryMetadata(
 			this,
@@ -633,6 +644,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			repo.name,
 			{
 				baseUrl: this.apiBaseUrlFor(session),
+				backoff: !options?.fresh,
 			},
 			cancellation,
 		);
