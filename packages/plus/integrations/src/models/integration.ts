@@ -388,6 +388,7 @@ type SyncReqUsecase = Exclude<
 	| 'enqueuePullRequest'
 	| 'mergePullRequest'
 	| 'mutateIssue'
+	| 'writePullRequest'
 	| 'searchIssuesPage'
 	| 'searchPullRequestsPage'
 	| 'searchMyIssues'
@@ -568,14 +569,18 @@ export abstract class IntegrationBase<
 			// The provider previously refused this connection's token. Ask for a refresh before using it again, which
 			// is this branch's equivalent of the primary path's `refreshSessionIfExpired`. Claimed here so
 			// the forced refresh runs at most once per rejection.
-			const refreshRejectedToken = this._rejectedTokens.claimRefresh(connectionId);
+			const rejectedToken = this._rejectedTokens.claimRefresh(connectionId);
 			// Never throws, matching the primary path (whose ensureSession/refreshSessionIfExpired swallow
 			// errors), so read methods keep their never-throws contract.
 			try {
 				const authProvider = await this.authenticationService.get(this.authProvider.id);
 				const session = await authProvider.getSession(
 					{ ...this.authProviderDescriptor, connectionId: connectionId, cloud: true },
-					{ source: source, refreshRejectedToken: refreshRejectedToken },
+					{
+						source: source,
+						refreshRejectedToken: rejectedToken === true,
+						isRejectedToken: typeof rejectedToken === 'function' ? rejectedToken : undefined,
+					},
 				);
 				return session != null && this.isSessionForIntegrationHost(session) ? session : undefined;
 			} catch (ex) {
@@ -1021,6 +1026,7 @@ export abstract class IntegrationBase<
 				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
 				let newSession: ProviderAuthenticationSession | undefined;
 				let refetchFailed = false;
+				const signOutMark = resyncing ? this.authenticationService.getSignOutMark() : undefined;
 				try {
 					newSession = await this.resolveSessionLocked({ sync: forceSync, refetch: resyncing });
 				} catch (ex) {
@@ -1047,7 +1053,10 @@ export abstract class IntegrationBase<
 				// token is really gone is cleanly disconnected (#5497) while a healthy one survives a blip (#5569).
 				if (resyncing && newSession == null && !refetchFailed) {
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
-					await authProvider.deleteSession(this.authProviderDescriptor, { preserveConfigured: false });
+					await authProvider.deleteSession(this.authProviderDescriptor, {
+						preserveConfigured: false,
+						signOutMark: signOutMark,
+					});
 				}
 
 				break;
@@ -1321,9 +1330,13 @@ export abstract class IntegrationBase<
 	}
 
 	/** Returns whether it spent a strike (see {@link trackRequestException}). */
-	protected handleConnectionAuthenticationRejection(connectionId: string, silent?: boolean): boolean {
+	protected handleConnectionAuthenticationRejection(
+		connectionId: string,
+		silent?: boolean,
+		rejectedAccessToken?: string,
+	): boolean {
 		this._validatedCredentials.clear();
-		if (this._rejectedTokens.recordRejection(connectionId)) return false;
+		if (this._rejectedTokens.recordRejection(connectionId, rejectedAccessToken)) return false;
 
 		this.trackRequestException({ connectionId: connectionId, silent: silent });
 		return true;

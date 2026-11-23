@@ -71,7 +71,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
 	/** Monotonic across providers; see {@link getSignOutMark}. */
 	private _signOutEpoch = 0;
-	/** The epoch of the latest sign-out per scope: a provider, a self-managed host, or a single connection. */
+	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
 	private readonly _signOuts = new Map<string, number>();
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
@@ -316,15 +316,14 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	/**
-	 * Taken before a token is read or fetched, and handed to {@link storeSession}: a sign-out that lands after it
-	 * (a disconnect, a reauthentication, the connection being removed) refuses the store, so a token fetched across
-	 * it is not written back and reconnected on the next resolution (gitkraken/kepler#3546).
+	 * Taken before a token is read or fetched and handed to {@link storeSession}. A later sign-out or a recovery
+	 * that replaces the credential invalidates the pending store.
 	 */
 	getSignOutMark(): number {
 		return this._signOutEpoch;
 	}
 
-	private markSignOut(scope: string): void {
+	private retirePendingStores(scope: string): void {
 		this._signOuts.set(scope, ++this._signOutEpoch);
 	}
 
@@ -332,7 +331,11 @@ export class ConfiguredIntegrationService implements Disposable {
 		return `${id}|host:${hostFromDomain(domain) ?? domain}`;
 	}
 
-	private isSignedOutSince(id: IntegrationIds, session: ProviderAuthenticationSession, mark: number): boolean {
+	isSessionRetiredSince(
+		id: IntegrationIds,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		mark: number,
+	): boolean {
 		const since = (scope: string) => (this._signOuts.get(scope) ?? 0) > mark;
 		if (since(id)) return true;
 		if (isSelfManagedHostIntegrationId(id) && session.domain && since(this.getHostScope(id, session.domain))) {
@@ -342,18 +345,27 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	/**
-	 * Stores the session's secret and descriptor together. With a `signOutMark`, nothing is stored, and `false` is
-	 * returned, when a sign-out covering the session landed after the mark was taken.
+	 * Stores the session's secret and descriptor together. A pending store can be invalidated by a sign-out or a
+	 * credential recovery. A recovery must still own the stored credential when it publishes its replacement.
 	 */
 	storeSession(
 		id: IntegrationIds,
 		session: ProviderAuthenticationSession,
-		options?: { signOutMark?: number; resource?: ConnectionResource },
+		options?: { signOutMark?: number; resource?: ConnectionResource; expectedStoredAccessToken?: string },
 	): Promise<boolean> {
 		return this.withLock(id, async () => {
-			if (options?.signOutMark != null && this.isSignedOutSince(id, session, options.signOutMark)) return false;
+			if (options?.signOutMark != null && this.isSessionRetiredSince(id, session, options.signOutMark)) {
+				return false;
+			}
 
 			const previous = await this.readSecret(id, session.id, session.cloud);
+			if (
+				options?.expectedStoredAccessToken != null &&
+				previous?.accessToken !== options.expectedStoredAccessToken
+			) {
+				return false;
+			}
+
 			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
 				// Readers share this lock, so none can resolve the retired token after this synchronous fence.
 				this._onWillChangeSession.fire({
@@ -364,6 +376,12 @@ export class ConfiguredIntegrationService implements Disposable {
 			}
 
 			await this.writeSecret(id, session, options?.resource);
+			if (
+				options?.expectedStoredAccessToken != null &&
+				session.accessToken !== options.expectedStoredAccessToken
+			) {
+				this.retirePendingStores(`${id}|connection:${session.id}`);
+			}
 			return true;
 		});
 	}
@@ -412,17 +430,24 @@ export class ConfiguredIntegrationService implements Disposable {
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		cloud?: boolean,
-		options?: { preserveConfigured?: boolean; signOut?: boolean },
-	): Promise<void> {
+		options?: { preserveConfigured?: boolean; signOut?: boolean; signOutMark?: number },
+	): Promise<boolean> {
 		return this.withLock(id, async () => {
+			const connectionId = this.resolveConnectionId(id, descriptor);
+			if (
+				options?.signOutMark != null &&
+				this.isSessionRetiredSince(id, { id: connectionId, domain: descriptor.domain }, options.signOutMark)
+			) {
+				return false;
+			}
+
 			if (options?.signOut) {
-				this.markSignOut(
+				this.retirePendingStores(
 					isSelfManagedHostIntegrationId(id) && descriptor.domain
 						? this.getHostScope(id, descriptor.domain)
 						: id,
 				);
 			}
-			const connectionId = this.resolveConnectionId(id, descriptor);
 			this._onWillRemoveSessions.fire({
 				integrationId: id,
 				connectionId: connectionId,
@@ -430,13 +455,16 @@ export class ConfiguredIntegrationService implements Disposable {
 				domain: descriptor.domain,
 			});
 			await this.deleteSecrets(id, connectionId, cloud, options);
+			return true;
 		});
 	}
 
 	/** Signs out of every stored session of the provider, or of one self-managed host when `domain` is given. */
 	deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
 		return this.withLock(id, async () => {
-			this.markSignOut(isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id);
+			this.retirePendingStores(
+				isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id,
+			);
 			this._onWillRemoveSessions.fire({ integrationId: id, cloud: cloud, domain: domain });
 			await this.deleteAllSecrets(id, cloud, domain);
 		});
@@ -796,7 +824,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
 		return this.withLock(id, async () => {
 			// The connection is gone, so a token of it fetched before must not be stored back.
-			this.markSignOut(`${id}|connection:${connectionId}`);
+			this.retirePendingStores(`${id}|connection:${connectionId}`);
 			this._onWillRemoveSessions.fire({ integrationId: id, connectionId: connectionId, cloud: cloud });
 			await this.deleteSecrets(id, connectionId, cloud);
 		});

@@ -1158,11 +1158,12 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				integration.beginForcedRefresh(connectionId);
 				const authProvider = await this.authenticationService.get(integration.authProvider.id);
 				const descriptor = { ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true };
+				const signOutMark = this.configuredIntegrationService.getSignOutMark();
 				const session = await authProvider?.getSession(descriptor, { sync: true, refetch: true });
 				if (session == null) {
 					if (options?.throwOnFailure) throw new Error('No refreshed provider session');
 
-					await authProvider?.deleteSession(descriptor);
+					await authProvider?.deleteSession(descriptor, { signOutMark: signOutMark });
 				}
 			} else {
 				const failure = await integration.syncCloudConnection('connected', true);
@@ -2263,7 +2264,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 					resource: prepared.resource,
 				}))
 			) {
-				// Signed out while it was fetched: neither synced (so nothing is pruned on its account) nor primary.
+				// A sign-out or credential replacement invalidated this fetch, so it cannot establish the primary or
+				// count toward pruning.
 				continue;
 			}
 
