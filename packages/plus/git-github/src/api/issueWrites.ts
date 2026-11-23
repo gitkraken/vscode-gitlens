@@ -43,7 +43,10 @@ export type IssueWriteResult =
 				| 'unknown';
 	  };
 
-export type GitHubIssueMutation = GitHubIssueWrite | (GitHubIssueDelete & { action: 'delete' | 'resolve' });
+export type GitHubIssueMutation =
+	| GitHubIssueWrite
+	| (GitHubIssueDelete & { action: 'delete' })
+	| (GitHubIssueDelete & { action: 'resolve'; intent?: 'delete' });
 type GraphqlRequest = <T>(query: string, variables: RequestParameters) => Promise<T | undefined>;
 
 const issueFields = `
@@ -110,8 +113,9 @@ export function isValidGitHubIssueMutation(input: GitHubIssueMutation): boolean 
 				(input.state === 'closed' && (input.reason === 'completed' || input.reason === 'not_planned'))
 			);
 		case 'delete':
-		case 'resolve':
 			return true;
+		case 'resolve':
+			return input.intent === undefined || input.intent === 'delete';
 		default:
 			return false;
 	}
@@ -201,7 +205,8 @@ export async function mutateGitHubIssue(
 							owner: owner,
 							repo: repo,
 							expectedNodeId: input.expectedNodeId,
-							checkDelete: input.action === 'delete',
+							checkDelete:
+								input.action === 'delete' || (input.action === 'resolve' && input.intent === 'delete'),
 						},
 					);
 		const repository = target?.repository;
@@ -230,6 +235,9 @@ export async function mutateGitHubIssue(
 
 		switch (input.action) {
 			case 'resolve':
+				if (input.intent === 'delete' && issue.viewerCanDelete !== true) {
+					return { ok: false, reason: 'forbidden' };
+				}
 				return toIssueWriteResult(issue);
 			case 'edit':
 				return await writeIssue(graphql, 'updateIssue', 'UpdateIssueInput', {

@@ -256,6 +256,7 @@ suite('IntegrationManager GitHub issue writes', () => {
 			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, expectedNodeId: expectedNodeId }), {
 				ok: true,
 				nodeId: issue.id,
+				issue: snapshot,
 			});
 			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, number: 43 }), {
 				ok: false,
@@ -270,6 +271,36 @@ suite('IntegrationManager GitHub issue writes', () => {
 				expectedNodeId: expectedNodeId,
 				checkDelete: false,
 			});
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('refuses a delete target the connection may not delete, before any mutation', async () => {
+		const { manager, calls } = await setup(() => ({
+			data: { repository: repository, node: { ...issue, viewerCanDelete: false } },
+		}));
+		try {
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, intent: 'delete' }), {
+				ok: false,
+				reason: 'forbidden',
+			});
+			assert.deepEqual(await manager.resolveIssueWriteTarget(existing), {
+				ok: true,
+				nodeId: issue.id,
+				issue: snapshot,
+			});
+			assert.equal(calls.length, 2);
+			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteTarget')));
+			assert.deepEqual(
+				calls.map(call => (call.variables as { checkDelete: boolean }).checkDelete),
+				[true, false],
+			);
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, intent: 'edit' } as never), {
+				ok: false,
+				reason: 'invalid-input',
+			});
+			assert.equal(calls.length, 2);
 		} finally {
 			manager.dispose();
 		}
