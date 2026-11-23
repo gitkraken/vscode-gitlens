@@ -228,6 +228,8 @@ export function pullRequestWriteFailure(ex: unknown, phase?: 'write' | 'merge' |
 	}
 
 	const failure = issueWriteFailure(ex);
+	if (failure.reason === 'rate-limit') return failure;
+
 	if (phase === 'merge' || phase === 'enqueue') {
 		const error = ex instanceof GraphqlResponseError ? ex.errors?.[0] : undefined;
 		if (error?.type === 'UNPROCESSABLE') {
@@ -473,7 +475,9 @@ export async function getGitHubPullRequestCreateCapability(
 		return {
 			ok: true,
 			repositoryId: repository.id,
-			canCreate: isRepositoryWritable(repository) && hasWritePermission(repository),
+			// A repository role only establishes read access. GitHub checks the chosen head branch and organization
+			// membership when the pull request is created.
+			canCreate: isRepositoryWritable(repository) && (repository.viewerPermission == null ? undefined : true),
 		};
 	} catch (ex) {
 		return pullRequestWriteFailure(ex);
@@ -584,7 +588,6 @@ async function createPullRequest(
 	}
 
 	if (!isRepositoryWritable(repository)) return { ok: false, reason: 'blocked' };
-	if (hasWritePermission(repository) === false) return { ok: false, reason: 'forbidden' };
 	if (repository.base == null || repository.head == null) return { ok: false, reason: 'invalid-input' };
 
 	return sendMutation(transport, 'created', repository.id, {

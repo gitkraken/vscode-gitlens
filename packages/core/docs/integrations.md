@@ -927,7 +927,9 @@ Core checks the node’s repository and number before dispatching the write by c
 serialize writes and publication on that canonical ID, including across legacy node aliases.
 For creation, `getPullRequestCreateCapability` checks the viewer’s repository access and returns
 the canonical repository ID. Pass it as `expectedRepositoryId` to prevent selecting a replacement
-repository at the same address. If GitHub omits the viewer’s permission, `canCreate` is `undefined`.
+repository at the same address. For an active repository, `canCreate` is `true` when GitHub reports
+a repository role for the viewer, and `undefined` when the role is unavailable. GitHub determines
+whether the viewer may create a pull request between the chosen branches when it receives the write.
 
 | Action for `writePullRequest` | Required input and result                                                                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -947,7 +949,8 @@ time when available. An enqueue receipt carries the snapshot verified at dispatc
 status. Consumers should refresh the item and related views for its latest
 queue position or merge state. `outcome-unknown` means the write may have reached GitHub. Reconcile it
 through a fresh read before retrying. `blocked` means the action was refused by the pull request state or
-branch policy. Inaccessible private resources can appear as `not-found`.
+branch policy. Inaccessible private resources can appear as `not-found`. After GitHub rejects a credential
+with HTTP 401, the next operation on that connection can recover it. Core never replays the write.
 
 ## 5. Paging
 
