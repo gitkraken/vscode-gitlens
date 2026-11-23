@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes merging a GitHub pull request from _Launchpad_ or the _Commit Graph_ failing on repositories that don't allow merge commits &mdash; a merge without a chosen method now uses the repository's preselected method, and a merge into a merge-queue branch lets the queue's method apply ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
 - Fixes squash merges of GitLab pull requests, and squash and rebase merges of Bitbucket Cloud and Azure DevOps pull requests, ignoring the chosen method and using the repository's default instead ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
 - Fixes the confirmation toggle in _Launchpad_ adding an invalid `launchpad:command` value to `gitlens.gitCommands.skipConfirmations` that made selecting a pull request do nothing &mdash; _Launchpad_, _Start Work_ and _Start PR Review_ no longer offer the toggle, _Stash Apply_ and _Stash Pop_ now honor their documented values, and the setting now accepts the add remote, rename stash and open worktree values ([#5645](https://github.com/gitkraken/vscode-gitlens/issues/5645))
 - Fixes the _Commit Graph_ showing a blank view and editor with a Git version older than 2.17, which lacks worktree support ([#4363](https://github.com/gitkraken/vscode-gitlens/issues/4363))

@@ -32,6 +32,7 @@ import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -1397,6 +1398,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const headRefSha = pr.refs?.head?.sha;
 		if (id == null || headRefSha == null) return false;
 
+		const mergeMethod = await this.resolveMergeMethod(pr, options?.mergeMethod, cancellation);
 		const api = await this.authenticationService.apis.github;
 
 		// GitHub rejects stacked pull requests on the legacy merge mutation, so they take the
@@ -1411,7 +1413,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					Number(pr.id),
 					headRefSha,
 					{
-						mergeMethod: options?.mergeMethod,
+						mergeMethod: mergeMethod,
 						baseUrl: this.apiBaseUrlFor(session),
 					},
 					cancellation,
@@ -1426,12 +1428,47 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				id,
 				headRefSha,
 				{
-					mergeMethod: options?.mergeMethod,
+					mergeMethod: mergeMethod,
 					baseUrl: this.apiBaseUrlFor(session),
 				},
 				cancellation,
 			) ?? false
 		);
+	}
+
+	private async resolveMergeMethod(
+		pr: PullRequest,
+		mergeMethod: PullRequestMergeMethod | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<PullRequestMergeMethod | undefined> {
+		const base = pr.stack?.baseRef ?? pr.refs?.base.branch;
+		// KEEP: a stacked pull request's `mergeQueueRequired` describes the layer below, not the trunk it lands on
+		const queueRequired = pr.stack != null ? undefined : pr.mergeQueueRequired;
+
+		let queued = queueRequired === true;
+		if (!queued && (mergeMethod == null || queueRequired == null) && base != null) {
+			const methods = await this.getMergeMethods(
+				{
+					key: `${this.domain}/${pr.repository.owner}/${pr.repository.repo}`,
+					owner: pr.repository.owner,
+					name: pr.repository.repo,
+				},
+				base,
+				{ cancellation: cancellation },
+			);
+			queued = methods?.queue != null;
+			if (!queued) {
+				mergeMethod ??= methods?.default;
+			}
+		}
+
+		// KEEP: GitHub refuses any merge method on a merge through its merge queue, whose own method lands
+		if (queued && mergeMethod != null) {
+			Logger.debug(`${this.name}: dropped merge method '${mergeMethod}' for a merge into a merge-queue base`);
+			return undefined;
+		}
+
+		return mergeMethod;
 	}
 
 	/**

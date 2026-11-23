@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - `IssueCountScope.repos` and `PullRequestCountScope.repos` are typed with the package's own `ProviderRepositoriesInput` instead of a provider-apis repository input (plus/integrations)
 - `getBranchMergedStatus` caches its check against a remote target and its check against that target's local branch separately, so when only one of them moves (a fetch moving the remote target) the other isn't rerun, saving a full merged check of git runs. It also resolves the local branch only when the branch isn't merged into the remote target (git)
 
+### Fixed
+
+- On GitHub.com, `mergePullRequest` without a `mergeMethod` sends the base branch's preselected method (`getMergeMethods(...).default`) instead of letting GitHub default to a merge commit, which repositories that refuse merge commits rejected. On a base that merges through a merge queue it sends no method, dropping an explicit one, because GitHub refuses any there and the queue's method lands; a stacked merge resolves against the stack's trunk. When the methods are unknown it sends none, as before ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126)) (plus/integrations)
+
 ## [0.37.1] - 2026-11-10
 
 ### Fixed

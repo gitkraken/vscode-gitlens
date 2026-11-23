@@ -392,7 +392,16 @@ answers today; GitHub Enterprise and every other host answer `undefined`. On Git
 point, 25 nodes) per repository and branch. It reads the repository's allowed methods and narrows them by the
 branch's active rulesets and required linear history, which apply to every viewer, not only to admins. It adds nothing
 to pull request reads. It goes through the optional `IntegrationManagerCacheProvider.getRepositoryMergeMethods`
-cache, so without one every call is a request.
+cache, so without one every call is a request. Core keys it by `resource.key`, and the merge path below builds
+`<domain>/<owner>/<repo>` (for example `github.com/gitkraken/vscode-gitlens`), so a cache whose callers use the same
+key shares one entry with merges.
+
+`mergePullRequest` on GitHub.com picks the method itself when `mergeMethod` is omitted: the base branch's `default`
+from `getMergeMethods` (a stacked pull request reads its stack's trunk). On a base that merges through a merge queue
+(`mergeQueueRequired`, or a `queue` method on the branch) it sends no method, dropping one the caller passed, because
+GitHub refuses any there and the queue's own method lands. When the methods are unknown it sends none, as before.
+Omitting the method costs that one read when it isn't cached; passing one costs a read only when the pull request's
+`mergeQueueRequired` wasn't read.
 
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
