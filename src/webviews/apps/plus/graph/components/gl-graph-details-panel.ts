@@ -3603,6 +3603,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.launchpadSummary=${this._launchpadState?.summary.get()}
 										.launchpadSummaryLoading=${this._launchpadState?.loading.get() ?? false}
 										.mergeTargetStatus=${this._state.wipMergeTarget.get()}
+										.mergeTargetStatusLoading=${this._state.wipMergeTargetLoading.get()}
 										show-launchpad
 										@switch-branch=${this.handleSwitchBranch}
 										@create-branch=${this.handleCreateBranch}
