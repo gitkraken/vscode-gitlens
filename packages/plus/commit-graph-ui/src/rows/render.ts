@@ -2,6 +2,7 @@ import { buildAriaLabel } from '@gitkraken/commit-graph/a11y.js';
 import type { GraphCommit, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle } from '@gitkraken/commit-graph/geometry.js';
 import { rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/geometry.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/lanes/colors.js';
 import type { LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
 import {
@@ -29,7 +30,6 @@ import {
 } from '@gitkraken/commit-graph/stats.js';
 import { relativeTime } from '@gitkraken/commit-graph/time.js';
 import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
-import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import type { StyleInfo } from '@gitlens/components/cspStyleMap.directive.js';
@@ -37,7 +37,8 @@ import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { splitMessage } from '@gitlens/utils/string.js';
-import type { GraphRowAction } from '../contracts/contributions.js';
+import type { GraphBuiltInRowAction, GraphRowAction } from '../contracts/contributions.js';
+import type { WipRowInfo } from '../contracts/rows.js';
 import type { CommitGraphPausedOperationStatus } from '../contracts/state.js';
 import type { GutterCache } from '../gutter/cache.js';
 import type { NodeStyle, WipNodeState } from '../gutter/render.js';
@@ -54,8 +55,7 @@ import {
 	scopeAnchorRoles,
 	secondaryWipRoles,
 } from './markers.js';
-import type { WipRowInfo } from './wip.js';
-import { wipRowFullLabel, wipZoneSuppressFromIndex } from './wip.js';
+import { wipRowFullLabel, wipRowState, wipZoneSuppressFromIndex } from './wip.js';
 import '@gitlens/components/components/codeIcon.js';
 
 /**
@@ -70,6 +70,7 @@ import '@gitlens/components/components/codeIcon.js';
  */
 
 export interface RowRenderContext {
+	rowIdPrefix: string;
 	/** The row's commit payload (message/author/date/context). Engine rows are topology-only —
 	 *  the host resolves the aligned commit and passes it here so payload swaps never touch rows. */
 	commit: GraphCommit;
@@ -160,17 +161,17 @@ export interface RowRenderContext {
 	/** Workdir-only: the host's action-strip descriptors for this row, in render order. Built once per
 	 *  WIP-state change by the product, never per render. */
 	wipActions?: readonly GraphRowAction[];
+	supportedRowActions?: readonly GraphBuiltInRowAction[];
 	/** Workdir-only: the row's branch/worktree identity (see `wip.utils.ts`'s `WipRowInfo`) — feeds the
 	 *  inline branch pill (`wipBranchPill`) and the row's aria-label. */
 	wipIdentity?: WipRowInfo;
-	/** Workdir-only: the inline branch pill rendered directly after the message text (built per row by
-	 *  `gl-commit-graph.ts`'s `buildWipRowBranchPill`). Undefined for a detached worktree (no branch to name). */
 	wipBranchPill?: TemplateResult;
 	/** Workdir-only: the row's visible message swapped to the short form under width pressure (the first
 	 *  rung of the degradation ladder, `gl-commit-graph.ts`'s `computeWipRowFit`) — undefined renders the
 	 *  localized {@link wipRowFullLabel}. Visual only: the canonical `commit.message` and the aria-label's
 	 *  explicit workdir-label override stay independent from this responsive choice. */
 	wipDisplayLabel?: string;
+	wipTitle?: string;
 	/** Workdir-only: caps the inline branch pill's NAME span once the label swap alone doesn't free enough
 	 *  width (the ladder's second rung) — undefined leaves the name unclamped. Applied as the
 	 *  `--gl-wip-pill-max` custom property on `.gl-graph__wip-branch-pill` (graph.scss). */
@@ -238,6 +239,7 @@ export interface RowRenderContext {
 	messageAdornments?: readonly TemplateResult[];
 	adornmentLabel?: string;
 	formatDate?: (date: number) => string;
+	showMessageBody?: boolean;
 	/** Resolved avatar image URL for this commit's author email, when available (undefined when the URL
 	 *  previously failed to load — the caller already treats a miss as "no avatar", so failure and
 	 *  "unknown" fall back to initials identically). */
@@ -534,19 +536,20 @@ function renderInlineMarkup(text: string): unknown {
 // `TemplateResult` is memoized by message — same pattern as `GutterCache`: handing back the SAME
 // instance on a hit lets Lit skip reconciling the subtree, not just skip the split + regex scan.
 const messageContentCache = new LruMap<string, TemplateResult>(2000);
-function renderMessageContent(message: string): TemplateResult {
-	let result = messageContentCache.get(message);
+function renderMessageContent(message: string, showBody: boolean): TemplateResult {
+	const key = showBody ? message : `\0${message}`;
+	let result = messageContentCache.get(key);
 	if (result != null) return result;
 
 	const { summary, body } = splitMessage(message);
-	const bodyText = body ? body.replace(/\s+/g, ' ').trim() : '';
+	const bodyText = showBody && body ? body.replace(/\s+/g, ' ').trim() : '';
 	result = html`<span class="gl-graph__message-subject">${renderInlineMarkup(summary)}</span>${
 			bodyText
 				? html`<span class="gl-graph__message-sep">•</span
 						><span class="gl-graph__message-body">${renderInlineMarkup(bodyText)}</span>`
 				: nothing
 		}`;
-	messageContentCache.set(message, result);
+	messageContentCache.set(key, result);
 	return result;
 }
 
@@ -558,6 +561,14 @@ function renderMessageContent(message: string): TemplateResult {
 // labels carry no markdown/body, so the subject-only span is the whole shape.
 function renderWipMessageContent(label: string): TemplateResult {
 	return html`<span class="gl-graph__message-subject">${label}</span>`;
+}
+
+function messageClass(ctx: RowRenderContext): string {
+	return ctx.wipTitle != null ? 'gl-graph__message gl-graph__message--wip-title' : 'gl-graph__message';
+}
+
+function wipMessageText(ctx: RowRenderContext): string {
+	return ctx.wipTitle ?? ctx.wipDisplayLabel ?? wipRowFullLabel();
 }
 
 // The inline branch pill's wrapper, carrying the degradation ladder's second rung as a CSS custom
@@ -574,7 +585,11 @@ function renderWipBranchPill(ctx: RowRenderContext): TemplateResult {
 // The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
 // omitted when zero. `formatPlural` thousands-separates ≥4-digit counts. Cached by the stable stats object
 // (both the memoized cell and the per-row aria path read it, the latter every render for every row).
-const changesAriaTextCache = new WeakMap<RowStats, string>();
+let changesAriaTextCache = new WeakMap<RowStats, string>();
+
+export function dropLocalizedRowCaches(): void {
+	changesAriaTextCache = new WeakMap();
+}
 function changesAriaText(stats: RowStats): string {
 	let text = changesAriaTextCache.get(stats);
 	if (text != null) return text;
@@ -839,11 +854,11 @@ function renderZoneContent(
 					ctx.messageAdornments?.length
 						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 						: nothing
-				}<span class="gl-graph__message"
+				}<span class=${messageClass(ctx)} data-tooltip=${ctx.wipTitle ?? nothing}
 					>${
 						row.kind === 'workdir'
-							? renderWipMessageContent(ctx.wipDisplayLabel ?? wipRowFullLabel)
-							: renderMessageContent(ctx.commit.message)
+							? renderWipMessageContent(wipMessageText(ctx))
+							: renderMessageContent(ctx.commit.message, ctx.showMessageBody !== false)
 					}</span
 				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}`;
 		case 'author':
@@ -890,11 +905,11 @@ function renderListBody(
 						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 						: nothing
 				}
-				<span class="gl-graph__message"
+				<span class=${messageClass(ctx)} data-tooltip=${ctx.wipTitle ?? nothing}
 					>${
 						isWorkdir
-							? renderWipMessageContent(ctx.wipDisplayLabel ?? wipRowFullLabel)
-							: renderMessageContent(ctx.commit.message)
+							? renderWipMessageContent(wipMessageText(ctx))
+							: renderMessageContent(ctx.commit.message, ctx.showMessageBody !== false)
 					}</span
 				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}
 			</div>
@@ -913,8 +928,8 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 // Copy for the read-only unpulled indicator, shared by its pointer tooltip and the row `aria-label` suffix
 // so the two surfaces can't drift. The indicator itself is `aria-hidden`, so the suffix IS its only
 // screen-reader presence.
-const unpulledTooltip = l10n.t('Not yet pulled from the upstream');
-const unpulledAriaText = l10n.t('not yet pulled');
+const unpulledTooltip = (): string => l10n.t('Not yet pulled from the upstream');
+const unpulledAriaText = (): string => l10n.t('not yet pulled');
 
 /** Whether a row's action strip has a PERSISTENT member (a host-supplied workdir action that says so, or
  *  an unpushed/unpulled commit) — i.e. it switches to per-button `--has-persistent` mode instead of the
@@ -933,6 +948,7 @@ export interface PersistentRowActionsInput {
 	wipActions?: readonly GraphRowAction[];
 	isUnpushed?: boolean;
 	isUnpulled?: boolean;
+	supportedRowActions?: readonly GraphBuiltInRowAction[];
 }
 
 export function hasPersistentRowActions({
@@ -940,6 +956,7 @@ export function hasPersistentRowActions({
 	wipActions,
 	isUnpushed,
 	isUnpulled,
+	supportedRowActions,
 }: PersistentRowActionsInput): boolean {
 	if (kind === 'workdir') {
 		if (wipActions == null) return false;
@@ -950,7 +967,15 @@ export function hasPersistentRowActions({
 		return false;
 	}
 	if (kind === 'stash') return false;
-	return isUnpushed === true || isUnpulled === true;
+	return (isUnpushed === true && supportsRowAction(supportedRowActions, 'push-to-commit')) || isUnpulled === true;
+}
+
+/** Whether the host serves a built-in row button; an undeclared list serves every one. */
+export function supportsRowAction(
+	supportedRowActions: readonly GraphBuiltInRowAction[] | undefined,
+	action: GraphBuiltInRowAction,
+): boolean {
+	return supportedRowActions == null || supportedRowActions.includes(action);
 }
 
 /** One host-supplied action button. `status` is either a code-icon name (rendered on the shared corner
@@ -991,37 +1016,49 @@ function renderWipRowAction(action: GraphRowAction): TemplateResult {
 //
 // The on-row tip indicator (HEAD / upstream / merge-target rows) is NOT a strip member — it renders as a
 // left-edge rail (`renderRowMarkerRail`) sibling of the anchor, so it never contends with these buttons.
-function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
+function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult | typeof nothing {
+	const supported = (action: GraphBuiltInRowAction): boolean => supportsRowAction(ctx.supportedRowActions, action);
 	let actions: TemplateResult;
+	let hasActions: boolean;
 	let hasPersistent = false;
 	switch (row.kind) {
 		case 'workdir': {
 			const wipActions = ctx.wipActions;
+			hasActions = (wipActions?.length ?? 0) > 0;
 			hasPersistent = hasPersistentRowActions({ kind: row.kind, wipActions: wipActions });
 
 			actions = html`${wipActions?.map(renderWipRowAction) ?? nothing}`;
 			break;
 		}
 		case 'stash':
-			actions = html`<button
-					class="gl-graph__row-action gl-graph__row-action--gated"
-					type="button"
-					tabindex="-1"
-					data-row-action="stash-apply"
-					data-tooltip=${l10n.t('Apply / Pop Stash...')}
-					aria-label=${l10n.t('Apply / Pop Stash...')}
-				>
-					<code-icon icon="git-stash-apply"></code-icon></button
-				><button
-					class="gl-graph__row-action gl-graph__row-action--gated"
-					type="button"
-					tabindex="-1"
-					data-row-action="stash-drop"
-					data-tooltip=${l10n.t('Drop Stash...')}
-					aria-label=${l10n.t('Drop Stash...')}
-				>
-					<code-icon icon="trash"></code-icon>
-				</button>`;
+			hasActions = supported('stash-apply') || supported('stash-drop');
+			actions = html`${
+				supported('stash-apply')
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							tabindex="-1"
+							data-row-action="stash-apply"
+							data-tooltip=${l10n.t('Apply / Pop Stash...')}
+							aria-label=${l10n.t('Apply / Pop Stash...')}
+						>
+							<code-icon icon="git-stash-apply"></code-icon>
+						</button>`
+					: nothing
+			}${
+				supported('stash-drop')
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							tabindex="-1"
+							data-row-action="stash-drop"
+							data-tooltip=${l10n.t('Drop Stash...')}
+							aria-label=${l10n.t('Drop Stash...')}
+						>
+							<code-icon icon="trash"></code-icon>
+						</button>`
+					: nothing
+			}`;
 			break;
 		default: {
 			// commit / merge: Undo Commit (leaf worktree tip only) + Open All Changes (Alt = with working
@@ -1037,75 +1074,86 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				kind: row.kind,
 				isUnpushed: isUnpushed,
 				isUnpulled: isUnpulled,
+				supportedRowActions: ctx.supportedRowActions,
 			});
+			const showUndo = undo != null && supported('undo-commit');
+			const showJump = ctx.hasJumpableWipRow === true && supported('jump-to-working-changes');
+			const showPush = isUnpushed && supported('push-to-commit');
+			hasActions = showUndo || supported('open-changes') || showJump || showPush || isUnpulled;
 			const undoLabel =
 				undo?.branchName != null ? l10n.t('Undo Commit on {0}', undo.branchName) : l10n.t('Undo Commit');
 
 			actions = html`${
-					undo != null
-						? html`<button
-								class="gl-graph__row-action gl-graph__row-action--gated"
-								type="button"
-								tabindex="-1"
-								data-row-action="undo-commit"
-								data-worktree-path=${undo.worktreePath ?? nothing}
-								data-tooltip=${undoLabel}
-								aria-label=${undoLabel}
-							>
-								<code-icon icon="discard"></code-icon>
-							</button>`
-						: nothing
-				}<button
-					class="gl-graph__row-action gl-graph__row-action--gated"
-					type="button"
-					tabindex="-1"
-					data-row-action="open-changes"
-					data-tooltip=${l10n.t('Open All Changes (Alt: with Working Tree)')}
-					aria-label=${l10n.t('Open All Changes')}
-				>
-					<code-icon icon="diff-multiple"></code-icon></button
-				>${
-					ctx.hasJumpableWipRow === true
-						? html`<button
-								class="gl-graph__row-action gl-graph__row-action--gated"
-								type="button"
-								tabindex="-1"
-								data-jump-nearest-wip="true"
-								data-tooltip=${l10n.t('Jump to Working Changes')}
-								aria-label=${l10n.t('Jump to Working Changes')}
-							>
-								<code-icon icon="download" flip="block"></code-icon>
-							</button>`
-						: nothing
-				}${
-					isUnpushed
-						? html`<button
-								class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
-								type="button"
-								tabindex="-1"
-								data-row-action="push-to-commit"
-								data-tooltip=${l10n.t('Push to Commit...')}
-								aria-label=${l10n.t('Push to Commit...')}
-							>
-								<code-icon icon="cloud-upload"></code-icon>
-							</button>`
-						: nothing
-				}${
-					// Read-only mirror of the push badge — a span, not a button: nothing to click, nothing to
-					// focus. It stays `aria-hidden` and the fact rides the ROW's aria-label instead (see
-					// `unpulledAriaSuffix` in `renderRow`), so it adds no tab stop to the roving-tabindex tree.
-					isUnpulled
-						? html`<span
-								class="gl-graph__row-action gl-graph__row-action--persistent unpulled-indicator"
-								data-tooltip=${unpulledTooltip}
-								aria-hidden="true"
-							>
-								<code-icon icon="cloud-download"></code-icon>
-							</span>`
-						: nothing
-				}`;
+				undo != null && showUndo
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							tabindex="-1"
+							data-row-action="undo-commit"
+							data-worktree-path=${undo.worktreePath ?? nothing}
+							data-tooltip=${undoLabel}
+							aria-label=${undoLabel}
+						>
+							<code-icon icon="discard"></code-icon>
+						</button>`
+					: nothing
+			}${
+				supported('open-changes')
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							tabindex="-1"
+							data-row-action="open-changes"
+							data-tooltip=${l10n.t('Open All Changes (Alt: with Working Tree)')}
+							aria-label=${l10n.t('Open All Changes')}
+						>
+							<code-icon icon="diff-multiple"></code-icon>
+						</button>`
+					: nothing
+			}${
+				showJump
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							tabindex="-1"
+							data-jump-nearest-wip="true"
+							data-tooltip=${l10n.t('Jump to Working Changes')}
+							aria-label=${l10n.t('Jump to Working Changes')}
+						>
+							<code-icon icon="download" flip="block"></code-icon>
+						</button>`
+					: nothing
+			}${
+				showPush
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
+							type="button"
+							tabindex="-1"
+							data-row-action="push-to-commit"
+							data-tooltip=${l10n.t('Push to Commit...')}
+							aria-label=${l10n.t('Push to Commit...')}
+						>
+							<code-icon icon="cloud-upload"></code-icon>
+						</button>`
+					: nothing
+			}${
+				// Read-only mirror of the push badge — a span, not a button: nothing to click, nothing to
+				// focus. It stays `aria-hidden` and the fact rides the ROW's aria-label instead (see
+				// `unpulledAriaSuffix` in `renderRow`), so it adds no tab stop to the roving-tabindex tree.
+				isUnpulled
+					? html`<span
+							class="gl-graph__row-action gl-graph__row-action--persistent unpulled-indicator"
+							data-tooltip=${unpulledTooltip()}
+							aria-hidden="true"
+						>
+							<code-icon icon="cloud-download"></code-icon>
+						</span>`
+					: nothing
+			}`;
 		}
 	}
+	if (!hasActions && ctx.supportedRowActions != null) return nothing;
+
 	// Gated buttons leave the tab order + a11y tree at rest (whole-strip `visibility:hidden` in default
 	// mode; per-button `display:none` in `--has-persistent` mode) and become reachable on hover/focus/
 	// selected; persistent buttons are always present + reachable. So no aria-hidden is needed.
@@ -1188,7 +1236,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// The unpulled indicator is `aria-hidden` (it's a pointer affordance, not a control), so its meaning
 	// rides the row label instead — same treatment the row-marker rail gets. The unpushed badge needs no
 	// equivalent: it's a real button carrying its own accessible name.
-	const unpulledAriaSuffix = !ctx.skeleton && ctx.isUnpulled === true ? `, ${unpulledAriaText}` : '';
+	const unpulledAriaSuffix = !ctx.skeleton && ctx.isUnpulled === true ? `, ${unpulledAriaText()}` : '';
 	// Same treatment for the paused-op/conflicts indicator (workdir rows only, own OR peer worktree): it's
 	// `aria-hidden` (it now renders inside the WIP stats pill, not a strip member), so its meaning rides
 	// the row label instead. Reuses `getPausedOperationIndicator` from `pausedOperation.ts`, shared
@@ -1547,7 +1595,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	const laneColor = colorForColumn(row.column);
 
 	return html`<div
-		id="graph-row-${row.sha}"
+		id="${ctx.rowIdPrefix}${row.sha}"
 		class=${rowClasses}
 		role="treeitem"
 		aria-level="1"
@@ -1558,13 +1606,16 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-label=${
 			ctx.skeleton
 				? isWorkdir
-					? wipRowFullLabel
+					? wipRowFullLabel()
 					: ctx.commit.message
-				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate, wipIdentityAria, isWorkdir ? wipRowFullLabel : undefined)}${changesAriaSuffix}${unpulledAriaSuffix}`
+				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate, wipIdentityAria, isWorkdir ? wipRowFullLabel() : undefined)}${changesAriaSuffix}${unpulledAriaSuffix}`
 		}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
 		data-focused=${ctx.isFocused || nothing}
+		data-wip-state=${
+			(isWorkdir ? wipRowState(ctx.wipState, ctx.wipPausedOpStatus, ctx.wipHasConflicts) : undefined) ?? nothing
+		}
 		data-units=${promoted ? units : nothing}
 		data-vscode-context=${ctx.skeleton ? nothing : (ctx.commit.contextData ?? nothing)}
 		style=${cspStyleMap({

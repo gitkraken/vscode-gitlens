@@ -4,11 +4,6 @@
 @use '../../shared/styles/utils';
 @use '../../shared/base';
 
-// Commit-graph engine (@gitkraken/commit-graph) — theme token fallbacks consumed by the
-// `gl-graph__*` rules below. VS Code → HSL token conversion is wired at runtime in `graph.ts`
-// (onThemeUpdated); this stylesheet provides the defaults before the bridge runs.
-@include meta.load-css('../../../../../node_modules/@gitkraken/commit-graph/src/theme.css');
-
 // The commit graph (gl-commit-graph) renders into the light DOM, so these are plain descendant rules.
 @include meta.load-css('../../../../../packages/plus/commit-graph-ui/src/graph');
 @include meta.load-css('../../../../../packages/plus/commit-graph-ui/src/extensions/stickyTimeline');
@@ -19,12 +14,27 @@
 // `documentElement.style` on every theme change.
 @include meta.load-css('../../../../../packages/plus/commit-graph-ui/src/themes/vscode.css');
 
-// GitLens-only row-action chrome the kernel deliberately doesn't own: the agent indicator's phase color
-// and its `<gl-agent-mark>` status badge. The surface renders into light DOM, so these plain descendant
-// rules reach its buttons; every selector here is compound and outranks the kernel's
-// `.gl-graph__row-action` / `.gl-graph__row-action-status` rules on specificity, so source order relative
-// to graph.scss (the package's own stylesheet) doesn't matter.
 gl-commit-graph {
+	.gl-graph__message,
+	.gl-graph__avatar--initials,
+	.gl-graph__placement-toggle,
+	.gl-graph__filter-toggle,
+	.gl-graph__ref-find-toggle,
+	.gl-graph__header-label--changes,
+	.gl-graph__changes-optin-hide,
+	.gl-graph__changes-mode-picker-button,
+	.gl-graph__changes-mode-glyph {
+		--gl-graph-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+	}
+
+	.gl-graph__header,
+	.gl-graph__changes-mode-glyph-bipolar-axis,
+	.gl-graph__placement-toggle,
+	.gl-graph__filter-toggle,
+	.gl-graph__ref-find-toggle {
+		--gl-graph-border: var(--gl-color-border-overlay);
+	}
+
 	// Agent indicator phase color. Tokens come from theme.scss, keeping this aligned with the tree
 	// decoration and status pill.
 	.gl-graph__row-action.agent-indicator--needs-input {

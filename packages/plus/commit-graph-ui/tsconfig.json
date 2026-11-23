@@ -27,5 +27,5 @@
 	},
 	// tsdown.config.ts reads node builtins, so it has to sit inside a project that declares the `node`
 	// types — otherwise the type-aware lint puts it in an inferred project and cannot resolve them.
-	"include": ["src/**/*", "tsdown.config.ts"]
+	"include": ["src/**/*", "scripts/**/*", "tsdown.config.ts"]
 }

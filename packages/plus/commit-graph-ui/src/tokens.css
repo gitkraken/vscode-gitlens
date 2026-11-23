@@ -1,4 +1,4 @@
-:root {
+gl-commit-graph {
 	--gl-font-sm: 1.1rem;
 	--gl-font-md: 1.2rem;
 	--gl-border-width: 1px;
@@ -10,26 +10,26 @@
 	--gl-ease-out: cubic-bezier(0, 0, 0.2, 1);
 	--gl-z-raised: 1;
 	--gl-z-popover: 1000;
-	--color-background: hsl(var(--background));
-	--color-foreground: hsl(var(--foreground));
-	--color-ui-foreground: hsl(var(--foreground));
-	--color-foreground--25: hsl(var(--foreground) / 25%);
-	--color-foreground--50: hsl(var(--foreground) / 50%);
-	--color-description-foreground: hsl(var(--muted-foreground));
-	--color-link-foreground: hsl(var(--brand));
-	--color-code-background: hsl(var(--secondary));
+	--color-background: var(--gl-graph-background);
+	--color-foreground: var(--gl-graph-foreground);
+	--color-ui-foreground: var(--gl-graph-foreground);
+	--color-foreground--25: color-mix(in oklab, var(--gl-graph-foreground) 25%, transparent);
+	--color-foreground--50: color-mix(in oklab, var(--gl-graph-foreground) 50%, transparent);
+	--color-description-foreground: var(--gl-graph-muted-foreground);
+	--color-link-foreground: var(--gl-graph-link);
+	--color-code-background: var(--gl-graph-code-background);
 	/* Deliberately absent: the elevation contract collapses `border` when this is unset, and hosts
 	   must leave it unset outside high-contrast themes — a set value (even `transparent`) paints a
 	   real 1px border and grows every popover/tooltip/sheet by 2px. */
-	--color-elevated-background: hsl(var(--secondary));
-	--color-focus-border: hsl(var(--brand));
-	--color-menu-background: hsl(var(--secondary));
-	--color-sash-hover-border: hsl(var(--brand));
-	--color-scrollbar-background: hsl(var(--foreground) / 18%);
-	--color-scrollbar-hover-background: hsl(var(--foreground) / 28%);
-	--color-scrollbar-active-background: hsl(var(--foreground) / 38%);
-	--color-view-header-background: hsl(var(--secondary));
-	--color-view-header-border: hsl(var(--border));
+	--color-elevated-background: var(--gl-graph-elevated-background);
+	--color-focus-border: var(--gl-graph-focus);
+	--color-menu-background: var(--gl-graph-elevated-background);
+	--color-sash-hover-border: var(--gl-graph-sash-hover-border);
+	--color-scrollbar-background: var(--gl-graph-scrollbar-background);
+	--color-scrollbar-hover-background: var(--gl-graph-scrollbar-hover-background);
+	--color-scrollbar-active-background: var(--gl-graph-scrollbar-active-background);
+	--color-view-header-background: var(--gl-graph-elevated-background);
+	--color-view-header-border: var(--gl-graph-border);
 	--editor-font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 	--font-size: 12px;
 	--color-graph-scroll-marker-head: #2ea043;
@@ -47,8 +47,8 @@
 	--color-graph-contrast-border: #58a6ff;
 	--color-graph-stats-added: #3fb950;
 	--color-graph-stats-deleted: #f85149;
-	--color-graph-stats-track: hsl(var(--foreground) / 18%);
-	--color-graph-text-disabled: hsl(var(--foreground) / 50%);
+	--color-graph-stats-track: color-mix(in oklab, var(--gl-graph-foreground) 18%, transparent);
+	--color-graph-text-disabled: color-mix(in oklab, var(--gl-graph-foreground) 50%, transparent);
 	--gl-row-marker-head: var(--color-graph-scroll-marker-head);
 	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
 	--gl-row-marker-target: var(--color-graph-scroll-marker-merge-target);
@@ -68,41 +68,45 @@
 
 gl-commit-graph {
 	font-family: var(--gl-graph-font-family, system-ui, sans-serif);
-	color: var(--gl-graph-foreground, hsl(var(--foreground)));
-	background: var(--gl-graph-background, hsl(var(--background)));
-	--gl-graph-foreground: hsl(var(--foreground));
-	--gl-graph-background: hsl(var(--background));
+	color: var(--gl-graph-foreground);
+	background: var(--gl-graph-background);
+	--gl-graph-foreground: light-dark(hsl(240 10% 10%), hsl(0 0% 95%));
+	--gl-graph-background: light-dark(hsl(0 0% 100%), hsl(240 6% 10%));
+	--gl-graph-muted-foreground: light-dark(hsl(240 5% 40%), hsl(240 5% 65%));
+	--gl-graph-border: light-dark(hsl(240 6% 85%), hsl(240 5% 26%));
+	--gl-graph-elevated-background: light-dark(hsl(240 5% 94%), hsl(240 4% 16%));
+	--gl-graph-focus: light-dark(hsl(217 91% 50%), hsl(217 91% 60%));
+	--gl-graph-accent: var(--gl-graph-focus);
+}
+
+gl-commit-graph {
 	--gl-graph-font-family: system-ui, sans-serif;
-	--gl-graph-muted-foreground: hsl(var(--muted-foreground));
-	--gl-graph-focus: hsl(var(--brand));
 	--gl-graph-icon-foreground: var(--gl-graph-foreground);
-	--gl-graph-selection: hsl(var(--brand) / 24%);
+	--gl-graph-selection: color-mix(in oklab, var(--gl-graph-accent) 24%, transparent);
 	--gl-graph-selection-foreground: var(--gl-graph-foreground);
-	--gl-graph-selection-inactive: hsl(var(--brand) / 14%);
+	--gl-graph-selection-inactive: color-mix(in oklab, var(--gl-graph-accent) 14%, transparent);
 	--gl-graph-selection-inactive-foreground: var(--gl-graph-foreground);
-	--gl-graph-hover: hsl(var(--foreground) / 8%);
+	--gl-graph-hover: color-mix(in oklab, var(--gl-graph-foreground) 8%, transparent);
 	--gl-graph-focus-outline: var(--gl-graph-focus);
-	--gl-graph-inactive-focus-outline: hsl(var(--brand) / 65%);
-	--gl-graph-elevated-background: hsl(var(--secondary));
-	--gl-graph-elevated-border: hsl(var(--border));
-	--gl-graph-border: hsl(var(--border));
+	--gl-graph-inactive-focus-outline: color-mix(in oklab, var(--gl-graph-accent) 65%, transparent);
+	--gl-graph-elevated-border: var(--gl-graph-border);
 	--gl-graph-shadow: rgb(0 0 0 / 35%);
 	--gl-graph-toolbar-hover: var(--gl-graph-hover);
 	--gl-graph-code-background: var(--gl-graph-elevated-background);
-	--gl-graph-link: hsl(var(--brand));
-	--gl-graph-link-active: hsl(var(--brand) / 85%);
-	--gl-graph-button-background: hsl(var(--brand));
+	--gl-graph-link: var(--gl-graph-accent);
+	--gl-graph-link-active: color-mix(in oklab, var(--gl-graph-accent) 85%, transparent);
+	--gl-graph-button-background: var(--gl-graph-accent);
 	--gl-graph-button-foreground: white;
-	--gl-graph-button-hover: hsl(var(--brand) / 85%);
-	--gl-graph-scrollbar-background: hsl(var(--foreground) / 18%);
-	--gl-graph-scrollbar-hover-background: hsl(var(--foreground) / 28%);
-	--gl-graph-scrollbar-active-background: hsl(var(--foreground) / 38%);
+	--gl-graph-button-hover: color-mix(in oklab, var(--gl-graph-accent) 85%, transparent);
+	--gl-graph-scrollbar-background: color-mix(in oklab, var(--gl-graph-foreground) 18%, transparent);
+	--gl-graph-scrollbar-hover-background: color-mix(in oklab, var(--gl-graph-foreground) 28%, transparent);
+	--gl-graph-scrollbar-active-background: color-mix(in oklab, var(--gl-graph-foreground) 38%, transparent);
 	--gl-graph-sash-hover-border: var(--gl-graph-focus);
 	--gl-graph-purple: #a371f7;
 	--gl-graph-added-foreground: #3fb950;
 	--gl-graph-deleted-foreground: #f85149;
-	--gl-graph-search-match-background: hsl(var(--brand) / 55%);
-	--gl-graph-range-highlight-background: hsl(var(--brand) / 20%);
+	--gl-graph-search-match-background: color-mix(in oklab, var(--gl-graph-accent) 55%, transparent);
+	--gl-graph-range-highlight-background: color-mix(in oklab, var(--gl-graph-accent) 20%, transparent);
 	--gl-graph-range-highlight-border: transparent;
 	--gl-graph-pr-open-color: #3fb950;
 	--gl-graph-pr-merged-color: #a371f7;

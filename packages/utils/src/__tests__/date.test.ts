@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { formatDate, fromNow, setDefaultDateLocales } from '../date.js';
+import { formatDate, fromNow, msUntilFromNowChanges, setDefaultDateLocales } from '../date.js';
 
 suite('Date Test Suite', () => {
 	suiteSetup(() => {
@@ -32,6 +32,19 @@ suite('Date Test Suite', () => {
 			// Long form is locale/ICU-dependent, so just assert it produces output without throwing
 			assert.notStrictEqual(fromNow(now - 5000, false, now), '');
 		});
+	});
+
+	test('msUntilFromNowChanges is the time until fromNow reads differently', () => {
+		const now = Date.UTC(2026, 0, 1);
+		const minute = 60 * 1000;
+		const day = 24 * 60 * minute;
+		for (const elapsed of [30 * 1000, 59 * minute + 30 * 1000, 3 * 60 * minute, 29 * day, 400 * day, 800 * day]) {
+			const date = now - elapsed;
+			const until = msUntilFromNowChanges(date, now)!;
+			assert.strictEqual(fromNow(date, true, now + until - 1), fromNow(date, true, now), `${elapsed}`);
+			assert.notStrictEqual(fromNow(date, true, now + until), fromNow(date, true, now), `${elapsed}`);
+		}
+		assert.strictEqual(msUntilFromNowChanges(now + minute, now), undefined);
 	});
 
 	suite('formatDate', () => {

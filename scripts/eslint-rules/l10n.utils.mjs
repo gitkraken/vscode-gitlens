@@ -1,5 +1,7 @@
 // @ts-check
 
+import { isGraphL10nShim } from '../l10nShim.mjs';
+
 export function createTranslatorTracker() {
 	const namespaces = new Set();
 	const vscodeNamespaces = new Set();
@@ -12,7 +14,10 @@ export function createTranslatorTracker() {
 	}
 
 	function trackImport(node) {
-		const source = node.source.value;
+		let source = node.source.value;
+		if (isGraphL10nShim(source)) {
+			source = '@vscode/l10n';
+		}
 		if (source !== 'vscode' && source !== '@vscode/l10n') return;
 
 		for (const specifier of node.specifiers) {

@@ -1,4 +1,4 @@
-import type { WipRowInfo } from '@gitkraken/commit-graph-ui/rows/wip.js';
+import type { WipRowInfo } from '@gitkraken/commit-graph-ui/contracts/rows.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility, GraphOverviewBarVisibility } from '../../../../../config.js';

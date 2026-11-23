@@ -98,13 +98,8 @@ export const LANE_PALETTE: readonly string[] = buildLanePalette(lanePalettePrese
 // built-in OKLCH set.
 let activePalette: readonly string[] = LANE_PALETTE;
 
-/**
- * Swap the active lane palette; `undefined` resets to the built-in `LANE_PALETTE` default. Returns
- * whether the active palette actually changed (element-wise compare) so a caller can skip a repaint
- * when the resolved colors are identical to what's already active.
- */
 export function setLanePalette(colors: readonly string[] | undefined): boolean {
-	const next = colors ?? LANE_PALETTE;
+	const next = colors != null && colors.length > 0 ? colors : LANE_PALETTE;
 	if (next.length === activePalette.length && next.every((c, i) => c === activePalette[i])) return false;
 
 	activePalette = next;

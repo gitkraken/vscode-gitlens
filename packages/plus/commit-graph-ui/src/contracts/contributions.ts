@@ -1,4 +1,50 @@
 import type { TemplateResult } from 'lit';
+import type { CommitGraphSourceRow } from './rows.js';
+
+export interface GraphContextMenuRef {
+	readonly id?: string;
+	readonly name: string;
+	/** Unique per pill; a local branch and the remote it tracks share `name` but never `key`. */
+	readonly key: string;
+	readonly kind: string;
+	readonly remote: string | null;
+	readonly vscodeContext?: string;
+	readonly current: boolean;
+}
+
+/** Cancelable: cancel it to open the host's own menu at `clientX`/`clientY` instead of the native one. */
+export interface GraphContextMenuDetail {
+	readonly sha: string;
+	readonly type: CommitGraphSourceRow['kind'];
+	readonly zone: 'ref' | 'row';
+	readonly clientX: number;
+	readonly clientY: number;
+	/** Present only for the `ref` zone. */
+	readonly ref?: GraphContextMenuRef;
+}
+
+/** The built-in row buttons a host can serve; one left out of `supportedRowActions` isn't drawn. */
+export type GraphBuiltInRowAction =
+	| 'stash-apply'
+	| 'stash-drop'
+	| 'undo-commit'
+	| 'open-changes'
+	| 'jump-to-working-changes'
+	| 'push-to-commit';
+
+/** Cancelable: cancel it to open the host's own menu at `anchor` instead of the native one. */
+export interface GraphHeaderMenuDetail {
+	readonly anchor: DOMRect;
+}
+
+/** Cancelable: cancel it when the host owns the clipboard write. The contexts are present only for rows the host
+ *  supplied them for. */
+export interface GraphCopyRequestDetail {
+	readonly sha: string;
+	readonly selectionShas?: readonly string[];
+	readonly vscodeContext?: string;
+	readonly vscodeSelectionContexts?: readonly string[];
+}
 
 /** A product-supplied button on a working-changes row's action strip. Hosts build these ONCE per WIP-state
  *  change (never per render); the kernel renders them verbatim and routes clicks via `data-wip-open`. */

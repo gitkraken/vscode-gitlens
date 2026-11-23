@@ -89,4 +89,63 @@ suite('KeymapDispatcher Test Suite', () => {
 			assert.strictEqual(rows[0].ids, undefined);
 		});
 	});
+
+	suite('root', () => {
+		function keydown(key: string, path: readonly object[]): KeyboardEvent & { consumed: boolean } {
+			const event = {
+				key: key,
+				defaultPrevented: false,
+				consumed: false,
+				composedPath: () => [...path],
+				preventDefault: () => {
+					event.consumed = true;
+				},
+				stopPropagation: () => {},
+			};
+			return event as unknown as KeyboardEvent & { consumed: boolean };
+		}
+
+		function dispatch(dispatcher: KeymapDispatcher<TestScope>, event: KeyboardEvent): void {
+			(dispatcher as unknown as { _onKeydown(e: KeyboardEvent): void })._onKeydown(event);
+		}
+
+		test('a rooted dispatcher leaves an Escape from outside its root alone, overlays included', () => {
+			const marker = {};
+			const root = marker as Element;
+			const dispatcher = new KeymapDispatcher<TestScope>({ isMac: false, root: root });
+			let closes = 0;
+			dispatcher.pushOverlay({
+				id: 'finder',
+				onClose: () => {
+					closes++;
+					return true;
+				},
+			});
+
+			const outside = keydown('Escape', [{}]);
+			dispatch(dispatcher, outside);
+			assert.strictEqual(closes, 0);
+			assert.strictEqual(outside.consumed, false);
+
+			const inside = keydown('Escape', [{}, root]);
+			dispatch(dispatcher, inside);
+			assert.strictEqual(closes, 1);
+			assert.strictEqual(inside.consumed, true);
+		});
+
+		test('an unrooted dispatcher answers an Escape from anywhere', () => {
+			const dispatcher = new KeymapDispatcher<TestScope>({ isMac: false });
+			let closes = 0;
+			dispatcher.pushOverlay({
+				id: 'finder',
+				onClose: () => {
+					closes++;
+					return true;
+				},
+			});
+
+			dispatch(dispatcher, keydown('Escape', [{}]));
+			assert.strictEqual(closes, 1);
+		});
+	});
 });

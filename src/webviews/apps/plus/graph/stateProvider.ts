@@ -1,8 +1,8 @@
 import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import type { ChannelGap, ChannelMeta, SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
-import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
 import { createWipRowId, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
@@ -249,17 +249,6 @@ function rowMarkerTargetFromAnchor(anchor: ResolvedScopeAnchor | undefined): App
 		: undefined;
 }
 
-/** How many of a search's results the ROW WALK has nothing left to fetch for — the paging brake's
- *  question, not the results bar's. Counts against the HOST rows, so WIP results (synthetic rows the
- *  walk never emits) are exempted: a page request can't fetch one by id.
- *
- *  This deliberately over-counts what's on screen. A peer worktree's WIP row only renders once its
- *  anchor commit pages in, so the exemption calls it loaded while it's still invisible — which is what
- *  `filterResultsExhausted` wants, since releasing the brake there would walk all of history hunting
- *  for anchors. Use {@link countRenderedSearchResults} for anything the user reads.
- *
- *  Takes the loaded shas as a set rather than the rows, so the set survives result-only changes (a
- *  progressive search re-counts against an unchanged graph many times over). */
 export function countLoadedSearchResults(
 	results: GraphSearchResults | GraphSearchResultsError | undefined,
 	loadedShas: ReadonlySet<string>,
@@ -269,27 +258,6 @@ export function countLoadedSearchResults(
 	let count = 0;
 	for (const id of Object.keys(results.ids)) {
 		if (isWipRowId(id) || loadedShas.has(id)) {
-			count++;
-		}
-	}
-
-	return count;
-}
-
-/** How many of a search's results are actually RENDERED as rows — the number the results bar shows.
- *  Counts against the DECORATED rows (`getDecoratedRows`), which is by construction the array the graph
- *  renders, so it needs no WIP exemption: a WIP row that survived anchoring and the visibility filter is
- *  in that set, and one that didn't isn't. Takes anything sha-keyed so callers can pass the memoized
- *  decorated-rows index instead of building a second Set. */
-export function countRenderedSearchResults(
-	results: GraphSearchResults | GraphSearchResultsError | undefined,
-	renderedShas: ReadonlySet<string> | ReadonlyMap<string, unknown>,
-): number {
-	if (results == null || isGraphSearchResultsError(results) || results.ids == null) return 0;
-
-	let count = 0;
-	for (const id of Object.keys(results.ids)) {
-		if (renderedShas.has(id)) {
 			count++;
 		}
 	}

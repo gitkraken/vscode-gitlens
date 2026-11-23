@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getL10nJson, getL10nPseudoLocalized } from '@vscode/l10n-dev';
+import { isGraphL10nShim } from './l10nShim.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -240,11 +241,19 @@ async function sourceFiles(directory) {
 	return files;
 }
 
-export async function extractCatalog() {
-	const files = (await Promise.all(['src', 'packages'].map(path => sourceFiles(join(root, path))))).flat().sort();
+const importSpecifier = /(\bfrom\s+)(['"])([^'"]+)\2/g;
+
+function asVscodeL10nImports(contents) {
+	return contents.replace(importSpecifier, (match, from, quote, source) =>
+		isGraphL10nShim(source) ? `${from}${quote}@vscode/l10n${quote}` : match,
+	);
+}
+
+export async function extractCatalog(directories = ['src', 'packages']) {
+	const files = (await Promise.all(directories.map(path => sourceFiles(join(root, path))))).flat().sort();
 	const sources = await Promise.all(
 		files.map(async path => ({
-			contents: await readFile(path, 'utf8'),
+			contents: asVscodeL10nImports(await readFile(path, 'utf8')),
 			extension: extname(path).replace(/\.[cm]/, '.'),
 		})),
 	);

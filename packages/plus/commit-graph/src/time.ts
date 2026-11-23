@@ -1,6 +1,6 @@
 /** Relative-time formatting for commit dates, shared by every renderer. */
 
-import * as l10n from '@vscode/l10n';
+import * as l10n from './l10n.js';
 
 // Date formatting
 

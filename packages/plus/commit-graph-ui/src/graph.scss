@@ -125,7 +125,7 @@ gl-commit-graph {
 		align-items: center;
 		justify-content: center;
 		font-size: 1.3rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		pointer-events: none;
 	}
 
@@ -405,10 +405,10 @@ gl-commit-graph {
 		padding-inline-end: var(--gl-graph-scrollbar-width, 0);
 		font-size: 1.1rem;
 		font-weight: 500;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		user-select: none;
-		background: hsl(var(--background));
-		border-bottom: 1px solid hsl(var(--border));
+		background: var(--gl-graph-background);
+		border-bottom: 1px solid var(--gl-graph-border);
 		transition: box-shadow 120ms ease-out;
 
 		&.is-scrolled {
@@ -434,8 +434,8 @@ gl-commit-graph {
 		// the lifted one with a tinted background + brand ring so it reads as "this column, here" — not a
 		// faint ghost.
 		&.is-dragging {
-			background: hsl(var(--brand) / 16%);
-			box-shadow: inset 0 0 0 1px hsl(var(--brand) / 60%);
+			background: color-mix(in oklab, var(--gl-graph-accent) 16%, transparent);
+			box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gl-graph-accent) 60%, transparent);
 		}
 
 		// Keyboard focus (focus-visible) on the column's draggable label rings the WHOLE cell, not just
@@ -452,7 +452,7 @@ gl-commit-graph {
 			z-index: 1;
 			pointer-events: none;
 			content: '';
-			box-shadow: inset 0 0 0 1px hsl(var(--brand));
+			box-shadow: inset 0 0 0 1px var(--gl-graph-accent);
 		}
 	}
 
@@ -597,12 +597,31 @@ gl-commit-graph {
 		}
 	}
 
-	// While scrolling, rows slide under a stationary cursor, so each row the pointer crosses would flash its
-	// hover-state transitions (dot grow, edge/raster brighten) as spurious fades trailing the scroll. Kill
-	// transitions on scrolling rows; genuine interaction on a settled row still animates.
+	// KEEP: every row descendant that declares a transition is listed here by class; a `*`, `:not()` or `:has()`
+	// compound re-styles every row descendant on each `is-scrolling` toggle.
 	.gl-graph__virtualizer.is-scrolling .gl-graph__row,
-	.gl-graph__virtualizer.is-scrolling .gl-graph__row *,
-	.gl-graph__virtualizer.is-scrolling .gl-graph__row-actions::before {
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__row-actions,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row-actions::before,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__row-marker-rail,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__row-marker-rail-pill,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__row-marker-rail-pill-inner,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__gutter-surface,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__gutter-node,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__node-lane,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__gutter-viewport--inline,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .commit-dot,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .commit-dot-glow,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .commit-dot-identity,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__node-content,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .graph-edge,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__ref-pill,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__ref-pill-upstream--jump,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__ref-pill-upstream-icon,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__ref-pill-jump-arrow,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__ref-popover-row,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .lane-fold-chevron,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row .gl-graph__wip-stats,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row [data-gl-graph-no-scroll-transition] {
 		transition: none !important;
 	}
 
@@ -656,7 +675,7 @@ gl-commit-graph {
 		}
 
 		&.is-anchor--focal {
-			--row-background: hsl(var(--brand) / 10%);
+			--row-background: color-mix(in oklab, var(--gl-graph-accent) 10%, transparent);
 		}
 
 		&:hover {
@@ -675,7 +694,7 @@ gl-commit-graph {
 		// highlighted against the dimmed rest — carries the emphasis on its own for the lighter transient
 		// dim (see `is-dimmed-soft`), not only as "the rows that didn't dim".
 		&.is-inRefChain {
-			--row-background: hsl(var(--brand) / 10%);
+			--row-background: color-mix(in oklab, var(--gl-graph-accent) 10%, transparent);
 		}
 
 		// Active-search match (normal mode): the VS Code range-highlight color — the row-scale "line
@@ -684,7 +703,7 @@ gl-commit-graph {
 		// theme defines neither (e.g. high contrast). Before is-selected so a selected match still reads
 		// as selected.
 		&.is-highlighted {
-			--row-background: var(--gl-graph-range-highlight-background, hsl(var(--brand) / 20%));
+			--row-background: var(--gl-graph-range-highlight-background);
 
 			box-shadow: inset 0 0 0 1px var(--gl-graph-range-highlight-border, transparent);
 		}
@@ -1025,14 +1044,14 @@ gl-commit-graph {
 		width: 1.8rem;
 		height: 1.8rem;
 		padding: 0;
-		color: var(--gl-graph-icon-foreground, hsl(var(--foreground)));
+		color: var(--gl-graph-icon-foreground);
 		cursor: pointer;
 		background: transparent;
 		border: none;
 		border-radius: 0.3rem;
 
 		&:hover {
-			background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 50%));
+			background: var(--gl-graph-toolbar-hover);
 		}
 
 		&:focus-visible {
@@ -1048,7 +1067,7 @@ gl-commit-graph {
 		right: -0.1rem;
 		bottom: -0.1rem;
 		font-size: 1.2rem;
-		color: var(--gl-graph-icon-foreground, hsl(var(--foreground)));
+		color: var(--gl-graph-icon-foreground);
 
 		// Opaque chip matching the effective row surface so it cleanly cuts the main icon's corner.
 		background: linear-gradient(var(--row-background), var(--row-background)), var(--color-background);
@@ -1445,11 +1464,8 @@ gl-commit-graph {
 		--gutter-node-dim: clamp(0.4, 1 - tan(atan2(var(--gutter-node-over), 2.4rem)) * 0.6, 1);
 	}
 
-	// The dim applies to the node CONTENT only — the background carve stays opaque so sliding lanes never
-	// show through a dimmed node (element-level opacity made the carve translucent too, bleeding the lane
-	// lines through pinned avatars); the content fades toward the carve (the background) instead. The
-	// own-lane segments (`gl-graph__node-lane`, pinned with the dot) dim in step.
-	.gl-graph__gutter-node .commit-dot-glow > :not(.gl-graph__node-carve),
+	// KEEP: dim the node's content, never the node: opacity on the node turns its carve translucent.
+	.gl-graph__gutter-node .commit-dot-glow > .gl-graph__node-content,
 	.gl-graph__gutter-node .gl-graph__node-lane {
 		opacity: var(--gutter-node-dim, 1);
 	}
@@ -1482,9 +1498,7 @@ gl-commit-graph {
 		transition: translate 180ms ease-out;
 	}
 
-	// The scroll var itself snaps (vars don't interpolate) — easing the dim keeps it in step with the
-	// sliding position instead of popping at reveal start. On the content (where the dim lives), not the svg.
-	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node .commit-dot-glow > :not(.gl-graph__node-carve),
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node .commit-dot-glow > .gl-graph__node-content,
 	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node .gl-graph__node-lane {
 		transition: opacity 180ms ease-out;
 	}
@@ -1719,7 +1733,7 @@ gl-commit-graph {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: 1.2rem;
-		color: hsl(var(--foreground));
+		color: var(--gl-graph-foreground);
 		white-space: nowrap;
 	}
 
@@ -1733,6 +1747,10 @@ gl-commit-graph {
 		min-width: min-content;
 		font-style: italic;
 		font-weight: 600;
+
+		&.gl-graph__message--wip-title {
+			min-width: 0;
+		}
 	}
 
 	// Inline branch identity carried by every WIP row. It stays monochrome because it is informational
@@ -1900,16 +1918,16 @@ gl-commit-graph {
 		justify-content: center;
 		font-size: 0.9rem;
 		font-weight: 600;
-		color: hsl(var(--foreground));
+		color: var(--gl-graph-foreground);
 		text-transform: uppercase;
-		background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 40%));
+		background: var(--gl-graph-toolbar-hover);
 	}
 
 	.gl-graph__author {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: 1.2rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		white-space: nowrap;
 	}
 
@@ -1923,7 +1941,7 @@ gl-commit-graph {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: 1.1rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		white-space: nowrap;
 	}
 
@@ -1932,7 +1950,7 @@ gl-commit-graph {
 		text-overflow: ellipsis;
 		font-family: var(--gl-graph-font-family, monospace);
 		font-size: 1.1rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		white-space: nowrap;
 	}
 
@@ -1985,7 +2003,7 @@ gl-commit-graph {
 		font-size: 1.15rem;
 		font-weight: 650;
 		font-variant-numeric: tabular-nums;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 	}
 
 	// numbers mode: `+N −N` in the added/deleted decoration colors, monospace + tabular so they align. It's
@@ -2029,7 +2047,7 @@ gl-commit-graph {
 		font-family: var(--gl-graph-font-family, monospace);
 		font-size: 1.1rem;
 		font-variant-numeric: tabular-nums;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		white-space: nowrap;
 	}
 
@@ -2102,7 +2120,7 @@ gl-commit-graph {
 		height: 100%;
 
 		// A real border, not a background line — crisp at fractional display scaling (see the timeline sep's note).
-		border-left: var(--gl-border-width) solid hsl(var(--border));
+		border-left: var(--gl-border-width) solid var(--gl-graph-border);
 	}
 
 	.gl-graph__changes-bipolar-added {
@@ -2269,13 +2287,10 @@ gl-commit-graph {
 		height: 1.8rem;
 		padding: 0;
 		margin-right: 0.3rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		cursor: pointer;
-		background: hsl(var(--muted) / 18%);
-
-		// A resting border + faint fill so these read as interactive toggle buttons (not just
-		// icons) — without it users miss them entirely.
-		border: 1px solid hsl(var(--border) / 60%);
+		background: transparent;
+		border: 1px solid color-mix(in oklab, var(--gl-graph-border) 60%, transparent);
 		border-radius: 0.4rem;
 		transition:
 			background-color 120ms ease-out,
@@ -2285,25 +2300,25 @@ gl-commit-graph {
 		// Active/on state (refs Inline↔Column toggle + the lane-folding toggle): a brand tint so the
 		// "on" state reads as engaged (the placement/node-style toggles instead swap their icon).
 		&.is-active {
-			color: hsl(var(--foreground));
-			background: hsl(var(--brand) / 25%);
-			border-color: hsl(var(--brand));
+			color: var(--gl-graph-foreground);
+			background: color-mix(in oklab, var(--gl-graph-accent) 25%, transparent);
+			border-color: var(--gl-graph-accent);
 		}
 	}
 
 	.gl-graph__placement-toggle:hover,
 	.gl-graph__filter-toggle:hover,
 	.gl-graph__ref-find-toggle:hover {
-		color: hsl(var(--foreground));
-		background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 50%));
-		border-color: hsl(var(--border));
+		color: var(--gl-graph-foreground);
+		background: var(--gl-graph-toolbar-hover);
+		border-color: var(--gl-graph-border);
 	}
 
 	.gl-graph__placement-toggle:focus-visible,
 	.gl-graph__filter-toggle:focus-visible,
 	.gl-graph__ref-find-toggle:focus-visible,
 	.gl-graph__changes-mode-glyph:focus-visible {
-		outline: 1px solid hsl(var(--brand));
+		outline: 1px solid var(--gl-graph-accent);
 		outline-offset: 1px;
 	}
 
@@ -2387,7 +2402,7 @@ gl-commit-graph {
 
 		flex-shrink: 0;
 		margin-inline-start: 0.2rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 	}
 
 	// The host's own label follows the crumbs at the same 0.5rem the inter-member margin provides —
@@ -2411,7 +2426,7 @@ gl-commit-graph {
 		padding: 0;
 		margin: 0;
 		overflow: hidden;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		pointer-events: none;
 		cursor: pointer;
 		background: transparent;
@@ -2490,11 +2505,11 @@ gl-commit-graph {
 
 	@keyframes gl-graph-landing-flash {
 		0% {
-			background-color: var(--gl-graph-search-match-background, hsl(var(--brand) / 55%));
+			background-color: var(--gl-graph-search-match-background);
 		}
 
 		45% {
-			background-color: var(--gl-graph-search-match-background, hsl(var(--brand) / 30%));
+			background-color: var(--gl-graph-search-match-background);
 		}
 
 		100% {
@@ -2504,11 +2519,11 @@ gl-commit-graph {
 
 	@keyframes gl-graph-row-actions-landing-flash {
 		0% {
-			color: var(--gl-graph-search-match-background, hsl(var(--brand) / 55%));
+			color: var(--gl-graph-search-match-background);
 		}
 
 		45% {
-			color: var(--gl-graph-search-match-background, hsl(var(--brand) / 30%));
+			color: var(--gl-graph-search-match-background);
 		}
 
 		100% {
@@ -2540,7 +2555,7 @@ gl-commit-graph {
 		margin: 0;
 		margin-inline-start: 0.4rem;
 		overflow: hidden;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		cursor: pointer;
 		background: transparent;
 		border: 1px solid transparent;
@@ -2570,8 +2585,8 @@ gl-commit-graph {
 			color 120ms ease-out;
 
 		&:hover {
-			color: hsl(var(--foreground));
-			background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 50%));
+			color: var(--gl-graph-foreground);
+			background: var(--gl-graph-toolbar-hover);
 		}
 	}
 
@@ -2587,7 +2602,7 @@ gl-commit-graph {
 		--code-icon-size: 1.2rem;
 
 		flex-shrink: 0;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 	}
 
 	// Loading spinner shown while the host computes diffstats. Absolutely pinned to the column header's
@@ -2604,7 +2619,7 @@ gl-commit-graph {
 		inset-inline-end: 0.6rem;
 		block-size: 1.3rem;
 		margin-block: auto;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		pointer-events: none;
 	}
 
@@ -2726,14 +2741,14 @@ gl-commit-graph {
 		margin-block-start: 0.8rem;
 		font-family: inherit;
 		font-size: 1rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		text-underline-offset: 0.2rem;
 		cursor: pointer;
 		background: transparent;
 		border: none;
 
 		&:hover {
-			color: hsl(var(--foreground));
+			color: var(--gl-graph-foreground);
 			text-decoration: underline;
 		}
 
@@ -2743,10 +2758,7 @@ gl-commit-graph {
 		}
 	}
 
-	// A short rows area drops whole items, lowest value first, rather than slicing them at the clip edge.
-	// The help copy goes first: the Show button's tooltip carries the same text. 18rem fits the stack at
-	// the wide stage's narrowest (150px) column, where the copy wraps tallest.
-	@container gl-graph-changes-optin (height < 18rem) {
+	@container gl-graph-changes-optin (height < 180px) {
 		.gl-graph__changes-optin-help,
 		.gl-graph__changes-optin-sub {
 			display: none;
@@ -2755,7 +2767,7 @@ gl-commit-graph {
 
 	// Then the Hide link, once even the Show button plus the link won't fit. The column header's context
 	// menu still hides the column, and the whole surface stays the Show affordance.
-	@container gl-graph-changes-optin (height < 4.4rem) {
+	@container gl-graph-changes-optin (height < 44px) {
 		.gl-graph__changes-optin-hide {
 			display: none;
 		}
@@ -2766,7 +2778,7 @@ gl-commit-graph {
 		margin-block-start: 0.8rem;
 		font-size: 1.1rem;
 		line-height: 1.45;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 
 		// Let hover/clicks over the text fall through to the Show button's full-surface hit area.
 		pointer-events: none;
@@ -2829,7 +2841,7 @@ gl-commit-graph {
 		width: 1.9rem;
 		height: 1.9rem;
 		padding: 0;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 		cursor: pointer;
 		background: transparent;
 		border: none;
@@ -2837,8 +2849,8 @@ gl-commit-graph {
 		--code-icon-size: 1.2rem;
 
 		&:hover {
-			color: hsl(var(--foreground));
-			background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 50%));
+			color: var(--gl-graph-foreground);
+			background: var(--gl-graph-toolbar-hover);
 		}
 
 		// No ring of its own: it only ever renders inside a header cell, and standing in for that column's
@@ -2873,7 +2885,7 @@ gl-commit-graph {
 		--code-icon-size: 1.2rem;
 
 		flex: none;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 	}
 
 	// A glyph button: fixed 4rem × 2.6rem, the current mode brand-tinted + brand-bordered.
@@ -2885,19 +2897,19 @@ gl-commit-graph {
 		width: 4rem;
 		height: 2.6rem;
 		padding: 0;
-		color: hsl(var(--foreground));
+		color: var(--gl-graph-foreground);
 		cursor: pointer;
 		background: transparent;
 		border: 1px solid transparent;
 		border-radius: 0.5rem;
 
 		&:hover {
-			background: var(--gl-graph-toolbar-hover, hsl(var(--muted) / 50%));
+			background: var(--gl-graph-toolbar-hover);
 		}
 
 		&.is-current {
-			background: hsl(var(--brand) / 16%);
-			border-color: hsl(var(--brand));
+			background: color-mix(in oklab, var(--gl-graph-accent) 16%, transparent);
+			border-color: var(--gl-graph-accent);
 		}
 
 		@media (prefers-reduced-motion: no-preference) {
@@ -3027,7 +3039,7 @@ gl-commit-graph {
 		align-items: center;
 		min-width: 0;
 		font-size: 1rem;
-		color: hsl(var(--muted-foreground));
+		color: var(--gl-graph-muted-foreground);
 
 		.gl-graph__sha {
 			flex-shrink: 0;
@@ -3175,7 +3187,7 @@ gl-commit-graph {
 	[role='treeitem']:hover .commit-dot-glow,
 	[role='treeitem'][aria-selected='true'] .commit-dot-glow {
 		// Brand-tinted glow reads clearly on dark themes (a white glow nearly vanished there).
-		filter: drop-shadow(0 0 3px hsl(var(--brand) / 55%));
+		filter: drop-shadow(0 0 3px color-mix(in oklab, var(--gl-graph-accent) 55%, transparent));
 	}
 
 	[role='treeitem']:hover .graph-edge {
@@ -3252,7 +3264,7 @@ gl-commit-graph {
 		// declares it. Rings, tints and fills keep the raw `--ref-color`.
 		--ref-text: #{on-background('var(--ref-color)')};
 
-		color: var(--ref-text, hsl(var(--foreground)));
+		color: var(--ref-text, var(--gl-graph-foreground));
 		white-space: nowrap;
 		cursor: pointer;
 		background-color: var(--ref-bg, transparent);
@@ -4359,7 +4371,7 @@ gl-commit-graph {
 		// this one has a real 1px border, so give that 1px back or the name jumps right on expand.
 		padding: 0 0.8rem;
 		color: var(--ref-text);
-		background-color: hsl(var(--background));
+		background-color: var(--gl-graph-background);
 		border: 1px dashed var(--ref-border, currentColor);
 		border-radius: 0.4rem;
 		box-shadow: none;
@@ -4409,10 +4421,13 @@ gl-commit-graph {
 	// the FILLED overlay shown during that, while the stats revert to their green/red colorization, made a
 	// clash/flash on unhover. Letting the overlay hide on unhover (like a single pill) keeps it clean — the
 	// primary name just collapses to its truncated form once the pointer is on the +N list.
-	.gl-graph__refs:has(.gl-graph__ref-popover[open]),
-	.gl-graph__zone:has(.gl-graph__ref-popover[open]),
-	.gl-graph__list-content:has(.gl-graph__ref-popover[open]),
-	.gl-graph__list-line1:has(.gl-graph__ref-popover[open]) {
+
+	// KEEP: a state class, not `:has(.gl-graph__ref-popover[open])`, which makes Chromium re-check
+	// every row container on each subtree change.
+	.gl-graph__refs.has-open-ref-popover,
+	.gl-graph__zone.has-open-ref-popover,
+	.gl-graph__list-content.has-open-ref-popover,
+	.gl-graph__list-line1.has-open-ref-popover {
 		overflow: visible;
 	}
 
@@ -4447,7 +4462,7 @@ gl-commit-graph {
 		// row carries its own inline `--ref-color`.
 		--ref-text: #{on-background('var(--ref-color)')};
 
-		color: var(--ref-text, hsl(var(--foreground)));
+		color: var(--ref-text, var(--gl-graph-foreground));
 		white-space: nowrap;
 		cursor: pointer;
 

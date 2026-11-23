@@ -26,14 +26,18 @@ The package has no barrel. Its `exports` map exposes these module groups:
 | `wip/identity.js`, `wip/nearest.js`                                   | Stable WIP-row creation/parsing, and nearest-WIP lookup      |
 | `projection.js`, `lanes/collapse.js`, `scope.js`                      | Incremental row projections                                  |
 | `zones.js`, `geometry.js`, `lanes/window.js`, `paging.js`, `stats.js` | Renderer-neutral view math                                   |
-| `time.js`, `lanes/colors.js`, `a11y.js`, `theme.css`                  | Formatting, palette, labels, and generic design tokens       |
+| `time.js`, `lanes/colors.js`, `a11y.js`                               | Formatting, lane palette, and labels                         |
 
 ```ts
 import { CommitGraphEngineSession } from '@gitkraken/commit-graph/engine/session.js';
 import type { GraphCommit } from '@gitkraken/commit-graph/engine/types.js';
 import { createWipRowId, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
-import '@gitkraken/commit-graph/theme.css';
 ```
+
+`l10n.js` is also reachable through the `exports` map, because `@gitkraken/commit-graph-ui` imports it at runtime,
+but it is internal: its shape can change without notice. A host localizes the graph with `setGraphLocalizer` from
+`@gitkraken/commit-graph-ui/localization.js`, which also sets the locale for plurals, dates and lists; the engine's
+`setMessageLocalizer` swaps the translator alone.
 
 ## Runtime contract
 
@@ -50,7 +54,7 @@ pnpm --filter @gitkraken/commit-graph run verify:package
 ```
 
 The package verifier installs the produced tarball into a temporary consumer, type-checks it, bundles it for a
-browser, executes the engine contract in Node.js, and resolves the exported theme. Deterministic benchmarks cover
+browser, and executes the engine contract in Node.js. Deterministic benchmarks cover
 200, 2,000, 10,000, and 100,000-row lane-heavy updates.
 
 ## License

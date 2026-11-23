@@ -1166,6 +1166,7 @@
 	"Commit message (Ctrl+Enter to commit)": "提交信息（Ctrl+Enter 提交）",
 	"Commit message (⌘Enter to commit)": "提交信息（⌘Enter 提交）",
 	"Commit message for changes by {author}": "{author} 的更改的提交信息",
+	"Commit not loaded yet.": "提交尚未加载。",
 	"Commit on 1 branch: {name}": "提交位于 1 个分支：{name}",
 	"Commit on 1 remote branch: {name}": "提交位于 1 个远程分支：{name}",
 	"Commit on 1 tag: {name}": "提交位于 1 个标签：{name}",

@@ -1,5 +1,5 @@
 import type { GraphRefFinderRenderContext } from '@gitkraken/commit-graph-ui/contracts/refFinder.js';
-import { refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
+import { refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';

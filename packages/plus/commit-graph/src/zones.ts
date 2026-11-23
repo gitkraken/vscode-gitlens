@@ -3,7 +3,7 @@
  * zero-scroll zone solver shared by every renderer. No DOM, no rendering framework — keep it that way.
  */
 
-import * as l10n from '@vscode/l10n';
+import * as l10n from './l10n.js';
 import type { ChangesColumnMode } from './stats.js';
 
 // Multi-zone column layout
@@ -57,13 +57,58 @@ export interface ZoneSpec {
 // this width (`width === minWidth`; see the host's `defaultGraphColumnsSettings`), so out of the box it
 // shows the compact glyph until the user widens it;
 // sha (44) keeps ~3 monospace chars + an ellipsis at the floor.
+// KEEP: labels are getters so they translate when read, after a host sets its localizer, not at import.
 export const defaultZones: readonly ZoneSpec[] = [
-	{ id: 'ref', label: l10n.t('Branches / Tags'), width: 180, minWidth: 32 },
-	{ id: 'message', label: l10n.t('Message'), width: 0, minWidth: 50, flex: true },
-	{ id: 'author', label: l10n.t('Author'), width: 140, minWidth: 34 },
-	{ id: 'changes', label: l10n.t('Changes'), width: 36, minWidth: 36, mode: 'bar' },
-	{ id: 'datetime', label: l10n.t('Date'), width: 80, minWidth: 44 },
-	{ id: 'sha', label: l10n.t('SHA'), width: 76, minWidth: 44 },
+	{
+		id: 'ref',
+		get label() {
+			return l10n.t('Branches / Tags');
+		},
+		width: 180,
+		minWidth: 32,
+	},
+	{
+		id: 'message',
+		get label() {
+			return l10n.t('Message');
+		},
+		width: 0,
+		minWidth: 50,
+		flex: true,
+	},
+	{
+		id: 'author',
+		get label() {
+			return l10n.t('Author');
+		},
+		width: 140,
+		minWidth: 34,
+	},
+	{
+		id: 'changes',
+		get label() {
+			return l10n.t('Changes');
+		},
+		width: 36,
+		minWidth: 36,
+		mode: 'bar',
+	},
+	{
+		id: 'datetime',
+		get label() {
+			return l10n.t('Date');
+		},
+		width: 80,
+		minWidth: 44,
+	},
+	{
+		id: 'sha',
+		get label() {
+			return l10n.t('SHA');
+		},
+		width: 76,
+		minWidth: 44,
+	},
 ];
 
 /**

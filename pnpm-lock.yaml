@@ -48,6 +48,9 @@ catalogs:
     mocha:
       specifier: 11.8.0
       version: 11.8.0
+    postcss:
+      specifier: 8.5.28
+      version: 8.5.28
     publint:
       specifier: 0.3.24
       version: 0.3.24
@@ -382,7 +385,7 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
       postcss:
-        specifier: 8.5.28
+        specifier: 'catalog:'
         version: 8.5.28
       postcss-lit:
         specifier: 1.4.1
@@ -701,9 +704,6 @@ importers:
       '@lit-labs/virtualizer':
         specifier: 'catalog:'
         version: 2.1.1
-      '@vscode/l10n':
-        specifier: 'catalog:'
-        version: 0.0.18
       fast-string-truncated-width:
         specifier: 'catalog:'
         version: 3.0.3
@@ -729,6 +729,9 @@ importers:
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.28
       publint:
         specifier: 'catalog:'
         version: 0.3.24

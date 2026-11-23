@@ -1,10 +1,11 @@
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import { isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
-import * as l10n from '@vscode/l10n';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import type { WipRowInfo } from '../../contracts/rows.js';
 import type { CommitGraphScrollMarkersController, ScrollMarkersHost } from '../../contracts/scrollMarkers.js';
 import type {
 	GraphDownstreams,
@@ -16,7 +17,6 @@ import type {
 import type { GraphCommitView } from '../../rows/commit.js';
 import { isRefHidden } from '../../rows/commit.js';
 import { shortRefName } from '../../rows/markers.js';
-import type { WipRowInfo } from '../../rows/wip.js';
 
 /**
  * Marker box shape, assigned per marker type. `block` fills its lane(s); `fullLine`/`thinLine` span
@@ -617,7 +617,6 @@ export class ScrollMarkersController implements ReactiveController, CommitGraphS
 
 		return html`<div
 				class="gl-graph__scroll-markers"
-				style=${cspStyleMap({ top: '2.4rem' })}
 				data-vscode-context=${this.deps.context() ?? nothing}
 				@pointerdown=${this.onPointerDown}
 				@pointerup=${this.onPointerUp}

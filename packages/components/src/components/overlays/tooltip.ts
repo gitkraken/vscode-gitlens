@@ -1,7 +1,8 @@
 import type WaPopup from '@awesome.me/webawesome/dist/components/popup/popup.js';
 import type { CSSResult } from 'lit';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { property, query, state } from 'lit/decorators.js';
+import { customElementIfFree } from '../../customElementIfFree.js';
 import { elevatedSurface } from '../styles/lit/elevation.css.js';
 import { renderOverlayContent } from './overlays.utils.js';
 import '@awesome.me/webawesome/dist/components/popup/popup.js';
@@ -13,7 +14,7 @@ function isTopDismissible(tooltip: GlTooltip): boolean {
 	return dismissibleStack.at(-1) === tooltip;
 }
 
-@customElement('gl-tooltip')
+@customElementIfFree('gl-tooltip')
 export class GlTooltip extends LitElement {
 	static override styles: CSSResult = css`
 		:host {

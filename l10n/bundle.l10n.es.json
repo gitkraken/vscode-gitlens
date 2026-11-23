@@ -1166,6 +1166,7 @@
 	"Commit message (Ctrl+Enter to commit)": "Mensaje del commit (Ctrl+Enter para hacer commit)",
 	"Commit message (⌘Enter to commit)": "Mensaje del commit (⌘Enter para hacer commit)",
 	"Commit message for changes by {author}": "Mensaje del commit para los cambios de {author}",
+	"Commit not loaded yet.": "El commit aún no está cargado.",
 	"Commit on 1 branch: {name}": "Commit en 1 rama: {name}",
 	"Commit on 1 remote branch: {name}": "Commit en 1 rama remota: {name}",
 	"Commit on 1 tag: {name}": "Commit en 1 etiqueta: {name}",

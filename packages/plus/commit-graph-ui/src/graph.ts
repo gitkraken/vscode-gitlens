@@ -19,6 +19,8 @@ import {
 	shortDateWidth,
 	xForColumn,
 } from '@gitkraken/commit-graph/geometry.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
+import { localizerGeneration } from '@gitkraken/commit-graph/l10n.js';
 import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
 import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/lanes/window.js';
@@ -44,7 +46,6 @@ import {
 	reorderZones,
 	solveZoneLayout,
 } from '@gitkraken/commit-graph/zones.js';
-import * as l10n from '@vscode/l10n';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing, render } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -54,19 +55,35 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { formatDate as formatGitLensDate, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
+import {
+	formatDate as formatGitLensDate,
+	fromNow as gitlensFromNow,
+	msUntilFromNowChanges,
+} from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
-import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
-import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
+import { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { isMac } from '@gitlens/utils/platform.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
-import type { GraphRowAction, GraphWipRowBranchResolver } from './contracts/contributions.js';
-import type { GraphKeymapScope } from './contracts/keyboard.js';
+import { connectedGraphs } from './connectedGraphs.js';
+import type {
+	GraphBuiltInRowAction,
+	GraphContextMenuRef,
+	GraphRowAction,
+	GraphWipRowBranchResolver,
+} from './contracts/contributions.js';
+import type {
+	CommitGraphEventMap,
+	GraphRowHoverDetail,
+	GraphRowHoverZone,
+	GraphRowPeekRequest,
+} from './contracts/events.js';
+import type { GraphKeyBinding, GraphKeymap, GraphKeymapRegistrar, GraphKeymapScope } from './contracts/keyboard.js';
 import type { GraphRefFinderElement } from './contracts/refFinder.js';
-import type { CommitGraphSourceRow, CommitGraphView as GraphCommitView } from './contracts/rows.js';
+import type { CommitGraphSourceRow, CommitGraphView as GraphCommitView, WipRowInfo } from './contracts/rows.js';
 import type { CommitGraphScrollMarkersController, ScrollMarkersHost } from './contracts/scrollMarkers.js';
 import type {
 	GraphAvatars,
@@ -100,6 +117,7 @@ import type { LaneCollapseChipContext } from './extensions/laneCollapse/adornmen
 import type { ParsedRef, RefPillHooks, RefPillRowMarker } from './extensions/refs/adornmentProvider.js';
 import { getExcludedRemotes, refContextPinKey, refPillKey, resolveAutoRefPillCap } from './extensions/refs/pills.js';
 import type { WipStats } from './extensions/wipStats/adornmentProvider.js';
+import { FrameCoalescer } from './frame.js';
 import { GutterCache, gutterEpochSignature } from './gutter/cache.js';
 import { ChainLaneOverlayController } from './gutter/chainLaneOverlay.js';
 import '@lit-labs/virtualizer';
@@ -120,17 +138,33 @@ import { nearestNonWorkdirDate } from './rows/dates.js';
 import type { FixedSizeLayoutSpecifier } from './rows/layout.js';
 import { fixedSizeVertical } from './rows/layout.js';
 import type { RowMarkerTips } from './rows/markers.js';
+import { collectMissingRefsMetadata, rowShasForRefsMetadata } from './rows/refsMetadata.js';
 import type { RowRenderContext } from './rows/render.js';
-import { hasPersistentRowActions, renderChangesCellContent, renderRow, zoneLeadOffset } from './rows/render.js';
+import {
+	dropLocalizedRowCaches,
+	hasPersistentRowActions,
+	renderChangesCellContent,
+	renderRow,
+	supportsRowAction,
+	zoneLeadOffset,
+} from './rows/render.js';
 import { keepRowUnderRefVisibility } from './rows/rows.js';
 import { DelegatedTooltipController } from './rows/tooltip.js';
 import { RowUnitsIndex } from './rows/units.js';
-import type { WipRowFit, WipRowFitMetrics, WipRowInfo } from './rows/wip.js';
-import { computeWipRowFit, hasDirtyCounts, wipRowFullLabel, wipRowShortLabel } from './rows/wip.js';
+import type { WipRowFit, WipRowFitMetrics } from './rows/wip.js';
+import { computeWipRowFit, hasDirtyCounts, wipRowBranchTitle, wipRowFullLabel, wipRowShortLabel } from './rows/wip.js';
 import { countLoadedIncludedRefs } from './scope/paging.js';
 
 declare const DEBUG: boolean;
 const debugBuild = typeof DEBUG !== 'undefined' && DEBUG;
+
+function graphEvent<K extends keyof CommitGraphEventMap>(
+	type: K,
+	detail: CommitGraphEventMap[K]['detail'],
+	cancelable?: boolean,
+): CustomEvent<CommitGraphEventMap[K]['detail']> {
+	return new CustomEvent(type, { detail: detail, bubbles: true, composed: true, cancelable: cancelable });
+}
 
 type LitVirtualizer = HTMLElement & {
 	items: readonly unknown[];
@@ -183,6 +217,8 @@ const peekReanchorDeadlineMs = 1000;
 // refsMetadataRetryMaxDelayMs, so a host that's persistently failing doesn't get hammered.
 const refsMetadataRetryBaseDelayMs = 2000;
 const refsMetadataRetryMaxDelayMs = 30000;
+const relativeTimeTickMs = 60_000;
+const maxTimerDelayMs = 0x7fffffff;
 // The furthest a reveal animates, in viewports — and for a longer jump, how far out it cuts to before
 // running that same animation in. One number, so every animated arrival is the same gesture regardless of
 // how far the jump was.
@@ -336,27 +372,7 @@ function measuredTextWidth(ctx: CanvasRenderingContext2D, font: string, text: st
 type ResolvedAdornments = { fold: TemplateResult[]; ref: TemplateResult[]; message: TemplateResult[]; label: string };
 
 /** A ref pill/popover-row resolved from a click/dblclick event path (see `resolveRef`). */
-type ResolvedRefTarget = {
-	name: string;
-	key: string;
-	kind: string;
-	remote: string | null;
-	context?: string;
-	current: boolean;
-};
-
-/** Which surface of a hovered row the pointer is over (see `handleRowHover`). 'content' = the
- *  message/author/date/sha cells (schedules the rich commit card); 'graph' = the lanes/commit-dot
- *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
- *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
-type RowHoverZone = 'content' | 'graph';
-
-/** A keyboard peek request emitted as `gl-graph-rowpeek` — open/close the rich hover card on the FOCUSED
- *  row, or move an open one onto it. `open` is an out parameter: the wrapper (and the app behind it)
- *  answer synchronously, which is the graph's only view of whether the card is up. */
-export type GraphRowPeekRequest =
-	| { action: 'toggle' | 'reanchor'; sha: string; anchor: HTMLElement; open: boolean }
-	| { action: 'close' };
+type ResolvedRefTarget = GraphContextMenuRef;
 
 /** Why a loaded row isn't rendered — see {@link GlCommitGraph.getRowHiddenReason}. */
 export type GraphRowHiddenReason =
@@ -491,6 +507,7 @@ interface RenderCtx {
 	wipStateBySha: ReadonlyMap<string, WipNodeState>;
 	/** Product-supplied action-strip descriptors for each working-changes row. */
 	rowActionsByRowSha?: ReadonlyMap<string, readonly GraphRowAction[]>;
+	supportedRowActions?: readonly GraphBuiltInRowAction[];
 	/** sha → branch/worktree identity for every WIP row, threaded into `RowRenderContext.wipIdentity`
 	 *  per row and read by `buildWipRowBranchPill` for the inline branch pill. */
 	wipRowInfoByRowSha?: ReadonlyMap<string, WipRowInfo>;
@@ -509,10 +526,30 @@ interface RenderCtx {
 // Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
 // delegated tooltip + the accessible name; order matches the native menu.
 const changesModeOptions: readonly { mode: ChangesColumnMode; label: string }[] = [
-	{ mode: 'numbers', label: l10n.t('Numbers') },
-	{ mode: 'squares', label: l10n.t('Squares') },
-	{ mode: 'bar', label: l10n.t('Bar') },
-	{ mode: 'bipolar', label: l10n.t('Bipolar') },
+	{
+		mode: 'numbers',
+		get label() {
+			return l10n.t('Numbers');
+		},
+	},
+	{
+		mode: 'squares',
+		get label() {
+			return l10n.t('Squares');
+		},
+	},
+	{
+		mode: 'bar',
+		get label() {
+			return l10n.t('Bar');
+		},
+	},
+	{
+		mode: 'bipolar',
+		get label() {
+			return l10n.t('Bipolar');
+		},
+	},
 ];
 
 // Static glyph templates for the mode picker — tiny iconographic shapes at glyph scale (fixed, no
@@ -544,11 +581,29 @@ const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
 
 // The managed-focus controls inside a row. Sub-chips (upstream-jump / PR / issue) match THEMSELVES, not
 // the pill containing them, so each is its own stop.
-const rowControlSelector = '.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill';
+const rowControlSelector = '.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill, [data-row-control]';
+
+type RowControlGroup = 'refs' | 'adornments' | 'actions';
+const rowControlGroups: readonly RowControlGroup[] = ['refs', 'adornments', 'actions'];
 
 // Screen-reader announcement while more commits page in — one constant so the wording can't fork
 // between the prefetch, edge-nav, and debounce paths that trigger it.
-const loadingMoreAnnouncement = l10n.t('Loading more commits…');
+const loadingMoreAnnouncement = (): string => l10n.t('Loading more commits…');
+
+function hasShallowChanged(
+	value: Readonly<Record<string, unknown>> | undefined,
+	old: Readonly<Record<string, unknown>> | undefined,
+): boolean {
+	if (value === old) return false;
+	if (value == null || old == null) return true;
+
+	const keys = Object.keys(value);
+	if (keys.length !== Object.keys(old).length) return true;
+
+	return keys.some(key => value[key] !== old[key]);
+}
+
+let nextGraphInstanceId = 0;
 
 // First HTMLElement on the event's composed path (crossing any shadow roots) matching `match`, else
 // undefined. One walk for every dataset-based resolution; the predicates are hoisted module constants,
@@ -634,9 +689,6 @@ export class GlCommitGraph extends LitElement {
 	// when other types are.
 	@property({ type: Array }) enabledRefMetadataTypes?: readonly GraphRefMetadataType[];
 	@property({ type: Object }) searchResults?: GraphSearchResults | GraphSearchResultsError | undefined;
-	// How many of `searchResults`' matches are actually rendered as rows — derived app-side (see
-	// `countRenderedSearchResults`) against the decorated rows, i.e. exactly what this element renders.
-	@property({ type: Number }) searchResultsRenderedCount = 0;
 	// True while a search is in flight: the host clears `searchResults` to undefined before results
 	// arrive, so this keeps lanes treated as "search active" across that gap (see searchActive below).
 	@property({ type: Boolean }) searching = false;
@@ -673,6 +725,7 @@ export class GlCommitGraph extends LitElement {
 	// The host's action-strip descriptors per working-changes row — built once per WIP-state change,
 	// rendered verbatim (see {@link GraphRowAction}).
 	@property({ attribute: false }) rowActionsByRowSha?: ReadonlyMap<string, readonly GraphRowAction[]>;
+	@property({ attribute: false }) supportedRowActions?: readonly GraphBuiltInRowAction[];
 	// Per-row branch/worktree identity for every WIP row — drives the inline branch pill and the
 	// scroll-marker/a11y/tooltip surfaces that used to read it off the row message's "(name)" suffix.
 	@property({ attribute: false }) wipRowInfoByRowSha?: ReadonlyMap<string, WipRowInfo>;
@@ -693,15 +746,16 @@ export class GlCommitGraph extends LitElement {
 	// inactive tone (see `gl-graph--window-unfocused` in graph.scss) when the window loses focus,
 	// matching VS Code's own list/tree views.
 	@property({ type: Boolean }) windowFocused?: boolean;
-	// Host-serialized context-menu JSON strings (the single source of truth, matching the
-	// host's exact token format). `columnsContext` (gitlens:graph:columns) drives the column-header
-	// right-click menu; `settingsContext` (gitlens:graph:settings) drives the header gear's menu
-	// (columns + scroll-marker toggles); `scrollMarkersContext` (gitlens:graph:scrollMarkers) drives the
-	// marker rail's own right-click menu — the same toggles, flattened, without the column items. All
-	// update via DidChangeColumns / DidChangeScrollMarkers.
-	@property({ type: String }) columnsContext?: string;
-	@property({ type: String }) settingsContext?: string;
-	@property({ type: String }) scrollMarkersContext?: string;
+	/** VS Code webview context-menu payloads (serialized `data-vscode-context`) for the column header, the header
+	 *  settings button (whose presence draws it) and the scroll-marker rail. */
+	@property({ attribute: false, hasChanged: hasShallowChanged }) vscode?: {
+		columnsContext?: string;
+		settingsContext?: string;
+		scrollMarkersContext?: string;
+	};
+	/** The header settings button for a host with its own menu, drawn whenever this is set; `open` is reported as
+	 *  `aria-expanded`. Activating it dispatches `gl-graph-headermenu`. */
+	@property({ attribute: false, hasChanged: hasShallowChanged }) headerMenu?: { label?: string; open?: boolean };
 	// Ref-visibility filters (Hide branch / Hide Remotes·Tags·Stashes). Applied client-side: hidden
 	// heads/remotes/tags drop from the ref pills + scroll-rail markers (the current HEAD is always
 	// kept), and `excludeTypes.stashes` drops stash rows from the engine input.
@@ -744,10 +798,7 @@ export class GlCommitGraph extends LitElement {
 	// joins that cell's label-fit math (see `renderHeader`). Hover/focus reveal is CSS-only and never
 	// touches this or the zone-width solver.
 	@property({ attribute: false }) activeFilterColumns?: ReadonlySet<GraphColumnName>;
-	// The webview's key dispatcher (owned by `gl-graph-app`, forwarded through the wrapper). Set after
-	// construction, so the `rows` scope + bindings register on the first update that sees it — see
-	// `registerKeymap`.
-	@property({ attribute: false }) keymap?: KeymapDispatcher<GraphKeymapScope>;
+	@property({ attribute: false }) keymap?: GraphKeymap;
 
 	@state() private containerWidth = 0;
 	@state() private focusIndex = 0;
@@ -919,7 +970,7 @@ export class GlCommitGraph extends LitElement {
 		unitPositionOf: index => this._rowUnits.unitPosOf(index),
 		viewportHeight: () => this.scrollerClientHeight,
 		scroller: () => this.virtualizerRef.value,
-		context: () => this.scrollMarkersContext,
+		context: () => this.vscode?.scrollMarkersContext,
 		isDraggingColumn: () => this.draggingColumn,
 		endRowHover: container => this.endRowHover(container),
 		revealPosition: index => this.revealIndexAt(index, 0.5, true),
@@ -997,9 +1048,15 @@ export class GlCommitGraph extends LitElement {
 	private readonly fixedRowLayout: FixedSizeLayoutSpecifier = fixedSizeVertical(rowHeightTable);
 	private _renderCtx!: RenderCtx;
 	private _activeRowId?: string;
+	private readonly instanceIdPrefix = `gl-graph-${++nextGraphInstanceId}-`;
+	private readonly rowIdPrefix = `${this.instanceIdPrefix}row-`;
+	private readonly lanesId = `${this.instanceIdPrefix}lanes`;
 
 	private renderRowItem(row: ProcessedGraphRow, index: number): TemplateResult {
 		const c = this._renderCtx;
+		if (this._openRefPopovers.size !== 0) {
+			this.queueRefPopoverReconcile();
+		}
 		// Rows are topology-only — resolve the aligned commit payload. A miss can't happen for rows the
 		// pipeline produced; guard with an empty spacer so a bug degrades to a blank row, not a crash.
 		const commit = c.getCommit(row.sha);
@@ -1007,13 +1064,6 @@ export class GlCommitGraph extends LitElement {
 			return html`<div class="gl-graph__row" style=${cspStyleMap({ height: `${c.rowHeight}px` })}></div>`;
 		}
 
-		// Teleport-class scrolling (see `skeletonScroll`): render the STRUCTURAL row — same zones, same
-		// (cache-shared) gutter, message/author/date text — skipping only the expensive extras (adornments,
-		// pills, avatars, actions, aria/context payloads). Cheap enough to rebuild the whole range every
-		// drag frame, and the settle swap just fills the extras in — the lanes never repaint. The workdir
-		// row and the active row stay full (anchor + focus/selection continuity).
-		// Compare against `focusedSha`, NOT `_activeRowId` — the latter is the `graph-row-<sha>` ELEMENT id
-		// (aria-activedescendant), so a raw sha never equals it and the active-row exemption above never fired.
 		const skeleton = this.skeletonScroll && row.kind !== 'workdir' && row.sha !== c.focusedSha;
 
 		const adornments = skeleton ? undefined : c.getAdornments(row);
@@ -1098,10 +1148,15 @@ export class GlCommitGraph extends LitElement {
 			row.date != null &&
 			prevRowDate != null &&
 			stickyTimelineGroupKey(row.date, this.nowMs) !== stickyTimelineGroupKey(prevRowDate, this.nowMs);
+		const wipTitle =
+			row.kind === 'workdir' && this.config?.wipRowTitle === 'branch'
+				? wipRowBranchTitle(c.wipRowInfoByRowSha?.get(row.sha), this.config.idLength ?? 7)
+				: undefined;
 		// The width-degradation ladder's decision (label swap + pill-name cap) — computed once and reused
 		// for both `RowRenderContext` fields below rather than twice (it re-measures via canvas each call).
-		const wipFit = row.kind === 'workdir' ? this.buildWipRowFit(row, c) : undefined;
+		const wipFit = row.kind === 'workdir' && wipTitle == null ? this.buildWipRowFit(row, c) : undefined;
 		return renderRow(row, {
+			rowIdPrefix: this.rowIdPrefix,
 			commit: commit,
 			repoPath: this.repoPath,
 			index: index,
@@ -1149,6 +1204,7 @@ export class GlCommitGraph extends LitElement {
 			avatarUrl: c.getAvatarUrl(commit.authorEmail),
 			onAvatarError: c.onAvatarError,
 			formatDate: c.formatDate,
+			showMessageBody: this.config?.showCommitMessageBody !== false,
 			foldContent: adornments?.fold,
 			foldLaneWidth: c.foldLaneWidth,
 			graphColumnWidth: c.graphColumnWidth,
@@ -1166,9 +1222,11 @@ export class GlCommitGraph extends LitElement {
 			ghostRef: ghostRef,
 			wipState: c.wipStateBySha.get(row.sha),
 			wipActions: row.kind === 'workdir' ? c.rowActionsByRowSha?.get(row.sha) : undefined,
+			supportedRowActions: c.supportedRowActions,
 			wipIdentity: row.kind === 'workdir' ? c.wipRowInfoByRowSha?.get(row.sha) : undefined,
-			wipBranchPill: row.kind === 'workdir' ? this.buildWipRowBranchPill(row) : undefined,
+			wipBranchPill: row.kind === 'workdir' && wipTitle == null ? this.buildWipRowBranchPill(row) : undefined,
 			wipDisplayLabel: wipFit?.label,
+			wipTitle: wipTitle,
 			wipPillMaxWidth: wipFit?.pillMaxWidth,
 			// Every workdir row (own AND peer worktrees) gets these, driving the read-only paused-op/
 			// conflicts indicator. Gating a conflict-driven INTERACTIVE action to the graph's own worktree
@@ -1253,10 +1311,8 @@ export class GlCommitGraph extends LitElement {
 	private formatDateFn?: (date: number) => string;
 	private formatDateShortFn?: (date: number) => string;
 	private lastConfigRef?: GraphComponentConfig;
-	// Keeps relative dates ("5m ago") fresh on an otherwise-idle graph. Only runs while the effective
-	// date style is relative (see `isRelativeDateStyle`); started/stopped alongside `formatDateFn` in
-	// willUpdate, and always torn down in disconnectedCallback.
-	private relativeTimeTimer?: ReturnType<typeof setInterval>;
+	private relativeTimeTimer?: ReturnType<typeof setTimeout>;
+	private relativeTextChangesAt = 0;
 	// Scroll-marker input identities stay on the surface because willUpdate already computes their
 	// structural change signals. The optional controller owns all marker data, rendering, and interaction.
 	private lastSearchResultsRef?: GraphSearchResults | GraphSearchResultsError | undefined;
@@ -1270,14 +1326,11 @@ export class GlCommitGraph extends LitElement {
 	// change (checkout in another worktree) without the decorated rows array itself changing identity
 	// (the row message no longer carries the name, so it can't rebuild `rows` on its own; see A3/A4).
 	private lastWipRowInfoByRowShaRef?: ReadonlyMap<string, WipRowInfo>;
-	// One-time (per-connect) font the WIP-row degradation ladder (`buildWipRowFit`) measures its label
-	// texts against — resolved lazily from whatever's currently rendered (`resolveWipMessageFont`), since
-	// a live font read is cheap done ONCE, not once per WIP row per render (the per-row/per-text part is
-	// the module-level `wipTextWidthCache`). Undefined until something workdir has actually painted; the
-	// ladder no-ops until then. Every OTHER ladder input (available width, pill chrome, stats width) is
-	// real per-row DOM, read fresh each time in `buildWipRowFit` — not cached, since the pill's own name
-	// span may already be capped from a prior render, which would make a cached "natural" chrome wrong.
 	private _wipMessageFont?: string;
+	// KEEP: keyed on the render snapshot, not an input list; an entry is trusted only once `settled`
+	// (a first read sees the previous snapshot's layout).
+	private _wipFitCacheCtx?: RenderCtx;
+	private readonly _wipFitCache = new Map<string, { budget: number; fit: WipRowFit; settled: boolean }>();
 	// Table-style AND list-style WIP rows: the rendered content-container width `buildWipRowFit` assumed
 	// THIS render, keyed by sha — rebuilt fresh every render (cleared in `updateRenderState`).
 	// `updated()`'s `checkWipFitConvergence` re-measures the SAME cells post-commit (the flex-computed
@@ -1455,10 +1508,7 @@ export class GlCommitGraph extends LitElement {
 		const commit = this.getCommitBySha(tip);
 		return commit?.kind === 'workdir' ? commit.parents[0] : tip;
 	}
-	// URLs that failed to load at least once this session — never @state (flipping it must not itself
-	// schedule a render; `reportAvatarLoadError` calls `requestUpdate()` explicitly). Keyed by URL, not
-	// email: a proxied re-serve (see `flushAvatarLoadErrors`) arrives as a NEW url for the same email, so
-	// a stale entry here simply stops matching anything — no explicit reconcile/clear is needed.
+	// KEEP: not @state, so failures arriving together redraw once per frame through `avatarErrorRedraw`.
 	private readonly failedAvatarUrls = new Set<string>();
 	// Emails already dispatched in a `gl-graph-missingavatars` request this rows-session — a PERSISTENT dedup so
 	// scrolling back over the same authors never re-requests their avatars (the visible-range scan filters these
@@ -1487,14 +1537,12 @@ export class GlCommitGraph extends LitElement {
 
 		this.reportAvatarLoadError(email, url);
 	};
-	// Records a broken avatar URL (row/gutter fall back to initials on the next render) and batches
-	// (email → url) pairs for ~150ms before asking the host to re-serve them through its avatar proxy,
-	// so a screenful of broken avatars costs one round trip instead of one per row.
+	private readonly avatarErrorRedraw = new FrameCoalescer(() => this.requestUpdate());
 	private readonly reportAvatarLoadError = (email: string, url: string): void => {
 		if (this.failedAvatarUrls.has(url)) return;
 
 		this.failedAvatarUrls.add(url);
-		this.requestUpdate();
+		this.avatarErrorRedraw.schedule();
 		this.pendingAvatarErrors[email] = url;
 		this.avatarErrorFlushTimer ??= setTimeout(this.flushAvatarLoadErrors, 150);
 	};
@@ -1504,13 +1552,18 @@ export class GlCommitGraph extends LitElement {
 		if (Object.keys(pending).length === 0) return;
 
 		this.pendingAvatarErrors = {};
-		this.dispatchEvent(new CustomEvent('gl-graph-avatarloaderror', { detail: { avatars: pending } }));
+		this.dispatchEvent(graphEvent('gl-graph-avatarloaderror', { avatars: pending }));
 	};
 	// Metadata requested so far, per ref id → the set of types already asked for (or already resolved),
 	// so the lazy fetch fires once per (id, type) — turning on a new type later (e.g. Pull Requests)
 	// still fires a request for refs already settled on other types. Also un-latched per-pair by
 	// settleMissingRefsMetadata when the host bails on an id (see that method).
 	private requestedMetadata = new Map<string, Set<GraphRefMetadataType>>();
+	private requestedMetadataGeneration = 0;
+	private refsMetadataLoadedWalk?: { rows: readonly ProcessedGraphRow[]; generation: number };
+	private lastRefsMetadataRange: 'rendered' | 'loaded' = 'rendered';
+	private lastEnabledRefMetadataTypesRef?: readonly GraphRefMetadataType[];
+	private lastEnabledRefMetadataTypes = '';
 	// Pending throttled retry for un-latched (id, type) pairs — at most one in flight at a time; a bail
 	// while one's already pending just waits for it rather than restarting the clock.
 	private refsMetadataRetryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1518,6 +1571,8 @@ export class GlCommitGraph extends LitElement {
 	// settleMissingRefsMetadata.
 	private refsMetadataRetryDelayMs = refsMetadataRetryBaseDelayMs;
 	private lastRefsMetadataRef?: GraphRefsMetadata | null;
+	private ownedRefsMetadata?: GraphRefsMetadata;
+	private refsMetadataMarkersStale = false;
 	private lastRefsMetadataResetToken = 0;
 	private lastDownstreamsRef?: GraphDownstreams;
 	// Pinned-aware: the click-pinned ref re-renders in place with `.is-pinned` (or swaps into the LAST
@@ -1526,6 +1581,7 @@ export class GlCommitGraph extends LitElement {
 	// row-marker tips), so they're getters, never
 	// cached. Held as a field so the WIP row's branch pill (`buildWipRowBranchPill`) reuses the exact same hooks.
 	private readonly refPillHooks: RefPillHooks = {
+		menuItemIdPrefix: `${this.instanceIdPrefix}ref-menuitem-`,
 		getUpstream: ref => this.getUpstreamStats(ref),
 		resolveJump: (ref, fromSha) => this.resolveRefJump(ref, fromSha),
 		onJumpToRef: sha => this.jumpToRefRow(sha),
@@ -1548,7 +1604,7 @@ export class GlCommitGraph extends LitElement {
 		getPinnedRefKey: () => this._pinnedRefKey,
 		getContextPinnedRefKey: () => this._contextPinnedRefKey,
 		getPinnedRefId: () => this.pinnedRef?.id,
-		onUnpinRef: () => this.dispatchEvent(new CustomEvent('gl-graph-unpinref')),
+		onUnpinRef: () => this.dispatchEvent(graphEvent('gl-graph-unpinref', undefined)),
 	};
 	private refsProvider?: RowAdornmentProvider<TemplateResult, ParsedRef[]>;
 	private wipStatsProvider?: RowAdornmentProvider<TemplateResult, WipStats>;
@@ -1558,6 +1614,7 @@ export class GlCommitGraph extends LitElement {
 	// sha → resolved adornments (null = row has none) for rows that have RENDERED since the last
 	// invalidation. Bounded by the visible window over time; cleared O(1) on any input change.
 	private readonly adornmentCache = new Map<string, ResolvedAdornments | null>();
+	private localizedAt = localizerGeneration();
 	// Per-instance memo over the per-row gutter SVG (edges + node). `updateRenderState` sets its epoch
 	// once per render (from the render-global metrics/style/palette/clamp); `renderRow` keys into it per
 	// row so unchanged gutters reuse their template across re-render ticks (vertical scroll, selection,
@@ -1585,10 +1642,7 @@ export class GlCommitGraph extends LitElement {
 	// Cached scroller clientHeight (the viewport height). Only changes on resize, so it's read in the
 	// ResizeObserver + firstUpdated rather than per scroll frame (reading clientHeight forces layout).
 	private scrollerClientHeight = 0;
-	// Cached "now" (ms), refreshed once per render (updateRenderState) AND on the 60s relative-time tick
-	// (see onRelativeTimeTick) — lets `stickyTimelineGroupFor`'s elapsed math (via `fromNowUnit`) stay
-	// allocation-free per row/scroll event while still tracking real time closely enough that a bucket
-	// crossing (e.g. a 6-day-old top row rolling into "Last week") shows up on an otherwise-idle graph.
+	private headerHeight?: number;
 	private nowMs = Date.now();
 	// Teardown for an in-flight column-resize drag (window listeners + RAF live outside the
 	// element, so they must be cleaned up explicitly if the element disconnects mid-drag).
@@ -1608,7 +1662,8 @@ export class GlCommitGraph extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
-		this.registerKeymap();
+		connectedGraphs.add(this);
+		this.registerKeymap(this.hasUpdated);
 
 		if (debugBuild) {
 			getGraphDebugDiagnostics().connect(this, () =>
@@ -1653,6 +1708,12 @@ export class GlCommitGraph extends LitElement {
 			// Cache the scroller viewport height — it only changes on resize, so per-frame readers (the
 			// minimap day-range) use the cache instead of forcing layout with a live clientHeight read.
 			const scrollerHeight = this.virtualizerRef.value?.clientHeight ?? 0;
+			const headerHeight = this.querySelector<HTMLElement>('.gl-graph__header')?.offsetHeight;
+			if (headerHeight != null && headerHeight !== this.headerHeight) {
+				this.headerHeight = headerHeight;
+				this.style.setProperty('--gl-graph-header-height', `${headerHeight}px`);
+				this.requestUpdate();
+			}
 			if (scrollerHeight !== this.scrollerClientHeight) {
 				this.scrollerClientHeight = scrollerHeight;
 				// Not a reactive property, and a HEIGHT-only resize changes no other one — so nothing would
@@ -1696,11 +1757,12 @@ export class GlCommitGraph extends LitElement {
 			this.attachScrollListener();
 		}
 		window.addEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
-		this.startRelativeTimeTimer();
+		this.scheduleRelativeTimeTick();
 		document.addEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
 	}
 
 	override disconnectedCallback(): void {
+		connectedGraphs.delete(this);
 		if (debugBuild) {
 			getGraphDebugDiagnostics().disconnect(this);
 		}
@@ -1710,8 +1772,9 @@ export class GlCommitGraph extends LitElement {
 		this.stopRelativeTimeTimer();
 		// Release the gutter-template cache so a detached instance holds no `TemplateResult`s.
 		this.gutterCache.clear();
-		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
 		this.requestedAvatars.clear();
+		this.requestedMetadata.clear();
+		this.requestedMetadataGeneration++;
 		if (this._peekReanchorFrame != null) {
 			cancelAnimationFrame(this._peekReanchorFrame);
 			this._peekReanchorFrame = undefined;
@@ -1726,6 +1789,12 @@ export class GlCommitGraph extends LitElement {
 			clearTimeout(this.avatarErrorFlushTimer);
 			this.avatarErrorFlushTimer = undefined;
 		}
+		this.avatarErrorRedraw.cancel();
+		const releasedPopoverHosts = [...this._openRefPopovers.values()].flat();
+		this._openRefPopovers.clear();
+		this.syncRefPopoverMarks(releasedPopoverHosts);
+		this._wipFitCache.clear();
+		this._wipFitCacheCtx = undefined;
 		if (this.refsMetadataRetryTimer != null) {
 			clearTimeout(this.refsMetadataRetryTimer);
 			this.refsMetadataRetryTimer = undefined;
@@ -1782,6 +1851,7 @@ export class GlCommitGraph extends LitElement {
 	}
 
 	override willUpdate(changed: PropertyValues<this>): void {
+		this.dropStaleLocalizedText();
 		const profileChanged = this.profile !== this.lastProfile;
 		if (profileChanged) {
 			this.lastProfile = this.profile;
@@ -1807,7 +1877,7 @@ export class GlCommitGraph extends LitElement {
 
 		// `keymap` arrives as a property, so it's unset on the first connect — register on the first
 		// update that carries it.
-		this.registerKeymap();
+		this.registerKeymap(true);
 
 		if (debugBuild) {
 			getGraphDebugDiagnostics().beginUpdate(this.rows, changed.has('rows'), {
@@ -1951,13 +2021,7 @@ export class GlCommitGraph extends LitElement {
 					this.getCommitBySha(this._pinnedRefSha)?.commitRefs.some(r => refPillKey(r) === this._pinnedRefKey);
 				if (!stillPresent) {
 					this.clearPinnedRef();
-					this.dispatchEvent(
-						new CustomEvent('gl-graph-open-branch', {
-							detail: { open: false },
-							bubbles: true,
-							composed: true,
-						}),
-					);
+					this.dispatchEvent(graphEvent('gl-graph-openbranch', { open: false }));
 				}
 			}
 		}
@@ -2037,11 +2101,12 @@ export class GlCommitGraph extends LitElement {
 			this.lastConfigRef = this.config;
 			this.formatDateFn = this.buildFormatDate(false);
 			this.formatDateShortFn = this.buildFormatDate(true);
-			if (this.needsRelativeTimeTimer()) {
-				this.startRelativeTimeTimer();
-			} else {
-				this.stopRelativeTimeTimer();
-			}
+			this.relativeTextChangesAt = this.relativeTextChangesAtFor(
+				this.pendingRangeFirst,
+				this.pendingRangeLast,
+				Date.now(),
+			);
+			this.scheduleRelativeTimeTick();
 			// `stickyTimeline` propagates live: OFF hides immediately; ON (first load or re-enabled)
 			// computes right away from the current scroll position instead of waiting for the next scroll.
 			if (!this.stickyTimelineEnabled) {
@@ -2057,27 +2122,39 @@ export class GlCommitGraph extends LitElement {
 			this._changesEnableRequested = false;
 		}
 
-		// Upstream metadata (ahead/behind) arrives lazily after a `gl-graph-missingrefsmetadata` request;
-		// when it lands, re-resolve adornments so the split ref pills fill in their tracking stats.
 		const refsMetadataChanged = this.refsMetadata !== this.lastRefsMetadataRef;
+		let refsMetadataReplaced = false;
 		if (refsMetadataChanged) {
+			const before = this.lastRefsMetadataRef;
 			this.lastRefsMetadataRef = this.refsMetadata;
+			if (before == null || this.refsMetadata == null) {
+				refsMetadataReplaced = true;
+			} else {
+				this.applyRefsMetadataDiff(before, this.refsMetadata);
+			}
 		}
-		// An AUTHORITATIVE host reset invalidates the per-id request dedup. Two shapes reach us: a null/empty
-		// map (repo switch, feature toggle — the store was wiped) OR a bumped reset token accompanying a
-		// non-empty upstream-preserving STRIP (integration flip drops only PR/issue). Both clear the dedup so
-		// previously-seen refs aren't blocked forever, then re-request now — a metadata-only reset doesn't move
-		// rows/scope, so recomputeDisplayRows' request pass wouldn't otherwise run. The `type in entry` guard in
-		// requestMissingRefsMetadata keeps a preserved `upstream` from re-requesting, so only dropped types refetch.
-		// (This is the wholesale-clear path; a single id the host bailed on for one round un-latches instead
-		// through settleMissingRefsMetadata, without touching every other id's dedup.)
+		// KEEP: a host reset re-requests here; a metadata-only reset moves no rows, so no other pass would.
 		const refsMetadataResetTokenChanged = this.refsMetadataResetToken !== this.lastRefsMetadataResetToken;
 		this.lastRefsMetadataResetToken = this.refsMetadataResetToken;
+		let refsMetadataTypesChanged = false;
+		if (this.enabledRefMetadataTypes !== this.lastEnabledRefMetadataTypesRef) {
+			this.lastEnabledRefMetadataTypesRef = this.enabledRefMetadataTypes;
+			const key = this.enabledRefMetadataTypes?.join(',') ?? '';
+			refsMetadataTypesChanged = key !== this.lastEnabledRefMetadataTypes;
+			this.lastEnabledRefMetadataTypes = key;
+		}
+		const refsMetadataRange = this.refsMetadataRange;
+		const refsMetadataRangeChanged = refsMetadataRange !== this.lastRefsMetadataRange;
+		this.lastRefsMetadataRange = refsMetadataRange;
 		if (
 			refsMetadataResetTokenChanged ||
 			(refsMetadataChanged && (this.refsMetadata == null || Object.keys(this.refsMetadata).length === 0))
 		) {
 			this.requestedMetadata.clear();
+			this.requestedMetadataGeneration++;
+			this.requestMissingRefsMetadata();
+		} else if (refsMetadataTypesChanged || refsMetadataRangeChanged) {
+			this.requestedMetadataGeneration++;
 			this.requestMissingRefsMetadata();
 		}
 
@@ -2133,13 +2210,6 @@ export class GlCommitGraph extends LitElement {
 		// Tracked via a last-value ref (a config-derived getter isn't a `keyof this` for `changed.has`).
 		const foldingChanged = this.foldingEnabled !== this.lastFoldingEnabled;
 		this.lastFoldingEnabled = this.foldingEnabled;
-		// scopeChanged rebuilds processedRows/segments above, so lane derivations + displayRows
-		// (and downstream providers/adornments) must re-derive from them too.
-		// `searching` flips the searchActive guard that suppresses default lane-collapse (so in-lane
-		// matches stay visible while results stream in), so a toggle must re-derive lanes.
-		// A payload-only rows change (engine skipped — same topology) leaves every lane input
-		// untouched, so it takes the light path below: just the displayRows refresh, which rebuilds
-		// the payload-derived ref indexes + re-requests upstream metadata for new refs.
 		const rowsPayloadOnly = rowsChanged && this.lastRowsDeltaPayloadOnly;
 		// Read hoisted (the `lastSearchModeRef` latch stays below) so the payload-only fast path can skip a
 		// recompute that `recomputeSearchProjection` is about to do anyway.
@@ -2337,7 +2407,7 @@ export class GlCommitGraph extends LitElement {
 			rowsChanged ||
 			laneInputsChanged ||
 			providersChanged ||
-			refsMetadataChanged ||
+			refsMetadataReplaced ||
 			excludeChanged ||
 			downstreamsChanged ||
 			showRemoteNamesChanged ||
@@ -2359,6 +2429,8 @@ export class GlCommitGraph extends LitElement {
 		}
 		this.lastSearchResultsRef = this.searchResults;
 
+		const refsMetadataMarkersStale = this.refsMetadataMarkersStale;
+		this.refsMetadataMarkersStale = false;
 		const scrollMarkers = this._scrollMarkers;
 		if (scrollMarkers != null) {
 			const markerTypes = this.config?.scrollMarkerTypes;
@@ -2372,7 +2444,8 @@ export class GlCommitGraph extends LitElement {
 				searchModeChanged ||
 				markerTypesChanged ||
 				excludeChanged ||
-				refsMetadataChanged ||
+				refsMetadataReplaced ||
+				refsMetadataMarkersStale ||
 				downstreamsChanged ||
 				wipRowInfoChanged;
 			// The merge target lands AFTER the first paint (the scope-anchor pull) and moves again on a ref
@@ -2546,7 +2619,7 @@ export class GlCommitGraph extends LitElement {
 		const nodeStyle = this.effectiveNodeStyle;
 		const zones = this.getVisibleZones();
 		const focusedSha = rows[this.focusIndex]?.sha;
-		this._activeRowId = focusedSha != null ? `graph-row-${focusedSha}` : undefined;
+		this._activeRowId = focusedSha != null ? `${this.rowIdPrefix}${focusedSha}` : undefined;
 		// Use the ultra-compact date form when the date column is narrow enough that the verbose
 		// "N days ago" would clip (fixed-width date zone only; the flexible zone never shrinks here).
 		// Compact density always uses it: line 2's date sticks (short) while the author truncates.
@@ -2720,6 +2793,7 @@ export class GlCommitGraph extends LitElement {
 			collapsedTips: this.effectiveCollapsed,
 			wipStateBySha: this.wipStateBySha,
 			rowActionsByRowSha: this.rowActionsByRowSha,
+			supportedRowActions: this.supportedRowActions,
 			wipRowInfoByRowSha: this.wipRowInfoByRowSha,
 			wipStateById: this.wipStateById,
 			rowMarkerTips: tips,
@@ -2792,7 +2866,10 @@ export class GlCommitGraph extends LitElement {
 		// Use the ResizeObserver-maintained cache — reading the live `clientHeight` here would force a
 		// synchronous layout on every render (`updateRenderState` runs each willUpdate); it only changes
 		// on resize, which the observer already tracks.
-		this.style.setProperty('--gl-graph-viewport-height', `${this.scrollerClientHeight + headerHeightPx}px`);
+		this.style.setProperty(
+			'--gl-graph-viewport-height',
+			`${this.scrollerClientHeight + (this.headerHeight ?? headerHeightPx)}px`,
+		);
 		// The CSS pin's two bounds, one owner each for every row's `--gutter-node-x`:
 		// LEFT pins to the FIRST-LANE position (where a lane-0 dot sits at rest) — pinned dots then land
 		// exactly ON the lane grid, so the at-offset lane river threads through the pinned-dot column the
@@ -3463,74 +3540,123 @@ export class GlCommitGraph extends LitElement {
 		if (focus) {
 			this.treeRef.value?.focus();
 		}
-		document.dispatchEvent(
-			new CustomEvent('gl-jump-to-commit', {
-				detail: { sha: sha, focus: focus, flash: options?.flash ?? true },
-			}),
-		);
+		this.requestJump(sha, focus, options?.flash ?? true);
 	}
 
-	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
-	// have it yet — once per (id, type) pair (no request storm; see requestedMetadata). Bounded by
-	// branch count (refs are sparse across rows). A pair the host bails on for a round gets un-latched by
-	// settleMissingRefsMetadata and retried through the throttled timer, not from here.
-	private requestMissingRefsMetadata(): void {
-		// The host drops every request while the whole feature is off (no upstream-status/hosting/issue
-		// integration) — matching that here skips the round trip instead of dispatching a no-op event.
+	private requestJump(sha: Sha, focus: boolean, flash: boolean): void {
+		const request = graphEvent('gl-graph-jumptocommit', { sha: sha, focus: focus, flash: flash }, true);
+		if (!this.dispatchEvent(request)) return;
+
+		const idx = this.indexBySha.get(sha);
+		if (idx == null) {
+			this.announce(l10n.t('Commit not loaded yet.'));
+			return;
+		}
+
+		this.selectJumpTarget(sha, idx);
+		this.scrollToSha(sha, { mode: 'always', flash: flash });
+		if (focus) {
+			void this.updateComplete.then(() => this.focusRow(sha));
+		}
+	}
+
+	private get refsMetadataRange(): 'rendered' | 'loaded' {
+		if (this.config?.refsMetadataRange === 'loaded') return 'loaded';
+
+		return this._scrollMarkers != null && this.config?.scrollMarkerTypes?.includes('pullRequests') === true
+			? 'loaded'
+			: 'rendered';
+	}
+
+	private requestMissingRefsMetadata(first = this.pendingRangeFirst, last = this.pendingRangeLast): void {
 		if (this.refsMetadata === null) return;
 
-		const wantedTypes = this.enabledRefMetadataTypes;
-		if (wantedTypes == null || wantedTypes.length === 0) return;
+		const types = this.enabledRefMetadataTypes;
+		if (types == null || types.length === 0) return;
 
-		let missing: GraphMissingRefsMetadata | undefined;
-		const want = (id: string | undefined, type: GraphRefMetadataType): void => {
-			if (id == null) return;
-
-			const entry = this.refsMetadata?.[id];
-			if (entry != null && type in entry) return;
-
-			let requested = this.requestedMetadata.get(id);
-			if (requested?.has(type)) return;
-
-			if (requested == null) {
-				requested = new Set();
-				this.requestedMetadata.set(id, requested);
-			}
-			requested.add(type);
-
-			missing ??= {};
-			(missing[id] ??= []).push(type);
-		};
-		for (const r of this.displayRows) {
-			const commitRefs = this.getCommitBySha(r.sha)?.commitRefs;
-			if (commitRefs == null) continue;
-
-			for (const ref of commitRefs) {
-				if (ref.kind === 'tag') continue;
-
-				for (const type of wantedTypes) {
-					if (type !== 'upstream') {
-						// PR/issue enrichment is keyed on the ref's OWN id — the host resolves it for a remote
-						// branch too (nulling whatever doesn't apply), so both head and remote ids are asked.
-						want(ref.id, type);
-						continue;
-					}
-
-					// Ahead/behind is keyed on the LOCAL head's id (getUpstreamStats reads a remote pill's
-					// stats via its tracking local), so request only via that id — never the remote's own.
-					if (ref.kind === 'head' && ref.upstreamId != null) {
-						want(ref.id, 'upstream');
-					} else if (ref.kind === 'remote' && ref.id != null) {
-						// A visible remote pill shows ahead/behind from its tracking local's metadata — request
-						// that local's id even when the local row itself is hidden inside a collapsed lane.
-						want(this.localByUpstreamId.get(ref.id)?.id, 'upstream');
-					}
-				}
+		let pullRequestRows: readonly ProcessedGraphRow[] | undefined;
+		if (this.refsMetadataRange === 'loaded' && types.includes('pullRequest')) {
+			const rows = this.processedRows;
+			const walked = this.refsMetadataLoadedWalk;
+			if (walked?.rows !== rows || walked.generation !== this.requestedMetadataGeneration) {
+				this.refsMetadataLoadedWalk = { rows: rows, generation: this.requestedMetadataGeneration };
+				pullRequestRows = rows;
 			}
 		}
+
+		const missing = collectMissingRefsMetadata({
+			rows: this.displayRows,
+			first: first,
+			last: last,
+			refsOf: sha => this.getCommitBySha(sha)?.commitRefs,
+			types: types,
+			metadata: this.refsMetadata,
+			requested: this.requestedMetadata,
+			trackingLocalId: remoteId => this.localByUpstreamId.get(remoteId)?.id,
+			pullRequestRows: pullRequestRows,
+		});
 		if (missing != null) {
-			this.dispatchEvent(new CustomEvent('gl-graph-missingrefsmetadata', { detail: missing }));
+			this.dispatchEvent(graphEvent('gl-graph-missingrefsmetadata', missing));
 		}
+	}
+
+	/** Merges a host's answer for some refs into `refsMetadata`, keeping earlier answers: `null` means asked and none.
+	 *  Ignored while `refsMetadata` is `null`. */
+	addRefsMetadata(metadata: GraphRefsMetadata): void {
+		const current = this.refsMetadata;
+		if (current === null) return;
+
+		const answers = Object.entries(metadata);
+		if (answers.length === 0) return;
+
+		let owned = current;
+		if (owned == null || owned !== this.ownedRefsMetadata) {
+			owned = { ...current };
+			this.ownedRefsMetadata = owned;
+			if (this.lastRefsMetadataRef === current) {
+				this.lastRefsMetadataRef = owned;
+			}
+			this.refsMetadata = owned;
+		}
+
+		let pullRequestsChanged = false;
+		for (const [id, entry] of answers) {
+			pullRequestsChanged ||= (owned[id]?.pullRequest ?? undefined) !== (entry?.pullRequest ?? undefined);
+			owned[id] = entry;
+		}
+		this.invalidateRefsMetadataRows(
+			answers.map(([id]) => id),
+			pullRequestsChanged,
+		);
+		this.requestUpdate();
+	}
+
+	private invalidateRefsMetadataRows(ids: Iterable<string>, pullRequestsChanged: boolean): void {
+		this.invalidateAdornments(
+			rowShasForRefsMetadata(ids, this.refRowIndex, sha => this.getCommitBySha(sha)?.commitRefs),
+		);
+		if (pullRequestsChanged && this.config?.scrollMarkerTypes?.includes('pullRequests') === true) {
+			this.refsMetadataMarkersStale = true;
+		}
+	}
+
+	private applyRefsMetadataDiff(before: GraphRefsMetadata, after: GraphRefsMetadata): void {
+		const changed: string[] = [];
+		let pullRequestsChanged = false;
+		for (const [id, entry] of Object.entries(after)) {
+			const prior = before[id];
+			if (prior === entry) continue;
+
+			changed.push(id);
+			pullRequestsChanged ||= (prior?.pullRequest ?? undefined) !== (entry?.pullRequest ?? undefined);
+		}
+		for (const [id, prior] of Object.entries(before)) {
+			if (id in after) continue;
+
+			changed.push(id);
+			pullRequestsChanged ||= prior?.pullRequest != null;
+		}
+		this.invalidateRefsMetadataRows(changed, pullRequestsChanged);
 	}
 
 	// Reconciles a `gl-graph-missingrefsmetadata` request against what the host's RPC actually answered.
@@ -3562,6 +3688,7 @@ export class GlCommitGraph extends LitElement {
 		}
 
 		if (unlatchedAny) {
+			this.requestedMetadataGeneration++;
 			this.scheduleRefsMetadataRetry();
 		} else {
 			this.refsMetadataRetryDelayMs = refsMetadataRetryBaseDelayMs;
@@ -3582,21 +3709,16 @@ export class GlCommitGraph extends LitElement {
 		}, delay);
 	}
 
-	// Dedupe by content so the paging signal doesn't refire every render; resets when the set
-	// empties so a future unreachable set fires once more.
-	//
-	// The loaded row COUNT is part of the key: reachability is row membership, so rows arriving without
-	// landing the anchor is a new fact, not a re-render, and the consumer's retry (which releases a parked
-	// page request once rows grow — see `onScopeAnchorsUnreachable`) is reachable only if we re-emit for
-	// it. Bounded on the consumer side by an attempt cap, not here.
+	// KEEP: the loaded row count is part of the key, so rows arriving without reaching an anchor re-emit.
 	private emitUnreachableAnchors(unreachable: ReadonlySet<string> | undefined): void {
-		const key = unreachable != null ? `${this.rows?.length ?? 0}:${[...unreachable].sort().join(',')}` : '';
+		const shas = unreachable != null ? [...unreachable] : undefined;
+		const key = shas != null ? `${this.rows?.length ?? 0}:${shas.toSorted().join(',')}` : '';
 		if (key === this.lastEmittedUnreachableKey) return;
 
 		this.lastEmittedUnreachableKey = key;
-		if (unreachable == null || unreachable.size === 0) return;
+		if (shas == null || shas.length === 0) return;
 
-		this.dispatchEvent(new CustomEvent('gl-graph-scopeanchorsunreachable', { detail: unreachable }));
+		this.dispatchEvent(graphEvent('gl-graph-scopeanchorsunreachable', { shas: shas }));
 	}
 
 	// Toggle a lane segment synchronously so a second input in the same Lit update cycle observes
@@ -3621,7 +3743,7 @@ export class GlCommitGraph extends LitElement {
 			this._pendingScrollAnchorTop = this.resolveLaneScrollAnchorTop(scrollAnchor);
 		}
 		this.requestUpdate();
-		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggle', { detail: { tipSha: tipSha } }));
+		this.dispatchEvent(graphEvent('gl-graph-lanetoggle', { tipSha: tipSha }));
 
 		// Announce the change for screen readers (the row count change is otherwise silent).
 		if (toggle.wasCollapsed) {
@@ -3817,8 +3939,7 @@ export class GlCommitGraph extends LitElement {
 	// stacks a further 500ms debounce on top (unless within its 750ms quick-show window), so the
 	// effective show delay is ~750ms.
 	private hoveredRowSha?: string;
-	// Zone of the CURRENT `hoveredRowSha` hover (always set together with it) — see `RowHoverZone`.
-	private hoveredRowZone?: RowHoverZone;
+	private hoveredRowZone?: GraphRowHoverZone;
 	// The row the pointer is physically over — its content OR its right-edge action buttons/affordances,
 	// which carry their own `data-tooltip` and so route through the affordance branch of
 	// `onPointerOverTooltip` that cancels the rich-hover card (clearing `hoveredRowSha`). Tracked
@@ -3826,12 +3947,9 @@ export class GlCommitGraph extends LitElement {
 	// the pill rides exactly over the topmost row's action strip and must stay hidden while the pointer
 	// is on those buttons instead of flickering back on top of them.
 	private pointerRowSha?: string;
-	private readonly emitRowHover = debounce(
-		(detail: { sha: string; clientX: number; currentTarget: HTMLElement; zone: RowHoverZone }): void => {
-			this.dispatchEvent(new CustomEvent('gl-graph-rowhover', { detail: detail }));
-		},
-		250,
-	);
+	private readonly emitRowHover = debounce((detail: GraphRowHoverDetail): void => {
+		this.dispatchEvent(graphEvent('gl-graph-rowhover', detail));
+	}, 250);
 
 	// ————— Keyboard peek —————
 	// `i` (or `mod+I`) shows the same rich card the pointer hover opens, anchored on the FOCUSED row's
@@ -3855,7 +3973,7 @@ export class GlCommitGraph extends LitElement {
 	}
 
 	private requestPeek(request: GraphRowPeekRequest): boolean {
-		this.dispatchEvent(new CustomEvent('gl-graph-rowpeek', { detail: request }));
+		this.dispatchEvent(graphEvent('gl-graph-rowpeek', request));
 		return request.action === 'close' ? false : request.open;
 	}
 
@@ -4031,7 +4149,7 @@ export class GlCommitGraph extends LitElement {
 	// descendants — exactly the "gone" signal the minimap's day-highlight needs (the wrapper re-dispatches
 	// this as `gl-graph-mouse-leave` for graph-app's `minimapEl.unselect`).
 	private readonly onPointerLeave = (): void => {
-		this.dispatchEvent(new CustomEvent('gl-graph-mouseleave'));
+		this.dispatchEvent(graphEvent('gl-graph-mouseleave', undefined));
 	};
 
 	// While a ref is pinned, a pointerdown anywhere that ISN'T a ref pill unfocuses it (click-outside
@@ -4084,9 +4202,7 @@ export class GlCommitGraph extends LitElement {
 
 				this.clearPinnedRef();
 				// Close the branch sheet too, so the focus state stays in sync.
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-open-branch', { detail: { open: false }, bubbles: true, composed: true }),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-openbranch', { open: false }));
 			};
 			document.addEventListener('pointerdown', this.pinnedRefDismiss, true);
 		}
@@ -4324,7 +4440,7 @@ export class GlCommitGraph extends LitElement {
 		// whole band. They sit over the lanes and read as part of them, so they track exactly like the lanes.
 		// The dedicated Refs column (`--ref`) counts too, but only there: it only renders standalone when
 		// refs are their own column — grouped/inline refs live in the message cell and keep the hovercard.
-		const zone: RowHoverZone =
+		const zone: GraphRowHoverZone =
 			node instanceof Element &&
 			node.closest(
 				'.gl-graph__zone--graph, .gl-graph__zone--ref, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane, .gl-graph__row-marker-rail, .gl-graph__row-marker-hit',
@@ -4348,9 +4464,7 @@ export class GlCommitGraph extends LitElement {
 				// keep the row tracked — `gl-graph-rowunhover` hides the card without touching the
 				// minimap's selected day (see handleGraphRowUnhover/GraphHover.onRowUnhovered).
 				this.emitRowHover.cancel();
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: null } }),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-rowunhover', { sha: sha, zone: zone, relatedTarget: null }));
 			}
 			return;
 		}
@@ -4366,7 +4480,7 @@ export class GlCommitGraph extends LitElement {
 		this.hoveredRowZone = zone;
 		// The sticky-timeline pill's yield tracks `pointerRowSha` (updated in `onPointerOverTooltip`, which
 		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
-		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
+		this.dispatchEvent(graphEvent('gl-graph-rowhovertrack', { sha: sha, zone: zone }));
 		this.startRowHover(sha, zone, event, rowEl, true);
 	}
 
@@ -4378,13 +4492,13 @@ export class GlCommitGraph extends LitElement {
 	// zone==='content', where `rowhoverstart` fires unconditionally either way.
 	private startRowHover(
 		sha: string,
-		zone: RowHoverZone,
+		zone: GraphRowHoverZone,
 		event: PointerEvent,
 		rowEl: HTMLElement,
 		isNewRow: boolean,
 	): void {
 		if (isNewRow || zone === 'content') {
-			this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
+			this.dispatchEvent(graphEvent('gl-graph-rowhoverstart', undefined));
 		}
 		if (zone === 'content') {
 			this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
@@ -4406,9 +4520,7 @@ export class GlCommitGraph extends LitElement {
 		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
 		this.hoveredRowZone = undefined;
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
-		);
+		this.dispatchEvent(graphEvent('gl-graph-rowunhover', { sha: sha, zone: zone, relatedTarget: relatedTarget }));
 	}
 
 	private rebuildWipStatsProvider(): void {
@@ -4458,6 +4570,30 @@ export class GlCommitGraph extends LitElement {
 			wipState.set(sha, hasDirtyCounts(s) ? (s.stale ? 'dirty-stale' : 'dirty') : 'clean');
 		}
 		this.wipStateBySha = wipState;
+	}
+
+	private renderedSearchResults?: {
+		results: GraphSearchResults;
+		rows: CommitGraphSourceRow[] | undefined;
+		count: number;
+	};
+
+	private getSearchResultsRenderedCount(results: GraphSearchResults): number {
+		const rows = this.rows;
+		const cached = this.renderedSearchResults;
+		if (cached?.results === results && cached.rows === rows) return cached.count;
+
+		let count = 0;
+		const rowBySha = this.getRowByShaMap();
+		if (rowBySha != null && results.ids != null) {
+			for (const sha of Object.keys(results.ids)) {
+				if (rowBySha.has(sha)) {
+					count++;
+				}
+			}
+		}
+		this.renderedSearchResults = { results: results, rows: rows, count: count };
+		return count;
 	}
 
 	// sha→HOST row map over `this.rows`, rebuilt only when its identity changes (see `cachedRowByShaRef`).
@@ -4511,6 +4647,9 @@ export class GlCommitGraph extends LitElement {
 		}
 		if (this.wipStatsProvider != null) {
 			providers.push(this.wipStatsProvider);
+		}
+		if (this.profile.rowAdornments != null) {
+			providers.push(...this.profile.rowAdornments);
 		}
 
 		for (const provider of providers) {
@@ -4581,16 +4720,38 @@ export class GlCommitGraph extends LitElement {
 		return resolved;
 	};
 
-	// Theme change swapped the engine's active lane palette (graph-theme-bridge.ts) — cached ref pills
-	// bake in the OLD lane color, and the gutter/`--row-lane-color` are produced at render time, so a
-	// full repaint is needed. Theme changes are rare; no need to fold this into the per-update trigger
-	// matrix above, a dedicated listener is simplest.
 	private readonly onLanePaletteChanged = (): void => {
 		this.invalidateAdornments();
 		// Cached gutter SVGs bake the OLD lane hex — bump the epoch so the next render drops + rebuilds them.
 		this.gutterPaletteEpoch++;
 		this.requestUpdate();
 	};
+
+	private dropStaleLocalizedText(): void {
+		const generation = localizerGeneration();
+		if (generation === this.localizedAt) return;
+
+		this.localizedAt = generation;
+		if (this._keymapRegistrar != null && this._keymapBindings != null) {
+			this._keymapBindings.dispose();
+			this._keymapBindings = this._keymapRegistrar.registerBindings(this.keyBindings());
+		}
+		this.zones = this.zones.map(zone => {
+			const label = defaultZones.find(d => d.id === zone.id)?.label;
+			return label != null ? { ...zone, label: label } : zone;
+		});
+		this.invalidateAdornments();
+		dropLocalizedRowCaches();
+		this._stickyTimeline?.clear();
+		this._stickyTimeline?.recompute();
+		this._scrollMarkers?.recompute();
+		for (const stats of this.querySelectorAll<LitElement>('gl-wip-stats, commit-stats')) {
+			stats.requestUpdate();
+			for (const nested of stats.shadowRoot?.querySelectorAll<LitElement>('commit-stats') ?? []) {
+				nested.requestUpdate();
+			}
+		}
+	}
 
 	// Evict cached adornments — targeted when the caller knows the affected shas (granular provider
 	// invalidates), wholesale otherwise. Deliberately does NOT requestUpdate: willUpdate callers are
@@ -4729,7 +4890,7 @@ export class GlCommitGraph extends LitElement {
 	// settings menu). The trailing HEADER cell renders narrower by this much so its label/icon never sit
 	// under the gear — header-only; body columns keep their full width to the scrollbar.
 	private get headerActionsPx(): number {
-		return this.settingsContext != null ? headerActionPx : 0;
+		return this.hasSettingsControl ? headerActionPx : 0;
 	}
 
 	// Available width the content zones zero-scroll-fill (Σ currentWidth = this): the container minus the
@@ -5092,60 +5253,68 @@ export class GlCommitGraph extends LitElement {
 		return style === 'relative' || (style == null && fmt == null);
 	}
 
-	// Whether the 60s refresh timer needs to run at all: either the Date column's own cells are
-	// relative-styled text that goes stale, or the sticky-timeline pill's grouping is elapsed-based (see
-	// stickyTimelineGroupFor) and can drift even when every row's date column reads an absolute format.
-	// One shared timer covers both consumers instead of running two.
+	// KEEP: one timer serves both the relative dates and the sticky timeline, whose groups drift with time
+	// even when the dates are absolute.
 	private needsRelativeTimeTimer(): boolean {
 		return this.isRelativeDateStyle() || this.stickyTimelineEnabled;
 	}
 
-	// Starts (or leaves running) the relative-time refresh timer — only while something actually needs
-	// it (see `needsRelativeTimeTimer`); a no-op otherwise/when already running. `requestUpdate()` alone
-	// is enough to refresh the visible rows' dates: `formatDateFn` isn't identity-gated in the willUpdate
-	// trigger matrix, so no engine/adornment/marker recompute runs, just a re-render of what's on screen.
-	private startRelativeTimeTimer(): void {
-		if (this.relativeTimeTimer != null || !this.needsRelativeTimeTimer()) return;
+	private scheduleRelativeTimeTick(): void {
+		this.stopRelativeTimeTimer();
+		if (!this.isConnected || !this.needsRelativeTimeTimer()) return;
 
-		this.relativeTimeTimer = setInterval(this.onRelativeTimeTick, 60_000);
+		const untilTextChanges = this.relativeTextChangesAt - Date.now();
+		if (!this.stickyTimelineEnabled && untilTextChanges === Infinity) return;
+
+		const delay = this.stickyTimelineEnabled ? relativeTimeTickMs : Math.max(relativeTimeTickMs, untilTextChanges);
+		this.relativeTimeTimer = setTimeout(this.onRelativeTimeTick, Math.min(delay, maxTimerDelayMs));
 	}
 
 	private stopRelativeTimeTimer(): void {
 		if (this.relativeTimeTimer == null) return;
 
-		clearInterval(this.relativeTimeTimer);
+		clearTimeout(this.relativeTimeTimer);
 		this.relativeTimeTimer = undefined;
 	}
 
+	private relativeTextChangesAtFor(first: number, last: number, now: number): number {
+		if (!this.isRelativeDateStyle()) return Infinity;
+
+		const rows = this.displayRows;
+		let soonest = Infinity;
+		for (let i = Math.max(0, first), hi = Math.min(rows.length - 1, last); i <= hi; i++) {
+			if (rows[i].kind === 'workdir') continue;
+
+			const date = this.getCommitBySha(rows[i].sha)?.date;
+			if (date == null) continue;
+
+			soonest = Math.min(soonest, msUntilFromNowChanges(date, now) ?? 0);
+		}
+		return now + soonest;
+	}
+
 	private readonly onRelativeTimeTick = (): void => {
-		// A hidden retained webview must not churn while backgrounded.
+		this.stopRelativeTimeTimer();
 		if (document.visibilityState === 'hidden') return;
 
-		// Only the Date column's cells need a re-render (relative text going stale); the sticky-timeline
-		// pill's own DOM is driven by its own @state write below, not this requestUpdate.
-		if (this.isRelativeDateStyle()) {
+		const now = Date.now();
+		if (this.isRelativeDateStyle() && now >= this.relativeTextChangesAt) {
 			this.requestUpdate();
+			this.relativeTextChangesAt = this.relativeTextChangesAtFor(
+				this.pendingRangeFirst,
+				this.pendingRangeLast,
+				now,
+			);
 		}
-		// Sticky-timeline groups are purely elapsed-based (see stickyTimelineGroupFor) — an otherwise-idle
-		// graph's group can drift as real time passes (e.g. a 6-day-old top row rolling into "Last week"),
-		// so recompute it on every tick regardless of dateStyle. Refresh `nowMs` first so the recompute
-		// doesn't read a stale cached value. Still edge-gated inside the pill controller's `update`/its
-		// window cache, so this is a no-op unless a boundary was actually crossed.
-		this.nowMs = Date.now();
+		this.nowMs = now;
 		this._stickyTimeline?.recompute();
+		this.scheduleRelativeTimeTick();
 	};
 
-	// Becoming visible again while the timer is active refreshes immediately instead of waiting up to
-	// 60s for the next tick — same split as onRelativeTimeTick (dates re-render only if relative-styled,
-	// sticky-timeline recomputes regardless).
 	private readonly onVisibilityChangeForRelativeTime = (): void => {
-		if (document.visibilityState !== 'visible' || this.relativeTimeTimer == null) return;
+		if (document.visibilityState !== 'visible' || !this.needsRelativeTimeTimer()) return;
 
-		if (this.isRelativeDateStyle()) {
-			this.requestUpdate();
-		}
-		this.nowMs = Date.now();
-		this._stickyTimeline?.recompute();
+		this.onRelativeTimeTick();
 	};
 
 	// Loading / error / empty overlay shown over the (empty) lane area. State discrimination is deliberate
@@ -5250,13 +5419,13 @@ export class GlCommitGraph extends LitElement {
 
 	/** Retry a failed rows walk — the app owns the refresh; this only asks for it. */
 	private onRetryLoadClick = (): void => {
-		this.dispatchEvent(new CustomEvent('gl-graph-retry-load', { bubbles: true, composed: true }));
+		this.dispatchEvent(graphEvent('gl-graph-retryload', undefined));
 	};
 
 	private onChangesOptInClick = (): void => {
 		this._changesEnableRequested = true;
 		this.requestUpdate();
-		this.dispatchEvent(new CustomEvent('gl-graph-enable-changes-column', { bubbles: true, composed: true }));
+		this.dispatchEvent(graphEvent('gl-graph-enablechangescolumn', undefined));
 	};
 
 	private onChangesOptInHideClick = (e: MouseEvent): void => {
@@ -5290,14 +5459,13 @@ export class GlCommitGraph extends LitElement {
 		const sr = this.searchResults;
 		if (sr == null || !('count' in sr)) return undefined;
 
-		// "No results" reads even while a background page load is in flight — every other state needs the
-		// load settled first so the counts it reports are stable.
 		if (sr.count === 0) {
 			return html`<span class="gl-graph__results-bar-message">${l10n.t('No results found')}</span>`;
 		}
 		if (this.loading) return undefined;
 
-		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
+		const rendered = this.getSearchResultsRenderedCount(sr);
+		const allLoaded = !sr.hasMore && rendered === sr.count;
 		if (allLoaded) {
 			return html`<span class="gl-graph__results-bar-message"
 				>${formatPlural(l10n.t('{0, plural, one{Showing all {0} result} other{Showing all {0} results}}'), [
@@ -5306,21 +5474,18 @@ export class GlCommitGraph extends LitElement {
 			>`;
 		}
 
-		// Disclose the shortfall either way, but only offer the action when a page could still arrive — a
-		// drained walk means the unrendered results are unreachable from it (a peer worktree whose HEAD is
-		// not in `--all`, say), and a button that provably fetches nothing is worse than no button.
 		const message = sr.hasMore
 			? formatPlural(
 					l10n.t(
 						'{total, plural, one{Showing {rendered} of {total}+ result} other{Showing {rendered} of {total}+ results}}',
 					),
-					{ rendered: String(this.searchResultsRenderedCount), total: sr.count },
+					{ rendered: String(rendered), total: sr.count },
 				)
 			: formatPlural(
 					l10n.t(
 						'{total, plural, one{Showing {rendered} of {total} result} other{Showing {rendered} of {total} results}}',
 					),
-					{ rendered: String(this.searchResultsRenderedCount), total: sr.count },
+					{ rendered: String(rendered), total: sr.count },
 				);
 		return html`<span class="gl-graph__results-bar-message">${message}</span>${
 				this.pagingHasMore !== false
@@ -5366,12 +5531,10 @@ export class GlCommitGraph extends LitElement {
 		//   on `searchMode`, so a normal/highlight-mode search preempts the included-ref target too. The
 		//   ref tips resume being targeted once the search's results are all loaded.
 		const searchResults = this.searchResults;
-		// Tested against the RENDERED count, which under-counts a WIP result whose anchor hasn't paged in.
-		// That errs toward calling a search pending and withholding the button — the safe direction here,
-		// since the cost of being wrong the other way is a button that claims to fetch branches and fetches
-		// search results instead.
 		const searchPending =
-			searchResults != null && 'count' in searchResults && this.searchResultsRenderedCount < searchResults.count;
+			searchResults != null &&
+			'count' in searchResults &&
+			this.getSearchResultsRenderedCount(searchResults) < searchResults.count;
 		// `pagingHasMore`, not `hasMore`: the latter folds the wrapper's filter-exhausted brake in, and this
 		// message asks only whether the host walk itself has anything left. (They agree outside filter mode,
 		// which is the only place this message renders — but naming the one that's actually meant keeps it
@@ -5500,7 +5663,7 @@ export class GlCommitGraph extends LitElement {
 				>
 					<lit-virtualizer
 						${ref(this.virtualizerRef)}
-						id="gl-graph-lanes"
+						id=${this.lanesId}
 						class="gl-graph__virtualizer scrollable"
 						scroller
 						tabindex=${
@@ -5516,6 +5679,8 @@ export class GlCommitGraph extends LitElement {
 						.layout=${this.fixedRowLayout}
 						.renderItem=${renderItem}
 						@rangeChanged=${this.onRangeChanged}
+						@gl-popover-show=${this.onRefPopoverShow}
+						@gl-popover-hide=${this.onRefPopoverHide}
 						@wheel=${
 							// PASSIVE (see graphWheelListener) so vertical wheel scrolling never blocks on the main
 							// thread. Only column placement pans the lanes with the wheel, so only attach it there
@@ -5658,15 +5823,13 @@ export class GlCommitGraph extends LitElement {
 		// the format can't drift) — a local branch and the remote it tracks share `name`, so the
 		// kind/owner-qualified key is what keeps them from colliding for pinning.
 		const key = el.dataset.refKey ?? refPillKey({ kind: kind, name: name, owner: remote });
-		// `context` is `data-vscode-context` for this SAME element (the pill root, a popover row, or a
-		// PR/issue chip anchor all carry both together) — the host's double-click handler gates on
-		// `ref.context` even for a metadata (PR/issue/upstream) click.
 		return {
+			id: el.dataset.refId,
 			name: name,
 			key: key,
 			kind: kind,
 			remote: remote,
-			context: el.dataset.vscodeContext,
+			vscodeContext: el.dataset.vscodeContext,
 			current: el.dataset.refIsHead === 'true',
 		};
 	}
@@ -5748,21 +5911,17 @@ export class GlCommitGraph extends LitElement {
 			(pillSha != null
 				? this.getCommitBySha(pillSha)?.commitRefs.find(r => r.kind === refPill.kind && r.name === refPill.name)
 						?.refContext
-				: undefined) ?? refPill.context;
+				: undefined) ?? refPill.vscodeContext;
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-open-branch', {
-				detail: {
-					name: refPill.name,
-					refType: refPill.kind,
-					remote: refPill.remote,
-					sha: pillSha,
-					// Serialized host context for this ref — powers the sheet's kebab menu (row-menu
-					// parity) and its remote/tag action links.
-					context: refContext,
-					open: pinned,
-				},
-				bubbles: true,
-				composed: true,
+			graphEvent('gl-graph-openbranch', {
+				name: refPill.name,
+				refType: refPill.kind,
+				remote: refPill.remote,
+				sha: pillSha,
+				// Serialized host context for this ref — powers the sheet's kebab menu (row-menu
+				// parity) and its remote/tag action links.
+				vscodeContext: refContext,
+				open: pinned,
 			}),
 		);
 	}
@@ -5791,7 +5950,7 @@ export class GlCommitGraph extends LitElement {
 	// their target row explicitly (`focus: true`).
 	private onPointerDownFocusGuard = (event: PointerEvent): void => {
 		const node = event.target;
-		if (node instanceof Element && node.closest('.gl-graph__row-action') != null) {
+		if (node instanceof Element && node.closest('.gl-graph__row-action, [data-row-control]') != null) {
 			event.preventDefault();
 		}
 	};
@@ -5824,6 +5983,8 @@ export class GlCommitGraph extends LitElement {
 		for (const el of event.composedPath()) {
 			if (!(el instanceof Element)) continue;
 
+			if (el.hasAttribute('data-row-control')) return;
+
 			const rowAction = el.getAttribute('data-row-action');
 			if (rowAction != null) {
 				const sha = this.resolveSha(event);
@@ -5834,13 +5995,11 @@ export class GlCommitGraph extends LitElement {
 					// tip) so the host undoes the right working copy; absent → host targets the primary repo.
 					const worktreePath = el.getAttribute('data-worktree-path') ?? undefined;
 					this.dispatchEvent(
-						new CustomEvent('gl-graph-rowaction', {
-							detail: {
-								action: action,
-								sha: sha,
-								type: this.rowKindForSha(sha),
-								worktreePath: worktreePath,
-							},
+						graphEvent('gl-graph-rowaction', {
+							action: action,
+							sha: sha,
+							type: this.rowKindForSha(sha),
+							worktreePath: worktreePath,
 						}),
 					);
 				}
@@ -5853,33 +6012,16 @@ export class GlCommitGraph extends LitElement {
 				const sha = this.resolveSha(event);
 				if (sha != null) {
 					this.dispatchEvent(
-						new CustomEvent('gl-graph-wiprowopen', {
-							detail: { target: wipOpen, sha: sha, altKey: event.altKey },
-						}),
+						graphEvent('gl-graph-wiprowopen', { target: wipOpen, sha: sha, altKey: event.altKey }),
 					);
 				}
 				event.stopPropagation();
 				return;
 			}
 
-			// The WIP row-marker pill carries the HEAD tip sha directly (`jumpSha`) — a client-side
-			// scroll+select via the same `gl-jump-to-commit` path the WIP details header uses
-			// (graph-wrapper's onJumpToCommit → navigateToCommit); NOT a host round-trip like
-			// data-row-action.
-			//
-			// Says nothing about distance, because it can't: the pill (and hence this attribute) exists
-			// only when HEAD is NOT the next row. The reveal rule sorts it out — a tip already sitting in
-			// view stays put, one crammed at the bottom or off-screen gets landed. Flashes either way: when
-			// nothing scrolls, the wash is the ONLY thing that pulls the eye to the row that just took the
-			// selection.
-			// `focus: true` (matching the keyboard jumps): without it the row is selected but keyboard
-			// focus stays on the hover-revealed button that just went away, falling through to the scroll
-			// container — arrow keys then scroll the viewport instead of moving the selection.
 			const jumpSha = el.getAttribute('data-jump-sha');
 			if (jumpSha != null) {
-				document.dispatchEvent(
-					new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha, focus: true, flash: true } }),
-				);
+				this.requestJump(jumpSha, true, true);
 				event.stopPropagation();
 				return;
 			}
@@ -5892,11 +6034,8 @@ export class GlCommitGraph extends LitElement {
 			if (el.getAttribute('data-jump-nearest-wip') != null) {
 				const sha = this.resolveSha(event);
 				if (sha != null) {
-					document.dispatchEvent(
-						new CustomEvent('gl-jump-to-nearest-wip', {
-							// Same `focus: true` rationale as the pill jump above.
-							detail: { fromSha: sha, focus: true, flash: true },
-						}),
+					this.dispatchEvent(
+						graphEvent('gl-graph-jumptonearestwip', { fromSha: sha, focus: true, flash: true }),
 					);
 				}
 				event.stopPropagation();
@@ -5944,9 +6083,7 @@ export class GlCommitGraph extends LitElement {
 		if (clickedMetadata != null && (clickedMetadata.type === 'pullRequest' || clickedMetadata.type === 'issue')) {
 			const metaRef = this.resolveRef(event);
 			if (metaRef != null) {
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-refdoubleclick', { detail: { ...metaRef, metadata: clickedMetadata } }),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-refdoubleclick', { ...metaRef, metadata: clickedMetadata }));
 				event.stopPropagation();
 				return;
 			}
@@ -6020,9 +6157,7 @@ export class GlCommitGraph extends LitElement {
 			this.revealFocusedLane();
 		}
 
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: mode, rangeShas: rangeShas } }),
-		);
+		this.dispatchEvent(graphEvent('gl-graph-changeselection', { sha: sha, mode: mode, rangeShas: rangeShas }));
 
 		// A row-BODY click (not a control) leaves focus on the virtualizer scroll container — it's the nearest
 		// click-focusable ancestor, since the row controls are tabindex=-1 (and the virtualizer itself is
@@ -6040,6 +6175,8 @@ export class GlCommitGraph extends LitElement {
 	};
 
 	private onDblClick = (event: MouseEvent): void => {
+		if (event.composedPath().some(el => el instanceof Element && el.hasAttribute('data-row-control'))) return;
+
 		// A ref-pill double-click is a ref interaction (e.g. checkout), not a row open — resolve
 		// it first and route to the ref event, matching the React shell's delegated handler. A
 		// PR/issue chip or the upstream segment ALSO resolves a ref (they nest inside the pill/row
@@ -6057,22 +6194,14 @@ export class GlCommitGraph extends LitElement {
 				this.cancelPendingPillActivation();
 				if (this._pinnedRefKey != null) {
 					this.clearPinnedRef();
-					this.dispatchEvent(
-						new CustomEvent('gl-graph-open-branch', {
-							detail: { open: false },
-							bubbles: true,
-							composed: true,
-						}),
-					);
+					this.dispatchEvent(graphEvent('gl-graph-openbranch', { open: false }));
 				}
 			}
 			const metadata = this.resolveRefMetadata(event);
 			// PR/issue chips open on a SINGLE click (see `onClick`); don't also fire the open on double-click. A
 			// plain ref double-click (metadata == null) still routes here — the checkout / pull-push path.
 			if (metadata?.type !== 'pullRequest' && metadata?.type !== 'issue') {
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-refdoubleclick', { detail: { ...ref, metadata: metadata } }),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-refdoubleclick', { ...ref, metadata: metadata }));
 			}
 			return;
 		}
@@ -6080,14 +6209,9 @@ export class GlCommitGraph extends LitElement {
 		const sha = this.resolveSha(event);
 		if (sha == null) return;
 
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-rowdoubleclick', { detail: { sha: sha, type: this.rowKindForSha(sha) } }),
-		);
+		this.dispatchEvent(graphEvent('gl-graph-rowdoubleclick', { sha: sha, type: this.rowKindForSha(sha) }));
 	};
 
-	// Right-click → emit the product context-menu event so the app can sync hover/selection
-	// state. The host's native menu still opens on its own via the selected context attributes
-	// on rows + pills, so we deliberately don't preventDefault.
 	private onContextMenu = (event: MouseEvent): void => {
 		const sha = this.resolveSha(event);
 		if (sha == null) return;
@@ -6099,11 +6223,21 @@ export class GlCommitGraph extends LitElement {
 		if (pill != null) {
 			this.pinRefPill(pill);
 		}
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-contextmenu', {
-				detail: { sha: sha, type: this.rowKindForSha(sha), zone: zone },
-			}),
+		const request = graphEvent(
+			'gl-graph-contextmenu',
+			{
+				sha: sha,
+				type: this.rowKindForSha(sha),
+				zone: zone,
+				clientX: event.clientX,
+				clientY: event.clientY,
+				ref: pill != null ? this.resolveRef(event) : undefined,
+			},
+			true,
 		);
+		if (!this.dispatchEvent(request)) {
+			event.preventDefault();
+		}
 	};
 
 	// The .gl-graph__ref-pill element under the event (parallels resolveRef). Two pills don't count, because
@@ -6119,6 +6253,76 @@ export class GlCommitGraph extends LitElement {
 		if (pill.classList.contains('gl-graph__ref-pill--ghost')) return undefined;
 
 		return pill.closest('.gl-graph__wip-branch-pill') != null ? undefined : pill;
+	}
+
+	private readonly _openRefPopovers = new Map<HTMLElement, HTMLElement[]>();
+	private _refPopoverReconcileQueued = false;
+
+	private readonly onRefPopoverShow = (e: Event): void => {
+		const popover = e.target;
+		if (!(popover instanceof HTMLElement) || !popover.classList.contains('gl-graph__ref-popover')) return;
+
+		const released = this._openRefPopovers.get(popover) ?? [];
+		this._openRefPopovers.set(popover, this.refPopoverClipHosts(popover));
+		this.syncRefPopoverMarks(released);
+	};
+
+	private readonly onRefPopoverHide = (e: Event): void => {
+		const popover = e.target;
+		if (!(popover instanceof HTMLElement)) return;
+
+		const released = this._openRefPopovers.get(popover);
+		if (released == null) return;
+
+		this._openRefPopovers.delete(popover);
+		this.syncRefPopoverMarks(released);
+	};
+
+	private refPopoverClipHosts(popover: HTMLElement): HTMLElement[] {
+		const hosts: HTMLElement[] = [];
+		for (let el = popover.parentElement; el != null && el !== this; el = el.parentElement) {
+			if (el.matches('.gl-graph__refs, .gl-graph__zone, .gl-graph__list-content, .gl-graph__list-line1')) {
+				hosts.push(el);
+			}
+		}
+		return hosts;
+	}
+
+	private syncRefPopoverMarks(released: readonly HTMLElement[]): void {
+		const marked = new Set<HTMLElement>();
+		for (const hosts of this._openRefPopovers.values()) {
+			for (const el of hosts) {
+				marked.add(el);
+				if (!el.classList.contains('has-open-ref-popover')) {
+					el.classList.add('has-open-ref-popover');
+				}
+			}
+		}
+		for (const el of released) {
+			if (!marked.has(el)) {
+				el.classList.remove('has-open-ref-popover');
+			}
+		}
+	}
+
+	private queueRefPopoverReconcile(): void {
+		if (this._refPopoverReconcileQueued) return;
+
+		this._refPopoverReconcileQueued = true;
+		queueMicrotask(() => {
+			this._refPopoverReconcileQueued = false;
+
+			const released: HTMLElement[] = [];
+			for (const [popover, hosts] of this._openRefPopovers) {
+				released.push(...hosts);
+				if (popover.isConnected && popover.hasAttribute('open')) {
+					this._openRefPopovers.set(popover, this.refPopoverClipHosts(popover));
+				} else {
+					this._openRefPopovers.delete(popover);
+				}
+			}
+			this.syncRefPopoverMarks(released);
+		});
 	}
 
 	// Keep a right-clicked ref pill "open" while the native context menu is up: force-expand it
@@ -6288,7 +6492,7 @@ export class GlCommitGraph extends LitElement {
 		const sha = this.displayRows[this.focusIndex]?.sha;
 		if (sha == null) return null;
 
-		return this.querySelector<HTMLElement>(`#${CSS.escape(`graph-row-${sha}`)}`);
+		return this.querySelector<HTMLElement>(`#${CSS.escape(`${this.rowIdPrefix}${sha}`)}`);
 	}
 
 	/** A row's visible, interactive controls for a group, in visual (left→right = DOM) order. Refs = each
@@ -6298,8 +6502,13 @@ export class GlCommitGraph extends LitElement {
 	 *  subtree (the hover-expand overlay's duplicate chips, ghost anchor pills); and a grouped pill's open
 	 *  popover CONTENT rows (`.gl-graph__ref-popover-list`) — those are the Up/Down menu, not Left/Right
 	 *  stops — while keeping the anchor pill + its inline sub-chips. */
-	private rowGroupControls(rowEl: Element, group: 'refs' | 'actions'): HTMLElement[] {
-		const selector = group === 'refs' ? '.gl-graph__ref-pill, [data-ref-metadata-type]' : '.gl-graph__row-action';
+	private rowGroupControls(rowEl: Element, group: RowControlGroup): HTMLElement[] {
+		const selector =
+			group === 'refs'
+				? '.gl-graph__ref-pill, [data-ref-metadata-type]'
+				: group === 'adornments'
+					? '[data-row-control]'
+					: '.gl-graph__row-action';
 		return [...rowEl.querySelectorAll<HTMLElement>(selector)].filter(
 			el =>
 				// Focusable only: `[data-ref-metadata-type]` also matches the NON-jump upstream status span
@@ -6320,8 +6529,9 @@ export class GlCommitGraph extends LitElement {
 	}
 
 	/** Which group a focused control belongs to, or null. Actions first (a pill never nests an action). */
-	private controlGroup(control: HTMLElement): 'refs' | 'actions' | null {
+	private controlGroup(control: HTMLElement): RowControlGroup | null {
 		if (control.closest('.gl-graph__row-action') != null) return 'actions';
+		if (control.closest('[data-row-control]') != null) return 'adornments';
 		if (control.closest('.gl-graph__ref-pill') != null) return 'refs';
 
 		return null;
@@ -6333,7 +6543,7 @@ export class GlCommitGraph extends LitElement {
 		const rowEl = this.activeRowElement();
 		if (rowEl == null) return false;
 
-		for (const group of ['refs', 'actions'] as const) {
+		for (const group of rowControlGroups) {
 			const controls = this.rowGroupControls(rowEl, group);
 			if (controls.length > 0) {
 				controls[0].focus({ preventScroll: true });
@@ -6367,7 +6577,7 @@ export class GlCommitGraph extends LitElement {
 		const group = this.controlGroup(current);
 		if (rowEl == null || group == null) return false;
 
-		const order = ['refs', 'actions'] as const;
+		const order = rowControlGroups;
 		for (let gi = order.indexOf(group) + dir; gi >= 0 && gi < order.length; gi += dir) {
 			const controls = this.rowGroupControls(rowEl, order[gi]);
 			if (controls.length > 0) {
@@ -6628,52 +6838,140 @@ export class GlCommitGraph extends LitElement {
 		return null;
 	}
 
-	// ——— `pillMenu` / `rowControl` / `rows` scopes: the graph's bindings on the webview's key dispatcher ———
-
-	private _keymapScopes: Disposable[] = [];
 	private _keymapBindings: Disposable | undefined;
+	private _keymapRegistrar: GraphKeymapRegistrar | undefined;
+	private _keymapAttachedTo: GraphKeymap | undefined;
+	private _defaultKeymap: { dispatcher: KeymapDispatcher<GraphKeymapScope>; keymap: GraphKeymap } | undefined;
 
-	/** Register the graph's scopes + bindings. Idempotent, and a no-op until `keymap` arrives (it's a
-	 *  property, so it's unset on the first connect — see `willUpdate`). The scopes are selector-based, so
-	 *  they resolve against whatever is rendered at dispatch time and need no render to have happened. The
-	 *  `rows` guard mirrors the empty-graph bail the local handler used to do before any row key. */
-	private registerKeymap(): void {
-		const keymap = this.keymap;
-		if (keymap == null || this._keymapScopes.length > 0) return;
+	private registerKeymap(allowDefault: boolean): void {
+		// KEEP: Lit still flushes an update pending at disconnect; registering from it would leak onto a detached graph.
+		if (!this.isConnected) return;
 
-		// `pillMenu` MUST be registered BEFORE `rowControl`: both selectors match the SAME
-		// `.gl-graph__ref-pill` element of the composed path, and the dispatcher walks the registered scopes
-		// in registration order per path element — so registration order alone decides which of the two lands
-		// innermost in the chain, and the pill's menu keys have to win over roving.
-		this._keymapScopes.push(
-			keymap.registerScope('pillMenu', { selector: '.gl-graph__ref-pill' }),
-			keymap.registerScope('rowControl', { selector: rowControlSelector }),
-			keymap.registerScope('rows', { selector: '.gl-graph__tree' }, [() => this.displayRows.length > 0]),
-		);
-		this._keymapBindings = keymap.registerBindings([
-			...this.pillMenuKeyBindings(),
-			...this.rowControlKeyBindings(),
-			...this.rowKeyBindings(),
-		]);
-		// A reconnect with the finder still open has to re-take its overlay slot — `unregisterKeymap`
-		// dropped it. The other overlay surfaces (mode menu, column drag) are torn down on disconnect.
-		if (this.refFindOpen) {
-			this.pushRefFindOverlay();
+		let keymap = this.keymap;
+		if (keymap == null) {
+			if (!allowDefault) return;
+
+			keymap = this.getDefaultKeymap();
 		}
+		if (keymap === this._keymapAttachedTo) return;
+
+		this.unregisterKeymap(keymap === this._defaultKeymap?.keymap);
+		const registrar = keymap.attach(this);
+		this._keymapAttachedTo = keymap;
+		this._keymapRegistrar = registrar;
+
+		const inside = (e: KeyboardEvent): boolean => e.composedPath().includes(this);
+		// KEEP: `pillMenu` before `rowControl`; both match one pill, and registration order picks the innermost.
+		registrar.registerScope('pillMenu', { selector: '.gl-graph__ref-pill' }, [inside]);
+		registrar.registerScope('rowControl', { selector: rowControlSelector }, [inside]);
+		registrar.registerScope('rows', { selector: '.gl-graph__tree' }, [inside, () => this.displayRows.length > 0]);
+		this._keymapBindings = registrar.registerBindings(this.keyBindings());
+		this.syncKeymapOverlays();
 	}
 
-	private unregisterKeymap(): void {
-		this._keymapBindings?.dispose();
+	private getDefaultKeymap(): GraphKeymap {
+		if (this._defaultKeymap == null) {
+			const dispatcher = new KeymapDispatcher<GraphKeymapScope>({ isMac: isMac, root: this });
+			dispatcher.attach();
+			this._defaultKeymap = { dispatcher: dispatcher, keymap: { attach: () => dispatcher.createRegistrar() } };
+		}
+		return this._defaultKeymap.keymap;
+	}
+
+	private keyBindings(): GraphKeyBinding[] {
+		return [...this.pillMenuKeyBindings(), ...this.rowControlKeyBindings(), ...this.rowKeyBindings()];
+	}
+
+	private unregisterKeymap(keepDefault = false): void {
+		this._keymapRegistrar?.dispose();
+		this._keymapRegistrar = undefined;
+		this._keymapAttachedTo = undefined;
 		this._keymapBindings = undefined;
-		for (const scope of this._keymapScopes) {
-			scope.dispose();
+		this._refFindOverlay = undefined;
+		this._changesModeOverlay = undefined;
+		this._columnDragOverlay = undefined;
+		if (!keepDefault) {
+			this._defaultKeymap?.dispatcher.dispose();
+			this._defaultKeymap = undefined;
+		}
+		this.syncEscapeOutsideListener();
+	}
+
+	private syncKeymapOverlays(): void {
+		const registrar = this._keymapRegistrar;
+		if (this.refFindOpen) {
+			this._refFindOverlay ??= registrar?.pushOverlay({
+				id: 'graph-ref-find',
+				onClose: () => {
+					if (!this.refFindOpen) return false;
+
+					this.setRefFindOpen(false);
+					return true;
+				},
+			});
+		} else {
+			this._refFindOverlay?.dispose();
+			this._refFindOverlay = undefined;
 		}
 
-		this._keymapScopes = [];
-		// Leave no entry behind on the app's stack — it outlives us, and a stale entry would eat an Esc.
-		this._refFindOverlay?.dispose();
-		this._refFindOverlay = undefined;
+		if (this.changesModeAnchor != null) {
+			this._changesModeOverlay ??= registrar?.pushOverlay({
+				id: 'graph-changes-mode-menu',
+				onClose: () => {
+					if (this.changesModeAnchor == null) return false;
+
+					this.closeChangesModeMenu('always');
+					return true;
+				},
+			});
+		} else {
+			this._changesModeOverlay?.dispose();
+			this._changesModeOverlay = undefined;
+		}
+
+		if (this.columnDrag != null) {
+			this._columnDragOverlay ??= registrar?.pushOverlay({
+				id: 'graph-column-drag',
+				onClose: () => {
+					if (this.columnDrag == null) return false;
+
+					this.cancelColumnDrag();
+					return true;
+				},
+			});
+		} else {
+			this._columnDragOverlay?.dispose();
+			this._columnDragOverlay = undefined;
+		}
+
+		this.syncEscapeOutsideListener();
 	}
+
+	private escapeOutsideListening = false;
+
+	private syncEscapeOutsideListener(): void {
+		const listen =
+			this.isConnected &&
+			this._defaultKeymap != null &&
+			this._keymapAttachedTo === this._defaultKeymap.keymap &&
+			(this.changesModeAnchor != null || this.columnDrag != null);
+		if (listen === this.escapeOutsideListening) return;
+
+		this.escapeOutsideListening = listen;
+		if (listen) {
+			document.addEventListener('keydown', this.onEscapeOutside, true);
+		} else {
+			document.removeEventListener('keydown', this.onEscapeOutside, true);
+		}
+	}
+
+	private readonly onEscapeOutside = (e: KeyboardEvent): void => {
+		if (e.key !== 'Escape' || e.defaultPrevented || e.composedPath().includes(this)) return;
+		if (this._defaultKeymap?.dispatcher.closeTopOverlay() !== true) return;
+
+		e.preventDefault();
+		e.stopPropagation();
+	};
 
 	/** True when the event originated on the tree container itself rather than on a control inside a row.
 	 *  Guards the keys a focused row control owns (Enter/Space/Esc/Home/End/`←`/`→`): the `rowControl` scope
@@ -6718,29 +7016,21 @@ export class GlCommitGraph extends LitElement {
 			this.selectedShas = new Set([sha]);
 			this._selectionAnchorSha = sha;
 			this.requestUpdate();
-			this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+			this.dispatchEvent(graphEvent('gl-graph-changeselection', { sha: sha, mode: 'replace' }));
 			if (open) {
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-rowdoubleclick', {
-						detail: { sha: sha, type: this.rowKindForSha(sha) },
-					}),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-rowdoubleclick', { sha: sha, type: this.rowKindForSha(sha) }));
 			}
 		}
 
 		return true;
 	}
 
-	/** Clear the row selection (the wrapper accepts `sha: null`). No column-drag guard: a drag pushes itself
-	 *  onto the Esc overlay stack, which resolves ahead of every focus-scope binding — so this never runs. */
 	private clearRowSelection(): boolean {
-		// Optimistically clear locally too so the screen reader hears the deselection immediately +
-		// aria-selected drops now.
-		if (this.selectedShas.size > 0) {
-			this.selectedShas = new Set();
-			this.requestUpdate();
-		}
-		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: null, mode: 'replace' } }));
+		if (this.selectedShas.size === 0) return false;
+
+		this.selectedShas = new Set();
+		this.requestUpdate();
+		this.dispatchEvent(graphEvent('gl-graph-changeselection', { sha: null, mode: 'replace' }));
 		return true;
 	}
 
@@ -6750,34 +7040,39 @@ export class GlCommitGraph extends LitElement {
 	private copyFocusedRow(): boolean {
 		if (window.getSelection()?.isCollapsed === false) return false;
 
-		const context = this.rowContextFor(this.displayRows[this.focusIndex]?.sha);
-		if (context == null) return false;
+		const sha = this.displayRows[this.focusIndex]?.sha;
+		if (sha == null) return false;
 
+		const context = this.rowContextFor(sha);
+		let selectionShas: string[] | undefined;
 		let selectionContexts: string[] | undefined;
 		if (this.selectedShas.size > 1) {
-			const contexts: string[] = [];
+			selectionShas = [];
+			selectionContexts = [];
 			for (const row of this.displayRows) {
 				if (!this.selectedShas.has(row.sha)) continue;
 
+				selectionShas.push(row.sha);
 				const rowContext = this.rowContextFor(row.sha);
-				if (rowContext == null) continue;
-
-				contexts.push(rowContext);
+				if (rowContext != null) {
+					selectionContexts.push(rowContext);
+				}
 			}
-			selectionContexts = contexts;
 		}
 
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-copy-request', {
-				detail: {
-					context: context,
-					selectionContexts:
-						selectionContexts != null && selectionContexts.length > 1 ? selectionContexts : undefined,
-				},
-				bubbles: true,
-				composed: true,
-			}),
+		const request = graphEvent(
+			'gl-graph-copyrequest',
+			{
+				sha: sha,
+				selectionShas: selectionShas != null && selectionShas.length > 1 ? selectionShas : undefined,
+				vscodeContext: context,
+				vscodeSelectionContexts:
+					selectionContexts != null && selectionContexts.length > 1 ? selectionContexts : undefined,
+			},
+			true,
 		);
+		if (!this.dispatchEvent(request)) return true;
+		if (context == null) return false;
 
 		if (selectionContexts != null && selectionContexts.length > 1) {
 			this.announce(
@@ -6795,7 +7090,7 @@ export class GlCommitGraph extends LitElement {
 	 *  WHOLE area (the pill itself AND its inline sub-chips). Every run declines for a plain single pill (no
 	 *  menu rows) or, for the cursor-relative keys, with no cursor live — falling through to `rowControl`
 	 *  and then `rows`. All sheet-hidden: the sheet documents this menu in prose, not per key. */
-	private pillMenuKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+	private pillMenuKeyBindings(): GraphKeyBinding[] {
 		return [
 			{
 				keys: ['ArrowDown'],
@@ -6840,7 +7135,7 @@ export class GlCommitGraph extends LitElement {
 	 *  managed-focus note above `activeRowElement`). Everything else a row key binds falls through to `rows`,
 	 *  whose runs re-pin the cursor onto this control's row (`repinned`). All sheet-hidden: the sheet
 	 *  documents diving into a row's controls in prose. */
-	private rowControlKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+	private rowControlKeyBindings(): GraphKeyBinding[] {
 		return [
 			{
 				keys: ['ArrowRight'],
@@ -6899,18 +7194,13 @@ export class GlCommitGraph extends LitElement {
 					return true;
 				},
 			},
-			// Non-button ref controls (pills + PR/issue chip anchors are <span role=button>) synthesize the
-			// single click the delegation routes: a pill → togglePinnedRef + gl-graph-open-branch + select; a
-			// PR/issue chip → its own open (see `onClick`). Native <button>s (row actions, the upstream-jump
-			// chip whose Enter IS its jump) fire their own click on Enter/Space — decline so the browser does
-			// it (the `rows` Enter/Space bindings are `isTreeTarget`-guarded, so they decline here too).
 			{
 				keys: ['Enter', ' '],
 				scope: 'rowControl',
 				sheet: 'hidden',
 				run: e => {
 					const control = this.rowControlFor(e);
-					if (control == null || control.tagName === 'BUTTON' || this.controlGroup(control) !== 'refs') {
+					if (control == null || control.tagName === 'BUTTON' || this.controlGroup(control) === 'actions') {
 						return false;
 					}
 
@@ -6940,7 +7230,7 @@ export class GlCommitGraph extends LitElement {
 	/** The `rows` scope's bindings. A `run` returning false leaves the key alone (falls through to an outer
 	 *  scope, then the browser); the dispatcher prevents + stops the event on true. Prev/next pairs put the
 	 *  shortcut-sheet row on the first of the pair and hide its twin, so the sheet reads one row per move. */
-	private rowKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+	private rowKeyBindings(): GraphKeyBinding[] {
 		return [
 			// Shift extends the range from the anchor on every row move (see `applyRowNavigation`), so each
 			// move declares its Shift chord alongside the plain one.
@@ -7209,6 +7499,7 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['w'],
 				scope: 'rows',
+				when: [() => supportsRowAction(this.supportedRowActions, 'jump-to-working-changes')],
 				sheet: { group: 'goto', label: l10n.t('Your working changes'), order: 1 },
 				run: this.repinned(() => {
 					// Resolved by the host handler (graph-wrapper's onJumpToNearestWip): `target: 'primary'`
@@ -7218,9 +7509,12 @@ export class GlCommitGraph extends LitElement {
 					const fromSha = this.displayRows[this.focusIndex]?.sha;
 					if (fromSha == null) return false;
 
-					document.dispatchEvent(
-						new CustomEvent('gl-jump-to-nearest-wip', {
-							detail: { fromSha: fromSha, focus: true, flash: true, target: 'primary' },
+					this.dispatchEvent(
+						graphEvent('gl-graph-jumptonearestwip', {
+							fromSha: fromSha,
+							focus: true,
+							flash: true,
+							target: 'primary',
 						}),
 					);
 					return true;
@@ -7229,6 +7523,7 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['W'],
 				scope: 'rows',
+				when: [() => supportsRowAction(this.supportedRowActions, 'jump-to-working-changes')],
 				sheet: {
 					group: 'goto',
 					label: l10n.t('Working changes on this lane'),
@@ -7239,9 +7534,12 @@ export class GlCommitGraph extends LitElement {
 					const fromSha = this.displayRows[this.focusIndex]?.sha;
 					if (fromSha == null) return false;
 
-					document.dispatchEvent(
-						new CustomEvent('gl-jump-to-nearest-wip', {
-							detail: { fromSha: fromSha, focus: true, flash: true, target: 'nearest' },
+					this.dispatchEvent(
+						graphEvent('gl-graph-jumptonearestwip', {
+							fromSha: fromSha,
+							focus: true,
+							flash: true,
+							target: 'nearest',
 						}),
 					);
 					return true;
@@ -7405,24 +7703,28 @@ export class GlCommitGraph extends LitElement {
 			return true;
 		}
 
+		this.selectJumpTarget(sha, idx);
+		this.revealIndexNearest(idx);
+		// A jump can land near the loaded tail just as a step can, and the reveal alone never asks for rows.
+		this.requestMoreRowsForNavigation(idx);
+		return true;
+	}
+
+	private selectJumpTarget(sha: string, idx: number): void {
 		// Standing on the target already: moving nothing must not drop the user's pinned ref or re-dispatch
 		// a selection that's already current (same guard plain arrow navigation applies).
 		const alreadySelected = this.focusIndex === idx && this.selectedShas.size === 1 && this.selectedShas.has(sha);
 		this.focusIndex = idx;
 		this._selectionAnchorSha = sha;
-		if (!alreadySelected) {
-			// The jump moves the selected commit off the pinned pill's row, leaving its ref chain orphaned.
-			if (this._pinnedRefKey != null) {
-				this.clearPinnedRef();
-			}
-			this.selectedShas = new Set([sha]);
-			this.requestUpdate();
-			this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+		if (alreadySelected) return;
+
+		// The jump moves the selected commit off the pinned pill's row, leaving its ref chain orphaned.
+		if (this._pinnedRefKey != null) {
+			this.clearPinnedRef();
 		}
-		this.revealIndexNearest(idx);
-		// A jump can land near the loaded tail just as a step can, and the reveal alone never asks for rows.
-		this.requestMoreRowsForNavigation(idx);
-		return true;
+		this.selectedShas = new Set([sha]);
+		this.requestUpdate();
+		this.dispatchEvent(graphEvent('gl-graph-changeselection', { sha: sha, mode: 'replace' }));
 	}
 
 	/** Nearest row (by index distance from `focusIndex`, ties toward the earlier direction scanned)
@@ -7552,7 +7854,7 @@ export class GlCommitGraph extends LitElement {
 			this._pendingScrollAnchorTop = this.resolveLaneScrollAnchorTop(scrollAnchor);
 		}
 		this.requestUpdate();
-		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggleall', { detail: { collapsed: collapsed } }));
+		this.dispatchEvent(graphEvent('gl-graph-lanetoggleall', { collapsed: collapsed }));
 
 		if (collapsed) {
 			this.announce(
@@ -7632,8 +7934,8 @@ export class GlCommitGraph extends LitElement {
 		this.settleEdgeNavigation('cancelled');
 		this._pendingEdgeNav = { kind: kind, fromSha: fromSha, backstop: this.armEdgeNavBackstop() };
 		this.emitMoreRows();
-		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: { kind: kind, status: 'started' } }));
-		this.announce(loadingMoreAnnouncement);
+		this.dispatchEvent(graphEvent('gl-graph-edgesearch', { kind: kind, status: 'started' }));
+		this.announce(loadingMoreAnnouncement());
 	}
 
 	/** Settle the pending edge-nav search, if any, and report why. No-op when nothing is pending, so a
@@ -7644,7 +7946,7 @@ export class GlCommitGraph extends LitElement {
 
 		clearTimeout(pending.backstop);
 		this._pendingEdgeNav = undefined;
-		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: { kind: pending.kind, status: status } }));
+		this.dispatchEvent(graphEvent('gl-graph-edgesearch', { kind: pending.kind, status: status }));
 	}
 
 	/** Retry the pending edge-nav search against freshly-appended rows — called from
@@ -7833,7 +8135,7 @@ export class GlCommitGraph extends LitElement {
 		// nothing to walk — the ask would just repeat on every press.
 		if (dir === 1 && !this.searchFiltering && this.needsMoreRows(last)) {
 			this.requestMoreRowsForNavigation(last);
-			this.announce(loadingMoreAnnouncement);
+			this.announce(loadingMoreAnnouncement());
 		} else {
 			this.announce(miss);
 		}
@@ -7896,9 +8198,7 @@ export class GlCommitGraph extends LitElement {
 			this.selectedShas = new Set(rangeShas);
 			this.requestUpdate();
 			this.dispatchEvent(
-				new CustomEvent('gl-graph-changeselection', {
-					detail: { sha: targetSha, mode: 'range', rangeShas: rangeShas },
-				}),
+				graphEvent('gl-graph-changeselection', { sha: targetSha, mode: 'range', rangeShas: rangeShas }),
 			);
 		} else {
 			// Plain navigation moves selection with focus so the details panel + minimap follow arrow
@@ -7913,9 +8213,7 @@ export class GlCommitGraph extends LitElement {
 				}
 				this.selectedShas = new Set([targetSha]);
 				this.requestUpdate();
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-changeselection', { detail: { sha: targetSha, mode: 'replace' } }),
-				);
+				this.dispatchEvent(graphEvent('gl-graph-changeselection', { sha: targetSha, mode: 'replace' }));
 			}
 		}
 		this.revealIndexNearest(next);
@@ -8065,14 +8363,10 @@ export class GlCommitGraph extends LitElement {
 		// it on DEBUG here leaves nothing behind in a production build, where an accessor would survive.
 		if (debugBuild || explicit === true) {
 			this.dispatchEvent(
-				new CustomEvent('gl-graph-morerows', {
-					detail: { displayRows: this.displayRows.length, explicit: explicit === true },
-				}),
+				graphEvent('gl-graph-morerows', { displayRows: this.displayRows.length, explicit: explicit === true }),
 			);
 		} else {
-			// Written as two complete constructions rather than a conditional argument so the production
-			// build keeps the bare one-argument call instead of an `undefined` second argument.
-			this.dispatchEvent(new CustomEvent('gl-graph-morerows'));
+			this.dispatchEvent(graphEvent('gl-graph-morerows', null));
 		}
 		this.announceLoadingMore();
 	}
@@ -8085,7 +8379,7 @@ export class GlCommitGraph extends LitElement {
 
 	// A11y: announce "loading" at most once per burst (leading edge) so continuous prefetch doesn't spam
 	// the screen reader with a running commentary.
-	private announceLoadingMore = debounce((): void => this.announce(loadingMoreAnnouncement), 250, {
+	private announceLoadingMore = debounce((): void => this.announce(loadingMoreAnnouncement()), 250, {
 		edges: 'leading',
 	});
 
@@ -8117,9 +8411,7 @@ export class GlCommitGraph extends LitElement {
 			this.emitMoreRows();
 		}
 
-		// Track the rendered range (feeds the prefetch trigger + visible-range scans). Incoming rows carry
-		// final geometry from their build — the compositor translate + CSS pin position them, so there is
-		// nothing to re-apply here.
+		this.pendingRangeFirst = first;
 		this.pendingRangeLast = last;
 
 		// HEAD pill: show a "Jump to HEAD" affordance when the current HEAD commit is off-screen.
@@ -8152,7 +8444,7 @@ export class GlCommitGraph extends LitElement {
 			const key = `${days.top}|${days.bottom}`;
 			if (key !== this.lastVisibleDaysKey) {
 				this.lastVisibleDaysKey = key;
-				this.dispatchEvent(new CustomEvent('gl-graph-changevisibledays', { detail: days }));
+				this.dispatchEvent(graphEvent('gl-graph-changevisibledays', days));
 			}
 		}
 
@@ -8168,6 +8460,7 @@ export class GlCommitGraph extends LitElement {
 		this.scanVisibleRangeDebounced(first, last);
 	};
 
+	private pendingRangeFirst = 0;
 	private pendingRangeLast = 0;
 
 	private scanVisibleRange(first: number, last: number): void {
@@ -8179,24 +8472,20 @@ export class GlCommitGraph extends LitElement {
 		const primaryWipRowId = this.repoPath != null ? createWipRowId(this.repoPath) : undefined;
 		const lo = Math.max(0, first);
 		const hi = Math.min(rows.length - 1, last);
-		const visibleWip: Record<string, true> = {};
-		const missingStats: Record<string, true> = {};
+		const visibleWip: string[] = [];
+		const missingStats: string[] = [];
 		const missingAvatars: Record<string, string> = {};
 		for (let i = lo; i <= hi; i++) {
 			const commit = this.getCommitBySha(rows[i].sha);
 			if (commit == null) continue;
 
-			// Peer worktrees only — the graph's own WIP row is already watched by the host's primary
-			// working-tree channel, which pushes its status group unasked.
 			if (rows[i].kind === 'workdir' && isWipRowId(rows[i].sha) && rows[i].sha !== primaryWipRowId) {
-				visibleWip[rows[i].sha] = true;
+				visibleWip.push(rows[i].sha);
 				const state = wipState?.[rows[i].sha];
 				if (state != null && (state.workDirStats == null || state.workDirStatsStale === true)) {
-					missingStats[rows[i].sha] = true;
+					missingStats.push(rows[i].sha);
 				}
 			}
-			// Author email collection — skip empty (WIP rows have none), already-resolved, and already-requested
-			// emails (the persistent `requestedAvatars` dedup so scrolling back never re-asks).
 			const email = commit.authorEmail;
 			if (
 				email &&
@@ -8208,34 +8497,33 @@ export class GlCommitGraph extends LitElement {
 			}
 		}
 
-		const wipKey = Object.keys(visibleWip).sort().join(',');
+		const wipKey = visibleWip.sort().join(',');
 		if (wipKey !== this.lastWipVisibleKey) {
 			this.lastWipVisibleKey = wipKey;
-			this.dispatchEvent(new CustomEvent('gl-graph-visiblewipshaschanged', { detail: visibleWip }));
+			this.dispatchEvent(graphEvent('gl-graph-visiblewipshaschanged', { shas: visibleWip }));
 		}
 
-		// Always update the dedup key (even when empty) so a sha that becomes stale again later
-		// re-fires: otherwise the key stays pinned to the last non-empty set and the guard
-		// permanently suppresses a recurring missing-stats request.
-		const missKey = Object.keys(missingStats).sort().join(',');
+		// KEEP: store the key even when empty, or a sha that goes stale again is never asked for twice.
+		const missKey = missingStats.sort().join(',');
 		if (missKey !== this.lastWipMissingKey) {
 			this.lastWipMissingKey = missKey;
 			if (missKey !== '') {
-				this.dispatchEvent(new CustomEvent('gl-graph-wipshasmissingstats', { detail: missingStats }));
+				this.dispatchEvent(graphEvent('gl-graph-wipshasmissingstats', { shas: missingStats }));
 			}
 		}
 
-		// `missingAvatars` already excludes every previously-requested email (the `requestedAvatars` filter
-		// above), so a non-empty set is BY CONSTRUCTION all-new — dispatch it and mark those emails requested.
-		// No range-scoped dedup key: it can't span ranges and would wrongly suppress a legitimate re-request
-		// after `requestedAvatars` is cleared (rows swap / reconnect) on an identical visible range.
+		// KEEP: no range-scoped dedup key; it would block the re-ask after `requestedAvatars` is cleared.
 		const missingAvatarEmails = Object.keys(missingAvatars);
 		if (missingAvatarEmails.length !== 0) {
 			for (const email of missingAvatarEmails) {
 				this.requestedAvatars.add(email);
 			}
-			this.dispatchEvent(new CustomEvent('gl-graph-missingavatars', { detail: missingAvatars }));
+			this.dispatchEvent(graphEvent('gl-graph-missingavatars', { avatars: missingAvatars }));
 		}
+
+		this.requestMissingRefsMetadata(lo, hi);
+		this.relativeTextChangesAt = this.relativeTextChangesAtFor(lo, hi, Date.now());
+		this.scheduleRelativeTimeTick();
 	}
 
 	override firstUpdated(): void {
@@ -8325,6 +8613,7 @@ export class GlCommitGraph extends LitElement {
 
 	protected override updated(changed: PropertyValues): void {
 		super.updated(changed);
+		this.retargetTravellingReveal();
 		// Re-assert the scroll position captured across a row-set change — a lane collapse/expand, or rows
 		// arriving/reordering (fetch, commit, scope switch, rebase) — so the swap doesn't shift the viewport
 		// (runs before flushPendingReveal — a reveal, if armed, wins and clears this anchor).
@@ -8595,7 +8884,8 @@ export class GlCommitGraph extends LitElement {
 	 *  write and the final slide) where neither `_pendingRevealSha` nor an animation frame exists, so
 	 *  no single piece of live state can answer "is a reveal still working toward this row". Any
 	 *  newer reveal or cancel bumps `_revealGeneration`, which invalidates this record implicitly. */
-	private _revealInFlight?: { sha: string; generation: number };
+	private _revealInFlight?: { sha: string; generation: number; rows: readonly ProcessedGraphRow[] };
+	private _revealEndedGeneration = -1;
 
 	/** Sha of a reveal still queued OR still travelling (animation, or a long-jump settle window). A
 	 *  same-target follow-up navigation (a selection-sync trailing the host reveal it mirrors) must
@@ -8789,10 +9079,33 @@ export class GlCommitGraph extends LitElement {
 		this._flashOnRevealSettled = flash ? sha : undefined;
 		this.revealIndexAt(idx, landingRevealRatio, true);
 		// AFTER the call: `revealIndexAt` stamps the generation this reveal runs under.
-		this._revealInFlight = { sha: sha, generation: this._revealGeneration };
+		this._revealInFlight = { sha: sha, generation: this._revealGeneration, rows: this.displayRows };
 	}
 
 	private _revealGeneration = 0;
+
+	private retargetTravellingReveal(): void {
+		const inflight = this._revealInFlight;
+		if (inflight == null || inflight.rows === this.displayRows) return;
+		if (inflight.generation !== this._revealGeneration || inflight.generation === this._revealEndedGeneration) {
+			return;
+		}
+
+		if (!this.indexBySha.has(inflight.sha)) {
+			this.cancelPendingReveal();
+			return;
+		}
+
+		const flash = this._flashOnRevealSettled === inflight.sha;
+		this._flashOnRevealSettled = undefined;
+		this._revealInFlight = undefined;
+		this._revealGeneration++;
+		this.cancelRevealAnimation();
+
+		this._pendingRevealSha = inflight.sha;
+		this._pendingRevealMode = 'always';
+		this._pendingRevealFlash = flash;
+	}
 
 	/**
 	 * Park the row at `idx` at `ratio` down the viewport — the single source of the positioning math, shared
@@ -8867,7 +9180,10 @@ export class GlCommitGraph extends LitElement {
 			const el = this.virtualizerRef.value;
 			if (el == null) return;
 			// Anything that moved the viewport across the settle owns it now.
-			if (this._viewportScrollTop !== landed) return;
+			if (this._viewportScrollTop !== landed) {
+				this._revealEndedGeneration = generation;
+				return;
+			}
 
 			this.runRevealAnimation(el, el.scrollTop, target, generation);
 		});
@@ -8883,6 +9199,7 @@ export class GlCommitGraph extends LitElement {
 	 * window would compute its insert-above correction from it and re-park the viewport where we moved it from.
 	 */
 	private settleReveal(scroller: LitVirtualizer, target: number, generation: number): void {
+		this._revealEndedGeneration = generation;
 		const landed = scroller.scrollTop;
 		this.trackViewportTop(landed);
 
@@ -8973,6 +9290,7 @@ export class GlCommitGraph extends LitElement {
 			}
 			// Someone else moved the scroller mid-flight — theirs wins, same rule the re-assert follows.
 			if (this._revealAnimationWrite != null && scroller.scrollTop !== this._revealAnimationWrite) {
+				this._revealEndedGeneration = generation;
 				this.cancelRevealAnimation();
 				return;
 			}
@@ -9567,7 +9885,7 @@ export class GlCommitGraph extends LitElement {
 	/** The WIP row's rendered content band: the message-zone cell (table) or list line 1. */
 	private wipRowFitContainer(sha: string, style: RenderCtx['style']): HTMLElement | null {
 		return this.querySelector<HTMLElement>(
-			`#${CSS.escape(`graph-row-${sha}`)} ${style === 'list' ? '.gl-graph__list-line1' : '.gl-graph__zone--message'}`,
+			`#${CSS.escape(`${this.rowIdPrefix}${sha}`)} ${style === 'list' ? '.gl-graph__list-line1' : '.gl-graph__zone--message'}`,
 		);
 	}
 
@@ -9600,6 +9918,16 @@ export class GlCommitGraph extends LitElement {
 		const measureCtx = getTextMeasureContext();
 		if (measureCtx == null) return undefined;
 
+		if (this._wipFitCacheCtx !== c) {
+			this._wipFitCacheCtx = c;
+			this._wipFitCache.clear();
+		}
+		const cached = this._wipFitCache.get(row.sha);
+		if (cached?.settled === true) {
+			this._wipFitAvailableWidthBySha.set(row.sha, cached.budget);
+			return cached.fit;
+		}
+
 		const container = this.wipRowFitContainer(row.sha, c.style);
 		const msgEl = container?.querySelector<HTMLElement>('.gl-graph__message');
 		const wrapEl = container?.querySelector<HTMLElement>('.gl-graph__wip-branch-pill');
@@ -9609,6 +9937,7 @@ export class GlCommitGraph extends LitElement {
 			// First paint: nothing to measure yet. The sentinel makes the convergence pass request one
 			// corrective update as soon as the row exists, so the ladder engages one frame later.
 			this._wipFitAvailableWidthBySha.set(row.sha, -1);
+			this._wipFitCache.delete(row.sha);
 			return undefined;
 		}
 
@@ -9637,8 +9966,8 @@ export class GlCommitGraph extends LitElement {
 		}
 
 		const metrics: WipRowFitMetrics = {
-			fullLabelWidth: measuredTextWidth(measureCtx, font, wipRowFullLabel),
-			shortLabelWidth: measuredTextWidth(measureCtx, font, wipRowShortLabel),
+			fullLabelWidth: measuredTextWidth(measureCtx, font, wipRowFullLabel()),
+			shortLabelWidth: measuredTextWidth(measureCtx, font, wipRowShortLabel()),
 			pillChromeWidth: pillChromeWidth,
 			pillNameWidth: measuredTextWidth(measureCtx, font, info.branchName),
 			statsWidth: fixedWidth,
@@ -9646,7 +9975,9 @@ export class GlCommitGraph extends LitElement {
 			// miss always swaps a little early rather than overflowing.
 			slack: measuredTextWidth(measureCtx, font, '0'),
 		};
-		return computeWipRowFit(availableWidth, metrics);
+		const fit = computeWipRowFit(availableWidth, metrics);
+		this._wipFitCache.set(row.sha, { budget: availableWidth, fit: fit, settled: cached != null });
+		return fit;
 	}
 
 	// Post-commit convergence check for `buildWipRowFit`'s per-row measurements (see
@@ -9708,6 +10039,7 @@ export class GlCommitGraph extends LitElement {
 			wipActions: wipActions,
 			isUnpushed: commit?.isUnpublished,
 			isUnpulled: commit?.isUnpulled,
+			supportedRowActions: this.supportedRowActions,
 		});
 	}
 
@@ -9820,6 +10152,7 @@ export class GlCommitGraph extends LitElement {
 				const crumbsCollapsed =
 					crumbCount > 0 && headerW - filtersPx - refFindReservePx - hostLabelReservePx < crumbCount * 55;
 				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
+				const crumbIdentityShown = !crumbsCollapsed || this.config?.placementControls === false;
 				// At icon stage the Changes header drops its text label and shows the compact mode-picker button
 				// instead (the full-size column icon + a clippable chevron) — see the render branch below.
 				const changesIconStage = zone.id === 'changes' && changesStageForWidth(zone.width) === 'icon';
@@ -9863,7 +10196,7 @@ export class GlCommitGraph extends LitElement {
 							changesDormant ? ' gl-graph__header-cell--changes-dormant' : ''
 						}"
 						data-col-id=${zone.id}
-						data-vscode-context=${this.columnsContext ?? nothing}
+						data-vscode-context=${this.vscode?.columnsContext ?? nothing}
 						style=${cspStyleMap(style)}
 						@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, zone.id)}
 					>
@@ -9873,7 +10206,7 @@ export class GlCommitGraph extends LitElement {
 									? html`<span class="gl-graph__group-member">
 											${this.renderPlacementControl(
 												false,
-												graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
+												graphCrumb && crumbIdentityShown ? 'gl-graph' : undefined,
 											)}
 											${
 												graphCrumb && !crumbsCollapsed
@@ -9902,7 +10235,7 @@ export class GlCommitGraph extends LitElement {
 											${this.renderRefsPlacementControl(
 												false,
 												visibleZones,
-												crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
+												crumbIdentityShown ? zoneHeaderIcons.ref : undefined,
 											)}
 											${refFindHere ? this.renderRefFindButton() : nothing}
 											${
@@ -10078,13 +10411,8 @@ export class GlCommitGraph extends LitElement {
 		</button>`;
 	}
 
-	// Bubbles+composed so it reaches the `@gl-graph-filter-column` listener on `<gl-graph-wrapper>`
-	// (graph-app binds it there); both this element and the wrapper are light DOM, so no re-dispatch.
-	// Shared by the filter button's keyboard path and the pointerup clean-click path (`onColumnPointerUp`).
 	private dispatchFilterColumn(zoneId: ZoneId): void {
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-filter-column', { detail: { zone: zoneId }, bubbles: true, composed: true }),
-		);
+		this.dispatchEvent(graphEvent('gl-graph-filtercolumn', { zone: zoneId }));
 	}
 
 	// Keyboard activation for the drag-through filter button (Enter/Space). The mouse path has no `@click`
@@ -10320,51 +10648,26 @@ export class GlCommitGraph extends LitElement {
 		this.setRefFindOpen(false);
 	};
 
-	/** Live overlay-stack registration for the find widget — non-null exactly while it's open. */
 	private _refFindOverlay: Disposable | undefined;
-
-	/** Esc is the overlay stack's, not the widget's: focus never leaves its input, so a local handler would
-	 *  beat any surface opened on top of it. Pushed at open time so the stack's LIFO order is the order the
-	 *  surfaces actually opened in. */
-	private pushRefFindOverlay(): void {
-		this._refFindOverlay ??= this.keymap?.pushOverlay({
-			id: 'graph-ref-find',
-			onClose: () => {
-				if (!this.refFindOpen) return false;
-
-				this.setRefFindOpen(false);
-				return true;
-			},
-		});
-	}
 
 	/** Opens/closes the find widget. Closing returns focus to the graph so the keyboard isn't stranded. */
 	private setRefFindOpen(open: boolean): void {
 		if (this.refFindOpen === open) return;
 
 		this.refFindOpen = open;
-		if (open) {
-			this.pushRefFindOverlay();
-		} else {
-			this._refFindOverlay?.dispose();
-			this._refFindOverlay = undefined;
-			// The emphasis belongs to an open find, not to the selection it left behind, and a walk
-			// still landing must not scroll a closed finder's target into view.
+		this.syncKeymapOverlays();
+		if (!open) {
 			this._refFindHitKey = undefined;
 			this._refFindLoadingSha = undefined;
 			this._refFindLoadingRevealedIndex = undefined;
 			this.invalidateAdornments();
 		}
-		// Opening hands focus to the input — the widget does that itself, once its own render has made the
-		// input focusable. Closing brings the keyboard back so it isn't stranded on a hidden element:
-		// to wherever `/` was pressed when the finder is being dismissed without landing, otherwise the rows.
 		if (!open) {
 			const returnTo = this._refFindReturnFocus;
 			this._refFindReturnFocus = undefined;
 			if (returnTo?.isConnected) {
 				returnTo.focus();
-				// An `inert` or hidden ancestor swallows `focus()` silently and drops focus to the body —
-				// only the rows fallback below can un-strand the keyboard from there.
+				// KEEP: an inert or hidden ancestor drops focus to the body silently; the rows are the fallback.
 				if (document.activeElement !== document.body) return;
 			}
 
@@ -10390,7 +10693,7 @@ export class GlCommitGraph extends LitElement {
 			${graphIsColumn ? this.renderGraphHeaderCell(this.gutterWidth, false) : nothing}
 			<div
 				class="gl-graph__header-cell gl-graph__header-cell--details"
-				data-vscode-context=${this.columnsContext ?? nothing}
+				data-vscode-context=${this.vscode?.columnsContext ?? nothing}
 			>
 				${graphIsColumn ? nothing : this.renderPlacementControl(true)}
 			</div>
@@ -10416,7 +10719,7 @@ export class GlCommitGraph extends LitElement {
 			class="gl-graph__header-cell gl-graph__header-cell--graph${
 				this.dragColId === 'graph' ? ' is-dragging' : ''
 			}"
-			data-vscode-context=${this.columnsContext ?? nothing}
+			data-vscode-context=${this.vscode?.columnsContext ?? nothing}
 			style=${cspStyleMap({ width: `${cellWidth}px`, minWidth: `${cellWidth}px` })}
 			@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, 'graph')}
 		>
@@ -10462,7 +10765,9 @@ export class GlCommitGraph extends LitElement {
 	// `identityIcon` renders the column's icon inside the button (the crumb-chip form: the WHOLE crumb is
 	// the ungroup control — one hit target, the tooltip covers it all — instead of a dead identity glyph
 	// beside a tiny button).
-	private renderPlacementControl(labeled = false, identityIcon?: string): TemplateResult {
+	private renderPlacementControl(labeled = false, identityIcon?: string): TemplateResult | typeof nothing {
+		if (this.config?.placementControls === false) return this.renderPlacementIdentity(identityIcon);
+
 		const hidden = this.graphPlacement === 'hidden';
 		const grouped = this.graphPlacement === 'grouped';
 		// Group/detach affordance: standalone column = outline `map` (group with the target column);
@@ -10561,7 +10866,9 @@ export class GlCommitGraph extends LitElement {
 		atEnd: boolean,
 		visibleZones: readonly ZoneSpec[],
 		identityIcon?: string,
-	): TemplateResult {
+	): TemplateResult | typeof nothing {
+		if (this.config?.placementControls === false) return this.renderPlacementIdentity(identityIcon);
+
 		const isColumn = this.refsPlacement === 'column';
 		const icon = isColumn ? 'map' : 'map-filled';
 		// SPECIAL CASE (see `refsGroupMergesGraph`): here the click merges the Graph into Refs, not the
@@ -10598,6 +10905,12 @@ export class GlCommitGraph extends LitElement {
 				icon=${icon}
 			></code-icon>
 		</button>`;
+	}
+
+	private renderPlacementIdentity(identityIcon: string | undefined): TemplateResult | typeof nothing {
+		return identityIcon != null
+			? html`<code-icon class="gl-graph__header-label-icon" icon=${identityIcon}></code-icon>`
+			: nothing;
 	}
 
 	private toggleRefsPlacement = (): void => {
@@ -10637,20 +10950,22 @@ export class GlCommitGraph extends LitElement {
 		this.persistColumnsConfig();
 	};
 
-	// Settings gear: opens the host's native graph menu (column show/hide + the Scroll Markers submenu)
-	// on click. `settingsContext` is the host-built serialized context; a
-	// left-click dispatches a synthetic `contextmenu` at the button (see `openHeaderContextMenu`) so the
-	// native menu opens there (same pattern as gl-details-commit-panel.onMoreActionsClick).
+	private get hasSettingsControl(): boolean {
+		return this.vscode?.settingsContext != null || this.headerMenu != null;
+	}
+
 	private renderSettingsControl(): TemplateResult | typeof nothing {
-		if (this.settingsContext == null) return nothing;
+		if (!this.hasSettingsControl) return nothing;
 
 		return html`<button
 			class="gl-graph__placement-toggle gl-graph__header-settings"
 			type="button"
-			aria-label=${l10n.t('Graph and scroll-marker settings. Click to open the menu.')}
-			data-tooltip=${l10n.t('Settings — columns and scroll markers')}
+			aria-label=${this.headerMenu?.label ?? l10n.t('Graph and scroll-marker settings. Click to open the menu.')}
+			aria-haspopup="menu"
+			aria-expanded=${this.headerMenu?.open != null ? String(this.headerMenu.open) : nothing}
+			data-tooltip=${this.headerMenu?.label ?? l10n.t('Settings — columns and scroll markers')}
 			draggable="false"
-			data-vscode-context=${this.settingsContext}
+			data-vscode-context=${this.vscode?.settingsContext ?? nothing}
 			@pointerdown=${(e: Event) => e.stopPropagation()}
 			data-roving-key="settings"
 			@click=${this.openHeaderContextMenu}
@@ -10749,7 +11064,6 @@ export class GlCommitGraph extends LitElement {
 	private changesModeMenuRef = createRef<HTMLElement>();
 	@state() private changesModeAnchor?: HTMLElement;
 	private changesModeFocusIndex = 0;
-	/** Live overlay-stack registration for the mode menu — non-null exactly while it's open. */
 	private _changesModeOverlay: Disposable | undefined;
 
 	// Optimistic latch: the opt-in overlay's click flips this so the dormant overlay + header tint clear
@@ -10815,21 +11129,9 @@ export class GlCommitGraph extends LitElement {
 			changesModeOptions.findIndex(o => o.mode === this.currentChangesMode),
 		);
 		this.changesModeAnchor = anchor;
-		// Manual-trigger gl-popover installs its own Escape/CloseWatcher + focus-out dismiss, but not an
-		// outside-pointer dismiss — add one that EXCEPTS the anchor so a click on the label toggles (never
-		// reopens). Capture phase so it settles before the label's own pointerup toggle.
+		// KEEP: capture phase, so the outside dismiss settles before the label's own pointerup toggle.
 		document.addEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
-		// Esc goes through the overlay stack so this menu ranks above the focus chain and below anything
-		// opened over it. Pushed at open time to keep the stack in open order.
-		this._changesModeOverlay = this.keymap?.pushOverlay({
-			id: 'graph-changes-mode-menu',
-			onClose: () => {
-				if (this.changesModeAnchor == null) return false;
-
-				this.closeChangesModeMenu('always');
-				return true;
-			},
-		});
+		this.syncKeymapOverlays();
 	}
 
 	// Focus on close: 'always' = keyboard/pick paths (ARIA menu pattern — focus returns to the trigger
@@ -10848,8 +11150,7 @@ export class GlCommitGraph extends LitElement {
 
 	private detachChangesModeMenu(): void {
 		document.removeEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
-		this._changesModeOverlay?.dispose();
-		this._changesModeOverlay = undefined;
+		this.syncKeymapOverlays();
 	}
 
 	// Return focus to the label only if the close dropped it to <body> — i.e. the focused glyph was hidden
@@ -10964,23 +11265,17 @@ export class GlCommitGraph extends LitElement {
 		// columns echo re-confirms. A dropped push is harmless (local state already matches).
 		this.zones = this.zones.map(z => (z.id === 'changes' ? { ...z, mode: mode } : z));
 		this.requestUpdate();
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-change-column-mode', {
-				detail: { name: 'changes', mode: mode },
-				bubbles: true,
-				composed: true,
-			}),
-		);
+		this.dispatchEvent(graphEvent('gl-graph-changecolumnmode', { name: 'changes', mode: mode }));
 	}
 
-	// Settings-gear menu opener (sole consumer): dispatches a synthetic `contextmenu` at the gear so the
-	// host's native menu opens there, resolving the gear's `settingsContext`. (The
-	// Changes column's display mode is picked via the glyph popover, not a native menu item.)
 	private openHeaderContextMenu = (event: MouseEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		const target = event.currentTarget;
 		if (!(target instanceof HTMLElement)) return;
+
+		const request = graphEvent('gl-graph-headermenu', { anchor: target.getBoundingClientRect() }, true);
+		if (!this.dispatchEvent(request)) return;
 
 		dispatchContextMenuAt(target);
 	};
@@ -11319,8 +11614,7 @@ export class GlCommitGraph extends LitElement {
 		let maxText = 0;
 		let matched = 0;
 		for (const cell of cells) {
-			const rowId = cell.closest('[id^="graph-row-"]')?.id;
-			const sha = rowId?.slice('graph-row-'.length);
+			const sha = cell.closest<HTMLElement>('.gl-graph__row[data-sha]')?.dataset.sha;
 			const date = sha != null ? dateBySha.get(sha) : undefined;
 			if (date == null) continue;
 
@@ -11351,8 +11645,7 @@ export class GlCommitGraph extends LitElement {
 		const probes: HTMLElement[] = [];
 		const avatars: HTMLElement[] = [];
 		for (const cell of cells) {
-			const rowId = cell.closest('[id^="graph-row-"]')?.id;
-			const sha = rowId?.slice('graph-row-'.length);
+			const sha = cell.closest<HTMLElement>('.gl-graph__row[data-sha]')?.dataset.sha;
 			const author = sha != null ? this.getCommitBySha(sha)?.author : undefined;
 			if (!author) continue;
 
@@ -11410,8 +11703,7 @@ export class GlCommitGraph extends LitElement {
 		let content = 0;
 		try {
 			for (const cell of cells) {
-				const rowId = cell.closest('[id^="graph-row-"]')?.id;
-				const sha = rowId?.slice('graph-row-'.length);
+				const sha = cell.closest<HTMLElement>('.gl-graph__row[data-sha]')?.dataset.sha;
 				const stats = sha != null ? rowsStats[sha] : undefined;
 				if (stats == null) continue;
 
@@ -11508,7 +11800,7 @@ export class GlCommitGraph extends LitElement {
 			role="scrollbar"
 			aria-orientation="horizontal"
 			aria-label=${l10n.t('Scroll the graph lanes horizontally')}
-			aria-controls="gl-graph-lanes"
+			aria-controls=${this.lanesId}
 			aria-valuemin="0"
 			aria-valuemax=${max}
 			aria-valuenow=${now}
@@ -11630,42 +11922,28 @@ export class GlCommitGraph extends LitElement {
 		} | null;
 	} | null = null;
 
-	/** Live overlay-stack registration for an armed/in-flight column drag — Esc aborts it. */
 	private _columnDragOverlay: Disposable | undefined;
 
-	// Whole-cell drag handle: a primary press anywhere on a column header cell arms a reorder (the resize
-	// handle + the controls stopPropagation on pointerdown, so they're excluded). The drag begins only once
-	// the pointer crosses a small threshold. Mirrors `onResizeStart`: preventDefault (else the browser's
-	// default pointercancels the drag) + capture the pointer up front (so move/up arrive off the cell, and
-	// focus stays keyboard-only — a click no longer focuses the label → no focus ring on click).
 	private onColumnPointerDown(event: PointerEvent, colId: string): void {
-		// Primary button only, and never start a second drag over an in-flight one (a second touch/stylus
-		// would orphan the first pointer's capture + rAF).
+		// KEEP: never start a second drag over an in-flight one; it would orphan the first pointer's capture.
 		if (event.button !== 0 || this.columnDrag != null) return;
 
 		const cell = event.currentTarget as HTMLElement;
 		const header = cell.closest<HTMLElement>('.gl-graph__header');
 		if (header == null) return;
 
+		// KEEP: without preventDefault the browser's default action pointercancels the drag.
 		event.preventDefault();
 		try {
 			cell.setPointerCapture(event.pointerId);
-		} catch {
-			// no active pointer to capture — the window listeners still drive the drag
-		}
+		} catch {}
 
-		// Record whether the press landed on the Changes picker control so a clean click (no drag) can open
-		// the picker at pointerup — the label (text/icon + chevron) at most widths, or the compact
-		// mode-picker button at icon stage. Either way the press also arms the reorder like the rest of the
-		// cell; empty cell space arms reorder but doesn't open the picker.
 		const changesPickerAnchor =
 			colId === 'changes' && event.target instanceof Element
 				? event.target.closest<HTMLElement>(
 						'.gl-graph__header-label--changes, .gl-graph__changes-mode-picker-button',
 					)
 				: null;
-		// A press on a filter button arms the reorder like anywhere else on the cell; a clean click
-		// dispatches that button's zone at pointerup (the button has no `@click` — keyboard uses `@keydown`).
 		const filterZone =
 			event.target instanceof Element
 				? ((event.target.closest<HTMLElement>('.gl-graph__filter-toggle')?.dataset.filterZone as
@@ -11691,17 +11969,7 @@ export class GlCommitGraph extends LitElement {
 		window.addEventListener('pointermove', this.onColumnPointerMove);
 		window.addEventListener('pointerup', this.onColumnPointerUp);
 		window.addEventListener('pointercancel', this.onColumnPointerCancel);
-		// Esc aborts the drag through the overlay stack, which outranks every focus-scope binding — so the
-		// rows' Escape (clear selection) can't also fire, and no guard is needed there for it.
-		this._columnDragOverlay = this.keymap?.pushOverlay({
-			id: 'graph-column-drag',
-			onClose: () => {
-				if (this.columnDrag == null) return false;
-
-				this.cancelColumnDrag();
-				return true;
-			},
-		});
+		this.syncKeymapOverlays();
 	}
 
 	private onColumnPointerMove = (event: PointerEvent): void => {
@@ -12028,12 +12296,10 @@ export class GlCommitGraph extends LitElement {
 		window.removeEventListener('pointermove', this.onColumnPointerMove);
 		window.removeEventListener('pointerup', this.onColumnPointerUp);
 		window.removeEventListener('pointercancel', this.onColumnPointerCancel);
-		this._columnDragOverlay?.dispose();
-		this._columnDragOverlay = undefined;
+		this.syncKeymapOverlays();
 		document.body.style.cursor = '';
 		this.draggingColumn = false;
 		this.dragColId = null;
-		// Drop any in-flight slide transforms so the committed/cancelled order isn't left visually offset.
 		this.clearColumnFlipTransforms();
 	}
 
@@ -12150,10 +12416,5 @@ declare global {
 		'gl-commit-graph': GlCommitGraph;
 	}
 
-	interface GlobalEventHandlersEventMap {
-		'gl-graph-copy-request': CustomEvent<{ context: string; selectionContexts?: string[] }>;
-		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
-		'gl-graph-lanetoggleall': CustomEvent<{ collapsed: boolean }>;
-		'gl-graph-mouseleave': CustomEvent<void>;
-	}
+	interface GlobalEventHandlersEventMap extends CommitGraphEventMap {}
 }

@@ -2,8 +2,8 @@
  * Shared a11y helpers for the commit graph surface — screen-reader-facing strings, testable without a DOM.
  */
 
-import * as l10n from '@vscode/l10n';
 import type { CommitKind, GraphCommit } from './engine/types.js';
+import * as l10n from './l10n.js';
 import { relativeTimeShort } from './time.js';
 
 /**

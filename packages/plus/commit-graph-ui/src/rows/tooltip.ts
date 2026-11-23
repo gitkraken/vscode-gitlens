@@ -176,6 +176,12 @@ export class DelegatedTooltipController implements ReactiveController {
 		// built from the ref's metadata at hover time — so without this they'd resolve to null and the row
 		// hover card would fire over the chip instead.
 		const el = node.closest<HTMLElement>('[data-tooltip], [data-ref-metadata-type]');
+		// KEEP: a tooltip target under the pointer cancels the row's hover card, so a WIP title that isn't cut off
+		// must not count as one.
+		if (el?.classList.contains('gl-graph__message--wip-title') && el.scrollWidth <= el.clientWidth) {
+			return undefined;
+		}
+
 		return el ?? undefined;
 	}
 

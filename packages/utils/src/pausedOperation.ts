@@ -27,32 +27,64 @@ export const pausedOperationStatusStringsByType: {
 	readonly revert: PausedOperationStrings & { readonly directionality: 'in' };
 } = {
 	'cherry-pick': {
-		name: l10n.t('Cherry Pick'),
-		prose: l10n.t('Cherry-pick'),
-		label: l10n.t('Cherry picking'),
-		conflicts: l10n.t('Resolve conflicts to continue cherry picking'),
+		get name() {
+			return l10n.t('Cherry Pick');
+		},
+		get prose() {
+			return l10n.t('Cherry-pick');
+		},
+		get label() {
+			return l10n.t('Cherry picking');
+		},
+		get conflicts() {
+			return l10n.t('Resolve conflicts to continue cherry picking');
+		},
 		directionality: 'into',
 	},
 	merge: {
-		name: l10n.t('Merge'),
-		prose: l10n.t('Merge'),
-		label: l10n.t('Merging'),
-		conflicts: l10n.t('Resolve conflicts to continue merging'),
+		get name() {
+			return l10n.t('Merge');
+		},
+		get prose() {
+			return l10n.t('Merge');
+		},
+		get label() {
+			return l10n.t('Merging');
+		},
+		get conflicts() {
+			return l10n.t('Resolve conflicts to continue merging');
+		},
 		directionality: 'into',
 	},
 	rebase: {
-		name: l10n.t('Rebase'),
-		prose: l10n.t('Rebase'),
-		label: l10n.t('Rebasing'),
-		conflicts: l10n.t('Resolve conflicts to continue rebasing'),
+		get name() {
+			return l10n.t('Rebase');
+		},
+		get prose() {
+			return l10n.t('Rebase');
+		},
+		get label() {
+			return l10n.t('Rebasing');
+		},
+		get conflicts() {
+			return l10n.t('Resolve conflicts to continue rebasing');
+		},
 		directionality: 'onto',
 		pending: 'Pending rebase of',
 	},
 	revert: {
-		name: l10n.t('Revert'),
-		prose: l10n.t('Revert'),
-		label: l10n.t('Reverting'),
-		conflicts: l10n.t('Resolve conflicts to continue reverting'),
+		get name() {
+			return l10n.t('Revert');
+		},
+		get prose() {
+			return l10n.t('Revert');
+		},
+		get label() {
+			return l10n.t('Reverting');
+		},
+		get conflicts() {
+			return l10n.t('Resolve conflicts to continue reverting');
+		},
 		directionality: 'in',
 	},
 } as const;

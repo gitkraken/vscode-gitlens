@@ -1206,6 +1206,7 @@
 	"Commit message (Ctrl+Enter to commit)": "Commit message (Ctrl+Enter to commit)",
 	"Commit message (⌘Enter to commit)": "Commit message (⌘Enter to commit)",
 	"Commit message for changes by {author}": "Commit message for changes by {author}",
+	"Commit not loaded yet.": "Commit not loaded yet.",
 	"Commit on 1 branch: {name}": "Commit on 1 branch: {name}",
 	"Commit on 1 remote branch: {name}": "Commit on 1 remote branch: {name}",
 	"Commit on 1 tag: {name}": "Commit on 1 tag: {name}",

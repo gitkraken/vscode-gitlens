@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { getExcludedRemotes } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
+import { getExcludedRemotes } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import type { GraphExcludeRefs, GraphRefOptData } from '../../../../plus/graph/protocol.js';
 import { compareGraphRefOpts, getHiddenRefLabel, getHiddenRefSortKey } from '../hiddenRefs.utils.js';
 

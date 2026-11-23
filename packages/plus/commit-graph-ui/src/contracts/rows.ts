@@ -33,6 +33,8 @@ export interface CommitGraphSourceHead {
 	isDefault?: boolean;
 }
 
+export { pickRowUndoTarget } from '../rows/rows.js';
+
 export interface CommitGraphSourceRemote {
 	id?: string;
 	name: string;
@@ -146,3 +148,25 @@ export const defaultCommitGraphRowAdapter: CommitGraphRowAdapter = (row, idLengt
 	isUnpublished: false,
 	isUnpulled: false,
 });
+
+/**
+ * Per-working-tree-row identity supplied by the host. The renderer uses this separately from the row's
+ * generic commit payload so the inline branch pill, scroll marker, tooltip, and accessible label can name
+ * a working tree without encoding product-specific identity into the row message.
+ */
+export interface WipRowInfo {
+	/** Tip branch name, or a host-synthesized detached-HEAD label when {@link detached} is true. */
+	branchName?: string;
+	/** Whether the working tree is on a detached HEAD, making its identity pill non-interactive. */
+	detached?: boolean;
+	/** Tracked upstream name, when already available to the host. */
+	upstreamName?: string;
+	/** Already-resolved merge target; the renderer never fetches it. */
+	target?: { sha: string; name?: string };
+	/** Display name for a secondary working tree. */
+	worktreeName?: string;
+	/** HEAD sha used as the branch-pill jump target. */
+	tipSha?: string;
+	/** Whether this row represents the host's primary working tree. */
+	isPrimary: boolean;
+}
