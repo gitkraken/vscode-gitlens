@@ -281,6 +281,84 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	 */
 	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string | undefined;
 
+	async mutateIssue(
+		connectionId: string,
+		input: GitHubIssueMutation,
+		{ expectedLogin, installationOrigin }: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<IssueWriteResult> {
+		if (!isValidGitHubIssueMutation(input)) return { ok: false, reason: 'invalid-input' };
+
+		let beforeMutation = true;
+		try {
+			const api = await this.authenticationService.apis.github;
+
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const token = toTokenWithInfo(this.id, session);
+			const baseUrl = this.apiBaseUrlFor(session);
+			if (baseUrl != null && new URL(baseUrl).origin !== installationOrigin) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			const isSessionCurrent =
+				baseUrl == null ? undefined : this.authenticationService.trackStoredSession(this.id, session);
+
+			let unauthorized = false;
+			const onUnauthorized = () => {
+				unauthorized = true;
+			};
+			let result: IssueWriteResult;
+			try {
+				if (expectedLogin !== undefined) {
+					const login = await api.getIssueWriteViewer(this, token, baseUrl, onUnauthorized);
+					if (login?.toLowerCase() !== expectedLogin.toLowerCase()) {
+						return { ok: false, reason: 'no-connection' };
+					}
+				}
+
+				beforeMutation = false;
+				result = await api.mutateIssue(this, token, input, {
+					baseUrl: baseUrl,
+					isSessionCurrent: isSessionCurrent,
+					onUnauthorized: onUnauthorized,
+				});
+			} catch (ex) {
+				const failure = issueWriteFailure(ex);
+				result =
+					beforeMutation && baseUrl != null && failure.reason === 'unknown'
+						? { ...failure, mutationDispatched: false }
+						: failure;
+			}
+
+			if (result.ok || unauthorized) {
+				if (isSessionCurrent == null || (await isSessionCurrent())) {
+					if (result.ok) {
+						this.resetRequestExceptionCount('mutateIssue', connectionId);
+					} else {
+						this.handleConnectionAuthenticationRejection(
+							connectionId,
+							true,
+							baseUrl == null ? undefined : session.accessToken,
+						);
+					}
+				} else if (result.ok && input.action === 'resolve') {
+					return { ok: false, reason: 'no-connection' };
+				}
+			}
+
+			return result;
+		} catch (ex) {
+			const failure = issueWriteFailure(ex);
+			return beforeMutation &&
+				this.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise &&
+				failure.reason === 'unknown'
+				? { ...failure, mutationDispatched: false }
+				: failure;
+		}
+	}
+
 	protected override async getProviderAccountForCommit(
 		session: ProviderAuthenticationSession,
 		repo: GitHubRepositoryDescriptor,
@@ -1654,29 +1732,6 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	readonly name: string = 'GitHub';
 	get domain(): string {
 		return metadata.domain;
-	}
-
-	async mutateIssue(connectionId: string, input: GitHubIssueMutation): Promise<IssueWriteResult> {
-		if (!isValidGitHubIssueMutation(input)) return { ok: false, reason: 'invalid-input' };
-
-		try {
-			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
-			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
-
-			const api = await this.authenticationService.apis.github;
-			if (api == null) return { ok: false, reason: 'unsupported' };
-
-			const result = await api.mutateIssue(this, toTokenWithInfo(this.id, session), input);
-			if (result.ok) {
-				this.resetRequestExceptionCount('mutateIssue', connectionId);
-			} else if (result.reason === 'no-connection') {
-				this.handleConnectionAuthenticationRejection(connectionId, true);
-			}
-
-			return result;
-		} catch (ex) {
-			return issueWriteFailure(ex);
-		}
 	}
 
 	async resolvePullRequestWriteTarget(

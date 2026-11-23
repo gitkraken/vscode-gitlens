@@ -53,6 +53,9 @@ type IntegrationSessionChangeEvent = {
 	readonly previousDomain?: string;
 };
 
+type IssueWriteRetirements = { epoch: number; scopes: Map<string, number> };
+const issueWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], IssueWriteRetirements>();
+
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
 	private readonly _onWillChangeSession = new Emitter<IntegrationSessionChangeEvent>();
@@ -73,6 +76,8 @@ export class ConfiguredIntegrationService implements Disposable {
 	private _signOutEpoch = 0;
 	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
 	private readonly _signOuts = new Map<string, number>();
+	private readonly _issueWriteRetirements: IssueWriteRetirements;
+	private _disposed = false;
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
 	}
@@ -83,9 +88,17 @@ export class ConfiguredIntegrationService implements Disposable {
 		return this._onWillRemoveSessions.event;
 	}
 
-	constructor(private readonly ctx: IntegrationServiceContext) {}
+	constructor(private readonly ctx: IntegrationServiceContext) {
+		let retirements = issueWriteRetirements.get(ctx.storage);
+		if (retirements == null) {
+			retirements = { epoch: 0, scopes: new Map() };
+			issueWriteRetirements.set(ctx.storage, retirements);
+		}
+		this._issueWriteRetirements = retirements;
+	}
 
 	dispose(): void {
+		this._disposed = true;
 		this._onDidChange.dispose();
 		this._onWillChangeSession.dispose();
 		this._onWillRemoveSessions.dispose();
@@ -325,6 +338,24 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	private retirePendingStores(scope: string): void {
 		this._signOuts.set(scope, ++this._signOutEpoch);
+		this.retireIssueWrites(scope);
+	}
+
+	getIssueWriteMark(): number {
+		return this._issueWriteRetirements.epoch;
+	}
+
+	isIssueWriteRetiredSince(
+		id: IntegrationIds,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		mark: number,
+	): boolean {
+		return this._disposed || this.hasRetirement(this._issueWriteRetirements.scopes, id, session, mark);
+	}
+
+	private retireIssueWrites(scope: string): void {
+		const retirements = this._issueWriteRetirements;
+		retirements.scopes.set(scope, ++retirements.epoch);
 	}
 
 	private getHostScope(id: IntegrationIds, domain: string): string {
@@ -336,7 +367,16 @@ export class ConfiguredIntegrationService implements Disposable {
 		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
 		mark: number,
 	): boolean {
-		const since = (scope: string) => (this._signOuts.get(scope) ?? 0) > mark;
+		return this.hasRetirement(this._signOuts, id, session, mark);
+	}
+
+	private hasRetirement(
+		scopes: ReadonlyMap<string, number>,
+		id: IntegrationIds,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		mark: number,
+	): boolean {
+		const since = (scope: string) => (scopes.get(scope) ?? 0) > mark;
 		if (since(id)) return true;
 		if (isSelfManagedHostIntegrationId(id) && session.domain && since(this.getHostScope(id, session.domain))) {
 			return true;
@@ -367,6 +407,10 @@ export class ConfiguredIntegrationService implements Disposable {
 			}
 
 			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
+				if (previous != null) {
+					this.retireIssueWrites(`${id}|connection:${session.id}`);
+				}
+
 				// Readers share this lock, so none can resolve the retired token after this synchronous fence.
 				this._onWillChangeSession.fire({
 					integrationId: id,
@@ -382,7 +426,30 @@ export class ConfiguredIntegrationService implements Disposable {
 			) {
 				this.retirePendingStores(`${id}|connection:${session.id}`);
 			}
+
 			return true;
+		});
+	}
+
+	async peekStoredSession(
+		id: IntegrationIds,
+		connectionId: string,
+		cloud: boolean,
+		domain: string,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		return this.withLock(id, async () => {
+			const json = await this.ctx.storage.getSecret(this.getSecretKey(id, connectionId, cloud));
+			if (json == null) return undefined;
+
+			try {
+				return convertStoredSessionToSession(
+					JSON.parse(json) as StoredSession,
+					{ connectionId: connectionId, domain: domain, scopes: [] },
+					cloud,
+				);
+			} catch {
+				return undefined;
+			}
 		});
 	}
 
@@ -515,6 +582,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		cloud?: boolean,
 		options?: { preserveConfigured?: boolean },
 	): Promise<void> {
+		this.retireIssueWrites(`${id}|connection:${connectionId}`);
 		if (cloud == null || cloud === false) {
 			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
 		}
